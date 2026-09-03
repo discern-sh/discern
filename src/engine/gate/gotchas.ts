@@ -119,19 +119,6 @@ function fireMatched(
     });
 }
 
-/**
- * Build the registered gotchas pointer shared by stderr and result envelopes.
- * A Markdown doc below `[map].dir` uses the map verb's canonical target; every
- * other configured path keeps the filesystem fallback.
- */
-export function gateFailureGotchasHint(
-  config: DiscernConfig,
-  root: string,
-): FiredHint | undefined {
-  const doc = gotchasDocReference(config, root);
-  return doc === undefined ? undefined : firePointer(doc.reference);
-}
-
 /** Bound a trap body for inlining: cut at a line boundary under the cap and
  * say so — the reference sentence that follows reaches the full entry. */
 function boundedTrapBody(body: string): string {
@@ -194,17 +181,6 @@ export async function gateFailureGotchasTail(
     ),
     warnings,
   };
-}
-
-/** Print the failure pointer to stderr (the pointer-only surface used by
- * `with-gotchas`, which observes an external command with no gate evidence). */
-export function gotchasHint(
-  config: DiscernConfig,
-  root: string,
-  color: boolean,
-): void {
-  const hint = gateFailureGotchasHint(config, root);
-  renderGotchasLead(hint, color);
 }
 
 /** The shared stderr lead: the failed-step marker plus the fired hint text,

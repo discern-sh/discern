@@ -139,9 +139,9 @@ Deno.test("renderPlan on an empty plan prints only the heading, no rows", async 
 
 Deno.test("renderPlan makes a caller-supplied heading inert", async () => {
   const { err } = await capture(() =>
-    renderPlan(plainLogger(), plan([]), "preset\x1b[31m\nname")
+    renderPlan(plainLogger(), plan([]), "overlay\x1b[31m\nname")
   );
-  assertEquals(err, ["", "preset␛[31m␊name"]);
+  assertEquals(err, ["", "overlay␛[31m␊name"]);
   assertEquals(err[1]?.includes("\x1b"), false);
 });
 
@@ -256,14 +256,14 @@ Deno.test("planToJson maps each op to {path, action, note}", () => {
 
 // ---------------------------------------------------------------------------
 // Integration: the dry-run plan renderer wired through `setup`. (The grouped
-// review screen `renderReview` is now only used by `preset` — covered in
+// review screen `renderReview` is covered in
 // preset_test; `setup` is non-interactive, so it has no review screen.)
 // ---------------------------------------------------------------------------
 
-Deno.test("setup --dry-run prints the full per-file plan via renderPlan", async () => {
+Deno.test("setup begin --dry-run prints the full per-file plan via renderPlan", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--confirmed", "--dry-run", "--slug", "demo"],
+      ["setup", "begin", "--confirmed", "--dry-run", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);

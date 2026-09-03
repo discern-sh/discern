@@ -230,7 +230,7 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--json"]);
-    assertEquals(r.code, 1, r.output);
+    assertEquals(r.code, 2, r.output);
     const res = decodeCliResult(r.stdout, "discern");
     assertEquals(res.ok, false, r.output);
     assertEquals(res.verb, "discern", r.output);
@@ -243,7 +243,7 @@ Deno.test("pre-setup: a flags-only Markdown invocation returns the same root ref
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--markdown"]);
-    assertEquals(r.code, 1, r.output);
+    assertEquals(r.code, 2, r.output);
     assertTerminalTextIncludes(r.stdout, "# `discern`");
     assertTerminalTextIncludes(r.stdout, "discern --markdown needs a command");
     assertTerminalTextIncludes(r.stdout, "## Next action");
@@ -254,7 +254,7 @@ Deno.test("pre-setup: a flags-only render invocation returns a terminal refusal"
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--render"]);
-    assertEquals(r.code, 1, r.output);
+    assertEquals(r.code, 2, r.output);
     assertTerminalTextIncludes(r.stdout, "discern");
     assertTerminalTextIncludes(r.stdout, "discern --render needs a command");
     assertTerminalTextIncludes(r.stdout, "Next action");

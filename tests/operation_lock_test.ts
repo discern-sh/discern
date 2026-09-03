@@ -296,18 +296,22 @@ Deno.test("every pre-repository boundary falls back without masking the command 
   });
 });
 
-Deno.test("setup writers serialize before a project root exists", async () => {
+Deno.test("setup begin writers serialize before a project root exists", async () => {
   await withTempDir(async (dir) => {
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const first = withOperationLock(dir, { command: "setup" }, async () => {
-      entered.resolve();
-      await release.promise;
-    });
+    const first = withOperationLock(
+      dir,
+      { command: "setup begin" },
+      async () => {
+        entered.resolve();
+        await release.promise;
+      },
+    );
     await entered.promise;
 
     await assertRejects(
-      () => withOperationLock(dir, { command: "setup" }, async () => {}),
+      () => withOperationLock(dir, { command: "setup begin" }, async () => {}),
       OperationLockError,
       "common repository boundary",
     );

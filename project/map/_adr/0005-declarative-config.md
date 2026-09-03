@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0017](0017-capabilities-model.md), [ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), and the config verbs are `config set-job` / `config set-scope` — the original `set-slot`/`set-side-gate` first became `set-capability`/`set-check`/`set-scope`, and `set-capability`/`set-check` were later unified as `set-job` while `set-scope` remains; the decisions below are unchanged.
 > - **[ADR 0026](0026-typed-config-schema.md) — schema generation:** the published JSON Schema is now generated from one Zod definition.
 > - **[ADR 0036](0036-unify-setup.md) — setup path:** the predecessor verb's declarative config path folded into `discern setup --config`; the comment-preserving `TomlEditor`, the `discern config` surface, and the published JSON Schema all still ship.
+> - **[ADR 0365](0365-the-v1-cli-has-one-command-model-and-one-spelling.md) — effectful setup path:** the declarative document is consumed only by `discern setup begin --config`. The read-only `discern setup` parent owns no scaffold options. The pre-v1 preset consumer is withdrawn.
 
 **Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_ below.
 

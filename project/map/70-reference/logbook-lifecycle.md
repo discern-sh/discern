@@ -15,9 +15,9 @@ _Archive preserves the active evidence for later reports. Reset permanently remo
 ## Preview and authorize
 
 ```sh
-discern patterns archive --dry-run
+discern patterns seal --dry-run
 discern patterns reset --dry-run
-discern patterns archive
+discern patterns seal
 discern patterns reset
 ```
 

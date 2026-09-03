@@ -327,15 +327,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
         "Overrides the source checkout used by discern's repository-local development wrapper.",
     },
   },
-  presetsDirectory: {
-    name: "DISCERN_PRESETS_DIR",
-    group: "repository-development",
-    lifecycle: "live",
-    documentation: {
-      public: false,
-      reason: "Overrides bundled preset discovery in source and test runs.",
-    },
-  },
   templatesDirectory: {
     name: "DISCERN_TEMPLATES_DIR",
     group: "repository-development",

@@ -46,7 +46,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
@@ -339,10 +339,6 @@ interface DryRunProbe {
   /** Member-specific proof that the fixture exercises its promised effect set. */
   assertPreview?: (envelope: CliResultEnvelope) => void;
 }
-
-const FIXTURE_PRESETS = fromFileUrl(
-  new URL("./fixtures/presets", import.meta.url),
-);
 
 /** Scaffold a main repository and return one newly linked fixture checkout. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -749,24 +745,17 @@ const PROBES: Record<string, DryRunProbe> = {
       return { cwd: dir, dry: ["patterns", "reset", "--dry-run", "--json"] };
     },
   },
-  "patterns archive": {
+  "patterns seal": {
     envelope: "data-preview",
     arrange: async (dir) => {
       await scaffoldEngine(dir);
       await gitInit(dir);
-      // Seed active history so the archive preview carries a real source plan.
+      // Seed active history so the seal preview carries a real source plan.
       assertEquals((await runAgent(dir, ["status", "--json"])).code, 0);
       return {
         cwd: dir,
-        dry: ["patterns", "archive", "--dry-run", "--json"],
+        dry: ["patterns", "seal", "--dry-run", "--json"],
       };
-    },
-  },
-  "setup": {
-    envelope: "data-preview",
-    arrange: async (dir) => {
-      await freshRepo(dir);
-      return { cwd: dir, dry: ["setup", "--dry-run", "--json"] };
     },
   },
   "setup begin": {
@@ -800,18 +789,6 @@ const PROBES: Record<string, DryRunProbe> = {
       await scaffoldEngine(dir);
       await gitInit(dir);
       return { cwd: dir, dry: ["uninstall", "--dry-run", "--json"] };
-    },
-  },
-  "preset": {
-    envelope: "data-preview",
-    arrange: async (dir) => {
-      await scaffoldEngine(dir);
-      await gitInit(dir);
-      return {
-        cwd: dir,
-        dry: ["preset", "example", "--yes", "--dry-run", "--json"],
-        env: { DISCERN_PRESETS_DIR: FIXTURE_PRESETS },
-      };
     },
   },
   "config set-job": {

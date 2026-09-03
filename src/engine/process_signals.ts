@@ -2,6 +2,11 @@
 
 import { signalProcessGroup } from "../shared/process_group.ts";
 import { bestEffortSync } from "../shared/best_effort.ts";
+import {
+  EXIT_SIGHUP,
+  EXIT_SIGINT,
+  EXIT_SIGTERM,
+} from "../shared/exit_codes.ts";
 export {
   OWNED_DESCENDANT_GRACE_MS,
   quiesceProcessGroup,
@@ -14,9 +19,9 @@ export const INTERRUPT_SIGNALS: readonly Deno.Signal[] =
 
 /** Conventional shell exit codes when re-raising a signal cannot terminate. */
 export const SIGNAL_EXIT_CODES: Partial<Record<Deno.Signal, number>> = {
-  SIGHUP: 129,
-  SIGINT: 130,
-  SIGTERM: 143,
+  SIGHUP: EXIT_SIGHUP,
+  SIGINT: EXIT_SIGINT,
+  SIGTERM: EXIT_SIGTERM,
 };
 
 /** How long an interrupted child may honor the graceful signal before the
@@ -45,5 +50,5 @@ export function killProcessTree(pid: number, signal: Deno.Signal): void {
 /** Restore conventional killed-by-signal status after owned children settle. */
 export function reraiseInterrupt(signal: Deno.Signal): never {
   bestEffortSync("process-self-signal", () => Deno.kill(Deno.pid, signal));
-  Deno.exit(SIGNAL_EXIT_CODES[signal] ?? 130);
+  Deno.exit(SIGNAL_EXIT_CODES[signal] ?? EXIT_SIGINT);
 }

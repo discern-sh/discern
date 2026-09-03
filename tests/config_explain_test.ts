@@ -180,7 +180,15 @@ Deno.test("an unknown path explains nothing", () => {
 Deno.test("config explain runs inside an install with the current value, and outside one without", async () => {
   await withTempDir(async (dir) => {
     const setup = await runCli(
-      ["setup", "--confirmed", "--yes", "--slug", "demo", "--name", "Demo"],
+      [
+        "setup",
+        "begin",
+        "--confirmed",
+        "--slug",
+        "demo",
+        "--name",
+        "Demo",
+      ],
       dir,
     );
     assertEquals(setup.code, 0, setup.stderr);

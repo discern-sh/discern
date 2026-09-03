@@ -146,12 +146,17 @@ const RETIRED_COMMAND_ALLOWLIST = new Set([
     "_adr",
     "0095-prelaunch-cli-vocabulary.md",
   ),
+  join(
+    REPO_AUTHORED_PATHS.mapRel,
+    "_adr",
+    "0365-the-v1-cli-has-one-command-model-and-one-spelling.md",
+  ),
 ]);
 
 const RETIRED_COMMAND_TOKENS = [
   "changed-scopes",
   "worktree-name",
-  "add-preset",
+  "add-overlay",
   "discern migrate",
   "discern init",
   "discern bootstrap",
@@ -167,8 +172,6 @@ const RETIRED_COMMAND_TOKENS = [
   "tests/init_config_test.ts",
   "tests/init_edge_test.ts",
   "src/engine/scopes/changed.ts",
-  "`discern worktree`",
-  "discern worktree subcommands",
   "worktree:setup",
   "worktree:ensure",
   "worktree:create",

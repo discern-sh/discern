@@ -7,7 +7,7 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { dirname, fromFileUrl, join } from "@std/path";
+import { dirname } from "@std/path";
 import {
   addWorktree,
   defaultMapPath,
@@ -20,9 +20,6 @@ import {
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
-
-const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const PRESETS = join(REPO_ROOT, "tests", "fixtures", "presets");
 
 Deno.test("engine fixtures declare CI state instead of inheriting the test host", async () => {
   assertEquals((await engineEnv()).CI, "false");
@@ -55,16 +52,9 @@ const INTERACTIVE_CASES: readonly {
   { name: "named desk", args: ["desk"], code: 1, output: "status" },
   {
     name: "worktree shell picker",
-    args: ["worktrees"],
+    args: ["enter"],
     code: 1,
     output: "status --all",
-  },
-  {
-    name: "preset confirmation",
-    args: ["preset", "example"],
-    code: 1,
-    output: "needs confirmation",
-    env: { DISCERN_PRESETS_DIR: PRESETS },
   },
   {
     name: "uninstall confirmation",
@@ -85,8 +75,8 @@ const INTERACTIVE_CASES: readonly {
     output: "requires terminal stdin and stdout",
   },
   {
-    name: "Logbook archive confirmation",
-    args: ["patterns", "archive"],
+    name: "Logbook seal confirmation",
+    args: ["patterns", "seal"],
     code: 1,
     output: "requires terminal stdin and stdout",
   },

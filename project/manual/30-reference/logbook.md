@@ -97,7 +97,7 @@ An MCP call whose explicit `path` falls outside every discern project returns `n
 
 - **Read active history:** `discern patterns` reports the findings ([practice patterns](../20-understand/evidence-and-improvement.md)). `cat .git/discern/logbook/*.jsonl` shows the raw active lines.
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
-- **Seal active history:** `discern patterns archive` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
+- **Seal active history:** `discern patterns seal` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
 - **Delete active history:** `discern patterns reset` (preview with `--dry-run`). A confirmed terminal action removes only active history; sealed archives survive.
 - **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
 
@@ -137,7 +137,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 
 The current event schema major is `1`. Readers skip an unknown major and tolerate additive fields. Every event has `schema`, `at`, optional `writer`, and one of these `kind` values:
 
-Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle action names are `archive` and `reset`.
+Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, `partial`, or `refused`. The lifecycle action names are `seal` and `reset`.
 
 | `kind`          | Stored contract                                                                                              |
 | --------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -251,9 +251,9 @@ _Archive preserves the active evidence for later reports. Reset permanently remo
 ### Preview and authorize
 
 ```sh
-discern patterns archive --dry-run
+discern patterns seal --dry-run
 discern patterns reset --dry-run
-discern patterns archive
+discern patterns seal
 discern patterns reset
 ```
 

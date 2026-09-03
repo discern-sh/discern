@@ -30,12 +30,12 @@ const ANSWERS = JSON.stringify({
 Deno.test("setup reports templates_not_found in JSON when the override dir is missing", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(
-      ["setup", "--confirmed", "--json", "--slug", "demo"],
+      ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "setup");
+    const result = decodeCliResult(stdout, "setup begin");
     assertEquals(result.ok, false);
     assertEquals(result.error, "templates_not_found");
     assertExists(result.message);
@@ -45,17 +45,17 @@ Deno.test("setup reports templates_not_found in JSON when the override dir is mi
   });
 });
 
-Deno.test("setup --json reports a partial refresh as top-level not-ok while keeping the scaffold", async () => {
+Deno.test("setup begin --json reports a partial refresh as top-level not-ok while keeping the scaffold", async () => {
   await withTempDir(async (dir) => {
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
 
     const { code, stdout } = await runCli(
-      ["setup", "--confirmed", "--json", "--slug", "demo"],
+      ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 1);
-    const result = decodeCliResult(stdout, "setup");
+    const result = decodeCliResult(stdout, "setup begin");
     assertResultDataKey(result, "instruction_refresh");
     assertEquals(result.ok, false);
     assertEquals(result.error, "partial_refresh");
@@ -77,7 +77,7 @@ Deno.test("setup --json reports a partial refresh as top-level not-ok while keep
 Deno.test("setup reports templates_not_found to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["setup", "--confirmed", "--slug", "demo"],
+      ["setup", "begin", "--confirmed", "--slug", "demo"],
       dir,
       { DISCERN_TEMPLATES_DIR: join(dir, "nope") },
     );
@@ -93,7 +93,8 @@ Deno.test("setup reports templates_not_found to stderr without --json", async ()
 Deno.test("setup reports already-set-up to stdout once recorded, without --json", async () => {
   await withTempDir(async (dir) => {
     assertEquals(
-      (await runCli(["setup", "--confirmed", "--slug", "first"], dir)).code,
+      (await runCli(["setup", "begin", "--confirmed", "--slug", "first"], dir))
+        .code,
       0,
     );
     // Record completion (--force: the laid skeletons still carry markers).
@@ -102,6 +103,7 @@ Deno.test("setup reports already-set-up to stdout once recorded, without --json"
     // A re-run is not a refusal — it reports it is already set up and exits 0.
     const { code, stdout } = await runCli([
       "setup",
+      "begin",
       "--confirmed",
       "--slug",
       "again",
@@ -117,7 +119,7 @@ Deno.test("setup reports invalid --config JSON to stderr without --json", async 
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
     const { code, stdout, stderr } = await runCli(
-      ["setup", "--config", "bad.json"],
+      ["setup", "begin", "--config", "bad.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -131,7 +133,7 @@ Deno.test("setup reports invalid --config JSON to stderr without --json", async 
 Deno.test("setup reports a missing --config file to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout, stderr } = await runCli(
-      ["setup", "--config", "absent.json"],
+      ["setup", "begin", "--config", "absent.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -156,7 +158,7 @@ Deno.test("setup reports schema-invalid --config fields to stderr without --json
       }),
     );
     const { code, stdout, stderr } = await runCli(
-      ["setup", "--config", "answers.json"],
+      ["setup", "begin", "--config", "answers.json"],
       dir,
     );
     assertEquals(code, 1);
@@ -174,11 +176,14 @@ Deno.test("setup reports schema-invalid --config fields to stderr without --json
 
 // --- applyFillsToPlan early return when discern.toml is a skip ---
 
-Deno.test("setup --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
+Deno.test("setup begin --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
   await withTempDir(async (dir) => {
     // First, a plain install so a seed discern.toml exists on disk.
     assertEquals(
-      (await runCli(["setup", "--confirmed", "--slug", "edge-app"], dir)).code,
+      (await runCli(
+        ["setup", "begin", "--confirmed", "--slug", "edge-app"],
+        dir,
+      )).code,
       0,
     );
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -191,11 +196,11 @@ Deno.test("setup --force --config leaves an existing discern.toml untouched (fil
     // left exactly as the user's.
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const run = await runCli(
-      ["setup", "--force", "--config", "answers.json", "--json"],
+      ["setup", "begin", "--force", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(run.code, 0, run.stderr);
-    assertEquals(decodeCliResult(run.stdout, "setup").ok, true);
+    assertEquals(decodeCliResult(run.stdout, "setup begin").ok, true);
 
     // The seed is byte-for-byte unchanged: the fills did not land.
     const after = await Deno.readTextFile(join(dir, "discern.toml"));

@@ -253,7 +253,7 @@ Deno.test("configured worktrees without a ready marker expose safe and manual se
       );
     },
     repair: "manual",
-    command: "discern worktree setup --dry-run",
+    command: "discern worktree setup begin --dry-run",
     retryAvailable: false,
   }] as const;
 

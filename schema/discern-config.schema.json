@@ -95,7 +95,7 @@
       "properties": {
         "dir": {
           "default": "discern/map/",
-          "description": "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
+          "description": "Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
@@ -111,7 +111,7 @@
           "default": [
             "discern/instructions.md"
           ],
-          "description": "Your instruction source files or globs, relative to the project root. Read only when present; discern's built-in instructions are always prepended, so these are additive. `discern setup` seeds a starter here.",
+          "description": "Instruction source files or globs, relative to the project root. Missing files are skipped; `discern setup begin` seeds the default source.",
           "type": "array",
           "items": {
             "type": "string",

@@ -80,10 +80,10 @@ import { impactResult } from "../src/engine/scopes/scopes.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import {
-  patternsArchiveResult,
   patternsArchivesResult,
   patternsResetResult,
   patternsResult,
+  patternsSealResult,
 } from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
 import { checkpointsResult } from "../src/engine/checkpoints/report.ts";
@@ -704,8 +704,8 @@ Deno.test("every canonical error slug has a production source anchor", async () 
  * validates structuredContent against the advertised outputSchema on every
  * call, so an unproven schema there turns valid calls into errors). */
 const FAITHFULNESS_DEBT = new Set<string>([
-  "preset",
   "setup",
+  "setupBegin",
   "setupDone",
   "setupAccept",
   "setupStep",
@@ -771,12 +771,14 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "root, utility, read, and command-group CLI results are faithful",
   [
     "discern",
+    "help",
     "licenses",
     "triangle",
     "scripts",
     "desk",
-    "worktrees",
+    "enter",
     "worktree",
+    "worktreeEnsure",
     "skills",
     "config",
     "identity",
@@ -788,12 +790,20 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
 
     const cases = [
       { id: "discern", args: ["--json"] },
+      {
+        id: "help",
+        args: ["help", "worktree", "ensure", "--json"],
+      },
       { id: "licenses", args: ["licenses", "--json"] },
       { id: "triangle", args: ["triangle", "--json"] },
       { id: "scripts", args: ["scripts", "--json"] },
       { id: "desk", args: ["desk", "--json"] },
-      { id: "worktrees", args: ["worktrees", "--json"] },
+      { id: "enter", args: ["enter", "--json"] },
       { id: "worktree", args: ["worktree", "--json"] },
+      {
+        id: "worktreeEnsure",
+        args: ["worktree", "ensure", "--json"],
+      },
       { id: "skills", args: ["skills", "--json"] },
       {
         id: "config",
@@ -818,6 +828,8 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
         ? "discern"
         : testCase.id === "config"
         ? `config ${testCase.args[1]}`
+        : testCase.id === "worktreeEnsure"
+        ? "worktree ensure"
         : testCase.id;
       const envelope = decodeCliResult(result.stdout, command);
       expectSerializedFaithful(
@@ -1304,7 +1316,7 @@ const AWAIT_FAITHFULNESS_CASE = defineFaithfulnessCase(
 
 const PATTERNS_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "patterns result and its reset are faithful (empty, seeded, dry-run, applied)",
-  ["patterns", "patternsReset", "patternsArchive", "patternsArchives"],
+  ["patterns", "patternsReset", "patternsSeal", "patternsArchives"],
 )(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -1378,14 +1390,14 @@ const PATTERNS_FAITHFULNESS_CASE = defineFaithfulnessCase(
       "patterns reset (nothing left)",
     );
     expectFaithful(
-      "patternsArchive",
-      await patternsArchiveResult(dir, { dryRun: true }),
-      "patterns archive dry-run",
+      "patternsSeal",
+      await patternsSealResult(dir, { dryRun: true }),
+      "patterns seal dry-run",
     );
     expectFaithful(
-      "patternsArchive",
-      await patternsArchiveResult(dir),
-      "patterns archive refusal",
+      "patternsSeal",
+      await patternsSealResult(dir),
+      "patterns seal refusal",
     );
     expectFaithful(
       "patternsArchives",

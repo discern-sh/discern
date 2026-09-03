@@ -93,7 +93,7 @@ All the instructions you've already seen (the ones _above_ "Working in the disce
 
 discern is **one self-contained Deno binary** — the installer verbs and the engine are the same program, with no second copy committed alongside it to keep in sync.
 
-- **`src/`** — the whole binary. Installer verbs (`setup`, `doctor`, `upgrade`, `config`, `preset`) **and** the TypeScript engine: `src/engine/**` (the gate, the parallel/serial job runner, scope classification, standards, the worktree lifecycle + identity, the instruction compiler, the dispatcher), sharing `src/shared/**` (config reader, known-job constants, feature toggles, POSIX `cksum`, root discovery). Compiled to a single binary via `deno task build`.
+- **`src/`** — the whole binary. Installer verbs (`setup`, `doctor`, `upgrade`, `config`) **and** the TypeScript engine: `src/engine/**` (the gate, the parallel/serial job runner, scope classification, standards, the worktree lifecycle + identity, the instruction compiler, the dispatcher), sharing `src/shared/**` (config reader, known-job constants, feature toggles, POSIX `cksum`, root discovery). Compiled to a single binary via `deno task build`.
 - **`templates/`** — the **distribution surface** the binary lays down or materializes into a project: the config template (`discern.toml.tmpl`), the settings template, the gitignore fragment, the **bundled built-in instructions** (`templates/instructions/*.md`), and the **bundled skills** (`templates/skills/**`).
 
 ## The footprint: one root `discern.toml`

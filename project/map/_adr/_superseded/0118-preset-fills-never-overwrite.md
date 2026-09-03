@@ -2,9 +2,10 @@
 
 > **Amendments.**
 >
-> - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
+> - **Vocabulary ([ADR 0120](../0120-launch-verb-canon.md), [ADR 0168](../0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
+> - **[ADR 0365](../0365-the-v1-cli-has-one-command-model-and-one-spelling.md) — preset withdrawal:** the command and its config-fill result fields were removed before the first public tag. The fill-if-absent implementation remains only where a live caller owns it.
 
-**Status**: accepted
+**Status**: superseded by [ADR 0365](../0365-the-v1-cli-has-one-command-model-and-one-spelling.md)
 
 ## Context
 

@@ -270,14 +270,23 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 ### CLI exit codes
 
-| Status                       | Meaning                                                                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.                                      |
-| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.                                       |
-| `124`                        | `discern await` reached its call budget before the condition held and returned a continuation handle.                                        |
-| `70`                         | discern itself crashed on an unexpected error. See [crash reports](../40-troubleshooting/crashes-and-local-state.md) for the local evidence. |
-| Child command's own code     | `discern queue -- <command>` and `discern scripts <name>` pass through the child's exit code.                                                |
-| Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.                                           |
+<!-- BEGIN GENERATED: CLI exit statuses -->
+
+| Exit status         | Contract                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `0`                 | The command completed successfully. A bare predicate exits `0` when true.                                               |
+| `1`                 | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                             |
+| `2`                 | The command grammar or arguments were invalid, including a bare quiet-result invocation.                                |
+| `70`                | discern crashed on an unexpected internal error.                                                                        |
+| `124`               | `discern await` reached its call budget before the watched condition held; its result includes the continuation handle. |
+| `127`               | A child executable selected by an exec-style boundary could not be started.                                             |
+| `129`               | An interrupted run preserved the conventional status derived from SIGHUP.                                               |
+| `130`               | An interrupted run preserved the conventional status derived from SIGINT.                                               |
+| `143`               | An interrupted run preserved the conventional status derived from SIGTERM.                                              |
+| Child status        | `discern queue -- <command>` and `discern scripts <name>` preserve a started child's own exit status.                   |
+| Other signal status | A platform-reported child signal preserves its conventional signal status when available.                               |
+
+<!-- END GENERATED: CLI exit statuses -->
 
 Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero to evaluated `ok: false`; a verb's manually reported zero cannot override a failed completion contract. Predicates using `--json` or `--markdown` always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` or `--markdown` requests a result.
 
@@ -289,7 +298,7 @@ Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero t
 | Schema                       | Public `$id`                                                    | Repository artifact                                                                                                              | Contract                                                                                                                             | Same-major changes                                                                |
 | ---------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | `discern.toml` configuration | <https://discern.sh/schema/v1/discern-config.schema.json>       | [`schema/discern-config.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-config.schema.json)             | Every section, key, and value type the engine validates.                                                                             | Same-major releases may add only optional keys and sections.                      |
-| Setup config document        | <https://discern.sh/schema/v1/discern-setup-config.schema.json> | [`schema/discern-setup-config.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-setup-config.schema.json) | The install document consumed by `setup --config` and presets.                                                                       | Same-major releases may add only optional keys and sections.                      |
+| Setup config document        | <https://discern.sh/schema/v1/discern-setup-config.schema.json> | [`schema/discern-setup-config.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-setup-config.schema.json) | The install document consumed by `setup begin --config`.                                                                             | Same-major releases may add only optional keys and sections.                      |
 | Result contracts             | <https://discern.sh/schema/v1/discern-results.schema.json>      | [`schema/discern-results.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-results.schema.json)           | Every CLI `--json` and MCP tool result envelope.                                                                                     | Same-major releases may add only optional fields, new contracts, and error slugs. |
 | Landing proof note           | <https://discern.sh/schema/v1/discern-proof-note.schema.json>   | [`schema/discern-proof-note.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-proof-note.schema.json)     | The proof envelope acceptance attaches to a landed commit, using the Dead Simple Signing Envelope (DSSE) field and payload boundary. | Same-major releases may add only optional fields, new contracts, and error slugs. |
 

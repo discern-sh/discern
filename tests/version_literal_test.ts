@@ -100,7 +100,7 @@ Deno.test("the version guard enrolls a fresh literal in any authored tree", asyn
 Deno.test("every version-reporting surface derives from KIT_VERSION", async () => {
   await withTempDir(async (dir) => {
     const setup = await runCli(
-      ["setup", "--confirmed", "--yes", "--slug", "version-probe"],
+      ["setup", "begin", "--confirmed", "--slug", "version-probe"],
       dir,
     );
     assertEquals(setup.code, 0, "setup should scaffold a healthy install");

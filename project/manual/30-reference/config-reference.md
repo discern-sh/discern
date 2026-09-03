@@ -160,17 +160,17 @@ Policy every checkout of this repository shares. The trunk is where accepted wor
 
 Where the project map lives. The map is the documentation tree agents maintain and `discern map` browses. Its location also feeds the `${map.dir}` reference other sections use.
 
-| Key   | Type   | Default          | Description                                                                                                                |
-| ----- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `dir` | string | `"discern/map/"` | Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it. |
+| Key   | Type   | Default          | Description                                                                                                                      |
+| ----- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `dir` | string | `"discern/map/"` | Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it. |
 
 ## `[instructions]`
 
 The instruction sources discern compiles into each agent's file. You write instructions once. `discern refresh` compiles discern's built-in instructions plus your sources into one generated file per agent, committed so every agent reads the same page and no generated file is edited by hand.
 
-| Key       | Type     | Default                       | Description                                                                                                                                                                                                      |
-| --------- | -------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sources` | string[] | `["discern/instructions.md"]` | Your instruction source files or globs, relative to the project root. Read only when present; discern's built-in instructions are always prepended, so these are additive. `discern setup` seeds a starter here. |
+| Key       | Type     | Default                       | Description                                                                                                                                 |
+| --------- | -------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sources` | string[] | `["discern/instructions.md"]` | Instruction source files or globs, relative to the project root. Missing files are skipped; `discern setup begin` seeds the default source. |
 
 ## `[skills]`
 

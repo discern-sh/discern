@@ -13,7 +13,7 @@ export const CONFIG_SCHEMA_ID = publicSchemaId(
   "discern-config.schema.json",
 );
 
-/** The declarative document consumed by `setup --config` and presets. */
+/** The declarative document consumed by `setup begin --config`. */
 export const SETUP_CONFIG_SCHEMA_MAJOR = 1;
 export const SETUP_CONFIG_SCHEMA_ID = publicSchemaId(
   SETUP_CONFIG_SCHEMA_MAJOR,
@@ -90,7 +90,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: SETUP_CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "Setup config document",
-    contract: "The install document consumed by `setup --config` and presets.",
+    contract: "The install document consumed by `setup begin --config`.",
   },
   {
     id: RESULT_SCHEMA_ID,

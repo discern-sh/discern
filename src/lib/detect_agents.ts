@@ -220,7 +220,7 @@ export async function detectAgentsOnPath(
 /**
  * The default agent set for a fresh install: the {@link detectInstalledAgents}
  * result, or {@link DEFAULT_AGENTS} when none is detected. The single resolver
- * `discern setup` uses to seed `[project].agents` when the user named no agents
+ * `discern setup begin` uses to seed `[project].agents` when the user named no agents
  * (no `--agents`, no `--config` agents). Persisted to config — never consulted at
  * runtime. Pass an already-scanned `detected` list to skip the rescan (the
  * detected-else-defaults rule still lives only here).

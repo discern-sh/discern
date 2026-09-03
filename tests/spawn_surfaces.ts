@@ -346,7 +346,7 @@ export const SPAWN_INTERRUPT_CONTRACTS = {
       "the platform browser launcher is a foreground handoff while the opened browser deliberately outlives the CLI",
   },
   "src/engine/owned_child.ts": {
-    surfaces: ["project-script", "queue", "with-gotchas", "desk-interactive"],
+    surfaces: ["project-script", "queue", "desk-interactive"],
   },
   "src/engine/jobs/command.ts": { surfaces: ["gate-job"] },
   "src/engine/worktree/shell.ts": { surfaces: ["worktree-setup"] },

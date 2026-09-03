@@ -22,7 +22,7 @@ Every unit renders in one shape: a ruled banner with What, Why, Params for a nam
 
 ## Setup config documents
 
-The JSON document consumed by `setup --config` and a preset manifest named `preset.json` derives from the same schema building blocks. Its strict `configDocSchema` generates the published authoring schema; its `configDocRuntimeSchema` removes only fields the strict schema identifies as unknown, then validates every known field. An older same-major runtime can therefore ignore a newer optional field without accepting a wrong type for a field it understands. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the shared setup and preset path, and one version check refuses an unsupported major.
+The JSON answers document consumed by `setup begin --config` derives from the config schema building blocks. Its strict `configDocSchema` generates the published authoring schema; its `configDocRuntimeSchema` removes only fields the strict schema identifies as unknown, then validates every known field. An older same-major runtime can therefore ignore a newer optional field without accepting a wrong type for a field it understands. [`decodeConfigDoc`](../../../src/lib/config_doc.ts) is the setup path, and one version check refuses an unsupported major.
 
 This tolerant runtime view does not carry a second field list and does not weaken the live `discern.toml` schema. [Runtime data boundaries](../80-development/runtime-data-boundaries.md) records the decoder, error, caller-policy, and structural-enforcement contract ([ADR 0329](../_adr/0329-runtime-data-earns-types-at-validation-boundaries.md)).
 
@@ -40,7 +40,7 @@ Project scripts and project tooling read config through the dispatcher: `discern
 
 ## The write surface
 
-All config writes go through the comment-preserving [`TomlEditor`](../../../src/lib/toml_edit.ts): the `discern config set-*` commands, `preset`, `skills eject`'s `[skills].dir` recording, migrations, and `upgrade`'s scaffold reconciliation. Reconciliation restores missing values and preserves existing ones ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)). The config writer is one of the few sanctioned write sites in the [write-surface contract](../80-development/install-surface.md#the-write-surface-contract).
+All config writes go through the comment-preserving [`TomlEditor`](../../../src/lib/toml_edit.ts): the `discern config set-*` commands, `skills eject`'s `[skills].dir` recording, migrations, and `upgrade`'s scaffold reconciliation. Reconciliation restores missing values and preserves existing ones ([ADR 0092](../_adr/0092-upgrade-reconciles-config-scaffold.md)). The config writer is one of the few sanctioned write sites in the [write-surface contract](../80-development/install-surface.md#the-write-surface-contract).
 
 Managed record banners compare their comment text independently of leading indentation. `discern tidy` owns hierarchy whitespace: a table is indented once for each ancestor table visibly represented in the document, while an implicit dotted namespace adds no visual level. A top-level named family such as `[scopes.<name>]` therefore aligns at the root; `[worktree.resources.<name>]` sits one level below the visible `[worktree]` table. Reconciliation preserves the config's current indent while replacing stale prose, so `upgrade --check` reports the formatted config as current.
 

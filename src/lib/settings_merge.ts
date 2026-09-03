@@ -183,7 +183,7 @@ export function mergeJsonSettingsText(
  * carry the command at the GROUP level rather than nested under `hooks[].command`
  * (Cursor's `{ command }`, Copilot's `{ bash }`). The default
  * {@link mergeHookEvent} dedups only on a nested command string ({@link commandsInGroup}),
- * which such a group has none of — so a plain re-merge under `discern setup --force`
+ * which such a group has none of — so a plain re-merge under `discern setup begin --force`
  * would append it again every time. Deferring to {@link mergeSettings} for the deep-merge
  * (so user keys, permission unions, and nested-command dedup all behave identically) and
  * then dropping any structurally-duplicate group makes the re-seed a stable no-op. The

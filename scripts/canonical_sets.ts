@@ -3369,6 +3369,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "exit-statuses",
+    title: "CLI exit statuses",
+    what:
+      "Every exact CLI status and passthrough class, shared by runtime constants and the two manual projections.",
+    source: {
+      kind: "module",
+      module: "src/shared/exit_codes.ts",
+      exportName: "EXIT_STATUS_REGISTRY",
+    },
+    guards: ["tests/exit_status_registry_test.ts"],
+    artifacts: [{
+      path: "project/manual/30-reference/mcp-and-results.md",
+      kind: "maintained-block",
+    }],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the CLI and result manuals document exit-status behavior at its point of use",
+      },
+      featureCanon: {
+        absent:
+          "exit statuses are a cross-cutting process contract rather than a selectable capability",
+      },
+    },
+    members: async () =>
+      (await import("../src/shared/exit_codes.ts")).EXIT_STATUS_REGISTRY.map(
+        (entry) => entry.id,
+      ),
+  },
+  {
     id: "authored-ts-universe",
     title: "Authored-TypeScript universe",
     what:

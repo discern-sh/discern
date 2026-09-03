@@ -112,9 +112,9 @@ A cohort key follows the same lifetime rule as the driver split, so a persistent
 
 ```sh
 discern patterns reset --dry-run
-discern patterns archive --dry-run
+discern patterns seal --dry-run
 discern patterns reset
-discern patterns archive
+discern patterns seal
 ```
 
 Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms render the complete event count, date span, source-file list, bytes, and destination or deletion scope without requesting confirmation or changing files; add `--json` for the same structured plan or `--markdown` for its Markdown presentation. Apply requires terminal stdin and stdout, operation outside CI and global `--plain`, and an explicit Yes to a confirmation that defaults to No. Pipes, `--json`, and `--markdown` apply refuse. There is no confirmation flag or environment bypass. This supersedes the earlier unattended-reset choice ([ADR 0272](../_adr/0272-logbook-lifecycle-actions-require-terminal-confirmation.md)).

@@ -43,7 +43,7 @@ const GEMINI_SETTINGS_SCHEMA = z.object({
 
 /** The H1 of the printed setup instructions (templates/setup/instructions.md). */
 /** The setup command's help description — present in `--help` only when shown. */
-const HELP_DESC = "Set up discern here";
+const HELP_DESC = "Read the setup welcome";
 
 Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the repo root", async () => {
   await withTempDir(async (dir) => {
@@ -233,7 +233,7 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
   });
 });
 
-Deno.test("discern setup lays the doc skeletons when absent and prints the instructions", async () => {
+Deno.test("discern setup begin lays the doc skeletons when absent and prints the instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     assertEquals(await targetExists(defaultMapPath(dir)), false);
@@ -528,7 +528,7 @@ Deno.test("setup done --force is refused by the config-parse floor it cannot ove
   });
 });
 
-Deno.test("the setup redirect and the command retire once setup is recorded", async () => {
+Deno.test("the setup redirect and welcome leave root help once setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
@@ -575,13 +575,14 @@ Deno.test("the setup redirect and the command retire once setup is recorded", as
     const done = await runAgent(dir, ["setup", "done"]);
     assertEquals(done.code, 0, done.output);
 
-    // After: the same verb runs (no redirect), and setup is hidden from help.
+    // After: the same verb runs without a redirect, and the completed welcome
+    // leaves root help while remaining directly callable.
     const postDocs = await runAgent(dir, ["map"]);
     assert(!postDocs.stderr.includes("isn't set up yet"), postDocs.output);
     const postHelp = await runAgent(dir, ["--help"]);
     assert(
       !postHelp.stdout.includes(HELP_DESC),
-      "setup should be hidden from help once recorded",
+      "the completed setup welcome should leave root help",
     );
   });
 });

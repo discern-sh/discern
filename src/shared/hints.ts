@@ -3989,7 +3989,6 @@ export const ERROR_FAILURE_RECOVERY = {
   invalid_config: "evidence",
   invalid_config_file: "evidence",
   invalid_migrated_config: "evidence",
-  invalid_preset: "evidence",
   invalid_settings_file: "evidence",
   invalid_toml: "evidence",
   invalid_value: "evidence",
@@ -4029,7 +4028,6 @@ export const ERROR_FAILURE_RECOVERY = {
   unknown_category: "evidence",
   unknown_command: "tailored",
   unknown_key: "evidence",
-  unknown_preset: "evidence",
   unknown_standard: "evidence",
   write_access: "evidence",
 } as const satisfies Record<ErrorSlug, FailureRecoveryMode>;

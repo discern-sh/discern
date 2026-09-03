@@ -93,7 +93,7 @@ export const REGISTERED_RENAMES = [
   {
     path: "tests/engine_worktree_prune_test.ts",
     enclosingFunction:
-      'Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path")',
+      'Deno.test("removeWorktreeSafely refuses a symlink substituted for the registered path")',
     reason:
       "The fixture parks and restores a checkout around a symlink-substitution safety check.",
   },

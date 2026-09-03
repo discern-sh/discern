@@ -21,7 +21,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0003 — Named metric standards, with an explicit metric-emission convention](0003-named-metric-standards.md)
 - [0005 — Declarative config — a comment-preserving editor, `discern config`, and `setup --config`](0005-declarative-config.md)
 - [0006 — Opt-in streamed output and fail-fast cancellation for the parallel runner](0006-long-slot-ergonomics.md)
-- [0007 — The adapter contract — a file overlay plus config fills](0007-adapter-contract.md)
 - [0009 — 1.0 — drop backward compatibility, with a one-shot `upgrade`](0009-one-point-zero-drop-backward-compat.md)
 - [0011 — Adopt the isolated-worktree workflow for discern's own development](0011-adopt-worktree-workflow.md)
 - [0014 — A versioned, reversible migration system for upgrades](0014-versioned-migration-system.md)
@@ -115,7 +114,6 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0115 — under a nested project root, every verb works correctly or refuses loudly](0115-nested-root-verbs-work-or-refuse.md)
 - [0116 — Receipts vouch only for the pinned tree, and accept lands the validated sha](0116-receipts-vouch-only-for-the-pinned-tree.md)
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
-- [0118 — Preset config fills never overwrite a present value](0118-preset-fills-never-overwrite.md)
 - [0119 — bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
 - [0120 — The launch verb canon — questions are nouns, actions are imperatives](0120-launch-verb-canon.md)
 - [0125 — An explicit `[guidance] agents = []` means no agents](0125-explicit-empty-agents-means-no-agents.md)
@@ -350,6 +348,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0362 — Founder testimony and recorded corpora promote demand claims](0362-founder-testimony-and-recorded-corpora-promote-demand-claims.md)
 - [0363 — The config template is generated from the schema and a prose registry](0363-the-config-template-is-generated-from-the-schema-and-a-prose-registry.md)
 - [0364 — Public release follows a staged repository transition](0364-public-release-follows-a-staged-repository-transition.md)
+- [0365 — The v1 CLI has one command model and one spelling](0365-the-v1-cli-has-one-command-model-and-one-spelling.md)
 
 <!-- END GENERATED: current ADR records -->
 
@@ -363,6 +362,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0001 — Project-owned recipes live in an unmanaged `.discern/recipes/`](_superseded/0001-project-owned-recipes.md)
 - [0002 — Side-gates run with the slot phase model; path-scoped suppression deferred](_superseded/0002-first-class-side-gates.md)
 - [0004 — `agent finish --json` — structured gate output](_superseded/0004-structured-finish-json.md)
+- [0007 — The adapter contract — a file overlay plus config fills](_superseded/0007-adapter-contract.md)
 - [0008 — The managed-set is declared in `managed.json`, not hardcoded](_superseded/0008-declarative-managed-set.md)
 - [0010 — Self-host the harness — install discern into its own repo](_superseded/0010-self-host-the-harness.md)
 - [0012 — Run the engine under `set -f` (noglob) by default](_superseded/0012-engine-noglob-default.md)
@@ -380,6 +380,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 - [0066 — `discern --help` groups commands by post-processing Cliffy's help](_superseded/0066-grouped-cli-help.md)
 - [0091 — Rescue generated content before overwrite](_superseded/0091-rescue-generated-content-before-overwrite.md)
 - [0107 — `upgrade` reconciles the record-table doc banners](_superseded/0107-config-banners-are-managed-regions.md)
+- [0118 — Preset config fills never overwrite a present value](_superseded/0118-preset-fills-never-overwrite.md)
 - [0185 — done refuses an unchanged-tree rerun without --confirmed](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)
 - [0227 — `await` bounds follow repository evidence](_superseded/0227-await-bounds-follow-repository-evidence.md)
 

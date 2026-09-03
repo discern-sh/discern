@@ -1,7 +1,7 @@
 /**
  * `discern setup accept` — land the finished setup onto the integration branch.
  *
- * A fresh `discern setup` isolates its several commits on a dedicated `discern-setup`
+ * A fresh `discern setup begin` isolates its several commits on a dedicated `discern-setup`
  * branch (ADR 0065), so after `setup done` discern exists on that branch but NOT
  * on `main`. A novice who restarts and switches to `main` can appear to "lose" discern
  * entirely. This command closes that gap deterministically: it fast-forwards the

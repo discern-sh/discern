@@ -540,13 +540,11 @@ Deno.test("CLI JSON exclusions are intentional non-result surfaces with reasons"
   assertEquals(
     CLI_JSON_CONTRACT_EXCLUSIONS.map((entry) => entry.command),
     [
-      "help",
       "mcp",
       "queue",
       "worktree hook",
       "worktree hook create",
       "worktree hook remove",
-      "worktree ensure",
     ],
   );
   for (const entry of CLI_JSON_CONTRACT_EXCLUSIONS) {

@@ -16,6 +16,7 @@ import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { writeStderr } from "./output.ts";
+import { EXIT_EXECUTABLE_NOT_FOUND, EXIT_USAGE } from "../shared/exit_codes.ts";
 import {
   buildTestRunSlotAcquirer,
   TEST_RUN_SLOT_ENV,
@@ -104,7 +105,7 @@ function writeQueueError(message: string): void {
 /** Report a malformed queue invocation with the conventional usage exit code. */
 export function reportQueueUsageError(message: string): number {
   writeQueueError(message);
-  return 2;
+  return EXIT_USAGE;
 }
 
 /** Convert an unknown thrown value into the one-line spawn diagnostic. */
@@ -148,7 +149,7 @@ async function runQueueChild(
     writeQueueError(
       `couldn't run ${JSON.stringify(command)}: ${errorMessage(error)}`,
     );
-    return 127;
+    return EXIT_EXECUTABLE_NOT_FOUND;
   } finally {
     hold?.release();
   }

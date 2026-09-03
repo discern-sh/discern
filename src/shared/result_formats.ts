@@ -15,6 +15,28 @@ export const CLI_RESULT_FORMATS = {
   },
 } as const;
 
+/**
+ * Commands whose JSON flag needs semantic copy beyond the inherited global
+ * representation description. The live-tree guard permits no other local
+ * `--json` declaration.
+ */
+export const CLI_JSON_DESCRIPTION_OVERRIDES = {
+  impact:
+    "Emit a JSON result; `--has` reports `data.membership` and exits successfully for either Boolean value.",
+  "config has":
+    "Emit a JSON result with the predicate in `data.present` and exit successfully for either Boolean value.",
+  "patterns reset":
+    "Preview as one result; apply is refused with `--json` or `--markdown`.",
+  "patterns seal":
+    "Preview as one result; apply is refused with `--json` or `--markdown`.",
+  status:
+    "Emit a bounded orientation result; add `--verbose` for complete structured status.",
+  desk:
+    "The desk is interactive only; use `status --markdown` or `status --json` to list every worktree.",
+  enter:
+    "This command is interactive only; use `status --all --json` to inspect the fleet.",
+} as const satisfies Readonly<Record<string, string>>;
+
 /** One explicit CLI result-format id. */
 export type ResultOutputFormat = keyof typeof CLI_RESULT_FORMATS;
 

@@ -25,6 +25,18 @@ const RETIRED_SOURCE_IDENTIFIERS = [
   "branchesToDelete",
   "legacy_events",
   "legacy_eligibility_readings",
+  "PresetDataSchema",
+  "PresetOutputSchema",
+  "PresetOptions",
+  "runPreset",
+  "presetResult",
+  "DISCERN_PRESETS_DIR",
+  "dispatchHelper",
+  "HELPER_VERBS",
+  "HelperVerb",
+  "helperRemoveWorktree",
+  "helperInheritEnv",
+  "helperWithGotchas",
 ] as const;
 
 /** Return every retired identifier still present in production TypeScript. */

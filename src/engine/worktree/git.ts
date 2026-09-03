@@ -1843,7 +1843,7 @@ async function canonicalizeMaybeMissing(target: string): Promise<string> {
 /**
  * Whether `dir` carries a `.git` gitlink pointing into `<common>/worktrees/` —
  * i.e. it is a (possibly deregistered) worktree of this repo. Mirrors the
- * gitlink check shared by remove-worktree-safely and sweep-orphan-worktrees.
+ * gitlink check shared by worktree removal and orphan sweeping.
  */
 async function gitlinksInto(
   dir: string,
@@ -3958,7 +3958,7 @@ export async function inheritMainEnvVars(
   const mainEnvFiles = await readEnvFilesAt(mainRepo, files);
   if (mainEnvFiles.length === 0) {
     log.warn(
-      `inherit-main-env-vars: main checkout has no env file (${
+      `Worktree environment inheritance: the main checkout has no env file (${
         files.join(", ")
       }) — skipping.`,
     );
@@ -3975,7 +3975,7 @@ export async function inheritMainEnvVars(
     const mainValue = stripQuotes(mainRaw ?? "");
     if (mainValue === "") {
       log.warn(
-        `inherit-main-env-vars: ${varName} is missing or blank in main's env files — skipping.`,
+        `Worktree environment inheritance: ${varName} is missing or blank in the main checkout's env files — skipping.`,
       );
       continue;
     }
@@ -3989,7 +3989,7 @@ export async function inheritMainEnvVars(
     }
     if (worktreeValue !== "" && worktreeValue !== exampleValue) {
       log.info(
-        `inherit-main-env-vars: ${varName} has a worktree-specific value — leaving it alone.`,
+        `Worktree environment inheritance: ${varName} has a worktree-specific value — leaving it alone.`,
       );
       continue;
     }

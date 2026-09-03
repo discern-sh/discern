@@ -15,7 +15,7 @@ _Bare `discern` starts new work and opens the human view over work in progress (
 
 Individual worktree operations are available through Model Context Protocol (MCP) tools and JSON or Markdown CLI results. The Desk gives a person starting or supervising several changes one interactive [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open it ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
 
-For direct movement between checkouts, [`discern worktrees`](opening-worktrees.md) opens a one-shot picker from any checkout and starts a child shell at the matching project-relative directory.
+For direct movement between checkouts, [`discern enter`](opening-worktrees.md) opens a one-shot picker from any checkout and starts a child shell at the matching project-relative directory.
 
 ## Start a task
 

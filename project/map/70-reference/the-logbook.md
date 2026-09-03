@@ -18,7 +18,7 @@ An MCP call whose explicit `path` falls outside every discern project returns `n
 
 - **Read active history:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)). `cat .git/discern/logbook/*.jsonl` shows the raw active lines.
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
-- **Seal active history:** `discern patterns archive` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
+- **Seal active history:** `discern patterns seal` (preview with `--dry-run`). A confirmed terminal action starts a fresh active Logbook and preserves the sealed event lines for later reports.
 - **Delete active history:** `discern patterns reset` (preview with `--dry-run`). A confirmed terminal action removes only active history; sealed archives survive.
 - **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops. Existing active files remain until you archive or reset them.
 

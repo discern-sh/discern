@@ -1183,6 +1183,391 @@
                     "pending_markers",
                     "known_jobs"
                   ]
+                }
+              },
+              "required": [
+                "phase",
+                "complete",
+                "next_action"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernSetupBeginResult": {
+      "title": "DiscernSetupBeginResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-forced-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-forced-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "setup begin"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "complete": {
+                  "type": "boolean"
+                },
+                "next_action": {
+                  "type": "string"
                 },
                 "already_set_up": {
                   "type": "boolean"
@@ -7603,438 +7988,6 @@
         }
       ]
     },
-    "DiscernPresetResult": {
-      "title": "DiscernPresetResult",
-      "type": "object",
-      "properties": {
-        "ok": {
-          "type": "boolean"
-        },
-        "dry_run": {
-          "type": "boolean"
-        },
-        "plan": {
-          "type": "object",
-          "properties": {
-            "title": {
-              "type": "string"
-            },
-            "details": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "steps": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "job",
-                      "scope-gate",
-                      "merge-check",
-                      "standards-limits-check",
-                      "tracked-artifacts-check",
-                      "instructions-check",
-                      "skills-check",
-                      "tracked-refresh-check",
-                      "resource-create",
-                      "resource-destroy",
-                      "git",
-                      "task-metadata",
-                      "setup-step",
-                      "repository-ensure",
-                      "checkout-clean-check",
-                      "setup-ensure",
-                      "env",
-                      "refresh",
-                      "tidy",
-                      "standard"
-                    ]
-                  },
-                  "label": {
-                    "type": "string"
-                  },
-                  "disposition": {
-                    "type": "string",
-                    "enum": [
-                      "run",
-                      "skip",
-                      "gate"
-                    ]
-                  },
-                  "note": {
-                    "type": "string"
-                  },
-                  "group": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "label",
-                  "disposition"
-                ]
-              }
-            }
-          },
-          "required": [
-            "title",
-            "details",
-            "steps"
-          ]
-        },
-        "steps": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "job",
-                  "scope-gate",
-                  "merge-check",
-                  "standards-limits-check",
-                  "tracked-artifacts-check",
-                  "instructions-check",
-                  "skills-check",
-                  "tracked-refresh-check",
-                  "resource-create",
-                  "resource-destroy",
-                  "git",
-                  "task-metadata",
-                  "setup-step",
-                  "repository-ensure",
-                  "checkout-clean-check",
-                  "setup-ensure",
-                  "env",
-                  "refresh",
-                  "tidy",
-                  "standard"
-                ]
-              },
-              "label": {
-                "type": "string"
-              },
-              "disposition": {
-                "type": "string",
-                "enum": [
-                  "run",
-                  "skip",
-                  "gate"
-                ]
-              },
-              "note": {
-                "type": "string"
-              },
-              "group": {
-                "type": "string"
-              },
-              "outcome": {
-                "type": "string",
-                "enum": [
-                  "ok",
-                  "failed",
-                  "skipped",
-                  "cancelled"
-                ]
-              },
-              "advisory": {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "acceptance-cleanup-incomplete",
-                      "checkpoint-evidence-dropped",
-                      "checkout-clean-observation-unavailable",
-                      "doctor-warning",
-                      "execution-cap-unavailable",
-                      "generated-attribute-pattern-untranslated",
-                      "ignored-file-observation-unavailable",
-                      "landing-authority-unverified",
-                      "optional-resource-unavailable",
-                      "proof-recording-unavailable",
-                      "setup-forced-completion",
-                      "setup-machinery-commit-failed",
-                      "setup-marker-commit-failed",
-                      "standards-limits-unverified",
-                      "uninstall-strip-incomplete"
-                    ]
-                  },
-                  "evidence": {
-                    "minItems": 1,
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "next_action": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "kind",
-                  "evidence",
-                  "next_action"
-                ]
-              },
-              "duration_s": {
-                "type": "number"
-              },
-              "output_path": {
-                "type": "string"
-              },
-              "output_lines": {
-                "type": "number"
-              },
-              "error_like_lines": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "kind",
-              "label",
-              "disposition",
-              "outcome"
-            ]
-          }
-        },
-        "waited_ms": {
-          "type": "number",
-          "minimum": 0
-        },
-        "diagnostics": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "tool": {
-                "type": "string"
-              },
-              "severity": {
-                "type": "string",
-                "enum": [
-                  "error",
-                  "warning"
-                ]
-              },
-              "message": {
-                "type": "string"
-              },
-              "reproduce_cmd": {
-                "type": "string"
-              },
-              "output": {
-                "type": "string"
-              },
-              "truncated": {
-                "type": "boolean"
-              },
-              "output_path": {
-                "type": "string"
-              },
-              "file": {
-                "type": "string"
-              },
-              "line": {
-                "type": "number"
-              },
-              "col": {
-                "type": "number"
-              },
-              "rule": {
-                "type": "string"
-              },
-              "fix_available": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "tool",
-              "severity",
-              "message",
-              "reproduce_cmd"
-            ]
-          }
-        },
-        "hints": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "advisories": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "acceptance-cleanup-incomplete",
-                  "checkpoint-evidence-dropped",
-                  "checkout-clean-observation-unavailable",
-                  "doctor-warning",
-                  "execution-cap-unavailable",
-                  "generated-attribute-pattern-untranslated",
-                  "ignored-file-observation-unavailable",
-                  "landing-authority-unverified",
-                  "optional-resource-unavailable",
-                  "proof-recording-unavailable",
-                  "setup-forced-completion",
-                  "setup-machinery-commit-failed",
-                  "setup-marker-commit-failed",
-                  "standards-limits-unverified",
-                  "uninstall-strip-incomplete"
-                ]
-              },
-              "evidence": {
-                "minItems": 1,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "next_action": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "kind",
-              "evidence",
-              "next_action"
-            ]
-          }
-        },
-        "error": {
-          "type": "string"
-        },
-        "message": {
-          "type": "string"
-        },
-        "verb": {
-          "type": "string",
-          "const": "preset"
-        },
-        "data": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "preset": {
-                  "type": "string"
-                },
-                "available": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "plan": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "path": {
-                        "type": "string"
-                      },
-                      "action": {
-                        "type": "string",
-                        "enum": [
-                          "create",
-                          "skip",
-                          "merge",
-                          "append",
-                          "remove"
-                        ]
-                      },
-                      "note": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "path",
-                      "action"
-                    ]
-                  }
-                },
-                "config_fills": {
-                  "type": "boolean"
-                },
-                "config_fills_applied": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "config_fills_skipped": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "written": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            {
-              "type": "object",
-              "properties": {
-                "issues": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "unknown_root_section"
-                        ]
-                      },
-                      "path": {
-                        "type": "string"
-                      },
-                      "message": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "path",
-                      "message"
-                    ]
-                  }
-                }
-              },
-              "required": [
-                "issues"
-              ]
-            }
-          ]
-        }
-      },
-      "required": [
-        "ok",
-        "verb"
-      ],
-      "allOf": [
-        {
-          "$ref": "#/$defs/DiscernResultState"
-        }
-      ]
-    },
     "DiscernMapResult": {
       "title": "DiscernMapResult",
       "type": "object",
@@ -9357,6 +9310,386 @@
                   "type": "boolean"
                 }
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernHelpResult": {
+      "title": "DiscernHelpResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-forced-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-forced-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "help"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              "required": [
+                "command"
+              ]
             },
             {
               "type": "object",
@@ -19416,8 +19749,8 @@
         }
       ]
     },
-    "DiscernPatternsArchiveResult": {
-      "title": "DiscernPatternsArchiveResult",
+    "DiscernPatternsSealResult": {
+      "title": "DiscernPatternsSealResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -19736,7 +20069,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "patterns archive"
+          "const": "patterns seal"
         },
         "data": {
           "anyOf": [
@@ -20646,8 +20979,8 @@
         }
       ]
     },
-    "DiscernWorktreesResult": {
-      "title": "DiscernWorktreesResult",
+    "DiscernEnterResult": {
+      "title": "DiscernEnterResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -20966,7 +21299,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "worktrees"
+          "const": "enter"
         },
         "data": {
           "type": "object",
@@ -23823,6 +24156,371 @@
                 "issues"
               ]
             }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
+    "DiscernWorktreeEnsureResult": {
+      "title": "DiscernWorktreeEnsureResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-forced-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-forced-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "worktree ensure"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "unknown_root_section"
+                    ]
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "message"
+                ]
+              }
+            }
+          },
+          "required": [
+            "issues"
           ]
         }
       },
@@ -30158,6 +30856,104 @@
       ],
       "description": "Agent-declared checkpoint conclusions carried by the Proof, separate from machine results: the governing policy identity, the declared-met set, and the declared-unmet set whose landing still requires owner-authorized variances."
     },
+    "__schema0": {
+      "title": "__schema0",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "optional": {
+                "type": "boolean"
+              },
+              "variadic": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "optional",
+              "variadic"
+            ]
+          }
+        },
+        "usage": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "flags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "description": {
+                "type": "string"
+              },
+              "typeDefinition": {
+                "type": "string"
+              },
+              "hidden": {
+                "type": "boolean"
+              },
+              "global": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "flags",
+              "description",
+              "typeDefinition",
+              "hidden",
+              "global"
+            ]
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      },
+      "required": [
+        "path",
+        "description",
+        "aliases",
+        "hidden",
+        "args",
+        "usage",
+        "options",
+        "children"
+      ]
+    },
     "DiscernProofSummary": {
       "title": "DiscernProofSummary",
       "type": "object",
@@ -31144,6 +31940,9 @@
           "$ref": "#/$defs/DiscernSetupResult"
         },
         {
+          "$ref": "#/$defs/DiscernSetupBeginResult"
+        },
+        {
           "$ref": "#/$defs/DiscernSetupVerifyResult"
         },
         {
@@ -31171,13 +31970,13 @@
           "$ref": "#/$defs/DiscernTriangleResult"
         },
         {
-          "$ref": "#/$defs/DiscernPresetResult"
-        },
-        {
           "$ref": "#/$defs/DiscernMapResult"
         },
         {
           "$ref": "#/$defs/DiscernDocsResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernHelpResult"
         },
         {
           "$ref": "#/$defs/DiscernConfigResult"
@@ -31225,7 +32024,7 @@
           "$ref": "#/$defs/DiscernPatternsResetResult"
         },
         {
-          "$ref": "#/$defs/DiscernPatternsArchiveResult"
+          "$ref": "#/$defs/DiscernPatternsSealResult"
         },
         {
           "$ref": "#/$defs/DiscernPatternsArchivesResult"
@@ -31234,7 +32033,7 @@
           "$ref": "#/$defs/DiscernDeskResult"
         },
         {
-          "$ref": "#/$defs/DiscernWorktreesResult"
+          "$ref": "#/$defs/DiscernEnterResult"
         },
         {
           "$ref": "#/$defs/DiscernStatusResult"
@@ -31244,6 +32043,9 @@
         },
         {
           "$ref": "#/$defs/DiscernWorktreeRenameResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernWorktreeEnsureResult"
         },
         {
           "$ref": "#/$defs/DiscernAcceptResult"
@@ -31290,6 +32092,7 @@
         "mapping": {
           "discern": "#/$defs/DiscernDiscernResult",
           "setup": "#/$defs/DiscernSetupResult",
+          "setup begin": "#/$defs/DiscernSetupBeginResult",
           "setup verify": "#/$defs/DiscernSetupVerifyResult",
           "setup step": "#/$defs/DiscernSetupStepResult",
           "setup done": "#/$defs/DiscernSetupDoneResult",
@@ -31299,9 +32102,9 @@
           "doctor": "#/$defs/DiscernDoctorResult",
           "licenses": "#/$defs/DiscernLicensesResult",
           "triangle": "#/$defs/DiscernTriangleResult",
-          "preset": "#/$defs/DiscernPresetResult",
           "map": "#/$defs/DiscernMapResult",
           "docs": "#/$defs/DiscernDocsResult",
+          "help": "#/$defs/DiscernHelpResult",
           "config": "#/$defs/DiscernConfigResult",
           "done": "#/$defs/DiscernDoneResult",
           "prepare": "#/$defs/DiscernPrepareResult",
@@ -31317,13 +32120,14 @@
           "await": "#/$defs/DiscernAwaitResult",
           "patterns": "#/$defs/DiscernPatternsResult",
           "patterns reset": "#/$defs/DiscernPatternsResetResult",
-          "patterns archive": "#/$defs/DiscernPatternsArchiveResult",
+          "patterns seal": "#/$defs/DiscernPatternsSealResult",
           "patterns archives": "#/$defs/DiscernPatternsArchivesResult",
           "desk": "#/$defs/DiscernDeskResult",
-          "worktrees": "#/$defs/DiscernWorktreesResult",
+          "enter": "#/$defs/DiscernEnterResult",
           "status": "#/$defs/DiscernStatusResult",
           "start": "#/$defs/DiscernStartResult",
           "worktree rename": "#/$defs/DiscernWorktreeRenameResult",
+          "worktree ensure": "#/$defs/DiscernWorktreeEnsureResult",
           "accept": "#/$defs/DiscernAcceptResult",
           "update": "#/$defs/DiscernUpdateResult",
           "identity": "#/$defs/DiscernIdentityResult",
@@ -31428,7 +32232,25 @@
       "id": "setup",
       "verb": "setup",
       "commands": [
-        "setup",
+        "setup"
+      ],
+      "completionPolicy": {
+        "requiredPostconditions": [
+          "declared-outcome"
+        ],
+        "optionalAdvisories": [],
+        "refusal": "failure",
+        "cancellation": "not-applicable",
+        "partialEffect": "not-applicable",
+        "noOp": "success",
+        "recoveryOwner": "caller"
+      },
+      "schema": "#/$defs/DiscernSetupResult"
+    },
+    {
+      "id": "setupBegin",
+      "verb": "setup begin",
+      "commands": [
         "setup begin"
       ],
       "completionPolicy": {
@@ -31446,7 +32268,7 @@
         "noOp": "success",
         "recoveryOwner": "caller"
       },
-      "schema": "#/$defs/DiscernSetupResult"
+      "schema": "#/$defs/DiscernSetupBeginResult"
     },
     {
       "id": "setupVerify",
@@ -31645,26 +32467,6 @@
       "schema": "#/$defs/DiscernTriangleResult"
     },
     {
-      "id": "preset",
-      "verb": "preset",
-      "commands": [
-        "preset"
-      ],
-      "completionPolicy": {
-        "requiredPostconditions": [
-          "declared-outcome",
-          "executed-steps"
-        ],
-        "optionalAdvisories": [],
-        "refusal": "failure",
-        "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
-      },
-      "schema": "#/$defs/DiscernPresetResult"
-    },
-    {
       "id": "map",
       "verb": "map",
       "commands": [
@@ -31705,6 +32507,25 @@
       },
       "schema": "#/$defs/DiscernDocsResult",
       "mcpToolResultSchema": "#/$defs/DiscernDocsMcpToolResult"
+    },
+    {
+      "id": "help",
+      "verb": "help",
+      "commands": [
+        "help"
+      ],
+      "completionPolicy": {
+        "requiredPostconditions": [
+          "declared-outcome"
+        ],
+        "optionalAdvisories": [],
+        "refusal": "failure",
+        "cancellation": "not-applicable",
+        "partialEffect": "not-applicable",
+        "noOp": "success",
+        "recoveryOwner": "caller"
+      },
+      "schema": "#/$defs/DiscernHelpResult"
     },
     {
       "id": "config",
@@ -32052,10 +32873,10 @@
       "schema": "#/$defs/DiscernPatternsResetResult"
     },
     {
-      "id": "patternsArchive",
-      "verb": "patterns archive",
+      "id": "patternsSeal",
+      "verb": "patterns seal",
       "commands": [
-        "patterns archive"
+        "patterns seal"
       ],
       "completionPolicy": {
         "requiredPostconditions": [
@@ -32069,7 +32890,7 @@
         "noOp": "success",
         "recoveryOwner": "caller"
       },
-      "schema": "#/$defs/DiscernPatternsArchiveResult"
+      "schema": "#/$defs/DiscernPatternsSealResult"
     },
     {
       "id": "patternsArchives",
@@ -32111,10 +32932,10 @@
       "schema": "#/$defs/DiscernDeskResult"
     },
     {
-      "id": "worktrees",
-      "verb": "worktrees",
+      "id": "enter",
+      "verb": "enter",
       "commands": [
-        "worktrees"
+        "enter"
       ],
       "completionPolicy": {
         "requiredPostconditions": [
@@ -32127,7 +32948,7 @@
         "noOp": "success",
         "recoveryOwner": "caller"
       },
-      "schema": "#/$defs/DiscernWorktreesResult"
+      "schema": "#/$defs/DiscernEnterResult"
     },
     {
       "id": "status",
@@ -32196,6 +33017,28 @@
         "recoveryOwner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeRenameResult"
+    },
+    {
+      "id": "worktreeEnsure",
+      "verb": "worktree ensure",
+      "commands": [
+        "worktree ensure"
+      ],
+      "completionPolicy": {
+        "requiredPostconditions": [
+          "declared-outcome",
+          "executed-steps"
+        ],
+        "optionalAdvisories": [
+          "optional-resource-unavailable"
+        ],
+        "refusal": "failure",
+        "cancellation": "failure",
+        "partialEffect": "failure",
+        "noOp": "success",
+        "recoveryOwner": "caller"
+      },
+      "schema": "#/$defs/DiscernWorktreeEnsureResult"
     },
     {
       "id": "accept",
@@ -32497,7 +33340,6 @@
     "invalid_config",
     "invalid_config_file",
     "invalid_migrated_config",
-    "invalid_preset",
     "invalid_settings_file",
     "invalid_toml",
     "invalid_value",
@@ -32537,7 +33379,6 @@
     "unknown_category",
     "unknown_command",
     "unknown_key",
-    "unknown_preset",
     "unknown_standard",
     "write_access"
   ]

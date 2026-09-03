@@ -725,8 +725,8 @@ export const PatternsResetDataSchema = z.strictObject({
 });
 export type PatternsResetData = z.infer<typeof PatternsResetDataSchema>;
 
-/** `patterns archive` — the reviewed active source and sealed destination. */
-export const PatternsArchiveDataSchema = z.strictObject({
+/** `patterns seal` — the reviewed active source and sealed destination. */
+export const PatternsSealDataSchema = z.strictObject({
   source_dir: z.string(),
   destination_dir: z.string(),
   archive_file: z.string(),
@@ -740,7 +740,7 @@ export const PatternsArchiveDataSchema = z.strictObject({
   last_at: z.string().optional(),
   recovery_path: z.string().optional(),
 });
-export type PatternsArchiveData = z.infer<typeof PatternsArchiveDataSchema>;
+export type PatternsSealData = z.infer<typeof PatternsSealDataSchema>;
 
 /** One discoverable sealed archive and the tolerant counts inside it. */
 export const PatternsArchiveEntrySchema = z.strictObject({

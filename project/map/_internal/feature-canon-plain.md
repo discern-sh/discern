@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 140 detailed entries · 11 statements of benefit · 78 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 139 detailed entries · 11 statements of benefit · 77 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -89,7 +89,7 @@ _Each simultaneous task has its own project copy, identity, network number, priv
 - **Passing private values into a new copy** — `[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that stay out of the version history.
 - **Noticing changes outside the saved history** — At setup, discern fingerprints the files the version history ignores, and before removing the working copy it reports the top-level ignored places that changed. _Work hiding outside the version history gets named before cleanup deletes it._
 - **The overview of all work in progress** — From the main project copy, `discern status` shows one row for every separate working copy: its task, whether its files are clean, whether it is ahead of or behind the main shared version, its latest activity, a broken mark for a copy whose creation never finished, and any files two tasks have both changed. _The person in charge steers several pieces of work without opening each copy, and two tasks touching the same file are named before either becomes shared._
-- **Open another working copy in the same place** — In an interactive terminal, `discern worktrees` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does. _The person in charge moves between simultaneous tasks without finding the copy's location or retracing folders through the project._
+- **Open another working copy in the same place** — In an interactive terminal, `discern enter` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does. _The person in charge moves between simultaneous tasks without finding the copy's location or retracing folders through the project._
 - **Waiting for a condition across the tasks** — `discern await` waits until a chosen thing becomes true: a sibling task has passed the final check, a task's work has joined the main shared version, or the main shared version has moved. It uses the longest reliable request the connected tool supports. If that request must return first, a continuation keeps the original question intact so a change between requests is not missed. _A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person._
 - **The desk** — Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognized coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts. _The person in charge can inspect and act on every task from one interactive view._
   - **Desk tips** — The desk puts one short tip below the project status for each session. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record. _The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used._
@@ -125,7 +125,7 @@ _A reusable method becomes one file available to every future session._
   - **Clear the decks** — Sweep out the clutter that projects built by coding agents tend to collect — small helpers written twice, dead code from abandoned approaches, layers used from only one place, leftover starter material — every removal proved safe and saved as a small behavior-preserving step, with a quality rule capping the mess afterwards.
   - **Delegate work** — Turn the work under discussion into complete, self-contained briefs for fresh coding agents in their own separate working copies — one hand-off, several at once, or staged briefs — then review what comes back with a skeptical eye.
   - **Wait for another task** — Wait for another line of work with one bounded request — a sibling task passing its final check, its work joining the main shared version, or the main shared version moving — choosing the right condition, waiting on the exact task name, then following the returned next step to build on what arrived.
-  - **Document a part of the project** — Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup` places in the guide's `_internal/` starter area.
+  - **Document a part of the project** — Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup begin` places in the guide's `_internal/` starter area.
   - **Teach the project** — Save a lesson from the current session in the right lasting place — a line of instruction text, a project-written how-to guide, a project-specific instruction, a page of the project guide, or a decision record — so every future session inherits it.
   - **Write a decision record** — Help record an important choice — the situation, the decision, its consequences, and the other options considered — using the standard example and writing guide included with every installation.
   - **Write it once** — The practices discern builds itself with, explained for any kind of project: one authoritative home for every shared fact, protections that automatically cover future additions, declared lists of what a broad rule applies to, changes planned before they run and safe to run again, restraint with code comments — and the connections recorded on one page of the project guide.
@@ -179,7 +179,6 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **Who owns each file** — Every file discern touches is in one of three groups: project-owned (created once, then left alone), shared (discern maintains only its listed entries or marked parts), or made automatically from text you can review. The groups say who may edit or replace a file. Copyright follows the terms that apply to that file. Updates honor the groups, and what removal covers comes from the same list. _The ownership list determines which files an update may touch._
 - **Putting a file somewhere is permission to write there** — discern and its coding agents write only where the chosen placement gives permission: a file at its usual named location carries built-in permission, a setting you pointed elsewhere gives explicit permission for that place, and every other location is off-limits — enforced by a broad design test.
 - **Removal** — `discern uninstall` removes the wiring discern laid down — worked out from the same ownership list — and keeps `discern.toml`, your instruction text, and the project guide. _Leaving costs one instruction and loses no authored work._
-- **Reusable starter collections** — `discern preset <name>` applies a reusable overlay: starter files plus settings fills that never overwrite a value the project already sets, with every setting disclosed as filled or kept.
 - **Changing settings without interpreting the file** — `discern config` edits `discern.toml` while keeping its comments and layout — `set`, `set-job`, `set-scope`, and `set-standard` — and reads it back with `get`, `array`, `has`, `subsections`, and `keys`, so other instructions and coding agents never have to work out the file's special writing rules themselves.
 - **Licenses and notices** — `discern licenses` prints discern's own terms, the separate Apache-2.0 terms for material it writes into a project, and the required notices for other people's work carried inside discern. The program builds those answers from its real legal files and included components instead of a hand-kept list.
 
@@ -234,6 +233,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `docs` — bundled-docs
 - `doctor` — doctor
 - `done` — gate
+- `enter` — worktree-shell-picker
 - `help` — cli-help
 - `identity` — worktree-identity
 - `impact` — impact
@@ -243,7 +243,6 @@ Every member of the product's official fixed lists appears below beside the feat
 - `mcp` — interfaces
 - `patterns` — patterns
 - `prepare` — prepare
-- `preset` — presets
 - `queue` — gate
 - `refresh` — instructions
 - `scripts` — project-scripts
@@ -258,7 +257,6 @@ Every member of the product's official fixed lists appears below beside the feat
 - `update` — update
 - `upgrade` — upgrade
 - `worktree` — drop-recovery, worktree-prune
-- `worktrees` — worktree-shell-picker
 
 ### Named kind of project work (`job`)
 

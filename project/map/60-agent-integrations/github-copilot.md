@@ -25,7 +25,7 @@ GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[project].agents`
 
 ## Using the IDE
 
-An editor-only installation runs inside an integrated development environment (IDE). GitHub Copilot currently declares no IDE installation evidence, so `discern setup` sees it only when the `copilot` terminal CLI is on `PATH`. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
+An editor-only installation runs inside an integrated development environment (IDE). GitHub Copilot currently declares no IDE installation evidence, so `discern setup begin` sees it only when the `copilot` terminal CLI is on `PATH`. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
 
 ```toml
 [project]

@@ -20,7 +20,10 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 /** Fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir))
+    (await runCli(
+      ["setup", "begin", "--confirmed", "--slug", "demo"],
+      dir,
+    ))
       .code,
     0,
   );

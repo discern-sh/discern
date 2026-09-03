@@ -193,7 +193,7 @@ Deno.test("a non-array permissions value falls through to set-if-absent merge", 
 Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks re-seed idempotently", () => {
   // Cursor's `{ command }` and Copilot's `{ type, bash }` carry the command at the
   // GROUP level, which the default nested-command dedup (commandsInGroup) can't see —
-  // so a plain re-merge under `setup --force` would append the group again. This
+  // so a plain re-merge under `setup begin --force` would append the group again. This
   // strategy collapses structurally-equal groups, so re-seeding is byte-stable.
   const cursor = JSON.stringify({
     version: 1,

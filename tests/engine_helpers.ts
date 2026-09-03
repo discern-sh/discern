@@ -143,6 +143,12 @@ const TERMINAL_RESIZE_HARNESS = join(
   "fixtures",
   "terminal_resize_harness.ts",
 );
+const WORKTREE_CORE_HARNESS = join(
+  REPO_ROOT,
+  "tests",
+  "fixtures",
+  "worktree_core_harness.ts",
+);
 
 /**
  * Build the argv for one repository-source subprocess. Deno's own dependency
@@ -486,6 +492,25 @@ export async function runAgent(
 ): Promise<RunResult> {
   const command = new Deno.Command("deno", {
     args: engineRunArgs(args),
+    cwd: opts.cwd ?? dir,
+    env: await engineEnv(opts.env),
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { code, stdout, stderr } = await command.output();
+  const out = DECODER.decode(stdout);
+  const err = DECODER.decode(stderr);
+  return { code, stdout: out, stderr: err, output: out + err };
+}
+
+/** Run a test-only worktree core without registering a production CLI helper. */
+export async function runWorktreeCore(
+  dir: string,
+  args: readonly string[],
+  opts: { cwd?: string; env?: Record<string, string> } = {},
+): Promise<RunResult> {
+  const command = new Deno.Command("deno", {
+    args: repoSourceRunArgs(WORKTREE_CORE_HARNESS, args),
     cwd: opts.cwd ?? dir,
     env: await engineEnv(opts.env),
     stdout: "piped",

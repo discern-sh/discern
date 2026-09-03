@@ -15,7 +15,7 @@ import {
 } from "../src/shared/vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
@@ -59,38 +59,36 @@ Deno.test("retired command spellings hard-error with their canonical successor",
   });
 });
 
-Deno.test("a uniquely matching trailing-s variant reaches the canonical command", async () => {
+Deno.test("a uniquely matching trailing-s variant only suggests the canonical command", async () => {
   const [, canonical] = firstTopLevelRedirect();
   const variant = canonical.endsWith("s")
     ? canonical.slice(0, -1)
     : `${canonical}s`;
-  assertEquals(normalizeVerbVariant(variant, KNOWN_VERBS), canonical);
+  assertEquals(normalizeVerbVariant(variant, KNOWN_VERBS), variant);
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await gitInit(dir);
-    const args = ["--dry-run", "--json"];
-    const direct = await runAgent(dir, [canonical, ...args]);
-    const forgiven = await runAgent(dir, [variant, ...args]);
-    assertEquals(direct.code, 0, direct.output);
-    assertEquals(forgiven.code, 0, forgiven.output);
-    assertEquals(forgiven.stdout, direct.stdout);
-    assertStringIncludes(forgiven.stdout, `"verb":"${canonical}"`);
+    const refused = await runAgent(dir, [variant, "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "discern");
+    assertEquals(result.error, "unknown_command");
+    assertHasHint(result, HINTS["unknown-command-suggestion"], {
+      command: canonical,
+    });
   });
 });
 
-Deno.test("standard silently reaches standards with the same result", async () => {
-  assertEquals(normalizeVerbVariant("standard", KNOWN_VERBS), "standards");
+Deno.test("standard suggests standards without becoming an input alias", async () => {
+  assertEquals(normalizeVerbVariant("standard", KNOWN_VERBS), "standard");
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await gitInit(dir);
-    const args = ["--dry-run", "--json"];
-    const direct = await runAgent(dir, ["standards", ...args]);
-    const forgiven = await runAgent(dir, ["standard", ...args]);
-    assertEquals(direct.code, 0, direct.output);
-    assertEquals(forgiven.code, direct.code, forgiven.output);
-    assertEquals(forgiven.stdout, direct.stdout);
-    assertStringIncludes(forgiven.stdout, '"verb":"standards"');
+    const refused = await runAgent(dir, ["standard", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const result = decodeCliResult(refused.stdout, "discern");
+    assertEquals(result.error, "unknown_command");
+    assertHasHint(result, HINTS["unknown-command-suggestion"], {
+      command: "standards",
+    });
   });
 });
 

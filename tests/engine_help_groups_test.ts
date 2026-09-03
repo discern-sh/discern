@@ -266,7 +266,7 @@ Deno.test("worktree help renders the configured trunk name, never a hard-coded d
 
 Deno.test("hidden top-level commands stay registered, enrolled with reasons, and never greet the help reader", () => {
   // The class: a command deliberately kept OUT of the operator help (an empty
-  // mechanism like preset, or setup once the project is bootstrapped) must
+  // mechanism like a provider hook, or setup once the project is bootstrapped) must
   // stay dispatchable — hidden, never removed — and must carry a recorded
   // reason in the hidden-verb registry, because hiding also drops the verb
   // from the generated CLI reference and every surface downstream of it.

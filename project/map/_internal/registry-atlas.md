@@ -12,14 +12,14 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
-| [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
-| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 66      | —                | —                           |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 34      | per member       | surface `verb`              |
+| [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
+| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 65      | —                | —                           |
 | [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 10      | —                | node `worktrees`            |
-| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 27      | —                | node `plan-apply`           |
+| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 42      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 41      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 23      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
@@ -66,13 +66,13 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 189     | "Advisory"       | node `hints`                |
-| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 45      | "Tip"            | node `tips`                 |
+| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
-| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 70      | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 68      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 9       | —                | node `logbook`              |
@@ -81,20 +81,20 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 38      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 50      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 140     | —                | —                           |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 49      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 139     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 45      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 49      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 51      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
-| [`result-completion-policies`](#result-completion-policies--result-completion-policies)                               | `src/shared/result_completion.ts#RESULT_COMPLETION_POLICY_DEFINITIONS`            | 49      | —                | node `published-contracts`  |
+| [`result-completion-policies`](#result-completion-policies--result-completion-policies)                               | `src/shared/result_completion.ts#RESULT_COMPLETION_POLICY_DEFINITIONS`            | 51      | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 70      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 68      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 47      | —                | node `bundled-docs`         |
@@ -106,9 +106,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 354     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 355     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 24      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
@@ -119,13 +119,14 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--subprocess-spawn-boundaries)                                                      | `tests/spawn_surfaces.ts#SUBPROCESS_SPAWN_BOUNDARIES`                             | 31      | —                | node `interruption-safety`  |
 | [`process-output-boundaries`](#process-output-boundaries--process-output-boundaries)                                  | `src/shared/process_boundaries.ts#PROCESS_OUTPUT_BOUNDARIES`                      | 6       | —                | —                           |
 | [`process-exit-boundaries`](#process-exit-boundaries--process-exit-boundaries)                                        | `src/shared/process_boundaries.ts#PROCESS_EXIT_BOUNDARIES`                        | 5       | —                | —                           |
+| [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                  | `src/shared/exit_codes.ts#EXIT_STATUS_REGISTRY`                                   | 11      | —                | —                           |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 24      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
-| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 52      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 49      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
@@ -135,9 +136,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 124     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 125     | —                | node `canonical-sets`       |
 
-124 sets · 175 guard tests · 65 committed artifacts.
+125 sets · 176 guard tests · 66 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -237,6 +238,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/environment_variables_codegen_test.ts`      | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/exit_status_registry_test.ts`               | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/feature_canon_agent_benefit_test.ts`        | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon), [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon), [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -346,6 +348,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/manual/30-reference/files-and-ownership.md`       | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      | —                                             |
 | `project/manual/30-reference/glossary.md`                  | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/manual/30-reference/mcp-and-results.md`           | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           | —                                             |
+| `project/manual/30-reference/mcp-and-results.md`           | maintained block | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                              | —                                             |
 | `project/manual/30-reference/platforms-and-providers.md`   | maintained block | [`build-targets`](#build-targets--release-build-targets)                                                          | —                                             |
 | `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               | —                                             |
 | `project/map/00-orientation/the-practice.md`               | generated file   | [`practice-tenets`](#practice-tenets--practice-canon)                                                             | —                                             |
@@ -398,12 +401,11 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 35
+- Members: 34
   - `setup`
   - `upgrade`
   - `uninstall`
   - `doctor`
-  - `preset`
   - `map`
   - `docs`
   - `help`
@@ -425,7 +427,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `patterns`
   - `status`
   - `desk`
-  - `worktrees`
+  - `enter`
   - `accept`
   - `update`
   - `start`
@@ -444,8 +446,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
 Every top-level verb kept out of the operator help listing carries a reason and revival condition. The CLI build applies the registry, and the help-groups guard checks the live hidden set in both bootstrap states.
 
 - Source: `src/shared/hidden_verbs.ts` — `HIDDEN_VERBS`
-- Members: 3
-  - `preset`
+- Members: 2
   - `setup`
   - `triangle`
 - Guards: `tests/engine_help_groups_test.ts`, `tests/spoiler_guard_test.ts`
@@ -457,7 +458,7 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 Every live CLI command path's effect classes, exclusion boundary, and preview obligation; the live-tree guard makes new nested and top-level commands enroll before they can run.
 
 - Source: `src/shared/operation_effects.ts` — `OPERATION_EFFECTS`
-- Members: 66
+- Members: 65
   - `accept`
   - `await`
   - `checkpoints`
@@ -485,11 +486,10 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
   - `map`
   - `mcp`
   - `patterns`
-  - `patterns archive`
+  - `patterns seal`
   - `patterns archives`
   - `patterns reset`
   - `prepare`
-  - `preset`
   - `queue`
   - `refresh`
   - `scripts`
@@ -523,7 +523,7 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
   - `worktree prune`
   - `worktree setup`
   - `worktree teardown`
-  - `worktrees`
+  - `enter`
 - Guards: `tests/operation_effects_test.ts`
 - Glossary: not enrolled — the operation protocol documentation explains the shared policy as one concept rather than defining every command path as a term
 - Feature canon: not enrolled — the registry governs cross-cutting execution mechanics rather than a separately selectable product feature
@@ -553,18 +553,16 @@ Every worktree-lifecycle operation restricted to either the main checkout or a l
 The measured command paths that register `--dry-run`. `OPERATION_EFFECTS.preview` decides which paths require that flag; the bidirectional policy guard holds the two sets equal, and the fidelity guard proves previews write nothing and apply performs only listed effects owned by discern.
 
 - Source: `src/main.ts` — `dryRunCapableVerbs`
-- Members: 27
+- Members: 25
   - `accept`
   - `config set`
   - `config set-job`
   - `config set-scope`
   - `config set-standard`
   - `done`
-  - `patterns archive`
   - `patterns reset`
-  - `preset`
+  - `patterns seal`
   - `refresh`
-  - `setup`
   - `setup accept`
   - `setup begin`
   - `skills eject`
@@ -636,7 +634,7 @@ The lifecycle sequence that leads schema-deferred clients through status, Worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 42
+- Members: 41
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -658,7 +656,6 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_CRASH_PROBE`
   - `DISCERN_INTERACTION_TRACE`
   - `DISCERN_HOME`
-  - `DISCERN_PRESETS_DIR`
   - `DISCERN_TEMPLATES_DIR`
   - `DISCERN_DOCS_DIR`
   - `DISCERN_GATE_TEST_REPORTER`
@@ -1690,7 +1687,7 @@ Every authored Deno rename outside the atomic replacement capability, identified
   - `src/shared/write_preflight.ts#probeDirectoryEntry`
   - `tests/engine_done_json_surfaces_test.ts#Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("orphan sweep apply keeps a dir that gained work after the scan")`
-  - `tests/engine_worktree_prune_test.ts#Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path")`
+  - `tests/engine_worktree_prune_test.ts#Deno.test("removeWorktreeSafely refuses a symlink substituted for the registered path")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune does not let an orphan env file assert destructive ownership")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune keeps a dirty orphaned dir at the configured worktree root")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune reclaims a clean fully-orphaned dir at the configured worktree root")`
@@ -1937,11 +1934,11 @@ The advisory hint registry: every hint string enters results through it.
 The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
-- Members: 45
+- Members: 44
   - `desk-is-home`
   - `status-orients-anywhere`
   - `start-isolates-a-task`
-  - `worktrees-preserves-place`
+  - `enter-preserves-place`
   - `prepare-fast-feedback`
   - `test-runs-alone`
   - `tidy-discern-files`
@@ -1962,7 +1959,6 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
   - `standards-pin-gain`
   - `config-validates-edits`
   - `refresh-publishes-instructions`
-  - `preset-keeps-project-values`
   - `upgrade-check-only`
   - `one-file-settings`
   - `no-model-any-language`
@@ -2088,7 +2084,7 @@ The result fields a generic recovery instruction may cite. A failure with neithe
 The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
 
 - Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
-- Members: 70
+- Members: 68
   - `active_worktrees: evidence`
   - `ambiguous: tailored`
   - `apply_failed: evidence`
@@ -2116,7 +2112,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `invalid_config: evidence`
   - `invalid_config_file: evidence`
   - `invalid_migrated_config: evidence`
-  - `invalid_preset: evidence`
   - `invalid_settings_file: evidence`
   - `invalid_toml: evidence`
   - `invalid_value: evidence`
@@ -2156,7 +2151,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `unknown_category: evidence`
   - `unknown_command: tailored`
   - `unknown_key: evidence`
-  - `unknown_preset: evidence`
   - `unknown_standard: evidence`
   - `write_access: evidence`
 - Guards: `tests/result_schemas_test.ts`
@@ -2218,7 +2212,7 @@ Every CLI-only action allowed to detach or remove active Logbook history. Dispat
 - Source: `src/shared/logbook_lifecycle.ts` — `LOGBOOK_LIFECYCLE_ACTIONS`
 - Members: 2
   - `reset`
-  - `archive`
+  - `seal`
 - Guards: `tests/engine_logbook_lifecycle_test.ts`, `tests/engine_non_interactive_test.ts`, `tests/logbook_test.ts`
 - Glossary: not enrolled — the Patterns and Logbook references document these owner actions in lifecycle context
 - Feature canon: described by the `patterns` node
@@ -2321,7 +2315,7 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 50
+- Members: 49
   - `Accept`
   - `Advisory`
   - `discern version`
@@ -2356,7 +2350,6 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Improvement review`
   - `Placement is consent`
   - `Practice`
-  - `Preset`
   - `Project script`
   - `Proof`
   - `Proof note`
@@ -2382,7 +2375,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 140
+- Members: 139
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -2496,7 +2489,6 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `ownership-buckets`
   - `placement-consent`
   - `uninstall`
-  - `presets`
   - `config-command`
   - `licenses`
   - `interfaces`
@@ -2647,9 +2639,10 @@ The practice registry behind the practice canon: the obligations upheld by enfor
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 49
+- Members: 51
   - `discern`
   - `setup`
+  - `setupBegin`
   - `setupVerify`
   - `setupStep`
   - `setupDone`
@@ -2659,9 +2652,9 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `doctor`
   - `licenses`
   - `triangle`
-  - `preset`
   - `map`
   - `docs`
+  - `help`
   - `config`
   - `done`
   - `prepare`
@@ -2677,13 +2670,14 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `await`
   - `patterns`
   - `patternsReset`
-  - `patternsArchive`
+  - `patternsSeal`
   - `patternsArchives`
   - `desk`
-  - `worktrees`
+  - `enter`
   - `status`
   - `start`
   - `worktreeRename`
+  - `worktreeEnsure`
   - `accept`
   - `update`
   - `identity`
@@ -2720,9 +2714,11 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 The one-per-verb semantic authority that defines required outcomes, optional advisories, non-completion states, and recovery ownership.
 
 - Source: `src/shared/result_completion.ts` — `RESULT_COMPLETION_POLICY_DEFINITIONS`
-- Members: 49
+- Members: 51
   - `discern`
+  - `help`
   - `setup`
+  - `setup begin`
   - `setup verify`
   - `setup step`
   - `setup done`
@@ -2732,7 +2728,6 @@ The one-per-verb semantic authority that defines required outcomes, optional adv
   - `doctor`
   - `licenses`
   - `triangle`
-  - `preset`
   - `map`
   - `docs`
   - `config`
@@ -2750,10 +2745,10 @@ The one-per-verb semantic authority that defines required outcomes, optional adv
   - `await`
   - `patterns`
   - `patterns reset`
-  - `patterns archive`
+  - `patterns seal`
   - `patterns archives`
   - `desk`
-  - `worktrees`
+  - `enter`
   - `status`
   - `start`
   - `accept`
@@ -2762,6 +2757,7 @@ The one-per-verb semantic authority that defines required outcomes, optional adv
   - `scripts`
   - `worktree`
   - `worktree setup`
+  - `worktree ensure`
   - `worktree rename`
   - `worktree teardown`
   - `worktree drop`
@@ -2851,7 +2847,7 @@ The public reporting channels, policy location, language, and bounded security.t
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 70
+- Members: 68
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
@@ -2879,7 +2875,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `invalid_config`
   - `invalid_config_file`
   - `invalid_migrated_config`
-  - `invalid_preset`
   - `invalid_settings_file`
   - `invalid_toml`
   - `invalid_value`
@@ -2919,7 +2914,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `unknown_category`
   - `unknown_command`
   - `unknown_key`
-  - `unknown_preset`
   - `unknown_standard`
   - `write_access`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
@@ -3080,7 +3074,7 @@ The explicit page-id owner for each normalized manual search name that would oth
   - `discern standards`
   - `discern status`
   - `discern tidy`
-  - `discern worktrees`
+  - `discern enter`
   - `discern_checkpoint_input`
   - `discern_checkpoints`
   - `discern_match`
@@ -3229,11 +3223,10 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 354
+- Members: 355
   - `0003`
   - `0005`
   - `0006`
-  - `0007`
   - `0009`
   - `0011`
   - `0014`
@@ -3327,7 +3320,6 @@ The numbered decision records in the Map, including records later superseded.
   - `0115`
   - `0116`
   - `0117`
-  - `0118`
   - `0119`
   - `0120`
   - `0125`
@@ -3562,9 +3554,11 @@ The numbered decision records in the Map, including records later superseded.
   - `0362`
   - `0363`
   - `0364`
+  - `0365`
   - `0001`
   - `0002`
   - `0004`
+  - `0007`
   - `0008`
   - `0010`
   - `0012`
@@ -3582,6 +3576,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0066`
   - `0091`
   - `0107`
+  - `0118`
   - `0185`
   - `0227`
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/adr_supersession_guard_test.ts`, `tests/improve_count_adrs_test.ts`
@@ -3631,7 +3626,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 23
+- Members: 24
   - `finish`
   - `graduate`
   - `setup land`
@@ -3655,6 +3650,7 @@ Retired commands, retired config keys, dead config positions, and synonym redire
   - `land`
   - `merge`
   - `improve`
+  - `script`
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
 - Glossary: not enrolled — the Glossary defines live vocabulary, and this registry records redirects and refusals for retired words
 - Feature canon: described by the `forgiving-cli` node
@@ -3874,6 +3870,28 @@ Every direct process termination in the shipped product, with its stable id, exa
 - Glossary: not enrolled — process termination enrollment is an internal product-architecture boundary rather than user-facing vocabulary
 - Feature canon: not enrolled — dispatcher, crash, and signal exit boundaries support every feature instead of defining a selectable capability
 
+## `exit-statuses` — CLI exit statuses
+
+Every exact CLI status and passthrough class, shared by runtime constants and the two manual projections.
+
+- Source: `src/shared/exit_codes.ts` — `EXIT_STATUS_REGISTRY`
+- Members: 11
+  - `success`
+  - `controlled-failure`
+  - `usage`
+  - `internal-error`
+  - `await-timeout`
+  - `executable-not-found`
+  - `sighup`
+  - `sigint`
+  - `sigterm`
+  - `child-passthrough`
+  - `signal-passthrough`
+- Guards: `tests/exit_status_registry_test.ts`
+- Artifacts: `project/manual/30-reference/mcp-and-results.md`
+- Glossary: not enrolled — the CLI and result manuals document exit-status behavior at its point of use
+- Feature canon: not enrolled — exit statuses are a cross-cutting process contract rather than a selectable capability
+
 ## `authored-ts-universe` — Authored-TypeScript universe
 
 The top-level trees holding authored TypeScript define the scan universe for repository-wide structural sweeps. Members are stable roots. The `AUTHORED_TS_FILES` export derives its file list from Git at import time, so the atlas counts roots.
@@ -4003,7 +4021,7 @@ The operating-system properties that justify a real pseudo-terminal test; every 
 Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
 
 - Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
-- Members: 52
+- Members: 49
   - `read:canon-editor-port`
   - `read:checkpoint-input-path`
   - `read:checkpoint-invocation-root`
@@ -4032,14 +4050,11 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:main-crash-cwd`
   - `read:mcp-ci-marker`
   - `read:mcp-dispatch-cwd`
-  - `read:preset-command-cwd`
-  - `read:preset-source-override`
   - `read:private-docs-checkout-root-cwd`
   - `read:private-docs-git-query-cwd`
   - `read:private-docs-main-root-cwd`
   - `read:pty-process-path`
   - `read:setup-command-cwd`
-  - `read:setup-gitattributes-environment`
   - `read:setup-page-tokens-environment`
   - `read:setup-verify-cwd`
   - `read:setup-welcome-branch-cwd`
@@ -4051,11 +4066,11 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:site-specimen-port`
   - `read:subprocess-first-stdin-cwd`
   - `read:subprocess-second-stdin-cwd`
+  - `read:subprocess-transport-boundary-cwd`
   - `read:terminal-capture-cwd`
   - `read:uninstall-command-cwd`
   - `read:upgrade-command-cwd`
   - `read:verb-dispatch-cwd`
-  - `read:worktree-remove-helper-cwd`
 - Guards: `tests/ambient_state_lint_test.ts`
 - Glossary: not enrolled — ambient process-state enrollment is an internal architecture boundary rather than user-facing vocabulary
 - Feature canon: not enrolled — the boundary supports every host-facing feature rather than adding a separately selectable capability
@@ -4379,7 +4394,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 124
+- Members: 125
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4487,6 +4502,7 @@ This meta-registry: the closed set of closed sets.
   - `spawn-surfaces`
   - `process-output-boundaries`
   - `process-exit-boundaries`
+  - `exit-statuses`
   - `authored-ts-universe`
   - `artifact-validators`
   - `canary-tests`

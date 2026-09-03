@@ -28,8 +28,8 @@ const GIT_ISOLATION = {
 async function setupRepository(dir: string): Promise<void> {
   const setup = await runCli([
     "setup",
+    "begin",
     "--confirmed",
-    "--yes",
     "--slug",
     "doctor-git-health",
   ], dir);
@@ -232,8 +232,8 @@ Deno.test("doctor: dubious ownership gets the exact-path trust remedy", async ()
   await withTempDir(async (dir) => {
     const setup = await runCli([
       "setup",
+      "begin",
       "--confirmed",
-      "--yes",
       "--slug",
       "doctor-dubious-ownership",
     ], dir);

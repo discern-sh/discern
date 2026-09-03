@@ -26,7 +26,6 @@ import { Command } from "@cliffy/command";
 import {
   attachEngineCommands,
   KNOWN_ENGINE_VERBS,
-  SUGGESTABLE_ENGINE_COMMANDS,
 } from "../src/engine/dispatch.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
 import {
@@ -69,7 +68,7 @@ Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", ()
   // top-level command but KNOWN_VERBS does not, that registered command dispatches in
   // Cliffy yet `main` treats it as an unknown command. Tie the installer+engine
   // universe back to the actual Cliffy registrations — hidden ones included, since a
-  // command hidden from help (preset, post-setup setup) still dispatches.
+  // command hidden from help (provider hooks, for example) still dispatches.
   const root = buildCli(false) as unknown as Command;
   const registered = root.getCommands(true).map((c) => c.getName());
   assertEquals(
@@ -207,9 +206,9 @@ Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT",
       `identity has no --${f} flag for the WORKTREE_FIELDS member "${f}"`,
     );
   }
-  // The only NON-field options are the resource queries and the refusal-envelope
-  // flag (explicit, named exceptions).
-  const NON_FIELD_OPTIONS = new Set(["resource", "resources", "json"]);
+  // The only local NON-field options are the resource queries. Result format
+  // flags are inherited from the root command rather than re-declared here.
+  const NON_FIELD_OPTIONS = new Set(["resource", "resources"]);
   for (const n of NON_FIELD_OPTIONS) {
     assert(
       optionNames.includes(n) &&
@@ -223,52 +222,5 @@ Deno.test("the identity CLI exposes a flag for EXACTLY the identity-field SSOT",
     sorted(WORKTREE_FIELDS),
     "identity's identity flags have drifted from WORKTREE_FIELDS — add the flag " +
       "for the new field, or record a new non-field option in NON_FIELD_OPTIONS",
-  );
-});
-
-Deno.test("SUGGESTABLE_ENGINE_COMMANDS is the engine verbs minus command groups, plus worktree subcommands", () => {
-  // The typo-suggester's command list intentionally differs from the verbs: it
-  // drops command groups and adds worktree subcommands that are not top-level
-  // verbs. Both differences are explicit, so a new engine verb forces a decision.
-  const SUGGESTION_DROPS_ENGINE_VERB = new Set([
-    "worktree",
-    "skills", // a command group, not a single suggested action
-    "scripts", // a namespace; project script names are suggested separately
-    "queue", // an exec wrapper; the wrapped command is already explicit
-    "mcp", // the server entry point, not a suggested action
-    "desk", // interactive-only (ADR 0119)
-  ]);
-  const SUGGESTION_ADDS_SUBCOMMANDS = [
-    "worktree-setup",
-    "worktree-ensure",
-    "worktree-rename",
-    "worktree-teardown",
-    "worktree-drop",
-    "worktree-prune",
-  ];
-
-  // The drop set must stay honest (each is a real engine verb omitted here).
-  for (const v of SUGGESTION_DROPS_ENGINE_VERB) {
-    assert(
-      KNOWN_ENGINE_VERBS.has(v) && !SUGGESTABLE_ENGINE_COMMANDS.includes(v),
-      `SUGGESTION_DROPS_ENGINE_VERB lists "${v}", but it is no longer a dropped engine verb`,
-    );
-  }
-  // The added subcommands must not collide with the top-level verb names.
-  for (const v of SUGGESTION_ADDS_SUBCOMMANDS) {
-    assert(
-      SUGGESTABLE_ENGINE_COMMANDS.includes(v) && !KNOWN_ENGINE_VERBS.has(v),
-      `SUGGESTION_ADDS_SUBCOMMANDS lists "${v}", but it is not an extra command name`,
-    );
-  }
-
-  const expected = [...KNOWN_ENGINE_VERBS]
-    .filter((v) => !SUGGESTION_DROPS_ENGINE_VERB.has(v))
-    .concat(SUGGESTION_ADDS_SUBCOMMANDS);
-  assertEquals(
-    sorted(SUGGESTABLE_ENGINE_COMMANDS),
-    sorted(expected),
-    "SUGGESTABLE_ENGINE_COMMANDS has drifted from the verb SSOT — extend it for the new verb, " +
-      "or record the difference in the explicit drop/add sets",
   );
 });

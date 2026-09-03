@@ -104,7 +104,7 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   config: "a direct config editor, not a configurable workflow sequence",
   coupling: READ_ONLY_ABSENCE,
   desk: READ_ONLY_ABSENCE,
-  worktrees:
+  enter:
     "an interactive child-shell picker whose destination is runtime input, not a configurable workflow sequence",
   doctor: "the host of the execution model, not a workflow it describes",
   docs: READ_ONLY_ABSENCE,
@@ -116,7 +116,6 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   map: READ_ONLY_ABSENCE,
   mcp: "a long-running transport server, not a finite execution plan",
   patterns: READ_ONLY_ABSENCE,
-  preset: INSTALLER_ABSENCE,
   queue:
     "an exec-style resource wrapper whose child command is supplied at invocation time",
   refresh:

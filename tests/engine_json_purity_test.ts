@@ -132,13 +132,18 @@ function topLevelVerb(commandPath: string): string {
 /**
  * The sweep over the noisy scaffolded project — every public command path
  * runnable there, read-only paths first, file-touching ones after. A refusal or
- * error is still an envelope: `desk` refuses machine mode, `preset` reports a
- * missing preset, and the bare command groups require a subcommand. Identity
+ * error is still an envelope: `desk` refuses machine mode and the bare command
+ * groups require a subcommand. Identity
  * and config reads keep shell-friendly output without the flag, but every case
  * here adds `--json` and therefore receives the same one-envelope protocol.
  */
 const PROJECT_CASES: readonly PurityCase[] = [
   { commandPath: "discern", envelopeVerb: "discern", args: [] },
+  {
+    commandPath: "help",
+    envelopeVerb: "help",
+    args: ["help", "worktree", "ensure"],
+  },
   { commandPath: "done", envelopeVerb: "done", args: ["done"] },
   { commandPath: "done", envelopeVerb: "done", args: ["done", "--dry-run"] },
   { commandPath: "prepare", envelopeVerb: "prepare", args: ["prepare"] },
@@ -191,9 +196,9 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["patterns", "reset", "--dry-run"],
   },
   {
-    commandPath: "patterns archive",
-    envelopeVerb: "patterns archive",
-    args: ["patterns", "archive", "--dry-run"],
+    commandPath: "patterns seal",
+    envelopeVerb: "patterns seal",
+    args: ["patterns", "seal", "--dry-run"],
   },
   {
     commandPath: "patterns archives",
@@ -202,9 +207,9 @@ const PROJECT_CASES: readonly PurityCase[] = [
   },
   { commandPath: "desk", envelopeVerb: "desk", args: ["desk"] },
   {
-    commandPath: "worktrees",
-    envelopeVerb: "worktrees",
-    args: ["worktrees"],
+    commandPath: "enter",
+    envelopeVerb: "enter",
+    args: ["enter"],
   },
   { commandPath: "doctor", envelopeVerb: "doctor", args: ["doctor"] },
   { commandPath: "setup", envelopeVerb: "setup", args: ["setup"] },
@@ -215,7 +220,7 @@ const PROJECT_CASES: readonly PurityCase[] = [
   },
   {
     commandPath: "setup begin",
-    envelopeVerb: "setup",
+    envelopeVerb: "setup begin",
     args: ["setup", "begin", "--force", "--dry-run", "--confirmed"],
   },
   {
@@ -244,11 +249,6 @@ const PROJECT_CASES: readonly PurityCase[] = [
     commandPath: "triangle",
     envelopeVerb: "triangle",
     args: ["triangle"],
-  },
-  {
-    commandPath: "preset",
-    envelopeVerb: "preset",
-    args: ["preset", "zz-missing", "--yes"],
   },
   { commandPath: "scripts", envelopeVerb: "scripts", args: ["scripts"] },
   {
@@ -342,6 +342,11 @@ const PROJECT_CASES: readonly PurityCase[] = [
     commandPath: "worktree",
     envelopeVerb: "worktree",
     args: ["worktree"],
+  },
+  {
+    commandPath: "worktree ensure",
+    envelopeVerb: "worktree ensure",
+    args: ["worktree", "ensure"],
   },
   {
     commandPath: "uninstall",
@@ -896,7 +901,7 @@ Deno.test("bare discern --json is one controlled result before and after setup",
         await scaffoldEngine(dir);
       }
       const result = await runAgent(dir, ["--json"]);
-      assertEquals(result.code, 1, `${phase}: ${result.output}`);
+      assertEquals(result.code, 2, `${phase}: ${result.output}`);
       assertEnvelopeOnly(result, "discern", phase);
       const envelope = decodeCliResult(result.stdout, "discern");
       assertEquals(envelope.error, "invalid_arguments", phase);

@@ -948,7 +948,10 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
     ),
     1,
   );
-  assertStringIncludes(joined(noProject), "Run `discern setup`");
+  assertStringIncludes(
+    joined(noProject),
+    "Run the read-only `discern setup` welcome, then `discern setup begin`",
+  );
 
   const failedSurvey = transcript();
   assertEquals(

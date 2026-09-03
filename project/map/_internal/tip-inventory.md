@@ -46,17 +46,17 @@ Rendered line:
 
 > `discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
 
-## `worktrees-preserves-place`
+## `enter-preserves-place`
 
 - Relevance: At least one task is in flight.
 - Predicate: `fleet-min-size`
 - Since: —
 - Teaches: `worktree-shell-picker`
-- Follow-through: `verb-run-after-tip` (`worktrees`)
+- Follow-through: `verb-run-after-tip` (`enter`)
 
 Rendered line:
 
-> `discern worktrees` opens another working copy at the same project-relative folder in a child shell. Exit it to return.
+> `discern enter` opens another working copy at the same project-relative folder in a child shell. Exit it to return.
 
 ## `prepare-fast-feedback`
 
@@ -297,18 +297,6 @@ Rendered line:
 Rendered line:
 
 > `discern refresh` compiles shared instructions into every configured coding agent's instruction file and republishes reusable guides from their sources.
-
-## `preset-keeps-project-values`
-
-- Relevance: Evergreen — a project-upkeep lesson.
-- Predicate: —
-- Since: —
-- Teaches: `presets`
-- Follow-through: `verb-run-after-tip` (`preset`)
-
-Rendered line:
-
-> `discern preset <name>` adds a reusable set of starter files and settings. Values already present in the project stay unchanged.
 
 ## `upgrade-check-only`
 

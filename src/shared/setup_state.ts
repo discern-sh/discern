@@ -2,7 +2,7 @@
  * One-time-setup state: the skeleton-marker detector and the canonical
  * "setup is not finished" advisory.
  *
- * `discern setup` lays scaffold files carrying placeholder markers, then hands the
+ * `discern setup begin` lays scaffold files carrying placeholder markers, then hands the
  * agent a brief to fill them and `discern setup done` to lock it in. Three surfaces
  * need to know whether that work is still outstanding — `setup done` (the gate that
  * refuses while markers remain), `status` (the orientation banner), and the
@@ -24,7 +24,7 @@ import {
 import { runGit } from "./subprocess.ts";
 import { pathExists, readTextIfExists } from "./fs_presence.ts";
 
-/** The branch a fresh `discern setup` isolates its work on, so its several
+/** The branch a fresh `discern setup begin` isolates its work on, so its several
  * commits never land on — or pollute — the user's current branch (ADR 0065). */
 export const SETUP_BRANCH = "discern-setup";
 
@@ -75,7 +75,7 @@ export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   // The desk supervises the worktree fleet, which doesn't exist until setup
   // completes; pre-setup, bare `discern` shows the welcome instead (ADR 0119).
   "desk",
-  "worktrees",
+  "enter",
 ]);
 
 /** True when `verb` refuses until the project is set up (see {@link SETUP_GATED_VERBS}). */
@@ -141,8 +141,8 @@ export function setupNextAction(phase: SetupPhase): string {
  * tool's, so the funnel toward `discern setup` reads identically on both surfaces.
  */
 export const NOT_SET_UP_MESSAGE =
-  "this project isn't set up yet. Run `discern` (or `discern setup`) to set it " +
-  "up — your coding agent does it for you.";
+  "this project isn't set up yet. Run `discern` (or `discern setup`) to start " +
+  "setup — your coding agent does it for you.";
 
 /**
  * The registered gate advisory when setup is still outstanding, else `undefined`

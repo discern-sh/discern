@@ -1,5 +1,5 @@
 /**
- * CLI tests for `setup --config <file>` (ADR 0005): a JSON answers file drives a
+ * CLI tests for `setup begin --config <file>` (ADR 0005): a JSON answers file drives a
  * fresh, non-interactive install, with jobs/scopes/standards
  * applied to the generated discern.toml (comments preserved). Run as
  * subprocesses.
@@ -30,19 +30,19 @@ const ANSWERS = JSON.stringify({
   },
 });
 
-Deno.test("setup --config scaffolds from a JSON answers file", async () => {
+Deno.test("setup begin --config scaffolds from a JSON answers file", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const r = await runCli(
-      ["setup", "--config", "answers.json", "--json"],
+      ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.ok, true);
-    assertEquals(result.verb, "setup");
+    assertEquals(result.verb, "setup begin");
     assertEquals(result.data.project.slug, "my-app");
 
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -64,16 +64,16 @@ Deno.test("setup --config scaffolds from a JSON answers file", async () => {
   });
 });
 
-Deno.test("setup --config - reads the answers file from stdin", async () => {
+Deno.test("setup begin --config - reads the answers file from stdin", async () => {
   await withTempDir(async (dir) => {
     const r = await runCli(
-      ["setup", "--config", "-", "--json"],
+      ["setup", "begin", "--config", "-", "--json"],
       dir,
       {},
       ANSWERS,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.data.project.slug, "my-app");
@@ -84,30 +84,38 @@ Deno.test("setup --config - reads the answers file from stdin", async () => {
   });
 });
 
-Deno.test("setup --config: an explicit flag overrides the file value", async () => {
+Deno.test("setup begin --config: an explicit flag overrides the file value", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const r = await runCli(
-      ["setup", "--config", "answers.json", "--slug", "flag-wins", "--json"],
+      [
+        "setup",
+        "begin",
+        "--config",
+        "answers.json",
+        "--slug",
+        "flag-wins",
+        "--json",
+      ],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertResultDataKey(result, "project");
     assert(result.data.project !== undefined);
     assertEquals(result.data.project.slug, "flag-wins");
   });
 });
 
-Deno.test("setup --config --dry-run writes nothing", async () => {
+Deno.test("setup begin --config --dry-run writes nothing", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const r = await runCli(
-      ["setup", "--config", "answers.json", "--dry-run", "--json"],
+      ["setup", "begin", "--config", "answers.json", "--dry-run", "--json"],
       dir,
     );
     assertEquals(r.code, 0, r.stderr);
-    assertEquals(decodeCliResult(r.stdout, "setup").dry_run, true);
+    assertEquals(decodeCliResult(r.stdout, "setup begin").dry_run, true);
     // Only the answers file exists; nothing was scaffolded.
     let entries = 0;
     for await (const _ of Deno.readDir(dir)) {
@@ -117,36 +125,39 @@ Deno.test("setup --config --dry-run writes nothing", async () => {
   });
 });
 
-Deno.test("setup --config rejects invalid JSON", async () => {
+Deno.test("setup begin --config rejects invalid JSON", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
-    const r = await runCli(["setup", "--config", "bad.json", "--json"], dir);
+    const r = await runCli(
+      ["setup", "begin", "--config", "bad.json", "--json"],
+      dir,
+    );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertEquals(result.ok, false);
     assertEquals(result.error, "invalid_config_file");
   });
 });
 
-Deno.test("setup --config rejects an unsupported document version", async () => {
+Deno.test("setup begin --config rejects an unsupported document version", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
       JSON.stringify({ version: "3", slug: "x" }),
     );
     const r = await runCli(
-      ["setup", "--config", "answers.json", "--json"],
+      ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "version");
   });
 });
 
-Deno.test("setup --config rejects an invalid fill (bad check stage)", async () => {
+Deno.test("setup begin --config rejects an invalid fill (bad check stage)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "answers.json"),
@@ -156,11 +167,11 @@ Deno.test("setup --config rejects an invalid fill (bad check stage)", async () =
       }),
     );
     const r = await runCli(
-      ["setup", "--config", "answers.json", "--json"],
+      ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(r.code, 1);
-    const result = decodeCliResult(r.stdout, "setup");
+    const result = decodeCliResult(r.stdout, "setup begin");
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "stage");

@@ -1,12 +1,8 @@
 /**
  * The **discern config document** — the one JSON shape that declaratively
  * describes a project's gate config (ADR 0005, ADR 0017/0018). It is consumed in
- * two places:
- *
- *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
- *   - a preset's `preset.json` — the config half of an `preset` overlay.
- *
- * Both apply the document's `jobs` / `scopes` / `generated` / `standards` /
+ * `discern setup begin --config <file>` drives a fresh, non-interactive install.
+ * It applies the document's `jobs` / `scopes` / `generated` / `standards` /
  * `checkpoints` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
@@ -30,14 +26,14 @@ import {
   selectCheckpointQuestionSource,
 } from "../shared/checkpoints.ts";
 import type { InitFlags } from "./terminal_interaction.ts";
-import { TomlEditor } from "./toml_edit.ts";
+import type { TomlEditor } from "./toml_edit.ts";
 
 // The document's shape, its major version, and its editor JSON Schema all derive
 // from the one canonical schema (`config_schema.ts`, ADR 0026) — re-exported here
 // so the installer keeps importing them from this module. `applyConfigDoc` below
 // is the runtime translator that writes a validated, forward-tolerant document
 // into a project's discern.toml, with author-friendly per-section messages; the
-// schema is the published contract a `preset.json` validates against.
+// schema is the published contract setup validates against.
 export { CONFIG_DOC_VERSION };
 export type { DiscernConfigDoc };
 
@@ -78,7 +74,7 @@ export async function loadConfigDoc(
   );
 }
 
-/** Decode the shared setup/preset document contract from one JSON source. */
+/** Decode the setup document contract from one JSON source. */
 export function decodeConfigDoc(
   text: string,
   source: string,
@@ -140,21 +136,6 @@ export interface ConfigFillReport {
 }
 
 /**
- * Whether a document carries any config fill at all — the single-source answer
- * to "is there anything for {@link applyConfigDoc} to write?". It IS
- * `applyConfigDoc`: it runs the same routine against a throwaway empty editor
- * and asks whether it touched any path, so the set of fill-bearing fields can
- * never drift from the set the apply-routine actually consumes (a caller must
- * not hand-copy that field list — a docs-only preset was silently dropped
- * exactly because one had). A malformed document throws here, the same way it
- * would at apply time, so the caller reports it once.
- */
-export function docHasFills(doc: DiscernConfigDoc): boolean {
-  const report = applyConfigDoc(new TomlEditor(""), doc);
-  return report.filled.length > 0 || report.skipped.length > 0;
-}
-
-/**
  * Apply a document's `jobs`/`scopes`/`generated`/`standards`/`checkpoints`
  * fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
@@ -164,8 +145,8 @@ export function docHasFills(doc: DiscernConfigDoc): boolean {
  * With `skipExisting`, a fill whose target already carries a real value (a set
  * key, or a present named-record table) is skipped
  * and reported instead of replacing it — a present value is the user's, so a
- * preset overlays config the way it overlays files: create-or-skip, never
- * overwrite. The default (used by `setup --config` over a freshly generated
+ * a conservative caller can fill missing config without overwriting it. The
+ * default (used by `setup begin --config` over a freshly generated
  * template) writes every fill. Either way the returned report names each path
  * per outcome, so callers can disclose exactly what changed.
  */

@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-# desc: (example preset) deploy the toy example app
-echo "example deploy ran"

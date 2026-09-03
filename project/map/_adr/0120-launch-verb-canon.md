@@ -5,6 +5,7 @@
 > - **[ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md) — placement:** fresh projects now place the map at `discern/map/`; the `map` vocabulary decision stands, and this repository continues to resolve its map to `project/map/`, exercising the existing path override.
 > - **[ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) — manual command:** `docs` now names discern's bundled manual, while `help` names CLI reference; `map` remains the project-maintained tree, and the single-spelling policy stands.
 > - **[ADR 0245](0245-receipt-renamed-to-proof.md) — receipt naming:** the July 10, 2026 receipt naming no longer stands — the gate's record is renamed **the proof**, and the scope-and-sequencing line below that kept it is superseded on that point.
+> - **[ADR 0365](0365-the-v1-cli-has-one-command-model-and-one-spelling.md) — v1 grammar:** `preset` is withdrawn, grammar-wide trailing-s aliases and command-specific redirects are removed, and suggestions derive from the typed live command tree. Canonical spellings remain the only commands discern publishes or accepts.
 
 **Status**: accepted
 

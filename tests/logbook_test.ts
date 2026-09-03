@@ -71,7 +71,8 @@ Deno.test("logbook begin policy: effectful and mixed verb forms are classified a
   assertEquals(logbookVerbIsEffectful("config get"), false);
   assertEquals(logbookVerbIsEffectful("config set"), true);
   assertEquals(logbookVerbIsEffectful("setup"), false);
-  assertEquals(logbookVerbIsEffectful("setup", ["config"]), true);
+  assertEquals(logbookVerbIsEffectful("setup", ["config"]), false);
+  assertEquals(logbookVerbIsEffectful("setup begin"), true);
   assertEquals(logbookVerbIsEffectful("upgrade", ["check"]), false);
   assertEquals(logbookVerbIsEffectful("upgrade"), true);
   assertEquals(logbookVerbIsEffectful("map"), false);

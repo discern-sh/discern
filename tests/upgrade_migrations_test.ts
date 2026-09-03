@@ -25,8 +25,8 @@ async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
       "setup",
+      "begin",
       "--confirmed",
-      "--yes",
       "--slug",
       "demo",
       "--name",

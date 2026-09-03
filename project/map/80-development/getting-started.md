@@ -33,13 +33,13 @@ These work the same regardless of language or framework (shown here as `discern 
 ```sh
 deno task install-dev-cli         # put `discern` on your PATH (once)
 discern --help                    # the command surface (installer + engine verbs)
-discern setup                      # scaffold into the current dir (try a scratch dir)
+discern setup begin                # scaffold into the current dir (try a scratch dir)
 deno task build                   # compile per-platform binaries to dist/ (release only)
 ```
 
 **Test the compiled binary.** Use `deno task use-compiled-build` when a client needs the shipped host artifact on `PATH` without the source shim. The task builds the host binary, installs it for the command's lifetime, and restores the development shim when you press Ctrl-C. If signal 9 stops the task before restoration, run `deno task install-dev-cli`.
 
-discern is a command-line interface (CLI) binary with the Engine compiled in. To exercise it, scaffold a temporary directory with `discern setup` and run `discern` there, or run the Gate in this repository.
+discern is a command-line interface (CLI) binary with the Engine compiled in. To exercise it, scaffold a temporary directory with `discern setup begin` and run `discern` there, or run the Gate in this repository.
 
 **Your first green gate.** From the repo root:
 

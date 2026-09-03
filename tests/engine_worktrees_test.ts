@@ -1,4 +1,4 @@
-/** Behavioral coverage for the interactive `worktrees` shell picker. */
+/** Behavioral coverage for the interactive `enter` shell picker. */
 
 import {
   assert,
@@ -15,10 +15,10 @@ import type { SelectionRequestOptions } from "../src/lib/terminal_interaction.ts
 import { makeOut, type Out } from "../src/engine/output.ts";
 import {
   buildWorktreeShellRows,
+  type EnterRuntime,
   equivalentDirectoryCandidates,
   resolveEquivalentDirectory,
-  runWorktrees,
-  type WorktreesRuntime,
+  runEnter,
 } from "../src/engine/worktree/shell_picker.ts";
 import { userShell } from "../src/engine/user_shell.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -102,8 +102,8 @@ function statusData(fleet: StatusFleetEntry[]): StatusData {
 /** Deterministic runtime with overrideable seams. */
 function scriptedRuntime(
   output: Transcript,
-  patch: Partial<WorktreesRuntime> = {},
-): WorktreesRuntime {
+  patch: Partial<EnterRuntime> = {},
+): EnterRuntime {
   const root = resolve("/project");
   const main = resolve("/main");
   const target = resolve("/worktrees/other");
@@ -211,13 +211,13 @@ Deno.test("worktree picker rows derive branch, Git, Proof, and activity facts fr
   assertStringIncludes(rows[2]?.description ?? "", "3 commits ahead of main");
 });
 
-Deno.test("worktrees surveys from main, shows every state, and launches at the equivalent cwd", async () => {
+Deno.test("enter surveys from main, shows every state, and launches at the equivalent cwd", async () => {
   const output = transcript();
   let surveyed = "";
   let selection: SelectionRequestOptions<string> | undefined;
   let launched: { shell: string; cwd: string } | undefined;
   const target = resolve("/worktrees/other");
-  const code = await runWorktrees(
+  const code = await runEnter(
     {},
     scriptedRuntime(output, {
       status: (path) => {
@@ -272,12 +272,12 @@ Deno.test("worktrees surveys from main, shows every state, and launches at the e
   assert(!output.stderr.join("\n").includes("warn:"));
 });
 
-Deno.test("worktrees reports a missing equivalent directory before opening its nearest ancestor", async () => {
+Deno.test("enter reports a missing equivalent directory before opening its nearest ancestor", async () => {
   const output = transcript();
   const target = resolve("/worktrees/other");
   let launchedCwd = "";
   const existing = new Set([target, join(target, "src")]);
-  const code = await runWorktrees(
+  const code = await runEnter(
     {},
     scriptedRuntime(output, {
       isDirectory: (path) => existing.has(path),
@@ -299,7 +299,7 @@ Deno.test("worktrees reports a missing equivalent directory before opening its n
 
 realPtyTest({
   name:
-    "discern worktrees opens a real child shell at the cwd-equivalent directory",
+    "discern enter opens a real child shell at the cwd-equivalent directory",
   contracts: ["platform-transport"],
   canary: false,
   ignore: Deno.build.os === "windows",
@@ -326,7 +326,7 @@ realPtyTest({
         );
         try {
           await git(dir, "worktree", "add", "-q", "-b", "agent/other", target);
-          const result = await runAgentPtyJourney(nested, ["worktrees"], {
+          const result = await runAgentPtyJourney(nested, ["enter"], {
             env: {
               SHELL: shell,
               WORKTREE_PICKER_TEST_CWD: observed,

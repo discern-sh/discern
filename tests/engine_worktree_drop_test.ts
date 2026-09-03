@@ -23,6 +23,7 @@ import {
   gitInit,
   gitOut,
   runAgent,
+  runWorktreeCore,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
@@ -566,14 +567,14 @@ Deno.test("worktree drop: honors git worktree lock — refused even with --force
   });
 });
 
-Deno.test("remove-worktree-safely: the shared removal core refuses a locked worktree", async () => {
+Deno.test("removeWorktreeSafely: the shared removal core refuses a locked worktree", async () => {
   await withTempDir(async (dir) => {
     // Every removal path (drop, accept, prune, discard) funnels through this
     // helper — the refusal here is the class guard for all of them.
     const wt = await mainWithWorktree(dir, "locked-core");
     await git(dir, "worktree", "lock", wt);
 
-    const r = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const r = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "locked");
     assertTerminalTextIncludes(r.output, "git worktree unlock");

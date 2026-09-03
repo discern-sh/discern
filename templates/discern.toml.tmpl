@@ -8,7 +8,7 @@
 # complete reference for a section or a key, with its current value and an
 # example.
 #
-#   discern setup      guided first configuration (ask your coding agent)
+#   discern setup begin  guided first configuration (ask your coding agent)
 #   discern doctor     verify this installation           MCP: discern_doctor
 #   discern status     what is true now, and what is next  MCP: discern_status
 #   discern docs       the manual                          MCP: discern_docs
@@ -112,8 +112,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [map]
-  # Where the project map lives, relative to the project root. `discern setup`
-  # scaffolds it here and `discern map` browses it.
+  # Where the project map lives, relative to the project root. `discern setup
+  # begin` scaffolds it here and `discern map` browses it.
   dir = "{{map_dir}}"
 
 
@@ -130,9 +130,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [instructions]
-  # Your instruction source files or globs, relative to the project root. Read
-  # only when present; discern's built-in instructions are always prepended, so
-  # these are additive. `discern setup` seeds a starter here.
+  # Instruction source files or globs, relative to the project root. Missing
+  # files are skipped; `discern setup begin` seeds the default source.
   sources = ["discern/instructions.md"]
 
 

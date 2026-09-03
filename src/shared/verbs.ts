@@ -26,7 +26,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "patterns",
   "status",
   "desk",
-  "worktrees",
+  "enter",
   "accept",
   "update",
   "start",
@@ -43,7 +43,6 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "upgrade",
   "uninstall",
   "doctor",
-  "preset",
   "map",
   "docs",
   "help",
@@ -81,6 +80,7 @@ export const LOGBOOK_PURE_OBSERVATION_VERBS: ReadonlySet<string> = new Set([
   "mcp",
   "status",
   "triangle",
+  "enter",
 ]);
 
 /** Effectful top-level verbs, derived from the routing vocabulary. */
@@ -115,22 +115,6 @@ export function logbookInvocationIsRecorded(verb: string): boolean {
   return !LOGBOOK_SELF_MUTATING_INVOCATIONS.has(verb);
 }
 
-const SETUP_EFFECT_FLAGS: ReadonlySet<string> = new Set([
-  "agents",
-  "allow-dirty",
-  "branch-prefix",
-  "brief",
-  "config",
-  "confirmed",
-  "force",
-  "map",
-  "model",
-  "name",
-  "slug",
-  "source-globs",
-  "yes",
-]);
-
 /** Whether this display-form invocation receives a logbook begin event. */
 export function logbookVerbIsEffectful(
   verb: string,
@@ -147,9 +131,6 @@ export function logbookVerbIsEffectful(
   }
   if (verb === "docs" || verb === "map") {
     return flags.includes("output");
-  }
-  if (verb === "setup") {
-    return flags.some((flag) => SETUP_EFFECT_FLAGS.has(flag));
   }
   if (verb === "upgrade" && flags.includes("check")) {
     return false;

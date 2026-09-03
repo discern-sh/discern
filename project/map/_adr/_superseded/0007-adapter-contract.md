@@ -2,10 +2,11 @@
 
 > **Amendments.**
 >
-> - **Vocabulary ([ADR 0018](0018-vocabulary-consolidation.md), [ADR 0120](0120-launch-verb-canon.md), [ADR 0137](0137-project-scripts-live-under-the-script-command.md)):** the "adapter" is now the **preset** — `preset`, `preset.json`, `presets/` — so read every "adapter" below as "preset"; current pointers use `standards` (formerly `ratchets`), and the project-owned executable called a Recipe below is now a Project Script under `discern script`; the decisions below are unchanged.
-> - **[ADR 0019](0019-single-binary-ts-engine.md) — overlay base:** the managed/`.new` overlay this contract builds on was removed with the single binary — seed files are now create-or-skip — but the mechanism (a directory overlay plus config fills through the shared editor) still ships.
+> - **Vocabulary ([ADR 0018](../0018-vocabulary-consolidation.md), [ADR 0120](../0120-launch-verb-canon.md), [ADR 0137](../0137-project-scripts-live-under-the-script-command.md)):** the "adapter" became the **preset** — `preset`, `preset.json`, `presets/`; current pointers use `standards` (formerly `ratchets`), and the project-owned executable called a Recipe below is now a Project Script under `discern scripts`.
+> - **[ADR 0019](../0019-single-binary-ts-engine.md) — overlay base:** the managed/`.new` overlay this contract builds on was removed with the single binary — seed files are now create-or-skip — but the mechanism (a directory overlay plus config fills through the shared editor) still ships.
+> - **[ADR 0365](../0365-the-v1-cli-has-one-command-model-and-one-spelling.md) — preset withdrawal:** no public population used this pre-v1 packaging surface, so the `preset` command, manifest, environment control, result contracts, fixtures, and documentation are withdrawn before the first tag. Shared config-document and overlay machinery remains only where another live feature owns it.
 
-**Status**: accepted; **amended by the 1.0 redesign** — see _Update (1.0)_ below.
+**Status**: superseded by [ADR 0365](../0365-the-v1-cli-has-one-command-model-and-one-spelling.md); **amended by the 1.0 redesign** — see _Update (1.0)_ below.
 
 ## Update (1.0)
 

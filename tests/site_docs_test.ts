@@ -632,7 +632,6 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
     );
   assertEquals(matchesFor("Accept"), ["discern accept"]);
   assertEquals(matchesFor("Patterns"), ["discern patterns"]);
-  assertEquals(matchesFor("Preset"), ["discern preset"]);
   assertEquals(matchesFor("Proof"), ["proof line"]);
   assertEquals(matchesFor("Proof note"), ["Proof note"]);
   assertEquals(matchesFor("Update"), ["discern update"]);

@@ -289,22 +289,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The MCP server resolves an omitted tool path at its host process boundary before dispatching the call.",
   },
-  "preset-command-cwd": {
-    path: "src/commands/preset.ts",
-    enclosingFunction: "runPreset",
-    primitive: "cwd",
-    operation: "resolve the preset destination root",
-    reason:
-      "The preset command is the CLI composition root that resolves its destination from the invoking cwd.",
-  },
-  "preset-source-override": {
-    path: "src/commands/preset.ts",
-    enclosingFunction: "resolvePresetsDir",
-    primitive: "env.get",
-    operation: "read the development preset-source override",
-    reason:
-      "The preset command composes its explicit development source override at the host process boundary.",
-  },
   "private-docs-checkout-root-cwd": {
     path: "scripts/ensure_private_docs.ts",
     enclosingFunction: "<module>",

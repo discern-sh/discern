@@ -144,7 +144,6 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
       "src/engine/worktree/git.ts",
     ),
     {
-      "src/engine/dispatch.ts": 1,
       "src/engine/worktree/git.ts": 2,
       "src/engine/worktree/lifecycle.ts": 4,
       "src/engine/worktree/park.ts": 1,

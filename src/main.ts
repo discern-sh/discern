@@ -27,7 +27,6 @@ import { findRoot } from "./shared/env.ts";
 import { isKnownJob, knownJobList } from "./shared/capabilities.ts";
 import { NOT_SET_UP_MESSAGE, verbNeedsSetup } from "./shared/setup_state.ts";
 import {
-  commandSynonymSuggestion,
   normalizeVerbVariant,
   retiredCommandMessage,
   retiredCommandSuccessor,
@@ -40,9 +39,7 @@ import {
 import { inDeskSession } from "./engine/desk/session.ts";
 import {
   attachEngineCommands,
-  dispatchHelper,
   KNOWN_VERBS,
-  reportUnknownCommand,
   reportUnknownOrSuggest,
   runConfigExplain,
   runConfigRead,
@@ -72,15 +69,18 @@ import {
   type TerminalThemeMode,
 } from "./lib/terminal.ts";
 import { renderMarkdown } from "./lib/markdown.ts";
-import { writeStderr } from "./engine/output.ts";
+import { writeStderr, writeStdout } from "./engine/output.ts";
 import { detachPromise } from "./shared/promise_effects.ts";
 import { SYSTEM_CLOCK } from "./shared/clock.ts";
+import { EXIT_USAGE } from "./shared/exit_codes.ts";
 import {
+  CLI_JSON_DESCRIPTION_OVERRIDES,
   CLI_RESULT_FORMATS,
   CLI_RESULT_RENDER,
   type ResultOutputFormat,
 } from "./shared/result_formats.ts";
 import {
+  type CliCommand,
   cliCommandModel,
   type CliModelProvider,
 } from "./shared/cli_reference_codegen.ts";
@@ -361,9 +361,14 @@ function handleCliValidationError(error: Error, command: Command): void {
   const startMessage = commandPath === "start"
     ? startValidationMessage(activeDiscernArgv, error.message)
     : undefined;
+  const setupMessage = commandPath === "setup"
+    ? `${
+      error.message.replace(/[.\s]+$/, "")
+    }. Setup is read-only; run \`discern setup begin --help\` for scaffold options.`
+    : undefined;
   const message = commandPath === "config set-job"
     ? setJobValidationMessage(activeDiscernArgv, error.message)
-    : startMessage ?? error.message;
+    : setupMessage ?? startMessage ?? error.message;
   if (quietResultRequested(activeDiscernArgv)) {
     emitResult({
       ok: false,
@@ -371,7 +376,10 @@ function handleCliValidationError(error: Error, command: Command): void {
       error: "invalid_arguments",
       message,
     });
-  } else if (commandPath === "config set-job" || startMessage !== undefined) {
+  } else if (
+    commandPath === "config set-job" || startMessage !== undefined ||
+    setupMessage !== undefined
+  ) {
     const log = new Logger({ json: false, noColor: false });
     if (startMessage !== undefined) {
       log.errorBlock(message);
@@ -397,11 +405,16 @@ export function buildCli(
   const root = new Command()
     .name("discern")
     .version(KIT_VERSION)
+    .versionOption(
+      "-V, --version",
+      "Print the installed discern version.",
+      () => writeStdout(`discern ${KIT_VERSION}\n`),
+    )
     .usage("<command> [options]")
     .description(
       "Operate your project's quality gate (its full quality check) and Git " +
         "worktrees (a separate checkout and branch for each effort); `discern setup` " +
-        "scaffolds the stack-neutral system the first time.",
+        "explains the first step and `discern setup begin` scaffolds the stack-neutral system.",
     )
     .example(
       "Orient yourself",
@@ -437,9 +450,8 @@ export function buildCli(
     )
     .globalOption(
       `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
-      "Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`.",
+      "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
       {
-        default: DEFAULT_TERMINAL_THEME_MODE,
         value: terminalThemeValue,
       },
     )
@@ -457,14 +469,8 @@ export function buildCli(
 
   const cliModel: CliModelProvider = () => cliCommandModel(root);
 
-  // `setup` — the staged, zero-config project setup (ADR 0036, staged by ADR 0075).
-  // A bare `discern setup` (no scaffold input) prints the read-only WELCOME; the
-  // sub-verbs drive the handshake — `begin` (the first mutating step: scaffold +
-  // brief) and `done` (prove + record). The declarative `--config`/flag path scaffolds
-  // straight through `begin`, skipping the welcome (CI / presets). Bare `discern`
-  // (pre-setup) routes to the welcome too (below). `begin` is canonical; the parent
-  // mirrors its scaffold options so `discern setup --config …` still works, and both
-  // map them through `beginOptsFrom`.
+  // `setup` is the read-only welcome. `setup begin` exclusively owns the first
+  // mutating step and every option that can shape it.
   const setupBegin = new Command()
     .description(
       "Scaffold discern, record provenance, and print the setup brief (the first mutating step).",
@@ -497,11 +503,6 @@ export function buildCli(
     .option(
       "--model <model:string>",
       "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
-    )
-    .option(
-      "-y, --yes",
-      "Accepted for back-compat; setup is always non-interactive.",
-      { hidden: true },
     )
     .option("--dry-run", "Print the plan and write nothing.")
     .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
@@ -577,62 +578,10 @@ export function buildCli(
 
   const setup = new Command()
     .description(
-      "Set up discern here (run once; your coding agent does it for you).",
-    )
-    .option("--name <name:string>", "Project name (free text).")
-    .option("--slug <slug:string>", "Project slug (^[a-z0-9][a-z0-9-]*$).")
-    .option("--branch-prefix <prefix:string>", "Branch prefix for worktrees.", {
-      default: undefined,
-    })
-    .option(
-      "--source-globs <globs:string>",
-      "Comma-separated primary source globs (e.g. 'src/**,app/**').",
-    )
-    .option(
-      "--brief <brief:string>",
-      "Free-text project description, or @path to read it from a file.",
-    )
-    .option(
-      "--agents <agents:string>",
-      `Comma-separated agent files to emit: ${AGENT_NAMES.join(", ")}.`,
-    )
-    .option(
-      "--map <path:string>",
-      "Project-relative directory for the project map — discern's agent-maintained documentation tree.",
-    )
-    .option(
-      "--config <file:string>",
-      "JSON answers file (or - for stdin) to scaffold declaratively.",
-    )
-    .option(
-      "--model <model:string>",
-      "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
-    )
-    .option(
-      "-y, --yes",
-      "Accepted for back-compat; setup is always non-interactive.",
-      { hidden: true },
-    )
-    .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
-    .option(
-      "--allow-dirty",
-      "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
-    )
-    .option(
-      "--confirmed",
-      "Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation.",
+      "Read the setup welcome and learn the canonical first step. Run `discern setup begin` only after the owner is ready to scaffold.",
     )
     .action(recordedExit("setup", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { beginOptsFrom, hasScaffoldIntent, runSetupBegin } = await import(
-        "./commands/setup.ts"
-      );
-      // Bare `discern setup` → the read-only welcome; any scaffold/declarative input
-      // (the CI/preset path) scaffolds straight through `begin` (ADR 0075).
-      if (hasScaffoldIntent(options)) {
-        return await runSetupBegin(beginOptsFrom(options, json, noColor));
-      }
       const { runSetupWelcome } = await import("./commands/setup_welcome.ts");
       return await runSetupWelcome({ json, noColor });
     }))
@@ -646,9 +595,8 @@ export function buildCli(
   root
     .command("upgrade")
     .description(
-      "Upgrade discern itself in this project: migrate its config and refresh bundled " +
-        "skills and instructions. Use `discern update` for this branch; use `discern " +
-        "refresh` for agent files alone.",
+      "Bring this project forward to the installed discern: run pending config migrations, reconcile discern-owned config, .gitignore and .gitattributes blocks, and refresh bundled skills and instructions. Never replaces the binary. " +
+        "Use `discern update` to bring trunk into a task branch; use `discern refresh` to regenerate project artifacts only.",
     )
     .option(
       "--dry-run",
@@ -656,7 +604,7 @@ export function buildCli(
     )
     .option(
       "--check",
-      "Report whether config-schema migrations are pending (exit non-zero if so); write nothing.",
+      "Report whether migrations or discern-owned reconciliation are pending (exit non-zero if so); write nothing; no network.",
     )
     .option(
       "--allow-dirty",
@@ -738,30 +686,6 @@ export function buildCli(
         plain: options.plain ?? false,
       });
     }));
-
-  // Out of the operator help — the hidden-verb registry records why and what
-  // returns it to the listing.
-  root
-    .command("preset <name:string>")
-    .description(
-      "Overlay a reference preset from presets/<name>/ (ships none by default).",
-    )
-    .option("-y, --yes", "Non-interactive: skip confirmation.")
-    .option("--dry-run", "Print the plan and write nothing.")
-    .action(
-      recordedExit(
-        "preset",
-        async (options, name: string) => {
-          const { runPreset } = await import("./commands/preset.ts");
-          return await runPreset(name, {
-            json: options.json ?? false,
-            noColor: noColorFrom(options.color),
-            dryRun: options.dryRun ?? false,
-            yes: options.yes ?? false,
-          });
-        },
-      ),
-    );
 
   root
     .command("map [target:string]")
@@ -845,7 +769,7 @@ export function buildCli(
     )
     .option(
       "--adr",
-      "Browse decision records in a source checkout, or show their public location.",
+      "Browse this project's decision records, or show their published location when local records are unavailable.",
     )
     .option(
       "--pager",
@@ -881,41 +805,37 @@ export function buildCli(
       });
     }));
 
-  // `help` is CLI reference, matching the conventional two spellings:
-  // bare `discern help` mirrors `discern --help`, and `discern help <command>`
-  // mirrors `discern <command> --help`. The bundled manual lives at `docs`.
+  // `help` selects any nested node in the live command model. Quiet output is
+  // intercepted in `main` so every JSON-flag placement returns that same node.
   root
-    .command("help [command:string]")
+    .command("help [...command:string]")
     .description("Show command-line help.")
-    .action(recordedExit("help", function (
+    .action(recordedExit("help", async function (
       _options,
-      command?: string,
-    ): number {
-      if (command === undefined || command === "") {
+      ...command: string[]
+    ): Promise<number> {
+      if (command.length === 0) {
         new Logger({ json: false, noColor: false }).line(
           operatorHelp(root as unknown as Command),
         );
         return 0;
       }
-      const sub = root.getCommand(command, true);
-      if (sub !== undefined && KNOWN_VERBS.has(command)) {
+      const sub = findRegisteredCommand(root as unknown as Command, command);
+      if (sub !== undefined) {
         sub.showHelp();
         return 0;
       }
-      const successor = retiredCommandSuccessor(command);
+      const attempted = command.join(" ");
+      const successor = retiredCommandSuccessor(attempted);
       if (successor !== undefined) {
         new Logger({ json: false, noColor: false }).error(
-          retiredCommandMessage(command, successor),
+          retiredCommandMessage(attempted, successor),
         );
         return 1;
       }
-      reportUnknownCommand(
-        command,
-        commandSynonymSuggestion(command),
-        "discern",
-        { json: false },
-      );
-      return 1;
+      return await reportUnknownOrSuggest(attempted, cliModel, {
+        json: false,
+      });
     }));
 
   // `config` — programmatic, comment-preserving edits to an existing
@@ -1059,28 +979,24 @@ export function buildCli(
 
   // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
-  const readJsonHelp =
-    "Emit the read result as a JSON DiscernResult envelope on stdout.";
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
-    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config get",
         async (o, key: string) =>
-          await runConfigRead("get", key, { json: o.json ?? false }),
+          await runConfigRead("get", key, { json: globalFlags(o).json }),
       ),
     );
   const configArray = new Command()
     .description("Print an array config value, one item per line.")
     .arguments("<key:string>")
-    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config array",
         async (o, key: string) =>
-          await runConfigRead("array", key, { json: o.json ?? false }),
+          await runConfigRead("array", key, { json: globalFlags(o).json }),
       ),
     );
   const configHas = new Command()
@@ -1088,34 +1004,34 @@ export function buildCli(
       "Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.",
     )
     .arguments("<key:string>")
-    .option("--json", readJsonHelp)
+    .option("--json", CLI_JSON_DESCRIPTION_OVERRIDES["config has"])
     .action(
       recordedExit(
         "config has",
         async (o, key: string) =>
-          await runConfigRead("has", key, { json: o.json ?? false }),
+          await runConfigRead("has", key, { json: globalFlags(o).json }),
       ),
     );
   const configSubsections = new Command()
     .description("Print the immediate child table names under a section.")
     .arguments("<key:string>")
-    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config subsections",
         async (o, key: string) =>
-          await runConfigRead("subsections", key, { json: o.json ?? false }),
+          await runConfigRead("subsections", key, {
+            json: globalFlags(o).json,
+          }),
       ),
     );
   const configKeys = new Command()
     .description("Print the flat key names declared in a section.")
     .arguments("<key:string>")
-    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config keys",
         async (o, key: string) =>
-          await runConfigRead("keys", key, { json: o.json ?? false }),
+          await runConfigRead("keys", key, { json: globalFlags(o).json }),
       ),
     );
   const configExplain = new Command()
@@ -1123,12 +1039,11 @@ export function buildCli(
       "Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.",
     )
     .arguments("<path:string>")
-    .option("--json", readJsonHelp)
     .action(
       recordedExit(
         "config explain",
         async (o, path: string) =>
-          await runConfigExplain(path, { json: o.json ?? false }),
+          await runConfigExplain(path, { json: globalFlags(o).json }),
       ),
     );
 
@@ -1382,6 +1297,86 @@ export function resolveInvocation(
   };
 }
 
+/** Resolve a canonical nested command path from the typed live command model. */
+export function findCliCommand(
+  model: CliCommand,
+  words: readonly string[],
+  requireComplete = true,
+): CliCommand | undefined {
+  let current = model;
+  let consumed = 0;
+  for (const word of words) {
+    const child = current.children.find((candidate) => {
+      const name = candidate.path[candidate.path.length - 1];
+      return name === word || candidate.aliases.includes(word);
+    });
+    if (child === undefined) break;
+    current = child;
+    consumed += 1;
+  }
+  if (requireComplete && consumed !== words.length) return undefined;
+  return consumed === 0 && words.length > 0 ? undefined : current;
+}
+
+/** Resolve the same nested path against Cliffy's command objects for human help. */
+function findRegisteredCommand(
+  root: Command,
+  words: readonly string[],
+): Command | undefined {
+  let current = root;
+  for (const word of words) {
+    const child = current.getCommand(word, true);
+    if (child === undefined) return undefined;
+    current = child;
+  }
+  return current;
+}
+
+/** Command-shaped words after removing root-global options and help flags. */
+function helpWords(
+  argv: readonly string[],
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): { words: string[]; helpFlag: boolean } {
+  const words: string[] = [];
+  let helpFlag = false;
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index] ?? "";
+    const global = globalFlagToken(token, globalFlags, valueFlags);
+    if (global !== undefined) {
+      if (!global.inlineValue && valueFlags.has(global.flag)) index += 1;
+      continue;
+    }
+    if (token === "-h" || token === "--help") {
+      helpFlag = true;
+      continue;
+    }
+    words.push(token);
+  }
+  return { words, helpFlag };
+}
+
+/** Select the command node requested by any supported quiet help spelling. */
+function quietHelpCommand(
+  argv: readonly string[],
+  model: CliCommand,
+  globalFlags: ReadonlySet<string>,
+  valueFlags: ReadonlySet<string>,
+): { requested: boolean; command?: CliCommand } {
+  const parsed = helpWords(argv, globalFlags, valueFlags);
+  if (parsed.words[0] === "help") {
+    const command = findCliCommand(model, parsed.words.slice(1));
+    return command === undefined
+      ? { requested: true }
+      : { requested: true, command };
+  }
+  if (!parsed.helpFlag) return { requested: false };
+  const command = findCliCommand(model, parsed.words, false);
+  return command === undefined
+    ? { requested: true }
+    : { requested: true, command };
+}
+
 /** Select the published result discriminator that owns one attempted verb. */
 function resultVerbForInvocation(verb: string | undefined): string {
   if (verb === undefined) return "discern";
@@ -1524,8 +1519,7 @@ export async function main(args: string[]): Promise<number> {
     // thread it to every colour-emitting surface, so `--no-color` is honoured
     // uniformly — engine verbs, the installer Loggers, and the root help alike —
     // rather than each path re-deciding and dropping the flag (B32/B36). Done
-    // before helper dispatch so a helper's own output (`with-gotchas`' gotchas
-    // hint) obeys it too.
+    // before ordinary dispatch so every command's output obeys it too.
     const terminal = await productionTerminalContext({
       noColor: discernArgv.includes(ROOT_GLOBAL_FLAGS.noColor),
       theme,
@@ -1552,17 +1546,18 @@ export async function main(args: string[]): Promise<number> {
       });
       return 1;
     }
-
-    // Internal helper verbs (remove-worktree-safely, with-gotchas, …): handled
-    // before Cliffy so a wrapped command's flags pass through raw. Keyed on the
-    // FIRST token on purpose — helpers are internal plumbing always invoked
-    // verb-first, and everything after the helper name must reach it untouched.
-    const helperVerb = argv[0];
-    if (helperVerb !== undefined) {
-      const helperCode = await dispatchHelper(helperVerb, argv.slice(1));
-      if (helperCode !== null) {
-        return helperCode;
-      }
+    if (
+      quietResult &&
+      discernArgv.some((token) => token === "-V" || token === "--version")
+    ) {
+      emitResult({
+        ok: false,
+        verb: "discern",
+        error: "invalid_arguments",
+        message:
+          "`--version` does not have a result-envelope form. Run `discern --version` by itself.",
+      });
+      return EXIT_USAGE;
     }
 
     // Resolve the project's setup state — one config read, so the setup
@@ -1589,6 +1584,33 @@ export async function main(args: string[]): Promise<number> {
     );
     verb = invocation.verb;
 
+    if (quietResult) {
+      const selectedHelp = quietHelpCommand(
+        argv,
+        cliCommandModel(cli),
+        globalTokens,
+        globalValueTokens,
+      );
+      if (selectedHelp.requested) {
+        if (selectedHelp.command === undefined) {
+          emitResult({
+            ok: false,
+            verb: "help",
+            error: "unknown_command",
+            message:
+              "That help path is not a registered discern command. Run `discern help --json` for the command tree.",
+          });
+          return 1;
+        }
+        emitResult({
+          ok: true,
+          verb: "help",
+          data: { command: selectedHelp.command },
+        });
+        return 0;
+      }
+    }
+
     // No verb (bare `discern`, or global flags alone): pre-setup, this prints
     // the read-only WELCOME — the install message tells the user to "tell your
     // coding agent to run discern" (ADR 0036), and the welcome dual-addresses
@@ -1601,7 +1623,7 @@ export async function main(args: string[]): Promise<number> {
     if (verb === undefined) {
       if (quietResult) {
         emitRootResultRefusal(discernArgv);
-        return 1;
+        return EXIT_USAGE;
       }
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         const { runSetupWelcome } = await import(
@@ -1630,6 +1652,22 @@ export async function main(args: string[]): Promise<number> {
         operatorHelp(cli as unknown as Command, { color }),
       );
       return 0;
+    }
+
+    if (verb === "--") {
+      const message =
+        "`--` is only valid after `discern queue`, where it separates discern from the child command.";
+      if (quietResult) {
+        emitResult({
+          ok: false,
+          verb: "discern",
+          error: "invalid_arguments",
+          message,
+        });
+      } else {
+        new Logger({ json: false, noColor: false }).error(message);
+      }
+      return EXIT_USAGE;
     }
 
     // A retired spelling is not an alias: it refuses before unknown-command or
@@ -1753,9 +1791,19 @@ export async function main(args: string[]): Promise<number> {
     // path may point at `discern scripts <name>`, preserving discoverability while
     // keeping the root command vocabulary closed.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
-      return await reportUnknownOrSuggest(verb, {
-        json: quietResult,
-      });
+      const attempted = [
+        verb,
+        ...invocation.argsWithoutVerb.filter((token) =>
+          !globalTokens.has(token) && !token.startsWith("-")
+        ).slice(0, 1),
+      ].join(" ");
+      return await reportUnknownOrSuggest(
+        attempted,
+        () => cliCommandModel(cli),
+        {
+          json: quietResult,
+        },
+      );
     }
 
     await cli.parse(argv);

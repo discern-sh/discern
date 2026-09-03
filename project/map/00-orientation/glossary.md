@@ -37,7 +37,6 @@ aliases:
   - patterns
   - placement is consent
   - practice
-  - preset
   - project script
   - project-owned file
   - proof
@@ -161,7 +160,7 @@ The audit `discern improvement` serves: subjective [questions](#question) evalua
 
 ### Installer
 
-The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), `config`, and `preset`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
+The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), and `config`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).
 
 ### Instruction source
 
@@ -202,10 +201,6 @@ The rule deciding what discern and its agents may write: a file at its namespace
 ### Practice
 
 The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, a deterministic [gate](#gate) verdict, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: whole delegated pieces, retained lessons, cured bug classes, one authority per fact. Its conduct holds too: every result names the next action, and every effect runs planned. The human owns the practice; agents operate it. Covered in [the practice](the-practice.md).
-
-### Preset
-
-A reusable overlay applied with `discern preset <name>`: scaffolded files plus config fills. Fills are fill-if-absent — a value the project already sets stands, and every key is disclosed as filled or kept ([ADR 0118](../_adr/0118-preset-fills-never-overwrite.md)).
 
 ### Project script
 
@@ -277,7 +272,7 @@ Owner authorization to land one current [declared unmet](#declared-unmet) checkp
 
 ### Worktree
 
-A separate checkout and branch for one effort, created by `discern start`, so agents never work in the main checkout. Review feedback and resumed sessions stay in that checkout. `discern worktrees` opens another checkout in a child shell. Each gets a deterministic dev-server port and any declared [resources](#worktree-resource). Covered in [worktrees](../30-worktrees/).
+A separate checkout and branch for one effort, created by `discern start`, so agents never work in the main checkout. Review feedback and resumed sessions stay in that checkout. `discern enter` opens another checkout in a child shell. Each gets a deterministic dev-server port and any declared [resources](#worktree-resource). Covered in [worktrees](../30-worktrees/).
 
 ### Worktree resource
 

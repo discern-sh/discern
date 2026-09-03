@@ -431,7 +431,7 @@ const MAP_VERB: DocsVerb = {
   missingTree: (opts) =>
     opts.dir
       ? `no map directory at "${opts.dir}" — check the path or omit --dir to use [map].dir.`
-      : "the project map is missing at the configured [map].dir — run `discern setup` to seed it, or set [map].dir to its existing location.",
+      : "the project map is missing at the configured [map].dir — run `discern setup begin` to seed it, or set [map].dir to its existing location.",
   exportScopes: ["public", "all", "select"],
 };
 

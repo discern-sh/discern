@@ -91,11 +91,6 @@ const SPEC: Record<string, OutsideSpec> = {
     verb: "uninstall",
     expect: "not_initialized",
   },
-  preset: {
-    run: ["preset", "example", "--yes"],
-    verb: "preset",
-    expect: "not_initialized",
-  },
   config: {
     run: ["config", "get", "repository.trunk"],
     verb: "config",
@@ -106,9 +101,9 @@ const SPEC: Record<string, OutsideSpec> = {
   // them here keeps the exceptions honest: if one ever degrades to bare stderr
   // (or starts needing a project), this test catches the drift.
   desk: { run: ["desk"], verb: "desk", expect: "envelope", ok: false },
-  worktrees: {
-    run: ["worktrees"],
-    verb: "worktrees",
+  enter: {
+    run: ["enter"],
+    verb: "enter",
     expect: "envelope",
     ok: false,
   },

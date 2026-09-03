@@ -427,7 +427,7 @@ function preambleLines(): string[] {
       0,
     ),
     "#",
-    "#   discern setup      guided first configuration (ask your coding agent)",
+    "#   discern setup begin  guided first configuration (ask your coding agent)",
     "#   discern doctor     verify this installation           MCP: discern_doctor",
     "#   discern status     what is true now, and what is next  MCP: discern_status",
     "#   discern docs       the manual                          MCP: discern_docs",

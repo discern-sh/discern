@@ -21,6 +21,7 @@
 
 import { COMMAND_GROUPS } from "../cli_help.ts";
 import { repositoryBlobUrl } from "./brand.ts";
+import { renderExitStatusTable } from "./exit_codes.ts";
 
 /** One positional argument a command declares. */
 export interface CliArg {
@@ -360,14 +361,7 @@ export function renderCliReferenceModel(
       "",
       "## Exit behavior",
       "",
-      "| Exit status | Contract |",
-      "| --- | --- |",
-      "| `0` | The command completed successfully. A bare predicate exits `0` when true. |",
-      "| `1` | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold. |",
-      "| `124` | `discern await` reached its call budget before the watched condition held. Its result includes the `resume` handle. |",
-      "| `70` | discern crashed on an unexpected internal error. |",
-      "| Child status | `discern queue -- <command>` and `discern scripts <name>` preserve the child command's exit status. |",
-      "| Signal status | An interrupted run preserves the conventional signal status, such as `130` for SIGINT or `143` for SIGTERM. |",
+      renderExitStatusTable(),
       "",
       "Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.",
       "",

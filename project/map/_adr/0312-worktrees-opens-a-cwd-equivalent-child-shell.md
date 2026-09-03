@@ -1,5 +1,7 @@
 # ADR 0312: `worktrees` opens a cwd-equivalent child shell
 
+> **Amendment ([ADR 0365](0365-the-v1-cli-has-one-command-model-and-one-spelling.md)).** The picker is `discern enter`; the old plural spelling has no alias. The `worktree` lifecycle group and the child-shell, relative-directory, and terminal-ownership decisions below are unchanged.
+
 **Status**: accepted; complements the supervisory Desk in [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) and [ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md), and uses the owned-child lifecycle from [ADR 0159](0159-inherited-terminal-children-have-one-owned-lifecycle.md).
 
 ## Context

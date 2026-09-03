@@ -1,5 +1,5 @@
 /**
- * The scaffolding plan: a pure description of what `setup` (and `preset`)
+ * The scaffolding plan: a pure description of what `setup begin`
  * will do to disk, built *before* anything is written.
  *
  * Separating planning from execution buys three things the spec requires:
@@ -131,7 +131,7 @@ export class PlanApplyError extends Error {
  * Top-level templates subtrees that are the binary's OWN artifacts, not seeds:
  * bundled skills (materialized into `.claude/skills/`), built-in instructions (read by
  * the compiler), and the setup assets (instructions + doc skeletons that
- * `discern setup` reads/lays on demand — ADR 0024, 0036). The seed walk skips them
+ * `discern setup begin` reads/lays on demand — ADR 0024, 0036). The seed walk skips them
  * so they are never written into the user's tracked tree.
  */
 const NON_SEED_SUBTREES: readonly string[] = [
@@ -159,7 +159,7 @@ function isNonSeed(templateRel: string): boolean {
  * @param tokens         resolved content tokens
  * @param excludeNonSeed skip the binary's own `skills/`/`instructions/` subtrees.
  *   Set when scaffolding from the BINARY's templates (`setup`), where those are
- *   materialized/read from the binary rather than seeded. Left false for a preset
+ *   materialized/read from the binary rather than seeded. Other callers may leave it false
  *   overlay, whose `skills/` IS an intended authored-skill overlay.
  * @param seeds          the settings seeds to deep-merge (rather than write
  *   verbatim), each `{ targetRel, merge }`. Defaults to the registry's
@@ -176,7 +176,7 @@ export async function buildPlan(params: {
   /** The agents this project configured. When set, a per-agent seed (a hooks
    * provider's settings file) is laid only for an agent in this list — so an
    * unconfigured agent leaves no inert hooks/settings behind. Omitted (e.g. by
-   * preset) means no agent filtering. */
+   * generic seed plan) means no agent filtering. */
   configuredAgents?: readonly string[];
   /** Process environment for generated-file attribution rendering. */
   env?: EnvReader | undefined;
@@ -208,7 +208,7 @@ export async function buildPlan(params: {
       "/",
     );
 
-    // The source checkout and user-authored preset directories are physical
+    // The source checkout and caller-authored seed directories are physical
     // trees, so host-created files can appear without entering Git. They are
     // never project seeds; keep the shared distribution-input boundary in
     // force here before any target or content planning.
@@ -289,7 +289,7 @@ async function planFileWrite(params: {
   // OR in owner read+write: a scaffolded seed is the user's to edit, but the
   // `deno compile` embedded filesystem flattens every bundled template to
   // read-only — without this, `setup` would lay down a read-only `discern.toml`
-  // that the user (and `discern config set`/`discern setup`) then can't rewrite.
+  // that the user (and `discern config set`/`discern setup begin`) then can't rewrite.
   // Any exec bit on the real source is preserved (0o555 → 0o755).
   const sourceMode = ((sourceStat.mode ?? 0o644) & 0o777) | 0o600;
 
@@ -454,7 +454,7 @@ export async function planGitattributesReconcile(
 /**
  * Build the op for the project brief — a SEED file at its fixed registry
  * location: written once with a short header, never overwritten if already
- * present (preserves any edits the user or `discern setup` made). Only seeded
+ * present (preserves any edits the user or `discern setup begin` made). Only seeded
  * when a brief is supplied (via `--brief` / `--config`; the default zero-config
  * run supplies none), so a default install's footprint stays just
  * `discern.toml`.
@@ -467,7 +467,7 @@ export async function planBrief(
   const targetAbs = join(destDir, targetRel);
   const body = brief.trimEnd();
   const content = `# Project brief\n\n` +
-    `<!-- Captured at \`discern setup\`. Read by the setup instructions to seed\n` +
+    `<!-- Captured at \`discern setup begin\`. Read by the setup instructions to seed\n` +
     `     principles, instructions, and docs. Edit freely. -->\n\n` +
     `${
       body.length > 0

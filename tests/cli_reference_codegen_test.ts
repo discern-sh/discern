@@ -78,7 +78,7 @@ Deno.test("every public CLI verb appears in the generated reference; no hidden c
 
   // Generation is total over the whole VISIBLE tree: every visible subcommand
   // gets a heading too (worktree/skills/config/setup members), and no hidden
-  // command (preset, worktree create/remove, …) leaks into the public page.
+  // command (provider hooks, worktree create/remove, …) leaks into the public page.
   for (const node of walkCliCommands(model)) {
     if (node.path.length === 0) continue;
     const heading = `\`${commandHeadingLabel(node)}\``;

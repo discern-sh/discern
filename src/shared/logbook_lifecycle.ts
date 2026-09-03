@@ -6,7 +6,7 @@
 
 /** One CLI-only action that replaces or removes the active Logbook. */
 export interface LogbookLifecycleAction {
-  readonly name: "reset" | "archive";
+  readonly name: "reset" | "seal";
   readonly description: string;
 }
 
@@ -18,7 +18,7 @@ export const LOGBOOK_LIFECYCLE_ACTIONS = [
       "Permanently remove the active Logbook after terminal confirmation. Sealed archives and other Git-admin state remain.",
   },
   {
-    name: "archive",
+    name: "seal",
     description:
       "Seal the active event history into a timestamped archive and begin a fresh active Logbook after terminal confirmation.",
   },

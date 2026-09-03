@@ -1,5 +1,7 @@
 # ADR 0272: Logbook lifecycle actions require terminal confirmation, and archives remain readable
 
+> **Amendment ([ADR 0365](0365-the-v1-cli-has-one-command-model-and-one-spelling.md)).** The effectful singular action is `discern patterns seal`; `discern patterns archives` remains the read-only archive listing. The former action spelling is not an alias. The terminal-confirmation and archive-read contracts below are unchanged.
+
 **Status**: accepted. Supersedes the no-confirmation clause in [ADR 0163](0163-patterns-reset-cli-only.md) and amends the paired-start rule in [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md) for the two commands that replace the Logbook they would otherwise record into.
 
 ## Context

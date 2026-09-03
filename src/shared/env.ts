@@ -49,7 +49,7 @@ export const CONFIG_REL = "discern.toml";
 /** The canonical refusal when root discovery cannot find a discern project. */
 export const NO_PROJECT_MESSAGE =
   "Discern could not find a project: this directory and its parents have no discern.toml. " +
-  "Run `discern setup` to create one here, or move into an existing discern project.";
+  "Run the read-only `discern setup` welcome, then `discern setup begin` when ready to create one here; or move into an existing discern project.";
 
 /** The stable slug a structured consumer branches on when root discovery fails. */
 export const NOT_INITIALIZED = "not_initialized";

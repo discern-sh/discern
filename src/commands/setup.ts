@@ -1,10 +1,10 @@
 /**
- * `discern setup` — the one-time, zero-config discern setup.
+ * `discern setup begin` — the one-time, zero-config discern setup.
  *
  * Combines mechanical scaffolding and agent-driven authoring in a single command
  * (ADR 0036). The user installs the binary and
  * tells their coding agent to "run discern"; bare `discern` (pre-setup) and the
- * explicit `discern setup` both land here. There are no wizard questions and no
+ * explicit `discern setup begin` both land here. There are no wizard questions and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
  *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
@@ -167,7 +167,7 @@ import {
 import {
   type GateProofCheckData,
   instructionRefreshData,
-  type SetupData,
+  type SetupBeginData,
   type SetupDoneCompletionStage,
   type SetupDoneData,
   type SetupDoneFailureData,
@@ -250,7 +250,7 @@ export const SETUP_HUMAN_AUDIENCES: Record<
   },
 };
 
-/** Options accepted by `discern setup` (global flags + declarative passthrough). */
+/** Options accepted by `discern setup begin`. */
 export interface SetupOptions extends InitFlags {
   json: boolean;
   noColor: boolean;
@@ -278,10 +278,8 @@ export interface SetupDoneOptions {
 }
 
 /**
- * The raw Cliffy options the scaffold entry points parse — the `setup` parent (the
- * back-compat/declarative alias) and the canonical `setup begin` sub-verb declare the
- * same set, and both map it through {@link beginOptsFrom}, so the two routes can't
- * drift. Every field is optional (and explicitly `| undefined` for
+ * The raw Cliffy options the canonical `setup begin` subcommand parses. Every
+ * field is optional (and explicitly `| undefined` for
  * `exactOptionalPropertyTypes`), matching Cliffy's parsed shape structurally.
  */
 export interface RawScaffoldCliOptions {
@@ -301,7 +299,7 @@ export interface RawScaffoldCliOptions {
 }
 
 /** Build {@link SetupOptions} for {@link runSetupBegin} from parsed Cliffy options
- * plus the resolved global flags — the one mapping shared by both scaffold routes.
+ * plus the resolved global flags.
  * Takes `unknown` and narrows (mirroring `globalFlags`), so the shared option-applier
  * can feed it whatever concrete option type Cliffy infers for each command. */
 export function beginOptsFrom(
@@ -329,33 +327,6 @@ export function beginOptsFrom(
   };
 }
 
-/**
- * True when the user handed `setup` any scaffold or declarative input — so a bare
- * `discern setup` shows the read-only welcome, while `discern setup --config …` (CI,
- * presets), `--force`, `--dry-run`, `--confirmed`, or any explicit fill scaffolds
- * straight through to `begin` (ADR 0075). The bare-welcome path is exactly the no-input
- * case; `--confirmed` counts as intent so an agent that already held the consent
- * conversation can go straight to `begin` via `discern setup --confirmed` (ADR 0086).
- */
-export function hasScaffoldIntent(options: unknown): boolean {
-  const o = options as RawScaffoldCliOptions;
-  return (
-    o.config !== undefined ||
-    o.force === true ||
-    o.allowDirty === true ||
-    o.dryRun === true ||
-    o.confirmed === true ||
-    o.name !== undefined ||
-    o.slug !== undefined ||
-    o.branchPrefix !== undefined ||
-    o.sourceGlobs !== undefined ||
-    o.brief !== undefined ||
-    o.agents !== undefined ||
-    o.map !== undefined ||
-    o.model !== undefined
-  );
-}
-
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
@@ -373,7 +344,7 @@ export async function assembleInitPlan(params: {
   templatesDir: string;
   destDir: string;
   config: SetupConfig;
-  /** Declarative slots/scopes/side_gates/standards fills from `setup --config`. */
+  /** Declarative slots/scopes/side_gates/standards fills from `setup begin --config`. */
   fills?: DiscernConfigDoc | undefined;
   /** The repo's detected integration branch, stamped into the fresh config's
    * `[repository].trunk` (before the fills, so an explicit fill still wins). */
@@ -409,7 +380,7 @@ export async function assembleInitPlan(params: {
 
   // Stamp `[meta].schema_version` and the detected integration branch into the
   // freshly-generated config, then apply any declarative fills (from
-  // `setup --config`). All edit the config op's bytes in place, so the plan's
+  // `setup begin --config`). All edit the config op's bytes in place, so the plan's
   // bytes are final — dry-run/json show them and apply writes them. A `skip`
   // config (an existing seed) is left untouched. Order matters: the fills come
   // last, so an explicitly declared repository.trunk beats the detected one.
@@ -731,7 +702,7 @@ async function scaffoldHarness(
     if (opts.json) {
       log.result({
         ok: true,
-        verb: "setup",
+        verb: "setup begin",
         dry_run: true,
         data: {
           project: { slug: config.slug, agents: config.agents },
@@ -1162,7 +1133,6 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
   for (const [flag, value] of valueFlags) {
     if (value !== undefined) parts.push(flag, retryArg(value));
   }
-  if (opts.yes === true) parts.push("--yes");
   if (opts.force) parts.push("--force");
   if (opts.allowDirty) parts.push("--allow-dirty");
   if (opts.confirmed) parts.push("--confirmed");
@@ -1378,7 +1348,7 @@ async function doneRequiredEffects(
 function emitSetupWriteAccessRefusal(
   log: Logger,
   json: boolean,
-  verb: "setup" | "setup done",
+  verb: "setup begin" | "setup done",
   failure: WritePreflightFailure,
   reproduceCmd: string,
 ): number {
@@ -1403,7 +1373,7 @@ function emitSetupWriteAccessRefusal(
  * `discern setup begin` — the first mutating phase of the staged handshake (ADR 0075):
  * scaffold (when fresh, or `--force`), lay the doc skeletons, record setup provenance,
  * and print the setup brief for the agent in the loop. Reached by the explicit `begin`
- * sub-verb, by the declarative `--config`/flag path (CI/presets skip the welcome), and
+ * sub-verb, by the declarative `--config`/flag path, and
  * idempotently again to reprint the brief while setup is in progress. Returns an exit
  * code.
  */
@@ -1445,7 +1415,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       if (opts.json) {
         log.result({
           ok: true,
-          verb: "setup",
+          verb: "setup begin",
           data: { already_set_up: true, message },
         });
       } else {
@@ -1530,7 +1500,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       return emitSetupWriteAccessRefusal(
         log,
         opts.json,
-        "setup",
+        "setup begin",
         authority,
         setupBeginRetryCommand(opts),
       );
@@ -1758,7 +1728,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const setupOk = instructionsCompiled &&
     instructionRefresh.status === "complete";
   const resultFields = {
-    verb: "setup" as const,
+    verb: "setup begin" as const,
     hints: setupHints,
     data: {
       // The scaffold succeeded, but SETUP is not done — the agent must now act
@@ -1790,9 +1760,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       human_relay: startedRelay,
       // The structured first page (ADR 0078); the rest are pulled via `setup step`.
       page: firstPage ?? null,
-    } satisfies SetupData,
+    } satisfies SetupBeginData,
   };
-  const result: DiscernResult<SetupData> = setupOk
+  const result: DiscernResult<SetupBeginData> = setupOk
     ? { ok: true, ...resultFields }
     : {
       ok: false,
@@ -1903,7 +1873,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
 
 /**
  * Before a FRESH scaffold writes anything, isolate the work on its own branch
- * (ADR 0065). `discern setup` makes several commits; landing them on the user's
+ * (ADR 0065). `discern setup begin` makes several commits; landing them on the user's
  * current branch pollutes it before they're ready and complicates rollback. So:
  * require a clean working tree (fail on uncommitted *tracked* changes — untracked
  * scratch files are fine), then create and check out `discern-setup`. A no-op
@@ -1932,14 +1902,14 @@ function emitDirtySetupRefusal(
   state: Extract<WorktreeState, { kind: "dirty" }>,
 ): number {
   const message =
-    "your working tree has uncommitted changes, and `discern setup` makes several " +
+    "your working tree has uncommitted changes, and `discern setup begin` makes several " +
     "commits. Commit or stash your work first. (Advanced: --allow-dirty sets up on " +
     "the current branch as-is, skipping the isolated discern-setup branch — for CI " +
     "or automated setups.)";
   if (opts.json) {
     log.result({
       ok: false,
-      verb: "setup",
+      verb: "setup begin",
       error: "dirty_worktree",
       message,
       data: { changes: state.changes },
@@ -2002,7 +1972,7 @@ async function planSetupBranch(
       if (opts.json) {
         log.result({
           ok: false,
-          verb: "setup",
+          verb: "setup begin",
           error: "not_on_trunk",
           message,
         });
@@ -2036,7 +2006,7 @@ async function ensureSetupBranch(
     if (opts.json) {
       emitResult({
         ok: false,
-        verb: "setup",
+        verb: "setup begin",
         error: "checkout_failed",
         message,
         diagnostics: checkout.stderr.trim() === "" ? undefined : [{
@@ -3944,7 +3914,7 @@ async function emitAwaitingConsent(
   if (opts.json) {
     log.result({
       ok: false,
-      verb: "setup",
+      verb: "setup begin",
       error: AWAITING_CONSENT_SLUG,
       message,
       data: { instructions, command },
@@ -3975,7 +3945,7 @@ function emitSetupError(
   message: string,
 ): void {
   if (opts.json) {
-    log.result({ ok: false, verb: "setup", error, message });
+    log.result({ ok: false, verb: "setup begin", error, message });
   } else {
     log.error(message);
   }

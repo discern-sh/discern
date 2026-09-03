@@ -28,7 +28,7 @@ Run `deno task vale:sync` after a fresh clone if you need the Gate in the main c
 
 `discern doctor` verifies that Git and a Portable Operating System Interface (POSIX) `sh` resolve on `PATH`. Node is optional and used only by the Model Context Protocol (MCP) Inspector helper in [Inspecting the MCP server](#inspecting-the-mcp-server). The Gate, build, and tests do not use Node.
 
-Stack-specific setup (installing project dependencies, running the app) lives in [getting-started.md](getting-started.md) once `discern setup` has filled it in.
+Stack-specific setup (installing project dependencies, running the app) lives in [getting-started.md](getting-started.md) once `discern setup begin` has filled it in.
 
 ## IDE setup
 

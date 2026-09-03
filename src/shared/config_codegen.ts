@@ -1,6 +1,6 @@
 /**
  * Generators that derive the shipped, committed artifacts from the canonical Zod
- * schemas (ADR 0026) — the `discern.toml` editor JSON Schema, the setup/preset
+ * schemas (ADR 0026) — the `discern.toml` editor JSON Schema, the setup
  * config-document JSON Schema, and the docs config-reference all render from one
  * source and can never drift from what the engine enforces. The `discern.toml`
  * template renders from the same schema plus the config prose registry, in
@@ -24,7 +24,7 @@ import {
 /** Human title for the live `discern.toml` editor JSON Schema. */
 const CONFIG_SCHEMA_TITLE = "discern.toml configuration";
 
-/** Human title for the setup/preset config-document JSON Schema. */
+/** Human title for the setup config-document JSON Schema. */
 const SETUP_CONFIG_SCHEMA_TITLE = "discern setup config document";
 
 /** A non-null, non-array object. */
@@ -93,7 +93,7 @@ export function buildConfigJsonSchema(): Record<string, unknown> {
 
 /**
  * Build the JSON Schema for the config *document* from {@link configDocSchema} —
- * the declarative shape `setup --config <file>` and a preset's `preset.json`
+ * the declarative shape `setup begin --config <file>`
  * consume. Generating it from the schema keeps it from drifting from the live
  * config shape: every path and enum (the `agents` list, the config path text)
  * follows from the one source.

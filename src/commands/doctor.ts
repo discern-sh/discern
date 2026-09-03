@@ -383,7 +383,7 @@ export async function runChecks(
         detail:
           `the working directory sits inside a nested git repository (${nearest}) that has no discern.toml — discern commands run from there operate on this project at ${destDir}`,
         fix:
-          `working on this project? cd to ${destDir}. Working on the nested repository? Run \`discern setup\` inside it to give it its own config`,
+          `working on this project? cd to ${destDir}. Working on the nested repository? Run \`discern setup begin\` inside it to give it its own config`,
       });
     }
   }
@@ -410,7 +410,7 @@ export async function runChecks(
         ? "not found in this directory"
         : `invalid: ${error instanceof Error ? error.message : String(error)}`,
       fix: isMissing
-        ? "run `discern setup` to configure discern here"
+        ? "run `discern setup begin` to configure discern here"
         : "fix the TOML syntax in discern.toml",
     });
     // Without a parseable config the remaining checks have nothing to read.

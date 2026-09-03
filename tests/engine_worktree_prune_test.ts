@@ -4,12 +4,11 @@
  *
  * `engine_worktree_test.ts` drives the happy-path lifecycle (setup → exit →
  * prune). This file pins down the surfaces it leaves uncovered: the safety
- * boundary of `remove-worktree-safely` (refuse the main checkout / a non-worktree
+ * boundary of `removeWorktreeSafely` (refuse the main checkout / a non-worktree
  * path), the positive-ownership boundary of `worktree prune` (an identified,
  * merged fleet worktree is reclaimed; merged foreign refs are kept), teardown destroying a
  * worktree's declared resources (not just the no-op path),
- * `inherit-main-env-vars` copying a whitelisted secret into a worktree's `.env`,
- * and `with-gotchas` printing its failure pointer while propagating the exit code.
+ * and `inheritMainEnvVars` copying a whitelisted secret into a worktree's `.env`.
  *
  * Like the sibling engine tests these shell out to the installed `agent` in a
  * hermetic git repo, so the bytes under test are the bytes an install runs. They
@@ -27,8 +26,8 @@ import {
   gitInit,
   gitOut,
   runAgent,
+  runWorktreeCore,
   scaffoldEngine,
-  writeConfig,
 } from "./engine_helpers.ts";
 import { wireProviderWorktreeApp } from "../src/lib/providers.ts";
 import {
@@ -98,19 +97,19 @@ async function assertLstatAbsent(path: string): Promise<void> {
   throw new Error(`expected retired path to be absent: ${path}`);
 }
 
-// ── remove-worktree-safely: the rm -rf safety boundary ──────────────────────
+// ── removeWorktreeSafely: the rm -rf safety boundary ──────────────────────
 //
 // This helper is the rm -rf primitive every prune/sweep path funnels through, so
 // its refusal conditions are the load-bearing guard against deleting the wrong
 // directory. Nothing else exercises them.
 
-Deno.test("remove-worktree-safely refuses to delete the main checkout", async () => {
+Deno.test("removeWorktreeSafely refuses to delete the main checkout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
     // Point it at the main repo itself: it must refuse, and main must survive.
-    const r = await runAgent(dir, ["remove-worktree-safely", dir]);
+    const r = await runWorktreeCore(dir, ["remove", dir]);
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "main checkout");
     assert(
@@ -120,7 +119,7 @@ Deno.test("remove-worktree-safely refuses to delete the main checkout", async ()
   });
 });
 
-Deno.test("remove-worktree-safely refuses a path that is not a worktree of this repo", async () => {
+Deno.test("removeWorktreeSafely refuses a path that is not a worktree of this repo", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -131,7 +130,7 @@ Deno.test("remove-worktree-safely refuses a path that is not a worktree of this 
     await Deno.mkdir(bystander);
     await Deno.writeTextFile(join(bystander, "keep.txt"), "keep\n");
 
-    const r = await runAgent(dir, ["remove-worktree-safely", bystander]);
+    const r = await runWorktreeCore(dir, ["remove", bystander]);
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.output, "not a worktree of this repository");
     assert(
@@ -141,13 +140,13 @@ Deno.test("remove-worktree-safely refuses a path that is not a worktree of this 
   });
 });
 
-Deno.test("remove-worktree-safely refuses a target inside the repository's Git metadata", async () => {
+Deno.test("removeWorktreeSafely refuses a target inside the repository's Git metadata", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "metadata-overlap");
     const adminDir = await gitOut(wt, "rev-parse", "--absolute-git-dir");
 
-    const result = await runAgent(dir, [
-      "remove-worktree-safely",
+    const result = await runWorktreeCore(dir, [
+      "remove",
       adminDir,
     ]);
 
@@ -159,11 +158,11 @@ Deno.test("remove-worktree-safely refuses a target inside the repository's Git m
   });
 });
 
-Deno.test("remove-worktree-safely removes a real linked worktree and reconciles git", async () => {
+Deno.test("removeWorktreeSafely removes a real linked worktree and reconciles git", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "removable");
 
-    const r = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const r = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(r.code, 0, r.output);
     await assertLstatAbsent(wt);
     assert(
@@ -173,19 +172,19 @@ Deno.test("remove-worktree-safely removes a real linked worktree and reconciles 
   });
 });
 
-Deno.test("remove-worktree-safely is idempotent on an already-removed path", async () => {
+Deno.test("removeWorktreeSafely is idempotent on an already-removed path", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "twice");
 
-    const first = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const first = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(first.code, 0, first.output);
     // Re-running against the now-absent path must be a clean success no-op.
-    const second = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const second = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(second.code, 0, second.output);
   });
 });
 
-Deno.test("remove-worktree-safely detects a path recreated while retirement evidence is written", async () => {
+Deno.test("removeWorktreeSafely detects a path recreated while retirement evidence is written", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "late-writer");
     const commonRaw = await gitOut(dir, "rev-parse", "--git-common-dir");
@@ -204,7 +203,7 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
       write: true,
     });
     await evidenceLock.lock(true);
-    const removal = runAgent(dir, ["remove-worktree-safely", wt]);
+    const removal = runWorktreeCore(dir, ["remove", wt]);
     try {
       await waitForPendingCondition(
         removal,
@@ -236,7 +235,7 @@ Deno.test("remove-worktree-safely detects a path recreated while retirement evid
   });
 });
 
-Deno.test("remove-worktree-safely refuses a symlink substituted for the registered path", async () => {
+Deno.test("removeWorktreeSafely refuses a symlink substituted for the registered path", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "symlink-target");
     const parked = `${wt}.parked`;
@@ -246,7 +245,7 @@ Deno.test("remove-worktree-safely refuses a symlink substituted for the register
     await Deno.rename(wt, parked);
     await Deno.symlink(bystander, wt);
     try {
-      const result = await runAgent(dir, ["remove-worktree-safely", wt]);
+      const result = await runWorktreeCore(dir, ["remove", wt]);
       assertEquals(result.code, 1, result.output);
       assertTerminalTextIncludes(result.output, "symlink");
       assertEquals(
@@ -260,13 +259,13 @@ Deno.test("remove-worktree-safely refuses a symlink substituted for the register
     } finally {
       await Deno.remove(wt);
       await Deno.rename(parked, wt);
-      const cleanup = await runAgent(dir, ["remove-worktree-safely", wt]);
+      const cleanup = await runWorktreeCore(dir, ["remove", wt]);
       assertEquals(cleanup.code, 0, cleanup.output);
     }
   });
 });
 
-Deno.test("remove-worktree-safely detects a symlink swap at the final absence boundary", async () => {
+Deno.test("removeWorktreeSafely detects a symlink swap at the final absence boundary", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "symlink-swap");
     const bystander = join(dir, "symlink-swap-bystander");
@@ -284,7 +283,7 @@ Deno.test("remove-worktree-safely detects a symlink swap at the final absence bo
       write: true,
     });
     await evidenceLock.lock(true);
-    const removal = runAgent(dir, ["remove-worktree-safely", wt]);
+    const removal = runWorktreeCore(dir, ["remove", wt]);
     try {
       await waitForPendingCondition(
         removal,
@@ -322,7 +321,7 @@ Deno.test("remove-worktree-safely detects a symlink swap at the final absence bo
 
 Deno.test({
   name:
-    "remove-worktree-safely reports an unreadable target as unknown, not absent",
+    "removeWorktreeSafely reports an unreadable target as unknown, not absent",
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
@@ -330,7 +329,7 @@ Deno.test({
       const root = dirname(wt);
       await Deno.chmod(root, 0o600);
       try {
-        const result = await runAgent(dir, ["remove-worktree-safely", wt]);
+        const result = await runWorktreeCore(dir, ["remove", wt]);
         assertEquals(result.code, 1, result.output);
         assertTerminalTextIncludes(result.output, "could not inspect");
         assertStringIncludes(
@@ -339,14 +338,14 @@ Deno.test({
         );
       } finally {
         await Deno.chmod(root, 0o700);
-        const cleanup = await runAgent(dir, ["remove-worktree-safely", wt]);
+        const cleanup = await runWorktreeCore(dir, ["remove", wt]);
         assertEquals(cleanup.code, 0, cleanup.output);
       }
     });
   },
 });
 
-Deno.test("remove-worktree-safely cannot report success while Git still registers the retired path", async () => {
+Deno.test("removeWorktreeSafely cannot report success while Git still registers the retired path", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "registry-stays");
     const canonicalWt = await Deno.realPath(wt);
@@ -364,9 +363,9 @@ Deno.test("remove-worktree-safely cannot report success while Git still register
       { mode: 0o700 },
     );
 
-    const removed = await runAgent(
+    const removed = await runWorktreeCore(
       dir,
-      ["remove-worktree-safely", canonicalWt],
+      ["remove", canonicalWt],
       { env: { GIT_BIN: gitShim } },
     );
     assertEquals(removed.code, 1, removed.output);
@@ -384,8 +383,8 @@ Deno.test("remove-worktree-safely cannot report success while Git still register
       "a teardown failure must retain the branch",
     );
 
-    const retried = await runAgent(dir, [
-      "remove-worktree-safely",
+    const retried = await runWorktreeCore(dir, [
+      "remove",
       canonicalWt,
     ]);
     assertEquals(retried.code, 0, retried.output);
@@ -407,7 +406,7 @@ Deno.test("removed worktree paths stay observable and reclaimable when unrelated
     await Deno.mkdir(bystander, { recursive: true });
     await Deno.writeTextFile(join(bystander, "keep.txt"), "keep\n");
 
-    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const removed = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(removed.code, 0, removed.output);
     assertEquals(await targetExists(wt), false, removed.output);
 
@@ -517,7 +516,7 @@ for (const [caseName, mutate] of Object.entries(REAPPEARED_PATH_APPLY_RACES)) {
     await withTempDir(async (dir) => {
       const wt = await mainWithWorktree(dir, "reappeared-race");
       const canonicalWt = await Deno.realPath(wt);
-      const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+      const removed = await runWorktreeCore(dir, ["remove", wt]);
       assertEquals(removed.code, 0, removed.output);
       await Deno.mkdir(wt, { recursive: true });
       await Deno.writeTextFile(join(wt, "initial.cache"), "initial\n");
@@ -541,7 +540,7 @@ for (const [caseName, mutate] of Object.entries(REAPPEARED_PATH_APPLY_RACES)) {
 Deno.test("reappeared-path prune treats a path removed after the plan as a completed no-op", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "reappeared-gone");
-    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const removed = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(removed.code, 0, removed.output);
     await Deno.mkdir(wt, { recursive: true });
     await Deno.writeTextFile(join(wt, "initial.cache"), "initial\n");
@@ -558,7 +557,7 @@ Deno.test("worktree prune keeps a removed path repurposed as a Git checkout", as
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "repurposed");
     const canonicalWt = await Deno.realPath(wt);
-    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    const removed = await runWorktreeCore(dir, ["remove", wt]);
     assertEquals(removed.code, 0, removed.output);
     await Deno.mkdir(join(wt, ".git"), { recursive: true });
     await Deno.writeTextFile(join(wt, ".git", "config"), "valuable\n");
@@ -1268,13 +1267,13 @@ Deno.test("worktree teardown by cwd is the verb discern writes as Codex's enviro
   });
 });
 
-// ── inherit-main-env-vars — whitelisted secret propagation ──────────────────
+// ── inheritMainEnvVars — whitelisted secret propagation ──────────────────
 //
 // A fresh worktree's .env carries only what is in version control. This command
 // copies the [worktree].inherit_env whitelist from the MAIN checkout's .env into
 // the worktree's .env so the worktree's app can boot with the same secrets.
 
-Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into the worktree's .env", async () => {
+Deno.test("inheritMainEnvVars copies a whitelisted var from main's .env into the worktree's .env", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "envwt");
     // The inherit list is read from the current root = the worktree's own
@@ -1290,7 +1289,7 @@ Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into 
     // (it never creates one). Seed an empty .env so it has a target.
     await Deno.writeTextFile(join(wt, ".env"), "");
 
-    const r = await runAgent(wt, ["inherit-main-env-vars"]);
+    const r = await runWorktreeCore(wt, ["inherit"]);
     assertEquals(r.code, 0, r.output);
 
     const wtEnv = await Deno.readTextFile(join(wt, ".env"));
@@ -1298,7 +1297,7 @@ Deno.test("inherit-main-env-vars copies a whitelisted var from main's .env into 
   });
 });
 
-Deno.test("inherit-main-env-vars creates the worktree env file when absent", async () => {
+Deno.test("inheritMainEnvVars creates the worktree env file when absent", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "noenv");
     await Deno.writeTextFile(
@@ -1308,103 +1307,12 @@ Deno.test("inherit-main-env-vars creates the worktree env file when absent", asy
     await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\n");
     // A fresh worktree has no env file — the declared value must still arrive.
 
-    const r = await runAgent(wt, ["inherit-main-env-vars"]);
+    const r = await runWorktreeCore(wt, ["inherit"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(
       await Deno.readTextFile(join(wt, ".env")),
       "FOO=bar",
       `the declared value must arrive in a created env file\n${r.output}`,
-    );
-  });
-});
-
-// ── with-gotchas — the failure pointer + exit-code passthrough ──────────────
-//
-// `done` and `with-gotchas` both print the same "a gate step failed" pointer.
-// Here we drive the wrapper directly: a failing command must surface the pointer
-// AND propagate the command's own exit code (the wrapper deliberately omits
-// `set -e` so it observes the failure rather than dying on it).
-
-Deno.test("with-gotchas prints the failure pointer and propagates the command's exit code", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // gotchas_doc unset → the pointer takes its "record the fix" wording.
-    await writeConfig(
-      dir,
-      ["[project]", 'slug = "engine-test"', 'gotchas_doc = ""', ""].join("\n"),
-    );
-
-    // Wrap a command that exits 3: the wrapper must re-exit 3 and print the
-    // banner that names a failed gate step.
-    const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 3"]);
-    assertEquals(r.code, 3, r.output);
-    assertTerminalTextIncludes(r.output, "a gate step failed");
-    assertStringIncludes(r.output, "gotchas_doc");
-  });
-});
-
-Deno.test("with-gotchas stays silent and returns 0 when the wrapped command succeeds", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 0"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(
-      r.output.includes("a gate step failed"),
-      false,
-      `the pointer must not appear on success\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("with-gotchas keeps the configured path when the gotchas doc is outside the map", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // A configured doc switches the pointer to the "it's written down here" path,
-    // resolving the doc against the project root.
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        'gotchas_doc = "docs/GOTCHAS.md"',
-        "",
-      ]
-        .join("\n"),
-    );
-
-    const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 1"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.output, "a gate step failed");
-    assertStringIncludes(r.output, "docs/GOTCHAS.md");
-    assert(
-      !r.output.includes("discern map"),
-      `an out-of-map doc must keep the path fallback\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("with-gotchas prints the canonical map fetch for an in-map doc", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        'gotchas_doc = "knowledge/80-development/gate-notes.md"',
-        "",
-        "[map]",
-        'dir = "knowledge/"',
-        "",
-      ].join("\n"),
-    );
-
-    const r = await runAgent(dir, ["with-gotchas", "sh", "-c", "exit 1"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.output, "a gate step failed");
-    assertTerminalTextIncludes(
-      r.output,
-      "`discern map 80-development/gate-notes --json`",
     );
   });
 });

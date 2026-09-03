@@ -81,7 +81,7 @@ discern status
 
 The main status groups work by state, shows branches that share changed files, and separates owner attention from agent work. A clean row is still occupied until its effort lands or is explicitly reclaimed.
 
-In an interactive terminal, `discern worktrees` opens a child shell in the selected worktree at the matching project-relative directory. From a task worktree, `discern status --all` adds the fleet without changing any checkout.
+In an interactive terminal, `discern enter` opens a child shell in the selected worktree at the matching project-relative directory. From a task worktree, `discern status --all` adds the fleet without changing any checkout.
 
 ## Share limited test capacity
 

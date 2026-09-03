@@ -123,7 +123,7 @@ Deno.test("completion policies enroll schemas, MCP results, and every audited st
 Deno.test("a failed required postcondition cannot remain ok true", () => {
   const lying: DiscernResult = {
     ok: true,
-    verb: "setup",
+    verb: "setup begin",
     hints: hintTexts([
       fire(HINTS["setup-refresh-artifact-failed"], {
         message: "AGENTS.md could not be compiled",
@@ -228,7 +228,7 @@ Deno.test("every typed required-postcondition evaluator rejects its planted fail
     },
     {
       ok: true,
-      verb: "setup",
+      verb: "setup begin",
       data: { phase: "fresh" },
       steps: [{
         step: {

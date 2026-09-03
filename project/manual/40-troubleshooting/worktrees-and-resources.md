@@ -132,7 +132,7 @@ Git can't see edits to ignored files, so discern records a baseline when it prep
 - setup-ready marker and step-journal evidence;
 - the last lifecycle result and one next command.
 
-`Retry setup` is available when no setup step remains ambiguous. A journal with a running one-shot step serves the specific owner-confirmed recovery command. A missing journal beside configured one-shot steps serves `discern worktree setup --dry-run` for inspection. An unreadable Git registration serves its failed Git command or `discern doctor`. The task remains intact while those checks are unresolved.
+`Retry setup` is available when no setup step remains ambiguous. A journal with a running one-shot step serves the specific owner-confirmed recovery command. A missing journal beside configured one-shot steps serves `discern worktree setup begin --dry-run` for inspection. An unreadable Git registration serves its failed Git command or `discern doctor`. The task remains intact while those checks are unresolved.
 
 If main has local changes or unreadable Git state, choose **Inspect main checkout**. Its detail can show status and diff or open a shell or editor at main. It also names the landing and cleanup operations that remain blocked. Main stays outside the task list, and agent work remains in linked worktrees.
 

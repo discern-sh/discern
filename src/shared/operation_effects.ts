@@ -190,7 +190,7 @@ export const OPERATION_EFFECTS = {
   ),
   mcp: OBSERVATION,
   patterns: OBSERVATION,
-  "patterns archive": policy(
+  "patterns seal": policy(
     ["discern-common-mutation", "discern-git-mutation"],
     "common",
     "required",
@@ -205,11 +205,6 @@ export const OPERATION_EFFECTS = {
     ["discern-checkout-mutation", "project-command", "external-setup"],
     "checkout",
     "disclose",
-  ),
-  preset: policy(
-    ["discern-checkout-mutation", "external-setup"],
-    "checkout",
-    "required",
   ),
   queue: policy(
     ["project-command"],
@@ -227,21 +222,9 @@ export const OPERATION_EFFECTS = {
     "disclose",
     { lockWhen: { hasOperands: true } },
   ),
-  setup: policy(
-    [
-      "observation",
-      "discern-checkout-mutation",
-      "discern-common-mutation",
-      "discern-git-mutation",
-      "external-setup",
-    ],
-    "common-and-checkout",
-    "required",
-    {
-      lockWithoutProject: true,
-      gitWriteAuthority: "boundary-plus-effect-plan",
-    },
-  ),
+  // The parent welcome is observation-only; the adjacent `setup begin` entry
+  // retains the complete common/check-out/Git authority boundary for scaffolding.
+  setup: OBSERVATION,
   "setup accept": policy(
     [
       "discern-checkout-mutation",
@@ -422,7 +405,7 @@ export const OPERATION_EFFECTS = {
     "checkout",
     "required",
   ),
-  worktrees: OBSERVATION,
+  enter: OBSERVATION,
 } as const satisfies Readonly<Record<string, OperationEffectPolicy>>;
 
 /**

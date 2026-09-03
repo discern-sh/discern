@@ -31,17 +31,6 @@ export interface HiddenVerbEntry {
 
 /** Every deliberately hidden top-level verb, keyed by its `KNOWN_VERBS` name. */
 export const HIDDEN_VERBS: Readonly<Record<string, HiddenVerbEntry>> = {
-  // Hidden since commit 723b4543; the mechanism itself — a file overlay plus
-  // config fills — is defined by ADR 0007 and ADR 0118 and stays fully tested.
-  preset: {
-    when: "always",
-    reason: "discern ships no bundled presets, so a first-contact invocation " +
-      "can only end in an unknown-preset refusal — an advertised dead end. " +
-      "The verb still dispatches for projects that lay their own " +
-      "presets/<name>/ trees.",
-    revival: "a preset ships with the binary, or an official preset source " +
-      "exists for the description to point at.",
-  },
   // The staged setup handshake is ADR 0075/0078; self-hiding after bootstrap
   // keeps the daily listing to verbs the project still needs.
   setup: {

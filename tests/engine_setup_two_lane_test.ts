@@ -60,9 +60,9 @@ interface TwoLaneDriver {
 }
 
 const DRIVERS: Record<string, TwoLaneDriver> = {
-  // The `setup` envelope's instructions carrier is the awaiting-consent refusal: a
+  // The `setup begin` envelope's instructions carrier is the awaiting-consent refusal: a
   // fresh flag-less `begin` re-serves the consent message on both surfaces.
-  setup: { fixture: freshRepo, argv: ["setup", "begin"], code: 1 },
+  setupBegin: { fixture: freshRepo, argv: ["setup", "begin"], code: 1 },
   setupVerify: { fixture: freshRepo, argv: ["setup", "verify"], code: 0 },
   setupStep: {
     fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),

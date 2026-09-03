@@ -21,7 +21,7 @@
  * the legitimate, branch-agnostic LOCATION term "the main checkout/repo/worktree"
  * (the primary checkout, a different concept) and explanatory mentions like
  * "(`main`, `master`, …)". So it allows the location compounds and identifier forms
- * (`mainBranch`, `main_branch`, `inherit-main-env-vars`) and interpolations, and
+ * (`mainBranch`, `main_branch`) and interpolations, and
  * flags only a BARE branch "main". `git.ts` is out of scope: its "main" denotes the
  * main CHECKOUT for env-inheritance, and it carries back-compat header literals.
  */
@@ -79,8 +79,8 @@ function stringLiterals(src: string): string[] {
  * first (this is how the resolved name reaches the string — `${mainBranch}`); the
  * primary-checkout LOCATION term ("main checkout/repo/repository/worktree") is a
  * different, branch-agnostic concept and is allowed; and an identifier-embedded
- * "main" (preceded/followed by a word or hyphen char — `mainBranch`,
- * `inherit-main-env-vars`) is not the branch literal either.
+ * "main" (preceded/followed by a word or hyphen char — `mainBranch`) is not
+ * the branch literal either.
  */
 function namesBranchAsMain(literal: string): boolean {
   const text = literal

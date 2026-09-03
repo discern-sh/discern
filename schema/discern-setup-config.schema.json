@@ -57,10 +57,6 @@
         ]
       }
     },
-    "description": {
-      "description": "Preset metadata, shown when listing presets; ignored by `setup --config`.",
-      "type": "string"
-    },
     "map": {
       "description": "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
       "default": {},
@@ -68,7 +64,7 @@
       "properties": {
         "dir": {
           "default": "discern/map/",
-          "description": "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
+          "description": "Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it.",
           "type": "string",
           "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
@@ -793,5 +789,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "The declarative config shape consumed by `discern setup begin --config <file>`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }

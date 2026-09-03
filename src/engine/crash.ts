@@ -41,6 +41,7 @@ import type { DiscernResult } from "../shared/result.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "./temp_artifact_scope.ts";
 import { wallTimeIso } from "../shared/clock.ts";
+import { EXIT_INTERNAL_ERROR } from "../shared/exit_codes.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -49,7 +50,7 @@ import {
 /** The crash exit code: sysexits `EX_SOFTWARE` — an internal software error,
  * distinct from an ordinary failed verb's exit 1 and the re-raised signal
  * codes (129/130/143). */
-export const CRASH_EXIT_CODE = 70;
+export const CRASH_EXIT_CODE = EXIT_INTERNAL_ERROR;
 
 /** Crash reports kept under `discern/crash/` — newest first, pruned on write. */
 export const MAX_CRASH_FILES = 20;

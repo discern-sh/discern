@@ -27,7 +27,10 @@ async function git(dir: string, ...args: string[]): Promise<void> {
 /** A fresh install committed into a new git repo — a clean starting tree. */
 async function initCommittedRepo(dir: string): Promise<void> {
   assertEquals(
-    (await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir))
+    (await runCli(
+      ["setup", "begin", "--confirmed", "--slug", "demo"],
+      dir,
+    ))
       .code,
     0,
   );

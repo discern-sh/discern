@@ -3,19 +3,19 @@ title: Open another worktree
 description: Choose another checkout and open a child shell at the matching project-relative directory.
 order: 100
 aliases:
-  - discern worktrees
+  - discern enter
   - switch worktrees
   - worktree shell picker
 ---
 
 # Open another worktree
 
-_`discern worktrees` moves sideways across the [fleet](../00-orientation/glossary.md#fleet) without losing your place in the project tree._
+_`discern enter` moves sideways across the [fleet](../00-orientation/glossary.md#fleet) without losing your place in the project tree._
 
 Run it from any discern checkout in an interactive terminal:
 
 ```sh
-discern worktrees
+discern enter
 ```
 
 The menu derives its facts from `discern status --all`. It shows the main checkout and every registered worktree with its branch, Git state, [Proof](../20-quality-gate/the-proof.md) state, recent activity, and path. The menu keeps the current checkout visible but does not let you select it. Unavailable checkouts, unlanded branches without a checkout, and [reclaimed stage branches](reclaiming-contained-worktrees.md) also stay visible as non-selectable context.

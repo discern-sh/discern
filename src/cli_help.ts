@@ -73,7 +73,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Your desk",
     note: "interactive task supervision and worktree entry",
-    commands: ["desk", "worktrees"],
+    commands: ["desk", "enter"],
   },
   {
     name: "Agentic loop",

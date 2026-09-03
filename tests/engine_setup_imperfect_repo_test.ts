@@ -840,7 +840,6 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
         .split("\n").map((s) => s.trim()).filter(Boolean).sort();
     assertEquals(committed, [
       ".claude/settings.json",
-      ".gitattributes",
       ".gitignore",
       ".mcp.json",
       "discern.toml",

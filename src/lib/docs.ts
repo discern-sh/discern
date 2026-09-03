@@ -2,7 +2,7 @@
  * Discover and resolve the project's documentation tree.
  *
  * `discern map` browses the install's configured map directory — the tree
- * `discern setup` seeds and the agent fills, not anything under `templates/`. This
+ * `discern setup begin` seeds and the agent fills, not anything under `templates/`. This
  * module finds that tree, indexes every Markdown file (path, section, slug, and
  * the title pulled from its first heading), orders it the way a reader expects
  * (root `README` first, numbered subtrees in order, `_`-prefixed reference dirs

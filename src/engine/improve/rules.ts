@@ -389,11 +389,11 @@ const SETUP: Category = {
       id: "setup.bootstrapped",
       title: "Project set up",
       weight: 2,
-      fix: "discern setup",
+      fix: "discern setup begin",
       teach:
         "Setup seeds the docs skeleton and prompts the agent to author your instructions " +
         "and design principles from the repo and your answers. Until it runs, the " +
-        "project has only a bare gate. Run `discern setup`, then `discern setup done`.",
+        "project has only a bare gate. Run `discern setup begin`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.config.meta.bootstrapped
           ? { status: "pass", detail: "[meta].bootstrapped is set" }
@@ -526,11 +526,12 @@ const MAP: Category = {
       id: "map.tree",
       title: "Project map present",
       weight: 2,
-      fix: "discern setup (seeds the configured map skeleton), then fill it in",
+      fix:
+        "discern setup begin (seeds the configured map skeleton), then fill it in",
       teach:
         "The project map is its agent-maintained documentation tree (with a README at its root), where the project's " +
         "shape lives for future-you and the agents grounding work in it. `discern map` " +
-        "browses it; `discern setup` seeds the skeleton.",
+        "browses it; `discern setup begin` seeds the skeleton.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.mapTree
           ? {

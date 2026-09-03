@@ -8,7 +8,7 @@
 /** Retired command paths and the canonical command path each names now.
  * Deliberately NOT here: `script`, which is not a retired command but a
  * grammatical variant of `scripts` — typed input folds to the canonical verb
- * silently (trailing-s forgiveness), while every surface discern writes spells
+ * through the explicit form registry, while every surface discern writes spells
  * `scripts` exclusively. */
 export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   finish: "done",
@@ -116,9 +116,10 @@ export function unknownCommandMessage(word: string): string {
   return `unknown command "${word}".`;
 }
 
-/** Irregular grammatical forms that are safe to normalize silently. */
+/** Deliberately accepted grammatical forms, each enrolled explicitly. */
 export const VERB_FORM_VARIANTS: Readonly<Record<string, string>> = {
   improve: "improvement",
+  script: "scripts",
 };
 
 /** The successor for a retired command path, if `command` is one. */
@@ -138,10 +139,9 @@ export function retiredCommandMessage(
 
 /**
  * Normalize a grammatical variant against the live canonical verb set. Exact
- * canonical names win. Then an explicit irregular form may match. Finally, a
- * single trailing `s` is added or removed only when that produces exactly one
- * canonical verb; an ambiguous or unknown spelling is left untouched for the
- * normal unknown-command path.
+ * canonical names win. Then an explicit enrolled form may match. No generic
+ * pluralization exists: adding a command cannot silently create another input
+ * spelling or turn a retired command into a different live group.
  */
 export function normalizeVerbVariant(
   verb: string,
@@ -156,14 +156,5 @@ export function normalizeVerbVariant(
     return explicit;
   }
 
-  const candidates = new Set<string>();
-  const withoutS = verb.endsWith("s") ? verb.slice(0, -1) : undefined;
-  if (withoutS !== undefined && canonicalVerbs.has(withoutS)) {
-    candidates.add(withoutS);
-  }
-  const withS = `${verb}s`;
-  if (canonicalVerbs.has(withS)) {
-    candidates.add(withS);
-  }
-  return candidates.size === 1 ? [...candidates][0] ?? verb : verb;
+  return verb;
 }

@@ -2178,12 +2178,12 @@ export {
   PatternInvestigationObservationSchema,
   PatternInvestigationSchema,
   PATTERNS_INVESTIGATIONS_MAX,
-  PatternsArchiveDataSchema,
   PatternsArchiveEntrySchema,
   PatternsArchivesDataSchema,
   PatternsDataSchema,
   PatternsFindingSchema,
   PatternsResetDataSchema,
+  PatternsSealDataSchema,
   PatternsStatsSchema,
 } from "./patterns_vocabulary.ts";
 export {
@@ -2206,25 +2206,75 @@ export type {
   PatternInvestigation,
   PatternInvestigationBoundary,
   PatternInvestigationObservation,
-  PatternsArchiveData,
   PatternsArchiveEntry,
   PatternsArchivesData,
   PatternsData,
   PatternsDetector,
   PatternsFinding,
   PatternsResetData,
+  PatternsSealData,
   PatternsStats,
 } from "./patterns_vocabulary.ts";
 import {
   CheckpointEconomicsSchema,
-  PatternsArchiveDataSchema,
   PatternsArchivesDataSchema,
   PatternsDataSchema,
   PatternsFindingSchema,
   PatternsResetDataSchema,
+  PatternsSealDataSchema,
 } from "./patterns_vocabulary.ts";
 
 // docs / help ──────────────────────────────────────────────────────────────
+
+/** One recursive command-model node selected by `help --json`. */
+export interface HelpCommandData {
+  readonly path: string[];
+  readonly description: string;
+  readonly aliases: string[];
+  readonly hidden: boolean;
+  readonly args: Array<{
+    name: string;
+    optional: boolean;
+    variadic: boolean;
+  }>;
+  readonly usage: string;
+  readonly options: Array<{
+    flags: string[];
+    description: string;
+    typeDefinition: string;
+    hidden: boolean;
+    global: boolean;
+  }>;
+  readonly children: HelpCommandData[];
+}
+
+export const HelpCommandDataSchema: z.ZodType<HelpCommandData> = z.lazy(() =>
+  z.strictObject({
+    path: z.array(z.string()),
+    description: z.string(),
+    aliases: z.array(z.string()),
+    hidden: z.boolean(),
+    args: z.array(z.strictObject({
+      name: z.string(),
+      optional: z.boolean(),
+      variadic: z.boolean(),
+    })),
+    usage: z.string(),
+    options: z.array(z.strictObject({
+      flags: z.array(z.string()),
+      description: z.string(),
+      typeDefinition: z.string(),
+      hidden: z.boolean(),
+      global: z.boolean(),
+    })),
+    children: z.array(HelpCommandDataSchema),
+  })
+);
+
+/** `help` — the selected live CLI command model. */
+export const HelpDataSchema = z.strictObject({
+  command: HelpCommandDataSchema,
+});
 
 /** One doc's record (no content). Frontmatter values travel as these
  * structured fields — never inside rendered content — and appear only when
@@ -2732,18 +2782,20 @@ export function instructionRefreshData(
     };
 }
 
-/** `setup` / `setup begin` / the fresh welcome redirect. One schema covers the
- * phased setup surface because the emitted `verb` is deliberately still `setup` for
- * the welcome and begin paths. Mode-specific fields are optional; command-specific
- * sub-verbs (`setup verify`, `setup step`, `setup done`, `setup accept`) have their
- * own narrowed schemas below. */
-export const SetupDataSchema = z.strictObject({
-  phase: z.enum(["fresh", "in_progress", "done"]).optional(),
-  complete: z.boolean().optional(),
-  next_action: z.string().optional(),
+/** `setup` — the read-only welcome and its current setup phase. */
+export const SetupWelcomeDataSchema = z.strictObject({
+  phase: z.enum(["fresh", "in_progress", "done"]),
+  complete: z.boolean(),
+  next_action: z.string(),
   agent_instructions: z.string().optional(),
   human_framing: z.string().optional(),
   progress: setupProgressSchema.optional(),
+});
+
+/** `setup begin` — the scaffold preview, outcome, or structured refusal. */
+export const SetupBeginDataSchema = z.strictObject({
+  complete: z.boolean().optional(),
+  next_action: z.string().optional(),
   already_set_up: z.boolean().optional(),
   message: z.string().optional(),
   project: setupProjectSchema.optional(),
@@ -2776,7 +2828,7 @@ export const SetupDataSchema = z.strictObject({
   page: SetupStepDataSchema.nullable().optional(),
   changes: z.array(z.string()).optional(),
 });
-export type SetupData = z.infer<typeof SetupDataSchema>;
+export type SetupBeginData = z.infer<typeof SetupBeginDataSchema>;
 
 /** `setup accept` landing preview/result. Proof refusals carry the same payload
  * with `landed: false`, so every surface can report the failed evidence state. */
@@ -2945,25 +2997,6 @@ export const IdentityDataSchema = z.discriminatedUnion("kind", [
 ]);
 export type IdentityData = z.infer<typeof IdentityDataSchema>;
 
-/** `preset` — preset application, preview, and unknown-preset discovery payloads. */
-export const PresetDataSchema = z.strictObject({
-  preset: z.string().optional(),
-  available: z.array(z.string()).optional(),
-  plan: z.array(
-    z.strictObject({
-      path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append", "remove"]),
-      note: z.string().optional(),
-    }),
-  ).optional(),
-  config_fills: z.boolean().optional(),
-  /** Dotted config paths the preset fills (or would fill, on a dry-run). */
-  config_fills_applied: z.array(z.string()).optional(),
-  /** Dotted config paths kept as the project's own — already set, so the
-   * preset's fill was skipped (fills never overwrite a present value). */
-  config_fills_skipped: z.array(z.string()).optional(),
-  written: z.array(z.string()).optional(),
-});
 const migrationStepSchema = z.strictObject({
   from: z.number(),
   to: z.number(),
@@ -3113,8 +3146,17 @@ export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
 // bare {@link EnvelopeSchema}.
 
-/** `setup` output: envelope + the phased setup/welcome `data`. */
-export const SetupOutputSchema = resultOutputSchema("setup", SetupDataSchema);
+/** `setup` output: envelope + the read-only welcome `data`. */
+export const SetupOutputSchema = resultOutputSchema(
+  "setup",
+  SetupWelcomeDataSchema,
+);
+
+/** `setup begin` output: envelope + scaffold preview/outcome `data`. */
+export const SetupBeginOutputSchema = resultOutputSchema(
+  "setup begin",
+  SetupBeginDataSchema,
+);
 
 /** `done` output: envelope + the gate's `data`. */
 export const FinishOutputSchema = resultOutputSchema(
@@ -3190,10 +3232,10 @@ export const PatternsResetOutputSchema = resultOutputSchema(
   PatternsResetDataSchema,
 );
 
-/** `patterns archive` output: envelope + the sealed destination and source. */
-export const PatternsArchiveOutputSchema = resultOutputSchema(
-  "patterns archive",
-  PatternsArchiveDataSchema,
+/** `patterns seal` output: envelope + the sealed destination and source. */
+export const PatternsSealOutputSchema = resultOutputSchema(
+  "patterns seal",
+  PatternsSealDataSchema,
 );
 
 /** `patterns archives` output: envelope + the discoverable sealed files. */
@@ -3241,6 +3283,9 @@ export const MapOutputSchema = resultOutputSchema("map", DocsDataSchema);
 
 /** `docs` output: envelope + the bundled documentation `data`. */
 export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
+
+/** `help` output: envelope + the selected typed command-model node. */
+export const HelpOutputSchema = resultOutputSchema("help", HelpDataSchema);
 
 /** `setup step` output: envelope + the structured page `data`. CLI-only (setup is
  * not an MCP tool), but modeled here so the page parser validates against one
@@ -3305,8 +3350,8 @@ export const IdentityOutputSchema = resultOutputSchema(
 /** `desk --json` is a controlled refusal and carries no data. */
 export const DeskOutputSchema = datalessResultOutputSchema("desk");
 
-/** `worktrees --json` is a controlled refusal and carries no data. */
-export const WorktreesOutputSchema = datalessResultOutputSchema("worktrees");
+/** `enter --json` is a controlled refusal and carries no data. */
+export const EnterOutputSchema = datalessResultOutputSchema("enter");
 
 /** Bare `discern --json` is a controlled command-required refusal. */
 export const DiscernOutputSchema = datalessResultOutputSchema("discern");
@@ -3314,14 +3359,13 @@ export const DiscernOutputSchema = datalessResultOutputSchema("discern");
 /** A bare `worktree --json` is a controlled subcommand-required refusal. */
 export const WorktreeOutputSchema = datalessResultOutputSchema("worktree");
 
+/** `worktree ensure --json` is a pure envelope; context travels as hints. */
+export const WorktreeEnsureOutputSchema = datalessResultOutputSchema(
+  "worktree ensure",
+);
+
 /** A bare `skills --json` is a controlled subcommand-required refusal. */
 export const SkillsOutputSchema = datalessResultOutputSchema("skills");
-
-/** `preset` output: envelope + preset preview/application/discovery data. */
-export const PresetOutputSchema = resultOutputSchema(
-  "preset",
-  PresetDataSchema,
-);
 
 /** `upgrade` output: envelope + migration/reconciliation summary data. */
 export const UpgradeOutputSchema = resultOutputSchema(

@@ -427,30 +427,6 @@ async function prepareWorktreeSetup(root: string): Promise<BlackBoxRun> {
   };
 }
 
-/** The `with-gotchas` wrapper (owned_child.ts via dispatch.ts): it execs an
- * arbitrary user command and must not orphan it. */
-async function prepareWithGotchas(root: string): Promise<BlackBoxRun> {
-  await scaffoldEngine(root);
-  const runner = join(root, "hold-open.sh");
-  await writeExecutable(
-    runner,
-    [
-      "#!/bin/sh",
-      "printf '%s\\n' \"$$\" > gotchas.pid",
-      "sleep 60 &",
-      "printf '%s\\n' \"$!\" > gotchas_descendant.pid",
-      "wait",
-      "",
-    ].join("\n"),
-  );
-  return {
-    args: ["with-gotchas", runner],
-    cwd: root,
-    leaderPidFile: join(root, "gotchas.pid"),
-    descendantPidFile: join(root, "gotchas_descendant.pid"),
-  };
-}
-
 /** The desk's launch wiring (owned_child.ts via desk/desk.ts): the inverse
  * contract — the child tree dies, the desk session survives. Driven through
  * the real desk interactive-child boundary by a fixture that self-signals
@@ -508,8 +484,6 @@ const SCENARIOS: Record<
   "queue": (signal) => assertInterruptStopsTree(signal, prepareQueue),
   "worktree-setup": (signal) =>
     assertInterruptStopsTree(signal, prepareWorktreeSetup),
-  "with-gotchas": (signal) =>
-    assertInterruptStopsTree(signal, prepareWithGotchas),
   "desk-interactive": assertDeskInterruptReapsAndResumes,
 };
 

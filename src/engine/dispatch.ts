@@ -59,7 +59,7 @@ import {
 import type { ConfirmationLabels } from "../shared/confirmation.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
-import { colorEnabled, writeStdout } from "./output.ts";
+import { writeStdout } from "./output.ts";
 import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import {
   type DiscernResult,
@@ -74,9 +74,12 @@ import type {
   SkillMaterializationOperation,
   SkillMaterializationPlan,
 } from "../lib/skills.ts";
-import type { CliModelProvider } from "../shared/cli_reference_codegen.ts";
+import {
+  type CliCommand,
+  type CliModelProvider,
+  walkCliCommands,
+} from "../shared/cli_reference_codegen.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
-import { runOwnedChild } from "./owned_child.ts";
 import {
   CliRefusal,
   recordedExit,
@@ -85,10 +88,12 @@ import {
 import { runCommandGroup } from "../shared/command_group.ts";
 import {
   AWAIT_LONG_CALL_SECONDS,
+  AWAIT_STRICT_CALL_SECONDS,
   MCP_LONG_TOOL_CALLS_FLAG,
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../shared/mcp_timeout_policy.ts";
 import { LOGBOOK_LIFECYCLE_ACTIONS } from "../shared/logbook_lifecycle.ts";
+import { CLI_JSON_DESCRIPTION_OVERRIDES } from "../shared/result_formats.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
 export {
@@ -128,53 +133,15 @@ export async function logbookLifecycleConfirmation(
  * names its operation without re-importing. */
 type LifecycleModule = typeof import("./worktree/lifecycle.ts");
 
-/** Built-in command names considered by the typo suggester.
- * Intentionally NOT equal to {@link KNOWN_ENGINE_VERBS}: it drops command-group
- * verbs and adds the worktree subcommands. That deliberate relationship is
- * tied to the verb SSOT by `tests/engine_verb_parity_test.ts`, so a new engine verb
- * forces a conscious choice here rather than silently drifting. */
-export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
-  "done",
-  "prepare",
-  "test",
-  "await",
-  "improvement",
-  "standards",
-  "checkpoints",
-  "refresh",
-  "tidy",
-  "impact",
-  "coupling",
-  "patterns",
-  "status",
-  "worktrees",
-  "accept",
-  "update",
-  "start",
-  "identity",
-  "worktree-setup",
-  "worktree-ensure",
-  "worktree-rename",
-  "worktree-teardown",
-  "worktree-drop",
-  "worktree-prune",
-];
-
-/** Render an internal command token in its user-facing form. */
-function displayName(name: string): string {
-  if (name === "identity") {
-    return "identity";
-  }
-  if (name.startsWith("worktree-")) {
-    return "worktree " + name.slice("worktree-".length);
-  }
-  return name;
-}
-
 /** Logger for engine terminal output — info/ok/heading → stdout; NO_COLOR /
  * non-TTY honoured by Logger. */
 function makeLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
+}
+
+/** Read the inherited root JSON flag from a separately typed subcommand. */
+function jsonFrom(options: unknown): boolean {
+  return (options as { json?: boolean } | undefined)?.json ?? false;
 }
 
 /**
@@ -255,12 +222,17 @@ async function runWorktreeOp(
  * context; provider-neutral (no hook-schema coupling). Gated on !bootstrapped, so a
  * finished project never walks the tree on session start.
  */
-async function remindIfSetupUnfinished(ctx: LifecycleContext): Promise<void> {
+async function remindIfSetupUnfinished(
+  ctx: LifecycleContext,
+): Promise<string | undefined> {
   if (ctx.config.meta.bootstrapped) {
-    return;
+    return undefined;
   }
   const pending = await findSkeletonMarkers(ctx.root);
-  ctx.log.line(`[discern] ${setupUnfinishedHint(pending).text}`);
+  const reminder = setupUnfinishedHint(pending);
+  ctx.log.line(`[discern] ${reminder.text}`);
+  observeSupplementalHints([reminder]);
+  return reminder.text;
 }
 
 /** Attach the engine task-runner verbs to the `discern` root command — every verb
@@ -276,10 +248,6 @@ export function attachEngineCommands(
     .description(
       "Run finishing steps that may change files, then verify the gate — the project's " +
         "full quality check: format, lint, type-check, and tests.",
-    )
-    .option(
-      "--json",
-      "Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).",
     )
     .option(
       "--dry-run",
@@ -316,7 +284,7 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("done", async (o) => {
-        const json = o.json ?? false;
+        const json = jsonFrom(o);
         const invalid = (message: string): number => {
           if (json) {
             emitResult({
@@ -375,17 +343,13 @@ export function attachEngineCommands(
     .description(
       "Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).",
     )
-    .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
-    )
     .action(
       recordedExit("prepare", async (o) => {
         const { runPrepare } = await import("./gate/prepare.ts");
         return await runPrepare(
-          await requireRoot("prepare", o.json ?? false),
+          await requireRoot("prepare", jsonFrom(o)),
           {
-            json: o.json ?? false,
+            json: jsonFrom(o),
             plain: plainModeEnabled(),
           },
         );
@@ -397,15 +361,11 @@ export function attachEngineCommands(
     .description(
       "Run the project's configured tests on their own, outside the full gate.",
     )
-    .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
-    )
     .action(
       recordedExit("test", async (o) => {
         const { runTestJob } = await import("./gate/test_job.ts");
-        return await runTestJob(await requireRoot("test", o.json ?? false), {
-          json: o.json ?? false,
+        return await runTestJob(await requireRoot("test", jsonFrom(o)), {
+          json: jsonFrom(o),
           plain: plainModeEnabled(),
         });
       }),
@@ -428,10 +388,6 @@ export function attachEngineCommands(
       "Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.",
     )
     .option(
-      "--json",
-      "Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action).",
-    )
-    .option(
       "--category <name:string>",
       `Review a single area (${CATEGORY_NAMES.join(", ")}).`,
     )
@@ -443,9 +399,9 @@ export function attachEngineCommands(
       recordedExit("improvement", async (o) => {
         const { runImprovement } = await import("./improve/improve.ts");
         return await runImprovement(
-          await requireRoot("improvement", o.json ?? false),
+          await requireRoot("improvement", jsonFrom(o)),
           {
-            json: o.json ?? false,
+            json: jsonFrom(o),
             category: o.category,
             minScore: o.minScore,
           },
@@ -458,16 +414,12 @@ export function attachEngineCommands(
     .description(
       "Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.",
     )
-    .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult on stdout.",
-    )
     .action(
       recordedExit("checkpoints", async (o) => {
         const { runCheckpoints } = await import("./checkpoints/report.ts");
         return await runCheckpoints(
-          await requireRoot("checkpoints", o.json ?? false),
-          { json: o.json ?? false },
+          await requireRoot("checkpoints", jsonFrom(o)),
+          { json: jsonFrom(o) },
         );
       }),
     );
@@ -479,13 +431,11 @@ export function attachEngineCommands(
     )
     .option(
       MCP_LONG_TOOL_CALLS_FLAG,
-      "Use the configured long-call MCP transport profile.",
-      { hidden: true },
+      `Use the long-call transport profile; await calls may run for ${AWAIT_LONG_CALL_SECONDS} seconds.`,
     )
     .option(
       MCP_STRICT_TOOL_CALLS_FLAG,
-      "Use the strict short-call MCP transport profile.",
-      { hidden: true },
+      `Use the strict transport profile; await calls may run for ${AWAIT_STRICT_CALL_SECONDS} seconds.`,
     )
     .action(recordedExit("mcp", async (o) => {
       // The server resolves the project root itself and reports a missing one
@@ -521,10 +471,6 @@ export function attachEngineCommands(
     )
     .arguments("[names...:string]")
     .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult object on stdout.",
-    )
-    .option(
       "--dry-run",
       "Show the standards that would be measured; touch nothing.",
     )
@@ -540,9 +486,9 @@ export function attachEngineCommands(
       recordedExit("standards", async (o, ...names: string[]) => {
         const { runStandards } = await import("./gate/standards.ts");
         return await runStandards(
-          await requireRoot("standards", o.json ?? false),
+          await requireRoot("standards", jsonFrom(o)),
           {
-            json: o.json ?? false,
+            json: jsonFrom(o),
             dryRun: o.dryRun ?? false,
             force: o.force ?? false,
             pin: o.pin ?? false,
@@ -563,10 +509,6 @@ export function attachEngineCommands(
         "--reason <reason:string>",
         "The exact non-empty owner-facing reason for the Standard limit proposal (1-500 visible, secret-free characters).",
       )
-      .option(
-        "--json",
-        "Emit the result as a JSON DiscernResult object on stdout.",
-      )
       .option("--dry-run", "Show the proposal plan; touch nothing.")
       .action(recordedExit(
         "standards propose",
@@ -575,12 +517,12 @@ export function attachEngineCommands(
             "./gate/standard_proposals.ts"
           );
           return await runStandardsPropose(
-            await requireRoot("standards propose", o.json ?? false),
+            await requireRoot("standards propose", jsonFrom(o)),
             {
               name,
               reason: o.reason ?? "",
               dryRun: o.dryRun ?? false,
-              json: o.json ?? false,
+              json: jsonFrom(o),
             },
           );
         },
@@ -596,15 +538,11 @@ export function attachEngineCommands(
         "`discern update` for this branch; use `discern upgrade` for discern itself.",
     )
     .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult on stdout (narration → stderr).",
-    )
-    .option(
       "--dry-run",
       "List every refresh target and create/update/remove effect; change nothing.",
     )
     .action(recordedExit("refresh", async (o) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       const root = await requireRoot("refresh", json);
       const { refreshResult } = await import("./instructions.ts");
       // Quiet result: narration → stderr, the selected result → stdout.
@@ -628,10 +566,6 @@ export function attachEngineCommands(
       "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\\|`), is refused and left unchanged.",
     )
     .option(
-      "--json",
-      "Emit the result as a JSON DiscernResult on stdout.",
-    )
-    .option(
       "--dry-run",
       "List the files that would change; touch nothing.",
     )
@@ -639,9 +573,9 @@ export function attachEngineCommands(
       // Keep the formatter host and embedded WASMs off every other verb's module
       // path. The WASMs are read and instantiated only when tidy formats a file.
       const { runTidy } = await import("./tidy/tidy.ts");
-      return await runTidy(await requireRoot("tidy", o.json ?? false), {
+      return await runTidy(await requireRoot("tidy", jsonFrom(o)), {
         ...(type !== undefined ? { type } : {}),
-        json: o.json ?? false,
+        json: jsonFrom(o),
         dryRun: o.dryRun ?? false,
       });
     }));
@@ -656,7 +590,7 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a JSON DiscernResult: changes in `data.scopes`; `--has` in `data.membership`.",
+      CLI_JSON_DESCRIPTION_OVERRIDES.impact,
     )
     .option(
       "--has <scope:string>",
@@ -665,8 +599,8 @@ export function attachEngineCommands(
     .action(
       recordedExit("impact", async (o) => {
         const { runImpact } = await import("./scopes/scopes.ts");
-        return await runImpact(await requireRoot("impact", o.json ?? false), {
-          json: o.json ?? false,
+        return await runImpact(await requireRoot("impact", jsonFrom(o)), {
+          json: jsonFrom(o),
           ...(o.has !== undefined ? { has: o.has } : {}),
         });
       }),
@@ -679,18 +613,14 @@ export function attachEngineCommands(
         "With no args, report likely siblings missing from the change. With file, " +
         "report its top partners. Add with to report commits where both changed.",
     )
-    .option(
-      "--json",
-      "Emit a JSON DiscernResult.",
-    )
     .arguments("[file:string] [with:string]")
     .action(recordedExit("coupling", async (o, file, withFile) => {
       const paths = [file, withFile].filter((p): p is string =>
         p !== undefined
       );
       const { runCoupling } = await import("./coupling/coupling.ts");
-      return await runCoupling(await requireRoot("coupling", o.json ?? false), {
-        json: o.json ?? false,
+      return await runCoupling(await requireRoot("coupling", jsonFrom(o)), {
+        json: jsonFrom(o),
         ...(paths.length > 0 ? { paths } : {}),
       });
     }));
@@ -704,10 +634,6 @@ export function attachEngineCommands(
         "the result carries a short continuation handle that preserves the " +
         "original condition across calls. To wrap a command behind the " +
         "concurrent test-run cap, use `discern queue -- <command> [args...]`.",
-    )
-    .option(
-      "--json",
-      "Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).",
     )
     .option(
       "--green <worktree:string>",
@@ -731,8 +657,8 @@ export function attachEngineCommands(
     )
     .action(recordedExit("await", async (o) => {
       const { runAwait } = await import("./await/await.ts");
-      return await runAwait(await requireRoot("await", o.json ?? false), {
-        json: o.json ?? false,
+      return await runAwait(await requireRoot("await", jsonFrom(o)), {
+        json: jsonFrom(o),
         ...(o.green !== undefined ? { green: o.green } : {}),
         ...(o.landed !== undefined ? { landed: o.landed } : {}),
         ...(o.trunkMoved === true ? { trunkMoved: true } : {}),
@@ -746,10 +672,6 @@ export function attachEngineCommands(
       "Report the patterns in this project's discern use, read from the local " +
         "logbook of verb runs: agent behaviour, gate fit, the task funnel, and " +
         "each standard's trajectory. A read-only advisory.",
-    )
-    .option(
-      "--json",
-      "Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).",
     )
     .option(
       "--stats",
@@ -769,9 +691,9 @@ export function attachEngineCommands(
       recordedExit("patterns", async (o) => {
         const { runPatterns } = await import("./logbook/patterns.ts");
         return await runPatterns(
-          await requireRoot("patterns", o.json ?? false),
+          await requireRoot("patterns", jsonFrom(o)),
           {
-            json: o.json ?? false,
+            json: jsonFrom(o),
             stats: o.stats ?? false,
             all: o.all ?? false,
             ...(o.logbookFile !== undefined
@@ -787,31 +709,27 @@ export function attachEngineCommands(
         .description(
           "List sealed Logbook archives with their event counts, date spans, and byte sizes.",
         )
-        .option(
-          "--json",
-          "Emit the result as a JSON DiscernResult object on stdout.",
-        )
         .action(
           recordedExit("patterns archives", async (o) => {
             const { runPatternsArchives } = await import(
               "./logbook/patterns.ts"
             );
             return await runPatternsArchives(
-              await requireRoot("patterns", o.json ?? false),
-              { json: o.json ?? false },
+              await requireRoot("patterns", jsonFrom(o)),
+              { json: jsonFrom(o) },
             );
           }),
         ),
     );
   for (const action of LOGBOOK_LIFECYCLE_ACTIONS) {
-    const invocation = `patterns ${action.name}`;
+    const invocation = `patterns ${action.name}` as const;
     patterns.command(
       action.name,
       new Command()
         .description(action.description)
         .option(
           "--json",
-          "Preview as one result; apply is refused with `--json` or `--markdown`.",
+          CLI_JSON_DESCRIPTION_OVERRIDES[invocation],
         )
         .option(
           "--dry-run",
@@ -823,10 +741,10 @@ export function attachEngineCommands(
               "./logbook/patterns.ts"
             );
             return await runPatternsLifecycle(
-              await requireRoot("patterns", o.json ?? false),
+              await requireRoot("patterns", jsonFrom(o)),
               action.name,
               {
-                json: o.json ?? false,
+                json: jsonFrom(o),
                 dryRun: o.dryRun ?? false,
                 interactive: canInteract(false),
                 confirm: logbookLifecycleConfirmation,
@@ -863,12 +781,12 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit a bounded orientation DiscernResult on stdout; add --verbose for complete structured status.",
+      CLI_JSON_DESCRIPTION_OVERRIDES.status,
     )
     .action(recordedExit("status", async (o) => {
       const { runStatus } = await import("./status/status.ts");
       return await runStatus({
-        json: o.json ?? false,
+        json: jsonFrom(o),
         all: o.all ?? false,
         local: o.local ?? false,
         verbose: o.verbose ?? false,
@@ -884,28 +802,28 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "The desk is interactive only; use `status --markdown` or `status --json` to list every worktree.",
+      CLI_JSON_DESCRIPTION_OVERRIDES.desk,
     )
     .action(
       recordedExit("desk", async (o) => {
         const { runDesk } = await import("./desk/desk.ts");
-        return await runDesk({ json: o.json ?? false, cliModel });
+        return await runDesk({ json: jsonFrom(o), cliModel });
       }),
     );
 
   root
-    .command("worktrees")
+    .command("enter")
     .description(
       "Choose a worktree and open a child shell at the matching project-relative directory.",
     )
     .option(
       "--json",
-      "This command is interactive only; use `status --all --json` to inspect the fleet.",
+      CLI_JSON_DESCRIPTION_OVERRIDES.enter,
     )
     .action(
-      recordedExit("worktrees", async (o) => {
-        const { runWorktrees } = await import("./worktree/shell_picker.ts");
-        return await runWorktrees({ json: o.json ?? false });
+      recordedExit("enter", async (o) => {
+        const { runEnter } = await import("./worktree/shell_picker.ts");
+        return await runEnter({ json: jsonFrom(o) });
       }),
     );
 
@@ -915,10 +833,6 @@ export function attachEngineCommands(
       "From the main checkout, create a worktree with a separate checkout and branch " +
         `for one effort. Base it on the trunk${trunkName}, the shared landing branch, ` +
         "then print its path.",
-    )
-    .option(
-      "--json",
-      "Emit one JSON result on stdout (data.path is the new worktree).",
     )
     .option("--dry-run", "Show the start plan; touch nothing.")
     .option(
@@ -938,7 +852,7 @@ export function attachEngineCommands(
       "Branch the new worktree from a ref or an unambiguous worktree id or path. Omit it to start from the trunk.",
     )
     .action(recordedExit("start", async (o) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.start(ctx, {
@@ -964,10 +878,6 @@ export function attachEngineCommands(
         "the shared landing branch. Tracked refresh artifacts must already be " +
         "current. After landing, materialize checkout-local Agent artifacts, then " +
         "remove the worktree and merged branch.",
-    )
-    .option(
-      "--json",
-      "Emit one JSON result on stdout.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
@@ -996,7 +906,7 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.accept(ctx, {
@@ -1019,17 +929,13 @@ export function attachEngineCommands(
         "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
         "agent files alone.",
     )
-    .option(
-      "--json",
-      "Emit one JSON result on stdout.",
-    )
     .option("--dry-run", "Show the update plan; touch nothing.")
     .option(
       "--from <source:string>",
       "Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call.",
     )
     .action(recordedExit("update", async (o) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.update(ctx, {
@@ -1065,13 +971,9 @@ export function attachEngineCommands(
       "--resources",
       "Print every declared resource as name=stable-external-name lines.",
     )
-    .option(
-      "--json",
-      "Emit the selected identity value as a JSON DiscernResult envelope on stdout.",
-    )
     .arguments("[worktree:string]")
     .action(recordedExit("identity", async (o, worktree) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       const root = await requireRoot("identity", json);
       const target = worktree ?? Deno.cwd();
       const {
@@ -1155,10 +1057,6 @@ export function attachEngineCommands(
 
   const worktreeSetupCommand = new Command()
     .description("Set up or re-sync the current worktree.")
-    .option(
-      "--json",
-      "Emit one JSON result on stdout.",
-    )
     .option("--dry-run", "Show the setup plan; touch nothing.")
     .option(
       "--mark-step-complete <id:string>",
@@ -1173,7 +1071,7 @@ export function attachEngineCommands(
       "Attest that the owner observed the interrupted command's external state and chose this recovery. Required with either recovery option.",
     )
     .action(recordedExit("worktree setup", async (o) => {
-      const json = o.json ?? false;
+      const json = jsonFrom(o);
       const invalid = (message: string): number => {
         if (json) {
           emitResult({
@@ -1256,9 +1154,12 @@ export function attachEngineCommands(
         .action(
           recordedExit(
             "worktree ensure",
-            async () =>
-              await runWorktreeOp(async (ctx, lc) => {
-                await remindIfSetupUnfinished(ctx);
+            async (o) => {
+              const json = jsonFrom(o);
+              const hints: string[] = [];
+              const code = await runWorktreeOp(async (ctx, lc) => {
+                const reminder = await remindIfSetupUnfinished(ctx);
+                if (reminder !== undefined) hints.push(reminder);
                 const ensured = await lc.worktreeEnsure(ctx);
                 if (ensured.kind === "skipped") {
                   // Main-checkout side: the session hook injects this stdout
@@ -1269,8 +1170,18 @@ export function attachEngineCommands(
                   );
                   ctx.log.info(orientation.text);
                   observeSupplementalHints([orientation]);
+                  hints.push(orientation.text);
                 }
-              }),
+              }, { json, verb: "worktree ensure" });
+              if (json && code === 0) {
+                emitResult({
+                  ok: true,
+                  verb: "worktree ensure",
+                  ...(hints.length === 0 ? {} : { hints }),
+                });
+              }
+              return code;
+            },
           ),
         ),
     )
@@ -1281,13 +1192,9 @@ export function attachEngineCommands(
           "Change this worktree's display title. Its id, branch, path, brief, and creation source stay unchanged.",
         )
         .option("--dry-run", "Show the title-change plan; touch nothing.")
-        .option(
-          "--json",
-          "Emit one JSON result on stdout.",
-        )
         .arguments("<title:string>")
         .action(recordedExit("worktree rename", async (o, title) => {
-          const json = o.json ?? false;
+          const json = jsonFrom(o);
           return await runWorktreeOp(
             (ctx, lc) =>
               lc.taskRename(ctx, title, {
@@ -1304,13 +1211,9 @@ export function attachEngineCommands(
         .description(
           "Discard this worktree's resources (destroy without accepting).",
         )
-        .option(
-          "--json",
-          "Emit the result as a JSON DiscernResult object on stdout.",
-        )
         .option("--dry-run", "Show the teardown plan; touch nothing.")
         .action(recordedExit("worktree teardown", async (o) => {
-          const json = o.json ?? false;
+          const json = jsonFrom(o);
           return await runWorktreeOp(
             (ctx, lc) =>
               lc.worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
@@ -1325,13 +1228,9 @@ export function attachEngineCommands(
           "Remove a clean task checkout and its resources while retaining its branch and task wording for resume. Select it by worktree id, path, local branch, or full local ref.",
         )
         .option("--dry-run", "Show the Park plan; touch nothing.")
-        .option(
-          "--json",
-          "Emit the result as a JSON DiscernResult object on stdout.",
-        )
         .arguments("<worktree:string>")
         .action(recordedExit("worktree park", async (o, target) => {
-          const json = o.json ?? false;
+          const json = jsonFrom(o);
           return await runWorktreeOp(
             (ctx, lc) =>
               lc.worktreePark(ctx, target, {
@@ -1356,13 +1255,9 @@ export function attachEngineCommands(
           "Discard even when the worktree holds uncommitted changes or commits not on the trunk.",
         )
         .option("--dry-run", "Show the drop plan; touch nothing.")
-        .option(
-          "--json",
-          "Emit the result as a JSON DiscernResult object on stdout.",
-        )
         .arguments("<worktree:string>")
         .action(recordedExit("worktree drop", async (o, target) => {
-          const json = o.json ?? false;
+          const json = jsonFrom(o);
           return await runWorktreeOp(
             (ctx, lc) =>
               lc.worktreeDrop(ctx, target, {
@@ -1390,12 +1285,8 @@ export function attachEngineCommands(
           "--dry-run",
           "Report what would be removed/reclaimed without acting.",
         )
-        .option(
-          "--json",
-          "Emit the result as a JSON DiscernResult object on stdout.",
-        )
         .action(recordedExit("worktree prune", async (o) => {
-          const json = o.json ?? false;
+          const json = jsonFrom(o);
           return await runWorktreeOp(
             (ctx, lc) =>
               lc.worktreePrune(ctx, {
@@ -1434,25 +1325,29 @@ export function attachEngineCommands(
     }))
     .command(
       "create",
-      new Command().action(
-        recordedExit("worktree hook create", async () => {
-          const { worktreeCreateHook } = await import(
-            "../lib/worktree_hooks.ts"
-          );
-          return await worktreeCreateHook();
-        }),
-      ),
+      new Command()
+        .description("Apply the provider-reported worktree-create event.")
+        .action(
+          recordedExit("worktree hook create", async () => {
+            const { worktreeCreateHook } = await import(
+              "../lib/worktree_hooks.ts"
+            );
+            return await worktreeCreateHook();
+          }),
+        ),
     )
     .command(
       "remove",
-      new Command().action(
-        recordedExit("worktree hook remove", async () => {
-          const { worktreeRemoveHook } = await import(
-            "../lib/worktree_hooks.ts"
-          );
-          return await worktreeRemoveHook();
-        }),
-      ),
+      new Command()
+        .description("Apply the provider-reported worktree-remove event.")
+        .action(
+          recordedExit("worktree hook remove", async () => {
+            const { worktreeRemoveHook } = await import(
+              "../lib/worktree_hooks.ts"
+            );
+            return await worktreeRemoveHook();
+          }),
+        ),
     );
   worktree.command("hook", worktreeHook).hidden();
   root.command("worktree", worktree);
@@ -1480,14 +1375,10 @@ function attachSkillsCommand(root: Command): void {
         .description(
           "List the effective skills (built-ins + yours; which override which).",
         )
-        .option(
-          "--json",
-          "Emit the listing as a JSON DiscernResult (data.skills).",
-        )
         .action(
           recordedExit(
             "skills list",
-            async (o) => await runSkillsList({ json: o.json ?? false }),
+            async (o) => await runSkillsList({ json: jsonFrom(o) }),
           ),
         ),
     )
@@ -1496,10 +1387,6 @@ function attachSkillsCommand(root: Command): void {
       new Command()
         .description(
           "Copy a bundled built-in into [skills].dir so you can customize it.",
-        )
-        .option(
-          "--json",
-          "Emit the eject result as a JSON DiscernResult on stdout.",
         )
         .option(
           "--dry-run",
@@ -1511,7 +1398,7 @@ function attachSkillsCommand(root: Command): void {
             "skills eject",
             async (o, name: string) =>
               await runSkillsEject(name, {
-                json: o.json ?? false,
+                json: jsonFrom(o),
                 dryRun: o.dryRun ?? false,
               }),
           ),
@@ -1914,28 +1801,89 @@ function commonPrefixLen(a: string, b: string): number {
   return n;
 }
 
-/** Length of the common trailing run of two strings. */
-function commonSuffixLen(a: string, b: string): number {
-  let n = 0;
-  while (
-    n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]
-  ) {
-    n++;
-  }
-  return n;
+/** Fold CLI punctuation and nested spacing into one comparable token. */
+function foldCommandName(value: string): string {
+  return value.trim().toLowerCase().replace(/[:\s]+/g, "-");
 }
 
-/** Whether `name` is a plausible near-match for the folded typo. */
-function matchCandidate(typo: string, name: string): boolean {
-  if (name.includes(typo) || typo.includes(name)) {
-    return true;
+/** Edit distance with adjacent transpositions, over the small live command registry. */
+function editDistance(a: string, b: string): number {
+  let beforePrevious: number[] | undefined;
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current: number[] = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const insertion = (current[j - 1] ?? 0) + 1;
+      const deletion = (previous[j] ?? 0) + 1;
+      const substitution = (previous[j - 1] ?? 0) +
+        (a[i - 1] === b[j - 1] ? 0 : 1);
+      let distance = Math.min(insertion, deletion, substitution);
+      if (
+        i > 1 && j > 1 && a[i - 1] === b[j - 2] &&
+        a[i - 2] === b[j - 1]
+      ) {
+        distance = Math.min(
+          distance,
+          (beforePrevious?.[j - 2] ?? 0) + 1,
+        );
+      }
+      current.push(distance);
+    }
+    beforePrevious = previous;
+    previous = current;
   }
+  return previous[b.length] ?? Math.max(a.length, b.length);
+}
+
+interface CommandSuggestionCandidate {
+  readonly display: string;
+  readonly folded: string;
+}
+
+/** Flatten the live Cliffy tree; aliases score but always name their canonical path. */
+function commandSuggestionCandidates(
+  model: CliCommand,
+): CommandSuggestionCandidate[] {
+  const candidates: CommandSuggestionCandidate[] = [];
+  for (const command of walkCliCommands(model)) {
+    if (command.path.length === 0 || command.hidden) continue;
+    const display = command.path.join(" ");
+    candidates.push({ display, folded: foldCommandName(display) });
+    const parent = command.path.slice(0, -1);
+    for (const alias of command.aliases) {
+      candidates.push({
+        display,
+        folded: foldCommandName([...parent, alias].join(" ")),
+      });
+    }
+  }
+  return candidates;
+}
+
+/** Select the strongest unique live-registry match, never guessing on tiny input. */
+function closestCommand(
+  typo: string,
+  candidates: readonly CommandSuggestionCandidate[],
+): string | undefined {
+  const folded = foldCommandName(typo);
+  if (folded.length < 3) return undefined;
+  const maximum = Math.min(3, Math.max(1, Math.floor(folded.length / 4)));
+  const scored = candidates.map((candidate) => ({
+    ...candidate,
+    distance: editDistance(folded, candidate.folded),
+    prefix: commonPrefixLen(folded, candidate.folded),
+  })).filter((candidate) => candidate.distance <= maximum).sort((a, b) =>
+    a.distance - b.distance || b.prefix - a.prefix ||
+    a.display.localeCompare(b.display)
+  );
+  const best = scored[0];
+  const runnerUp = scored[1];
+  if (best === undefined) return undefined;
   if (
-    Math.abs(typo.length - name.length) <= 2 && commonPrefixLen(typo, name) >= 3
-  ) {
-    return true;
-  }
-  return commonSuffixLen(typo, name) >= 4;
+    runnerUp !== undefined && runnerUp.distance === best.distance &&
+    runnerUp.prefix === best.prefix && runnerUp.display !== best.display
+  ) return undefined;
+  return best.display;
 }
 
 /** Names of the executable project scripts in one configured directory. */
@@ -1953,138 +1901,29 @@ async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
  */
 async function suggestCommand(
   typo: string,
+  cliModel: CliModelProvider,
   scriptsAbs: string | undefined,
 ): Promise<string | undefined> {
   const synonym = commandSynonymSuggestion(typo);
   if (synonym !== undefined) {
     return synonym;
   }
-  const folded = typo.replace(/:/g, "-");
-  for (const name of SUGGESTABLE_ENGINE_COMMANDS) {
-    if (matchCandidate(folded, name)) {
-      return displayName(name);
-    }
-  }
+  const builtIn = closestCommand(
+    typo,
+    commandSuggestionCandidates(cliModel()),
+  );
+  if (builtIn !== undefined) return builtIn;
   if (scriptsAbs !== undefined) {
-    for (const name of await projectScriptNames(scriptsAbs)) {
-      if (matchCandidate(folded, name)) {
-        return `scripts ${name}`;
-      }
-    }
+    const script = closestCommand(
+      typo,
+      (await projectScriptNames(scriptsAbs)).map((name) => ({
+        display: `scripts ${name}`,
+        folded: foldCommandName(name),
+      })),
+    );
+    if (script !== undefined) return script;
   }
   return undefined;
-}
-
-/** Internal helper verbs — callable for scripts/tests, but collapsed out of the
- * main help listing. The SSOT for the helper
- * vocabulary: {@link HELPER_HANDLERS} is a total `Record<HelperVerb, …>` keyed by it,
- * so a helper added here without a handler (or vice versa) fails `deno check` — the
- * membership test ({@link isHelperVerb}) and the dispatch can never disagree on which
- * verbs are helpers. */
-const HELPER_VERBS = [
-  "remove-worktree-safely",
-  "inherit-main-env-vars",
-  "with-gotchas",
-] as const;
-/** One internal helper verb ({@link HELPER_VERBS}). */
-type HelperVerb = (typeof HELPER_VERBS)[number];
-
-const HELPER_VERB_SET: ReadonlySet<string> = new Set(HELPER_VERBS);
-
-/** Whether `verb` is an internal helper verb (narrows it to {@link HelperVerb}). */
-export function isHelperVerb(verb: string): verb is HelperVerb {
-  return HELPER_VERB_SET.has(verb);
-}
-
-/** The handler for each helper verb — a TOTAL record, so a new {@link HELPER_VERBS}
- * member is a COMPILE error here until it is wired (and a handler for a non-helper
- * can't slip in). The dispatch derives from this, never a parallel switch. */
-const HELPER_HANDLERS: Record<
-  HelperVerb,
-  (args: string[]) => Promise<number>
-> = {
-  "remove-worktree-safely": helperRemoveWorktree,
-  "inherit-main-env-vars": helperInheritEnv,
-  "with-gotchas": helperWithGotchas,
-};
-
-/**
- * Dispatch an internal helper verb, or return null if `verb` is not one. Handled
- * before Cliffy so a wrapped command's flags (`with-gotchas sh -c …`) pass raw.
- */
-export async function dispatchHelper(
-  verb: string,
-  args: string[],
-): Promise<number | null> {
-  return isHelperVerb(verb) ? await HELPER_HANDLERS[verb](args) : null;
-}
-
-/** `remove-worktree-safely <path>` — robustly remove a worktree of this repo. */
-async function helperRemoveWorktree(args: string[]): Promise<number> {
-  const target = args[0];
-  if (target === undefined) {
-    new Logger({ json: false, noColor: false }).error(
-      "remove-worktree-safely: a path argument is required.",
-    );
-    return 1;
-  }
-  const log = makeLogger();
-  const lc = await import("./worktree/lifecycle.ts");
-  try {
-    const { removeWorktreeSafely } = await import("./worktree/git.ts");
-    await removeWorktreeSafely(target, Deno.cwd());
-    return 0;
-  } catch (e) {
-    return handleWorktreeError(e, log, lc);
-  }
-}
-
-/** `inherit-main-env-vars` — copy [worktree].inherit_env vars from main's env files. */
-async function helperInheritEnv(): Promise<number> {
-  const root = await findRoot();
-  if (root === undefined) {
-    new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);
-    return 1;
-  }
-  const log = makeLogger();
-  const cfg = await loadConfig(root);
-  const lc = await import("./worktree/lifecycle.ts");
-  try {
-    const { inheritMainEnvVars } = await import("./worktree/git.ts");
-    await inheritMainEnvVars({
-      worktreeRoot: root,
-      vars: cfg.worktree.inherit_env,
-      files: cfg.worktree.env_files,
-      log,
-    });
-    return 0;
-  } catch (e) {
-    return handleWorktreeError(e, log, lc);
-  }
-}
-
-/** `with-gotchas <command> [args…]` — run a command; on failure print the gotchas
- * pointer and propagate its exit code (no `set -e`: it observes the failure). */
-async function helperWithGotchas(args: string[]): Promise<number> {
-  const [command, ...rest] = args;
-  if (command === undefined) {
-    new Logger({ json: false, noColor: false }).error(
-      "with-gotchas: no command given.",
-    );
-    return 1;
-  }
-  const child = await runOwnedChild(command, {
-    args: rest,
-  });
-  const code = child.status.code;
-  if (code !== 0) {
-    const root = await findRoot();
-    if (root !== undefined) {
-      const { gotchasHint } = await import("./gate/gotchas.ts");
-      gotchasHint(await loadConfig(root), root, colorEnabled());
-    }
-  }
-  return code;
 }
 
 /**
@@ -2109,6 +1948,21 @@ export async function runConfigRead(
   // The Project-Script-facing passthrough reads arbitrary dotted keys verbatim, so it uses
   // the raw reader (no schema, no defaults) rather than the typed loader.
   const cfg = await RawConfig.load(root);
+  if (op === "get" && !cfg.has(key)) {
+    const message =
+      `discern.toml has no value at "${key}". Run \`discern config has ${key}\` when absence is an expected predicate.`;
+    if (opts.json ?? false) {
+      emitResult({
+        ok: false,
+        verb: "config",
+        error: "unknown_key",
+        message,
+      });
+    } else {
+      new Logger({ json: false, noColor: false }).error(message);
+    }
+    return 1;
+  }
   let data: ConfigData;
   switch (op) {
     case "get":
@@ -2206,6 +2060,7 @@ function scriptsDirOf(
  */
 export async function reportUnknownOrSuggest(
   verb: string,
+  cliModel: CliModelProvider,
   opts: { json?: boolean } = {},
 ): Promise<number> {
   const root = await findRoot();
@@ -2218,7 +2073,7 @@ export async function reportUnknownOrSuggest(
   const scripts = root !== undefined && cfg !== undefined
     ? scriptsDirOf(root, cfg)
     : undefined;
-  const suggestion = await suggestCommand(verb, scripts?.abs);
+  const suggestion = await suggestCommand(verb, cliModel, scripts?.abs);
   reportUnknownCommand(verb, suggestion, "discern", opts);
   return 1;
 }

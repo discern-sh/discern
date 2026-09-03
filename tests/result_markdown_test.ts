@@ -1223,10 +1223,10 @@ Deno.test("durations and byte sizes render at readable units", () => {
   const archive = renderResultMarkdown(
     {
       ok: true,
-      verb: "patterns archive",
+      verb: "patterns seal",
       data: { events: 14783, bytes: 16_000_000 },
     },
-    resultPresenterForVerb("patterns archive"),
+    resultPresenterForVerb("patterns seal"),
   );
   assertStringIncludes(archive, "Size: 16 MB.");
   assert(!archive.includes("16000000"), archive);

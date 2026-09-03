@@ -34,7 +34,15 @@ function resultMessage(result: { message?: string | undefined }): string {
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
   const r = await runCli(
-    ["setup", "--confirmed", "--yes", "--slug", "demo", "--name", "Demo"],
+    [
+      "setup",
+      "begin",
+      "--confirmed",
+      "--slug",
+      "demo",
+      "--name",
+      "Demo",
+    ],
     dir,
   );
   assertEquals(r.code, 0, r.stderr);

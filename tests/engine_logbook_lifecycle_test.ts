@@ -453,7 +453,7 @@ Deno.test("Logbook lifecycle exposes no unattended confirmation bypass", async (
 
 realPtyTest({
   name:
-    "patterns archive seals every raw shard, lists it, and historical reports leave it unchanged",
+    "patterns seal seals every raw shard, lists it, and historical reports leave it unchanged",
   contracts: ["platform-transport"],
   canary: false,
   ignore: Deno.build.os === "windows",
@@ -482,7 +482,7 @@ realPtyTest({
       const expectedArchive = `${july}\n${august}`;
       const siblings = await seedAdminSiblings(dir);
 
-      const archived = await runAgentPty(dir, ["patterns", "archive"], {
+      const archived = await runAgentPty(dir, ["patterns", "seal"], {
         input: "y\n",
       });
       assertEquals(archived.code, 0, archived.output);
@@ -658,8 +658,8 @@ realPtyTest({
       );
       assert(verbs.includes("patterns archives"));
       assert(verbs.includes("patterns"));
-      assert(!verbs.includes("patterns archive"));
-      assert(!expectedArchive.includes('"verb":"patterns archive"'));
+      assert(!verbs.includes("patterns seal"));
+      assert(!expectedArchive.includes('"verb":"patterns seal"'));
     });
   },
 });

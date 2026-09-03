@@ -1,5 +1,7 @@
 # ADR 0222: The frozen contract surface completes the vocabulary canon before the first tag
 
+> **Amendment ([ADR 0365](0365-the-v1-cli-has-one-command-model-and-one-spelling.md)).** The pre-v1 preset surface and grammar-wide trailing-s forwarding were withdrawn before the first tag. `scripts` remains canonical; suggestions derive from the live command tree, and a spelling outside the canon does not dispatch.
+
 **Status**: accepted
 
 ## Context

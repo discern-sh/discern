@@ -28,7 +28,6 @@ export type DiscernKnownErrorSlug =
   | "invalid_config"
   | "invalid_config_file"
   | "invalid_migrated_config"
-  | "invalid_preset"
   | "invalid_settings_file"
   | "invalid_toml"
   | "invalid_value"
@@ -68,7 +67,6 @@ export type DiscernKnownErrorSlug =
   | "unknown_category"
   | "unknown_command"
   | "unknown_key"
-  | "unknown_preset"
   | "unknown_standard"
   | "write_access";
 
@@ -380,6 +378,27 @@ export type DiscernProofCheckpoints = {
       account: string;
     }
   >;
+};
+
+export type __schema0 = {
+  path: Array<string>;
+  description: string;
+  aliases: Array<string>;
+  hidden: boolean;
+  args: Array<{
+    name: string;
+    optional: boolean;
+    variadic: boolean;
+  }>;
+  usage: string;
+  options: Array<{
+    flags: Array<string>;
+    description: string;
+    typeDefinition: string;
+    hidden: boolean;
+    global: boolean;
+  }>;
+  children: Array<__schema0>;
 };
 
 export type DiscernProofSummary = {
@@ -722,9 +741,9 @@ export type DiscernSetupResult = DiscernResultState & {
   message?: string;
   verb: "setup";
   data?: {
-    phase?: "fresh" | "in_progress" | "done";
-    complete?: boolean;
-    next_action?: string;
+    phase: "fresh" | "in_progress" | "done";
+    complete: boolean;
+    next_action: string;
     agent_instructions?: string;
     human_framing?: string;
     progress?: {
@@ -749,6 +768,143 @@ export type DiscernSetupResult = DiscernResultState & {
         verdict: "full" | "partial" | "minimal";
       };
     };
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernSetupBeginResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-forced-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-forced-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "setup begin";
+  data?: {
+    complete?: boolean;
+    next_action?: string;
     already_set_up?: boolean;
     message?: string;
     project?: {
@@ -2690,152 +2846,6 @@ export type DiscernTriangleResult = DiscernResultState & {
   };
 };
 
-export type DiscernPresetResult = DiscernResultState & {
-  ok: boolean;
-  dry_run?: boolean;
-  plan?: {
-    title: string;
-    details: Array<string>;
-    steps: Array<{
-      kind:
-        | "job"
-        | "scope-gate"
-        | "merge-check"
-        | "standards-limits-check"
-        | "tracked-artifacts-check"
-        | "instructions-check"
-        | "skills-check"
-        | "tracked-refresh-check"
-        | "resource-create"
-        | "resource-destroy"
-        | "git"
-        | "task-metadata"
-        | "setup-step"
-        | "repository-ensure"
-        | "checkout-clean-check"
-        | "setup-ensure"
-        | "env"
-        | "refresh"
-        | "tidy"
-        | "standard";
-      label: string;
-      disposition: "run" | "skip" | "gate";
-      note?: string;
-      group?: string;
-    }>;
-  };
-  steps?: Array<{
-    kind:
-      | "job"
-      | "scope-gate"
-      | "merge-check"
-      | "standards-limits-check"
-      | "tracked-artifacts-check"
-      | "instructions-check"
-      | "skills-check"
-      | "tracked-refresh-check"
-      | "resource-create"
-      | "resource-destroy"
-      | "git"
-      | "task-metadata"
-      | "setup-step"
-      | "repository-ensure"
-      | "checkout-clean-check"
-      | "setup-ensure"
-      | "env"
-      | "refresh"
-      | "tidy"
-      | "standard";
-    label: string;
-    disposition: "run" | "skip" | "gate";
-    note?: string;
-    group?: string;
-    outcome: "ok" | "failed" | "skipped" | "cancelled";
-    advisory?: {
-      kind:
-        | "acceptance-cleanup-incomplete"
-        | "checkpoint-evidence-dropped"
-        | "checkout-clean-observation-unavailable"
-        | "doctor-warning"
-        | "execution-cap-unavailable"
-        | "generated-attribute-pattern-untranslated"
-        | "ignored-file-observation-unavailable"
-        | "landing-authority-unverified"
-        | "optional-resource-unavailable"
-        | "proof-recording-unavailable"
-        | "setup-forced-completion"
-        | "setup-machinery-commit-failed"
-        | "setup-marker-commit-failed"
-        | "standards-limits-unverified"
-        | "uninstall-strip-incomplete";
-      evidence: Array<string>;
-      next_action: string;
-    };
-    duration_s?: number;
-    output_path?: string;
-    output_lines?: number;
-    error_like_lines?: number;
-  }>;
-  waited_ms?: number;
-  diagnostics?: Array<{
-    tool: string;
-    severity: "error" | "warning";
-    message: string;
-    reproduce_cmd: string;
-    output?: string;
-    truncated?: boolean;
-    output_path?: string;
-    file?: string;
-    line?: number;
-    col?: number;
-    rule?: string;
-    fix_available?: boolean;
-  }>;
-  hints?: Array<string>;
-  advisories?: Array<{
-    kind:
-      | "acceptance-cleanup-incomplete"
-      | "checkpoint-evidence-dropped"
-      | "checkout-clean-observation-unavailable"
-      | "doctor-warning"
-      | "execution-cap-unavailable"
-      | "generated-attribute-pattern-untranslated"
-      | "ignored-file-observation-unavailable"
-      | "landing-authority-unverified"
-      | "optional-resource-unavailable"
-      | "proof-recording-unavailable"
-      | "setup-forced-completion"
-      | "setup-machinery-commit-failed"
-      | "setup-marker-commit-failed"
-      | "standards-limits-unverified"
-      | "uninstall-strip-incomplete";
-    evidence: Array<string>;
-    next_action: string;
-  }>;
-  error?: string;
-  message?: string;
-  verb: "preset";
-  data?: {
-    preset?: string;
-    available?: Array<string>;
-    plan?: Array<{
-      path: string;
-      action: "create" | "skip" | "merge" | "append" | "remove";
-      note?: string;
-    }>;
-    config_fills?: boolean;
-    config_fills_applied?: Array<string>;
-    config_fills_skipped?: Array<string>;
-    written?: Array<string>;
-  } | {
-    issues: Array<{
-      kind?: "unknown_root_section";
-      path: string;
-      message: string;
-    }>;
-  };
-};
-
 export type DiscernMapResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -3279,6 +3289,142 @@ export type DiscernDocsResult = DiscernResultState & {
       snippet: string;
     }>;
     truncated?: boolean;
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernHelpResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-forced-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-forced-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "help";
+  data?: {
+    command: __schema0;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -6302,7 +6448,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
   };
 };
 
-export type DiscernPatternsArchiveResult = DiscernResultState & {
+export type DiscernPatternsSealResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6426,7 +6572,7 @@ export type DiscernPatternsArchiveResult = DiscernResultState & {
   }>;
   error?: string;
   message?: string;
-  verb: "patterns archive";
+  verb: "patterns seal";
   data?: {
     source_dir: string;
     destination_dir: string;
@@ -6730,7 +6876,7 @@ export type DiscernDeskResult = DiscernResultState & {
   };
 };
 
-export type DiscernWorktreesResult = DiscernResultState & {
+export type DiscernEnterResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -6854,7 +7000,7 @@ export type DiscernWorktreesResult = DiscernResultState & {
   }>;
   error?: string;
   message?: string;
-  verb: "worktrees";
+  verb: "enter";
   data?: {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -7677,6 +7823,140 @@ export type DiscernWorktreeRenameResult = DiscernResultState & {
       unavailable_reason?: string;
     };
   } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernWorktreeEnsureResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-forced-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-forced-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "worktree ensure";
+  data?: {
     issues: Array<{
       kind?: "unknown_root_section";
       path: string;
@@ -9690,6 +9970,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
 export type DiscernCliJsonResult =
   | DiscernDiscernResult
   | DiscernSetupResult
+  | DiscernSetupBeginResult
   | DiscernSetupVerifyResult
   | DiscernSetupStepResult
   | DiscernSetupDoneResult
@@ -9699,9 +9980,9 @@ export type DiscernCliJsonResult =
   | DiscernDoctorResult
   | DiscernLicensesResult
   | DiscernTriangleResult
-  | DiscernPresetResult
   | DiscernMapResult
   | DiscernDocsResult
+  | DiscernHelpResult
   | DiscernConfigResult
   | DiscernDoneResult
   | DiscernPrepareResult
@@ -9717,13 +9998,14 @@ export type DiscernCliJsonResult =
   | DiscernAwaitResult
   | DiscernPatternsResult
   | DiscernPatternsResetResult
-  | DiscernPatternsArchiveResult
+  | DiscernPatternsSealResult
   | DiscernPatternsArchivesResult
   | DiscernDeskResult
-  | DiscernWorktreesResult
+  | DiscernEnterResult
   | DiscernStatusResult
   | DiscernStartResult
   | DiscernWorktreeRenameResult
+  | DiscernWorktreeEnsureResult
   | DiscernAcceptResult
   | DiscernUpdateResult
   | DiscernIdentityResult
@@ -9741,6 +10023,7 @@ export type DiscernCliJsonResult =
 export interface DiscernResultByVerb {
   discern: DiscernDiscernResult;
   setup: DiscernSetupResult;
+  "setup begin": DiscernSetupBeginResult;
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
@@ -9750,9 +10033,9 @@ export interface DiscernResultByVerb {
   doctor: DiscernDoctorResult;
   licenses: DiscernLicensesResult;
   triangle: DiscernTriangleResult;
-  preset: DiscernPresetResult;
   map: DiscernMapResult;
   docs: DiscernDocsResult;
+  help: DiscernHelpResult;
   config: DiscernConfigResult;
   done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
@@ -9768,13 +10051,14 @@ export interface DiscernResultByVerb {
   await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
-  "patterns archive": DiscernPatternsArchiveResult;
+  "patterns seal": DiscernPatternsSealResult;
   "patterns archives": DiscernPatternsArchivesResult;
   desk: DiscernDeskResult;
-  worktrees: DiscernWorktreesResult;
+  enter: DiscernEnterResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
   "worktree rename": DiscernWorktreeRenameResult;
+  "worktree ensure": DiscernWorktreeEnsureResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
@@ -9793,7 +10077,7 @@ export interface DiscernResultByVerb {
 export interface DiscernResultByCommand {
   discern: DiscernDiscernResult;
   setup: DiscernSetupResult;
-  "setup begin": DiscernSetupResult;
+  "setup begin": DiscernSetupBeginResult;
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
   "setup done": DiscernSetupDoneResult;
@@ -9803,9 +10087,9 @@ export interface DiscernResultByCommand {
   doctor: DiscernDoctorResult;
   licenses: DiscernLicensesResult;
   triangle: DiscernTriangleResult;
-  preset: DiscernPresetResult;
   map: DiscernMapResult;
   docs: DiscernDocsResult;
+  help: DiscernHelpResult;
   config: DiscernConfigResult;
   "config set-job": DiscernConfigResult;
   "config set-scope": DiscernConfigResult;
@@ -9831,13 +10115,14 @@ export interface DiscernResultByCommand {
   await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
-  "patterns archive": DiscernPatternsArchiveResult;
+  "patterns seal": DiscernPatternsSealResult;
   "patterns archives": DiscernPatternsArchivesResult;
   desk: DiscernDeskResult;
-  worktrees: DiscernWorktreesResult;
+  enter: DiscernEnterResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
   "worktree rename": DiscernWorktreeRenameResult;
+  "worktree ensure": DiscernWorktreeEnsureResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;

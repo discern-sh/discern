@@ -109,7 +109,9 @@ function effectPolicy(options: PolicyOptions = {}): ResultCompletionPolicy {
  */
 export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   discern: observationPolicy(),
-  setup: effectPolicy({
+  help: observationPolicy(),
+  setup: observationPolicy(),
+  "setup begin": effectPolicy({
     required: [
       "declared-outcome",
       "executed-steps",
@@ -164,7 +166,6 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   }),
   licenses: observationPolicy(),
   triangle: observationPolicy(),
-  preset: effectPolicy(),
   map: observationPolicy(),
   docs: observationPolicy(),
   config: effectPolicy(),
@@ -204,10 +205,10 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   await: observationPolicy({ cancellation: "successful-no-effect" }),
   patterns: observationPolicy(),
   "patterns reset": effectPolicy({ cancellation: "successful-no-effect" }),
-  "patterns archive": effectPolicy({ cancellation: "successful-no-effect" }),
+  "patterns seal": effectPolicy({ cancellation: "successful-no-effect" }),
   "patterns archives": observationPolicy(),
   desk: effectPolicy({ cancellation: "successful-no-effect" }),
-  worktrees: observationPolicy(),
+  enter: observationPolicy(),
   status: observationPolicy({
     advisories: ["landing-authority-unverified"],
   }),
@@ -236,6 +237,9 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   scripts: effectPolicy(),
   worktree: observationPolicy(),
   "worktree setup": effectPolicy({
+    advisories: ["optional-resource-unavailable"],
+  }),
+  "worktree ensure": effectPolicy({
     advisories: ["optional-resource-unavailable"],
   }),
   "worktree rename": effectPolicy(),

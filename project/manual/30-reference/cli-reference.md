@@ -52,10 +52,10 @@ aliases:
   - "discern patterns"
   - "discern patterns archives"
   - "discern patterns reset"
-  - "discern patterns archive"
+  - "discern patterns seal"
   - "discern status"
   - "discern desk"
-  - "discern worktrees"
+  - "discern enter"
   - "discern start"
   - "discern accept"
   - "discern update"
@@ -87,14 +87,14 @@ Prerequisite: none for syntax lookup. Commands that require a configured project
 
 These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
 
-| Option            | Description                                                                                                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout.                                                                                                                                                  |
-| `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                              |
-| `--render`        | Render the Markdown result as terminal output.                                                                                                                                   |
-| `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                       |
-| `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                          |
-| `--theme <theme>` | Set the terminal theme. `auto` senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. `light` and `dark` still force that variant. Default: `auto`. |
+| Option            | Description                                                                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`          | Emit one JSON result on stdout.                                                                                                                                               |
+| `--markdown`      | Emit one Markdown result on stdout.                                                                                                                                           |
+| `--render`        | Render the Markdown result as terminal output.                                                                                                                                |
+| `--no-color`      | Disable colour (also honours NO_COLOR and non-TTY output).                                                                                                                    |
+| `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                       |
+| `--theme <theme>` | Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing. |
 
 ## Help, version, and parser-owned flags
 
@@ -141,14 +141,19 @@ The implementation and real-terminal contract are public in [`src/commands/docs.
 
 ## Exit behavior
 
-| Exit status   | Contract                                                                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `0`           | The command completed successfully. A bare predicate exits `0` when true.                                           |
-| `1`           | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                         |
-| `124`         | `discern await` reached its call budget before the watched condition held. Its result includes the `resume` handle. |
-| `70`          | discern crashed on an unexpected internal error.                                                                    |
-| Child status  | `discern queue -- <command>` and `discern scripts <name>` preserve the child command's exit status.                 |
-| Signal status | An interrupted run preserves the conventional signal status, such as `130` for SIGINT or `143` for SIGTERM.         |
+| Exit status         | Contract                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `0`                 | The command completed successfully. A bare predicate exits `0` when true.                                               |
+| `1`                 | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                             |
+| `2`                 | The command grammar or arguments were invalid, including a bare quiet-result invocation.                                |
+| `70`                | discern crashed on an unexpected internal error.                                                                        |
+| `124`               | `discern await` reached its call budget before the watched condition held; its result includes the continuation handle. |
+| `127`               | A child executable selected by an exec-style boundary could not be started.                                             |
+| `129`               | An interrupted run preserved the conventional status derived from SIGHUP.                                               |
+| `130`               | An interrupted run preserved the conventional status derived from SIGINT.                                               |
+| `143`               | An interrupted run preserved the conventional status derived from SIGTERM.                                              |
+| Child status        | `discern queue -- <command>` and `discern scripts <name>` preserve a started child's own exit status.                   |
+| Other signal status | A platform-reported child signal preserves its conventional signal status when available.                               |
 
 Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.
 
@@ -166,11 +171,11 @@ Usage: `discern desk [options]`
 | -------- | ------------------------------------------------------------------------------------------------ |
 | `--json` | The desk is interactive only; use `status --markdown` or `status --json` to list every worktree. |
 
-### `discern worktrees`
+### `discern enter`
 
 Choose a worktree and open a child shell at the matching project-relative directory.
 
-Usage: `discern worktrees [options]`
+Usage: `discern enter [options]`
 
 | Option   | Description                                                                       |
 | -------- | --------------------------------------------------------------------------------- |
@@ -191,17 +196,13 @@ Usage: `discern status [options]`
 | `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                                                                                         |
 | `--local`   | Show only this checkout, even in the main checkout.                                                                                                                                                       |
 | `--verbose` | Expand fleet attention, per-worktree evidence, configured checks, landing history, and full Proof pages. With JSON, return complete structured status; the default is the bounded orientation projection. |
-| `--json`    | Emit a bounded orientation DiscernResult on stdout; add --verbose for complete structured status.                                                                                                         |
+| `--json`    | Emit a bounded orientation result; add `--verbose` for complete structured status.                                                                                                                        |
 
 ### `discern prepare`
 
 Fast inner loop: fixers, [generated] regenerations, complete refresh, then read-only checks (no other build jobs, no tests).
 
 Usage: `discern prepare [options]`
-
-| Option   | Description                                                          |
-| -------- | -------------------------------------------------------------------- |
-| `--json` | Emit the result as a JSON DiscernResult on stdout (output → stderr). |
 
 ### `discern done`
 
@@ -211,7 +212,6 @@ Usage: `discern done [options]`
 
 | Option              | Description                                                                                                                                                                                                                                                     |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit the gate result as a JSON DiscernResult on stdout (steps + diagnostics).                                                                                                                                                                                   |
 | `--dry-run`         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
 | `--rerun`           | Run the full Gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
 | `--ci`              | Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
@@ -225,10 +225,6 @@ Run the project's configured tests on their own, outside the full gate.
 
 Usage: `discern test [options]`
 
-| Option   | Description                                                          |
-| -------- | -------------------------------------------------------------------- |
-| `--json` | Emit the result as a JSON DiscernResult on stdout (output → stderr). |
-
 ### `discern queue`
 
 Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json`, `--markdown`, or `--render` mode; tokens after `--` belong to the child.
@@ -241,10 +237,9 @@ Canonically format discern's configured Markdown sources and root discern.toml, 
 
 Usage: `discern tidy [type] [options]`
 
-| Option      | Description                                        |
-| ----------- | -------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult on stdout. |
-| `--dry-run` | List the files that would change; touch nothing.   |
+| Option      | Description                                      |
+| ----------- | ------------------------------------------------ |
+| `--dry-run` | List the files that would change; touch nothing. |
 
 ## Worktree lifecycle
 
@@ -258,7 +253,6 @@ Usage: `discern start [options]`
 
 | Option            | Description                                                                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout (data.path is the new worktree).                                                                          |
 | `--dry-run`       | Show the start plan; touch nothing.                                                                                                      |
 | `--name <name>`   | Set the task title and seed its worktree id. discern preserves this text as the title and normalizes the id. Omit for a random codename. |
 | `--title <title>` | Set the display title separately from --name. With no --name, the title also seeds the worktree id.                                      |
@@ -273,7 +267,6 @@ Usage: `discern update [options]`
 
 | Option            | Description                                                                                                                                                                 |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`          | Emit one JSON result on stdout.                                                                                                                                             |
 | `--dry-run`       | Show the update plan; touch nothing.                                                                                                                                        |
 | `--from <source>` | Pull a ref or an unambiguous worktree id or path into this worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
 
@@ -285,7 +278,6 @@ Usage: `discern await [options]`
 
 | Option                | Description                                                                                                                                                |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                                                               |
 | `--green <worktree>`  | Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate proof (a landing also satisfies it). |
 | `--landed <worktree>` | Select a sibling by worktree id, path, local branch, or full local ref; wait until its work reaches the trunk.                                             |
 | `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                                                            |
@@ -300,7 +292,6 @@ Usage: `discern accept [options]`
 
 | Option                       | Description                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`                     | Emit one JSON result on stdout.                                                                                                                                                                                                                                                                                                                |
 | `--dry-run`                  | Show the acceptance plan; touch nothing.                                                                                                                                                                                                                                                                                                       |
 | `--confirmed`                | Attest that your owner accepted this landing in the current conversation. Recorded standing and effort grants are checked directly. Consent bound to an interrupted transaction may authorize recovery of that transaction only. Without applicable evidence, acceptance refuses read-only; a dry-run needs none.                              |
 | `--variance <id>`            | Record that your owner authorized landing this declared-unmet checkpoint without changing it (repeatable; requires --confirmed). The ids must equal the current declared-unmet set, id for id, and recorded grants never authorize a variance.                                                                                                 |
@@ -320,7 +311,6 @@ Usage: `discern worktree setup [options]`
 
 | Option                      | Description                                                                                                                            |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`                    | Emit one JSON result on stdout.                                                                                                        |
 | `--dry-run`                 | Show the setup plan; touch nothing.                                                                                                    |
 | `--mark-step-complete <id>` | After observing an interrupted setup command's external state, mark its running journal entry complete without replaying it.           |
 | `--retry-step <id>`         | After observing an interrupted setup command's external state, reset its running journal entry and run it again.                       |
@@ -341,7 +331,6 @@ Usage: `discern worktree rename <title> [options]`
 | Option      | Description                                |
 | ----------- | ------------------------------------------ |
 | `--dry-run` | Show the title-change plan; touch nothing. |
-| `--json`    | Emit one JSON result on stdout.            |
 
 #### `discern worktree teardown`
 
@@ -349,10 +338,9 @@ Discard this worktree's resources (destroy without accepting).
 
 Usage: `discern worktree teardown [options]`
 
-| Option      | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
-| `--dry-run` | Show the teardown plan; touch nothing.                    |
+| Option      | Description                            |
+| ----------- | -------------------------------------- |
+| `--dry-run` | Show the teardown plan; touch nothing. |
 
 #### `discern worktree park`
 
@@ -360,10 +348,9 @@ Remove a clean task checkout and its resources while retaining its branch and ta
 
 Usage: `discern worktree park <worktree> [options]`
 
-| Option      | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| `--dry-run` | Show the Park plan; touch nothing.                        |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
+| Option      | Description                        |
+| ----------- | ---------------------------------- |
+| `--dry-run` | Show the Park plan; touch nothing. |
 
 #### `discern worktree drop`
 
@@ -375,7 +362,6 @@ Usage: `discern worktree drop <worktree> [options]`
 | ----------- | ------------------------------------------------------------------------------------- |
 | `--force`   | Discard even when the worktree holds uncommitted changes or commits not on the trunk. |
 | `--dry-run` | Show the drop plan; touch nothing.                                                    |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout.                             |
 
 #### `discern worktree prune`
 
@@ -388,7 +374,6 @@ Usage: `discern worktree prune [options]`
 | `-y, --yes`   | Non-interactive: skip confirmation.                                                                                                       |
 | `--contained` | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
 | `--dry-run`   | Report what would be removed/reclaimed without acting.                                                                                    |
-| `--json`      | Emit the result as a JSON DiscernResult object on stdout.                                                                                 |
 
 ### `discern identity`
 
@@ -396,18 +381,17 @@ Print stable values that keep each checkout's branch, development host, port, da
 
 Usage: `discern identity [worktree] [options]`
 
-| Option              | Description                                                                  |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `--id`              | Print the safe base name for this checkout (default).                        |
-| `--site`            | Print its development server's host name.                                    |
-| `--branch`          | Print its branch name.                                                       |
-| `--port`            | Print its stable development-server port.                                    |
-| `--db`              | Print its database-safe name.                                                |
-| `--seed`            | Print its stable test-order seed.                                            |
-| `--worktree`        | Print its base resource handle — a stable project-prefixed external name.    |
-| `--resource <name>` | Print the stable external name for one declared resource.                    |
-| `--resources`       | Print every declared resource as name=stable-external-name lines.            |
-| `--json`            | Emit the selected identity value as a JSON DiscernResult envelope on stdout. |
+| Option              | Description                                                               |
+| ------------------- | ------------------------------------------------------------------------- |
+| `--id`              | Print the safe base name for this checkout (default).                     |
+| `--site`            | Print its development server's host name.                                 |
+| `--branch`          | Print its branch name.                                                    |
+| `--port`            | Print its stable development-server port.                                 |
+| `--db`              | Print its database-safe name.                                             |
+| `--seed`            | Print its stable test-order seed.                                         |
+| `--worktree`        | Print its base resource handle — a stable project-prefixed external name. |
+| `--resource <name>` | Print the stable external name for one declared resource.                 |
+| `--resources`       | Print every declared resource as name=stable-external-name lines.         |
 
 ## Project Scripts
 
@@ -423,27 +407,11 @@ Usage: `discern scripts [name] [args...] [options]`
 
 You or your agent tend the installation.
 
-### `discern setup`
+### `discern setup <subcommand>`
 
-Set up discern here (run once; your coding agent does it for you).
+Read the setup welcome and learn the canonical first step. Run `discern setup begin` only after the owner is ready to scaffold.
 
-Usage: `discern setup [options]`
-
-| Option                     | Description                                                                                                                                                 |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`            | Project name (free text).                                                                                                                                   |
-| `--slug <slug>`            | Project slug (^[a-z0-9][a-z0-9-]*$).                                                                                                                        |
-| `--branch-prefix <prefix>` | Branch prefix for worktrees.                                                                                                                                |
-| `--source-globs <globs>`   | Comma-separated primary source globs (e.g. 'src/**,app/**').                                                                                                |
-| `--brief <brief>`          | Free-text project description, or @path to read it from a file.                                                                                             |
-| `--agents <agents>`        | Comma-separated agent files to emit: claude_code, codex, gemini, cursor, copilot.                                                                           |
-| `--map <path>`             | Project-relative directory for the project map — discern's agent-maintained documentation tree.                                                             |
-| `--config <file>`          | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
-| `--model <model>`          | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
-| `--dry-run`                | Print the plan and write nothing.                                                                                                                           |
-| `--force`                  | Re-run even if already set up (re-scaffold + re-seed).                                                                                                      |
-| `--allow-dirty`            | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
-| `--confirmed`              | Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation. |
+Usage: `discern setup <subcommand>`
 
 #### `discern setup verify`
 
@@ -501,15 +469,15 @@ Usage: `discern setup accept [options]`
 
 ### `discern upgrade`
 
-Upgrade discern itself in this project: migrate its config and refresh bundled skills and instructions. Use `discern update` for this branch; use `discern refresh` for agent files alone.
+Bring this project forward to the installed discern: run pending config migrations, reconcile discern-owned config, .gitignore and .gitattributes blocks, and refresh bundled skills and instructions. Never replaces the binary. Use `discern update` to bring trunk into a task branch; use `discern refresh` to regenerate project artifacts only.
 
 Usage: `discern upgrade [options]`
 
-| Option          | Description                                                                               |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| `--dry-run`     | Preview the pending migrations and skills refresh; write nothing.                         |
-| `--check`       | Report whether config-schema migrations are pending (exit non-zero if so); write nothing. |
-| `--allow-dirty` | Upgrade even with uncommitted changes (skips the clean-tree check).                       |
+| Option          | Description                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`     | Preview the pending migrations and skills refresh; write nothing.                                                       |
+| `--check`       | Report whether migrations or discern-owned reconciliation are pending (exit non-zero if so); write nothing; no network. |
+| `--allow-dirty` | Upgrade even with uncommitted changes (skips the clean-tree check).                                                     |
 
 ### `discern doctor`
 
@@ -588,19 +556,11 @@ Print a scalar config value.
 
 Usage: `discern config get <key> [options]`
 
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
-
 #### `discern config array`
 
 Print an array config value, one item per line.
 
 Usage: `discern config array <key> [options]`
-
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 #### `discern config has`
 
@@ -608,9 +568,9 @@ Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: re
 
 Usage: `discern config has <key> [options]`
 
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
+| Option   | Description                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------- |
+| `--json` | Emit a JSON result with the predicate in `data.present` and exit successfully for either Boolean value. |
 
 #### `discern config subsections`
 
@@ -618,29 +578,17 @@ Print the immediate child table names under a section.
 
 Usage: `discern config subsections <key> [options]`
 
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
-
 #### `discern config keys`
 
 Print the flat key names declared in a section.
 
 Usage: `discern config keys <key> [options]`
 
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
-
 #### `discern config explain`
 
 Explain a config section, named-table family, or key: what it governs, why it matters, its keys and defaults, the current value, and worked examples. Works outside a project too.
 
 Usage: `discern config explain <path> [options]`
-
-| Option   | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
-| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 ### `discern refresh`
 
@@ -650,7 +598,6 @@ Usage: `discern refresh [options]`
 
 | Option      | Description                                                                |
 | ----------- | -------------------------------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult on stdout (narration → stderr).    |
 | `--dry-run` | List every refresh target and create/update/remove effect; change nothing. |
 
 ### `discern uninstall`
@@ -676,7 +623,6 @@ Usage: `discern improvement [options]`
 
 | Option              | Description                                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit the coaching result as JSON (practice-health score, open reviews, and data.next_action).     |
 | `--category <name>` | Review a single area (gate, setup, instructions, map, worktrees, standards, checkpoints, skills). |
 | `--min-score <n>`   | Exit non-zero when the overall score is below this floor (a CI/agent gate).                       |
 
@@ -688,7 +634,6 @@ Usage: `discern standards [names...] [options]`
 
 | Option      | Description                                                                                                                                                                                                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout.                                                                                                                                                                                                                         |
 | `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                                                                                         |
 | `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                                                                                       |
 | `--pin`     | Capture measured improvements for the named Standards, or every one with slack. Same-commit values are reused; named measurement narrows only when Gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree. |
@@ -702,7 +647,6 @@ Usage: `discern standards propose <name> [options]`
 | Option              | Description                                                                                                      |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `--reason <reason>` | The exact non-empty owner-facing reason for the Standard limit proposal (1-500 visible, secret-free characters). |
-| `--json`            | Emit the result as a JSON DiscernResult object on stdout.                                                        |
 | `--dry-run`         | Show the proposal plan; touch nothing.                                                                           |
 
 ### `discern checkpoints`
@@ -710,10 +654,6 @@ Usage: `discern standards propose <name> [options]`
 Report the governing checkpoint policy, each open question's declaration state, and a read-only preview of what the current change would fire. Nothing runs and nothing is recorded.
 
 Usage: `discern checkpoints [options]`
-
-| Option   | Description                                        |
-| -------- | -------------------------------------------------- |
-| `--json` | Emit the result as a JSON DiscernResult on stdout. |
 
 ### `discern skills <subcommand>`
 
@@ -727,10 +667,6 @@ List the effective skills (built-ins + yours; which override which).
 
 Usage: `discern skills list [options]`
 
-| Option   | Description                                             |
-| -------- | ------------------------------------------------------- |
-| `--json` | Emit the listing as a JSON DiscernResult (data.skills). |
-
 #### `discern skills eject`
 
 Copy a bundled built-in into [skills].dir so you can customize it.
@@ -739,7 +675,6 @@ Usage: `discern skills eject <name> [options]`
 
 | Option      | Description                                                            |
 | ----------- | ---------------------------------------------------------------------- |
-| `--json`    | Emit the eject result as a JSON DiscernResult on stdout.               |
 | `--dry-run` | Preview every ejection and materialization target without changing it. |
 
 ### `discern impact`
@@ -748,20 +683,16 @@ Show which configured scopes the branch and working tree wake in the quality gat
 
 Usage: `discern impact [options]`
 
-| Option          | Description                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `--json`        | Emit a JSON DiscernResult: changes in `data.scopes`; `--has` in `data.membership`.           |
-| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0. |
+| Option          | Description                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| `--json`        | Emit a JSON result; `--has` reports `data.membership` and exits successfully for either Boolean value. |
+| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0.           |
 
 ### `discern coupling`
 
 Report files that historically change together as a read-only advisory. With no args, report likely siblings missing from the change. With file, report its top partners. Add with to report commits where both changed.
 
 Usage: `discern coupling [file] [with] [options]`
-
-| Option   | Description                |
-| -------- | -------------------------- |
-| `--json` | Emit a JSON DiscernResult. |
 
 ### `discern patterns`
 
@@ -771,7 +702,6 @@ Usage: `discern patterns [options]`
 
 | Option                      | Description                                                                                                                                                                                                    |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`                    | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                                          |
 | `--stats`                   | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.stats. |
 | `--all`                     | Report every finding from every detector.                                                                                                                                                                      |
 | `--logbook-file <filename>` | Read one sealed archive basename listed by `discern patterns archives` instead of the active Logbook.                                                                                                          |
@@ -781,10 +711,6 @@ Usage: `discern patterns [options]`
 List sealed Logbook archives with their event counts, date spans, and byte sizes.
 
 Usage: `discern patterns archives [options]`
-
-| Option   | Description                                               |
-| -------- | --------------------------------------------------------- |
-| `--json` | Emit the result as a JSON DiscernResult object on stdout. |
 
 #### `discern patterns reset`
 
@@ -797,11 +723,11 @@ Usage: `discern patterns reset [options]`
 | `--json`    | Preview as one result; apply is refused with `--json` or `--markdown`.      |
 | `--dry-run` | Render the complete plan without requesting confirmation or changing files. |
 
-#### `discern patterns archive`
+#### `discern patterns seal`
 
 Seal the active event history into a timestamped archive and begin a fresh active Logbook after terminal confirmation.
 
-Usage: `discern patterns archive [options]`
+Usage: `discern patterns seal [options]`
 
 | Option      | Description                                                                 |
 | ----------- | --------------------------------------------------------------------------- |
@@ -831,22 +757,22 @@ Browse the complete bundled product manual, or read a named manual page.
 
 Usage: `discern docs [target] [options]`
 
-| Option             | Description                                                                    |
-| ------------------ | ------------------------------------------------------------------------------ |
-| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.                |
-| `--list`           | Print a plain table of contents and exit without interaction.                  |
-| `--search <query>` | Search the manual with task language or exact text; use a target to narrow it. |
-| `--adr`            | Browse decision records in a source checkout, or show their public location.   |
-| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).         |
-| `--width <cols>`   | Wrap width for rendered output.                                                |
-| `--export <scope>` | Concatenate Markdown to stdout: public.                                        |
-| `--output <path>`  | Write an export to a file instead of stdout.                                   |
+| Option             | Description                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `--raw`            | Print a doc's pristine Markdown source instead of rendering it.                                              |
+| `--list`           | Print a plain table of contents and exit without interaction.                                                |
+| `--search <query>` | Search the manual with task language or exact text; use a target to narrow it.                               |
+| `--adr`            | Browse this project's decision records, or show their published location when local records are unavailable. |
+| `--pager`          | Open rendered documents in an external pager (uses $PAGER or less -R).                                       |
+| `--width <cols>`   | Wrap width for rendered output.                                                                              |
+| `--export <scope>` | Concatenate Markdown to stdout: public.                                                                      |
+| `--output <path>`  | Write an export to a file instead of stdout.                                                                 |
 
 ### `discern help`
 
 Show command-line help.
 
-Usage: `discern help [command] [options]`
+Usage: `discern help [command...] [options]`
 
 ### `discern licenses`
 
@@ -859,5 +785,10 @@ Usage: `discern licenses [options]`
 The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.
 
 Usage: `discern mcp [options]`
+
+| Option                | Description                                                                |
+| --------------------- | -------------------------------------------------------------------------- |
+| `--long-tool-calls`   | Use the long-call transport profile; await calls may run for 3300 seconds. |
+| `--strict-tool-calls` | Use the strict transport profile; await calls may run for 45 seconds.      |
 
 For result-envelope fields and Model Context Protocol delivery, see [MCP and results](mcp-and-results.md). For symptom-led recovery, see [Troubleshooting](../40-troubleshooting/README.md).

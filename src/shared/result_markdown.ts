@@ -1080,7 +1080,6 @@ const presentInventory: ResultMarkdownPresenter = (result) => {
       text(data.mark) === undefined
         ? undefined
         : `Project mark: ${code(data.mark)}.`,
-      listFact("Available presets", strings(data.available)),
       listFact(
         result.dry_run === true ? "Would write" : "Written files",
         strings(data.written),

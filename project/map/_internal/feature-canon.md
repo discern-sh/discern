@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
-10 pillars · 140 nodes · 11 benefit statements · 9 agent-benefit clusters · 78 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 139 nodes · 11 benefit statements · 9 agent-benefit clusters · 77 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -103,7 +103,7 @@ _Each parallel task has a separate checkout, identity, and declared resources, i
 - **Env inheritance** — `[worktree].inherit_env` copies named values from the main checkout's env files into a new worktree's — the secrets a fresh checkout needs that version control doesn't carry.
 - **Ignored-file drift** — The lifecycle fingerprints ignored files at setup and reports top-level ignored paths that changed before the worktree is removed. _Work hiding outside version control gets named before teardown deletes it._
 - **The fleet view** — From the main checkout, `discern status` reports a row per worktree: branch, clean state, ahead/behind, last activity, a broken flag for a checkout whose creation never completed, and cross-worktree changed-file collisions. _The human steers parallel work without visiting each checkout, and two efforts touching the same file get named before either lands._
-- **Cwd-equivalent worktree shells** — In an interactive terminal, `discern worktrees` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor. _The maintainer moves between parallel tasks without finding the checkout path or retracing the project directory tree._
+- **Cwd-equivalent worktree shells** — In an interactive terminal, `discern enter` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor. _The maintainer moves between parallel tasks without finding the checkout path or retracing the project directory tree._
 - **Awaiting a fleet condition** — `discern await` selects a sibling by exact worktree id, path, local branch, or full local ref, then blocks until it is green, its latest observed work has landed on the trunk, or the trunk has moved. Git refs, landed Proof notes, and Gate Proof records decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call. _A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human._
 - **The desk** — Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches. _The maintainer can inspect and act on the fleet from one interactive surface._
   - **Desk tips** — The desk puts one tip directly below the root status per session. Its `Tip` label is yellow and the teaching text stays secondary. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook. _The desk presents one tip per session and records its id in the logbook for later adoption analysis._
@@ -139,7 +139,7 @@ _A reusable procedure becomes one file available to every future session._
   - **Clear the decks** — Sweep out the clutter agent-built codebases accumulate — duplicated helpers, dead code from abandoned approaches, one-caller indirection, leftover scaffolding — every cut proven safe, landed as small behavior-preserving commits, with the entropy capped by a standard.
   - **Delegate work** — Turn the work under discussion into complete, self-contained prompts for fresh agents in their own worktrees — one handoff, a parallel fan-out, or staged briefs — then review what lands adversarially.
   - **Await the fleet** — Wait for another effort with one blocking `discern_await` call — a sibling green, its work landed, or the trunk moved — choosing the condition from the need, awaiting an exact returned worktree selector, then following the met hint to compose what arrived.
-  - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup` seeds under the map's `_internal/` scaffolding.
+  - **Document a subsystem** — Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.
   - **Teach the project** — Route a session's lesson into the project's own surfaces — an instruction line, an authored skill, a project script, a doc, or a decision record — so every future session inherits it.
   - **Write an ADR** — Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.
   - **Write it once** — The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.
@@ -193,7 +193,6 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **File ownership** — Every file discern touches is project-owned (seeded once, then left alone), shared (discern maintains only its declared entries or regions), or generated (rebuilt from reviewable sources). These groups define edit and overwrite authority. Copyright follows the applicable license terms. Upgrade honors the groups, and the removal set derives from the same registry. _The ownership registry determines which files upgrade may touch._
 - **Placement is consent** — discern and its agents write only where placement licenses it: a file at its namespace default carries an implicit write-license, a config key you pointed elsewhere is an explicit one, and any other path is untouchable — enforced by an architectural test.
 - **Uninstall** — `discern uninstall` removes the wiring discern laid down — derived from the ownership registry — and keeps `discern.toml`, your instructions, and the map. _Leaving costs one command and loses no authored work._
-- **Presets** — `discern preset <name>` applies a reusable overlay: scaffolded files plus config fills that never overwrite a value the project already sets, each key disclosed as filled or kept.
 - **Config without a parser** — `discern config` edits `discern.toml` while preserving comments and layout — `set`, `set-job`, `set-scope`, `set-standard` — and reads it back raw with `get`, `array`, `has`, `subsections`, and `keys`, so scripts and agents never parse TOML themselves.
 - **Licenses and notices** — `discern licenses` prints discern's software license, the Apache-2.0 license for discern-authored project payloads, its notice, and bundled third-party notices. The first-party texts derive from one legal-document registry; the third-party set derives from the compile graph.
 
@@ -248,6 +247,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `docs` — bundled-docs
 - `doctor` — doctor
 - `done` — gate
+- `enter` — worktree-shell-picker
 - `help` — cli-help
 - `identity` — worktree-identity
 - `impact` — impact
@@ -257,7 +257,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `mcp` — interfaces
 - `patterns` — patterns
 - `prepare` — prepare
-- `preset` — presets
 - `queue` — gate
 - `refresh` — instructions
 - `scripts` — project-scripts
@@ -272,7 +271,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `update` — update
 - `upgrade` — upgrade
 - `worktree` — drop-recovery, worktree-prune
-- `worktrees` — worktree-shell-picker
 
 ### `job`
 

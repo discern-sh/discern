@@ -211,8 +211,8 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
 async function setupInstall(dir: string, slug = "doc-demo"): Promise<void> {
   const { code } = await runCli([
     "setup",
+    "begin",
     "--confirmed",
-    "--yes",
     "--slug",
     slug,
   ], dir);
@@ -1986,8 +1986,8 @@ Deno.test("doctor: fails when configured provider hook files are missing", async
     const hookProviders = providersWithHooks();
     const { code: setupCode } = await runCli([
       "setup",
+      "begin",
       "--confirmed",
-      "--yes",
       "--slug",
       "doctor-hooks",
       "--agents",

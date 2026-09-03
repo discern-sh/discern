@@ -18,7 +18,7 @@
  * Two views share the same building blocks:
  *   - {@link configSchema} — the live `discern.toml` the engine validates.
  *   - {@link configDocSchema} — the declarative config *document* consumed by
- *     `setup --config` and presets, a derived subset so it cannot diverge.
+ *     `setup begin --config`, a derived subset so it cannot diverge.
  *
  * The inferred Zod types stay internal (re-exported as plain aliases); they never
  * surface in the package's exported API, so `no-slow-types` has nothing to chew.
@@ -589,7 +589,7 @@ const instructionSection = z.strictObject({
     SOURCE_PATHS.instructions.defaultPath,
   ])
     .describe(
-      "Your instruction source files or globs, relative to the project root. Read only when present; discern's built-in instructions are always prepended, so these are additive. `discern setup` seeds a starter here.",
+      "Instruction source files or globs, relative to the project root. Missing files are skipped; `discern setup begin` seeds the default source.",
     ),
 }).prefault({}).describe(CONFIG_PROSE.instructions.what);
 
@@ -606,7 +606,7 @@ const mapSection = z.strictObject({
   dir: projectDirectoryPath.overwrite((value) => `${value}/`).default(
     SOURCE_PATHS.map.defaultPath,
   ).describe(
-    "Where the project map lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it.",
+    "Where the project map lives, relative to the project root. `discern setup begin` scaffolds it here and `discern map` browses it.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.map.what);
 
@@ -854,7 +854,7 @@ export type CheckpointConfig = z.infer<typeof checkpointValue>;
 /** One `[worktree.resources.<name>]` entry, fully defaulted. */
 export type ResourceConfig = z.infer<typeof resourceValue>;
 
-// ── the declarative config *document* (setup --config / presets) ────────────────
+// ── the declarative config *document* (`setup begin --config`) ────────────────
 
 /**
  * The config-document major version this build understands. A document may omit
@@ -945,7 +945,7 @@ function projectKnownConfigDocFields(value: unknown): unknown {
  * document layer maps onto the live sections.
  *
  * Strict here drives a STRICT generated editor JSON Schema (so a typo'd key is
- * flagged while authoring a preset / config doc). The runtime schema below
+ * flagged while authoring a config document). The runtime schema below
  * projects away only keys this schema identifies as unknown, so a newer field
  * within the same major never breaks an older reader while every known field is
  * still validated (ADR 0005). */
@@ -972,9 +972,6 @@ export const configDocSchema = z.strictObject({
   agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
   ),
-  description: z.string().optional().describe(
-    "Preset metadata, shown when listing presets; ignored by `setup --config`.",
-  ),
   map: mapSection.optional().describe(
     "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
@@ -997,7 +994,7 @@ export const configDocSchema = z.strictObject({
       "[checkpoints.<id>] tables — change-triggered review rules: trigger fields, mode, and the question the agent judges.",
     ),
 }).describe(
-  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "The declarative config shape consumed by `discern setup begin --config <file>`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
 /** Runtime config-document validation: canonical known fields, tolerant extras. */

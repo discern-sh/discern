@@ -22,7 +22,7 @@ The main starting points are:
 
 | Data entering runtime code                                                       | Shape and decoding authority                                                                                              |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Setup config documents and preset manifests                                      | [`configDocRuntimeSchema`](../../../src/shared/config_schema.ts) and [`decodeConfigDoc`](../../../src/lib/config_doc.ts)  |
+| Setup answers documents                                                          | [`configDocRuntimeSchema`](../../../src/shared/config_schema.ts) and [`decodeConfigDoc`](../../../src/lib/config_doc.ts)  |
 | Deno module graphs, storage reports, package metadata, and the JSR licence cache | [`third_party_codegen.ts`](../../../scripts/third_party_codegen.ts)                                                       |
 | Vale JSON reports                                                                | [`prose_lib.ts`](../../../scripts/prose_lib.ts)                                                                           |
 | Canon Editor snapshot subprocess output                                          | [`snapshot.ts`](../../../scripts/canon_editor/snapshot.ts) and [`pipeline.ts`](../../../scripts/canon_editor/pipeline.ts) |
@@ -32,7 +32,7 @@ The main starting points are:
 
 The setup config document has two views. `configDocSchema` is the strict authoring snapshot used to generate the published editor schema. `configDocRuntimeSchema` derives from it, removes only fields the strict schema identifies as unknown, and then validates the remaining known shape. The projection applies at nested objects as well as the root, so an optional field added within the same major is accepted and ignored by an older runtime without duplicating the list of fields it knows.
 
-[`loadConfigDoc`](../../../src/lib/config_doc.ts) and the preset loader both use `decodeConfigDoc`. After schema validation, its single version check refuses a declared major this build does not understand. Unknown same-major fields are forward compatibility; a known field with the wrong type is malformed input and fails with its source.
+[`loadConfigDoc`](../../../src/lib/config_doc.ts) uses `decodeConfigDoc`. After schema validation, its single version check refuses a declared major this build does not understand. Unknown same-major fields are forward compatibility; a known field with the wrong type is malformed input and fails with its source.
 
 ## Caller policy stays outside validation
 

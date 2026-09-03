@@ -199,7 +199,7 @@ Deno.test("excludeNonSeed skips the binary's skills/ and instructions/ subtrees"
     assert(!excluded.ops.some((o) => o.targetRel.startsWith("skills/")));
     assert(!excluded.ops.some((o) => o.targetRel.startsWith("instructions/")));
 
-    // preset-style (default): a preset's skills/ IS an intended overlay.
+    // overlay-style (default): a supplied skills/ tree IS an intended overlay.
     const included = await buildPlan({
       templatesDir: FIXTURE_TEMPLATES,
       destDir: dir,

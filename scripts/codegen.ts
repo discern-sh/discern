@@ -59,6 +59,7 @@ import {
   renderPublicSchemaReference,
   replacePublicSchemaReference,
 } from "../src/shared/public_schemas.ts";
+import { replaceExitStatusTable } from "../src/shared/exit_codes.ts";
 import {
   generateThirdPartyArtifacts,
   sameThirdPartyBundlePayload,
@@ -429,7 +430,7 @@ const manualMcpReferenceDoc = await Deno.readTextFile(
 await write(
   manualMcpReference,
   replacePublicSchemaReference(
-    manualMcpReferenceDoc,
+    replaceExitStatusTable(manualMcpReferenceDoc),
     renderPublicSchemaReference(repositoryBlobUrl),
   ),
 );

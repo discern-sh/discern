@@ -27,21 +27,23 @@ import {
   DiscernOutputSchema,
   DocsOutputSchema,
   DoctorOutputSchema,
+  EnterOutputSchema,
   FinishOutputSchema,
+  HelpOutputSchema,
   IdentityOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
   LicensesOutputSchema,
   MapOutputSchema,
-  PatternsArchiveOutputSchema,
   PatternsArchivesOutputSchema,
   PatternsOutputSchema,
   PatternsResetOutputSchema,
+  PatternsSealOutputSchema,
   PrepareOutputSchema,
-  PresetOutputSchema,
   RefreshOutputSchema,
   ScriptsOutputSchema,
   SetupAcceptOutputSchema,
+  SetupBeginOutputSchema,
   SetupDoneOutputSchema,
   SetupOutputSchema,
   SetupStepOutputSchema,
@@ -61,11 +63,11 @@ import {
   UpdateOutputSchema,
   UpgradeOutputSchema,
   WorktreeDropOutputSchema,
+  WorktreeEnsureOutputSchema,
   WorktreeOutputSchema,
   WorktreeParkOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
-  WorktreesOutputSchema,
   WorktreeTeardownOutputSchema,
 } from "./result_schemas.ts";
 
@@ -142,9 +144,16 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
   },
   {
     id: "setup",
-    commands: ["setup", "setup begin"],
+    commands: ["setup"],
     verb: "setup",
     schema: SetupOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.setup,
+  },
+  {
+    id: "setupBegin",
+    commands: ["setup begin"],
+    verb: "setup begin",
+    schema: SetupBeginOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.setup,
   },
   {
@@ -212,13 +221,6 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
   },
   {
-    id: "preset",
-    commands: ["preset"],
-    verb: "preset",
-    schema: PresetOutputSchema,
-    presenter: RESULT_MARKDOWN_PRESENTERS.inventory,
-  },
-  {
     id: "map",
     commands: ["map"],
     verb: "map",
@@ -233,6 +235,13 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: DocsOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.docs,
     mcpTool: "discern_docs",
+  },
+  {
+    id: "help",
+    commands: ["help"],
+    verb: "help",
+    schema: HelpOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "config",
@@ -377,10 +386,10 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
   },
   {
-    id: "patternsArchive",
-    commands: ["patterns archive"],
-    verb: "patterns archive",
-    schema: PatternsArchiveOutputSchema,
+    id: "patternsSeal",
+    commands: ["patterns seal"],
+    verb: "patterns seal",
+    schema: PatternsSealOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.patternsLifecycle,
   },
   {
@@ -398,10 +407,10 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
-    id: "worktrees",
-    commands: ["worktrees"],
-    verb: "worktrees",
-    schema: WorktreesOutputSchema,
+    id: "enter",
+    commands: ["enter"],
+    verb: "enter",
+    schema: EnterOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
@@ -426,6 +435,13 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     verb: "worktree rename",
     schema: TaskRenameOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.taskRename,
+  },
+  {
+    id: "worktreeEnsure",
+    commands: ["worktree ensure"],
+    verb: "worktree ensure",
+    schema: WorktreeEnsureOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.envelope,
   },
   {
     id: "accept",
@@ -569,11 +585,6 @@ export interface CliJsonContractExclusion {
  */
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
   {
-    command: "help",
-    reason:
-      "human-readable CLI reference; it mirrors the framework's --help output",
-  },
-  {
     command: "mcp",
     reason:
       "long-lived JSON-RPC stdio server; its stream is the MCP protocol, not one CLI result",
@@ -597,11 +608,6 @@ export const CLI_JSON_CONTRACT_EXCLUSIONS = [
     command: "worktree hook remove",
     reason:
       "provider hook entry point; stdin and stdout belong to the provider hook protocol",
-  },
-  {
-    command: "worktree ensure",
-    reason:
-      "provider session hook; stdout is injected as session context rather than returned to a CLI caller",
   },
 ] as const satisfies readonly CliJsonContractExclusion[];
 

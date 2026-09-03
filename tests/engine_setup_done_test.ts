@@ -962,7 +962,14 @@ Deno.test("discern setup honours an explicit --agents over installation detectio
     await withFakeAgentPath("gemini", async (path) => { // detected as installed…
       const r = await runAgent(
         dir,
-        ["setup", "--confirmed", "--json", "--agents", "claude_code"], // …but the user named agents
+        [
+          "setup",
+          "begin",
+          "--confirmed",
+          "--json",
+          "--agents",
+          "claude_code",
+        ], // …but the user named agents
         { env: { PATH: path } },
       );
       assertEquals(r.code, 0, r.output);
@@ -981,7 +988,7 @@ Deno.test("discern setup honours an explicit --agents over installation detectio
   });
 });
 
-Deno.test("discern setup lays a marked instructions.md stub that setup done enforces (ADR 0065)", async () => {
+Deno.test("discern setup begin lays a marked instructions.md stub that setup done enforces (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -1219,7 +1226,6 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/in
         .split("\n").map((s) => s.trim()).filter(Boolean).sort();
     assertEquals(committed, [
       ".claude/settings.json",
-      ".gitattributes",
       ".gitignore",
       ".mcp.json",
       "discern.toml",
@@ -1527,7 +1533,7 @@ Deno.test("discern setup refuses on a dirty tree, writing nothing; --allow-dirty
     );
 
     // --allow-dirty proceeds in place: no branch, scaffolds onto the current branch.
-    const forced = await runAgent(dir, ["setup", "--allow-dirty"]);
+    const forced = await runAgent(dir, ["setup", "begin", "--allow-dirty"]);
     assertEquals(forced.code, 0, forced.output);
     assertEquals(
       await gitOut(dir, "rev-parse", "--abbrev-ref", "HEAD"),
@@ -1642,7 +1648,7 @@ Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writin
   });
 });
 
-Deno.test("discern setup is still callable with --force after it is recorded", async () => {
+Deno.test("discern setup begin is still callable with --force after setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped by default
 
@@ -1651,8 +1657,8 @@ Deno.test("discern setup is still callable with --force after it is recorded", a
     assertEquals(bare.code, 0, bare.output);
     assertTerminalTextIncludes(bare.stdout, "already set up");
 
-    // ...but --force re-seeds (and reprints the instructions).
-    const forced = await runAgent(dir, ["setup", "--force"]);
+    // ...but the effectful begin command can explicitly re-seed.
+    const forced = await runAgent(dir, ["setup", "begin", "--force"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(forced.stdout, INSTRUCTIONS_H1);
   });
@@ -1690,7 +1696,7 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
   });
 });
 
-Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
+Deno.test("discern setup begin --json emits the DiscernResult envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
@@ -1699,7 +1705,7 @@ Deno.test("discern setup --json emits the DiscernResult envelope", async () => {
     assertResultDataKey(res, "skeletons");
     assert(res.data.skeletons !== undefined);
     assertEquals(res.ok, true);
-    assertEquals(res.verb, "setup");
+    assertEquals(res.verb, "setup begin");
     assert(res.data.skeletons.includes(SOURCE_PATHS.map.defaultPath));
     assert(
       typeof res.data.instructions === "string" &&

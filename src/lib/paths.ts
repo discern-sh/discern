@@ -304,7 +304,7 @@ export function resolveRepositoryManualDir(root: string): ResolvedDir {
 
 /**
  * The bundled setup directory inside the resolved `templates/` tree. Holds
- * `instructions.md` (the agent-facing setup brief `discern setup` prints) and
+ * `instructions.md` (the agent-facing setup brief `discern setup begin` prints) and
  * `skel/` (the doc-tree skeletons it lays when a project has none). Setup is a CLI
  * command, not a materialized skill (ADR 0024, 0036), so its assets live here
  * rather than under `templates/skills/`.

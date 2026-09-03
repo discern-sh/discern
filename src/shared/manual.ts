@@ -129,7 +129,7 @@ export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "discern standards": "reference-cli",
   "discern status": "reference-cli",
   "discern tidy": "reference-cli",
-  "discern worktrees": "reference-cli",
+  "discern enter": "reference-cli",
   "discern_checkpoint_input": "reference-environment-variables",
   "discern_checkpoints": "reference-results-and-mcp",
   "discern_match": "reference-proof-and-checkpoint-formats",

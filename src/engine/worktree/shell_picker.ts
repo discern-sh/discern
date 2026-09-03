@@ -1,5 +1,5 @@
 /**
- * `worktrees` is the one-shot interactive route into another checkout.
+ * `enter` is the one-shot interactive route into another checkout.
  *
  * Fleet facts come from `statusResult`; this module owns only presentation,
  * selection, project-relative directory mapping, and the child-shell handoff.
@@ -36,34 +36,34 @@ import { taskLabel } from "./task_label.ts";
 
 const FILTER_THRESHOLD = 8;
 
-/** Flags accepted by `worktrees`. */
-export interface WorktreesOptions {
+/** Flags accepted by `enter`. */
+export interface EnterOptions {
   /** Present for result-format parity. The interactive command refuses it. */
   readonly json?: boolean;
 }
 
-type WorktreesMaybePromise<T> = T | Promise<T>;
+type EnterMaybePromise<T> = T | Promise<T>;
 
 /** Terminal, filesystem, and process seams behind the interactive command. */
-export interface WorktreesRuntime {
+export interface EnterRuntime {
   canInteract(): boolean;
-  findRoot(): WorktreesMaybePromise<string | undefined>;
-  mainRepoPath(root: string): WorktreesMaybePromise<string | undefined>;
-  status(root: string): WorktreesMaybePromise<{
+  findRoot(): EnterMaybePromise<string | undefined>;
+  mainRepoPath(root: string): EnterMaybePromise<string | undefined>;
+  status(root: string): EnterMaybePromise<{
     ok: boolean;
     data?: StatusData | undefined;
     message?: string | undefined;
   }>;
-  canonicalPath(path: string): WorktreesMaybePromise<string>;
+  canonicalPath(path: string): EnterMaybePromise<string>;
   cwd(): string;
-  isDirectory(path: string): WorktreesMaybePromise<boolean>;
+  isDirectory(path: string): EnterMaybePromise<boolean>;
   makeOut(): Out;
   error(message: string): void;
   select(
     options: SelectionRequestOptions<string>,
-  ): WorktreesMaybePromise<string>;
+  ): EnterMaybePromise<string>;
   shell(): string;
-  launchShell(shell: string, cwd: string): WorktreesMaybePromise<number>;
+  launchShell(shell: string, cwd: string): EnterMaybePromise<number>;
   now(): number;
 }
 
@@ -144,7 +144,7 @@ export async function resolveEquivalentDirectory(
   sourceRoot: string,
   sourceCwd: string,
   targetRoot: string,
-  isDirectory: (path: string) => WorktreesMaybePromise<boolean>,
+  isDirectory: (path: string) => EnterMaybePromise<boolean>,
 ): Promise<EquivalentDirectory | undefined> {
   const planned = equivalentDirectoryCandidates(
     sourceRoot,
@@ -324,7 +324,7 @@ async function canonicalPath(path: string): Promise<string> {
 }
 
 /** Default terminal and process implementation. */
-const DEFAULT_WORKTREES_RUNTIME: WorktreesRuntime = {
+const DEFAULT_ENTER_RUNTIME: EnterRuntime = {
   canInteract: () => canInteract(false),
   findRoot: () => findRoot(),
   mainRepoPath: (root) => mainRepoPath(root),
@@ -343,23 +343,23 @@ const DEFAULT_WORKTREES_RUNTIME: WorktreesRuntime = {
 };
 
 /** Run the interactive worktree shell picker. */
-export async function runWorktrees(
-  opts: WorktreesOptions = {},
-  runtime: WorktreesRuntime = DEFAULT_WORKTREES_RUNTIME,
+export async function runEnter(
+  opts: EnterOptions = {},
+  runtime: EnterRuntime = DEFAULT_ENTER_RUNTIME,
 ): Promise<number> {
   if (opts.json ?? false) {
     emitResult({
       ok: false,
-      verb: "worktrees",
+      verb: "enter",
       error: "invalid_arguments",
       message:
-        "discern worktrees is interactive only. Run `discern status --all --json` to inspect the fleet.",
+        "discern enter is interactive only. Run `discern status --all --json` to inspect the fleet.",
     });
     return 1;
   }
   if (!runtime.canInteract()) {
     runtime.error(
-      "discern worktrees needs an interactive terminal (stdin and stdout TTYs). Run `discern status --all` to inspect the fleet.",
+      "discern enter needs an interactive terminal (stdin and stdout TTYs). Run `discern status --all` to inspect the fleet.",
     );
     return 1;
   }

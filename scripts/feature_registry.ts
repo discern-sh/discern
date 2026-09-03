@@ -905,17 +905,17 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "worktree-shell-picker",
         title: "Cwd-equivalent worktree shells",
         what:
-          "In an interactive terminal, `discern worktrees` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor.",
+          "In an interactive terminal, `discern enter` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor.",
         why:
           "The maintainer moves between parallel tasks without finding the checkout path or retracing the project directory tree.",
         plain: {
           title: "Open another working copy in the same place",
           what:
-            "In an interactive terminal, `discern worktrees` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does.",
+            "In an interactive terminal, `discern enter` shows each separate working copy's task and file state, then opens the chosen copy at the matching place in the project. If that place does not exist there, discern says so and opens the nearest folder that does.",
           why:
             "The person in charge moves between simultaneous tasks without finding the copy's location or retracing folders through the project.",
         },
-        surfaces: ["verb:worktrees"],
+        surfaces: ["verb:enter"],
       },
       {
         id: "await",
@@ -1245,11 +1245,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-document-subsystem",
             title: "Document a subsystem",
             what:
-              "Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup` seeds under the map's `_internal/` scaffolding.",
+              "Write or refresh one subsystem's subtree of the map from the real code, following the documenter brief that `discern setup begin` seeds under the map's `_internal/` scaffolding.",
             plain: {
               title: "Document a part of the project",
               what:
-                "Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup` places in the guide's `_internal/` starter area.",
+                "Write or refresh one part's section of the project guide from the real code, following the documenter brief that `discern setup begin` places in the guide's `_internal/` starter area.",
             },
             surfaces: ["skill:discern-document-subsystem"],
           },
@@ -1776,18 +1776,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why: "Leaving costs one instruction and loses no authored work.",
         },
         surfaces: ["verb:uninstall"],
-      },
-      {
-        id: "presets",
-        title: "Presets",
-        what:
-          "`discern preset <name>` applies a reusable overlay: scaffolded files plus config fills that never overwrite a value the project already sets, each key disclosed as filled or kept.",
-        plain: {
-          title: "Reusable starter collections",
-          what:
-            "`discern preset <name>` applies a reusable overlay: starter files plus settings fills that never overwrite a value the project already sets, with every setting disclosed as filled or kept.",
-        },
-        surfaces: ["verb:preset"],
       },
       {
         id: "config-command",
@@ -3240,12 +3228,11 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "small-installation-footprint",
         title: "Adopt discern without running another service",
         value:
-          "discern arrives as one self-contained binary and keeps project-specific settings in one root file. Presets can supply useful defaults without overwriting decisions already present.",
+          "discern arrives as one self-contained binary and keeps project-specific settings in one root file.",
         whyItFollows:
-          "The installer lays down the binary and integration surfaces, the one-file footprint points to authored or generated project assets, and preset fills apply only where a value is absent.",
+          "The installer lays down the binary and integration surfaces, while the one-file footprint points to authored or generated project assets.",
         drawsOn: [
           "install",
-          "presets",
           "one-file-footprint",
           "single-binary",
         ],
@@ -3902,7 +3889,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can set up, verify, diagnose, upgrade, configure, and remove discern through explicit lifecycle operations whose retained and removed effects are visible.",
         whyItFollows:
-          "One install surface owns setup and its observability, doctor, upgrade, uninstall, presets, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.",
+          "One install surface owns setup and its observability, doctor, upgrade, uninstall, configuration editing, and license reporting; setup proves its worktree path before declaring readiness.",
         boundary:
           "Lifecycle verbs manage discern's declared footprint and provider integrations, not arbitrary project files or provider state outside their ownership contract.",
         drawsOn: [
@@ -3913,7 +3900,6 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "doctor",
           "upgrade",
           "uninstall",
-          "presets",
           "config-command",
           "licenses",
         ],

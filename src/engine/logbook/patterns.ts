@@ -49,13 +49,13 @@ import {
   type PatternFindingTone,
   type PatternInvestigation,
   PATTERNS_FINDINGS_PER_DETECTOR,
-  type PatternsArchiveData,
   type PatternsArchiveEntry,
   type PatternsArchivesData,
   type PatternsData,
   type PatternsFinding,
   type PatternsPopulation,
   type PatternsResetData,
+  type PatternsSealData,
   type PatternsStats,
 } from "../../shared/patterns_vocabulary.ts";
 import {
@@ -1755,7 +1755,7 @@ function archiveData(
   filename: string,
   archiveBytes: number = snapshot.archiveBytes,
   recoveryPath?: string,
-): PatternsArchiveData {
+): PatternsSealData {
   const destinationDir = logbookArchiveDir(snapshot.commonGitDir);
   return {
     source_dir: logbookDir(snapshot.commonGitDir),
@@ -1869,7 +1869,7 @@ function renderResetScope(out: Out, data: PatternsResetData): void {
 }
 
 /** Render the complete archive scope before preview, refusal, or confirmation. */
-function renderArchiveScope(out: Out, data: PatternsArchiveData): void {
+function renderArchiveScope(out: Out, data: PatternsSealData): void {
   const { presenter, width } = presentationFacts(out);
   out.heading(terminalLine("Active Logbook archive"));
   out.raw(`${
@@ -1964,7 +1964,7 @@ function inFlightRefusal<T>(
 
 /** Emit or render one lifecycle result and return its exit code. */
 function presentLifecycleResult<
-  T extends PatternsResetData | PatternsArchiveData,
+  T extends PatternsResetData | PatternsSealData,
 >(
   action: LogbookLifecycleActionName,
   result: DiscernResult<T>,
@@ -1983,7 +1983,7 @@ function presentLifecycleResult<
     if (action === "reset") {
       renderResetScope(out, result.data as PatternsResetData);
     } else {
-      renderArchiveScope(out, result.data as PatternsArchiveData);
+      renderArchiveScope(out, result.data as PatternsSealData);
     }
   }
   if (!result.ok) {
@@ -2036,14 +2036,14 @@ export async function patternsResetResult(
   }
 }
 
-/** Build the safe archive preview, or an apply refusal when called directly. */
-export async function patternsArchiveResult(
+/** Build the safe seal preview, or an apply refusal when called directly. */
+export async function patternsSealResult(
   root: string,
   opts: { dryRun?: boolean; now?: Date } = {},
-): Promise<DiscernResult<PatternsArchiveData>> {
+): Promise<DiscernResult<PatternsSealData>> {
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
-    return noRepository("patterns archive");
+    return noRepository("patterns seal");
   }
   try {
     const snapshot = await activeLifecycleSnapshot(root, commonGitDir);
@@ -2053,18 +2053,18 @@ export async function patternsArchiveResult(
     );
     const data = archiveData(snapshot, filename);
     if (opts.dryRun !== true) {
-      return confirmationRefusal("patterns archive", data);
+      return confirmationRefusal("patterns seal", data);
     }
     return {
       ok: true,
-      verb: "patterns archive",
+      verb: "patterns seal",
       dry_run: true,
       data,
     };
   } catch (error) {
     return {
       ok: false,
-      verb: "patterns archive",
+      verb: "patterns seal",
       error: "read_error",
       message: `Could not inspect the active Logbook: ${
         error instanceof Error ? error.message : String(error)
@@ -2213,7 +2213,7 @@ async function applyReset(
 }
 
 /** Review archive scope, then apply under the common lifecycle lock. */
-async function applyArchive(
+async function applySeal(
   root: string,
   confirm: LifecycleConfirmation,
   out: Out,
@@ -2221,8 +2221,8 @@ async function applyArchive(
   const commonGitDir = await resolveCommonGitDir(root);
   if (commonGitDir === undefined) {
     return presentLifecycleResult(
-      "archive",
-      noRepository("patterns archive"),
+      "seal",
+      noRepository("patterns seal"),
       false,
       out,
     );
@@ -2235,12 +2235,12 @@ async function applyArchive(
     );
     const reviewedData = archiveData(reviewed, filename);
     const running = inFlightRefusal(
-      "patterns archive",
+      "patterns seal",
       reviewed,
       reviewedData,
     );
     if (running !== undefined) {
-      return presentLifecycleResult("archive", running, false, out);
+      return presentLifecycleResult("seal", running, false, out);
     }
     renderArchiveScope(out, reviewedData);
     const filenames = reviewed.files.length === 0
@@ -2252,7 +2252,7 @@ async function applyArchive(
       } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.source_bytes)
       } bytes, as ${filename} and begin a fresh active Logbook? Recording restarts with the next eligible command when enabled.`,
-      { noLabel: "Keep", yesLabel: "Archive" },
+      { noLabel: "Keep", yesLabel: "Seal" },
       confirm,
     );
     if (!accepted) {
@@ -2262,9 +2262,9 @@ async function applyArchive(
       const current = await activeLifecycleSnapshot(root, commonGitDir);
       if (!sameActiveSnapshot(reviewed, current)) {
         return presentLifecycleResult(
-          "archive",
+          "seal",
           changedDuringConfirmation(
-            "patterns archive",
+            "patterns seal",
             archiveData(current, filename),
           ),
           false,
@@ -2272,19 +2272,19 @@ async function applyArchive(
         );
       }
       const newlyRunning = inFlightRefusal(
-        "patterns archive",
+        "patterns seal",
         current,
         archiveData(current, filename),
       );
       if (newlyRunning !== undefined) {
-        return presentLifecycleResult("archive", newlyRunning, false, out);
+        return presentLifecycleResult("seal", newlyRunning, false, out);
       }
       if (current.archiveBytes === 0) {
         const code = presentLifecycleResult(
-          "archive",
+          "seal",
           {
             ok: true,
-            verb: "patterns archive",
+            verb: "patterns seal",
             data: archiveData(current, filename),
           },
           false,
@@ -2298,12 +2298,12 @@ async function applyArchive(
       try {
         const archived = await archiveLogbook(commonGitDir, filename);
         const data = archiveData(current, filename, archived.bytes);
-        const result: DiscernResult<PatternsArchiveData> = {
+        const result: DiscernResult<PatternsSealData> = {
           ok: true,
-          verb: "patterns archive",
+          verb: "patterns seal",
           data,
         };
-        const code = presentLifecycleResult("archive", result, false, out);
+        const code = presentLifecycleResult("seal", result, false, out);
         out.raw(`Sealed ${archived.path}.\n`);
         out.raw(
           `Read it: discern patterns --logbook-file ${archived.file}\n`,
@@ -2314,10 +2314,10 @@ async function applyArchive(
           ? error
           : undefined;
         return presentLifecycleResult(
-          "archive",
+          "seal",
           {
             ok: false,
-            verb: "patterns archive",
+            verb: "patterns seal",
             error: "apply_failed",
             message: error instanceof Error ? error.message : String(error),
             data: archiveData(
@@ -2340,10 +2340,10 @@ async function applyArchive(
         error instanceof Error ? error.message : String(error)
       }`;
     return presentLifecycleResult(
-      "archive",
+      "seal",
       {
         ok: false,
-        verb: "patterns archive",
+        verb: "patterns seal",
         error: "precondition_failed",
         message,
       },
@@ -2394,8 +2394,8 @@ const runResetLifecycle: LifecycleHandler = async (root, opts, access, out) => {
   );
 };
 
-/** Preview/refuse/apply the archive through the common lifecycle policy. */
-const runArchiveLifecycle: LifecycleHandler = async (
+/** Preview/refuse/apply sealing through the common lifecycle policy. */
+const runSealLifecycle: LifecycleHandler = async (
   root,
   opts,
   access,
@@ -2403,13 +2403,13 @@ const runArchiveLifecycle: LifecycleHandler = async (
 ) => {
   if (access === "apply") {
     if (out === undefined) {
-      throw new TypeError("archive apply requires human presentation facts");
+      throw new TypeError("seal apply requires human presentation facts");
     }
-    return await applyArchive(root, opts.confirm, out);
+    return await applySeal(root, opts.confirm, out);
   }
   return presentLifecycleResult(
-    "archive",
-    await patternsArchiveResult(root, { dryRun: access === "preview" }),
+    "seal",
+    await patternsSealResult(root, { dryRun: access === "preview" }),
     opts.json,
     out,
   );
@@ -2420,7 +2420,7 @@ const LIFECYCLE_HANDLERS: Record<
   LifecycleHandler
 > = {
   reset: runResetLifecycle,
-  archive: runArchiveLifecycle,
+  seal: runSealLifecycle,
 };
 
 /** Run one registered lifecycle action through the shared safety gate. */

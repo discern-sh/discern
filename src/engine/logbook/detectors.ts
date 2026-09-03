@@ -1722,12 +1722,9 @@ const confirmedRerun: Detector = {
  * Operator verbs whose absence from a logbook is expected, each with the
  * recorded reason — the dormancy reader subtracts these, so their silence is
  * never read as an unused capability. Keys are `KNOWN_VERBS` members; the
- * registry test holds membership and non-empty reasons. `preset` enrols even
- * while the operator help also hides it, so returning it to the listing can
- * never silently turn an install-time verb into a dormancy finding.
+ * registry test holds membership and non-empty reasons.
  */
 export const DORMANT_VERB_EXEMPTIONS: Readonly<Record<string, string>> = {
-  preset: "an install-time overlay; an established project may never apply one",
   uninstall: "the exit verb; a project in use never runs it",
   licenses: "informational notices; reading them is not a working practice",
   help: "asking for help is not a practice the report should judge",

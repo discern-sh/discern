@@ -34,7 +34,7 @@ import {
 const CMD = {
   status: discernCommand("status"),
   startNamed: discernCommand("start", flag("name", '"<task>"')),
-  worktrees: discernCommand("worktrees"),
+  enter: discernCommand("enter"),
   prepare: discernCommand("prepare"),
   test: discernCommand("test"),
   tidy: discernCommand("tidy"),
@@ -69,7 +69,6 @@ const CMD = {
     positional("value", "<value>"),
   ),
   refresh: discernCommand("refresh"),
-  preset: discernCommand("preset", positional("name", "<name>")),
   upgradeCheck: discernCommand("upgrade", flag("check")),
   scripts: discernCommand("scripts"),
 } as const;
@@ -246,18 +245,18 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "worktrees-preserves-place",
+    id: "enter-preserves-place",
     when: "At least one task is in flight.",
     predicate: { kind: "fleet-min-size", min: 1 },
     features: ["worktree-shell-picker"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
-      verbs: ["worktrees"],
+      verbs: ["enter"],
     },
     example: undefined,
     template: (): string =>
-      `${CMD.worktrees} opens another working copy at the same ` +
+      `${CMD.enter} opens another working copy at the same ` +
       "project-relative folder in a child shell. Exit it to return.",
   }),
 
@@ -570,21 +569,6 @@ export const TIPS: readonly RegisteredTip[] = [
       `${CMD.refresh} compiles shared instructions into every configured coding ` +
       "agent's instruction file and republishes reusable guides from their " +
       "sources.",
-  }),
-
-  defineTip({
-    id: "preset-keeps-project-values",
-    when: "Evergreen — a project-upkeep lesson.",
-    features: ["presets"],
-    followThrough: {
-      family: "tip-adoption",
-      kind: "verb-run-after-tip",
-      verbs: ["preset"],
-    },
-    example: undefined,
-    template: (): string =>
-      `${CMD.preset} adds a reusable set of starter files and settings. ` +
-      "Values already present in the project stay unchanged.",
   }),
 
   defineTip({

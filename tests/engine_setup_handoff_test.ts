@@ -95,7 +95,7 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
   });
 });
 
-Deno.test("setup --json carries an explicit incomplete signal", async () => {
+Deno.test("setup begin --json carries an explicit incomplete signal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);

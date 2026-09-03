@@ -407,7 +407,6 @@ export const ERROR_SLUGS = [
   "invalid_config",
   "invalid_config_file",
   "invalid_migrated_config",
-  "invalid_preset",
   "invalid_settings_file",
   "invalid_toml",
   "invalid_value",
@@ -447,7 +446,6 @@ export const ERROR_SLUGS = [
   "unknown_category",
   "unknown_command",
   "unknown_key",
-  "unknown_preset",
   "unknown_standard",
   "write_access",
 ] as const;

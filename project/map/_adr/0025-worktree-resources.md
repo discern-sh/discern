@@ -49,4 +49,4 @@ false`. The frozen, fully-expanded destroy command is run (identity can't be re-
 - **Key the ledger on the worktree path** (with the basename as a fallback). Rejected — see Decision: the path is the _less_ stable key. The git admin-dir basename is git-guaranteed unique among live worktrees and independent of the `DISCERN_WORKTREE_ID` override.
 - **Re-expand the destroy command from current config at GC time.** Rejected as the primary path: the worktree is gone, so a `@dir@` would expand to empty and a re-expanded `rm -rf @dir@/cache` could become `rm -rf /cache`. The frozen create-time command is what was true of the resource; it is authoritative.
 
-This builds on [ADR 0011](0011-adopt-worktree-workflow.md) (the worktree workflow) and [ADR 0007](0007-adapter-contract.md) (the adapter contract it generalizes), and narrows [ADR 0020](0020-dissolve-discern-dir.md) for runtime state as noted above.
+This builds on [ADR 0011](0011-adopt-worktree-workflow.md) (the worktree workflow) and [ADR 0007](_superseded/0007-adapter-contract.md) (the adapter contract it generalizes), and narrows [ADR 0020](0020-dissolve-discern-dir.md) for runtime state as noted above.
