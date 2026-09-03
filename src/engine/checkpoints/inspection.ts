@@ -244,7 +244,7 @@ export async function inspectCheckpointObligations(
       "open_question_store_corrupt",
       "the checkpoint open-question record did not parse; earlier active questions are unknown.",
     ));
-  } else if (stored.status === "unavailable") {
+  } else if (stored.status === "unavailable" || stored.status === "newer") {
     drops.push(policyDrop(
       policy.policyCommit,
       "open_question_store_unreadable",

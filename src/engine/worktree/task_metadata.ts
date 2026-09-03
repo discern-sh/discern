@@ -14,6 +14,11 @@ import {
   type StoredTaskMetadata,
   StoredTaskMetadataSchema,
 } from "../../shared/task_metadata.ts";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** A task metadata record that could not be resolved, read, or validated. */
 export class TaskMetadataStoreError extends Error {
@@ -64,6 +69,12 @@ export async function readStoredTaskMetadata(
       { cause: error },
     );
   }
+  const version = inspectOnDiskRecordVersion("taskMetadata", decoded);
+  if (version.status === "newer") {
+    throw new TaskMetadataStoreError(
+      newerOnDiskFormatMessage("taskMetadata", version.found),
+    );
+  }
   const parsed = StoredTaskMetadataSchema.safeParse(decoded);
   if (!parsed.success) {
     throw new TaskMetadataStoreError(
@@ -105,7 +116,25 @@ export async function writeStoredTaskMetadata(
   }
   try {
     await Deno.mkdir(dirname(path), { recursive: true });
-    await atomicReplaceJson(path, parsed, {
+    const existing = await readTextIfExists(path);
+    if (existing !== undefined) {
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(existing);
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+      }
+      const version = inspectOnDiskRecordVersion("taskMetadata", decoded);
+      if (version.status === "newer") {
+        throw new TaskMetadataStoreError(
+          newerOnDiskFormatMessage("taskMetadata", version.found),
+        );
+      }
+    }
+    await atomicReplaceJson(path, {
+      ...parsed,
+      schema_version: ON_DISK_FORMATS.taskMetadata.version,
+    }, {
       mode: 0o600,
       sync: true,
       space: 2,

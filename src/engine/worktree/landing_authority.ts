@@ -258,7 +258,7 @@ function effortWarnings(
   if (status.status === "missing") {
     return [];
   }
-  if (status.status === "invalid") {
+  if (status.status === "invalid" || status.status === "newer") {
     return [`The worktree's effort grant is invalid: ${status.reason}.`];
   }
   if (status.status === "unavailable") {

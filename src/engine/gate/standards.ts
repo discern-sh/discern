@@ -89,8 +89,8 @@ import {
 } from "./standard_limits.ts";
 import {
   type AdminStateWriteAuthority,
-  carryProofForwardAcrossPin,
   clearStandardMeasurements,
+  gateProofHasCompleteEvidence,
   inspectGateProof,
   inspectStandardMeasurements,
   pinValidatedTree,
@@ -1490,7 +1490,7 @@ async function pinStandardsResult(
     const selection = buildStandardSelectionPlan(
       plan,
       opts.names,
-      proof.status === "honored",
+      gateProofHasCompleteEvidence(proof),
     );
     const targets = new Set(selection.targets.map((standard) => standard.name));
     const steps: PlanStep[] = selection.execution.standards
@@ -1549,7 +1549,7 @@ async function pinStandardsResult(
   const selection = buildStandardSelectionPlan(
     plan,
     opts.names,
-    priorProof.status === "honored",
+    gateProofHasCompleteEvidence(priorProof),
   );
 
   const verification = opts.verification;
@@ -1707,14 +1707,6 @@ async function pinStandardsResult(
     );
   }
 
-  // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
-  // redundant gate re-run (the commit changed only standard limits — gate-neutral).
-  const proof = await carryProofForwardAcrossPin(
-    root,
-    writeAuthority.admin,
-    priorProof?.status === "honored",
-  );
-  const carried = proof?.status === "recorded";
   return standardsBuild(
     {
       ...appliedResult("standards", steps),
@@ -1733,9 +1725,7 @@ async function pinStandardsResult(
     [
       ...slotWaits,
       ...(reuseHint !== undefined ? [reuseHint] : []),
-      carried
-        ? fire(HINTS["standards-pin-carried-proof"])
-        : fire(HINTS["standards-pin-no-proof"]),
+      fire(HINTS["standards-pin-no-proof"]),
     ],
     slots?.waitedMs,
   );

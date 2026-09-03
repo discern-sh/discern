@@ -25,8 +25,13 @@ import {
   readLinkIfExists,
   readTextIfExists,
 } from "../../shared/fs_presence.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
-const BASELINE_VERSION = 1;
+const BASELINE_VERSION = ON_DISK_FORMATS.ignoredBaseline.version;
 const CHANGE_CAP = 20;
 const CONTENT_HASH_BUDGET_BYTES = 16 * 1024 * 1024;
 const CONTENT_HASH_BUDGET_FILES = 2_048;
@@ -63,12 +68,14 @@ export interface IgnoredFileChangeSummary {
   status:
     | "disabled"
     | "baseline_missing"
+    | "newer"
     | "unavailable"
     | "unchanged"
     | "changed";
   changed_roots: string[];
   changed_total: number;
   truncated: boolean;
+  reason?: string;
 }
 
 /** The inert summary used when detection is switched off. */
@@ -104,7 +111,8 @@ export async function recordIgnoredFileBaseline(
   // not pay to fingerprint the tree merely to discover the file already exists.
   // An older/invalid schema is deliberately replaced so an upgrade cannot leave
   // a worktree permanently stuck with a baseline the inspector cannot read.
-  if (await readBaseline(path) !== undefined) {
+  const standing = await readBaseline(path);
+  if (standing.status === "recorded" || standing.status === "newer") {
     return;
   }
   const roots = await snapshotIgnoredRoots(cwd);
@@ -135,8 +143,17 @@ export async function inspectIgnoredFileChanges(
   if (path === undefined) {
     return unavailable();
   }
-  const baseline = await readBaseline(path);
-  if (baseline === undefined) {
+  const baselineRead = await readBaseline(path);
+  if (baselineRead.status === "newer") {
+    return {
+      status: "newer",
+      changed_roots: [],
+      changed_total: 0,
+      truncated: false,
+      reason: baselineRead.reason,
+    };
+  }
+  if (baselineRead.status !== "recorded") {
     return {
       status: "baseline_missing",
       changed_roots: [],
@@ -144,6 +161,7 @@ export async function inspectIgnoredFileChanges(
       truncated: false,
     };
   }
+  const baseline = baselineRead.baseline;
   const current = await snapshotIgnoredRoots(cwd, baseline);
   if (current === undefined) {
     return unavailable();
@@ -183,19 +201,34 @@ function unavailable(): IgnoredFileChangeSummary {
 }
 
 /** Load a versioned ignored-root baseline only when every fingerprint is valid. */
+type IgnoredBaselineRead =
+  | { readonly status: "recorded"; readonly baseline: IgnoredBaseline }
+  | { readonly status: "missing" | "malformed" }
+  | { readonly status: "newer"; readonly reason: string };
+
+/** Inspect the ignored-root baseline without collapsing forward skew. */
 async function readBaseline(
   path: string,
-): Promise<IgnoredBaseline | undefined> {
+): Promise<IgnoredBaselineRead> {
   const raw = await readTextIfExists(path);
-  if (raw === undefined) return undefined;
+  if (raw === undefined) return { status: "missing" };
+  const version = inspectOnDiskJsonVersion("ignoredBaseline", raw);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("ignoredBaseline", version.found),
+    };
+  }
   try {
     const parsed: unknown = JSON.parse(raw);
     const result = ignoredBaselineSchema.safeParse(parsed);
-    return result.success ? result.data : undefined;
+    return result.success
+      ? { status: "recorded", baseline: result.data }
+      : { status: "malformed" };
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
     // discern-best-effort: ignored-baseline-decode-fallback
-    return undefined;
+    return { status: "malformed" };
   }
 }
 

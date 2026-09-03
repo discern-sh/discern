@@ -13,7 +13,7 @@
  *    round-trips and tolerates corruption.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
@@ -37,6 +37,7 @@ import {
 } from "../src/engine/logbook/epoch.ts";
 import {
   appendEvent,
+  inspectEpochState,
   logbookDir,
   MAX_MONTH_FILES,
   monthFileName,
@@ -44,6 +45,7 @@ import {
   removeLogbook,
   writeEpochState,
 } from "../src/engine/logbook/store.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import {
   deriveFleetLogbookActivity,
   freshInFlightInvocations,
@@ -277,11 +279,30 @@ Deno.test("logbook schema: historical error slugs remain string-compatible", () 
   assertEquals(parsed.event.error, "retired_or_future_error_slug");
 });
 
-Deno.test("logbook schema: an unknown schema major is foreign, never misread", () => {
+Deno.test("logbook schema: a newer schema major is named and never misread", () => {
   const parsed = parseLogbookLine(
     JSON.stringify({ ...sampleEvent(), schema: LOGBOOK_SCHEMA_VERSION + 1 }),
   );
-  assertEquals(parsed.kind, "foreign");
+  assertEquals(parsed.kind, "newer");
+  if (parsed.kind === "newer") {
+    assertStringIncludes(parsed.reason, "written by a newer discern");
+  }
+});
+
+Deno.test("logbook schema: newer nested validation evidence is named and never misread", () => {
+  const parsed = parseLogbookLine(
+    JSON.stringify({
+      ...sampleEvent(),
+      validation: {
+        version: ON_DISK_FORMATS.logbookValidationEvidence.version + 1,
+      },
+    }),
+  );
+  assertEquals(parsed.kind, "newer");
+  if (parsed.kind === "newer") {
+    assertStringIncludes(parsed.reason, "logbook-validation-evidence");
+    assertStringIncludes(parsed.reason, "Update discern");
+  }
 });
 
 Deno.test("logbook schema: an unknown kind is foreign; a torn line is torn", () => {
@@ -1076,7 +1097,7 @@ Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async
   await withTempDir(async (dir) => {
     assertEquals(await readEpochState(dir), undefined);
     const state = {
-      schema: LOGBOOK_SCHEMA_VERSION,
+      schema: ON_DISK_FORMATS.logbookEpoch.version,
       branches: {
         main: { fingerprint: "deadbeef", sections: { project: "0000abcd" } },
       },
@@ -1086,13 +1107,16 @@ Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async
     for (
       const malformed of [
         "not json {",
-        JSON.stringify({ schema: LOGBOOK_SCHEMA_VERSION, branches: [] }),
         JSON.stringify({
-          schema: LOGBOOK_SCHEMA_VERSION,
+          schema: ON_DISK_FORMATS.logbookEpoch.version,
+          branches: [],
+        }),
+        JSON.stringify({
+          schema: ON_DISK_FORMATS.logbookEpoch.version,
           branches: { main: { fingerprint: 42, sections: {} } },
         }),
         JSON.stringify({
-          schema: LOGBOOK_SCHEMA_VERSION,
+          schema: ON_DISK_FORMATS.logbookEpoch.version,
           branches: { main: { fingerprint: "deadbeef", sections: [] } },
         }),
       ]
@@ -1103,5 +1127,27 @@ Deno.test("store: the epoch sidecar round-trips and tolerates corruption", async
       );
       assertEquals(await readEpochState(dir), undefined);
     }
+  });
+});
+
+Deno.test("store: a newer epoch sidecar is diagnosed and never replaced", async () => {
+  await withTempDir(async (dir) => {
+    const path = join(logbookDir(dir), "epoch.json");
+    await Deno.mkdir(logbookDir(dir), { recursive: true });
+    const future = `${
+      JSON.stringify({
+        schema: ON_DISK_FORMATS.logbookEpoch.version + 1,
+        branches: {},
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+    const read = await inspectEpochState(dir);
+    assert(read.status === "newer");
+    assertStringIncludes(read.reason, "written by a newer discern");
+    await writeEpochState(dir, {
+      schema: ON_DISK_FORMATS.logbookEpoch.version,
+      branches: {},
+    });
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });

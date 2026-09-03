@@ -1529,17 +1529,6 @@ Rendered example:
 
 > Fix coverage, bundle_size, then re-run `discern standards --pin` once green. They are failing, and diagnostics[] carries each reason. No limits were pinned.
 
-## `standards-pin-carried-proof`
-
-- Category: `notice`
-- Audience: `all`
-- Family: `standards-pin-proof`
-- Emitting context: A limits-only pin commit inherits its parent's Proof.
-
-Rendered example:
-
-> Proof now follows this pin commit. `discern accept` will skip the redundant gate re-run.
-
 ## `standards-pin-dry-run`
 
 - Category: `next-step`
@@ -1567,11 +1556,11 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `standards-pin-proof`
-- Emitting context: A pin commit has no honored Proof to carry forward.
+- Emitting context: A pin commit invalidates the prior exact-HEAD Proof.
 
 Rendered example:
 
-> Run `discern done` before accepting, or acceptance will re-run the gate. No current Proof was available to carry forward.
+> Run `discern done` before accepting, or acceptance will re-run the gate. The pin commit moved HEAD beyond every prior Proof.
 
 ## `standards-pin-no-slack`
 

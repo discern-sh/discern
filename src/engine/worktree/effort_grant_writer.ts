@@ -11,6 +11,7 @@ import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
 import { type EffortGrant, readEffortGrant } from "./effort_grant.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 
 export type EffortGrantWrite =
   | { readonly status: "granted"; readonly grant: EffortGrant }
@@ -22,6 +23,9 @@ export async function effortGrantPlan(
   branch: string,
 ): Promise<EnginePlan> {
   const current = await readEffortGrant(cwd);
+  if (current.status === "newer") {
+    throw new Error(current.reason);
+  }
   const path = await gitAdminStatePath(cwd, "effortGrant");
   if (path === undefined) {
     throw new Error("Git could not resolve the effort-grant path.");
@@ -56,6 +60,9 @@ export async function grantEffort(
   grantedAt: string,
 ): Promise<EffortGrantWrite> {
   const current = await readEffortGrant(cwd);
+  if (current.status === "newer") {
+    throw new Error(current.reason);
+  }
   if (current.status === "granted" && current.grant.branch === branch) {
     return { status: "already_granted", grant: current.grant };
   }
@@ -63,7 +70,11 @@ export async function grantEffort(
   if (path === undefined) {
     throw new Error("Git could not resolve the effort-grant path.");
   }
-  const grant: EffortGrant = { branch, granted_at: grantedAt };
+  const grant: EffortGrant = {
+    version: ON_DISK_FORMATS.effortGrant.version,
+    branch,
+    granted_at: grantedAt,
+  };
   await Deno.mkdir(dirname(path), { recursive: true });
   await atomicReplaceJson(path, grant, {
     mode: 0o666,

@@ -963,7 +963,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "logbook-epoch-state-decode-fallback": {
     path: "src/engine/logbook/store.ts",
-    enclosingFunction: "readEpochState",
+    enclosingFunction: "inspectEpochState",
     operation: "treat malformed advisory Logbook epoch JSON as unavailable",
     kind: "direct",
     shape: "sync",
@@ -1282,7 +1282,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "resource-ledger-decode-fallback": {
     path: "src/engine/worktree/resources.ts",
-    enclosingFunction: "readEntry",
+    enclosingFunction: "inspectResourceEntry",
     operation: "treat malformed worktree resource ledger JSON as unavailable",
     kind: "direct",
     shape: "sync",

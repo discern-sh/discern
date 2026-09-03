@@ -30,9 +30,14 @@ import { isRelatedCheckpointKind } from "../../shared/checkpoints.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import type { RelatedCheckpointPath } from "./types.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** The store's on-disk schema version (one line of JSON). */
-const QUESTIONS_STORE_VERSION = 1;
+const QUESTIONS_STORE_VERSION = ON_DISK_FORMATS.checkpointOpenQuestions.version;
 
 /** Bounds of a trimmed unmet rationale. */
 export const UNMET_RATIONALE_MAX_LENGTH = 500;
@@ -130,6 +135,7 @@ export type OpenQuestionsRead =
   | { status: "ok"; openQuestions: Record<string, OpenQuestion> }
   | { status: "missing" }
   | { status: "invalid"; reason: string }
+  | { status: "newer"; reason: string }
   | { status: "unavailable"; reason: string };
 
 /** True for a non-null, non-array object. */
@@ -271,6 +277,16 @@ export async function readOpenQuestions(
       reason: error instanceof Error ? error.message : String(error),
     };
   }
+  const version = inspectOnDiskJsonVersion("checkpointOpenQuestions", raw);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage(
+        "checkpointOpenQuestions",
+        version.found,
+      ),
+    };
+  }
   const openQuestions = parseStore(raw);
   return openQuestions === undefined
     ? {
@@ -331,6 +347,7 @@ async function loadForWrite(
       // Rebuild from empty: at worst a conclusion must be declared again,
       // which is the conservative direction for judgment evidence.
       return { ok: true, path, openQuestions: {}, recovered: true };
+    case "newer":
     case "unavailable":
       return { ok: false, reason: read.reason };
   }

@@ -1,5 +1,8 @@
 /** Public schema identities and the root generated artifacts served at them. */
 
+import { ON_DISK_FORMATS } from "./on_disk_formats.ts";
+
+/** Build one public schema identifier from its major and artifact name. */
 function publicSchemaId<const Major extends number, const Name extends string>(
   major: Major,
   name: Name,
@@ -30,7 +33,7 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
 /** The durable landing proof note's DSSE-compatible envelope. Its
  * `payloadType` points back into this schema, so every note names the payload
  * contract carried in its bytes (ADR 0242). */
-export const PROOF_NOTE_SCHEMA_MAJOR = 1;
+export const PROOF_NOTE_SCHEMA_MAJOR = ON_DISK_FORMATS.proofNote.version;
 export const PROOF_NOTE_SCHEMA_ID = publicSchemaId(
   PROOF_NOTE_SCHEMA_MAJOR,
   "discern-proof-note.schema.json",

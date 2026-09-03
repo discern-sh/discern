@@ -42,6 +42,7 @@ import { makeTempArtifact } from "../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "./temp_artifact_scope.ts";
 import { wallTimeIso } from "../shared/clock.ts";
 import { EXIT_INTERNAL_ERROR } from "../shared/exit_codes.ts";
+import { ON_DISK_FORMATS } from "../shared/on_disk_formats.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -259,7 +260,7 @@ function errorBlock(report: CrashReport): string {
 /** Render the artifact body — the plain-text file a bug report attaches. */
 export function renderCrashArtifact(report: CrashReport): string {
   return [
-    "discern crash report",
+    `discern crash report format ${ON_DISK_FORMATS.crashReport.version}`,
     `version: ${report.version} (deno ${report.deno}; ${report.platform})`,
     `at: ${report.at}`,
     `verb: ${report.verb}`,

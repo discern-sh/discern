@@ -17,6 +17,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join, resolve } from "@std/path";
+import { z } from "@zod/zod";
 import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { parse as parseToml } from "@std/toml";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -40,12 +41,19 @@ import {
 import { Logger } from "../src/lib/log.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 import {
+  inspectRetiredWorktreePathRecord,
   pruneReappearedWorktreePaths,
   readRetiredWorktreePathRecords,
   recordRetiredWorktreePath,
   scanReappearedWorktreePaths,
 } from "../src/engine/worktree/retired_paths.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+
+const RetiredPathFixtureSchema = z.object({
+  schema_version: z.number(),
+}).passthrough();
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -495,6 +503,50 @@ Deno.test("retired worktree path evidence remains bounded and expires from obser
       }),
       [],
     );
+  });
+});
+
+Deno.test("newer retired-path evidence is observed and survives replacement and pruning", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const retired = join(dirname(dir), "newer-retired-path");
+    assertEquals(await recordRetiredWorktreePath(dir, retired), true);
+    const store = await gitAdminStatePath(dir, "retiredWorktreePaths");
+    assert(store !== undefined);
+    const records = [];
+    for await (const entry of Deno.readDir(store)) {
+      if (entry.isFile && entry.name.endsWith(".json")) {
+        records.push(join(store, entry.name));
+      }
+    }
+    assertEquals(records.length, 1);
+    const path = records[0];
+    assert(path !== undefined);
+    const current = decodeWith(
+      RetiredPathFixtureSchema,
+      await Deno.readTextFile(path),
+    );
+    const future = `${
+      JSON.stringify({
+        ...current,
+        schema_version: ON_DISK_FORMATS.retiredWorktreePath.version + 1,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+
+    const inspected = await inspectRetiredWorktreePathRecord(path);
+    assert(inspected.status === "newer");
+    assertStringIncludes(inspected.reason, "written by a newer discern");
+    assertEquals(await recordRetiredWorktreePath(dir, retired), false);
+    assertEquals(await Deno.readTextFile(path), future);
+
+    await recordRetiredWorktreePath(
+      dir,
+      join(dirname(dir), "another-retired-path"),
+      { maxEntries: 0 },
+    );
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });
 

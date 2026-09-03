@@ -12,12 +12,18 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
+  clearStandardMeasurements,
+  inspectFreshStandardMeasurementEvidence,
   inspectGateProof,
   inspectLastGateRun,
+  inspectLastGateRunRecord,
+  inspectStandardMeasurements,
   pinValidatedTree,
   preflightAdminStateWrites,
+  recordFreshStandardMeasurementEvidence,
   recordGateOutcome,
   recordLastGateRun,
+  recordStandardMeasurements,
 } from "../src/engine/gate/proof.ts";
 import {
   reconcileOpenQuestion,
@@ -26,8 +32,10 @@ import {
 import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
 import { ProofSchema } from "../src/shared/result_schemas.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const LastGateRunMarkerSchema = z.object({
+  version: z.literal(ON_DISK_FORMATS.lastGateRun.version),
   head: z.string(),
   tree: z.string().optional(),
   passed: z.boolean(),
@@ -37,6 +45,12 @@ const LastGateRunMarkerSchema = z.object({
 
 const MutableProofFixtureSchema = z.object({
   standard_proposals: z.array(z.record(z.string(), z.unknown())),
+}).passthrough();
+
+const GateProofRecordFixtureSchema = z.object({
+  version: z.number(),
+  head: z.string(),
+  proof: z.unknown().optional(),
 }).passthrough();
 
 const T0 = "2026-01-01T00:00:00.000Z";
@@ -139,7 +153,7 @@ Deno.test("proof marker: a changed conclusion stales the vouch at an unchanged H
   });
 });
 
-Deno.test("proof marker: a pre-evidence marker keeps its tree-only semantics (fail open)", async () => {
+Deno.test("proof marker: an incomplete record invents no declaration identity", async () => {
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
     const preflight = await preflightAdminStateWrites(dir);
@@ -149,12 +163,13 @@ Deno.test("proof marker: a pre-evidence marker keeps its tree-only semantics (fa
       preflight.authority,
       true,
       await pinValidatedTree(dir),
-      // No proof rendering and no evidence — the shape an older writer left.
+      // No proof rendering and no evidence: current tree state remains
+      // inspectable, but consumers must run a fresh Gate before reuse.
     );
     assertEquals(recorded.status, "recorded");
     assertEquals((await inspectGateProof(dir)).status, "honored");
 
-    // Evidence changes; the old marker has nothing to compare — still honored.
+    // Evidence changes; the incomplete marker has nothing to compare.
     const unmet = await recordDeclaration(
       dir,
       {
@@ -213,16 +228,14 @@ Deno.test("proof marker: a proposal without bound_commit is not structured Proof
     assertEquals(recorded.status, "recorded");
     assert(recorded.path !== undefined);
 
-    const lines = (await Deno.readTextFile(recorded.path)).split("\n");
-    const dataIndex = lines.findIndex((line) => line.startsWith("data: "));
-    assert(dataIndex >= 0);
-    const data = decodeWith(
-      MutableProofFixtureSchema,
-      lines[dataIndex]?.slice("data: ".length) ?? "",
+    const marker = decodeWith(
+      GateProofRecordFixtureSchema,
+      await Deno.readTextFile(recorded.path),
     );
+    const data = MutableProofFixtureSchema.parse(marker.proof);
     delete data.standard_proposals[0]?.bound_commit;
-    lines[dataIndex] = `data: ${JSON.stringify(data)}`;
-    await Deno.writeTextFile(recorded.path, lines.join("\n"));
+    marker.proof = data;
+    await Deno.writeTextFile(recorded.path, `${JSON.stringify(marker)}\n`);
 
     const inspected = await inspectGateProof(dir);
     assertEquals(inspected.status, "honored");
@@ -242,7 +255,7 @@ Deno.test("last-run marker: the recorded evidence identity round-trips", async (
     assertEquals(last.passed, true);
     assertEquals(last.evidence, evidence);
 
-    // A marker without the field (an older writer) still parses.
+    // Evidence is optional within the registered v1 record.
     const path = await gitAdminStatePath(dir, "lastGateRun");
     assert(path !== undefined);
     const raw = decodeWith(
@@ -251,9 +264,9 @@ Deno.test("last-run marker: the recorded evidence identity round-trips", async (
     );
     delete raw.evidence;
     await Deno.writeTextFile(path, `${JSON.stringify(raw)}\n`);
-    const legacy = await inspectLastGateRun(dir);
-    assert(legacy !== undefined);
-    assertEquals(legacy.evidence, undefined);
+    const withoutEvidence = await inspectLastGateRun(dir);
+    assert(withoutEvidence !== undefined);
+    assertEquals(withoutEvidence.evidence, undefined);
   });
 });
 
@@ -327,5 +340,149 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
     await Deno.remove(store);
     await Deno.writeTextFile(store, bytes);
     assertEquals((await inspectGateProof(dir)).status, "honored");
+  });
+});
+
+Deno.test("gate evidence written by a newer discern is diagnosed and never replaced", async () => {
+  await withTempDir(async (dir) => {
+    await declaredRepo(dir);
+    const preflight = await preflightAdminStateWrites(dir);
+    assert(preflight.ok);
+    const pin = await pinValidatedTree(dir);
+    assert(pin.head !== undefined && pin.clean);
+
+    const proofPath = await gitAdminStatePath(dir, "gateProof");
+    const lastRunPath = await gitAdminStatePath(dir, "lastGateRun");
+    const measurementsPath = await gitAdminStatePath(
+      dir,
+      "standardMeasurements",
+    );
+    const freshPath = await gitAdminStatePath(
+      dir,
+      "standardMeasurementEvidence",
+    );
+    assert(
+      proofPath !== undefined && lastRunPath !== undefined &&
+        measurementsPath !== undefined && freshPath !== undefined,
+    );
+
+    const proofBytes = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.gateProof.version + 1,
+        head: pin.head,
+        mode: "strict",
+      })
+    }\n`;
+    await Deno.writeTextFile(proofPath, proofBytes);
+    const proof = await inspectGateProof(dir);
+    assertEquals(proof.status, "read_failed");
+    assertStringIncludes(proof.reason ?? "", "written by a newer discern");
+    assertEquals(
+      (await recordGateOutcome(dir, preflight.authority, true, pin)).status,
+      "record_failed",
+    );
+    assertEquals(
+      (await recordGateOutcome(dir, preflight.authority, false, pin)).status,
+      "clear_failed",
+    );
+    assertEquals(await Deno.readTextFile(proofPath), proofBytes);
+
+    const lastRunBytes = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.lastGateRun.version + 1,
+        head: pin.head,
+        passed: true,
+      })
+    }\n`;
+    await Deno.writeTextFile(lastRunPath, lastRunBytes);
+    const lastRun = await inspectLastGateRunRecord(dir);
+    assert(lastRun.status === "newer");
+    assertStringIncludes(lastRun.reason, "Update discern");
+    await recordLastGateRun(dir, preflight.authority, false);
+    assertEquals(await Deno.readTextFile(lastRunPath), lastRunBytes);
+
+    const measurementBytes = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.standardMeasurements.version + 1,
+        head: pin.head,
+        values: { coverage: 2 },
+        durations: {},
+        definitions: { coverage: "future-definition" },
+        provenance: { coverage: pin.head },
+      })
+    }\n`;
+    await Deno.writeTextFile(measurementsPath, measurementBytes);
+    const measurements = await inspectStandardMeasurements(dir);
+    assert(measurements.status === "newer");
+    assertStringIncludes(measurements.reason, "written by a newer discern");
+    assertEquals(
+      await recordStandardMeasurements(
+        dir,
+        preflight.authority,
+        { coverage: 2 },
+        { coverage: "current-definition" },
+        pin,
+      ),
+      false,
+    );
+    await clearStandardMeasurements(dir, preflight.authority);
+    assertEquals(await Deno.readTextFile(measurementsPath), measurementBytes);
+
+    const freshBytes = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.freshStandardMeasurementEvidence.version + 1,
+        head: pin.head,
+        values: { coverage: 2 },
+        failed: [],
+      })
+    }\n`;
+    await Deno.writeTextFile(freshPath, freshBytes);
+    const fresh = await inspectFreshStandardMeasurementEvidence(dir);
+    assert(fresh.status === "newer");
+    assertStringIncludes(fresh.reason ?? "", "written by a newer discern");
+    assertEquals(
+      await recordFreshStandardMeasurementEvidence(
+        dir,
+        preflight.authority,
+        [{
+          name: "coverage",
+          direction: "up",
+          limit: 1,
+          measurement: "measured",
+          value: 2,
+          verdict: "improved",
+        }],
+        pin,
+      ),
+      false,
+    );
+    assertEquals(await Deno.readTextFile(freshPath), freshBytes);
+  });
+});
+
+Deno.test("the private text Gate marker is missing evidence and a fresh stamp replaces it", async () => {
+  await withTempDir(async (dir) => {
+    await declaredRepo(dir);
+    const preflight = await preflightAdminStateWrites(dir);
+    assert(preflight.ok);
+    const pin = await pinValidatedTree(dir);
+    assert(pin.head !== undefined);
+    const path = await gitAdminStatePath(dir, "gateProof");
+    assert(path !== undefined);
+    await Deno.writeTextFile(path, `${pin.head}\nline: old private marker\n`);
+
+    const missing = await inspectGateProof(dir);
+    assertEquals(missing.status, "missing");
+    assertStringIncludes(missing.reason ?? "", "fresh `discern done`");
+    assertEquals(
+      (await recordGateOutcome(dir, preflight.authority, true, pin)).status,
+      "recorded",
+    );
+    const replacement = decodeWith(
+      GateProofRecordFixtureSchema,
+      await Deno.readTextFile(path),
+    );
+    assertEquals(replacement.version, ON_DISK_FORMATS.gateProof.version);
+    assertEquals(replacement.head, pin.head);
   });
 });

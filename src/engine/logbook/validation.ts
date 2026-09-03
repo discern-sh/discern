@@ -11,6 +11,7 @@ import { z } from "@zod/zod";
 import { DISCERN_VERSION } from "../../lib/version.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 
 /** Validation entry points. Adding one enrolls it in the outcome matrix. */
 export const VALIDATION_RUNS = {
@@ -67,7 +68,8 @@ export function validationJobOutcome(
   }
 }
 
-export const VALIDATION_EVIDENCE_VERSION = 1;
+export const VALIDATION_EVIDENCE_VERSION =
+  ON_DISK_FORMATS.logbookValidationEvidence.version;
 
 export const VALIDATION_INCOMPLETE_CATEGORIES = [
   "boundary",

@@ -10,7 +10,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import type {
   StartData,
@@ -25,7 +25,11 @@ import {
   TaskMetadataDataSchema,
   taskTextLength,
 } from "../src/shared/task_metadata.ts";
-import { taskMetadataPath } from "../src/engine/worktree/task_metadata.ts";
+import {
+  inspectTaskMetadata,
+  taskMetadataPath,
+  writeStoredTaskMetadata,
+} from "../src/engine/worktree/task_metadata.ts";
 import { Logger } from "../src/lib/log.ts";
 import {
   applyStartPlan,
@@ -43,6 +47,7 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 /** Decode one successful start result. */
 function startedData(stdout: string): StartData {
@@ -438,5 +443,39 @@ Deno.test("task metadata follows a worktree move and is removed with its registr
     assertEquals(dropped.code, 0, dropped.output);
     assertEquals(await targetExists(movedPath), false);
     assertEquals(await targetExists(recordBefore), false);
+  });
+});
+
+Deno.test("newer task metadata is reported unavailable and never replaced", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "newer-task-metadata");
+    const path = await taskMetadataPath(worktree);
+    assertExists(path);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const future = `${
+      JSON.stringify({
+        schema_version: ON_DISK_FORMATS.taskMetadata.version + 1,
+        title: "A future task title",
+        future_field: true,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+
+    const inspected = await inspectTaskMetadata(worktree);
+    assertEquals(inspected.kind, "unavailable");
+    if (inspected.kind !== "unavailable") return;
+    assertStringIncludes(inspected.reason, "written by a newer discern");
+    await assertRejects(
+      () =>
+        writeStoredTaskMetadata(worktree, {
+          schema_version: ON_DISK_FORMATS.taskMetadata.version,
+          title: "Current writer",
+        }),
+      Error,
+      "written by a newer discern",
+    );
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });

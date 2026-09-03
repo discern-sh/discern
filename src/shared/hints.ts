@@ -2925,28 +2925,16 @@ export const HINTS = {
       "Nothing to pin. Every selected standard already sits at its measured value within its margin.",
   }),
 
-  /** The limits-only pin commit inherited the valid Proof for its parent. */
-  "standards-pin-carried-proof": defineHint({
-    id: "standards-pin-carried-proof",
-    category: "notice",
-    audience: "all",
-    when: "A limits-only pin commit inherits its parent's Proof.",
-    family: "standards-pin-proof",
-    example: undefined,
-    template: (): string =>
-      `Proof now follows this pin commit. ${CMD.accept} will skip the redundant gate re-run.`,
-  }),
-
-  /** The pin commit had no valid Proof available to carry forward. */
+  /** The pin commit moved beyond every exact-HEAD Proof. */
   "standards-pin-no-proof": defineHint({
     id: "standards-pin-no-proof",
     category: "next-step",
     audience: "all",
-    when: "A pin commit has no honored Proof to carry forward.",
+    when: "A pin commit invalidates the prior exact-HEAD Proof.",
     family: "standards-pin-proof",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. No current Proof was available to carry forward.`,
+      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. The pin commit moved HEAD beyond every prior Proof.`,
   }),
 
   /** Standalone standards could not verify the branch limits against the trunk. */

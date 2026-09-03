@@ -37,6 +37,11 @@ import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variable
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
+import {
   type IdentitySettings,
   resourceForId,
   worktreeBase,
@@ -50,7 +55,7 @@ import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 
 /** The resource-ledger format version. Registered with every durable format. */
-export const RESOURCE_LEDGER_SCHEMA = 1;
+export const RESOURCE_LEDGER_SCHEMA = ON_DISK_FORMATS.resourceLedger.version;
 
 /** The minimal slice of the lifecycle context the resource layer needs (kept
  * structural so it never imports `LifecycleContext` — that would cycle). */
@@ -97,10 +102,10 @@ export class WorktreeResourceError extends WorktreeGitError {
 
 /** The ledger entry shape AND its read-time validator — one source for both. A
  * file under the ledger dir is trusted only if it parses to this exact shape with a
- * recognised `schema` major; anything else (a corrupt write, a hand-edit, a future
- * format) is skipped, never half-read. */
+ * recognised `schema` major. Corrupt content is skipped; forward skew is
+ * classified separately so no older writer or cleanup can replace it. */
 const resourceEntrySchema = z.object({
-  /** Entry-format major; a foreign/newer value fails validation and is skipped. */
+  /** Entry-format major supplied by the durable-format registry. */
   schema: z.literal(RESOURCE_LEDGER_SCHEMA),
   /** Create reconciliation phase: uncertain ownership intent or proven ready. */
   phase: z.enum(["intent", "ready"]),
@@ -219,7 +224,14 @@ export async function writeEntry(
   const dir = resourcesDir(commonGitDir);
   await ensureDir(dir);
   const path = entryPath(commonGitDir, entry.git_key, entry.resource_name);
-  await atomicReplaceJson(path, entry, {
+  const standing = await inspectResourceEntry(path);
+  if (standing.status === "newer") {
+    throw new Error(standing.reason);
+  }
+  await atomicReplaceJson(path, {
+    ...entry,
+    schema: ON_DISK_FORMATS.resourceLedger.version,
+  }, {
     mode: 0o666,
     sync: false,
     space: 2,
@@ -227,26 +239,47 @@ export async function writeEntry(
   });
 }
 
-/** Read one entry, tolerating a missing/corrupt/unknown-schema/malformed file
- * (→ undefined). The shape is validated against {@link resourceEntrySchema}, so a
- * file that parses as JSON but isn't a well-formed entry is skipped, not trusted. */
-export async function readEntry(
+export type ResourceEntryRead =
+  | { readonly status: "recorded"; readonly entry: ResourceEntry }
+  | { readonly status: "missing" | "malformed" }
+  | { readonly status: "newer"; readonly reason: string };
+
+/** Inspect one ledger entry without collapsing forward skew into corruption. */
+export async function inspectResourceEntry(
   path: string,
-): Promise<ResourceEntry | undefined> {
+): Promise<ResourceEntryRead> {
   const text = await readTextIfExists(path);
-  if (text === undefined) return undefined;
+  if (text === undefined) return { status: "missing" };
+  const version = inspectOnDiskJsonVersion("resourceLedger", text);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("resourceLedger", version.found),
+    };
+  }
   try {
     const parsed: unknown = JSON.parse(text);
     const result = resourceEntrySchema.safeParse(parsed);
-    return result.success ? result.data : undefined;
+    return result.success
+      ? { status: "recorded", entry: result.data }
+      : { status: "malformed" };
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
     // discern-best-effort: resource-ledger-decode-fallback
-    return undefined;
+    return { status: "malformed" };
   }
 }
 
-/** Every ledger entry for this repo (skipping unreadable/foreign files). */
+/** Read one entry as an optional current record. Callers that mutate or report
+ * state use {@link inspectResourceEntry} so forward skew remains explicit. */
+export async function readEntry(
+  path: string,
+): Promise<ResourceEntry | undefined> {
+  const read = await inspectResourceEntry(path);
+  return read.status === "recorded" ? read.entry : undefined;
+}
+
+/** Every current ledger entry for this repo. */
 export async function listEntries(
   commonGitDir: string,
 ): Promise<{ path: string; entry: ResourceEntry }[]> {
@@ -289,11 +322,14 @@ async function deleteEntryCAS(
   path: string,
   expected: ResourceEntry,
 ): Promise<boolean> {
-  const current = await readEntry(path);
-  if (current === undefined) {
+  const read = await inspectResourceEntry(path);
+  if (read.status === "missing") {
     return true; // already gone
   }
-  if (sameEntry(expected, current)) {
+  if (read.status !== "recorded") {
+    return false;
+  }
+  if (sameEntry(expected, read.entry)) {
     await removeEntryFile(path);
     return true;
   }
@@ -377,8 +413,18 @@ export async function createResources(
     }
     const path = entryPath(commonGitDir, gitKey, spec.name);
     const existingText = await readTextIfExists(path);
-    const existing = await readEntry(path);
-    if (existingText !== undefined && existing === undefined) {
+    const existingRead = await inspectResourceEntry(path);
+    if (existingRead.status === "newer") {
+      throw new WorktreeResourceError(
+        spec.name,
+        "create",
+        `${existingRead.reason} Resource setup left the standing evidence unchanged.`,
+      );
+    }
+    const existing = existingRead.status === "recorded"
+      ? existingRead.entry
+      : undefined;
+    if (existingText !== undefined && existingRead.status === "malformed") {
       throw new WorktreeResourceError(
         spec.name,
         "create",

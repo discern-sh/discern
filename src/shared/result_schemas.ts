@@ -1224,8 +1224,8 @@ export const GateProofCheckSchema = z.strictObject({
   reason: z.string().optional(),
   proof: z.string().optional(),
   proof_line: z.string().optional(),
-  /** The structured proof cached by current writers. Older markers carry only
-   * the rendered forms and therefore omit this field. */
+  /** The structured Proof cached by a complete Gate result. Incomplete marker
+   * state may omit it but cannot enter a reuse or landing fast path. */
   proof_data: ProofSchema.optional(),
   /** Proof-carried and live declaration-evidence uncertainty. */
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
@@ -1536,6 +1536,7 @@ export const AcceptDataSchema = z.strictObject({
     status: z.enum([
       "disabled",
       "baseline_missing",
+      "newer",
       "unavailable",
       "unchanged",
       "changed",
@@ -1543,6 +1544,7 @@ export const AcceptDataSchema = z.strictObject({
     changed_roots: z.array(z.string()),
     changed_total: z.number(),
     truncated: z.boolean(),
+    reason: z.string().optional(),
   }).optional(),
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;

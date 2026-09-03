@@ -43,7 +43,6 @@ import {
   readTextIfExists,
 } from "../../shared/fs_presence.ts";
 import {
-  LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
   parseLogbookLine,
   type PruneDigest,
@@ -53,6 +52,11 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** The logbook directory for a repo: `<common-git-dir>/discern/logbook/`. */
 export function logbookDir(commonGitDir: string): string {
@@ -262,7 +266,7 @@ async function rotate(
     await Deno.remove(path);
   }
   const prune: PruneEvent = {
-    schema: LOGBOOK_SCHEMA_VERSION,
+    schema: ON_DISK_FORMATS.logbookEvent.version,
     at: atIso,
     writer: DISCERN_VERSION,
     kind: "prune",
@@ -281,7 +285,7 @@ async function rotate(
  * `config-change` on every interleaving. A branch entry simply lingers after
  * its worktree lands — a few stale lines of state, accepted for v1. */
 const epochStateSchema = z.object({
-  schema: z.literal(LOGBOOK_SCHEMA_VERSION),
+  schema: z.literal(ON_DISK_FORMATS.logbookEpoch.version),
   branches: z.record(
     z.string(),
     z.object({
@@ -303,21 +307,43 @@ export function epochStatePath(commonGitDir: string): string {
   return join(logbookDir(commonGitDir), "epoch.json");
 }
 
-/** Read the epoch sidecar, tolerating a missing/corrupt/foreign file (→ undefined). */
-export async function readEpochState(
+export type EpochStateRead =
+  | { readonly status: "recorded"; readonly state: EpochState }
+  | { readonly status: "missing" | "malformed" }
+  | { readonly status: "newer"; readonly reason: string };
+
+/** Inspect the epoch sidecar without collapsing a newer writer into corruption. */
+export async function inspectEpochState(
   commonGitDir: string,
-): Promise<EpochState | undefined> {
+): Promise<EpochStateRead> {
   const text = await readTextIfExists(epochStatePath(commonGitDir));
-  if (text === undefined) return undefined;
+  if (text === undefined) return { status: "missing" };
+  const version = inspectOnDiskJsonVersion("logbookEpoch", text);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("logbookEpoch", version.found),
+    };
+  }
   try {
     const parsed: unknown = JSON.parse(text);
     const result = epochStateSchema.safeParse(parsed);
-    return result.success ? result.data : undefined;
+    return result.success
+      ? { status: "recorded", state: result.data }
+      : { status: "malformed" };
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
     // discern-best-effort: logbook-epoch-state-decode-fallback
-    return undefined;
+    return { status: "malformed" };
   }
+}
+
+/** Read only the current epoch state; callers that need diagnostics inspect it. */
+export async function readEpochState(
+  commonGitDir: string,
+): Promise<EpochState | undefined> {
+  const read = await inspectEpochState(commonGitDir);
+  return read.status === "recorded" ? read.state : undefined;
 }
 
 /** Write the epoch sidecar atomically (temp-in-dir + rename). */
@@ -331,7 +357,12 @@ export async function writeEpochState(
   const dir = logbookDir(commonGitDir);
   await ensureDir(dir);
   const path = epochStatePath(commonGitDir);
-  await atomicReplaceJson(path, state, {
+  const standing = await inspectEpochState(commonGitDir);
+  if (standing.status === "newer") return;
+  await atomicReplaceJson(path, {
+    ...state,
+    schema: ON_DISK_FORMATS.logbookEpoch.version,
+  }, {
     mode: 0o666,
     sync: false,
     space: 2,

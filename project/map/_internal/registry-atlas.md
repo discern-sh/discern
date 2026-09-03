@@ -38,6 +38,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
 | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 31      | —                | —                           |
+| [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 26      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
@@ -65,7 +66,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 19      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 191     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 190     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -106,7 +107,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 357     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 358     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -136,9 +137,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 125     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 126     | —                | node `canonical-sets`       |
 
-125 sets · 176 guard tests · 66 committed artifacts.
+126 sets · 177 guard tests · 66 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -249,7 +250,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/gate_diagnostics_test.ts`                   | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/gate_plan_test.ts`                          | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `tests/generated_artifacts_test.ts`                | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `tests/git_admin_state_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/git_admin_state_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state), [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/git_footprint_inventory_test.ts`            | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/glossary_codegen_test.ts`                   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/glossary_enrolment_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -272,6 +273,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/manual_policy_test.ts`                      | [`manual-kinds`](#manual-kinds--manual-kinds), [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners), [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations), [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/manual_projection_guard_test.ts`            | [`manual-pages`](#manual-pages--published-manual-pages)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/manual_surface_parity_test.ts`              | [`manual-pages`](#manual-pages--published-manual-pages), [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/on_disk_formats_test.ts`                    | [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/operation_effects_test.ts`                  | [`operation-effects`](#operation-effects--operation-effects), [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/paths_literal_ban_test.ts`                  | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/paths_registry_test.ts`                     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -1040,6 +1042,42 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
 - Glossary: not enrolled — the Git-admin state reference owns this internal vocabulary for Proof, measurements, Logbook data, and Worktree lifecycle state
 - Feature canon: not enrolled — the registry supports several product features, each documented by its own node
 
+## `on-disk-formats` — Local durable formats
+
+Every versioned record discern writes in Git administration state or a Proof note: its storage coordinate, current version, reader, and forward-skew policy.
+
+- Source: `src/shared/on_disk_formats.ts` — `ON_DISK_FORMATS`
+- Members: 26
+  - `acceptance-transaction`
+  - `await-continuation`
+  - `checkpoint-open-questions`
+  - `continuation-record`
+  - `crash-report`
+  - `desk-preferences`
+  - `desk-tip-state`
+  - `effort-grant`
+  - `fresh-standard-measurement-evidence`
+  - `gate-proof`
+  - `ignored-baseline`
+  - `last-gate-run`
+  - `logbook-epoch`
+  - `logbook-event`
+  - `logbook-validation-evidence`
+  - `proof-note`
+  - `resource-ledger`
+  - `retired-worktree-path`
+  - `setup-machinery-commit-evidence`
+  - `setup-step-journal`
+  - `standard-limit-proposal-store`
+  - `standard-limit-proposal-transaction`
+  - `standard-measurements`
+  - `task-metadata`
+  - `parked-task-metadata`
+  - `temp-artifact-sweep`
+- Guards: `tests/on_disk_formats_test.ts`, `tests/git_admin_state_test.ts`
+- Glossary: not enrolled — the Git-admin state reference explains versioned local evidence as one lifecycle concept
+- Feature canon: not enrolled — the registry protects several existing features rather than adding another selectable feature
+
 ## `git-footprint` — Clone-local Git footprint
 
 Every Git configuration key and ref namespace discern may create, including its writer, lifetime, uninstall treatment, and optional cleanup.
@@ -1732,7 +1770,7 @@ The `@…@` runtime tokens substituted into a Worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 191
+- Members: 190
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1867,7 +1905,6 @@ The advisory hint registry: every hint string enters results through it.
   - `standards-pin-reused-measurements`
   - `standards-pin-blocked`
   - `standards-pin-no-slack`
-  - `standards-pin-carried-proof`
   - `standards-pin-no-proof`
   - `standards-limits-unverified`
   - `standards-pin-behind`
@@ -2905,9 +2942,9 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `renamed_config_key`
   - `report_only_proof`
   - `schema_version_too_new`
-  - `setup_plan_failed`
-  - `script_not_executable`
   - `script_not_a_command`
+  - `script_not_executable`
+  - `setup_plan_failed`
   - `skills_eject_failed`
   - `tables_malformed`
   - `templates_not_found`
@@ -3227,7 +3264,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 357
+- Members: 358
   - `0003`
   - `0005`
   - `0006`
@@ -3561,6 +3598,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0365`
   - `0366`
   - `0367`
+  - `0368`
   - `0001`
   - `0002`
   - `0004`
@@ -4400,7 +4438,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 125
+- Members: 126
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4427,6 +4465,7 @@ This meta-registry: the closed set of closed sets.
   - `worktree-lifecycle-repo-root-verbs`
   - `desk-actions`
   - `git-admin-state`
+  - `on-disk-formats`
   - `git-footprint`
   - `jobs`
   - `stages`

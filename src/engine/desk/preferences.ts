@@ -13,9 +13,15 @@ import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { AGENT_NAMES } from "../../shared/config_schema.ts";
 import type { AgentName } from "../../lib/config.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** Current repository-local preference record format. */
-export const DESK_PREFERENCES_SCHEMA_VERSION = 1 as const;
+export const DESK_PREFERENCES_SCHEMA_VERSION =
+  ON_DISK_FORMATS.deskPreferences.version;
 
 /** Creation routes whose default may be remembered. */
 export const DESK_CREATION_PATHS = ["compact", "expanded"] as const;
@@ -37,7 +43,13 @@ export interface DeskPreferences {
 /** Observable outcome of persisting optional convenience defaults. */
 export type DeskPreferencesWriteResult =
   | { readonly status: "saved" }
+  | { readonly status: "newer"; readonly reason: string }
   | { readonly status: "unavailable"; readonly reason: string };
+
+export type DeskPreferencesRead =
+  | { readonly status: "recorded"; readonly preferences: DeskPreferences }
+  | { readonly status: "missing" | "malformed" | "unavailable" }
+  | { readonly status: "newer"; readonly reason: string };
 
 /** A fresh record carries no default that could go stale. */
 export function freshDeskPreferences(): DeskPreferences {
@@ -51,32 +63,50 @@ export async function deskPreferencesPath(
   return await gitAdminStatePath(root, "deskPreferences");
 }
 
-/** Read preferences; missing, foreign, or torn state falls back to no defaults. */
-export async function readDeskPreferences(
+/** Inspect preferences while naming a record written by a newer binary. */
+export async function inspectDeskPreferences(
   root: string,
-): Promise<DeskPreferences> {
+): Promise<DeskPreferencesRead> {
   try {
     const path = await deskPreferencesPath(root);
-    if (path === undefined) return freshDeskPreferences();
+    if (path === undefined) return { status: "unavailable" };
     const text = await readTextIfExists(path);
-    if (text === undefined) return freshDeskPreferences();
+    if (text === undefined) return { status: "missing" };
+    const version = inspectOnDiskJsonVersion("deskPreferences", text);
+    if (version.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage("deskPreferences", version.found),
+      };
+    }
     const parsed = DeskPreferencesSchema.safeParse(
       JSON.parse(text),
     );
     return parsed.success
       ? {
-        schema_version: parsed.data.schema_version,
-        ...(parsed.data.last_agent === undefined
-          ? {}
-          : { last_agent: parsed.data.last_agent }),
-        ...(parsed.data.creation_path === undefined
-          ? {}
-          : { creation_path: parsed.data.creation_path }),
+        status: "recorded",
+        preferences: {
+          schema_version: parsed.data.schema_version,
+          ...(parsed.data.last_agent === undefined
+            ? {}
+            : { last_agent: parsed.data.last_agent }),
+          ...(parsed.data.creation_path === undefined
+            ? {}
+            : { creation_path: parsed.data.creation_path }),
+        },
       }
-      : freshDeskPreferences();
+      : { status: "malformed" };
   } catch {
-    return freshDeskPreferences();
+    return { status: "unavailable" };
   }
+}
+
+/** Read preferences; non-current state contributes no defaults. */
+export async function readDeskPreferences(
+  root: string,
+): Promise<DeskPreferences> {
+  const read = await inspectDeskPreferences(root);
+  return read.status === "recorded" ? read.preferences : freshDeskPreferences();
 }
 
 /** Persist convenience defaults atomically and expose any unavailable store. */
@@ -95,7 +125,20 @@ export async function writeDeskPreferences(
       };
     }
     await Deno.mkdir(dirname(path), { recursive: true });
-    await atomicReplaceJson(path, parsed, {
+    const existing = await readTextIfExists(path);
+    if (existing !== undefined) {
+      const version = inspectOnDiskJsonVersion("deskPreferences", existing);
+      if (version.status === "newer") {
+        return {
+          status: "newer",
+          reason: newerOnDiskFormatMessage("deskPreferences", version.found),
+        };
+      }
+    }
+    await atomicReplaceJson(path, {
+      ...parsed,
+      schema_version: ON_DISK_FORMATS.deskPreferences.version,
+    }, {
       mode: 0o600,
       sync: false,
       space: 2,

@@ -4,19 +4,20 @@
  *
  * `--pin` validates every Standard unless current Gate Proof already proves the
  * complete clean tree, tightens each asked-for limit that improved past its margin,
- * commits that change on its own (comment-preservingly), and carries a Gate Proof
- * forward across the gate-neutral commit so `accept` skips the redundant re-run.
+ * commits that change on its own (comment-preservingly), and leaves the prior
+ * exact-HEAD Proof stale so acceptance cannot skip validation of a new commit.
  * These tests drive the real engine through `runAgent` and assert on the config,
  * the commit, and the proof file.
  *
  * The proof lives at `.git/discern/gate-proof` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
- * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
- * exactly the (proof names HEAD, clean tree) condition `accept` honors.
+ * writing a complete registered JSON record there, then assert that a pin does
+ * not rewrite its exact commit identity.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
@@ -35,7 +36,15 @@ import {
 } from "./engine_helpers.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 import { readTextIfExists, targetExists } from "../src/shared/fs_presence.ts";
-import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import {
+  assertResultDataKey,
+  decodeCliResult,
+  decodeWith,
+} from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
+
+const GateProofHeadFixtureSchema = z.object({ head: z.string() });
 
 interface StandardSpec {
   name: string;
@@ -91,16 +100,40 @@ function proofFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.gateProof.path);
 }
 
-/** Seed a prior `done` vouch: write `sha` (default current HEAD) to the proof. */
+/** Seed a prior registered `done` vouch for current HEAD by default. */
 async function seedProof(dir: string, sha?: string): Promise<void> {
   const head = sha ?? await gitOut(dir, "rev-parse", "HEAD");
+  const evidence = await declarationEvidenceIdentity(dir);
+  assert(evidence.status === "ok");
   await Deno.mkdir(dirname(proofFile(dir)), { recursive: true });
-  await Deno.writeTextFile(proofFile(dir), `${head}\n`);
+  await Deno.writeTextFile(
+    proofFile(dir),
+    `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.gateProof.version,
+        head,
+        mode: "strict",
+        proof: {
+          branch: "agent/pin-fixture",
+          trunk: "main",
+          head: head.slice(0, 12),
+          files_total: 1,
+          insertions: 1,
+          deletions: 0,
+          line: "> **Proof:** complete pin fixture",
+          markdown: "### Proof — complete pin fixture",
+        },
+        evidence: evidence.identity,
+      })
+    }\n`,
+  );
 }
 
-/** Read a trimmed gate proof while preserving missing state as absence. */
+/** Read the registered Gate Proof's commit while preserving absence. */
 async function readProof(dir: string): Promise<string | undefined> {
-  return (await readTextIfExists(proofFile(dir)))?.trim();
+  const raw = await readTextIfExists(proofFile(dir));
+  if (raw === undefined) return undefined;
+  return decodeWith(GateProofHeadFixtureSchema, raw).head;
 }
 
 /** Read the project config after pinning so exact limit edits can be asserted. */
@@ -374,6 +407,15 @@ Deno.test("pin: honored Gate Proof narrows named measurement to the selected sta
       ),
     );
     await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "work");
+    await git(
+      dir,
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "establish proof subject",
+      "--no-gpg-sign",
+    );
     const done = await runAgent(dir, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
 
@@ -579,6 +621,15 @@ Deno.test("pin: target selection reuses available values and measures only missi
       ),
     );
     await gitInit(dir);
+    await git(dir, "checkout", "-q", "-b", "work");
+    await git(
+      dir,
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "establish proof subject",
+      "--no-gpg-sign",
+    );
     const done = await runAgent(dir, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
     assertEquals(
@@ -965,9 +1016,9 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
   });
 });
 
-// ── the gate proof carries across the pin commit ────────────────────────
+// ── the exact-HEAD Gate Proof does not cross the pin commit ─────────────
 
-Deno.test("pin: carries an honored gate proof onto the new commit", async () => {
+Deno.test("pin: invalidates an honored Gate Proof at the new commit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -983,17 +1034,18 @@ Deno.test("pin: carries an honored gate proof onto the new commit", async () => 
     // Simulate a prior green finish over this clean HEAD.
     await seedProof(dir);
 
+    const priorHead = await gitOut(dir, "rev-parse", "HEAD");
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertHasHint(
       decodeCliResult(r.stdout, "standards"),
-      HINTS["standards-pin-carried-proof"],
+      HINTS["standards-pin-no-proof"],
     );
 
-    // The proof now names the NEW HEAD over a clean tree — accept's honored
-    // condition — so accept would skip the redundant gate re-run.
+    // The prior Proof keeps its exact subject. The pin commit needs a fresh Gate.
     const head = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(await readProof(dir), head);
+    assert(head !== priorHead);
+    assertEquals(await readProof(dir), priorHead);
   });
 });
 
@@ -1091,7 +1143,7 @@ Deno.test("pin: a STALE prior proof is not carried (fail-closed)", async () => {
   });
 });
 
-Deno.test("pin: a further commit after the pin strands the carried proof (fail-closed)", async () => {
+Deno.test("pin: later commits never rewrite the prior exact-HEAD Proof", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1105,14 +1157,13 @@ Deno.test("pin: a further commit after the pin strands the carried proof (fail-c
     );
     await gitInit(dir);
     await seedProof(dir);
+    const priorHead = await gitOut(dir, "rev-parse", "HEAD");
 
     await runAgent(dir, ["standards", "--pin"]);
     const pinnedHead = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(await readProof(dir), pinnedHead);
+    assertEquals(await readProof(dir), priorHead);
 
-    // The agent keeps working: another commit lands after the pin. The carried
-    // proof still names the pin commit, so it no longer matches HEAD — accept
-    // correctly falls back to re-running the gate rather than trusting a stale vouch.
+    // Another commit also leaves the exact prior evidence untouched.
     await git(
       dir,
       "commit",
@@ -1126,8 +1177,8 @@ Deno.test("pin: a further commit after the pin strands the carried proof (fail-c
     assert(newHead !== pinnedHead);
     assertEquals(
       await readProof(dir),
-      pinnedHead,
-      "proof still names the pin commit",
+      priorHead,
+      "Proof still names the commit the Gate actually checked",
     );
   });
 });

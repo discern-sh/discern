@@ -16,7 +16,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   convergeSetupBranchForAcceptance,
@@ -37,13 +37,17 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
-import { readSetupMachineryCommitEvidence } from "../src/shared/setup_machinery_evidence.ts";
+import {
+  clearSetupMachineryCommitEvidence,
+  readSetupMachineryCommitEvidence,
+} from "../src/shared/setup_machinery_evidence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   assertResultDataKey,
   type CliResultForCommand,
   decodeCliResult,
 } from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 type SetupData = Exclude<
   NonNullable<CliResultForCommand<"setup">["data"]>,
@@ -855,6 +859,31 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
       "missing",
       "a successful retry must clear its spent evidence",
     );
+  });
+});
+
+Deno.test("newer setup machinery evidence is explicit and survives cleanup", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const path = await gitAdminStatePath(
+      dir,
+      "setupMachineryCommitEvidence",
+    );
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const future = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.setupMachineryCommitEvidence.version + 1,
+        future_evidence: true,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+    const read = await readSetupMachineryCommitEvidence(dir);
+    assert(read.status === "newer");
+    assertStringIncludes(read.reason, "written by a newer discern");
+    assertEquals(await clearSetupMachineryCommitEvidence(dir), false);
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });
 

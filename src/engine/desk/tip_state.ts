@@ -20,6 +20,11 @@ import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
+import {
   freshTipSeenState,
   TIP_STATE_SCHEMA_VERSION,
   type TipSeenEntry,
@@ -79,6 +84,37 @@ function parseState(text: string): TipSeenState | undefined {
   };
 }
 
+export type TipSeenStateRead =
+  | { readonly status: "recorded"; readonly state: TipSeenState }
+  | { readonly status: "missing" | "malformed" | "unavailable" }
+  | { readonly status: "newer"; readonly reason: string };
+
+/** Inspect seen-state without collapsing forward skew into a fresh record. */
+export async function inspectTipSeenState(
+  root: string,
+): Promise<TipSeenStateRead> {
+  try {
+    const path = await tipStatePath(root);
+    if (path === undefined) return { status: "unavailable" };
+    const text = await Deno.readTextFile(path);
+    const version = inspectOnDiskJsonVersion("deskTipState", text);
+    if (version.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage("deskTipState", version.found),
+      };
+    }
+    const state = parseState(text);
+    return state === undefined
+      ? { status: "malformed" }
+      : { status: "recorded", state };
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound
+      ? { status: "missing" }
+      : { status: "unavailable" };
+  }
+}
+
 /**
  * Read the repository's tip seen-state. Every failure — no repository, a
  * missing file, a torn write, a foreign schema — resets to the fresh state
@@ -88,16 +124,8 @@ export async function readTipSeenState(
   root: string,
   version: string,
 ): Promise<TipSeenState> {
-  try {
-    const path = await tipStatePath(root);
-    if (path === undefined) {
-      return freshTipSeenState(version);
-    }
-    return parseState(await Deno.readTextFile(path)) ??
-      freshTipSeenState(version);
-  } catch {
-    return freshTipSeenState(version);
-  }
+  const read = await inspectTipSeenState(root);
+  return read.status === "recorded" ? read.state : freshTipSeenState(version);
 }
 
 /**
@@ -116,7 +144,17 @@ export async function writeTipSeenState(
       return;
     }
     await Deno.mkdir(dirname(path), { recursive: true });
-    await atomicReplaceJson(path, state, {
+    try {
+      const existing = await Deno.readTextFile(path);
+      const version = inspectOnDiskJsonVersion("deskTipState", existing);
+      if (version.status === "newer") return;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    await atomicReplaceJson(path, {
+      ...state,
+      schema_version: ON_DISK_FORMATS.deskTipState.version,
+    }, {
       mode: 0o666,
       sync: false,
       space: 2,

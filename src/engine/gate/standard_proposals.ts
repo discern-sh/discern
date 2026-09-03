@@ -43,6 +43,11 @@ import {
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import { writeDiscernToml } from "../../lib/tidy_format.ts";
 import { colorEnabled, makeOut, outSink } from "../output.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 import { collectPaths } from "../scopes/scopes.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import {
@@ -83,7 +88,8 @@ export {
   standardLimitProposalIdentity,
 } from "./standard_proposal_state.ts";
 
-const PROPOSAL_TRANSACTION_VERSION = 1;
+const PROPOSAL_TRANSACTION_VERSION =
+  ON_DISK_FORMATS.standardLimitProposalTransaction.version;
 
 const StandardLimitProposalTransactionSchema = z.strictObject({
   version: z.literal(PROPOSAL_TRANSACTION_VERSION),
@@ -241,6 +247,18 @@ async function gitValue(
 function parseProposalTransaction(
   raw: string,
 ): StandardLimitProposalTransaction | undefined {
+  const version = inspectOnDiskJsonVersion(
+    "standardLimitProposalTransaction",
+    raw,
+  );
+  if (version.status === "newer") {
+    throw new Error(
+      newerOnDiskFormatMessage(
+        "standardLimitProposalTransaction",
+        version.found,
+      ),
+    );
+  }
   try {
     return decodeJson(
       StandardLimitProposalTransactionSchema,
@@ -364,7 +382,7 @@ async function applyProposalPlan(
     );
   }
   const transaction: StandardLimitProposalTransaction = {
-    version: 1,
+    version: ON_DISK_FORMATS.standardLimitProposalTransaction.version,
     branch,
     source_commit: plan.proposal.measured_commit,
     config_path: authority.configRel,

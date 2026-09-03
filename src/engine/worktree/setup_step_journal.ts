@@ -14,6 +14,11 @@ import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { decodeJson } from "../../shared/runtime_decode.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** The automatic replay state of one configured setup step. */
 export type SetupStepState = "not_started" | "running" | "completed";
@@ -28,7 +33,7 @@ export interface SetupStepJournalEntry {
 
 /** The atomically replaced journal envelope. */
 export interface SetupStepJournal {
-  readonly version: 1;
+  readonly version: typeof ON_DISK_FORMATS.setupStepJournal.version;
   readonly steps: readonly SetupStepJournalEntry[];
 }
 
@@ -84,7 +89,7 @@ const StepSchema = z.strictObject({
   state: z.enum(["not_started", "running", "completed"]),
 });
 const JournalSchema = z.strictObject({
-  version: z.literal(1),
+  version: z.literal(ON_DISK_FORMATS.setupStepJournal.version),
   steps: z.array(StepSchema),
 });
 const ENCODER = new TextEncoder();
@@ -149,6 +154,14 @@ function decodeJournal(
   text: string,
   path: string,
 ): SetupStepJournal {
+  const version = inspectOnDiskJsonVersion("setupStepJournal", text);
+  if (version.status === "newer") {
+    throw new SetupStepJournalError(
+      `${
+        newerOnDiskFormatMessage("setupStepJournal", version.found)
+      } No setup step ran.`,
+    );
+  }
   let journal: SetupStepJournal;
   try {
     journal = decodeJson(
@@ -262,7 +275,7 @@ function reconcileConfiguredJournal(
     standingJournal.steps.map((step) => [step.id, step]),
   );
   return {
-    version: 1,
+    version: ON_DISK_FORMATS.setupStepJournal.version,
     steps: configured.map((step) => {
       const prior = standing.get(step.id);
       if (prior === undefined) return { ...step, state: newEntryState };
@@ -289,7 +302,7 @@ async function configuredJournal(
   const read = await readSetupStepJournal(cwd);
   if (read.status === "missing") {
     const journal: SetupStepJournal = {
-      version: 1,
+      version: ON_DISK_FORMATS.setupStepJournal.version,
       steps: configured.map((step) => ({ ...step, state: missingState })),
     };
     await writeJournal(read.path, journal);
@@ -317,7 +330,7 @@ async function replaceStepState(
 ): Promise<{ journal: SetupStepJournal; step: SetupStepJournalEntry }> {
   let changed: SetupStepJournalEntry | undefined;
   const next: SetupStepJournal = {
-    version: 1,
+    version: ON_DISK_FORMATS.setupStepJournal.version,
     steps: journal.steps.map((step) => {
       if (step.id !== id) return step;
       changed = { ...step, state };

@@ -32,6 +32,7 @@ import {
   writeCrashArtifact,
 } from "../src/engine/crash.ts";
 import { DISCERN_VERSION, ISSUES_URL } from "../src/lib/version.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const FIXED_CRASH_TIME = Date.parse("2026-08-27T12:34:56.000Z");
 
@@ -162,7 +163,10 @@ Deno.test("captureCrashReport: stamps version, runtime, platform, and verb", () 
 Deno.test("renderCrashArtifact: the saved file is self-contained", () => {
   const report = captureTestCrashReport("status", new TypeError("boom"));
   const body = renderCrashArtifact(report);
-  assertStringIncludes(body, "discern crash report");
+  assertEquals(
+    body.split("\n", 1)[0],
+    `discern crash report format ${ON_DISK_FORMATS.crashReport.version}`,
+  );
   assertStringIncludes(
     body,
     `version: ${DISCERN_VERSION} (deno ${Deno.version.deno}; ${report.platform})`,

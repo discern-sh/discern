@@ -13,6 +13,7 @@ import {
   verbatimStepLabel,
 } from "../../shared/result.ts";
 import {
+  PARKED_TASK_METADATA_SCHEMA_VERSION,
   type ParkedTaskMetadata,
   type StoredTaskMetadata,
   TASK_METADATA_SCHEMA_VERSION,
@@ -155,7 +156,7 @@ export async function worktreeParkResult(
     );
   }
   const record: ParkedTaskMetadata = {
-    schema_version: 1,
+    schema_version: PARKED_TASK_METADATA_SCHEMA_VERSION,
     id: prepared.plan.id,
     branch: prepared.plan.branch,
     head: prepared.plan.head,

@@ -9,6 +9,12 @@ import {
   type ParkedTaskMetadata,
   ParkedTaskMetadataSchema,
 } from "../../shared/task_metadata.ts";
+import {
+  inspectOnDiskJsonVersion,
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** A parked metadata operation whose Git-admin boundary is unavailable. */
 export class ParkedTaskMetadataError extends Error {
@@ -37,7 +43,22 @@ export async function writeParkedTaskMetadata(
   const parsed = ParkedTaskMetadataSchema.parse(record);
   const path = await parkedTaskPath(cwd, parsed.branch);
   await Deno.mkdir(dirname(path), { recursive: true });
-  await atomicReplaceJson(path, parsed, {
+  const existing = await readTextIfExists(path);
+  if (existing !== undefined) {
+    const version = inspectOnDiskJsonVersion(
+      "parkedTaskMetadata",
+      existing,
+    );
+    if (version.status === "newer") {
+      throw new ParkedTaskMetadataError(
+        newerOnDiskFormatMessage("parkedTaskMetadata", version.found),
+      );
+    }
+  }
+  await atomicReplaceJson(path, {
+    ...parsed,
+    schema_version: ON_DISK_FORMATS.parkedTaskMetadata.version,
+  }, {
     mode: 0o600,
     sync: true,
     space: 2,
@@ -63,6 +84,12 @@ export async function readParkedTaskMetadata(
     );
   }
   const parsed = ParkedTaskMetadataSchema.safeParse(decoded);
+  const version = inspectOnDiskRecordVersion("parkedTaskMetadata", decoded);
+  if (version.status === "newer") {
+    throw new ParkedTaskMetadataError(
+      newerOnDiskFormatMessage("parkedTaskMetadata", version.found),
+    );
+  }
   if (!parsed.success) {
     throw new ParkedTaskMetadataError(
       `Parked task metadata for ${branch} does not match the supported schema.`,
@@ -78,6 +105,18 @@ export async function removeParkedTaskMetadata(
   branch: string,
 ): Promise<void> {
   const path = await parkedTaskPath(cwd, branch);
+  const existing = await readTextIfExists(path);
+  if (existing !== undefined) {
+    const version = inspectOnDiskJsonVersion(
+      "parkedTaskMetadata",
+      existing,
+    );
+    if (version.status === "newer") {
+      throw new ParkedTaskMetadataError(
+        newerOnDiskFormatMessage("parkedTaskMetadata", version.found),
+      );
+    }
+  }
   await Deno.remove(path).catch((error) => {
     if (error instanceof Deno.errors.NotFound) return;
     throw error;
@@ -105,6 +144,12 @@ export async function listParkedTaskMetadata(
       );
     }
     const parsed = ParkedTaskMetadataSchema.safeParse(decoded);
+    const version = inspectOnDiskRecordVersion("parkedTaskMetadata", decoded);
+    if (version.status === "newer") {
+      throw new ParkedTaskMetadataError(
+        newerOnDiskFormatMessage("parkedTaskMetadata", version.found),
+      );
+    }
     if (!parsed.success) {
       throw new ParkedTaskMetadataError(
         `Parked task metadata file ${entry.name} does not match the supported schema.`,

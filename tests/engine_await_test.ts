@@ -50,6 +50,11 @@ import {
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import {
+  readContinuation,
+  saveContinuation,
+} from "../src/engine/continuations/store.ts";
 
 const AWAIT_READINESS_POLL_MS = 25;
 
@@ -120,7 +125,16 @@ async function writeHonoredProof(worktree: string): Promise<void> {
   assert(path !== undefined, "proof path must resolve in a worktree");
   const head = await gitOut(worktree, "rev-parse", "HEAD");
   await Deno.mkdir(join(path, ".."), { recursive: true });
-  await Deno.writeTextFile(path, `${head}\nline: gate green\n`);
+  await Deno.writeTextFile(
+    path,
+    `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.gateProof.version,
+        head,
+        mode: "strict",
+      })
+    }\n`,
+  );
 }
 
 Deno.test("await --landed tracks the branch tip and survives its deletion", async () => {
@@ -769,6 +783,39 @@ Deno.test("await continuation handles are closed, versioned, and repository-boun
         "the refusal names the repository-local lookup",
       );
     });
+  });
+});
+
+Deno.test("an await payload written by a newer discern refuses resume without consuming it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const saved = await saveContinuation(dir, "await", {
+      version: ON_DISK_FORMATS.awaitContinuation.version + 1,
+      condition: "trunk-moved",
+      trunk: "main",
+      trunk_start: head,
+      future_field: true,
+    });
+    assert(saved.kind === "saved");
+
+    const refused = await awaitResult(dir, {
+      resume: saved.handle,
+      timeoutSeconds: 0,
+    });
+    assertEquals(refused.ok, false);
+    assertEquals(refused.error, "read_error");
+    assertStringIncludes(
+      refused.message ?? "",
+      "written by a newer discern",
+    );
+    const retained = await readContinuation(dir, saved.handle);
+    assert(retained.kind === "found");
+    assertEquals(
+      (retained.record.payload as { future_field?: unknown }).future_field,
+      true,
+    );
   });
 });
 

@@ -578,12 +578,12 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     );
     assertEquals(
       testStep.group,
-      "Check & test",
+      "Test",
       "the gate stage rides each step, so a reader can tell a fixer from a check",
     );
     assertEquals(
       event.failed_stage,
-      "check/test",
+      "test",
       "the gate's failed stage is lifted — which red, not just that it was red",
     );
     assert(

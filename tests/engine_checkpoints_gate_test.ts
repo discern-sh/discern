@@ -43,6 +43,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 type DoneEnvelope = CliResultForCommand<"done">;
 
@@ -70,6 +71,14 @@ const ProofMarkerDataSchema = z.object({
       .optional(),
   }).passthrough(),
 }).passthrough();
+
+const GateProofMarkerSchema = z.strictObject({
+  version: z.literal(ON_DISK_FORMATS.gateProof.version),
+  head: z.string().min(1),
+  mode: z.enum(["strict", "report"]),
+  proof: ProofMarkerDataSchema.optional(),
+  evidence: z.string().min(1).optional(),
+});
 
 /** Decode one done envelope without requiring a gate payload on refusals or previews. */
 function parseJson(stdout: string): DoneEnvelope {
@@ -106,13 +115,18 @@ function parseCheckpointsJson(stdout: string): CheckpointsEnvelope {
   return { ...result, data: result.data };
 }
 
-/** The recorded gate-proof marker's raw content — the full Proof page and its
- * structured `data:`/`evidence:` components (the wire envelope carries the
- * compact summary only). */
+/** The recorded gate-proof marker's registered JSON content. */
 async function proofMarker(wt: string): Promise<string> {
   const path = await gitAdminStatePath(wt, "gateProof");
   assert(path !== undefined, "the gate-proof path must resolve");
   return await Deno.readTextFile(path);
+}
+
+/** Decode the registered Gate Proof fixture through its frozen format. */
+function decodedProofMarker(
+  raw: string,
+): z.infer<typeof GateProofMarkerSchema> {
+  return decodeWith(GateProofMarkerSchema, raw);
 }
 
 /** Read one Git-admin marker without creating it. */
@@ -559,7 +573,7 @@ Deno.test("done --ci: a fresh checkout reports a fired stop and lets machine job
       "report mode must record no checkpoint lifecycle event",
     );
     const marker = await proofMarker(wt);
-    assertStringIncludes(marker, "mode: report");
+    assertEquals(decodedProofMarker(marker).mode, "report");
     assertStringIncludes(marker, "reported, not enforced");
     // Report mode never manufactures declarations beside its review fact.
     assertEquals(env.data.checkpoints.declared_met ?? [], []);
@@ -735,11 +749,7 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     assert(proof !== undefined, "a green run over a clean tree earns a Proof");
     assertStringIncludes(proof.line, "1 checkpoint declared met");
     const strictMarker = await proofMarker(wt);
-    assert(
-      !strictMarker.includes("mode: strict") &&
-        !strictMarker.includes('"mode":"strict"'),
-      "ordinary done keeps the pre-report marker and Proof shape",
-    );
+    assertEquals(decodedProofMarker(strictMarker).mode, "strict");
     assertEquals(env.data.gate_proof?.status, "recorded");
     const reported = await runAgent(wt, ["done", "--ci", "--json"]);
     assertEquals(reported.code, 0, reported.output);
@@ -752,12 +762,10 @@ Deno.test("done: --met records the conclusion and proceeds into the gate; the Pr
     assertStringIncludes(marker, "Checkpoint conclusions");
     assertStringIncludes(marker, "declared met");
     assertStringIncludes(marker, "policy");
-    assertStringIncludes(marker, "evidence: ");
-    const stored = decodeWith(
-      ProofMarkerDataSchema,
-      marker.split("\n").find((line) => line.startsWith("data: "))
-        ?.slice("data: ".length) ?? "{}",
-    );
+    const record = decodedProofMarker(marker);
+    assert(record.evidence !== undefined);
+    const stored = record.proof;
+    assert(stored !== undefined);
     assert(stored.checkpoints.declared_met !== undefined);
     assertEquals(stored.checkpoints.declared_met.length, 1);
     const declaredMet = stored.checkpoints.declared_met[0];
@@ -974,11 +982,8 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
     // round-trips the exact bytes.
     const marker = await proofMarker(wt);
     assertStringIncludes(marker, "rm -rf");
-    const stored = decodeWith(
-      ProofMarkerDataSchema,
-      marker.split("\n").find((line) => line.startsWith("data: "))
-        ?.slice("data: ".length) ?? "{}",
-    );
+    const stored = decodedProofMarker(marker).proof;
+    assert(stored !== undefined);
     assert(stored.checkpoints.declared_unmet !== undefined);
     const declaredUnmet = stored.checkpoints.declared_unmet[0];
     assert(declaredUnmet !== undefined);

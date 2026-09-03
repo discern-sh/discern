@@ -65,6 +65,7 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { displayWidth, stripAnsi } from "../src/lib/text.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
@@ -337,6 +338,7 @@ function scriptedRuntime(
     grantEffort: (_path, branch) => ({
       status: "granted",
       grant: {
+        version: ON_DISK_FORMATS.effortGrant.version,
         branch,
         granted_at: "2026-07-11T12:00:00.000Z",
       },
@@ -794,6 +796,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       return {
         status: "granted",
         grant: {
+          version: ON_DISK_FORMATS.effortGrant.version,
           branch,
           granted_at: "2026-07-11T12:00:00.000Z",
         },
@@ -1363,7 +1366,11 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
         grants.push({ path, branch });
         return {
           status: "granted",
-          grant: { branch, granted_at: "2026-07-11T12:00:00.000Z" },
+          grant: {
+            version: ON_DISK_FORMATS.effortGrant.version,
+            branch,
+            granted_at: "2026-07-11T12:00:00.000Z",
+          },
         };
       },
       writePreferences: (_root, preferences) => {
@@ -2710,7 +2717,11 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
           effects.push("grant");
           return {
             status: "granted",
-            grant: { branch, granted_at: "2026-07-11T12:00:00.000Z" },
+            grant: {
+              version: ON_DISK_FORMATS.effortGrant.version,
+              branch,
+              granted_at: "2026-07-11T12:00:00.000Z",
+            },
           };
         },
       }),

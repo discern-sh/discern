@@ -13,8 +13,15 @@ import { atomicReplaceJson } from "./atomic_write.ts";
 import { gitAdminStatePath } from "./git_admin_state.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import { runGit } from "./subprocess.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "./on_disk_formats.ts";
+import { readTextIfExists } from "./fs_presence.ts";
 
-const SETUP_MACHINERY_EVIDENCE_VERSION = 1;
+const SETUP_MACHINERY_EVIDENCE_VERSION =
+  ON_DISK_FORMATS.setupMachineryCommitEvidence.version;
 
 interface SetupMachineryIndexEntry {
   readonly path: string;
@@ -43,6 +50,7 @@ export type SetupMachineryEvidenceRead =
   }
   | { readonly status: "missing" }
   | { readonly status: "invalid" }
+  | { readonly status: "newer"; readonly reason: string }
   | { readonly status: "unavailable" };
 
 /** Accept SHA-1 and SHA-256 hexadecimal object IDs emitted by Git. */
@@ -250,6 +258,21 @@ async function writeEvidence(
     throw new Error("Git could not resolve the setup machinery evidence path.");
   }
   await Deno.mkdir(dirname(path), { recursive: true });
+  const existing = await readTextIfExists(path);
+  if (existing !== undefined) {
+    const version = inspectOnDiskJsonVersion(
+      "setupMachineryCommitEvidence",
+      existing,
+    );
+    if (version.status === "newer") {
+      throw new Error(
+        newerOnDiskFormatMessage(
+          "setupMachineryCommitEvidence",
+          version.found,
+        ),
+      );
+    }
+  }
   await atomicReplaceJson(path, evidence, {
     mode: 0o666,
     sync: false,
@@ -319,7 +342,21 @@ export async function readSetupMachineryCommitEvidence(
     return { status: "unavailable" };
   }
   try {
-    const evidence = parseEvidence(await Deno.readTextFile(path));
+    const raw = await Deno.readTextFile(path);
+    const version = inspectOnDiskJsonVersion(
+      "setupMachineryCommitEvidence",
+      raw,
+    );
+    if (version.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage(
+          "setupMachineryCommitEvidence",
+          version.found,
+        ),
+      };
+    }
+    const evidence = parseEvidence(raw);
     return evidence === undefined
       ? { status: "invalid" }
       : { status: "found", evidence };
@@ -364,6 +401,14 @@ export async function clearSetupMachineryCommitEvidence(
   const path = await gitAdminStatePath(root, "setupMachineryCommitEvidence");
   if (path === undefined) {
     return false;
+  }
+  const existing = await readTextIfExists(path);
+  if (existing !== undefined) {
+    const version = inspectOnDiskJsonVersion(
+      "setupMachineryCommitEvidence",
+      existing,
+    );
+    if (version.status === "newer") return false;
   }
   try {
     await Deno.remove(path);

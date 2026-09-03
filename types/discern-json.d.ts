@@ -56,9 +56,9 @@ export type DiscernKnownErrorSlug =
   | "renamed_config_key"
   | "report_only_proof"
   | "schema_version_too_new"
-  | "setup_plan_failed"
-  | "script_not_executable"
   | "script_not_a_command"
+  | "script_not_executable"
+  | "setup_plan_failed"
   | "skills_eject_failed"
   | "tables_malformed"
   | "templates_not_found"
@@ -8226,12 +8226,14 @@ export type DiscernAcceptResult = DiscernResultState & {
       status:
         | "disabled"
         | "baseline_missing"
+        | "newer"
         | "unavailable"
         | "unchanged"
         | "changed";
       changed_roots: Array<string>;
       changed_total: number;
       truncated: boolean;
+      reason?: string;
     };
     gate_validation?: {
       mode: "proof" | "rerun";

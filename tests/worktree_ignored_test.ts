@@ -221,7 +221,7 @@ Deno.test({
   },
 });
 
-Deno.test("recording replaces unreadable, malformed, and noncanonical ignored baselines", async () => {
+Deno.test("recording replaces unreadable and malformed ignored baselines", async () => {
   await withTempDir(async (dir) => {
     await initIgnoredRepo(dir, "cache/", { "cache/payload.bin": "value\n" });
     const path = await baselinePath(dir);
@@ -229,7 +229,6 @@ Deno.test("recording replaces unreadable, malformed, and noncanonical ignored ba
     for (
       const raw of [
         "not json\n",
-        '{"version":2,"roots":[]}\n',
         '{"version":1,"roots":[{"path":"cache/","kind":"dir","mode":"metadata","digest":"x","files":"one","bytes":1}]}\n',
       ]
     ) {
@@ -240,6 +239,23 @@ Deno.test("recording replaces unreadable, malformed, and noncanonical ignored ba
       assertEquals(baseline.version, 1);
       assertEquals(baseline.roots.map((root) => root.path), ["cache/"]);
     }
+  });
+});
+
+Deno.test("a newer ignored baseline is reported and never overwritten", async () => {
+  await withTempDir(async (dir) => {
+    await initIgnoredRepo(dir, "cache/", { "cache/payload.bin": "value\n" });
+    const path = await baselinePath(dir);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const raw = '{"version":2,"roots":[]}\n';
+    await Deno.writeTextFile(path, raw);
+
+    await recordIgnoredFileBaseline(dir, true);
+
+    assertEquals(await Deno.readTextFile(path), raw);
+    const inspected = await inspectIgnoredFileChanges(dir, true);
+    assertEquals(inspected.status, "newer");
+    assert(inspected.reason?.includes("written by a newer discern"));
   });
 });
 

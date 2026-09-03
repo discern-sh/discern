@@ -52,6 +52,7 @@ import {
   decodeWith,
 } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
 
 type AcceptWireData = Exclude<
   NonNullable<CliResultForCommand<"accept">["data"]>,
@@ -84,9 +85,8 @@ async function proofAuthority(
   return preflight.authority;
 }
 
-/** Record a green outcome with a pin captured NOW — the "nothing raced the gate"
- * shorthand the proof-primitive tests below use. */
-async function recordGreenNow(
+/** Record only current-tree marker state, without a reusable Proof result. */
+async function recordTreeMarkerNow(
   dir: string,
 ): ReturnType<typeof recordGateOutcome> {
   return await recordGateOutcome(
@@ -94,6 +94,34 @@ async function recordGreenNow(
     await proofAuthority(dir),
     true,
     await pinValidatedTree(dir),
+  );
+}
+
+/** Record a complete green Proof with a pin captured now. */
+async function recordGreenNow(
+  dir: string,
+): ReturnType<typeof recordGateOutcome> {
+  const pin = await pinValidatedTree(dir);
+  assert(pin.head !== undefined);
+  const proof: Proof = {
+    branch: "agent/proof-fixture",
+    trunk: "main",
+    head: pin.head.slice(0, 12),
+    files_total: 1,
+    insertions: 1,
+    deletions: 0,
+    line: "> **Proof:** complete fixture",
+    markdown: "### Proof — complete fixture",
+  };
+  const evidence = await declarationEvidenceIdentity(dir);
+  assert(evidence.status === "ok");
+  return await recordGateOutcome(
+    dir,
+    await proofAuthority(dir),
+    true,
+    pin,
+    proof,
+    evidence.identity,
   );
 }
 
@@ -540,7 +568,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (proof fast p
   });
 });
 
-Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", async () => {
+Deno.test("accept: an incomplete marker cannot bypass tracked refresh convergence", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "legacy-refresh-proof");
@@ -559,10 +587,9 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
     await Deno.writeTextFile(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`);
     await commitCurrentWorktree(wt, "make a tracked refresh artifact stale");
 
-    // Simulate a proof issued by an older gate that did not know this
-    // convergence predicate. The proof primitive deliberately does not run a
-    // gate; acceptance must apply current cheap preconditions before landing.
-    assertEquals((await recordGreenNow(wt)).status, "recorded");
+    // An incomplete current marker does not run a gate. Acceptance must apply
+    // current preconditions and cannot treat the marker as reusable Proof.
+    assertEquals((await recordTreeMarkerNow(wt)).status, "recorded");
     assertEquals((await inspectGateProof(wt)).status, "honored");
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
@@ -589,6 +616,27 @@ Deno.test("accept: a legacy proof cannot bypass tracked refresh convergence", as
       false,
       "the stale tree must not reach the trunk",
     );
+  });
+});
+
+Deno.test("accept: an incomplete current marker reruns the Gate", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir);
+    const wt = await addWorktree(dir, "incomplete-proof");
+    await commitBranchWork(wt);
+    await Deno.writeTextFile(join(wt, "taboo.txt"), "break the gate\n");
+    await commitCurrentWorktree(wt, "add gate-breaking work");
+
+    // A current-format marker can carry tree state without a structured Proof.
+    // It is useful for inspection but cannot authorize the acceptance fast path.
+    assertEquals((await recordTreeMarkerNow(wt)).status, "recorded");
+    assertEquals((await inspectGateProof(wt)).status, "honored");
+
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 1, accepted.output);
+    assertTerminalTextIncludes(accepted.stdout, "does not pass");
+    assertEquals(await targetExists(wt), true);
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
   });
 });
 

@@ -92,6 +92,11 @@ import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { pathExists } from "../../shared/fs_presence.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 import {
@@ -142,7 +147,7 @@ export interface AwaitExecutionContext {
 
 /** Versioned state saved behind one short continuation handle. */
 interface AwaitContinuationPayload {
-  version: 1;
+  version: typeof ON_DISK_FORMATS.awaitContinuation.version;
   condition: AwaitConditionKind;
   branch?: string;
   trunk: string;
@@ -182,7 +187,7 @@ function parseAwaitContinuationPayload(
     return undefined;
   }
   if (
-    value.version !== 1 ||
+    value.version !== ON_DISK_FORMATS.awaitContinuation.version ||
     !isAwaitCondition(value.condition) ||
     typeof value.trunk !== "string" ||
     value.trunk === "" ||
@@ -213,7 +218,7 @@ function parseAwaitContinuationPayload(
     return undefined;
   }
   return {
-    version: 1,
+    version: ON_DISK_FORMATS.awaitContinuation.version,
     condition: value.condition,
     ...(typeof branch === "string" ? { branch } : {}),
     trunk: value.trunk,
@@ -551,6 +556,13 @@ export async function awaitResult(
         failureRecoveryHintTexts("await"),
       );
     }
+    if (stored.kind === "newer") {
+      return refusal(
+        "read_error",
+        stored.reason,
+        failureRecoveryHintTexts("await"),
+      );
+    }
     if (stored.kind === "unavailable") {
       return refusal(
         "read_error",
@@ -562,6 +574,20 @@ export async function awaitResult(
       return refusal(
         "invalid_arguments",
         "The `--resume` handle belongs to a different discern operation.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    const payloadVersion = inspectOnDiskRecordVersion(
+      "awaitContinuation",
+      stored.record.payload,
+    );
+    if (payloadVersion.status === "newer") {
+      return refusal(
+        "read_error",
+        newerOnDiskFormatMessage(
+          "awaitContinuation",
+          payloadVersion.found,
+        ),
         failureRecoveryHintTexts("await"),
       );
     }
@@ -725,7 +751,7 @@ export async function awaitResult(
   const continuationPayload = (): AwaitContinuationPayload => {
     const currentTip = branchState?.tip ?? tip;
     return {
-      version: 1,
+      version: ON_DISK_FORMATS.awaitContinuation.version,
       condition,
       ...(branch !== undefined ? { branch } : {}),
       trunk,

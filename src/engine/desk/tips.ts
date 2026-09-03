@@ -19,6 +19,7 @@ import {
   type TipPredicate,
 } from "../../shared/tips.ts";
 import { isPositiveGitCount } from "../../shared/git_count.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 
 /**
  * What a predicate may read: the status survey the desk already ran plus the
@@ -90,7 +91,7 @@ export interface TipSeenState {
 }
 
 /** The seen-state format major this build writes and reads. */
-export const TIP_STATE_SCHEMA_VERSION = 1;
+export const TIP_STATE_SCHEMA_VERSION = ON_DISK_FORMATS.deskTipState.version;
 
 /** The state a repository starts from: nothing seen, baselined at `version`. */
 export function freshTipSeenState(version: string): TipSeenState {

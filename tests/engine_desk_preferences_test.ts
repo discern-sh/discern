@@ -5,6 +5,7 @@ import { dirname, join } from "@std/path";
 import {
   deskPreferencesPath,
   freshDeskPreferences,
+  inspectDeskPreferences,
   readDeskPreferences,
   writeDeskPreferences,
 } from "../src/engine/desk/preferences.ts";
@@ -44,7 +45,7 @@ Deno.test("Desk preferences: linked worktrees share safe repository defaults", a
   });
 });
 
-Deno.test("Desk preferences: stale, torn, and authority-shaped records reset", async () => {
+Deno.test("Desk preferences: torn and authority-shaped records reset", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
@@ -55,7 +56,6 @@ Deno.test("Desk preferences: stale, torn, and authority-shaped records reset", a
     for (
       const foreign of [
         "{ torn",
-        JSON.stringify({ schema_version: 99, last_agent: "codex" }),
         JSON.stringify({ schema_version: 1, last_agent: "missing-provider" }),
         JSON.stringify({
           schema_version: 1,
@@ -67,6 +67,34 @@ Deno.test("Desk preferences: stale, torn, and authority-shaped records reset", a
       await Deno.writeTextFile(path, foreign);
       assertEquals(await readDeskPreferences(dir), freshDeskPreferences());
     }
+  });
+});
+
+Deno.test("Desk preferences: a newer record is diagnosed and never replaced", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const path = await deskPreferencesPath(dir);
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const future = JSON.stringify({
+      schema_version: 99,
+      last_agent: "codex",
+      future_field: true,
+    });
+    await Deno.writeTextFile(path, future);
+
+    const inspected = await inspectDeskPreferences(dir);
+    assert(inspected.status === "newer");
+    assertStringIncludes(inspected.reason, "written by a newer discern");
+    assertEquals(await readDeskPreferences(dir), freshDeskPreferences());
+    const written = await writeDeskPreferences(dir, {
+      schema_version: 1,
+      creation_path: "expanded",
+    });
+    assert(written.status === "newer");
+    assertStringIncludes(written.reason, "Update discern");
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });
 

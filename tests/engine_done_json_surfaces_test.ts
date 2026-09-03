@@ -8,6 +8,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
@@ -27,7 +28,18 @@ import {
   diagFor,
   stepFor,
 } from "./engine_done_json_shared.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+
+const GateProofMarkerFixtureSchema = z.object({
+  version: z.number(),
+  head: z.string(),
+  mode: z.enum(["strict", "report"]),
+  proof: z.object({
+    line: z.string(),
+    markdown: z.string(),
+  }),
+});
 
 Deno.test("done --dry-run --json: emits a preview envelope (plan, no steps)", async () => {
   await withTempDir(async (dir) => {
@@ -485,6 +497,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
 Deno.test("done --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await gitInit(dir);
     // Materialize the agent files + skills so the currency checks have real artifacts.
     await runAgent(dir, ["refresh"]);
     const skillsDir = join(dir, ".claude", "skills");
@@ -573,18 +586,19 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     assertHasHint(obj, HINTS["gate-prove-it-works"]);
     assertHasHint(obj, HINTS["gate-relay-proof"]);
 
-    // The marker stores the line and the page beside the sha it vouches for, so
-    // status and accept can surface the proof without re-running the gate.
+    // The versioned JSON marker stores the structured Proof beside the sha it
+    // vouches for, so status and accept can surface it without re-running.
     assert(obj.data.gate_proof !== undefined);
     assertEquals(obj.data.gate_proof.status, "recorded");
     assert(obj.data.gate_proof.path !== undefined);
-    const marker = await Deno.readTextFile(obj.data.gate_proof.path);
+    const markerRaw = await Deno.readTextFile(obj.data.gate_proof.path);
+    const marker = decodeWith(GateProofMarkerFixtureSchema, markerRaw);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
-    assert(
-      marker.startsWith(`${head}\nline: > **Proof:** `),
-      `marker must carry sha + line: ${marker.slice(0, 80)}`,
-    );
-    assertStringIncludes(marker, "\n\n### Proof");
+    assertEquals(marker.version, ON_DISK_FORMATS.gateProof.version);
+    assertEquals(marker.head, head);
+    assertEquals(marker.mode, "strict");
+    assertEquals(marker.proof.line, proof.line);
+    assertStringIncludes(marker.proof.markdown, "### Proof");
 
     // Deterministic: the same tree emits the same compact Proof. The unchanged
     // tree makes this a rerun, so it uses the Gate-specific spelling.

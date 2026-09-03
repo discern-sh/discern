@@ -18,11 +18,17 @@ import {
   type TempArtifactPruneResult,
 } from "../../shared/temp_artifacts.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** One repository pays for at most one bounded sweep per hour. */
 export const TEMP_ARTIFACT_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 interface TempArtifactSweepState {
+  readonly version: typeof ON_DISK_FORMATS.tempArtifactSweep.version;
   readonly lastSweepAt: number;
   readonly cursor: string | undefined;
 }
@@ -38,6 +44,7 @@ export type TempArtifactSweepOutcome =
   | { readonly kind: "swept"; readonly prune: TempArtifactPruneResult }
   | { readonly kind: "not-due" }
   | { readonly kind: "busy" }
+  | { readonly kind: "newer"; readonly reason: string }
   | { readonly kind: "unavailable" };
 
 const ENCODER = new TextEncoder();
@@ -47,10 +54,14 @@ const MAX_STATE_BYTES = 4_096;
 /** Read the repository throttle cursor, treating missing or malformed state as a fresh sweep. */
 async function readState(
   file: Deno.FsFile,
-): Promise<TempArtifactSweepState | undefined> {
+): Promise<
+  | { readonly status: "recorded"; readonly state: TempArtifactSweepState }
+  | { readonly status: "missing" }
+  | { readonly status: "newer"; readonly reason: string }
+> {
   const size = (await file.stat()).size;
   if (size <= 0 || size > MAX_STATE_BYTES) {
-    return undefined;
+    return { status: "missing" };
   }
   await file.seek(0, Deno.SeekMode.Start);
   const bytes = new Uint8Array(size);
@@ -67,22 +78,34 @@ async function readState(
       DECODER.decode(bytes.subarray(0, offset)),
     ) as unknown;
     if (typeof parsed !== "object" || parsed === null) {
-      return undefined;
+      return { status: "missing" };
     }
     const record = parsed as Record<string, unknown>;
+    const version = inspectOnDiskRecordVersion("tempArtifactSweep", record);
+    if (version.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage("tempArtifactSweep", version.found),
+      };
+    }
     if (
+      version.status !== "current" ||
       typeof record.last_sweep_at !== "number" ||
       !Number.isFinite(record.last_sweep_at)
     ) {
-      return undefined;
+      return { status: "missing" };
     }
     return {
-      lastSweepAt: record.last_sweep_at,
-      cursor: typeof record.cursor === "string" ? record.cursor : undefined,
+      status: "recorded",
+      state: {
+        version: ON_DISK_FORMATS.tempArtifactSweep.version,
+        lastSweepAt: record.last_sweep_at,
+        cursor: typeof record.cursor === "string" ? record.cursor : undefined,
+      },
     };
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
-    return undefined;
+    return { status: "missing" };
   }
 }
 
@@ -102,6 +125,7 @@ async function writeState(
   const bytes = ENCODER.encode(
     `${
       JSON.stringify({
+        version: ON_DISK_FORMATS.tempArtifactSweep.version,
         last_sweep_at: state.lastSweepAt,
         cursor: state.cursor ?? null,
       })
@@ -154,7 +178,11 @@ export async function sweepDueTempArtifacts(
     }
 
     const now = opts.now ?? SYSTEM_CLOCK.wallNow();
-    const prior = await readState(file);
+    const read = await readState(file);
+    if (read.status === "newer") {
+      return { kind: "newer", reason: read.reason };
+    }
+    const prior = read.status === "recorded" ? read.state : undefined;
     if (
       prior !== undefined &&
       now - prior.lastSweepAt < TEMP_ARTIFACT_SWEEP_INTERVAL_MS
@@ -166,13 +194,18 @@ export async function sweepDueTempArtifacts(
     // the lock and the next run waits for the next interval instead of
     // immediately repeating the same expensive page.
     const cursor = prior?.cursor;
-    await writeState(file, { lastSweepAt: now, cursor });
+    await writeState(file, {
+      version: ON_DISK_FORMATS.tempArtifactSweep.version,
+      lastSweepAt: now,
+      cursor,
+    });
     const prune = await pruneStaleTempArtifacts({
       ...opts.prune,
       now,
       ...(cursor === undefined ? {} : { cursor }),
     });
     await writeState(file, {
+      version: ON_DISK_FORMATS.tempArtifactSweep.version,
       lastSweepAt: now,
       cursor: prune.cursor,
     });

@@ -25,6 +25,7 @@ import {
   UNMET_RATIONALE_MAX_LENGTH,
   validateUnmetRationale,
 } from "../src/engine/checkpoints/open_questions.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T01:00:00.000Z";
@@ -253,6 +254,45 @@ Deno.test("a corrupt store reads invalid; a write rebuilds from empty and says s
     assertEquals(rebuilt.recovered, true);
     const after = await readOpenQuestions(dir);
     assert(after.status === "ok");
+  });
+});
+
+Deno.test("a newer open-question store refuses declarations without replacing evidence", async () => {
+  await withTempDir(async (dir) => {
+    await repo(dir);
+    const path = await gitAdminStatePath(dir, "checkpointOpenQuestions");
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const future = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.checkpointOpenQuestions.version + 1,
+        openQuestions: {},
+        future_declaration: true,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+
+    const read = await readOpenQuestions(dir);
+    assert(read.status === "newer");
+    assertStringIncludes(read.reason, "written by a newer discern");
+    const reconcile = await reconcileOpenQuestion(dir, {
+      checkpoint: "probe",
+      definitionHash: "def1",
+      subject: "sub1",
+      matchedPaths: [],
+      relatedPaths: [],
+    }, T0);
+    assert(!reconcile.ok);
+    assertStringIncludes(reconcile.reason, "Update discern");
+    const declaration = await recordDeclaration(
+      dir,
+      { conclusion: "met", definitionHash: "def1", subject: "sub1" },
+      "probe",
+      T0,
+    );
+    assert(!declaration.ok);
+    assertStringIncludes(declaration.reason, "written by a newer discern");
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });
 

@@ -20,8 +20,14 @@ import {
   type TrunkConfigRead,
 } from "./standard_limits.ts";
 import { inspectFreshStandardMeasurementEvidence } from "./proof.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
-export const PROPOSAL_STORE_VERSION = 2;
+export const PROPOSAL_STORE_VERSION =
+  ON_DISK_FORMATS.standardLimitProposalStore.version;
 
 const StandardLimitProposalStoreSchema = z.strictObject({
   version: z.literal(PROPOSAL_STORE_VERSION),
@@ -107,7 +113,10 @@ export async function readProposalStore(
   root: string,
 ): Promise<
   | { readonly status: "ok"; readonly store: StandardLimitProposalStore }
-  | { readonly status: "malformed" | "unavailable"; readonly reason: string }
+  | {
+    readonly status: "newer" | "malformed" | "unavailable";
+    readonly reason: string;
+  }
 > {
   const path = await gitAdminStatePath(root, "standardLimitProposals");
   if (path === undefined) {
@@ -129,6 +138,19 @@ export async function readProposalStore(
     return {
       status: "unavailable",
       reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const version = inspectOnDiskJsonVersion(
+    "standardLimitProposalStore",
+    raw,
+  );
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage(
+        "standardLimitProposalStore",
+        version.found,
+      ),
     };
   }
   const store = parseProposalStore(raw);

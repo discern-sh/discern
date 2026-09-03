@@ -6,8 +6,9 @@
  */
 
 import { join } from "@std/path";
-import { lstatIfExists } from "../../shared/fs_presence.ts";
+import { lstatIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
 import {
   type SecureEntropy,
@@ -19,6 +20,7 @@ import {
   effortGrantFailureReason,
   type EffortGrantRead,
   parseEffortGrant,
+  readEffortGrant,
 } from "./effort_grant.ts";
 
 /** An effort grant atomically removed from the desk-visible marker while one
@@ -38,6 +40,10 @@ const CLAIM_ID =
 
 /** Preview grant revocation while leaving the apply path to revalidate it. */
 export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
+  const current = await readEffortGrant(cwd);
+  if (current.status === "newer") {
+    throw new Error(current.reason);
+  }
   const path = await gitAdminStatePath(cwd, "effortGrant");
   const removable = path !== undefined &&
     await lstatIfExists(path) !== undefined;
@@ -120,6 +126,10 @@ export async function readEffortGrantClaim(
 
 /** Revoke this worktree's grant. Repeating the revoke is a no-op. */
 export async function clearEffortGrant(cwd: string): Promise<boolean> {
+  const current = await readEffortGrant(cwd);
+  if (current.status === "newer") {
+    throw new Error(current.reason);
+  }
   const path = await gitAdminStatePath(cwd, "effortGrant");
   if (path === undefined) {
     return false;
@@ -209,7 +219,11 @@ export async function claimEffortGrant(
   if (parsed.status !== "claimed") {
     await restoreEffortGrantClaim(cwd, {
       path: claimPath,
-      grant: { branch: "", granted_at: "" },
+      grant: {
+        version: ON_DISK_FORMATS.effortGrant.version,
+        branch: "",
+        granted_at: "",
+      },
       raw,
     });
     return parsed;
@@ -256,7 +270,9 @@ export async function consumeEffortGrantClaim(
   }
 }
 
-/** Consume a transaction-owned claim even when its payload cannot be parsed. */
+/** Consume a transaction-owned claim even when its current-format payload is
+ * malformed. A newer claim remains untouched: an older recovery path cannot
+ * prove that its deletion is safe. */
 export async function consumeEffortGrantClaimById(
   cwd: string,
   claimId: string,
@@ -265,9 +281,17 @@ export async function consumeEffortGrantClaimById(
   if (path === undefined) {
     return false;
   }
+  const raw = await readTextIfExists(path);
+  if (raw === undefined) return true;
+  const parsed = parseEffortGrant(raw);
+  if (parsed.status === "newer") return false;
   return await consumeEffortGrantClaim({
     path,
-    grant: { branch: "", granted_at: "" },
+    grant: {
+      version: ON_DISK_FORMATS.effortGrant.version,
+      branch: "",
+      granted_at: "",
+    },
     raw: "",
   });
 }

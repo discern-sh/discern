@@ -16,7 +16,12 @@ import {
   buildStartPlan,
   lifecycleContext,
 } from "../src/engine/worktree/lifecycle.ts";
-import { readParkedTaskMetadata } from "../src/engine/worktree/parked_task_metadata.ts";
+import {
+  listParkedTaskMetadata,
+  readParkedTaskMetadata,
+  removeParkedTaskMetadata,
+  writeParkedTaskMetadata,
+} from "../src/engine/worktree/parked_task_metadata.ts";
 import { writeStoredTaskMetadata } from "../src/engine/worktree/task_metadata.ts";
 import { TASK_METADATA_SCHEMA_VERSION } from "../src/shared/task_metadata.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
@@ -33,6 +38,7 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { Logger } from "../src/lib/log.ts";
 import { resolveWorktreeRoot } from "../src/lib/worktree_root.ts";
 import { sha256Hex } from "../src/shared/sha256.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 /** Mark a fixture checkout healthy without running unrelated setup hooks. */
 async function markReady(worktree: string): Promise<void> {
@@ -81,6 +87,50 @@ async function resourceFixture(
   }
   return worktree;
 }
+
+Deno.test("newer parked-task metadata is diagnosed and preserved by every mutation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const branch = "agent/future-parked-task";
+    const head = await gitOut(dir, "rev-parse", "HEAD");
+    const current = {
+      schema_version: ON_DISK_FORMATS.parkedTaskMetadata.version,
+      id: "future-parked-task",
+      branch,
+      head,
+      parked_at: "2026-09-03T10:00:00.000Z",
+      task: {
+        schema_version: ON_DISK_FORMATS.taskMetadata.version,
+        title: "Future parked task",
+      },
+    } as const;
+    await writeParkedTaskMetadata(dir, current);
+    const directory = await gitAdminStatePath(dir, "parkedTaskMetadata");
+    assert(directory !== undefined);
+    const path = join(directory, `${await sha256Hex(branch)}.json`);
+    const future = `${
+      JSON.stringify({
+        ...current,
+        schema_version: ON_DISK_FORMATS.parkedTaskMetadata.version + 1,
+        future_field: true,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+
+    for (
+      const operation of [
+        () => readParkedTaskMetadata(dir, branch),
+        () => listParkedTaskMetadata(dir),
+        () => removeParkedTaskMetadata(dir, branch),
+        () => writeParkedTaskMetadata(dir, current),
+      ]
+    ) {
+      await assertRejects(operation, Error, "written by a newer discern");
+      assertEquals(await Deno.readTextFile(path), future);
+    }
+  });
+});
 
 Deno.test("worktree park keeps committed work and metadata while removing the checkout", async () => {
   await withTempDir(async (dir) => {

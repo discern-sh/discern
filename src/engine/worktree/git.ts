@@ -29,6 +29,7 @@ import type { DiscernResult } from "../../shared/result.ts";
 import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { gitOperationMarkerPath } from "../../shared/git_admin_paths.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
   discernMergeArgs,
@@ -442,19 +443,17 @@ export async function inspectGitOperation(
   cwd: string,
 ): Promise<GitOperationState> {
   for (const candidate of GIT_OPERATION_MARKERS) {
-    const resolved = await git(
-      ["rev-parse", "--git-path", candidate.marker],
+    const path = await gitOperationMarkerPath(
       cwd,
+      candidate.marker,
+      async (root, args) => await git(args, root),
     );
-    if (!resolved.success || resolved.stdout.trim() === "") {
+    if (path === undefined) {
       return {
         kind: "unavailable",
-        detail: resolved.stderr.trim() ||
-          `Git could not resolve ${candidate.marker}`,
+        detail: `Git could not resolve ${candidate.marker}`,
       };
     }
-    const raw = resolved.stdout.trim();
-    const path = isAbsolute(raw) ? raw : resolve(cwd, raw);
     if (await pathExists(path)) {
       return {
         kind: "active",

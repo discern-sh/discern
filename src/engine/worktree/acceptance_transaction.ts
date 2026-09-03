@@ -45,6 +45,11 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 /** Durable facts that precede a later acceptance phase. */
 export const ACCEPTANCE_TRANSACTION_BOUNDARIES = [
@@ -78,7 +83,7 @@ interface AcceptanceTransactionBase {
 }
 
 type AcceptanceTransaction = AcceptanceTransactionBase & {
-  readonly version: 1;
+  readonly version: typeof ON_DISK_FORMATS.acceptanceTransaction.version;
   /** Consent already checked before this exact expected→target boundary. */
   readonly consent: LandingConsent;
   /** Owner-authorized variances bound to this exact transition. */
@@ -284,13 +289,19 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (!isPlainObject(parsed)) {
     throw new Error("the record is not a JSON object");
   }
+  const version = inspectOnDiskRecordVersion("acceptanceTransaction", parsed);
+  if (version.status === "newer") {
+    throw new Error(
+      newerOnDiskFormatMessage("acceptanceTransaction", version.found),
+    );
+  }
   const consent = parseLandingConsent(parsed.consent);
   const variances = parseVariances(parsed.variances);
   const standardProposals = parseStandardProposals(
     parsed.standard_proposals,
   );
   if (
-    parsed.version !== 1 ||
+    parsed.version !== ON_DISK_FORMATS.acceptanceTransaction.version ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
     !isRefName(parsed.worktree_branch) ||
@@ -312,7 +323,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     standardProposals.length > 0 && consent.source !== "conversation"
   ) {
     throw new Error(
-      "the record needs version 1, a transaction id, branch/trunk " +
+      `the record needs version ${ON_DISK_FORMATS.acceptanceTransaction.version}, a transaction id, branch/trunk ` +
         "names, expected and target object IDs, an absolute main checkout, " +
         "an effort-claim flag, matching consent evidence, authorized variances, " +
         "and exact Standard proposals; decisions bind to conversation consent",
@@ -328,7 +339,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     effort_claim: parsed.effort_claim,
   };
   return {
-    version: 1,
+    version: ON_DISK_FORMATS.acceptanceTransaction.version,
     ...base,
     consent: consent as LandingConsent,
     variances: variances as AuthorizedVarianceData[],
@@ -420,7 +431,7 @@ async function writeAcceptanceTransaction(
   }
   const id = entropy.uuid();
   const transaction: AcceptanceTransaction = {
-    version: 1,
+    version: ON_DISK_FORMATS.acceptanceTransaction.version,
     id,
     worktree_branch: input.worktree_branch,
     trunk: input.trunk,

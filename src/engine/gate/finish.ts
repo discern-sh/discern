@@ -45,6 +45,7 @@ import {
   type AdminStateWriteAuthority,
   clearStandardMeasurements,
   currentTreeIdentity,
+  gateProofHasCompleteEvidence,
   inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
@@ -1824,8 +1825,7 @@ async function reusableGreenProof(
 ): Promise<DiscernResult<GateData> | undefined> {
   const proof = await inspectGateProof(root);
   if (
-    proof.status !== "honored" || proof.proof_data === undefined ||
-    proof.proof_line === undefined ||
+    !gateProofHasCompleteEvidence(proof) ||
     proof.checkpoint_drops?.some((drop) =>
         drop.reason === "declaration_evidence_unavailable" ||
         drop.reason === "strand_check_unavailable" ||

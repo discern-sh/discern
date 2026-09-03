@@ -24,6 +24,11 @@ import {
   statIfExists,
 } from "../../shared/fs_presence.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 export const RETIRED_WORKTREE_PATH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const RETIRED_WORKTREE_PATH_MAX_ENTRIES = 256;
@@ -38,7 +43,7 @@ const TEMP_SUFFIX = ".tmp";
 const RECORD_MAX_BYTES = 8_192;
 
 interface RetiredWorktreePathRecord {
-  readonly schema_version: 1;
+  readonly schema_version: typeof ON_DISK_FORMATS.retiredWorktreePath.version;
   readonly path: string;
   readonly removed_at: string;
 }
@@ -121,51 +126,66 @@ async function recordName(path: string): Promise<string> {
   return `${await sha256Hex(new TextEncoder().encode(path))}${RECORD_SUFFIX}`;
 }
 
+export type RetiredWorktreePathRecordRead =
+  | { readonly status: "recorded"; readonly record: RetiredWorktreePathRecord }
+  | { readonly status: "missing" | "malformed" }
+  | { readonly status: "newer"; readonly reason: string };
+
 /** Parse the small versioned record and reject foreign or malformed fields. */
-function parseRecord(text: string): RetiredWorktreePathRecord | undefined {
+function parseRecord(text: string): RetiredWorktreePathRecordRead {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
     // discern-best-effort: retired-path-record-decode-fallback
-    return undefined;
+    return { status: "malformed" };
   }
   if (
     typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
   ) {
-    return undefined;
+    return { status: "malformed" };
   }
   const value = parsed as Record<string, unknown>;
+  const version = inspectOnDiskJsonVersion("retiredWorktreePath", text);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("retiredWorktreePath", version.found),
+    };
+  }
   if (
     Object.keys(value).some((key) =>
       key !== "schema_version" && key !== "path" && key !== "removed_at"
     ) ||
-    value.schema_version !== 1 ||
+    value.schema_version !== ON_DISK_FORMATS.retiredWorktreePath.version ||
     typeof value.path !== "string" || !isAbsolute(value.path) ||
     typeof value.removed_at !== "string" ||
     Number.isNaN(Date.parse(value.removed_at))
   ) {
-    return undefined;
+    return { status: "malformed" };
   }
   return {
-    schema_version: 1,
-    path: value.path,
-    removed_at: value.removed_at,
+    status: "recorded",
+    record: {
+      schema_version: ON_DISK_FORMATS.retiredWorktreePath.version,
+      path: value.path,
+      removed_at: value.removed_at,
+    },
   };
 }
 
 /** Read one bounded record without following names outside the owned store. */
-async function readRecord(
+export async function inspectRetiredWorktreePathRecord(
   path: string,
-): Promise<RetiredWorktreePathRecord | undefined> {
+): Promise<RetiredWorktreePathRecordRead> {
   const stat = await statIfExists(path);
-  if (stat === undefined) return undefined;
+  if (stat === undefined) return { status: "missing" };
   if (!stat.isFile || stat.size <= 0 || stat.size > RECORD_MAX_BYTES) {
-    return undefined;
+    return { status: "malformed" };
   }
   const text = await readTextIfExists(path);
-  return text === undefined ? undefined : parseRecord(text);
+  return text === undefined ? { status: "missing" } : parseRecord(text);
 }
 
 /** Resolve the repository-shared evidence directory. */
@@ -205,13 +225,16 @@ async function withStoreLock<T>(
 async function replaceRecord(
   directory: string,
   record: RetiredWorktreePathRecord,
-): Promise<void> {
+): Promise<boolean> {
   const target = join(directory, await recordName(record.path));
+  const existing = await inspectRetiredWorktreePathRecord(target);
+  if (existing.status === "newer") return false;
   const text = `${JSON.stringify(record)}\n`;
   if (new TextEncoder().encode(text).byteLength > RECORD_MAX_BYTES) {
     throw new Error("retired worktree path record exceeds its byte limit");
   }
   await atomicReplaceText(target, text, { mode: 0o600, sync: false });
+  return true;
 }
 
 /** Remove expired and excess owned records after a successful write. */
@@ -244,7 +267,9 @@ async function pruneStore(
     if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
       continue;
     }
-    const record = await readRecord(path);
+    const read = await inspectRetiredWorktreePathRecord(path);
+    if (read.status === "newer") continue;
+    const record = read.status === "recorded" ? read.record : undefined;
     const removedAt = record === undefined
       ? Number.NEGATIVE_INFINITY
       : Date.parse(record.removed_at);
@@ -285,11 +310,12 @@ export async function recordRetiredWorktreePath(
   }
   const now = opts.now ?? SYSTEM_CLOCK.wallNow();
   const saved = await withStoreLock(root, async (directory) => {
-    await replaceRecord(directory, {
-      schema_version: 1,
+    const replaced = await replaceRecord(directory, {
+      schema_version: ON_DISK_FORMATS.retiredWorktreePath.version,
       path,
       removed_at: new Date(now).toISOString(),
     });
+    if (!replaced) return false;
     await pruneStore(
       directory,
       now,
@@ -323,9 +349,14 @@ export async function readRetiredWorktreePathRecords(
     if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
       continue;
     }
-    const record = await readRecord(join(directory, entry.name));
-    if (record !== undefined && now - Date.parse(record.removed_at) < ttlMs) {
-      records.push(record);
+    const read = await inspectRetiredWorktreePathRecord(
+      join(directory, entry.name),
+    );
+    if (
+      read.status === "recorded" &&
+      now - Date.parse(read.record.removed_at) < ttlMs
+    ) {
+      records.push(read.record);
     }
   }
   records.sort((left, right) =>

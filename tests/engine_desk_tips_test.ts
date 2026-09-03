@@ -6,7 +6,7 @@
  * closed-set guard.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
@@ -30,6 +30,7 @@ import {
   type TipSeenState,
 } from "../src/engine/desk/tips.ts";
 import {
+  inspectTipSeenState,
   readTipSeenState,
   tipStatePath,
   writeTipSeenState,
@@ -455,7 +456,7 @@ Deno.test("tip seen-state: writes round-trip and linked worktrees share one file
   });
 });
 
-Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", async () => {
+Deno.test("tip seen-state: torn, newer, or malformed files fall back gracefully", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
@@ -478,10 +479,20 @@ Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", 
         tips: {},
       }),
     );
+    const newer = await inspectTipSeenState(dir);
+    assert(newer.status === "newer");
+    assertStringIncludes(newer.reason, "written by a newer discern");
     assertEquals(
       await readTipSeenState(dir, "3.0.0"),
       freshTipSeenState("3.0.0"),
-      "a foreign schema major resets",
+      "a newer schema contributes no defaults",
+    );
+    const newerBytes = await Deno.readTextFile(path);
+    await writeTipSeenState(dir, freshTipSeenState("3.0.0"));
+    assertEquals(
+      await Deno.readTextFile(path),
+      newerBytes,
+      "the best-effort writer must preserve newer state",
     );
 
     await Deno.writeTextFile(

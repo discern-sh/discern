@@ -48,6 +48,10 @@ const LAST_GATE_RUN_SCHEMA = z.object({
   mode: z.string().optional(),
 });
 
+const GATE_PROOF_VERSION_SCHEMA = z.object({
+  version: z.number(),
+}).passthrough();
+
 /** Decode one done envelope without requiring a gate payload on refusals or previews. */
 function parseJson(stdout: string): DoneEnvelope {
   return decodeCliResult(stdout, "done");
@@ -112,7 +116,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     const first = await runAgent(wt, ["done", "--json"]);
     assertEquals(first.code, 1, first.output);
     const firstEnv = parseGateJson(first.stdout);
-    assertEquals(firstEnv.data.failed_stage, "check/test");
+    assertEquals(firstEnv.data.failed_stage, "test");
 
     // The bare rerun refuses: same exit code, but a refusal envelope — no
     // steps ran, the slug names the class, and the red-verdict hint carries
@@ -133,7 +137,7 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     assertEquals(probed.code, 1, probed.output);
     const probedEnv = parseGateJson(probed.stdout);
     assertEquals(probedEnv.error, "gate_failed");
-    assertEquals(probedEnv.data.failed_stage, "check/test");
+    assertEquals(probedEnv.data.failed_stage, "test");
   });
 });
 
@@ -346,7 +350,11 @@ for (
       name: "incomplete",
       mutate: async (path: string): Promise<void> => {
         const raw = await Deno.readTextFile(path);
-        await Deno.writeTextFile(path, `${raw.split("\n")[0]}\n`);
+        const record = decodeWith(GATE_PROOF_VERSION_SCHEMA, raw);
+        await Deno.writeTextFile(
+          path,
+          `${JSON.stringify({ version: record.version })}\n`,
+        );
       },
     },
   ] as const

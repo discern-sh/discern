@@ -6,7 +6,12 @@
  * remain inert for inspection instead of replaying onto another tree.
  */
 
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
@@ -15,6 +20,7 @@ import {
   inspectInterruptedAcceptance,
 } from "../src/engine/worktree/acceptance_transaction.ts";
 import { WorktreeGitError } from "../src/engine/worktree/git.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
@@ -40,7 +46,7 @@ function journal(
 ): string {
   return `${
     JSON.stringify({
-      version: 1,
+      version: ON_DISK_FORMATS.acceptanceTransaction.version,
       id: TRANSACTION_ID,
       worktree_branch: "agent/journaled",
       trunk: "main",
@@ -221,16 +227,21 @@ Deno.test("journal v1: duplicate or malformed proposal tuples are invalid", asyn
   });
 });
 
-Deno.test("journal readers reject every retired transaction version", async () => {
+Deno.test("journal readers diagnose and preserve every newer transaction version", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
-    for (const version of [2, 3, 4]) {
-      await Deno.writeTextFile(path, journal(dir, { version }));
-      await assertRejects(
+    for (const offset of [1, 2, 3]) {
+      const version = ON_DISK_FORMATS.acceptanceTransaction.version + offset;
+      const bytes = journal(dir, { version });
+      await Deno.writeTextFile(path, bytes);
+      const refusal = await assertRejects(
         () => inspectInterruptedAcceptance(wt, "main"),
         WorktreeGitError,
         "invalid",
       );
+      assertStringIncludes(refusal.message, "written by a newer discern");
+      assertStringIncludes(refusal.message, "Update discern");
+      assertEquals(await Deno.readTextFile(path), bytes);
     }
   });
 });

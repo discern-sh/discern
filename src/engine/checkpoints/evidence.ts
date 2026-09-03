@@ -94,6 +94,7 @@ export async function declarationEvidenceIdentity(
         status: "unavailable",
         reason: "the checkpoint open-question record did not parse",
       };
+    case "newer":
     case "unavailable":
       return { status: "unavailable", reason: read.reason };
   }

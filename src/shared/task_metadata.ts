@@ -7,9 +7,13 @@
  */
 
 import { z } from "@zod/zod";
+import { ON_DISK_FORMATS } from "./on_disk_formats.ts";
 
 /** Current on-disk task metadata record format. */
-export const TASK_METADATA_SCHEMA_VERSION = 1 as const;
+export const TASK_METADATA_SCHEMA_VERSION =
+  ON_DISK_FORMATS.taskMetadata.version;
+export const PARKED_TASK_METADATA_SCHEMA_VERSION =
+  ON_DISK_FORMATS.parkedTaskMetadata.version;
 
 /** Bounded single-line title length, counted as Unicode code points. */
 export const TASK_TITLE_MAX_CODE_POINTS = 120;
@@ -107,7 +111,7 @@ export type StoredTaskMetadata = z.infer<typeof StoredTaskMetadataSchema>;
 
 /** Human wording retained after Park removes a checkout registration. */
 export const ParkedTaskMetadataSchema = z.strictObject({
-  schema_version: z.literal(1),
+  schema_version: z.literal(PARKED_TASK_METADATA_SCHEMA_VERSION),
   id: z.string().min(1),
   branch: z.string().min(1),
   head: z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/),

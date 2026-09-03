@@ -1,11 +1,12 @@
 /** Repository-local persistence and lifecycle for short continuation handles. */
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   CONTINUATION_TTL_MS,
   readContinuation,
+  removeContinuation,
   saveContinuation,
 } from "../src/engine/continuations/store.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -13,6 +14,7 @@ import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { fakeSecureEntropy } from "./fake_secure_entropy.ts";
 import type { SecureEntropy } from "../src/shared/entropy.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 /** Create a deterministic entropy source that fills handles with one chosen byte. */
 function entropy(value: number): SecureEntropy {
@@ -177,5 +179,53 @@ Deno.test("continuation creation keeps the repository store within its cap", asy
     assertEquals(await readContinuation(dir, first), { kind: "missing" });
     assertEquals((await readContinuation(dir, second)).kind, "found");
     assertEquals((await readContinuation(dir, third)).kind, "found");
+  });
+});
+
+Deno.test("a newer continuation is diagnosed and survives update, expiry, capacity, and removal", async () => {
+  await withTempDir(async (dir) => {
+    await initRepo(dir);
+    const now = SYSTEM_CLOCK.wallNow();
+    const created = await saveContinuation(
+      dir,
+      "await",
+      { value: "current" },
+      undefined,
+      { entropy: entropy(9), now },
+    );
+    assert(created.kind === "saved");
+    const directory = await gitAdminStatePath(dir, "continuations");
+    assert(directory !== undefined);
+    const path = join(directory, `${created.handle}.json`);
+    const future = `${
+      JSON.stringify({
+        schema_version: ON_DISK_FORMATS.continuationRecord.version + 1,
+        kind: "await",
+        payload: { value: "future" },
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+
+    const read = await readContinuation(dir, created.handle, { now });
+    assert(read.kind === "newer");
+    assertStringIncludes(read.reason, "written by a newer discern");
+
+    const replacement = await saveContinuation(
+      dir,
+      "await",
+      { value: "replacement" },
+      created.handle,
+      { entropy: entropy(10), maxEntries: 1, now },
+    );
+    assert(replacement.kind === "saved");
+    assert(replacement.handle !== created.handle);
+    assertEquals(await Deno.readTextFile(path), future);
+
+    const old = new Date(now - CONTINUATION_TTL_MS - 1);
+    await Deno.utime(path, old, old);
+    const expired = await readContinuation(dir, created.handle, { now });
+    assert(expired.kind === "newer");
+    await removeContinuation(dir, created.handle);
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });

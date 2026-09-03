@@ -253,6 +253,21 @@ export async function gitReportedAdminPath(
   return isAbsolute(raw) ? raw : join(cwd, raw);
 }
 
+/** Resolve one Git-owned operation marker. These sequencer files are not
+ * discern records, but their paths still pass through the sole administrative
+ * path query boundary. */
+export async function gitOperationMarkerPath(
+  cwd: string,
+  marker: string,
+  runner: GitAdminPathRunner,
+): Promise<string | undefined> {
+  return await gitReportedAdminPath(
+    cwd,
+    ["rev-parse", "--git-path", marker],
+    runner,
+  );
+}
+
 /** Resolve one registry entry through an explicitly supplied Git boundary. */
 export async function resolveGitAdminStatePath(
   cwd: string,

@@ -69,20 +69,20 @@ import {
 } from "../../shared/result_capture.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import { setActiveInvocationId } from "./invocation_context.ts";
-import {
-  type BeginEvent,
-  type ChangeScale,
-  type DiagnosticClass,
-  type DriverFacts,
-  LOGBOOK_SCHEMA_VERSION,
-  type LogbookOutcome,
-  type LogbookSurface,
-  type PinEvent,
-  type StandardReading,
-  type StepTiming,
-  type UpdateShape,
-  type VerbEvent,
+import type {
+  BeginEvent,
+  ChangeScale,
+  DiagnosticClass,
+  DriverFacts,
+  LogbookOutcome,
+  LogbookSurface,
+  PinEvent,
+  StandardReading,
+  StepTiming,
+  UpdateShape,
+  VerbEvent,
 } from "./schema.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import {
   appendEvent,
   type EpochState,
@@ -541,7 +541,7 @@ async function advanceEpoch(
   atIso: string,
 ): Promise<void> {
   const state: EpochState = (await readEpochState(ctx.commonGitDir)) ??
-    { schema: LOGBOOK_SCHEMA_VERSION, branches: {} };
+    { schema: ON_DISK_FORMATS.logbookEpoch.version, branches: {} };
   const key = ctx.branch ?? "";
   const previous = state.branches[key];
   if (previous?.fingerprint === ctx.epoch.fingerprint) {
@@ -549,7 +549,7 @@ async function advanceEpoch(
   }
   if (previous !== undefined) {
     await appendEvent(ctx.commonGitDir, {
-      schema: LOGBOOK_SCHEMA_VERSION,
+      schema: ON_DISK_FORMATS.logbookEvent.version,
       at: atIso,
       writer: DISCERN_VERSION,
       kind: "config-change",
@@ -597,7 +597,7 @@ export function beginRecording(
           return;
         }
         const event: BeginEvent = {
-          schema: LOGBOOK_SCHEMA_VERSION,
+          schema: ON_DISK_FORMATS.logbookEvent.version,
           at: startedAt,
           writer: DISCERN_VERSION,
           kind: "begin",
@@ -652,7 +652,7 @@ export function beginRecording(
         // remains the fallback for human-only reads and refused lookups.
         const target = lifted.target ?? report.target;
         const event: VerbEvent = {
-          schema: LOGBOOK_SCHEMA_VERSION,
+          schema: ON_DISK_FORMATS.logbookEvent.version,
           at,
           writer: DISCERN_VERSION,
           kind: "verb",
@@ -716,7 +716,7 @@ export function beginRecording(
         await appendEvent(ctx.commonGitDir, event);
         for (const pin of lifted.pins ?? []) {
           const pinEvent: PinEvent = {
-            schema: LOGBOOK_SCHEMA_VERSION,
+            schema: ON_DISK_FORMATS.logbookEvent.version,
             at,
             writer: DISCERN_VERSION,
             kind: "pin",

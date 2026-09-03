@@ -823,6 +823,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "on-disk-formats",
+    title: "Local durable formats",
+    what:
+      "Every versioned record discern writes in Git administration state or a Proof note: its storage coordinate, current version, reader, and forward-skew policy.",
+    source: {
+      kind: "module",
+      module: "src/shared/on_disk_formats.ts",
+      exportName: "ON_DISK_FORMATS",
+    },
+    guards: [
+      "tests/on_disk_formats_test.ts",
+      "tests/git_admin_state_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Git-admin state reference explains versioned local evidence as one lifecycle concept",
+      },
+      featureCanon: {
+        absent:
+          "the registry protects several existing features rather than adding another selectable feature",
+      },
+    },
+    members: async () =>
+      Object.values(
+        (await import("../src/shared/on_disk_formats.ts")).ON_DISK_FORMATS,
+      ).map((format) => format.id),
+  },
+  {
     id: "git-footprint",
     title: "Clone-local Git footprint",
     what:

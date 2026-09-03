@@ -92,7 +92,7 @@ export async function inspectAcceptanceCheckpoints(
     ),
   );
   const read = await readOpenQuestions(root);
-  if (read.status === "unavailable") {
+  if (read.status === "unavailable" || read.status === "newer") {
     state.drops.push(policyCheckpointDrop(
       "open_question_store_unreadable",
       `the checkpoint open-question record could not be read (${read.reason}); earlier active questions are unknown.`,

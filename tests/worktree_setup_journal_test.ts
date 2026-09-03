@@ -18,6 +18,7 @@ import {
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 /** Initialize a repository with one commit for Git-admin state. */
 async function initializeRepo(dir: string): Promise<void> {
@@ -167,6 +168,35 @@ Deno.test("an invalid journal is preserved and no command runs", async () => {
     );
     assertEquals(calls, 0);
     assertEquals(await Deno.readTextFile(path), invalid);
+  });
+});
+
+Deno.test("a newer setup journal is diagnosed, preserved, and grants no replay authority", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const path = await gitAdminStatePath(dir, "worktreeSetupSteps");
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    const future = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.setupStepJournal.version + 1,
+        steps: [],
+      })
+    }\n`;
+    await Deno.writeTextFile(path, future);
+    let calls = 0;
+    const refusal = await assertRejects(
+      () =>
+        runJournaledSetupSteps(dir, ["must-not-run"], () => {
+          calls++;
+          return Promise.resolve(0);
+        }),
+      SetupStepJournalError,
+    );
+    assertStringIncludes(refusal.message, "written by a newer discern");
+    assertStringIncludes(refusal.message, "Update discern");
+    assertEquals(calls, 0);
+    assertEquals(await Deno.readTextFile(path), future);
   });
 });
 

@@ -40,6 +40,34 @@ Look up Proof-note fields, checkpoint states, declarations, variance fields, and
 
 Prerequisite: a Proof field, checkpoint id/state, declaration, variance, or `when` input you need to interpret. Linked explanations add context but are not required to use these contracts.
 
+## Worktree Gate Proof marker
+
+_A local marker can skip repeated Gate work only while its complete evidence still names the exact clean `HEAD`._
+
+The worktree-local marker resolves with:
+
+```sh
+git rev-parse --git-path discern/gate-proof
+```
+
+Its registered JSON format is version 1:
+
+```json
+{
+  "version": 1,
+  "head": "<full commit id>",
+  "mode": "strict",
+  "proof": { "...": "the structured Proof and both renderings" },
+  "evidence": "<checkpoint declaration evidence identity>"
+}
+```
+
+`head` is the commit pinned before the Gate and rechecked before the write. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live Standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
+
+A current record may omit `proof` or `evidence` while an interrupted or narrow operation records observable state, but that incomplete record cannot narrow Standard measurement, satisfy Gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
+
+This worktree-local cache disappears with the worktree. Acceptance writes the durable Proof note below after the exact commit reaches the trunk.
+
 ## Proof notes
 
 _A green landing keeps its structured Proof beside the immutable trunk commit._

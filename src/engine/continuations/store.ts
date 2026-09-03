@@ -24,6 +24,11 @@ import {
 } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import {
+  inspectOnDiskJsonVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 export const CONTINUATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const CONTINUATION_MAX_ENTRIES = 512;
@@ -35,7 +40,7 @@ const TEMP_PREFIX = ".continuation-write-";
 const TEMP_SUFFIX = ".tmp";
 
 export interface ContinuationRecord {
-  readonly schema_version: 1;
+  readonly schema_version: typeof ON_DISK_FORMATS.continuationRecord.version;
   readonly kind: string;
   readonly payload: unknown;
 }
@@ -56,6 +61,7 @@ export type ReadContinuationResult =
   | { readonly kind: "invalid-handle" }
   | { readonly kind: "missing" }
   | { readonly kind: "corrupt" }
+  | { readonly kind: "newer"; readonly reason: string }
   | { readonly kind: "unavailable" };
 
 export type SaveContinuationResult =
@@ -93,48 +99,63 @@ function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   return bytes.length <= CONTINUATION_RECORD_MAX_BYTES ? bytes : undefined;
 }
 
+type ParsedContinuationRecord =
+  | { readonly status: "recorded"; readonly record: ContinuationRecord }
+  | { readonly status: "corrupt" }
+  | { readonly status: "newer"; readonly reason: string };
+
 /** Validate a stored record's version, kind, and payload structure. */
-function parseRecord(text: string): ContinuationRecord | undefined {
+function parseRecord(text: string): ParsedContinuationRecord {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
-    return undefined;
+    return { status: "corrupt" };
   }
   if (
     typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
   ) {
-    return undefined;
+    return { status: "corrupt" };
   }
   const value = parsed as Record<string, unknown>;
+  const version = inspectOnDiskJsonVersion("continuationRecord", text);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("continuationRecord", version.found),
+    };
+  }
   if (
     Object.keys(value).some((key) =>
       key !== "schema_version" && key !== "kind" && key !== "payload"
     ) ||
-    value.schema_version !== 1 ||
+    value.schema_version !== ON_DISK_FORMATS.continuationRecord.version ||
     typeof value.kind !== "string" ||
     !/^[a-z][a-z0-9-]{0,63}$/u.test(value.kind) ||
     !("payload" in value)
   ) {
-    return undefined;
+    return { status: "corrupt" };
   }
   return {
-    schema_version: 1,
-    kind: value.kind,
-    payload: value.payload,
+    status: "recorded",
+    record: {
+      schema_version: ON_DISK_FORMATS.continuationRecord.version,
+      kind: value.kind,
+      payload: value.payload,
+    },
   };
 }
 
 /** Reject non-files and records outside the store's byte limit before parsing. */
 async function readRecord(
   path: string,
-): Promise<ContinuationRecord | undefined> {
+): Promise<ParsedContinuationRecord> {
   const stat = await Deno.stat(path);
   if (
     !stat.isFile || stat.size <= 0 || stat.size > CONTINUATION_RECORD_MAX_BYTES
   ) {
-    return undefined;
+    return { status: "corrupt" };
   }
   return parseRecord(await Deno.readTextFile(path));
 }
@@ -172,10 +193,12 @@ async function removeIfExpired(
   path: string,
   now: number,
   ttlMs: number,
-): Promise<"live" | "missing"> {
+): Promise<"live" | "missing" | "newer"> {
   try {
     const mtime = (await Deno.stat(path)).mtime?.getTime();
     if (mtime !== undefined && now - mtime >= ttlMs) {
+      const parsed = await readRecord(path);
+      if (parsed.status === "newer") return "newer";
       await Deno.remove(path);
       return "missing";
     }
@@ -228,6 +251,8 @@ async function pruneForCreate(
     const info = await statIfExists(path);
     if (info === undefined) continue;
     const mtime = info.mtime?.getTime() ?? now;
+    const parsed = await readRecord(path);
+    if (parsed.status === "newer") continue;
     if (now - mtime >= ttlMs) {
       await Deno.remove(path);
     } else {
@@ -320,14 +345,23 @@ export async function readContinuation(
   const ttlMs = opts.ttlMs ?? CONTINUATION_TTL_MS;
   const result = await withStoreLock(root, async (directory) => {
     const path = recordPath(directory, handle);
-    if ((await removeIfExpired(path, now, ttlMs)) === "missing") {
+    const expiry = await removeIfExpired(path, now, ttlMs);
+    if (expiry === "missing") {
       return { kind: "missing" } as const;
     }
+    if (expiry === "newer") {
+      const parsed = await readRecord(path);
+      return parsed.status === "newer"
+        ? { kind: "newer", reason: parsed.reason } as const
+        : { kind: "corrupt" } as const;
+    }
     try {
-      const record = await readRecord(path);
-      return record === undefined
-        ? { kind: "corrupt" } as const
-        : { kind: "found", handle, record } as const;
+      const parsed = await readRecord(path);
+      return parsed.status === "recorded"
+        ? { kind: "found", handle, record: parsed.record } as const
+        : parsed.status === "newer"
+        ? { kind: "newer", reason: parsed.reason } as const
+        : { kind: "corrupt" } as const;
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
         return { kind: "missing" } as const;
@@ -350,7 +384,11 @@ export async function saveContinuation(
   preferredHandle?: string,
   opts: ContinuationStoreOptions = {},
 ): Promise<SaveContinuationResult> {
-  const record: ContinuationRecord = { schema_version: 1, kind, payload };
+  const record: ContinuationRecord = {
+    schema_version: ON_DISK_FORMATS.continuationRecord.version,
+    kind,
+    payload,
+  };
   const bytes = serializeRecord(record);
   if (bytes === undefined || !/^[a-z][a-z0-9-]{0,63}$/u.test(kind)) {
     return { kind: "unavailable" };
@@ -368,11 +406,13 @@ export async function saveContinuation(
       : normalizeContinuationHandle(preferredHandle);
     if (preferred !== undefined) {
       const path = recordPath(directory, preferred);
-      if (
-        (await removeIfExpired(path, now, ttlMs)) === "live"
-      ) {
-        await replaceRecord(directory, preferred, bytes, entropy);
-        return preferred;
+      const expiry = await removeIfExpired(path, now, ttlMs);
+      if (expiry === "live") {
+        const standing = await readRecord(path);
+        if (standing.status !== "newer") {
+          await replaceRecord(directory, preferred, bytes, entropy);
+          return preferred;
+        }
       }
     }
     await pruneForCreate(directory, now, ttlMs, maxEntries);
@@ -394,7 +434,11 @@ export async function removeContinuation(
   }
   await withStoreLock(root, async (directory) => {
     await bestEffort("continuation-terminal-remove", async () => {
-      await Deno.remove(recordPath(directory, handle));
+      const path = recordPath(directory, handle);
+      const standing = await readRecord(path);
+      if (standing.status !== "newer") {
+        await Deno.remove(path);
+      }
     });
   });
 }

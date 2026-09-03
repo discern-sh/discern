@@ -318,7 +318,11 @@ import { resolveTemplatesDir } from "../../lib/paths.ts";
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { finishResult } from "../gate/finish.ts";
-import { inspectGateProof, pinValidatedTree } from "../gate/proof.ts";
+import {
+  gateProofHasCompleteEvidence,
+  inspectGateProof,
+  pinValidatedTree,
+} from "../gate/proof.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
 import { renderProofLineCli } from "../gate/presentation.ts";
 import {
@@ -2953,12 +2957,14 @@ async function executeAcceptPlan(
     ...(proof.proof_data?.checkpoint_drops ?? []),
     ...(proof.checkpoint_drops ?? []),
   ]);
-  const proofNeedsFreshGate = proofDrops.some((drop) =>
-    drop.reason === "declaration_evidence_unavailable" ||
-    isIndeterminateStopDrop(drop)
-  );
+  const proofIsComplete = gateProofHasCompleteEvidence(proof);
+  const proofNeedsFreshGate = !proofIsComplete ||
+    proofDrops.some((drop) =>
+      drop.reason === "declaration_evidence_unavailable" ||
+      isIndeterminateStopDrop(drop)
+    );
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
-    proof.status === "honored" && !proofNeedsFreshGate
+    proofIsComplete && !proofNeedsFreshGate
       ? { mode: "proof", proof: proof }
       : { mode: "rerun", proof: proof };
   progress.gateValidation = gateValidation;
@@ -3291,6 +3297,7 @@ async function executeAcceptPlan(
   });
   if (transition.kind === "authority-changed") {
     const detail = transition.claim.status === "invalid" ||
+        transition.claim.status === "newer" ||
         transition.claim.status === "unavailable"
       ? `: ${transition.claim.reason}`
       : "";
@@ -5868,7 +5875,7 @@ async function buildTaskRenamePlan(
   }).name;
   const metadata: StoredTaskMetadata = {
     ...(current ?? {
-      schema_version: 1,
+      schema_version: TASK_METADATA_SCHEMA_VERSION,
       title: previousTitle,
     }),
     title,

@@ -43,6 +43,11 @@
  */
 
 import { z } from "@zod/zod";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
@@ -50,7 +55,7 @@ import { validationEvidenceSchema } from "./validation.ts";
 import { OPERATION_LOCK_BOUNDARIES } from "../../shared/operation_effects.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
-export const LOGBOOK_SCHEMA_VERSION = 1;
+export const LOGBOOK_SCHEMA_VERSION = ON_DISK_FORMATS.logbookEvent.version;
 
 /** The surfaces a verb invocation arrives through. */
 export const LOGBOOK_SURFACES = ["cli", "mcp"] as const;
@@ -530,6 +535,7 @@ export type LogbookEvent = z.infer<typeof logbookEventSchema>;
  */
 export type ParsedLogbookLine =
   | { kind: "event"; event: LogbookEvent }
+  | { kind: "newer"; version: number; reason: string }
   | { kind: "foreign" }
   | { kind: "torn" };
 
@@ -541,11 +547,37 @@ export function parseLogbookLine(line: string): ParsedLogbookLine {
   } catch {
     return { kind: "torn" };
   }
-  if (
-    typeof parsed !== "object" || parsed === null ||
-    (parsed as { schema?: unknown }).schema !== LOGBOOK_SCHEMA_VERSION
-  ) {
+  if (typeof parsed !== "object" || parsed === null) {
     return { kind: "foreign" };
+  }
+  const schema = (parsed as { schema?: unknown }).schema;
+  if (
+    typeof schema === "number" && Number.isInteger(schema) &&
+    schema > LOGBOOK_SCHEMA_VERSION
+  ) {
+    return {
+      kind: "newer",
+      version: schema,
+      reason: newerOnDiskFormatMessage("logbookEvent", schema),
+    };
+  }
+  if (schema !== LOGBOOK_SCHEMA_VERSION) return { kind: "foreign" };
+  const validation = (parsed as { validation?: unknown }).validation;
+  if (validation !== undefined) {
+    const version = inspectOnDiskRecordVersion(
+      "logbookValidationEvidence",
+      validation,
+    );
+    if (version.status === "newer") {
+      return {
+        kind: "newer",
+        version: version.found,
+        reason: newerOnDiskFormatMessage(
+          "logbookValidationEvidence",
+          version.found,
+        ),
+      };
+    }
   }
   const result = logbookEventSchema.safeParse(parsed);
   return result.success

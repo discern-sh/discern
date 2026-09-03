@@ -10,6 +10,7 @@ import { dirname, isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
 import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
 import {
   addWorktree,
@@ -1076,5 +1077,70 @@ Deno.test("proposal recovery unwinds a pre-commit edit and finalizes a post-comm
     );
     await assertRejectsNotFound(transactionPath);
     assertStringIncludes(await Deno.readTextFile(proposalPath), '"sources"');
+  });
+});
+
+Deno.test("proposal state written by a newer discern refuses replacement", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await proposalWorktree(dir);
+    assertEquals((await runAgent(worktree, ["standards", "--json"])).code, 1);
+
+    const proposalPath = await gitAdminStatePath(
+      worktree,
+      "standardLimitProposals",
+    );
+    assert(proposalPath !== undefined);
+    await Deno.mkdir(dirname(proposalPath), { recursive: true });
+    const newerStore = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.standardLimitProposalStore.version + 1,
+        proposals: [],
+      })
+    }\n`;
+    await Deno.writeTextFile(proposalPath, newerStore);
+    assertEquals((await readProposalStore(worktree)).status, "newer");
+
+    const storeRefusal = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      "The feature adds one source file required by the product.",
+      "--json",
+    ]);
+    assertEquals(storeRefusal.code, 1, storeRefusal.output);
+    assertStringIncludes(storeRefusal.stdout, "standard-limit-proposal-store");
+    assertEquals(await Deno.readTextFile(proposalPath), newerStore);
+    await Deno.remove(proposalPath);
+
+    const transactionPath = await gitAdminStatePath(
+      worktree,
+      "standardLimitProposalTransaction",
+    );
+    assert(transactionPath !== undefined);
+    const newerTransaction = `${
+      JSON.stringify({
+        version: ON_DISK_FORMATS.standardLimitProposalTransaction.version + 1,
+      })
+    }\n`;
+    await Deno.writeTextFile(transactionPath, newerTransaction);
+
+    const transactionRefusal = await runAgent(worktree, [
+      "standards",
+      "propose",
+      "sources",
+      "--reason",
+      "The feature adds one source file required by the product.",
+      "--json",
+    ]);
+    assertEquals(transactionRefusal.code, 1, transactionRefusal.output);
+    assertStringIncludes(
+      transactionRefusal.stdout,
+      "standard-limit-proposal-transaction",
+    );
+    assertEquals(
+      await Deno.readTextFile(transactionPath),
+      newerTransaction,
+    );
   });
 });

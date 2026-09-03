@@ -7,25 +7,18 @@
  * git admin dir, resolved via `git rev-parse --git-path discern/gate-proof`
  * (`.git/worktrees/<name>/discern/gate-proof`). It is therefore worktree-local
  * (never shared across branches), never tracked or committed (it sits inside
- * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
- * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
- * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
- * tree the gate actually read; the rest is the rendered **proof** — the line and
- * the page markdown finish emitted for that tree — the review-moment summary
- * `status` and `accept` surface without re-running the gate.
+ * `.git`), and self-cleaning (it vanishes with the worktree). Its registered JSON
+ * document carries the validated HEAD sha — PINNED before the gate run began and
+ * re-verified unmoved at stamp time ({@link ValidatedTreePin}) — plus strict/report
+ * mode, declaration evidence, and the structured **proof** whose line and page
+ * `status` and `accept` surface without re-running the gate. A newer-version
+ * document is diagnosed and retained; unversioned text is a cache miss.
  *
  * The proof is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `update` creates), amend, or uncommitted
  * edit silently invalidates it and `accept` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
  * failing run clears it, and accept re-runs `done` whenever it is absent or stale.
- *
- * `done` is its usual author, but `standards --pin` also carries an honored vouch
- * forward onto the commit it makes: that commit changes only `[standards]` limits,
- * and each changed limit is tighter while still held by the just-taken or same-HEAD
- * reused measurement. The pin therefore still passes both standards halves in the
- * gate, so the vouch stays truthful and `accept` need not re-run the whole gate for
- * a re-pin (see {@link carryProofForwardAcrossPin}).
  *
  * The standard **measurement proof** is its sibling on the same model: a green
  * `standards` check over a clean tree records every standard's measured value against
@@ -44,6 +37,7 @@ import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
 import {
   type CheckpointDrop,
   type GateMode,
+  isIndeterminateStopDrop,
   policyCheckpointDrop,
   uniqueCheckpointDrops,
 } from "../../shared/checkpoint_drops.ts";
@@ -79,11 +73,91 @@ import {
   type Proof,
   TolerantProofSchema,
 } from "../../shared/result_schemas.ts";
+import {
+  inspectOnDiskJsonVersion,
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 
 type AdminStatePaths = Readonly<
   Record<ValidationAdminStateKey, string | undefined>
 >;
 type GateProofRecordData = NonNullable<GateData["gate_proof"]>;
+
+const GateProofFileSchema = z.strictObject({
+  version: z.literal(ON_DISK_FORMATS.gateProof.version),
+  head: z.string().min(1),
+  mode: z.enum(["strict", "report"]),
+  proof: z.unknown().optional(),
+  evidence: z.string().min(1).optional(),
+});
+
+interface GateProofFile {
+  readonly version: typeof ON_DISK_FORMATS.gateProof.version;
+  readonly head: string;
+  readonly mode: GateMode;
+  readonly proof?: Proof;
+  readonly evidence?: string;
+}
+
+type GateProofFileRead =
+  | { readonly status: "recorded"; readonly record: GateProofFile }
+  | { readonly status: "missing"; readonly reason: string }
+  | { readonly status: "newer"; readonly reason: string }
+  | { readonly status: "malformed"; readonly reason: string };
+
+/** Decode only the registered JSON format. The private-era text marker has no
+ * migration path: it is a cache miss and a fresh strict `done` must replace it. */
+function parseGateProofFile(content: string): GateProofFileRead {
+  if (content.trim() === "") {
+    return { status: "missing", reason: "proof file was empty" };
+  }
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(content);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    return {
+      status: "missing",
+      reason: "unversioned Gate Proof requires a fresh `discern done`",
+    };
+  }
+  const version = inspectOnDiskRecordVersion("gateProof", decoded);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("gateProof", version.found),
+    };
+  }
+  if (version.status !== "current") {
+    return {
+      status: "malformed",
+      reason: "Gate Proof does not carry the registered format version",
+    };
+  }
+  const parsed = GateProofFileSchema.safeParse(decoded);
+  if (!parsed.success) {
+    return { status: "malformed", reason: "Gate Proof JSON is malformed" };
+  }
+  const proof = parsed.data.proof === undefined
+    ? undefined
+    : TolerantProofSchema.safeParse(parsed.data.proof);
+  return {
+    status: "recorded",
+    record: {
+      version: ON_DISK_FORMATS.gateProof.version,
+      head: parsed.data.head,
+      mode: parsed.data.mode,
+      ...(proof === undefined || !proof.success
+        ? {}
+        : { proof: canonicalProof(proof.data) }),
+      ...(parsed.data.evidence === undefined
+        ? {}
+        : { evidence: parsed.data.evidence }),
+    },
+  };
+}
 
 /** Brand for a successful, real write probe. Proof writers require this token,
  * making "probe before persist" a compile-time rule at every call site. */
@@ -401,26 +475,30 @@ export async function recordGateOutcome(
       }
     }
     try {
-      // Marker format: the sha, then (when the run rendered a proof) its
-      // compatibility `line: ` component, structured form, declaration
-      // evidence identity, and page markdown. Markers that omit any
-      // component also parse.
-      const data = proof === undefined
-        ? ""
-        : `data: ${JSON.stringify(proof)}\n`;
-      const line = proof?.line === undefined || proof.line === ""
-        ? ""
-        : `line: ${proof.line}\n`;
-      const evidenceLine = evidence === undefined
-        ? ""
-        : `evidence: ${evidence}\n`;
-      const modeLine = proof?.mode === "report" || mode === "report"
-        ? "mode: report\n"
-        : "";
-      const body = proof?.markdown === undefined || proof.markdown === ""
-        ? `${pin.head}\n${modeLine}${evidenceLine}`
-        : `${pin.head}\n${modeLine}${line}${data}${evidenceLine}\n${proof.markdown.trim()}\n`;
-      await Deno.writeTextFile(path, body);
+      const existing = await readTextIfExists(path);
+      if (existing !== undefined) {
+        const parsed = parseGateProofFile(existing);
+        if (parsed.status === "newer") {
+          return proofRecord("record_failed", {
+            path,
+            reason: parsed.reason,
+          });
+        }
+      }
+      const record: GateProofFile = {
+        version: ON_DISK_FORMATS.gateProof.version,
+        head: pin.head,
+        mode: proof?.mode === "report" || mode === "report"
+          ? "report"
+          : "strict",
+        ...(proof === undefined ? {} : { proof: canonicalProof(proof) }),
+        ...(evidence === undefined ? {} : { evidence }),
+      };
+      await atomicReplaceJson(path, record, {
+        mode: 0o600,
+        sync: false,
+        trailingNewline: true,
+      });
       return proofRecord("recorded", { path });
     } catch (error) {
       return proofRecord("record_failed", {
@@ -431,6 +509,13 @@ export async function recordGateOutcome(
   }
 
   try {
+    const existing = await readTextIfExists(path);
+    if (existing !== undefined) {
+      const parsed = parseGateProofFile(existing);
+      if (parsed.status === "newer") {
+        return proofRecord("clear_failed", { path, reason: parsed.reason });
+      }
+    }
     await Deno.remove(path);
     return proofRecord("cleared", { path });
   } catch (error) {
@@ -456,6 +541,7 @@ export const UNCHANGED_TREE_RERUN_SLUG = "unchanged_tree_rerun";
 /** What the last completed gate run judged: the tree identity it ended on and
  * the verdict it reached. */
 export interface LastGateRun {
+  readonly version: typeof ON_DISK_FORMATS.lastGateRun.version;
   /** HEAD at the end of the run (full sha). */
   readonly head: string;
   /** Working-state fingerprint, absent when the tree was clean
@@ -527,22 +613,113 @@ export async function recordLastGateRun(
   }
   const identity = await currentTreeIdentity(cwd);
   await bestEffort("proof-last-gate-run-record", async () => {
+    const existing = await readTextIfExists(path);
+    if (
+      existing !== undefined && parseLastGateRun(existing).status === "newer"
+    ) {
+      return;
+    }
     if (identity === undefined) {
       await Deno.remove(path);
       return;
     }
-    await Deno.writeTextFile(
+    await atomicReplaceJson(
       path,
-      `${
-        JSON.stringify({
-          ...identity,
-          passed,
-          ...(mode === "report" ? { mode } : {}),
-          ...(evidence === undefined ? {} : { evidence }),
-        })
-      }\n`,
+      {
+        version: ON_DISK_FORMATS.lastGateRun.version,
+        ...identity,
+        passed,
+        ...(mode === "report" ? { mode } : {}),
+        ...(evidence === undefined ? {} : { evidence }),
+      } satisfies LastGateRun,
+      { mode: 0o600, sync: false, trailingNewline: true },
     );
   });
+}
+
+export type LastGateRunRead =
+  | { readonly status: "recorded"; readonly run: LastGateRun }
+  | { readonly status: "missing" }
+  | { readonly status: "newer" | "malformed"; readonly reason: string }
+  | { readonly status: "unavailable"; readonly reason: string };
+
+/** Decode one registered last-run record without allowing absent versions. */
+export function parseLastGateRun(raw: string): LastGateRunRead {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    return { status: "malformed", reason: "last-gate-run is not valid JSON" };
+  }
+  const version = inspectOnDiskRecordVersion("lastGateRun", parsed);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("lastGateRun", version.found),
+    };
+  }
+  if (
+    version.status !== "current" || parsed === null ||
+    typeof parsed !== "object" || Array.isArray(parsed)
+  ) {
+    return {
+      status: "malformed",
+      reason: "last-gate-run does not carry the registered format version",
+    };
+  }
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
+    return {
+      status: "malformed",
+      reason: "last-gate-run fields are malformed",
+    };
+  }
+  if (record.tree !== undefined && typeof record.tree !== "string") {
+    return { status: "malformed", reason: "last-gate-run tree is malformed" };
+  }
+  if (record.evidence !== undefined && typeof record.evidence !== "string") {
+    return {
+      status: "malformed",
+      reason: "last-gate-run evidence is malformed",
+    };
+  }
+  if (
+    record.mode !== undefined && record.mode !== "strict" &&
+    record.mode !== "report"
+  ) {
+    return { status: "malformed", reason: "last-gate-run mode is malformed" };
+  }
+  return {
+    status: "recorded",
+    run: {
+      version: ON_DISK_FORMATS.lastGateRun.version,
+      head: record.head,
+      passed: record.passed,
+      ...(record.tree !== undefined ? { tree: record.tree } : {}),
+      ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
+      ...(record.mode !== undefined ? { mode: record.mode } : {}),
+    },
+  };
+}
+
+/** Read the complete format outcome so diagnostics can distinguish forward skew. */
+export async function inspectLastGateRunRecord(
+  cwd: string,
+): Promise<LastGateRunRead> {
+  const path = await gitAdminStatePath(cwd, "lastGateRun");
+  if (path === undefined) {
+    return { status: "unavailable", reason: "could not resolve last-gate-run" };
+  }
+  let raw: string;
+  try {
+    raw = await Deno.readTextFile(path);
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound
+      ? { status: "missing" }
+      : { status: "unavailable", reason: failureReason(error) };
+  }
+  return parseLastGateRun(raw);
 }
 
 /**
@@ -554,45 +731,8 @@ export async function recordLastGateRun(
 export async function inspectLastGateRun(
   cwd: string,
 ): Promise<LastGateRun | undefined> {
-  const path = await gitAdminStatePath(cwd, "lastGateRun");
-  if (path === undefined) {
-    return undefined;
-  }
-  const raw = await readTextIfExists(path);
-  if (raw === undefined) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    return undefined;
-  }
-  if (parsed === null || typeof parsed !== "object") {
-    return undefined;
-  }
-  const record = parsed as Record<string, unknown>;
-  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
-    return undefined;
-  }
-  if (record.tree !== undefined && typeof record.tree !== "string") {
-    return undefined;
-  }
-  if (record.evidence !== undefined && typeof record.evidence !== "string") {
-    return undefined;
-  }
-  if (
-    record.mode !== undefined && record.mode !== "strict" &&
-    record.mode !== "report"
-  ) {
-    return undefined;
-  }
-  return {
-    head: record.head,
-    passed: record.passed,
-    ...(record.tree !== undefined ? { tree: record.tree } : {}),
-    ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
-    ...(record.mode !== undefined ? { mode: record.mode } : {}),
-  };
+  const read = await inspectLastGateRunRecord(cwd);
+  return read.status === "recorded" ? read.run : undefined;
 }
 
 /**
@@ -622,62 +762,19 @@ export async function inspectGateProof(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. Then, when present: `line: `,
-  // `data: `, and `evidence: ` components in any order, followed by the proof
-  // page Markdown. A marker may omit any component; absent pieces are simply
-  // empty.
-  const newline = content.indexOf("\n");
-  const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
-  let rest = newline < 0 ? "" : content.slice(newline + 1);
-  let proofData: Proof | undefined;
-  let line = "";
-  let recordedEvidence: string | undefined;
-  let recordedMode: GateMode = "strict";
-  while (
-    rest.startsWith("data: ") || rest.startsWith("line: ") ||
-    rest.startsWith("evidence: ") || rest.startsWith("mode: ")
-  ) {
-    const eol = rest.indexOf("\n");
-    if (rest.startsWith("data: ")) {
-      const raw = eol < 0
-        ? rest.slice("data: ".length)
-        : rest.slice("data: ".length, eol);
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        const validated = TolerantProofSchema.safeParse(parsed);
-        if (validated.success) {
-          proofData = canonicalProof(validated.data);
-        }
-      } catch (error) {
-        if (!(error instanceof SyntaxError)) throw error;
-        // A malformed structured component does not invalidate the validation
-        // vouch. Acceptance honors the commit and reports that no structured
-        // proof was available to publish.
-      }
-    } else if (rest.startsWith("mode: ")) {
-      const mode = (eol < 0
-        ? rest.slice("mode: ".length)
-        : rest.slice("mode: ".length, eol)).trim();
-      if (mode === "report") {
-        recordedMode = "report";
-      }
-    } else if (rest.startsWith("evidence: ")) {
-      recordedEvidence = (eol < 0
-        ? rest.slice("evidence: ".length)
-        : rest.slice("evidence: ".length, eol)).trim();
-    } else {
-      line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
-        "line: ".length,
-        eol,
-      )).trim();
-    }
-    rest = eol < 0 ? "" : rest.slice(eol + 1);
+  const parsedFile = parseGateProofFile(content);
+  if (parsedFile.status === "missing") {
+    return { status: "missing", path, reason: parsedFile.reason };
   }
-  const markdown = rest.trim();
-  const proofDrops = proofData?.checkpoint_drops ?? [];
-  if (recorded === "") {
-    return { status: "missing", path, reason: "proof file was empty" };
+  if (parsedFile.status !== "recorded") {
+    return { status: "read_failed", path, reason: parsedFile.reason };
   }
+  const recorded = parsedFile.record.head;
+  const proofData = parsedFile.record.proof;
+  const line = proofData?.line ?? "";
+  const markdown = proofData?.markdown.trim() ?? "";
+  const recordedEvidence = parsedFile.record.evidence;
+  let proofDrops = proofData?.checkpoint_drops ?? [];
   const head = await headSha(cwd);
   if (head === undefined) {
     return {
@@ -706,28 +803,7 @@ export async function inspectGateProof(
         `the structured Proof names ${proofData.head}, which does not identify its recorded commit ${recorded}`,
     };
   }
-  if (proofData !== undefined && line !== "" && proofData.line !== line) {
-    return {
-      status: "read_failed",
-      path,
-      recorded,
-      head,
-      reason: "the structured Proof and stored Proof line disagree",
-    };
-  }
-  if (
-    proofData !== undefined && markdown !== "" &&
-    proofData.markdown.trim() !== markdown
-  ) {
-    return {
-      status: "read_failed",
-      path,
-      recorded,
-      head,
-      reason: "the structured Proof and stored Proof page disagree",
-    };
-  }
-  if (recordedMode === "report" || proofData?.mode === "report") {
+  if (parsedFile.record.mode === "report" || proofData?.mode === "report") {
     return {
       status: "report_only",
       path,
@@ -741,11 +817,21 @@ export async function inspectGateProof(
       ...(proofDrops.length === 0 ? {} : { checkpoint_drops: [...proofDrops] }),
     };
   }
+  if (proofData !== undefined && recordedEvidence === undefined) {
+    proofDrops = uniqueCheckpointDrops([
+      ...proofDrops,
+      policyCheckpointDrop(
+        "declaration_evidence_unavailable",
+        "the Gate Proof carries no checkpoint declaration evidence identity; a fresh Gate is required before reuse",
+        proofData.checkpoints?.policy,
+      ),
+    ]);
+  }
   // The vouch also binds to the declaration evidence it was recorded with: a
   // changed conclusion or rationale stales it even at an unchanged HEAD. A
-  // marker without the component (an older writer) skips the comparison, and
-  // an UNREADABLE store fails open — an uncertain identity is never treated
-  // as a changed one.
+  // An incomplete record without the component skips this comparison but is
+  // not reusable landing evidence. An UNREADABLE store contributes a drop —
+  // an uncertain identity is never treated as a changed one.
   if (recordedEvidence !== undefined) {
     const evidenceNow = await declarationEvidenceIdentity(cwd);
     if (
@@ -794,6 +880,25 @@ export async function inspectGateProof(
   };
 }
 
+/** Whether an inspection carries the complete structured result required by
+ * every Gate-reuse and landing boundary. A tree-only marker is observable but
+ * cannot justify narrowed measurement or skipped validation. */
+export function gateProofHasCompleteEvidence(
+  proof: GateProofCheckData,
+): proof is GateProofCheckData & {
+  status: "honored";
+  proof_data: Proof;
+  proof_line: string;
+} {
+  return proof.status === "honored" && proof.proof_data !== undefined &&
+    proof.proof_line !== undefined &&
+    proof.checkpoint_drops?.some((drop) =>
+        drop.reason === "declaration_evidence_unavailable" ||
+        drop.reason === "strand_check_unavailable" ||
+        isIndeterminateStopDrop(drop)
+      ) !== true;
+}
+
 /**
  * Whether a proof proves the worktree's CURRENT (HEAD, clean) state already passed
  * `done` — accept's fast path. True only when a proof exists, names exactly the
@@ -801,7 +906,7 @@ export async function inspectGateProof(
  * makes this false, so accept falls back to running the gate. Never throws.
  */
 export async function gateProofHonored(cwd: string): Promise<boolean> {
-  return (await inspectGateProof(cwd)).status === "honored";
+  return gateProofHasCompleteEvidence(await inspectGateProof(cwd));
 }
 
 /** Exact pre-transaction Gate Proof bytes, including an explicitly absent file. */
@@ -825,10 +930,11 @@ export type GateProofRestoreOutcome =
   | { readonly kind: "restored" }
   | { readonly kind: "retained"; readonly detail: string };
 
-/** The commit identity recorded on the first line of raw Proof bytes. */
+/** The commit identity recorded by registered Proof bytes. Unknown formats own
+ * no rollback boundary and therefore return no candidate head. */
 function rawProofHead(content: string): string {
-  const newline = content.indexOf("\n");
-  return (newline < 0 ? content : content.slice(0, newline)).trim();
+  const parsed = parseGateProofFile(content);
+  return parsed.status === "recorded" ? parsed.record.head : "";
 }
 
 /**
@@ -899,44 +1005,6 @@ export async function clearGateProof(
   );
 }
 
-/**
- * Carry a gate proof across a `standards --pin` commit (ADR 0106).
- *
- * `standards --pin` commits ONLY `[standards.*]` limit changes. Its `pinnedLimit`
- * arithmetic only tightens a limit to one the just-taken or same-HEAD reused
- * measurement satisfies. That tightened limit also passes the
- * never-loosen comparison against the trunk, so the pin commit still passes both
- * standards halves now enforced by `done` (ADR 0133). When the pre-pin HEAD carried
- * an HONORED proof (it named that HEAD over a clean tree), re-stamp the vouch onto
- * the new clean HEAD the commit created; otherwise the moved HEAD would strand a
- * truthful pass and force `accept` to re-run the whole gate for a change that cannot
- * alter its outcome.
- *
- * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
- * (`priorHonored`), which only the caller — the author of the commit, so the one party
- * that knows it touched nothing but standard limits — may assert. With no prior vouch it
- * does nothing (returns `undefined`), leaving the now-stale proof for `accept` to
- * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
- * pin commit itself, which the caller just made synchronously, so the tree sampled now
- * IS the tree the vouch is about. The pin preflights `authority` before measuring;
- * the writer remains best-effort against a later point-in-time hiccup.
- */
-export async function carryProofForwardAcrossPin(
-  cwd: string,
-  authority: AdminStateWriteAuthority,
-  priorHonored: boolean,
-): Promise<GateProofRecordData | undefined> {
-  if (!priorHonored) {
-    return undefined;
-  }
-  return await recordGateOutcome(
-    cwd,
-    authority,
-    true,
-    await pinValidatedTree(cwd),
-  );
-}
-
 // ── the standard measurement proof ─────────────────────────────────────────────
 
 /** The measurement proof's verdict: `honored` carries the per-standard values a pin
@@ -948,7 +1016,8 @@ export type StandardMeasurementsCheck =
     definitions: Record<string, string>;
     provenance: Record<string, string>;
   }
-  | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" };
+  | { status: "missing" | "stale" | "dirty" | "malformed" | "unavailable" }
+  | { status: "newer"; reason: string };
 
 /**
  * Record a green check's per-standard measured values against the HEAD pinned
@@ -985,9 +1054,15 @@ export async function recordStandardMeasurements(
   }
   let written = false;
   await bestEffort("proof-standard-measurements-record", async () => {
-    const existing = parseMeasurements(
-      await readTextIfExists(path) ?? "",
-    );
+    const existingRaw = await readTextIfExists(path);
+    if (existingRaw !== undefined) {
+      const format = inspectOnDiskJsonVersion(
+        "standardMeasurements",
+        existingRaw,
+      );
+      if (format.status === "newer") return;
+    }
+    const existing = parseMeasurements(existingRaw ?? "");
     const merged = existing !== undefined && existing.head === pin.head
       ? {
         values: { ...existing.values, ...values },
@@ -1010,7 +1085,13 @@ export async function recordStandardMeasurements(
       };
     await Deno.writeTextFile(
       path,
-      `${JSON.stringify({ head: pin.head, ...merged })}\n`,
+      `${
+        JSON.stringify({
+          version: ON_DISK_FORMATS.standardMeasurements.version,
+          head: pin.head,
+          ...merged,
+        })
+      }\n`,
     );
     written = true;
   });
@@ -1032,6 +1113,11 @@ export async function clearStandardMeasurements(
     return;
   }
   await bestEffort("proof-standard-measurements-clear", async () => {
+    const existing = await readTextIfExists(path);
+    if (existing !== undefined) {
+      const format = inspectOnDiskJsonVersion("standardMeasurements", existing);
+      if (format.status === "newer") return;
+    }
     await Deno.remove(path);
   });
 }
@@ -1043,7 +1129,7 @@ export async function clearStandardMeasurements(
  * red: `standards propose` needs the breached value and must distinguish a
  * missing metric or failed command from a measured regression. */
 const FreshStandardMeasurementEvidenceSchema = z.strictObject({
-  version: z.literal(1),
+  version: z.literal(ON_DISK_FORMATS.freshStandardMeasurementEvidence.version),
   head: z.string().min(1),
   values: z.record(z.string(), z.number().finite()),
   failed: z.array(z.string().min(1)),
@@ -1062,8 +1148,10 @@ export type FreshStandardMeasurementEvidenceCheck =
       | "missing"
       | "stale"
       | "dirty"
+      | "newer"
       | "malformed"
       | "unavailable";
+    readonly reason?: string;
   };
 
 /** Record only process-backed readings from this pass. Replays and deferrals do
@@ -1102,9 +1190,15 @@ export async function recordFreshStandardMeasurementEvidence(
   }
   let written = false;
   await bestEffort("proof-fresh-standard-evidence-record", async () => {
-    const existing = parseFreshStandardMeasurementEvidence(
-      await readTextIfExists(path) ?? "",
-    );
+    const existingRaw = await readTextIfExists(path);
+    if (existingRaw !== undefined) {
+      const format = inspectOnDiskJsonVersion(
+        "freshStandardMeasurementEvidence",
+        existingRaw,
+      );
+      if (format.status === "newer") return;
+    }
+    const existing = parseFreshStandardMeasurementEvidence(existingRaw ?? "");
     const mergedValues = existing?.head === evidenceHead
       ? { ...existing.values }
       : {};
@@ -1124,7 +1218,7 @@ export async function recordFreshStandardMeasurementEvidence(
     await atomicReplaceJson(
       path,
       {
-        version: 1,
+        version: ON_DISK_FORMATS.freshStandardMeasurementEvidence.version,
         head: evidenceHead,
         values: mergedValues,
         failed: [...mergedFailed].sort(),
@@ -1170,6 +1264,19 @@ export async function inspectFreshStandardMeasurementEvidence(
   }
   const evidence = parseFreshStandardMeasurementEvidence(raw);
   if (evidence === undefined) {
+    const format = inspectOnDiskJsonVersion(
+      "freshStandardMeasurementEvidence",
+      raw,
+    );
+    if (format.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage(
+          "freshStandardMeasurementEvidence",
+          format.found,
+        ),
+      };
+    }
     return { status: "malformed" };
   }
   const currentHead = await headSha(cwd);
@@ -1206,6 +1313,16 @@ export async function inspectStandardMeasurements(
   }
   const parsed = parseMeasurements(raw);
   if (parsed === undefined) {
+    const format = inspectOnDiskJsonVersion("standardMeasurements", raw);
+    if (format.status === "newer") {
+      return {
+        status: "newer",
+        reason: newerOnDiskFormatMessage(
+          "standardMeasurements",
+          format.found,
+        ),
+      };
+    }
     return { status: "malformed" };
   }
   const head = await headSha(cwd);
@@ -1230,6 +1347,7 @@ export async function inspectStandardMeasurements(
  * and each measurement's recorded duration (whole seconds; may be empty — a
  * pre-durations proof still parses). */
 export interface StandardMeasurements {
+  version: typeof ON_DISK_FORMATS.standardMeasurements.version;
   head: string;
   values: Record<string, number>;
   durations: Record<string, number>;
@@ -1287,6 +1405,8 @@ function parseMeasurements(
   if (typeof data !== "object" || data === null) {
     return undefined;
   }
+  const format = inspectOnDiskRecordVersion("standardMeasurements", data);
+  if (format.status !== "current") return undefined;
   const { head, values, durations, definitions, provenance } = data as {
     head?: unknown;
     values?: unknown;
@@ -1317,6 +1437,7 @@ function parseMeasurements(
     return undefined;
   }
   return {
+    version: ON_DISK_FORMATS.standardMeasurements.version,
     head,
     values: parsedValues,
     durations: parsedDurations,

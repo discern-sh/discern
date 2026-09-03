@@ -8,7 +8,13 @@
  * command, never a gc-opted-out one).
  */
 
-import { assert, assertEquals, assertExists, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
@@ -38,6 +44,7 @@ import {
   ensureResources,
   entriesForWorktree,
   gcOrphanResources,
+  inspectResourceEntry,
   listEntries,
   readEntry,
   readResourceSpecs,
@@ -46,6 +53,7 @@ import {
   resourceEnvName,
   writeEntry,
 } from "../src/engine/worktree/resources.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import {
   liveWorktreeGitKeys,
   liveWorktreePaths,
@@ -944,7 +952,7 @@ Deno.test("GC refuses a frozen destroy command that still carries a token", asyn
 
 /** A complete, well-formed ledger entry — the baseline the validation tests mutate. */
 const VALID_ENTRY = {
-  schema: 1,
+  schema: ON_DISK_FORMATS.resourceLedger.version,
   phase: "ready",
   seq: 0,
   project_slug: "proj",
@@ -971,7 +979,7 @@ Deno.test("readEntry validates the entry shape: a well-formed file loads", async
   });
 });
 
-Deno.test("readEntry skips a malformed, incomplete, foreign-major, or non-JSON file", async () => {
+Deno.test("readEntry skips a malformed, incomplete, newer, or non-JSON file", async () => {
   await withTempDir(async (dir) => {
     const write = async (name: string, value: unknown): Promise<string> => {
       const path = join(dir, name);
@@ -996,17 +1004,55 @@ Deno.test("readEntry skips a malformed, incomplete, foreign-major, or non-JSON f
       await readEntry(await write("missing.json", withoutKey)),
       undefined,
     );
-    // A future format major — skipped (forward-compat), as before.
-    assertEquals(
-      await readEntry(
-        await write("future.json", { ...VALID_ENTRY, schema: 2 }),
-      ),
-      undefined,
-    );
+    // A future format major is distinct from corruption.
+    const futurePath = await write("future.json", {
+      ...VALID_ENTRY,
+      schema: ON_DISK_FORMATS.resourceLedger.version + 1,
+    });
+    assertEquals(await readEntry(futurePath), undefined);
+    const future = await inspectResourceEntry(futurePath);
+    assert(future.status === "newer");
+    assertStringIncludes(future.reason, "written by a newer discern");
     // Not even JSON.
     assertEquals(
       await readEntry(await write("corrupt.json", "{not json")),
       undefined,
     );
+  });
+});
+
+Deno.test("resource ledger phase and forward-version policy come from the registry", async () => {
+  await withTempDir(async (dir) => {
+    const entry = { ...VALID_ENTRY, phase: "intent" as const };
+    await writeEntry(dir, entry);
+    const path = join(
+      dir,
+      "discern",
+      "resources",
+      `${entry.git_key}__${entry.resource_name}.json`,
+    );
+    const intent = await inspectResourceEntry(path);
+    assert(intent.status === "recorded");
+    assertEquals(intent.entry.schema, ON_DISK_FORMATS.resourceLedger.version);
+    assertEquals(intent.entry.phase, "intent");
+
+    await writeEntry(dir, { ...entry, phase: "ready" });
+    const ready = await inspectResourceEntry(path);
+    assert(ready.status === "recorded");
+    assertEquals(ready.entry.phase, "ready");
+
+    const futureBytes = `${
+      JSON.stringify({
+        ...ready.entry,
+        schema: ON_DISK_FORMATS.resourceLedger.version + 1,
+      })
+    }\n`;
+    await Deno.writeTextFile(path, futureBytes);
+    await assertRejects(
+      () => writeEntry(dir, entry),
+      Error,
+      "written by a newer discern",
+    );
+    assertEquals(await Deno.readTextFile(path), futureBytes);
   });
 });

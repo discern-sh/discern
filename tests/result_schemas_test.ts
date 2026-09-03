@@ -103,6 +103,7 @@ import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const RETIRED_STATUS_REFRESH_FIELDS = [
   "stale_generated",
@@ -1395,7 +1396,16 @@ const AWAIT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     assert(proofPath !== undefined);
     await Deno.mkdir(join(proofPath, ".."), { recursive: true });
     const depHead = await gitOut(dep, "rev-parse", "HEAD");
-    await Deno.writeTextFile(proofPath, `${depHead}\nline: gate green\n`);
+    await Deno.writeTextFile(
+      proofPath,
+      `${
+        JSON.stringify({
+          version: ON_DISK_FORMATS.gateProof.version,
+          head: depHead,
+          mode: "strict",
+        })
+      }\n`,
+    );
     const green = await awaitResult(dir, {
       green: "agent/await-dep",
       timeoutSeconds: 0,
