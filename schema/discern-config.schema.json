@@ -624,7 +624,7 @@
         },
         "inherit_env": {
           "default": [],
-          "description": "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
+          "description": "Environment values copied from the main checkout's configured env files into a new worktree. A value replaces an empty value or the first configured file's `<file>.example` default. The first env file is created at mode 0600 when absent; existing modes are unchanged.",
           "type": "array",
           "items": {
             "type": "string"
@@ -635,7 +635,7 @@
             ".env",
             ".env.local"
           ],
-          "description": "The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles.",
+          "description": "The env files the worktree lifecycle reads and writes, in precedence order: the last definition wins and a new value lands in the first existing file. Only declared inheritance may create the first file. Managed worktree values share one scoped marker.",
           "type": "array",
           "items": {
             "type": "string",
@@ -666,7 +666,7 @@
             "properties": {
               "create": {
                 "default": "",
-                "description": "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
+                "description": "Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An empty command is a clean no-op.",
                 "type": "string"
               },
               "destroy": {
@@ -676,7 +676,7 @@
               },
               "ensure": {
                 "default": "",
-                "description": "Reconcile drift or re-readiness at session start.",
+                "description": "Idempotently reconcile drift or re-readiness at session start.",
                 "type": "string"
               },
               "required": {

@@ -8,7 +8,7 @@
  * command, never a gc-opted-out one).
  */
 
-import { assert, assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { fakeEnv, pinnedTerminal, withTempDir } from "./helpers.ts";
@@ -24,18 +24,24 @@ import {
   worktreeBase,
   type WorktreeIdentity,
 } from "../src/engine/worktree/identity.ts";
-import { upsertEnvLine } from "../src/engine/worktree/env_file.ts";
-import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import {
+  upsertEnvLine,
+  WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
+  writeEnvVar,
+} from "../src/engine/worktree/env_file.ts";
+import { managedValuesMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import {
   createResources,
   destroyResources,
+  ensureResources,
   entriesForWorktree,
   gcOrphanResources,
   listEntries,
   readEntry,
   readResourceSpecs,
+  resourceCommandEnv,
   type ResourceContext,
   resourceEnvName,
   writeEntry,
@@ -79,7 +85,7 @@ Deno.test("resourceForId: deterministic, unique across worktrees + resources", (
   assertEquals(resourceForId("app", "feat", "db"), "app-feat-db");
 });
 
-Deno.test("resourceForId: project-namespaced (no cross-project collision)", () => {
+Deno.test("resourceForId: differing project slugs produce different handles", () => {
   // Same worktree id + resource, different project slug ⇒ different handle.
   assert(
     resourceForId("app-a", "feat", "db") !==
@@ -132,7 +138,8 @@ retries = 3
 
 Deno.test("upsertEnvLine: replace existing / append with + without trailing NL", () => {
   const env = fakeEnv();
-  const marker = generatedArtifactMarker(
+  const marker = managedValuesMarker(
+    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
     env,
   );
@@ -156,11 +163,13 @@ Deno.test("upsertEnvLine: replace existing / append with + without trailing NL",
 Deno.test("upsertEnvLine replaces the opposite attribution mode", () => {
   const attributedEnv = fakeEnv();
   const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
-  const attributed = generatedArtifactMarker(
+  const attributed = managedValuesMarker(
+    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
     attributedEnv,
   );
-  const sourceOnly = generatedArtifactMarker(
+  const sourceOnly = managedValuesMarker(
+    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
     sourceOnlyEnv,
   );
@@ -173,6 +182,24 @@ Deno.test("upsertEnvLine replaces the opposite attribution mode", () => {
     upsertEnvLine(`${sourceOnly}\nA=2\n`, "A", "3", attributedEnv),
     `${attributed}\nA=3\n`,
   );
+});
+
+Deno.test("worktree env writes create only on request at 0600 and preserve existing modes", async () => {
+  await withTempDir(async (root) => {
+    const envPath = join(root, ".env");
+    assertEquals(await writeEnvVar(root, "A", "1"), false);
+    assertEquals(await targetExists(envPath), false);
+
+    assertEquals(
+      await writeEnvVar(root, "A", "1", [".env"], { create: true }),
+      true,
+    );
+    assertEquals(((await Deno.stat(envPath)).mode ?? 0) & 0o777, 0o600);
+
+    await Deno.chmod(envPath, 0o640);
+    assertEquals(await writeEnvVar(root, "A", "2", [".env"]), true);
+    assertEquals(((await Deno.stat(envPath)).mode ?? 0) & 0o777, 0o640);
+  });
 });
 
 // ── the ledger + GC: a real git repo with linked worktrees ────────────────────
@@ -224,9 +251,8 @@ destroy = "rm -f ${markers}/@resource@.create"
 `;
 }
 
-/** A CREATE-ONLY counting resource — no `destroy` declared. The run-once marker
- * must still be written for it, so a re-entry does not re-run its non-idempotent
- * create. Appends a line per create so the count is observable. */
+/** A create-only counting resource. Its ready entry is the durable run-once
+ * evidence even though it has no destroy action. */
 function createOnlyCountingConfig(markers: string): string {
   return `[project]
 slug = "proj"
@@ -278,6 +304,11 @@ Deno.test("createResources writes a ledger entry and runs create; teardown destr
     const first = entries[0];
     assertExists(first);
     assertEquals(first.entry.resource_identity, handle);
+    assertEquals(first.entry.phase, "ready");
+    assertEquals(
+      first.entry.worktree_handle,
+      worktreeBase(settings.slug, identity.id),
+    );
 
     await destroyResources(ctx, await entriesForWorktree(common, key));
     assert(
@@ -327,8 +358,7 @@ Deno.test("createResources is idempotent: a provisioned resource skips create on
     const ctx = await ctxFor(wt);
 
     await createResources(ctx, identity, settings, common, key);
-    // Re-entering setup (a re-fired create hook, a recovered partial setup) must NOT
-    // re-run create — the ledger entry from the first run is the proof it already ran.
+    // Re-entering setup must not re-run create: the ready entry proves completion.
     await createResources(ctx, identity, settings, common, key);
 
     const handle = resourceForId(settings.slug, identity.id, "thing");
@@ -345,12 +375,137 @@ Deno.test("createResources is idempotent: a provisioned resource skips create on
   });
 });
 
+Deno.test("a failed optional create leaves intent, then cleanup runs before a successful retry", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "retry-intent");
+    const markers = join(dir, "markers");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create = "mkdir -p ${markers} && echo create >> ${markers}/attempts && touch ${markers}/partial && test -f ${markers}/allow"
+destroy = "echo cleanup >> ${markers}/cleanups && rm -f ${markers}/partial"
+required = false
+`,
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    const ctx = await ctxFor(wt);
+
+    assertEquals(
+      (await createResources(ctx, identity, settings, common, key)).failed,
+      ["thing"],
+    );
+    assertEquals((await listEntries(common))[0]?.entry.phase, "intent");
+    await Deno.writeTextFile(join(markers, "allow"), "");
+
+    assertEquals(
+      (await createResources(ctx, identity, settings, common, key)).failed,
+      [],
+    );
+    assertEquals(
+      await Deno.readTextFile(join(markers, "cleanups")),
+      "cleanup\n",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(markers, "attempts")),
+      "create\ncreate\n",
+    );
+    assertEquals((await listEntries(common))[0]?.entry.phase, "ready");
+  });
+});
+
+Deno.test("uncertain create intent without a frozen cleanup refuses a replay", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "unsafe-intent");
+    const attempts = join(dir, "attempts");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create = "echo create >> ${attempts} && false"
+required = false
+`,
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    const ctx = await ctxFor(wt);
+
+    await createResources(ctx, identity, settings, common, key);
+    await assertRejects(
+      () => createResources(ctx, identity, settings, common, key),
+      Error,
+      "cleanup could not prove a safe reset",
+    );
+    assertEquals(await Deno.readTextFile(attempts), "create\n");
+    assertEquals((await listEntries(common))[0]?.entry.phase, "intent");
+  });
+});
+
+Deno.test("resource create, ensure, and destroy derive the same two environment keys", async () => {
+  assertEquals(
+    resourceCommandEnv("thing", "resource-handle", "worktree-handle"),
+    {
+      DISCERN_RESOURCE_THING: "resource-handle",
+      DISCERN_WORKTREE: "worktree-handle",
+    },
+  );
+
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "env-contract");
+    const markers = join(dir, "markers");
+    const capture =
+      `mkdir -p ${markers} && env | sed -n '/^DISCERN_RESOURCE_THING=/p; /^DISCERN_WORKTREE=/p' | sort`;
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create = "${capture} > ${markers}/create"
+ensure = "${capture} > ${markers}/ensure"
+destroy = "${capture} > ${markers}/destroy"
+`,
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    const ctx = await ctxFor(wt);
+    await createResources(ctx, identity, settings, common, key);
+    await ensureResources(ctx, identity, settings);
+    await destroyResources(ctx, await entriesForWorktree(common, key));
+
+    const expected = await Deno.readTextFile(join(markers, "create"));
+    assertEquals(await Deno.readTextFile(join(markers, "ensure")), expected);
+    assertEquals(await Deno.readTextFile(join(markers, "destroy")), expected);
+    assertEquals(expected.split("\n").filter(Boolean).length, 2);
+
+    // Recreate, then let orphan GC use the same frozen destroy boundary.
+    await createResources(ctx, identity, settings, common, key);
+    await Deno.remove(wt, { recursive: true });
+    const gc = await gcOrphanResources({
+      commonGitDir: common,
+      cwd: dir,
+      liveGitKeys: new Set(),
+      livePaths: new Set(),
+      liveIdentities: new Set(),
+      dryRun: false,
+      log: quietLog(),
+    });
+    assertEquals(gc.failed, false);
+    assertEquals(await Deno.readTextFile(join(markers, "destroy")), expected);
+  });
+});
+
 Deno.test("createResources is idempotent for a CREATE-ONLY resource (no destroy): create runs exactly once across re-entries", async () => {
-  // The class: a run-once guard whose marker is only written for a SUBSET of
-  // members. The old code wrote the ledger entry (the marker) only when a
-  // `destroy` was declared, so a create-only resource had no marker at all and
-  // its non-idempotent create re-ran on every setup re-entry — against the
-  // documented run-once invariant. Every managed resource must now be marked.
+  // Ready evidence enrolls every managed resource, including one with no
+  // cleanup command.
   await withTempDir(async (dir) => {
     await mainRepo(dir);
     const wt = await addWorktree(dir, "create-only");
@@ -374,8 +529,7 @@ Deno.test("createResources is idempotent for a CREATE-ONLY resource (no destroy)
       "c\n",
       "a create-only resource re-ran create across setups (no run-once marker)",
     );
-    // Exactly one marker entry exists, and it records an empty destroy (nothing
-    // to tear down) — the marker's job is solely the run-once skip here.
+    // Exactly one ready entry exists, with an empty destroy action.
     const entries = await listEntries(common);
     assertEquals(
       entries.length,
@@ -383,6 +537,44 @@ Deno.test("createResources is idempotent for a CREATE-ONLY resource (no destroy)
       "create-only resource left no run-once marker",
     );
     assertEquals(entries[0]?.entry.destroy_command, "");
+    assertEquals(entries[0]?.entry.phase, "ready");
+  });
+});
+
+Deno.test("GC reclaims a non-ready orphan through its frozen cleanup", async () => {
+  await withTempDir(async (dir) => {
+    await mainRepo(dir);
+    const wt = await addWorktree(dir, "intent-orphan");
+    const marker = join(dir, "partial");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      `[project]
+slug = "proj"
+
+[worktree.resources.thing]
+create = "touch ${marker} && false"
+destroy = "rm -f ${marker}"
+required = false
+`,
+    );
+    const { settings, identity } = await identityOf(wt, wt);
+    const { common, key } = await commonAndKey(wt);
+    await createResources(await ctxFor(wt), identity, settings, common, key);
+    assertEquals((await listEntries(common))[0]?.entry.phase, "intent");
+    await Deno.remove(wt, { recursive: true });
+
+    const result = await gcOrphanResources({
+      commonGitDir: common,
+      cwd: dir,
+      liveGitKeys: new Set(),
+      livePaths: new Set(),
+      liveIdentities: new Set(),
+      dryRun: false,
+      log: quietLog(),
+    });
+    assertEquals(result.reclaimed.length, 1);
+    assertEquals(await targetExists(marker), false);
+    assertEquals((await listEntries(common)).length, 0);
   });
 });
 
@@ -711,10 +903,12 @@ Deno.test("GC refuses a frozen destroy command that still carries a token", asyn
     // Hand-write an entry whose destroy_command was never fully expanded.
     await writeEntry(common, {
       schema: 1,
+      phase: "ready",
       seq: 0,
       project_slug: "proj",
       git_key: "long-gone",
       worktree_id: "long-gone",
+      worktree_handle: "proj-long-gone",
       worktree_path: join(dir, "gone"),
       resource_name: "thing",
       resource_identity: "proj-long-gone-thing",
@@ -751,10 +945,12 @@ Deno.test("GC refuses a frozen destroy command that still carries a token", asyn
 /** A complete, well-formed ledger entry — the baseline the validation tests mutate. */
 const VALID_ENTRY = {
   schema: 1,
+  phase: "ready",
   seq: 0,
   project_slug: "proj",
   git_key: "gone",
   worktree_id: "gone",
+  worktree_handle: "proj-gone",
   worktree_path: "/tmp/gone",
   resource_name: "thing",
   resource_identity: "proj-gone-thing",

@@ -31,11 +31,22 @@ Run `discern identity` in the main checkout or a linked worktree and select the 
 | `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                               |
 | `--resources`       | Every declared resource as `name=handle`.                                             |
 
+| Identity limit                     | Exact boundary                                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Generated name slug                | At most 40 characters before the six-hex-character uniqueness tail.                                      |
+| `DISCERN_WORKTREE_ID` override     | 1–81 characters; first character alphanumeric, remainder letters, numbers, dots, dashes, or underscores. |
+| Port band                          | 2,000 ports, `17290` through `19289`.                                                                    |
+| `--site`                           | One DNS label of at most 63 characters; overlong id tails are hash-fitted.                               |
+| `--db`, `--worktree`, `--resource` | No product length clamp. Apply the destination system's limit; use `--site` for a DNS label.             |
+| Git metadata slug collision        | An id equal to the project slug, or the slug followed by digits, receives the `wt-` prefix.              |
+
 A linked worktree resolves its id from `DISCERN_WORKTREE_ID`, configured environment files, then Git metadata. Overrides accept letters, numbers, dots, dashes, and underscores. This read-only precedence never grants destructive ownership: cleanup uses the exact Git worktree entry plus discern's ready marker.
 
 Main identity uses the configured trunk and preserves it in `--branch`. Its seed changes only with that setting. Worktree seeds stay stable by branch; branches rotate order. Neither uses the clock nor secure entropy.
 
 `discern start` avoids trunk and live-sibling port collisions when possible. A crowded band or racing starts may collide; change `DISCERN_WORKTREE_ID` then.
+
+Every derived value is deterministic local coordination, with no security or global-uniqueness meaning. Port hashing, input normalization, and repeated project slugs can collide; the destination system still owns conflict detection and access control.
 
 ## Keep task metadata separate from identity
 
@@ -47,15 +58,15 @@ Moving a registered worktree retains its Git administrative directory and task m
 
 ## Inherit selected env values
 
-`[worktree].env_files` lists env-style files in precedence order. The default is `[".env", ".env.local"]`. Reads use the last file that defines a key. Writes update that last definition or place a new key in the first listed file.
+`[worktree].env_files` lists env-style files in precedence order. The default is `[".env", ".env.local"]`. Reads use the last file that defines a key. Writes update that last definition or place a new key in the first existing listed file. A write reconciles one `Worktree values managed … via [worktree] in discern.toml` marker in either attribution mode. Its scope is the discern-managed values within the shared file.
 
 Each entry may use any portable project-relative filename. It does not need an `.env` basename. discern removes leading `./` prefixes and refuses entries that name the same case-insensitive path.
 
 Reads may follow a symbolic link when its target stays inside the project. A missing or stale checkout, an unreadable file, or a link that leaves the project behaves as an absent env file. Before writing, discern refuses every symbolic-link component instead of modifying its target; configure the target path directly or replace the link with a regular file.
 
-`[worktree].inherit_env` names values copied from the main checkout into a new worktree. Inheritance creates the first env file when it is missing, so every declared value arrives. It copies only the named keys. The rest of the main checkout's local env stays there.
+`[worktree].inherit_env` names values copied from the main checkout into a new worktree. A value replaces an empty worktree value or the matching default in `<first-configured-env-file>.example`; a worktree-specific value is preserved. Inheritance creates the first configured env file at POSIX mode `0600` when it is missing and never changes an existing file's mode. It copies only the named keys. The rest of the main checkout's local env stays there.
 
-The configured env files can carry the values listed in the [environment-variable reference](https://discern.sh/docs/reference/environment-variables#worktree-environment). `[worktree].port` defaults to `false`; set it to `true` when project tooling reads the development-port value. The lifecycle records that value only when the setting is on and an env file exists. `discern identity --port` and the `@port@` setup token remain available either way. Resource handles are recorded when an env file exists. The id remains an optional override supplied by the project or user.
+The default configuration creates or changes no env file: inheritance names no values, port recording is off, and no resources are declared. Only declared inheritance may create the first configured file. Port and resource recording update an existing configured file or remain available through `discern identity`. The id remains an optional override supplied by the project or user.
 
 Identity commands work without an env file. Status, its Model Context Protocol (MCP) projection, and its resource expose the current checkout. Fleet rows derive each checkout's own id and port.
 
@@ -83,3 +94,4 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 - `@resource@` has no DNS length limit. Use `@site@` for a 63-character DNS label.
 - An env override applies only to the process's own worktree. Inspecting another path still resolves that target's identity.
 - The seed provides deterministic test-order replay. It carries no randomness or security meaning.
+- Identity handles and ports can collide and confer no ownership or access rights.

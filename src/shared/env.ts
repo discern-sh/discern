@@ -7,13 +7,11 @@
  * project root by walking up from the cwd to the nearest ancestor holding that
  * file.
  *
- * A project script is handed the `DISCERN_*` variables and reads config via `discern
- * config get` rather than sourcing shell helpers; no engine paths
- * (`DISCERN_ENGINE`/`DISCERN_LIB`) are exported, because the engine lives in the
- * binary, not on disk.
+ * A Project Script receives one fixed `DISCERN_*` environment and reads any
+ * other project facts through public commands such as `discern config get`.
  */
 
-import { dirname, join, SEPARATOR } from "@std/path";
+import { dirname, join, resolve, SEPARATOR } from "@std/path";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { fileExists, pathExists, realPathIfExists } from "./fs_presence.ts";
 import type { DiscernResult } from "./result.ts";
@@ -134,8 +132,6 @@ export interface ScriptEnv {
   root: string;
   /** Absolute path to the install config. */
   tomlPath: string;
-  /** The `[scripts].dir` value as configured (relative or absolute). */
-  scriptsDir: string;
   /** The project scripts directory resolved to an absolute path. */
   scriptsAbs: string;
   /** The integration branch (`[repository].trunk`, default "main"). */
@@ -147,10 +143,31 @@ export interface ScriptEnv {
  */
 export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
   return {
-    [DISCERN_ENVIRONMENT_VARIABLES.root]: e.root,
-    [DISCERN_ENVIRONMENT_VARIABLES.toml]: e.tomlPath,
-    [DISCERN_ENVIRONMENT_VARIABLES.scripts]: e.scriptsAbs,
-    [DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory]: e.scriptsDir,
+    [DISCERN_ENVIRONMENT_VARIABLES.root]: resolve(e.root),
+    [DISCERN_ENVIRONMENT_VARIABLES.toml]: resolve(e.tomlPath),
+    [DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory]: resolve(e.scriptsAbs),
     [DISCERN_ENVIRONMENT_VARIABLES.trunk]: e.mainBranch,
   };
+}
+
+/**
+ * Build a Project Script's complete child environment.
+ *
+ * Ordinary process values such as `PATH` survive, but every inherited or
+ * caller-supplied `DISCERN_*` value is removed before the four supported
+ * contract values are installed. This makes the exported namespace exact even
+ * when discern itself is running under internal diagnostics or a lock lease.
+ */
+export function projectScriptProcessEnv(
+  contract: ScriptEnv,
+  supplied: Readonly<Record<string, string>> = {},
+  ambient: Readonly<Record<string, string>> = Deno.env.toObject(),
+): Record<string, string> {
+  const clean: Record<string, string> = {};
+  for (const source of [ambient, supplied]) {
+    for (const [name, value] of Object.entries(source)) {
+      if (!name.startsWith("DISCERN_")) clean[name] = value;
+    }
+  }
+  return { ...clean, ...scriptEnvVars(contract) };
 }

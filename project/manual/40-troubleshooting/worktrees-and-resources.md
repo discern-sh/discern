@@ -114,7 +114,7 @@ discern identity
 discern identity --resource <name>
 ```
 
-- **A resource failed to provision.** Worktree setup reports the failing command's output. Fix the command or the environment it needs, then rerun the same lifecycle step — resource creation converges, and bounded retries are built in.
+- **A resource failed to provision.** Worktree setup reports the failing command's output and keeps the recorded intent visible. On retry, discern first runs the destroy action it froze before create, proves that uncertain state absent, and only then tries create again. If no safe destroy action was recorded, or cleanup fails, the retry refuses: reconcile the named external resource and follow the result's ledger recovery instead of running create again.
 - **Environment values didn't arrive.** Only variables named in `[worktree.inherit_env]` are passed through, and only files listed in `[worktree.env_files]` are copied into a new worktree. A value set in the main checkout after the worktree was created isn't retroactively copied. The [worktrees and status reference](../30-reference/worktrees-and-status.md) has the exact identity and environment contract.
 - **An orphaned resource lingers after a crash.** The resource ledger survives worktree removal precisely so garbage collection can find and destroy what a vanished worktree left behind — it acts only on resources discern recorded creating. `discern uninstall` refuses while provisioned resources remain, so nothing external is left orphaned on the way out.
 

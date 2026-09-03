@@ -79,6 +79,31 @@ Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", ()
   );
 });
 
+/** Every registered descendant command paired with its full command path. */
+function commandTree(
+  parent: Command,
+  prefix: readonly string[] = [],
+): Array<{ path: string; command: Command }> {
+  const entries: Array<{ path: string; command: Command }> = [];
+  for (const command of parent.getCommands(true)) {
+    const parts = [...prefix, command.getName()];
+    entries.push({ path: parts.join(" "), command });
+    entries.push(...commandTree(command, parts));
+  }
+  return entries;
+}
+
+Deno.test("every registered CLI command has a non-empty description", () => {
+  const missing = commandTree(buildCli(false) as unknown as Command)
+    .filter(({ command }) => command.getDescription().trim() === "")
+    .map(({ path }) => path);
+  assertEquals(
+    missing,
+    [],
+    "every reachable command, including hidden provider hooks, needs help text",
+  );
+});
+
 Deno.test("every MCP tool maps to a real verb, with explicit non-engine additions and tool-less engine verbs", () => {
   const toolCommandPaths = TOOLS.map((tool) => verbOf(tool.name));
   const toolVerbs = toolCommandPaths.map((path) =>

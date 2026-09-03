@@ -3,8 +3,8 @@ import { DISCERN_REPOSITORY_SLUG } from "./product_identity.ts";
 /**
  * Every `DISCERN_*` environment-variable contract used by this repository.
  *
- * Definitions are the single source of truth for membership, purpose,
- * lifecycle, and public documentation. Runtime readers and writers derive
+ * Definitions are the single source of truth for membership, purpose, and
+ * public documentation. Runtime readers and writers derive
  * their keys from them. Shell, workflow, config, documentation, and fixture
  * uses are held to them by the environment-variable enrolment guards.
  * `DISCERN_RESOURCE_<NAME>` represents the generated resource-handle family.
@@ -77,19 +77,11 @@ export const DISCERN_ENVIRONMENT_VARIABLE_GROUPS = [
     title: "Test controls",
     description: "Coordination values used only by discern's test suite.",
   },
-  {
-    id: "retired",
-    title: "Retired",
-    description: "Old contracts still recognized for migration diagnostics.",
-  },
 ] as const satisfies readonly DiscernEnvironmentVariableGroup[];
 
 /** A registered purpose-group id. */
 export type DiscernEnvironmentVariableGroupId =
   (typeof DISCERN_ENVIRONMENT_VARIABLE_GROUPS)[number]["id"];
-
-/** Whether a registered environment contract remains active. */
-export type DiscernEnvironmentVariableLifecycle = "live" | "retired";
 
 /** Public reference copy or the reason a contract stays internal. */
 export type DiscernEnvironmentVariableDocumentation =
@@ -106,16 +98,14 @@ export type DiscernEnvironmentVariableDocumentation =
 export interface DiscernEnvironmentVariableDefinition {
   readonly name: `DISCERN_${string}`;
   readonly group: DiscernEnvironmentVariableGroupId;
-  readonly lifecycle: DiscernEnvironmentVariableLifecycle;
   readonly documentation: DiscernEnvironmentVariableDocumentation;
 }
 
-/** Every live or intentionally recognized `DISCERN_*` environment contract. */
+/** Every supported `DISCERN_*` environment contract. */
 export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   repository: {
     name: "DISCERN_REPO",
     group: "installation",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -125,7 +115,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   version: {
     name: "DISCERN_VERSION",
     group: "installation",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -135,7 +124,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   binaryDirectory: {
     name: "DISCERN_BIN_DIR",
     group: "installation",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -146,7 +134,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   trunk: {
     name: "DISCERN_TRUNK",
     group: "runtime-overrides",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -156,7 +143,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   noAttribution: {
     name: "DISCERN_NO_ATTRIBUTION",
     group: "runtime-overrides",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -167,7 +153,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   projectSlug: {
     name: "DISCERN_PROJECT_SLUG",
     group: "worktree-identity",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -177,7 +162,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   worktreeBranchPrefix: {
     name: "DISCERN_WORKTREE_BRANCH_PREFIX",
     group: "worktree-identity",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -187,7 +171,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   worktreeId: {
     name: "DISCERN_WORKTREE_ID",
     group: "worktree-identity",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -198,7 +181,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   root: {
     name: "DISCERN_ROOT",
     group: "project-scripts",
-    lifecycle: "live",
     documentation: {
       public: true,
       description: "Absolute project root exported to a Project Script.",
@@ -207,37 +189,24 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   toml: {
     name: "DISCERN_TOML",
     group: "project-scripts",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
         "Absolute path to the active `discern.toml` exported to a Project Script.",
     },
   },
-  scripts: {
-    name: "DISCERN_SCRIPTS",
+  scriptsDirectory: {
+    name: "DISCERN_SCRIPTS_DIR",
     group: "project-scripts",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
         "Absolute configured Project Scripts directory exported to a Project Script.",
     },
   },
-  scriptsDirectory: {
-    name: "DISCERN_SCRIPTS_DIR",
-    group: "project-scripts",
-    lifecycle: "live",
-    documentation: {
-      public: true,
-      description:
-        "Configured `[scripts].dir` value exported to a Project Script.",
-    },
-  },
   checkpointInput: {
     name: "DISCERN_CHECKPOINT_INPUT",
     group: "checkpoint-commands",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -248,7 +217,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   worktreePort: {
     name: "DISCERN_WORKTREE_PORT",
     group: "worktree-environment",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -258,7 +226,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   worktree: {
     name: "DISCERN_WORKTREE",
     group: "worktree-environment",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -268,7 +235,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   resource: {
     name: "DISCERN_RESOURCE_<NAME>",
     group: "worktree-environment",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
@@ -279,28 +245,25 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   experimentalMcpPreload: {
     name: "DISCERN_EXPERIMENTAL_MCP_PRELOAD",
     group: "experimental-features",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
-        "Set to `1` for `discern refresh` to request eager discern MCP loading from configured Claude Code and GitHub Copilot integrations.",
+        "Requests eager discern MCP loading in supported provider integrations when set to `1`.",
     },
   },
   experimentalAwaitCallSeconds: {
     name: "DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS",
     group: "experimental-features",
-    lifecycle: "live",
     documentation: {
       public: true,
       description:
-        "Set to a positive whole number of seconds to cap one automatic `await` call below its transport-safe maximum; results report `timeout_basis: cache-window` when it decides the bound.",
+        "Sets a positive whole-number cap for one experimental automatic await call.",
     },
   },
 
   crashProbe: {
     name: "DISCERN_CRASH_PROBE",
     group: "diagnostics",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Injects deterministic failures for discern's crash-path tests.",
@@ -309,7 +272,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   interactionTrace: {
     name: "DISCERN_INTERACTION_TRACE",
     group: "diagnostics",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -320,7 +282,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   home: {
     name: "DISCERN_HOME",
     group: "repository-development",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -330,7 +291,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   templatesDirectory: {
     name: "DISCERN_TEMPLATES_DIR",
     group: "repository-development",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Overrides bundled template discovery in source and test runs.",
@@ -339,7 +299,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   docsDirectory: {
     name: "DISCERN_DOCS_DIR",
     group: "repository-development",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Overrides bundled manual discovery in source and test runs.",
@@ -348,7 +307,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   gateTestReporter: {
     name: "DISCERN_GATE_TEST_REPORTER",
     group: "repository-development",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -358,7 +316,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   designSystemPath: {
     name: "DISCERN_DESIGN_SYSTEM_PATH",
     group: "repository-development",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -369,7 +326,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   deskSession: {
     name: "DISCERN_DESK_SESSION",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Prevents a desk-launched process from opening a nested desk.",
@@ -378,7 +334,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testSlot: {
     name: "DISCERN_TEST_SLOT",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -388,7 +343,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   spawnedBy: {
     name: "DISCERN_SPAWNED_BY",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -398,7 +352,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   operationLockDelegation: {
     name: "DISCERN_OPERATION_LOCK_DELEGATION",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -408,7 +361,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   setupDeno: {
     name: "DISCERN_SETUP_DENO",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Carries the Deno executable into a source-engine re-entry.",
@@ -417,7 +369,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   setupConfig: {
     name: "DISCERN_SETUP_CONFIG",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Carries the config path into a source-engine re-entry.",
@@ -426,7 +377,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   setupMain: {
     name: "DISCERN_SETUP_MAIN",
     group: "process-internals",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Carries the source entrypoint into a source-engine re-entry.",
@@ -436,7 +386,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testMcpReadinessTimeoutMs: {
     name: "DISCERN_TEST_MCP_READINESS_TIMEOUT_MS",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Bounds MCP readiness waits in the repository test suite.",
@@ -445,7 +394,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testMcpTimeoutMs: {
     name: "DISCERN_TEST_MCP_TIMEOUT_MS",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Bounds MCP request waits in the repository test suite.",
@@ -454,7 +402,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testAcceptanceJournal: {
     name: "DISCERN_TEST_ACCEPTANCE_JOURNAL",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason:
@@ -464,7 +411,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testEffortGrant: {
     name: "DISCERN_TEST_EFFORT_GRANT",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Passes an effort-grant fixture path between test processes.",
@@ -473,7 +419,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testMainRefLock: {
     name: "DISCERN_TEST_MAIN_REF_LOCK",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Passes a main-ref lock fixture path between test processes.",
@@ -482,7 +427,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testWorktree: {
     name: "DISCERN_TEST_WORKTREE",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Passes a worktree fixture path between test processes.",
@@ -491,7 +435,6 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testAcceptPaused: {
     name: "DISCERN_TEST_ACCEPT_PAUSED",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Coordinates an acceptance pause between test processes.",
@@ -500,21 +443,9 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
   testAcceptRelease: {
     name: "DISCERN_TEST_ACCEPT_RELEASE",
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "Coordinates an acceptance release between test processes.",
-    },
-  },
-
-  retiredProjectScriptLibrary: {
-    name: "DISCERN_LIB",
-    group: "retired",
-    lifecycle: "retired",
-    documentation: {
-      public: false,
-      reason:
-        "Doctor recognizes the retired Project Script library variable for a migration diagnostic.",
     },
   },
 } as const satisfies Readonly<
@@ -582,6 +513,37 @@ export function environmentVariableNamesForGroup<
         .map(([key, definition]) => [key, definition.name]),
     ),
   ) as EnvironmentVariableNamesForGroup<Definitions, Group>;
+}
+
+/** Whether one concrete name belongs to a registered name or family. */
+export function environmentVariableDefinitionMatches(
+  definition: Pick<DiscernEnvironmentVariableDefinition, "name">,
+  name: string,
+): boolean {
+  if (!definition.name.includes("<NAME>")) return definition.name === name;
+  const [prefix, suffix] = definition.name.split("<NAME>") as [string, string];
+  return name.startsWith(prefix) && name.endsWith(suffix) &&
+    name.length > prefix.length + suffix.length &&
+    /^[A-Z0-9_]+$/.test(
+      name.slice(prefix.length, name.length - suffix.length),
+    );
+}
+
+/**
+ * Whether a `DISCERN_*` reference is supported inside a Project Script.
+ *
+ * The allowed universe is derived from the Project Script export contract plus
+ * the worktree-environment family a project's own env loader may expose.
+ */
+export function projectScriptSupportsEnvironmentName(name: string): boolean {
+  return Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
+    .filter((definition) =>
+      definition.group === "project-scripts" ||
+      definition.group === "worktree-environment"
+    )
+    .some((definition) =>
+      environmentVariableDefinitionMatches(definition, name)
+    );
 }
 
 /** The public subset of any environment-variable definition registry. */

@@ -141,7 +141,6 @@ Deno.test("future public definitions auto-render while future internal definitio
   const futurePublic = {
     name: futurePublicName,
     group: "experimental-features",
-    lifecycle: "live",
     documentation: {
       public: true,
       description: "A synthetic public control.",
@@ -150,7 +149,6 @@ Deno.test("future public definitions auto-render while future internal definitio
   const futureInternal = {
     name: futureInternalName,
     group: "test-controls",
-    lifecycle: "live",
     documentation: {
       public: false,
       reason: "A synthetic internal control.",
@@ -179,6 +177,36 @@ Deno.test("future public definitions auto-render while future internal definitio
     "experimental-features",
   );
   assertEquals(experiments.futurePublic, futurePublicName);
+});
+
+Deno.test("every experimental environment variable is publicly documented", () => {
+  const experiments = Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
+    .filter((definition) => definition.group === "experimental-features");
+  assert(experiments.length > 0, "the experimental group has members");
+  for (const definition of experiments) {
+    assertEquals(
+      definition.documentation.public,
+      true,
+      `${definition.name}: experimental controls are public contracts`,
+    );
+  }
+});
+
+Deno.test("Project Script path variables document their absolute values", () => {
+  for (
+    const definition of Object.values(DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS)
+  ) {
+    if (
+      definition.documentation.public &&
+      definition.group === "project-scripts" &&
+      (definition.name.endsWith("_DIR") || definition.name.endsWith("_PATH"))
+    ) {
+      assert(
+        definition.documentation.description.includes("Absolute"),
+        `${definition.name}: public path contract must state that it is absolute`,
+      );
+    }
+  }
 });
 
 Deno.test("published manual pages never name internal environment variables", async () => {

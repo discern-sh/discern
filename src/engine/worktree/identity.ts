@@ -63,11 +63,18 @@ export {
  * number Hardy dismissed as dull and Ramanujan discerned as the smallest
  * expressible as a sum of two cubes in two ways (1³+12³ = 9³+10³).
  */
-const PORT_BASE = 17290;
-/** The width of the port band hashed into. */
-const PORT_SPAN = 2000;
-/** The DNS label length limit a site/host name must fit within. */
-const DNS_LABEL_LIMIT = 63;
+export const WORKTREE_IDENTITY_CONTRACT = Object.freeze(
+  {
+    checksum: "posix-cksum",
+    portBase: 17290,
+    portSpan: 2000,
+    dnsLabelLimit: 63,
+    databaseInputs: ["project-slug", "worktree-id"],
+    branchInputs: ["branch-prefix", "worktree-id"],
+    seedInput: "full-branch",
+    slugCollisionPrefix: "wt-",
+  } as const,
+);
 /** Validation pattern for an explicit `DISCERN_WORKTREE_ID` override. */
 const OVERRIDE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$/;
 
@@ -83,7 +90,7 @@ export interface WorktreeIdentity {
   port: number;
   /** The database-name-safe identity, e.g. `my_app_wt_feature`. */
   db: string;
-  /** The explicit deterministic Deno test shuffle seed. */
+  /** The public deterministic seed derived from the full branch name. */
   seed: number;
 }
 
@@ -145,11 +152,12 @@ export function dbNameForId(slug: string, id: string): string {
  * no shared registry.
  */
 export function portForId(id: string): number {
-  return PORT_BASE + (cksumString(id) % PORT_SPAN);
+  return WORKTREE_IDENTITY_CONTRACT.portBase +
+    (cksumString(id) % WORKTREE_IDENTITY_CONTRACT.portSpan);
 }
 
 /**
- * Derive the explicit test-order seed from the full branch name. The POSIX
+ * Derive the public deterministic seed from the full branch name. The POSIX
  * `cksum` family is the same frozen structured-state hash used by the port
  * band; unlike worktree-id minting, this consumes neither clock nor entropy.
  */
@@ -165,7 +173,7 @@ export function seedForBranch(branch: string): number {
  * `keep` landing on a dash boundary yields the documented double dash).
  */
 export function fitSiteId(slug: string, id: string): string {
-  const maxIdLen = DNS_LABEL_LIMIT - slug.length - 1;
+  const maxIdLen = WORKTREE_IDENTITY_CONTRACT.dnsLabelLimit - slug.length - 1;
   if (id.length <= maxIdLen) {
     return id;
   }
@@ -183,8 +191,8 @@ export function siteForId(slug: string, id: string): string {
  * The worktree's resource-agnostic base handle: `<slug>-<id>` sanitized (the
  * `@worktree@` token). Like {@link siteForId} but NOT DNS-fitted — a plain,
  * predictable, project-namespaced name a generic external resource manager can
- * use. Deterministic per worktree; the slug prefix keeps two projects' worktrees
- * from ever colliding on the same host.
+ * use. Deterministic per worktree; differing slugs separate projects on the same
+ * host, while callers still own collision handling in their external system.
  */
 export function worktreeBase(slug: string, id: string): string {
   return sanitizeSlug(`${slug}-${id}`);
@@ -194,9 +202,10 @@ export function worktreeBase(slug: string, id: string): string {
  * A named resource's per-worktree handle: `<slug>-<id>-<name>` sanitized (the
  * `@resource@` token, bound to the resource whose `create`/`destroy`/`ensure` is
  * running). Deterministic (same worktree + name ⇒ same handle), unique across
- * worktrees (the id) and across resources (the name), namespaced by project (the
- * slug prefix ⇒ cross-project non-collision), and shell/CLI/resource-name-safe
- * (sanitized to `[a-z0-9-]`). Unclamped, matching {@link dbNameForId}'s
+ * worktrees (the id) and across ordinary resource names, namespaced by project,
+ * and shell/CLI/resource-name-safe (sanitized to `[a-z0-9-]`). Sanitization can
+ * collapse distinct raw inputs, so the handle is coordination, not a global
+ * uniqueness or authorization primitive. Unclamped, matching {@link dbNameForId}'s
  * convention — a resource that needs a length-bounded DNS label uses `@site@`.
  */
 export function resourceForId(slug: string, id: string, name: string): string {
@@ -291,7 +300,7 @@ export function worktreeIdFromGitKey(
   }
   return id === settings.slug ||
       new RegExp(`^${escapeRe(settings.slug)}[0-9]+$`).test(id)
-    ? `wt-${id}`
+    ? `${WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix}${id}`
     : id;
 }
 

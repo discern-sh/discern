@@ -436,6 +436,8 @@ export const ERROR_SLUGS = [
   "report_only_proof",
   "schema_version_too_new",
   "setup_plan_failed",
+  "script_not_executable",
+  "script_not_a_command",
   "skills_eject_failed",
   "tables_malformed",
   "templates_not_found",

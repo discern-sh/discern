@@ -26,6 +26,7 @@ import {
   seedForBranch,
   siteForId,
   validateOverrideId,
+  WORKTREE_IDENTITY_CONTRACT,
 } from "../src/engine/worktree/identity.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
@@ -52,6 +53,8 @@ interface ParityFixture {
   identity: {
     slug: string;
     branch_prefix: string;
+    port_band: { base: number; span: number };
+    site_dns_label_limit: number;
     cases: IdentityCase[];
   };
 }
@@ -65,6 +68,11 @@ const PARITY_FIXTURE_SCHEMA = z.object({
   identity: z.object({
     slug: z.string(),
     branch_prefix: z.string(),
+    port_band: z.object({
+      base: z.number().int().positive(),
+      span: z.number().int().positive(),
+    }),
+    site_dns_label_limit: z.number().int().positive(),
     cases: z.array(z.object({
       id: z.string(),
       port: z.number().int().positive(),
@@ -94,6 +102,32 @@ Deno.test("POSIX cksum parity vectors", () => {
       `cksum('${v.input}') should be ${v.crc}`,
     );
   }
+});
+
+Deno.test("the declared identity contract matches the frozen parity fixture", () => {
+  assertEquals(WORKTREE_IDENTITY_CONTRACT.checksum, "posix-cksum");
+  assertEquals(
+    WORKTREE_IDENTITY_CONTRACT.portBase,
+    fixture.identity.port_band.base,
+  );
+  assertEquals(
+    WORKTREE_IDENTITY_CONTRACT.portSpan,
+    fixture.identity.port_band.span,
+  );
+  assertEquals(
+    WORKTREE_IDENTITY_CONTRACT.dnsLabelLimit,
+    fixture.identity.site_dns_label_limit,
+  );
+  assertEquals(WORKTREE_IDENTITY_CONTRACT.databaseInputs, [
+    "project-slug",
+    "worktree-id",
+  ]);
+  assertEquals(WORKTREE_IDENTITY_CONTRACT.branchInputs, [
+    "branch-prefix",
+    "worktree-id",
+  ]);
+  assertEquals(WORKTREE_IDENTITY_CONTRACT.seedInput, "full-branch");
+  assertEquals(WORKTREE_IDENTITY_CONTRACT.slugCollisionPrefix, "wt-");
 });
 
 Deno.test("deriveIdentity reproduces the shell engine's identity vectors", () => {

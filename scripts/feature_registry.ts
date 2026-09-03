@@ -1919,15 +1919,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "project-scripts",
         title: "Project scripts",
         what:
-          "Any executable dropped under `[scripts].dir` becomes `discern scripts <name>`: language-agnostic, `DISCERN_*` environment exported, arguments forwarded unchanged, and an optional `# desc:` line for the listing. Scripts occupy their own namespace, so built-in verb names stay legal.",
+          "Any executable dropped under `[scripts].dir` becomes `discern scripts <name>`: its direct filename is resolved literally, it runs from the project root with the documented four-variable `DISCERN_*` environment, arguments are forwarded unchanged, and an optional `# desc:` line supplies the listing text. Scripts occupy their own namespace, so built-in verb names stay legal.",
         why:
-          "The project's own tooling gets discern's context — root, config, worktree identity — without wrapper boilerplate.",
+          "The project's own tooling gets the project root, active config, scripts directory, and resolved trunk without wrapper boilerplate or ambient discern capabilities.",
         plain: {
           title: "The project's own instructions",
           what:
-            "Any runnable file placed under `[scripts].dir` becomes `discern scripts <name>`: written in any language, handed the `DISCERN_*` facts about the project, with extra choices passed through unchanged and an optional `# desc:` line for the listing. These names live in their own clearly marked area, so built-in instruction names stay legal.",
+            "Any runnable file placed under `[scripts].dir` becomes `discern scripts <name>`: its direct filename is taken literally, it runs from the project's root with four named project facts, and extra choices pass through unchanged. An optional `# desc:` line supplies its listing text. These names live in their own clearly marked area, so built-in instruction names stay legal.",
           why:
-            "The project's own tooling gets discern's knowledge — the project's location, settings, and working-copy identity — without repeated setup code in every file.",
+            "The project's own tooling gets the project location, active settings file, scripts directory, and trunk without repeated setup code or hidden capabilities in every file.",
         },
         surfaces: ["verb:scripts"],
       },

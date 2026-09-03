@@ -39,6 +39,10 @@ export interface OwnedChildOptions {
   readonly cwd?: string;
   /** Environment values added to the inherited environment. */
   readonly env?: Record<string, string>;
+  /** Start from an empty environment instead of inheriting the parent. */
+  readonly clearEnv?: boolean;
+  /** Delegate currently held operation locks. Defaults to true. */
+  readonly delegateOperationLocks?: boolean;
   /** Keep this process alive after an interrupt once the child is reaped. */
   readonly resumeAfterInterrupt?: boolean;
 }
@@ -175,7 +179,13 @@ export async function runOwnedChild(
       new Deno.Command(command, {
         args: [...(opts.args ?? [])],
         ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
-        env: { ...opts.env, ...operationLockChildEnv() },
+        clearEnv: opts.clearEnv ?? false,
+        env: {
+          ...opts.env,
+          ...((opts.delegateOperationLocks ?? true)
+            ? operationLockChildEnv()
+            : {}),
+        },
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

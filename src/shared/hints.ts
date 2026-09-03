@@ -4046,6 +4046,8 @@ export const ERROR_FAILURE_RECOVERY = {
   renamed_command: "evidence",
   renamed_config_key: "evidence",
   schema_version_too_new: "evidence",
+  script_not_executable: "evidence",
+  script_not_a_command: "evidence",
   setup_plan_failed: "evidence",
   skills_eject_failed: "evidence",
   tables_malformed: "evidence",

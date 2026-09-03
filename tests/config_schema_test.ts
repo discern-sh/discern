@@ -70,7 +70,9 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.resources, {});
   assertEquals(c.worktree.setup.steps, []);
   assertEquals(c.worktree.setup.ensure, []);
+  assertEquals(c.worktree.root, "");
   assertEquals(c.worktree.inherit_env, []);
+  assertEquals(c.worktree.env_files, [".env", ".env.local"]);
   assertEquals(c.worktree.ignored_file_drift, true);
   assertEquals(c.worktree.port, false);
   assertEquals(c.coupling.in_gate, true);

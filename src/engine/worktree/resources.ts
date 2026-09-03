@@ -19,8 +19,8 @@
  *
  * Safety invariants (each pins a way GC could otherwise destroy the wrong thing):
  *  - the ledger keys on the git admin-dir basename (`git_key`), never the path;
- *  - `destroy` is the command FROZEN (fully expanded) at create time — the worktree
- *    is gone at GC, so identity cannot be re-derived;
+ *  - ownership, worktree handle, and `destroy` (fully expanded) are persisted as
+ *    an `intent` before create; only a successful create advances it to `ready`;
  *  - a frozen command still carrying an `@token@` is refused, never half-run;
  *  - an orphan whose identity is currently owned by a LIVE worktree is kept;
  *  - deletion is compare-and-swap, so a reused key's fresh entry is never dropped.
@@ -49,8 +49,8 @@ import { gitKeyIsLive, WorktreeGitError, writeWorktreeEnvVar } from "./git.ts";
 import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 
-/** The ledger entry format version (forward-compat: GC skips unknown majors). */
-const LEDGER_SCHEMA = 1;
+/** The resource-ledger format version. Registered with every durable format. */
+export const RESOURCE_LEDGER_SCHEMA = 1;
 
 /** The minimal slice of the lifecycle context the resource layer needs (kept
  * structural so it never imports `LifecycleContext` — that would cycle). */
@@ -101,7 +101,9 @@ export class WorktreeResourceError extends WorktreeGitError {
  * format) is skipped, never half-read. */
 const resourceEntrySchema = z.object({
   /** Entry-format major; a foreign/newer value fails validation and is skipped. */
-  schema: z.literal(LEDGER_SCHEMA),
+  schema: z.literal(RESOURCE_LEDGER_SCHEMA),
+  /** Create reconciliation phase: uncertain ownership intent or proven ready. */
+  phase: z.enum(["intent", "ready"]),
   /** Document-order index at creation — destroy runs in reverse. */
   seq: z.number(),
   project_slug: z.string(),
@@ -109,6 +111,8 @@ const resourceEntrySchema = z.object({
   git_key: z.string(),
   /** The resolved worktree id (diagnostic; may differ from git_key via overrides). */
   worktree_id: z.string(),
+  /** Frozen base handle supplied to create, ensure, and destroy commands. */
+  worktree_handle: z.string(),
   /** Canonical worktree path at write time (secondary GC guard + label). */
   worktree_path: z.string(),
   resource_name: z.string(),
@@ -346,14 +350,12 @@ async function canonical(path: string): Promise<string> {
 // ── setup: create ─────────────────────────────────────────────────────────────
 
 /**
- * Create every declared resource in document order. For every MANAGED resource
- * (one declaring a `create` and/or a `destroy`), the ledger entry is written FIRST
- * — an intent-log, so a crash mid-create is still GC-able, AND the run-once marker
- * that makes a setup re-entry skip an already-provisioned resource — then `create`
- * runs. A create-only resource records an empty `destroy_command` (nothing to tear
- * down) but is still marked, so its non-idempotent create is never re-run. A failed
- * `create` aborts setup when `required` (the default), else warns and continues.
- * No-op for a resource with neither command.
+ * Create every declared resource in document order. A managed resource persists
+ * complete ownership and cleanup intent before create. A successful create is the
+ * only transition to `ready`; re-entry skips only `ready`. Re-entry seeing an
+ * `intent` first runs its frozen destroy action and compare-and-swap removes the
+ * uncertain state. Without a safe, successful cleanup action setup refuses rather
+ * than rerunning a possibly non-idempotent create. No-op for an inert resource.
  */
 export async function createResources(
   ctx: ResourceContext,
@@ -373,22 +375,43 @@ export async function createResources(
     if (spec.create === "" && spec.destroy === "") {
       continue; // an inert resource — nothing to manage
     }
-    // Already provisioned? A ledger entry for this (worktree, resource) is the proof
-    // `create` already ran — it is the intent-log written just before create. Re-
-    // entering setup (a re-fired create hook, a recovered partial setup, an explicit
-    // `discern worktree setup`) must NOT re-run create: a `createdb` / `docker run --name`
-    // is not idempotent, and its "already exists" non-zero exit would abort an
-    // already-good worktree. Skip it; session-start `ensure` re-readies it if asked.
-    // The marker is written for EVERY managed resource (create-only included), so
-    // the run-once guard covers all of them, not just the destroy-declaring subset.
-    if (
-      (await readEntry(entryPath(commonGitDir, gitKey, spec.name))) !==
-        undefined
-    ) {
+    const path = entryPath(commonGitDir, gitKey, spec.name);
+    const existingText = await readTextIfExists(path);
+    const existing = await readEntry(path);
+    if (existingText !== undefined && existing === undefined) {
+      throw new WorktreeResourceError(
+        spec.name,
+        "create",
+        `Worktree resource '${spec.name}' has unreadable ownership evidence at ${path}. ` +
+          `Restore a valid ledger entry or prove and remove the stale file before retrying setup.`,
+      );
+    }
+    if (existing?.phase === "ready") {
       ctx.log.info(
         `Worktree resource '${spec.name}' already provisioned — skipping create.`,
       );
       continue;
+    }
+    if (existing?.phase === "intent") {
+      ctx.log.warn(
+        `Worktree resource '${spec.name}' has uncertain create intent — cleaning it before retry.`,
+      );
+      if (
+        !(await cleanupUncertainIntent(
+          path,
+          existing,
+          ctx.cwd,
+          ctx.log,
+          scheduler,
+        ))
+      ) {
+        throw new WorktreeResourceError(
+          spec.name,
+          "create",
+          `Worktree resource '${spec.name}' may have been partially created, and its frozen cleanup could not prove a safe reset. ` +
+            `Repair or remove the external resource, then reconcile its ledger evidence before retrying setup.`,
+        );
+      }
     }
     const resolver = buildTokenResolver(
       identity,
@@ -403,16 +426,14 @@ export async function createResources(
       spec.name,
     );
 
-    // The intent-log / run-once marker: written FIRST for every managed resource
-    // (past the inert-skip above, so create and/or destroy is non-empty). A
-    // create-only resource records an empty `destroy_command` — nothing to tear
-    // down or GC — but its presence is what stops a re-entry re-running create.
-    await writeEntry(commonGitDir, {
-      schema: LEDGER_SCHEMA,
+    const intent: ResourceEntry = {
+      schema: RESOURCE_LEDGER_SCHEMA,
+      phase: "intent",
       seq: idx,
       project_slug: ctx.config.project.slug,
       git_key: gitKey,
       worktree_id: identity.id,
+      worktree_handle: worktreeBase(settings.slug, identity.id),
       worktree_path: worktreePath,
       resource_name: spec.name,
       resource_identity: resourceIdentity,
@@ -421,14 +442,19 @@ export async function createResources(
       retries: spec.retries,
       gc: spec.gc,
       created_at: wallTimeIso(clock.wallNow()),
-    });
+    };
+    await writeEntry(commonGitDir, intent);
 
     if (spec.create !== "") {
       ctx.log.info(`Creating worktree resource '${spec.name}'…`);
       const ok = await runWithRetries(
         await expandTokens(spec.create, resolver),
         ctx.cwd,
-        resourceCommandEnv(spec.name, resourceIdentity, settings, identity),
+        resourceCommandEnv(
+          spec.name,
+          resourceIdentity,
+          worktreeBase(settings.slug, identity.id),
+        ),
         spec.retries,
         ctx.log,
         scheduler,
@@ -447,10 +473,40 @@ export async function createResources(
           `Worktree resource '${spec.name}' create failed (required = false) — continuing.`,
         );
         failed.push(spec.name);
+        continue;
       }
     }
+    await markResourceReady(path, commonGitDir, intent);
   }
   return { failed };
+}
+
+/** Advance exactly the intent this create run wrote to ready. */
+async function markResourceReady(
+  path: string,
+  commonGitDir: string,
+  intent: ResourceEntry,
+): Promise<void> {
+  if (!sameEntry(intent, await readEntry(path))) {
+    throw new WorktreeResourceError(
+      intent.resource_name,
+      "create",
+      `Worktree resource '${intent.resource_name}' ownership evidence changed during create; refusing to overwrite it.`,
+    );
+  }
+  await writeEntry(commonGitDir, { ...intent, phase: "ready" });
+}
+
+/** Clean and remove one uncertain intent before create may be retried. */
+async function cleanupUncertainIntent(
+  path: string,
+  entry: ResourceEntry,
+  cwd: string,
+  log: Logger,
+  scheduler: Scheduler,
+): Promise<boolean> {
+  if (!(await runDestroyEntry(entry, cwd, log, scheduler))) return false;
+  return await deleteEntryCAS(path, entry);
 }
 
 /** Resolve every token a set of command templates names, for the ledger token_map. */
@@ -469,18 +525,14 @@ async function captureTokenMap(
 }
 
 /** The env a resource command runs with: its own handle + the worktree base. */
-function resourceCommandEnv(
+export function resourceCommandEnv(
   name: string,
   resourceIdentity: string,
-  settings: IdentitySettings,
-  identity: WorktreeIdentity,
+  worktreeHandle: string,
 ): Record<string, string> {
   return {
     [resourceEnvName(name)]: resourceIdentity,
-    [DISCERN_ENVIRONMENT_VARIABLES.worktree]: worktreeBase(
-      settings.slug,
-      identity.id,
-    ),
+    [DISCERN_ENVIRONMENT_VARIABLES.worktree]: worktreeHandle,
   };
 }
 
@@ -580,7 +632,11 @@ async function runDestroyEntry(
 ): Promise<boolean> {
   const command = entry.destroy_command;
   if (command.trim() === "") {
-    return true;
+    if (entry.phase === "ready") return true;
+    log.warn(
+      `Worktree resource '${entry.resource_name}' has uncertain create intent but no frozen destroy command — cleanup cannot be proved safe.`,
+    );
+    return false;
   }
   if (/@[a-z_]+@/.test(command)) {
     log.warn(
@@ -591,7 +647,11 @@ async function runDestroyEntry(
   return await runWithRetries(
     command,
     cwd,
-    { [resourceEnvName(entry.resource_name)]: entry.resource_identity },
+    resourceCommandEnv(
+      entry.resource_name,
+      entry.resource_identity,
+      entry.worktree_handle,
+    ),
     entry.retries,
     log,
     scheduler,
@@ -628,8 +688,7 @@ export async function ensureResources(
       resourceCommandEnv(
         spec.name,
         resourceForId(settings.slug, identity.id, spec.name),
-        settings,
-        identity,
+        worktreeBase(settings.slug, identity.id),
       ),
       spec.retries,
       ctx.log,
@@ -846,10 +905,7 @@ export async function gcPlannedOrphanResources(
   return result;
 }
 
-/** Whether `b` is the same ledger entry `a` was read as (the CAS identity:
- * git_key + resource_identity + created_at). False when `b` is missing/replaced. */
+/** Whether `b` is the exact ledger entry `a` was read as. */
 function sameEntry(a: ResourceEntry, b: ResourceEntry | undefined): boolean {
-  return b !== undefined && b.git_key === a.git_key &&
-    b.resource_identity === a.resource_identity &&
-    b.created_at === a.created_at;
+  return b !== undefined && JSON.stringify(a) === JSON.stringify(b);
 }

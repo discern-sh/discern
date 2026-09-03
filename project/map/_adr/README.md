@@ -350,6 +350,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0364 — Public release follows a staged repository transition](0364-public-release-follows-a-staged-repository-transition.md)
 - [0365 — The v1 CLI has one command model and one spelling](0365-the-v1-cli-has-one-command-model-and-one-spelling.md)
 - [0366 — Landing is one exact repository transaction](0366-landing-is-one-exact-repository-transaction.md)
+- [0367 — Worktree local state records intent before effects](0367-worktree-local-state-records-intent-before-effects.md)
 
 <!-- END GENERATED: current ADR records -->
 

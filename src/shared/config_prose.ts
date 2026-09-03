@@ -249,7 +249,7 @@ run   = "tool write-reference --source source/ --output reference/"`,
   "worktree.resources": {
     what: "External resources provisioned per worktree.",
     why:
-      "A database, emulator, container, or queue that one worktree owns never collides with another's. Resources are created top to bottom and destroyed bottom to top, and `discern worktree prune` reclaims what a vanished worktree left behind, so author `create` and `destroy` to be idempotent.",
+      "Give each worktree a deterministic database, emulator, container, or queue handle. Resources are created top to bottom and destroyed bottom to top. discern records intent before create, cleans uncertain partial state before retry, and lets `discern worktree prune` reclaim a vanished worktree's recorded state.",
     detail: worktreeTokenDetail(),
     examples: [
       {
@@ -387,7 +387,7 @@ revisit.
   scripts: {
     what: "Where your executable project scripts live.",
     why:
-      "`discern scripts <name>` runs any executable in this directory with the `DISCERN_*` values exported and every argument forwarded, so project tooling reads config through the binary and needs no TOML parser of its own.",
+      "`discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.",
   },
   meta: {
     what: "Installer bookkeeping.",

@@ -712,13 +712,13 @@ const acceptanceSection = z.strictObject({
 
 const resourceValue = z.strictObject({
   create: z.string().default("").describe(
-    "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
+    "Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An empty command is a clean no-op.",
   ),
   destroy: z.string().default("").describe(
     "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
   ),
   ensure: z.string().default("").describe(
-    "Reconcile drift or re-readiness at session start.",
+    "Idempotently reconcile drift or re-readiness at session start.",
   ),
   required: z.boolean().default(true).describe(
     "false makes a create failure non-fatal, so setup continues.",
@@ -752,13 +752,13 @@ const worktreeSection = z.strictObject({
     'Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.",
+    "Environment values copied from the main checkout's configured env files into a new worktree. A value replaces an empty value or the first configured file's `<file>.example` default. The first env file is created at mode 0600 when absent; existing modes are unchanged.",
   ),
   env_files: z.array(projectFilePath).refine(projectPathsAreUnique, {
     message:
       "each env-file path may appear only once, including aliases on a case-insensitive filesystem",
   }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
-    "The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles.",
+    "The env files the worktree lifecycle reads and writes, in precedence order: the last definition wins and a new value lands in the first existing file. Only declared inheritance may create the first file. Managed worktree values share one scoped marker.",
   ),
   port: z.boolean().default(false).describe(
     "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",

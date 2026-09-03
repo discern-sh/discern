@@ -30,15 +30,13 @@ Deno.test("Project scripts receive DISCERN_TRUNK and no unnamespaced alias", () 
     scriptEnvVars({
       root: "/project",
       tomlPath: "/project/discern.toml",
-      scriptsDir: "scripts",
       scriptsAbs: "/project/scripts",
       mainBranch: "trunk",
     }),
     {
       [DISCERN_ENVIRONMENT_VARIABLES.root]: "/project",
       [DISCERN_ENVIRONMENT_VARIABLES.toml]: "/project/discern.toml",
-      [DISCERN_ENVIRONMENT_VARIABLES.scripts]: "/project/scripts",
-      [DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory]: "scripts",
+      [DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory]: "/project/scripts",
       [DISCERN_ENVIRONMENT_VARIABLES.trunk]: "trunk",
     },
   );

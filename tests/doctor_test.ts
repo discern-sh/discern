@@ -1698,30 +1698,28 @@ Deno.test("doctor: worktree-resource commands honor env-assignment prefixes too"
 Deno.test("doctor: a fresh install passes the script-contract check (no project scripts)", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A fresh install seeds no project scripts directory, so nothing is sourcing
-    // the retired shell library.
+    // A fresh install seeds no Project Scripts directory.
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(check(payload, "script contract").ok, true);
   });
 });
 
-Deno.test("doctor: a project script sourcing the retired shell library is flagged", async () => {
+Deno.test("doctor: a Project Script referencing an unknown DISCERN name is flagged", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // A script carried forward from a pre-binary install: it sources the engine
-    // library that no longer exists, so it would break at runtime. (The default
-    // [scripts].dir is discern/scripts; a fresh install seeds no scripts dir.)
+    const unknown = ["DISCERN", "PRIVATE_PATH"].join("_");
     await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, "discern/scripts/reset"),
-      '#!/usr/bin/env sh\n# desc: reset fixtures\n. "$DISCERN_LIB/bootstrap.sh"\nok done\n',
+      `#!/usr/bin/env sh\n# desc: reset fixtures\nprintf '%s\\n' "$${unknown}"\n`,
     );
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
     const script = check(payload, "script contract");
     assertEquals(script.ok, false);
     assertStringIncludes(script.detail, "reset");
+    assertStringIncludes(script.detail, unknown);
     assertStringIncludes(script.fix ?? "", "discern config get");
   });
 });
@@ -1729,9 +1727,8 @@ Deno.test("doctor: a project script sourcing the retired shell library is flagge
 Deno.test("doctor: a project script running the project's OWN bootstrap.sh is healthy", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // bootstrap.sh is a generic script name; a project script invoking its own
-    // bootstrap script has nothing to do with discern's retired shell library
-    // and must not fail the health check.
+    // bootstrap.sh is a generic script name; invoking a project-owned helper
+    // must not fail the environment-contract check.
     await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
       join(dir, "discern/scripts/reset-env"),
@@ -1744,22 +1741,18 @@ Deno.test("doctor: a project script running the project's OWN bootstrap.sh is he
   });
 });
 
-Deno.test("doctor: any DISCERN_LIB reference in a project script is flagged", async () => {
+Deno.test("doctor: registered Project Script and worktree environment families are allowed", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    // The retired contract's own identifier is the discriminator: a script
-    // reaching for `$DISCERN_LIB` breaks at runtime regardless of which helper
-    // it names.
     await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
     await Deno.writeTextFile(
-      join(dir, "discern/scripts/legacy"),
-      '#!/usr/bin/env sh\n# desc: legacy helper user\n. "$DISCERN_LIB/output.sh"\n',
+      join(dir, "discern/scripts/inspect"),
+      '#!/usr/bin/env sh\nprintf \'%s:%s:%s\\n\' "$DISCERN_ROOT" "$DISCERN_WORKTREE" "$DISCERN_RESOURCE_DATABASE"\n',
     );
     const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
     const script = check(payload, "script contract");
-    assertEquals(script.ok, false);
-    assertStringIncludes(script.detail, "legacy");
+    assertEquals(script.ok, true);
   });
 });
 

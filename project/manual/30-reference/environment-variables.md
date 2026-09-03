@@ -18,7 +18,6 @@ aliases:
   - "DISCERN_WORKTREE_ID"
   - "DISCERN_ROOT"
   - "DISCERN_TOML"
-  - "DISCERN_SCRIPTS"
   - "DISCERN_SCRIPTS_DIR"
   - "DISCERN_CHECKPOINT_INPUT"
   - "DISCERN_WORKTREE_PORT"
@@ -73,8 +72,7 @@ Values discern exports before running a Project Script.
 | --------------------- | --------------------------------------------------------------------------- |
 | `DISCERN_ROOT`        | Absolute project root exported to a Project Script.                         |
 | `DISCERN_TOML`        | Absolute path to the active `discern.toml` exported to a Project Script.    |
-| `DISCERN_SCRIPTS`     | Absolute configured Project Scripts directory exported to a Project Script. |
-| `DISCERN_SCRIPTS_DIR` | Configured `[scripts].dir` value exported to a Project Script.              |
+| `DISCERN_SCRIPTS_DIR` | Absolute configured Project Scripts directory exported to a Project Script. |
 
 ## Checkpoint commands
 
@@ -98,7 +96,7 @@ Identity values passed to resource commands or written to configured worktree en
 
 User-facing controls for experiments whose names and behavior remain subject to change.
 
-| Variable                                  | What it does                                                                                                                                                                          |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | Set to `1` for `discern refresh` to request eager discern MCP loading from configured Claude Code and GitHub Copilot integrations.                                                    |
-| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | Set to a positive whole number of seconds to cap one automatic `await` call below its transport-safe maximum; results report `timeout_basis: cache-window` when it decides the bound. |
+| Variable                                  | What it does                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| `DISCERN_EXPERIMENTAL_MCP_PRELOAD`        | Requests eager discern MCP loading in supported provider integrations when set to `1`. |
+| `DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS` | Sets a positive whole-number cap for one experimental automatic await call.            |

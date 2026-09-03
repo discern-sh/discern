@@ -452,7 +452,7 @@ export function attachEngineCommands(
   root
     .command("scripts")
     .description(
-      "List the project's executable project scripts, or run one by name with every following argument forwarded unchanged.",
+      "List executable Project Scripts, or run one literal name at the project root with the documented four-variable DISCERN_* environment and every following argument forwarded unchanged.",
     )
     .arguments("[name:string] [...args:string]")
     .action(
@@ -1326,7 +1326,9 @@ export function attachEngineCommands(
     .command(
       "create",
       new Command()
-        .description("Apply the provider-reported worktree-create event.")
+        .description(
+          "Create a worktree from a provider WorktreeCreate payload on stdin.",
+        )
         .action(
           recordedExit("worktree hook create", async () => {
             const { worktreeCreateHook } = await import(
@@ -1339,7 +1341,9 @@ export function attachEngineCommands(
     .command(
       "remove",
       new Command()
-        .description("Apply the provider-reported worktree-remove event.")
+        .description(
+          "Tear down the worktree named by a provider WorktreeRemove payload on stdin.",
+        )
         .action(
           recordedExit("worktree hook remove", async () => {
             const { worktreeRemoveHook } = await import(

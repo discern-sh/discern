@@ -522,7 +522,6 @@ export async function runDeskProjectScript(
     { command: "scripts", hasOperands: true },
     () =>
       runProjectScriptAt(root, name, [...args], {
-        cwd: root,
         env,
         resumeAfterInterrupt: true,
       }),

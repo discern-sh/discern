@@ -291,17 +291,17 @@ Standing grants for landing without a conversation. Landing needs the owner's ac
 
 The isolated-worktree workflow. Each effort runs in its own checkout, so parallel agents never collide. The git mechanics are generic; the resources and setup commands below are what make a fresh worktree ready for this project.
 
-| Key                  | Type     | Default                 | Description                                                                                                                                                                                                 |
-| -------------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `root`               | string   | `""`                    | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.        |
-| `inherit_env`        | string[] | `[]`                    | Environment values copied from the main checkout's env files into a new worktree's: secrets a fresh worktree needs that are not in version control. The worktree's env file is created when absent.         |
-| `env_files`          | string[] | `[".env",".env.local"]` | The env files the worktree lifecycle reads and writes, in precedence order: on read the last file that defines a value wins; a new value lands in the first. They also carry the port and resource handles. |
-| `port`               | boolean  | `false`                 | Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.                                       |
-| `ignored_file_drift` | boolean  | `true`                  | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.                     |
+| Key                  | Type     | Default                 | Description                                                                                                                                                                                                                                                                 |
+| -------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root`               | string   | `""`                    | Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.                                                                        |
+| `inherit_env`        | string[] | `[]`                    | Environment values copied from the main checkout's configured env files into a new worktree. A value replaces an empty value or the first configured file's `<file>.example` default. The first env file is created at mode 0600 when absent; existing modes are unchanged. |
+| `env_files`          | string[] | `[".env",".env.local"]` | The env files the worktree lifecycle reads and writes, in precedence order: the last definition wins and a new value lands in the first existing file. Only declared inheritance may create the first file. Managed worktree values share one scoped marker.                |
+| `port`               | boolean  | `false`                 | Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.                                                                                                       |
+| `ignored_file_drift` | boolean  | `true`                  | Track ignored files at worktree setup and report the top-level ignored paths that changed before the worktree is removed. Turn it off when ignored outputs churn too much to be useful.                                                                                     |
 
 ### `[worktree.resources.<name>]`
 
-External resources provisioned per worktree. A database, emulator, container, or queue that one worktree owns never collides with another's. Resources are created top to bottom and destroyed bottom to top, and `discern worktree prune` reclaims what a vanished worktree left behind, so author `create` and `destroy` to be idempotent.
+External resources provisioned per worktree. Give each worktree a deterministic database, emulator, container, or queue handle. Resources are created top to bottom and destroyed bottom to top. discern records intent before create, cleans uncertain partial state before retry, and lets `discern worktree prune` reclaim a vanished worktree's recorded state.
 
 ```text
 Runtime tokens, expanded per worktree when a command runs:
@@ -314,14 +314,14 @@ Runtime tokens, expanded per worktree when a command runs:
   @resource@      this resource's handle (slug-id-name)
 ```
 
-| Key        | Type    | Default | Description                                                                                                                                                         |
-| ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create`   | string  | `""`    | Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op. |
-| `destroy`  | string  | `""`    | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                                          |
-| `ensure`   | string  | `""`    | Reconcile drift or re-readiness at session start.                                                                                                                   |
-| `required` | boolean | `true`  | false makes a create failure non-fatal, so setup continues.                                                                                                         |
-| `retries`  | number  | `0`     | Retry create/destroy this many times.                                                                                                                               |
-| `gc`       | boolean | `true`  | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                                                    |
+| Key        | Type    | Default | Description                                                                                                                                                            |
+| ---------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`   | string  | `""`    | Command run once at worktree setup. discern records cleanup intent before running it and skips it only after readiness is recorded. An empty command is a clean no-op. |
+| `destroy`  | string  | `""`    | Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.                                                             |
+| `ensure`   | string  | `""`    | Idempotently reconcile drift or re-readiness at session start.                                                                                                         |
+| `required` | boolean | `true`  | false makes a create failure non-fatal, so setup continues.                                                                                                            |
+| `retries`  | number  | `0`     | Retry create/destroy this many times.                                                                                                                                  |
+| `gc`       | boolean | `true`  | false exempts the resource from orphan pruning, for data-loss-sensitive resources that only teardown may remove.                                                       |
 
 A per-worktree database, so test runs never clash:
 
@@ -509,7 +509,7 @@ Co-change detection from git history. Files that habitually change together poin
 
 ## `[scripts]`
 
-Where your executable project scripts live. `discern scripts <name>` runs any executable in this directory with the `DISCERN_*` values exported and every argument forwarded, so project tooling reads config through the binary and needs no TOML parser of its own.
+Where your executable project scripts live. `discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.
 
 | Key   | Type   | Default             | Description                                                                                                                                           |
 | ----- | ------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |

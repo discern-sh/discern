@@ -15,7 +15,9 @@ import {
   resolveSkillsDir,
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
+import {
+  projectScriptSupportsEnvironmentName,
+} from "../shared/environment_variables.ts";
 import {
   fileExists,
   readDirIfExists,
@@ -854,16 +856,10 @@ export async function runChecks(
     }
   }
 
-  // 6. Project script contract — a script reads config via `discern config get`,
-  // not by sourcing a helper library: `DISCERN_LIB` is not part of the script
-  // environment, so a script that does `. "$DISCERN_LIB/bootstrap.sh"` for
-  // config/output helpers breaks at runtime. Flag it and point at the contract.
-  // The needle is the retired contract's OWN identifier (`DISCERN_LIB`), never a
-  // generic filename — a project script running its own `bootstrap.sh` is
-  // healthy. README.md is documentation, not an executable, so it is skipped.
+  // 6. Project Script contract — reject every `DISCERN_*` reference outside
+  // the registry's supported Project Script and worktree-environment families.
+  // README.md is documentation, not a command, so it is skipped.
   {
-    const retiredLibrary =
-      DISCERN_ENVIRONMENT_VARIABLES.retiredProjectScriptLibrary;
     const { abs: scriptsDir } = resolveScriptsDir(destDir, config);
     const offenders: string[] = [];
     let scanned = 0;
@@ -874,8 +870,11 @@ export async function runChecks(
         }
         scanned++;
         const body = await Deno.readTextFile(join(scriptsDir, entry.name));
-        if (body.includes(retiredLibrary)) {
-          offenders.push(entry.name);
+        const unsupported = [
+          ...new Set(body.match(/\bDISCERN_[A-Z][A-Z0-9_]*\b/g) ?? []),
+        ].filter((name) => !projectScriptSupportsEnvironmentName(name));
+        if (unsupported.length > 0) {
+          offenders.push(`${entry.name} (${unsupported.join(", ")})`);
         }
       }
     } catch (error) {
@@ -891,18 +890,17 @@ export async function runChecks(
           ok: true,
           detail: scanned === 0
             ? "no project scripts to check"
-            : `${scanned} script(s); none source the retired shell library`,
+            : `${scanned} script(s); every DISCERN_* reference belongs to a supported family`,
         }
         : {
           name: "script contract",
           ok: false,
-          detail: `script(s) source the removed shell library: ${
+          detail: `script(s) reference unsupported DISCERN_* names: ${
             offenders.join(", ")
           }`,
-          fix:
-            `Project scripts are standalone executables — read config with ` +
-            `\`discern config get\` instead of sourcing the retired ` +
-            `\`$${retiredLibrary}\` shell library`,
+          fix: `Project Scripts receive only DISCERN_ROOT, DISCERN_TOML, ` +
+            `DISCERN_SCRIPTS_DIR, and DISCERN_TRUNK from discern; read other ` +
+            `config with \`discern config get\` or use a declared worktree-environment value`,
         },
     );
   }

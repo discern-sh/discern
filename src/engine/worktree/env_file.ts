@@ -20,8 +20,8 @@
 import { dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
 import {
-  generatedArtifactMarker,
-  isGeneratedArtifactMarker,
+  isManagedValuesMarker,
+  managedValuesMarker,
 } from "../../shared/brand.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../../shared/file_ownership.ts";
@@ -33,6 +33,9 @@ import { readTextIfExists } from "../../shared/fs_presence.ts";
 
 /** The default `[worktree].env_files` when a caller has no config in hand. */
 export const DEFAULT_ENV_FILES: readonly string[] = [".env", ".env.local"];
+
+/** The scoped subject of discern's one marker in a shared env file. */
+export const WORKTREE_ENVIRONMENT_MARKER_SUBJECT = "Worktree values";
 
 /**
  * Upsert `KEY=value` into `.env` text: replace the first existing `KEY=` line
@@ -68,15 +71,17 @@ export function upsertEnvLine(
       next.push(`${prefix}${value}`);
     }
   }
-  const marker = generatedArtifactMarker(
+  const marker = managedValuesMarker(
+    WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
     env,
   );
   return [
     marker,
     ...next.filter((line) =>
-      !isGeneratedArtifactMarker(
+      !isManagedValuesMarker(
         line,
+        WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
         ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
       )
     ),
@@ -202,6 +207,7 @@ export async function writeEnvVar(
   // Prefer updating where the key already lives (last definition wins on read,
   // so that is the definition to move).
   let target: string | undefined;
+  let creating = false;
   for (const file of files) {
     const text = await readEnvFileAt(worktreeRoot, file);
     if (text !== undefined && envTextDefines(text, key)) {
@@ -222,6 +228,7 @@ export async function writeEnvVar(
       return false;
     }
     target = files[0] as string;
+    creating = true;
   }
   const text = await readEnvFileAt(worktreeRoot, target) ?? "";
   let path = await resolveContainedProjectWritePath(
@@ -237,9 +244,11 @@ export async function writeEnvVar(
       "[worktree].env_files",
     );
   }
-  await Deno.writeTextFile(
-    path,
-    upsertEnvLine(text, key, value, env),
-  );
+  const next = upsertEnvLine(text, key, value, env);
+  if (creating) {
+    await Deno.writeTextFile(path, next, { createNew: true, mode: 0o600 });
+  } else {
+    await Deno.writeTextFile(path, next);
+  }
   return true;
 }

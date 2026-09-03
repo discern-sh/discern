@@ -1,6 +1,6 @@
 /**
  * Project script command tests: discovery, listing, execution, argument/env
- * forwarding, custom directories, and the retired root-command behavior.
+ * forwarding, custom directories, and canonical command normalization.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -21,6 +21,7 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 
 const SLUG_SCRIPT = `#!/usr/bin/env sh
 # desc: print the project slug
@@ -65,7 +66,7 @@ Deno.test("Project Script core runs in an explicitly selected worktree", async (
     );
 
     assertEquals(
-      await runProjectScriptAt(dir, "mark-cwd", [], { cwd: dir }),
+      await runProjectScriptAt(dir, "mark-cwd", []),
       0,
     );
     const recorded = (await Deno.readTextFile(join(dir, "ran-from-here.txt")))
@@ -212,7 +213,7 @@ Deno.test("scripts: --json lists project scripts as one structured result", asyn
   });
 });
 
-Deno.test("scripts: a project script reads config and receives the script environment", async () => {
+Deno.test("scripts: a Project Script runs at root with exactly the four supported DISCERN variables", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "discern/scripts/show-slug"), SLUG_SCRIPT);
@@ -220,8 +221,12 @@ Deno.test("scripts: a project script reads config and receives the script enviro
       join(dir, "discern/scripts/show-env"),
       [
         "#!/usr/bin/env sh",
-        "printf 'SCRIPTS=%s\\n' \"$DISCERN_SCRIPTS\"",
+        "env | sed -n 's/^\\(DISCERN_[A-Z0-9_]*\\)=.*/\\1/p' | sort",
+        "printf 'ROOT=%s\\n' \"$DISCERN_ROOT\"",
+        "printf 'TOML=%s\\n' \"$DISCERN_TOML\"",
         "printf 'SCRIPTS_DIR=%s\\n' \"$DISCERN_SCRIPTS_DIR\"",
+        "printf 'TRUNK=%s\\n' \"$DISCERN_TRUNK\"",
+        "printf 'PWD=%s\\n' \"$PWD\"",
         "",
       ].join("\n"),
     );
@@ -230,11 +235,58 @@ Deno.test("scripts: a project script reads config and receives the script enviro
     assertEquals(slug.code, 0, slug.output);
     assertStringIncludes(slug.stdout, "SLUG=engine-test");
 
-    const env = await runAgent(dir, ["scripts", "show-env"]);
+    const nested = join(dir, "nested", "caller");
+    await Deno.mkdir(nested, { recursive: true });
+    const unsupportedAmbient = ["DISCERN", "UNSUPPORTED_AMBIENT"].join("_");
+    const env = await runAgent(dir, ["scripts", "show-env"], {
+      cwd: nested,
+      env: {
+        [unsupportedAmbient]: "must-not-leak",
+        [DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation]:
+          "must-not-leak",
+      },
+    });
     assertEquals(env.code, 0, env.output);
-    assertStringIncludes(env.stdout, "/discern/scripts");
-    assertStringIncludes(env.stdout, "SCRIPTS_DIR=discern/scripts");
-    assert(!env.stdout.includes("RECIPES="), env.output);
+    const contractNames = env.stdout.split("\n").filter((line) =>
+      line.startsWith("DISCERN_")
+    );
+    assertEquals(contractNames, [
+      "DISCERN_ROOT",
+      "DISCERN_SCRIPTS_DIR",
+      "DISCERN_TOML",
+      "DISCERN_TRUNK",
+    ]);
+    const realRoot = await Deno.realPath(dir);
+    assertTerminalTextIncludes(env.stdout, `ROOT=${realRoot}`);
+    assertTerminalTextIncludes(
+      env.stdout,
+      `TOML=${join(realRoot, "discern.toml")}`,
+    );
+    assertTerminalTextIncludes(
+      env.stdout,
+      `SCRIPTS_DIR=${join(realRoot, "discern/scripts")}`,
+    );
+    assertStringIncludes(env.stdout, "TRUNK=main");
+    assertTerminalTextIncludes(env.stdout, `PWD=${realRoot}`);
+  });
+});
+
+Deno.test("scripts: literal names keep colon and dash commands distinct", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "discern/scripts/db:reset"),
+      "#!/usr/bin/env sh\nprintf 'COLON\\n'\n",
+    );
+    await writeExecutable(
+      join(dir, "discern/scripts/db-reset"),
+      "#!/usr/bin/env sh\nprintf 'DASH\\n'\n",
+    );
+
+    const colon = await runAgent(dir, ["scripts", "db:reset"]);
+    const dash = await runAgent(dir, ["scripts", "db-reset"]);
+    assertEquals(colon.stdout, "COLON\n");
+    assertEquals(dash.stdout, "DASH\n");
   });
 });
 
@@ -300,6 +352,11 @@ Deno.test("scripts: an existing non-executable file is reported, not run", async
       'script "deploy" exists but is not executable',
     );
     assertTerminalTextIncludes(r.stderr, "chmod +x");
+
+    const json = await runAgent(dir, ["--json", "scripts", "deploy"]);
+    assertEquals(json.code, 1, json.output);
+    const refusal = decodeCliResult(json.stdout, "scripts");
+    assertEquals(refusal.error, "script_not_executable");
   });
 });
 
@@ -323,6 +380,11 @@ Deno.test("scripts: a file that names no interpreter is not offered the executab
       false,
       "setting the bit would leave a listed command that still cannot run",
     );
+
+    const json = await runAgent(dir, ["--json", "scripts", "matcher.ts"]);
+    assertEquals(json.code, 1, json.output);
+    const refusal = decodeCliResult(json.stdout, "scripts");
+    assertEquals(refusal.error, "script_not_a_command");
   });
 });
 

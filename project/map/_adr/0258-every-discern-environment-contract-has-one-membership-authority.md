@@ -1,5 +1,7 @@
 # ADR 0258: Every `DISCERN_*` environment contract has one membership authority
 
+> **Amendment ([ADR 0367](0367-worktree-local-state-records-intent-before-effects.md)).** Before the public contract froze, the registry removed its unused lifecycle axis, empty Retired group, and unsupported helper-library member. It now contains supported contracts only. Doctor derives the Project Script allowlist from the Project Script and worktree-environment groups. Every Experimental features member is public in the generated minimal reference; detailed evaluation guidance remains internal.
+
 **Status**: accepted
 
 ## Context
@@ -12,9 +14,9 @@ A prefix search cannot define the set. The same prefix also names brand constant
 
 ## Decision
 
-[`DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`](../../../src/shared/environment_variables.ts) is the authority for every live, internal, test-only, or intentionally recognized retired `DISCERN_*` environment contract in this repository. Each semantic key owns the exact external spelling, one purpose group, its live or retired lifecycle, and a discriminated documentation policy. A public definition requires its short description. An internal definition requires the reason it is withheld. Visibility and lifecycle remain separate decisions, so an experimental control can be public without becoming a stable config setting.
+[`DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`](../../../src/shared/environment_variables.ts) is the authority for every supported public, internal, or test-only `DISCERN_*` environment contract in this repository. Each semantic key owns the exact external spelling, one purpose group, and a discriminated documentation policy. A public definition requires its short description. An internal definition requires the reason it is withheld. An experimental control can be public without becoming a stable config setting.
 
-The generated `DISCERN_RESOURCE_<NAME>` family has one template member rather than one entry per configured resource. The retired `DISCERN_LIB` member remains registered while `doctor` recognizes it for a targeted migration diagnostic. Shell-local implementation variables do not use the uppercase `DISCERN_*` form; that form is reserved for environment contracts at process boundaries.
+The generated `DISCERN_RESOURCE_<NAME>` family has one template member rather than one entry per configured resource. Shell-local implementation variables do not use the uppercase `DISCERN_*` form; that form is reserved for environment contracts at process boundaries. Project Script diagnostics match observed names against the two supported registry families instead of carrying special cases for unsupported names.
 
 TypeScript readers and writers import the derived name-only [`DISCERN_ENVIRONMENT_VARIABLES`](../../../src/shared/environment_variables.ts) compatibility API. Group subsets derive with the same semantic keys; the experimental registry therefore enrolls every definition in the Experimental features group while its dedicated module and guard continue to own exact activation behavior.
 

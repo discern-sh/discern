@@ -68,6 +68,46 @@ export function isGeneratedArtifactMarker(
   ].some((body) => line === `# ${body}`);
 }
 
+/** The attributed body for a marker scoped to values in a shared file. */
+function attributedManagedValuesMarkerBody(
+  subject: string,
+  source: string,
+): string {
+  return `${subject} managed by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`;
+}
+
+/** The source-only body for a marker scoped to values in a shared file. */
+function unattributedManagedValuesMarkerBody(
+  subject: string,
+  source: string,
+): string {
+  return `${subject} managed via ${source}`;
+}
+
+/** Render a marker that claims only discern-managed values in a shared file. */
+export function managedValuesMarker(
+  subject: string,
+  source: string,
+  env: EnvReader = Deno.env,
+): string {
+  const body = discernAttributionEnabled(env)
+    ? attributedManagedValuesMarkerBody(subject, source)
+    : unattributedManagedValuesMarkerBody(subject, source);
+  return `# ${body}`;
+}
+
+/** Whether a line is either attribution mode of one scoped values marker. */
+export function isManagedValuesMarker(
+  line: string,
+  subject: string,
+  source: string,
+): boolean {
+  return [
+    attributedManagedValuesMarkerBody(subject, source),
+    unattributedManagedValuesMarkerBody(subject, source),
+  ].some((body) => line === `# ${body}`);
+}
+
 /** Remove every known provenance marker while preserving the file's line endings. */
 export function stripGeneratedArtifactMarker(
   text: string,

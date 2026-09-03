@@ -1,12 +1,9 @@
 /**
- * Env plumbing that actually works — the class where a declared `inherit_env`
- * value never reached a fresh worktree (the old code required the worktree to
- * already have a `.env`, which a fresh worktree never does, and read only
- * `<main>/.env`). Now: `[worktree].env_files` (default [".env", ".env.local"])
- * names what to read and write, inheritance CREATES the worktree's env file,
- * `.env.local` participates with the dotenv override convention, fleet rows
- * derive id/port when nothing is recorded, and the freshly-minted port re-rolls
- * away from a live sibling's.
+ * End-to-end worktree environment plumbing. `[worktree].env_files` names the
+ * ordered read/write set, declared inheritance may create its first file,
+ * `.env.local` supplies the higher-precedence default, fleet rows derive
+ * identity when nothing is recorded, and a newly minted port avoids live
+ * siblings.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

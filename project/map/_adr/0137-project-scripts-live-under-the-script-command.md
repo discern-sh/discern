@@ -1,5 +1,7 @@
 # ADR 0137: Project Scripts live under the `script` command
 
+> **Amendment ([ADR 0360](0360-the-project-script-namespace-holds-only-commands.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md)).** The canonical command is now the plural `scripts`. A name resolves literally and runs from the project root. The child inherits ordinary process values but receives exactly four `DISCERN_*` values from discern: absolute `DISCERN_ROOT`, `DISCERN_TOML`, and `DISCERN_SCRIPTS_DIR`, plus `DISCERN_TRUNK`. Every remaining argument belongs to the child; machine mode must therefore precede a name. These current contracts replace the singular spelling and two script-directory variables recorded below.
+
 **Status**: accepted
 
 **Supersedes**: [ADR 0001](_superseded/0001-project-owned-recipes.md)

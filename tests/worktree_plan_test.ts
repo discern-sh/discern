@@ -34,10 +34,12 @@ const PRUNE_IDENTITY_SETTINGS = {
 function entry(over: Partial<ResourceEntry> = {}): ResourceEntry {
   return {
     schema: 1,
+    phase: "ready",
     seq: 0,
     project_slug: "app",
     git_key: "wt-a",
     worktree_id: "a",
+    worktree_handle: "app-a",
     worktree_path: "/repo/.wt/a",
     resource_name: "db",
     resource_identity: "app-a-db",

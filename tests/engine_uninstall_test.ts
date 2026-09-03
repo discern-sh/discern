@@ -489,10 +489,12 @@ Deno.test("uninstall refuses while the resource ledger records provisioned resou
       entryPath,
       JSON.stringify({
         schema: 1,
+        phase: "ready",
         seq: 0,
         project_slug: "engine-test",
         git_key: "orphan",
         worktree_id: "orphan",
+        worktree_handle: "engine-test-orphan",
         worktree_path: join(dir, "gone"),
         resource_name: "db",
         resource_identity: "engine_test_orphan",

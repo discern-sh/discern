@@ -29,6 +29,7 @@ import {
   GENERATED_ARTIFACT_MARKER_PREFIX,
   generatedArtifactMarker,
   generatedArtifactMarkerBody,
+  managedValuesMarker,
   stripGeneratedArtifactMarker,
 } from "../src/shared/brand.ts";
 import {
@@ -36,8 +37,12 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import { renderAgentFiles } from "../src/engine/instruction_render.ts";
-import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
+import {
+  WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
+  writeEnvVar,
+} from "../src/engine/worktree/env_file.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 
@@ -122,7 +127,7 @@ Deno.test("marker removal recognizes exactly the two current forms", () => {
 });
 
 for (const attributionCase of ATTRIBUTION_CASES) {
-  Deno.test(`every comment-capable non-context artifact emits the standard marker ${attributionCase.label}`, async () => {
+  Deno.test(`every comment-capable non-context artifact emits its registered marker ${attributionCase.label}`, async () => {
     await withTempDir(async (root) => {
       const configTemplate = await Deno.readTextFile(
         join(REPO, "templates/discern.toml.tmpl"),
@@ -191,10 +196,16 @@ for (const attributionCase of ATTRIBUTION_CASES) {
           `${entry.path} has no marker source`,
         );
         const text = await Deno.readTextFile(join(root, entry.path));
+        const marker = source ===
+            ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment
+          ? managedValuesMarker(
+            WORKTREE_ENVIRONMENT_MARKER_SUBJECT,
+            source,
+            attributionCase.env,
+          )
+          : generatedArtifactMarker(source, attributionCase.env);
         assert(
-          text.split(/\r?\n/).includes(
-            generatedArtifactMarker(source, attributionCase.env),
-          ),
+          text.split(/\r?\n/).includes(marker),
           `${entry.path} does not carry its registry-derived provenance marker`,
         );
       }

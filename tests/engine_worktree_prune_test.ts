@@ -1285,8 +1285,7 @@ Deno.test("inheritMainEnvVars copies a whitelisted var from main's .env into the
 
     // FOO is a secret kept out of git: it lives only in main's .env.
     await Deno.writeTextFile(join(dir, ".env"), "FOO=bar\n");
-    // The command is a no-op unless the worktree already has an .env to patch
-    // (it never creates one). Seed an empty .env so it has a target.
+    // Seed an empty file to prove inheritance updates an existing target.
     await Deno.writeTextFile(join(wt, ".env"), "");
 
     const r = await runWorktreeCore(wt, ["inherit"]);
@@ -1313,6 +1312,40 @@ Deno.test("inheritMainEnvVars creates the worktree env file when absent", async 
       await Deno.readTextFile(join(wt, ".env")),
       "FOO=bar",
       `the declared value must arrive in a created env file\n${r.output}`,
+    );
+    assertEquals(
+      ((await Deno.stat(join(wt, ".env"))).mode ?? 0) & 0o777,
+      0o600,
+    );
+  });
+});
+
+Deno.test("inheritMainEnvVars derives the placeholder from the first configured env file", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "customenv");
+    await Deno.writeTextFile(
+      join(wt, "discern.toml"),
+      baseConfig(
+        '\n[worktree]\ninherit_env = ["FOO"]\nenv_files = ["config/app.env", ".env.local"]',
+      ),
+    );
+    await Deno.mkdir(join(dir, "config"), { recursive: true });
+    await Deno.mkdir(join(wt, "config"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "config/app.env"), "FOO=secret\n");
+    await Deno.writeTextFile(
+      join(dir, "config/app.env.example"),
+      "FOO=placeholder\n",
+    );
+    await Deno.writeTextFile(
+      join(wt, "config/app.env"),
+      "FOO=placeholder\n",
+    );
+
+    const r = await runWorktreeCore(wt, ["inherit"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(wt, "config/app.env")),
+      "FOO=secret",
     );
   });
 });

@@ -16,7 +16,7 @@ import {
   installedConfigRel,
   NO_PROJECT_MESSAGE,
   notInitializedResult,
-  scriptEnvVars,
+  projectScriptProcessEnv,
 } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { reportFailure } from "../lib/narration.ts";
@@ -28,7 +28,6 @@ import { integrationBranch } from "./worktree/git.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
 import {
-  pathExists,
   readDirIfExists,
   readTextIfExists,
   statIfExists,
@@ -208,13 +207,46 @@ export async function inspectDeskProjectScriptsWithConfig(
 
 export interface RunProjectScriptOptions {
   readonly json?: boolean;
-  /** Child working directory. The CLI inherits its caller; the desk passes the
-   * selected worktree root explicitly. */
-  readonly cwd?: string;
   /** Additional environment values for the child process. */
   readonly env?: Record<string, string>;
   /** Return to an owning interactive surface after an interrupt. */
   readonly resumeAfterInterrupt?: boolean;
+}
+
+/** Resolve only a literal regular-file member of the configured directory. */
+async function literalProjectScriptPath(
+  directory: string,
+  name: string,
+): Promise<string | undefined> {
+  const entries = await readDirIfExists(directory);
+  const entry = entries?.find((candidate) =>
+    candidate.isFile && candidate.name === name
+  );
+  return entry === undefined ? undefined : join(directory, entry.name);
+}
+
+/** Report one Project Script refusal through both supported projections. */
+function reportProjectScriptRefusal(
+  opts: RunProjectScriptOptions,
+  error: "script_not_executable" | "script_not_a_command",
+  message: string,
+  recovery: string,
+): void {
+  if (opts.json ?? false) {
+    emitResult({
+      ok: false,
+      verb: "scripts",
+      error,
+      message,
+      hints: [recovery],
+    });
+    return;
+  }
+  reportFailure(
+    new Logger({ json: false, noColor: false }),
+    message,
+    [recovery],
+  );
 }
 
 /** List or run a Project Script against an explicit checkout root. */
@@ -257,8 +289,8 @@ export async function runProjectScriptAt(
     return 0;
   }
 
-  const scriptFile = join(directory.abs, name.replace(/:/g, "-"));
-  if (await isExecutable(scriptFile)) {
+  const scriptFile = await literalProjectScriptPath(directory.abs, name);
+  if (scriptFile !== undefined && await isExecutable(scriptFile)) {
     const mainBranch = integrationBranch(config.repository.trunk);
     const tomlPath = join(
       root,
@@ -266,35 +298,37 @@ export async function runProjectScriptAt(
     );
     const child = await runOwnedChild(scriptFile, {
       args,
-      env: {
-        ...scriptEnvVars({
+      env: projectScriptProcessEnv(
+        {
           root,
           tomlPath,
-          scriptsDir: directory.rel,
           scriptsAbs: directory.abs,
           mainBranch,
-        }),
-        ...opts.env,
-      },
-      ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
+        },
+        opts.env,
+      ),
+      cwd: root,
+      clearEnv: true,
+      delegateOperationLocks: false,
       resumeAfterInterrupt: opts.resumeAfterInterrupt ?? false,
     });
     return child.status.code;
   }
 
-  if (await pathExists(scriptFile)) {
-    const logger = new Logger({ json: false, noColor: false });
+  if (scriptFile !== undefined) {
     if (namesAnInterpreter(await readTextIfExists(scriptFile))) {
-      reportFailure(
-        logger,
+      reportProjectScriptRefusal(
+        opts,
+        "script_not_executable",
         `script "${name}" exists but is not executable: ${scriptFile}`,
-        [`Run: chmod +x "${scriptFile}"`],
+        `Run: chmod +x "${scriptFile}"`,
       );
     } else {
-      reportFailure(
-        logger,
+      reportProjectScriptRefusal(
+        opts,
+        "script_not_a_command",
         `script "${name}" is not a runnable Project Script: ${scriptFile}`,
-        [`This file ${NOT_A_COMMAND}`],
+        `This file ${NOT_A_COMMAND}`,
       );
     }
     return 1;

@@ -36,7 +36,7 @@ The fresh config renderer uses the same registry-derived references in its neutr
 
 ## The read surface
 
-Project scripts and project tooling read config through the dispatcher: `discern config get|array|has|subsections|keys <dotted.key>`. The same values reach a project script's process as exported `DISCERN_*` variables. `discern config explain <path>` reads for a person or an agent instead: a section, a named-table family, a key, a knob, or a named entry, with its teaching, its reference facts, and the current value. This keeps the config format an implementation detail of the binary. A script stays a plain executable with no TOML parser or shell library to source.
+Project scripts and project tooling read config through the dispatcher: `discern config get|array|has|subsections|keys <dotted.key>`. A Project Script receives only the fixed root, config-path, scripts-directory, and trunk environment described in the [engine overview](README.md); it queries any other value explicitly. `discern config explain <path>` reads for a person or an agent instead: a section, a named-table family, a key, a knob, or a named entry, with its teaching, its reference facts, and the current value. This keeps the config format an implementation detail of the binary. A script stays a plain executable with no TOML parser or shell library to source.
 
 ## The write surface
 

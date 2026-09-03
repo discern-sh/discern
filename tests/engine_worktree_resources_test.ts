@@ -64,6 +64,21 @@ async function declareResource(
   );
 }
 
+Deno.test("fresh default worktree setup writes no environment file", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "no-env-write");
+    const setup = await runAgent(wt, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    for (const name of [".env", ".env.local", ".env.discern"]) {
+      assertEquals(
+        await targetExists(join(wt, name)),
+        false,
+        `${name} was created by a default setup`,
+      );
+    }
+  });
+});
+
 Deno.test("worktree setup creates a resource and records its handle for runtime discovery", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "disc");

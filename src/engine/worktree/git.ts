@@ -47,6 +47,7 @@ import {
 } from "../../shared/git_paths.ts";
 import {
   formatEnvValue,
+  readEnvFileAt,
   readEnvFilesAt,
   readEnvValueAcross,
   readEnvValueFromFiles,
@@ -4015,8 +4016,9 @@ export interface InheritEnvOptions {
  * {@link writeEnvVar} upsert, CREATING the worktree's first env file when none
  * exists — a fresh worktree never has one, and a declared value must actually
  * arrive. Per-var safe-copy policy: skip when main is blank; replace when the
- * worktree value is empty or equals `.env.example`'s default; otherwise leave a
- * customised value alone. Idempotent. An empty `vars` list, or a main checkout
+ * worktree value is empty or equals the first configured env file's `.example`
+ * default; otherwise leave a customised value alone. Idempotent. An empty
+ * `vars` list, or a main checkout
  * with no readable env file, is a warned no-op. A missing main checkout or a
  * refused env write throws `WorktreeGitError`.
  */
@@ -4044,8 +4046,9 @@ export async function inheritMainEnvVars(
     );
     return;
   }
-  const exampleText = await readTextIfExists(join(mainRepo, ".env.example")) ??
-    "";
+  const exampleText = files[0] === undefined
+    ? ""
+    : await readEnvFileAt(mainRepo, `${files[0]}.example`) ?? "";
 
   for (const varName of opts.vars) {
     if (varName === "") {
