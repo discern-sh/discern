@@ -1960,7 +1960,6 @@ interface FindingBasisView {
     distinct: number;
     omitted: number;
   }>;
-  legacy_events: number;
   excluded_events: number;
   limitations: string[];
   values: Record<string, { value: number; kind: string }>;
@@ -2101,7 +2100,7 @@ Deno.test("validation findings regression: two event-level reds still expose eac
   );
 });
 
-Deno.test("validation findings regression: legacy runs of different jobs never form one divergence", () => {
+Deno.test("validation findings regression: validation-less historical runs do not form a divergence", () => {
   const outcome = runDetector(
     detector("same-tree-flake"),
     buildStreamFacts(
@@ -2368,7 +2367,7 @@ Deno.test("validation findings: staged, worktree, untracked, and mixed state ide
   }
 });
 
-Deno.test("validation findings: evidence versions and legacy bases never blend", () => {
+Deno.test("validation findings: evidence versions and validation-less records never blend", () => {
   const versionedFacts = buildStreamFacts(
     run([
       { verb: "test", validation: validation("failed", { version: 1 }) },
@@ -2381,7 +2380,7 @@ Deno.test("validation findings: evidence versions and legacy bases never blend",
     [],
   );
 
-  const legacyAndCurrent = buildStreamFacts(
+  const historicalAndCurrent = buildStreamFacts(
     run([
       {
         verb: "test",
@@ -2393,102 +2392,8 @@ Deno.test("validation findings: evidence versions and legacy bases never blend",
     "main",
   );
   assertEquals(
-    runDetector(detector("same-tree-flake"), legacyAndCurrent).findings,
+    runDetector(detector("same-tree-flake"), historicalAndCurrent).findings,
     [],
-  );
-});
-
-Deno.test("validation findings: legacy clean and dirty evidence stay separate and weak", () => {
-  const outcome = runDetector(
-    detector("same-tree-flake"),
-    buildStreamFacts(
-      run([
-        {
-          verb: "test",
-          head: "clean-head",
-          clean: true,
-          outcome: "failed",
-          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
-        },
-        {
-          verb: "test",
-          head: "clean-head",
-          clean: true,
-          steps: [step("test", 1, "Test")],
-        },
-        {
-          verb: "test",
-          head: "dirty-head",
-          clean: false,
-          tree: "tracked-fingerprint",
-          outcome: "failed",
-          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
-        },
-        {
-          verb: "test",
-          head: "dirty-head",
-          clean: false,
-          tree: "tracked-fingerprint",
-          steps: [step("test", 1, "Test")],
-        },
-      ]),
-      "main",
-    ),
-  );
-  assertEquals(outcome.status, "fired");
-  assertEquals(outcome.findings.length, 2);
-  const bases = outcome.findings.map(findingBasis);
-  assertEquals(
-    bases.map((basis) => basis.kind).sort(),
-    ["legacy-clean-start", "legacy-dirty-tracked-start"],
-  );
-  for (const basis of bases) {
-    assertEquals(basis.validation_state, { version: null, complete: false });
-    assertEquals(basis.coverage, {
-      comparable: 2,
-      denominator: 2,
-      unit: "job-runs",
-    });
-    assertEquals(basis.legacy_events, 2);
-  }
-  const observed = outcome.findings.map((finding) => finding.observed).join(
-    "\n",
-  );
-  assertStringIncludes(observed, "recorded clean start");
-  assertStringIncludes(observed, "tracked start fingerprint");
-  assert(!observed.includes("exact same tree"));
-  assert(!observed.includes("identical tree"));
-});
-
-Deno.test("validation findings: legacy staged/index and untracked distinctions remain disclosed limitations", () => {
-  const outcome = runDetector(
-    detector("same-tree-flake"),
-    buildStreamFacts(
-      run([
-        {
-          verb: "test",
-          clean: false,
-          tree: "same-tracked-diff",
-          outcome: "failed",
-          steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
-        },
-        {
-          verb: "test",
-          clean: false,
-          tree: "same-tracked-diff",
-          steps: [step("test", 1, "Test")],
-        },
-      ]),
-      "main",
-    ),
-  );
-  const basis = findingBasis(outcome.findings[0]);
-  assertEquals(basis.kind, "legacy-dirty-tracked-start");
-  assert(
-    basis.limitations.some((limitation) =>
-      limitation.includes("index/worktree") && limitation.includes("untracked")
-    ),
-    "legacy dirty evidence must disclose both staged/index and mixed-untracked ambiguity",
   );
 });
 
@@ -2510,7 +2415,6 @@ Deno.test("patterns finding schema enforces additive evidence agreement without 
       validation_state: { version: 1, complete: true },
       matched_conditions: [],
       differing_conditions: [],
-      legacy_events: 0,
       excluded_events: 0,
       limitations: ["External context was not recorded."],
       values: { runs: { value: 2, kind: "observed" } },

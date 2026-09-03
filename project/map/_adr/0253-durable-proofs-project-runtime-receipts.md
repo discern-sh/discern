@@ -1,5 +1,7 @@
 # ADR 0253: Durable proofs project runtime receipts
 
+> **Launch-reader amendment (2026-09-03):** the private bare and pre-split note layouts were retired before v1. Current readers require the explicit subject and separate `proof` and `presentation` blocks. Same-major additive fields and the Base64 tolerance established by ADR 0242 remain; no private note is migrated into a current Proof.
+
 **Status**: accepted; amends the payload decision in [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) before the first release tag
 
 ## Context

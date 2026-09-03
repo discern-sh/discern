@@ -26,7 +26,7 @@ import {
   readTextIfExists,
 } from "../../shared/fs_presence.ts";
 
-const BASELINE_VERSION = 2;
+const BASELINE_VERSION = 1;
 const CHANGE_CAP = 20;
 const CONTENT_HASH_BUDGET_BYTES = 16 * 1024 * 1024;
 const CONTENT_HASH_BUDGET_FILES = 2_048;

@@ -46,7 +46,7 @@ export interface RecordedJobStep {
 
 /**
  * Derive a configured job's verdict from its explicit recorded step only.
- * Missing and foreign legacy values remain unavailable; absence never means
+ * Missing and unknown values remain unavailable; absence never means
  * either success or failure.
  */
 export function validationJobOutcome(
@@ -174,6 +174,11 @@ export const VALIDATION_EVIDENCE_SCHEMA_FIELDS = {
   execution: Object.keys(executionSchema.shape),
   job: Object.keys(executionJobSchema.shape),
 } as const;
+
+/** Commands whose current writers always attach validation evidence. Patterns
+ * derives its comparable observation set from this same enrollment registry. */
+export const RECORDED_VALIDATION_VERBS = ["test", "done"] as const;
+
 export type ValidationEvidence = z.infer<typeof validationEvidenceSchema>;
 export type ValidationState = ValidationEvidence["state"];
 export type ValidationIncomplete = NonNullable<

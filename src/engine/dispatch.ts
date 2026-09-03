@@ -168,9 +168,6 @@ function displayName(name: string): string {
   if (name.startsWith("worktree-")) {
     return "worktree " + name.slice("worktree-".length);
   }
-  if (name.startsWith("done-")) {
-    return `done:${name.slice("done-".length)}`;
-  }
   return name;
 }
 

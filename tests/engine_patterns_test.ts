@@ -1389,7 +1389,6 @@ Deno.test("patterns: Standard variance investigations retain raw findings across
       investigation?.observations[0]?.denominator,
       { value: 5, unit: "Standard readings" },
     );
-    assertEquals(investigation?.evidence_boundary.legacy_events, 0);
     assertStringIncludes(investigation?.diagnostic_action ?? "", "standards");
     assertStringIncludes(investigation?.falsifier ?? "", "Three current");
     assert(
@@ -1580,8 +1579,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       denominator: 3,
       complete: 0,
       incomplete: 0,
-      legacy: 3,
-      unattributed: 0,
+      unattributed: 3,
     });
     assertEquals(stats.cycles, {
       started: 2,
@@ -1670,7 +1668,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "evidence across 3 runs: complete 0 (0%) · incomplete 0 (0%) · legacy 3 (100%) · unattributed 0 (0%)",
+      "evidence across 3 runs: complete 0 (0%) · incomplete 0 (0%) · unattributed 3 (100%)",
     );
     assert(
       !card.includes("never shipped") && !card.includes("shipped"),

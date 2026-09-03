@@ -15,8 +15,8 @@ import {
 } from "../../shared/consent.ts";
 import {
   type AuthorizedVarianceData,
-  canonicalStandardLimitProposal,
   type StandardLimitProposalData,
+  StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
@@ -71,32 +71,15 @@ interface AcceptanceTransactionBase {
   readonly effort_claim: boolean;
 }
 
-type AcceptanceTransaction =
-  | (AcceptanceTransactionBase & {
-    readonly version: 1;
-  })
-  | (AcceptanceTransactionBase & {
-    readonly version: 2;
-    /** Consent already checked before this exact expected→target boundary. */
-    readonly consent: LandingConsent;
-  })
-  | (AcceptanceTransactionBase & {
-    readonly version: 3;
-    /** Consent already checked before this exact expected→target boundary. */
-    readonly consent: LandingConsent;
-    /** The owner-authorized variances bound to this exact transition — each
-     * to a checkpoint id, definition hash, subject fingerprint, and
-     * rationale. Recovery may complete only THIS authorized transition; the
-     * decision never replays onto changed declarations or another tree. */
-    readonly variances: readonly AuthorizedVarianceData[];
-  })
-  | (AcceptanceTransactionBase & {
-    readonly version: 4;
-    readonly consent: LandingConsent;
-    readonly variances: readonly AuthorizedVarianceData[];
-    /** Exact Standard/value/reason tuples approved for this transition. */
-    readonly standard_proposals: readonly StandardLimitProposalData[];
-  });
+type AcceptanceTransaction = AcceptanceTransactionBase & {
+  readonly version: 1;
+  /** Consent already checked before this exact expected→target boundary. */
+  readonly consent: LandingConsent;
+  /** Owner-authorized variances bound to this exact transition. */
+  readonly variances: readonly AuthorizedVarianceData[];
+  /** Exact Standard/value/reason tuples approved for this transition. */
+  readonly standard_proposals: readonly StandardLimitProposalData[];
+};
 
 export interface RecordedAcceptanceTransaction {
   readonly path: string;
@@ -272,12 +255,12 @@ function parseStandardProposals(
   const proposals: StandardLimitProposalData[] = [];
   const names = new Set<string>();
   for (const entry of value) {
-    const parsed = canonicalStandardLimitProposal(entry);
-    if (parsed === undefined || names.has(parsed.standard)) {
+    const parsed = StandardLimitProposalSchema.safeParse(entry);
+    if (!parsed.success || names.has(parsed.data.standard)) {
       return undefined;
     }
-    names.add(parsed.standard);
-    proposals.push(parsed);
+    names.add(parsed.data.standard);
+    proposals.push(parsed.data);
   }
   return proposals;
 }
@@ -293,19 +276,13 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   if (!isPlainObject(parsed)) {
     throw new Error("the record is not a JSON object");
   }
-  const consent = parsed.version === 2 || parsed.version === 3 ||
-      parsed.version === 4
-    ? parseLandingConsent(parsed.consent)
-    : undefined;
-  const variances = parsed.version === 3 || parsed.version === 4
-    ? parseVariances(parsed.variances)
-    : undefined;
-  const standardProposals = parsed.version === 4
-    ? parseStandardProposals(parsed.standard_proposals)
-    : undefined;
+  const consent = parseLandingConsent(parsed.consent);
+  const variances = parseVariances(parsed.variances);
+  const standardProposals = parseStandardProposals(
+    parsed.standard_proposals,
+  );
   if (
-    (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 &&
-      parsed.version !== 4) ||
+    parsed.version !== 1 ||
     typeof parsed.id !== "string" ||
     !TRANSACTION_ID.test(parsed.id) ||
     !isRefName(parsed.worktree_branch) ||
@@ -317,26 +294,20 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     typeof parsed.main_repo !== "string" ||
     !isAbsolute(parsed.main_repo) ||
     typeof parsed.effort_claim !== "boolean" ||
-    (parsed.version !== 1 && consent === undefined) ||
-    (parsed.version !== 1 &&
-      (consent?.source === "effort-grant") !== parsed.effort_claim) ||
-    ((parsed.version === 3 || parsed.version === 4) &&
-      variances === undefined) ||
-    (parsed.version === 4 && standardProposals === undefined) ||
+    consent === undefined ||
+    (consent.source === "effort-grant") !== parsed.effort_claim ||
+    variances === undefined ||
+    standardProposals === undefined ||
     // A variance forces current-conversation consent; a journal claiming one
     // under any recorded grant is not a record this engine ever wrote.
-    ((parsed.version === 3 || parsed.version === 4) &&
-      (variances?.length ?? 0) > 0 &&
-      consent?.source !== "conversation") ||
-    (parsed.version === 4 && (standardProposals?.length ?? 0) > 0 &&
-      consent?.source !== "conversation")
+    variances.length > 0 && consent.source !== "conversation" ||
+    standardProposals.length > 0 && consent.source !== "conversation"
   ) {
     throw new Error(
-      "the record needs version 1, 2, 3, or 4, a transaction id, branch/trunk " +
+      "the record needs version 1, a transaction id, branch/trunk " +
         "names, expected and target object IDs, an absolute main checkout, " +
-        "and an effort-claim flag; versions 2 and 3 also bind matching " +
-        "consent evidence; versions 3 and 4 bind authorized variances, and " +
-        "version 4 binds exact Standard proposals, to conversation consent",
+        "an effort-claim flag, matching consent evidence, authorized variances, " +
+        "and exact Standard proposals; decisions bind to conversation consent",
     );
   }
   const base: AcceptanceTransactionBase = {
@@ -348,22 +319,8 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     main_repo: parsed.main_repo,
     effort_claim: parsed.effort_claim,
   };
-  if (parsed.version === 1) {
-    return { version: 1, ...base };
-  }
-  if (parsed.version === 2) {
-    return { version: 2, ...base, consent: consent as LandingConsent };
-  }
-  if (parsed.version === 3) {
-    return {
-      version: 3,
-      ...base,
-      consent: consent as LandingConsent,
-      variances: variances as AuthorizedVarianceData[],
-    };
-  }
   return {
-    version: 4,
+    version: 1,
     ...base,
     consent: consent as LandingConsent,
     variances: variances as AuthorizedVarianceData[],
@@ -453,20 +410,23 @@ async function writeAcceptanceTransaction(
         "starting another landing.",
     );
   }
-  const { standardProposals, ...transactionInput } = input;
   const id = entropy.uuid();
-  const transaction: AcceptanceTransaction = standardProposals.length === 0
-    ? {
-      version: 3,
-      id,
-      ...transactionInput,
-    }
-    : {
-      version: 4,
-      id,
-      ...transactionInput,
-      standard_proposals: standardProposals,
-    };
+  const transaction: AcceptanceTransaction = {
+    version: 1,
+    id,
+    worktree_branch: input.worktree_branch,
+    trunk: input.trunk,
+    expected_trunk: input.expected_trunk,
+    target: input.target,
+    main_repo: input.main_repo,
+    effort_claim: input.effort_claim,
+    consent: cloneConsent(input.consent),
+    variances: input.variances.map((variance) => ({ ...variance })),
+    standard_proposals: input.standardProposals.map((proposal) => ({
+      ...proposal,
+      evidence_paths: [...proposal.evidence_paths],
+    })),
+  };
   await Deno.mkdir(dirname(current.path), { recursive: true });
   const temp = `${current.path}.tmp-${entropy.uuid()}`;
   try {
@@ -632,11 +592,9 @@ function cloneConsent(consent: LandingConsent): LandingConsent {
 }
 
 /**
- * Inspect interrupted-transaction evidence without mutating it. A v2 journal
- * carries the consent checked before its exact expected→target boundary. A
- * legacy effort journal can still prove authority through its matching claim.
- * Legacy conversation/standing journals carry no such proof and therefore need
- * current authority before recovery may act.
+ * Inspect interrupted-transaction evidence without mutating it. The journal
+ * carries the consent checked before its exact expected→target boundary.
+ * Malformed or noncanonical journals cannot recover authority.
  */
 export async function inspectInterruptedAcceptance(
   cwd: string,
@@ -675,22 +633,7 @@ export async function inspectInterruptedAcceptance(
         `repository. It preserved the journal at ${recorded.path}.`,
     );
   }
-  let consent: LandingConsent | undefined;
-  if (
-    transaction.version === 2 || transaction.version === 3 ||
-    transaction.version === 4
-  ) {
-    consent = cloneConsent(transaction.consent);
-  } else if (transaction.effort_claim) {
-    const claim = await readEffortGrantClaim(
-      cwd,
-      transaction.worktree_branch,
-      transaction.id,
-    );
-    if (claim.status === "claimed") {
-      consent = { source: "effort-grant" };
-    }
-  }
+  const consent = cloneConsent(transaction.consent);
   return {
     kind: "recorded",
     path: recorded.path,

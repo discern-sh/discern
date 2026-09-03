@@ -10,6 +10,7 @@ import { dirname, isAbsolute, join } from "@std/path";
 import { z } from "@zod/zod";
 import { readTextIfExists, statIfExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { readProposalStore } from "../src/engine/gate/standard_proposal_state.ts";
 import {
   addWorktree,
   git,
@@ -142,24 +143,26 @@ Deno.test("standards propose records the breached value in one config-only commi
     assertEquals(proposalResult.proposal.commit, commit);
     assertEquals(proposalResult.proposal.bound_commit, commit);
 
-    // A proposal record written before descendant rebinding had no
-    // `bound_commit`. It remains exact authority for its proposal commit and
-    // is normalized at the persistence boundary.
+    // The canonical store requires the descendant binding. A private-era
+    // version number and missing field are malformed, never upgraded in place.
     const proposalPath = await gitAdminStatePath(
       worktree,
       "standardLimitProposals",
     );
     assert(proposalPath !== undefined);
-    const legacyStore = decodeWith(
+    const currentStoreText = await Deno.readTextFile(proposalPath);
+    const incompleteStore = decodeWith(
       MutableProposalStoreFixtureSchema,
-      await Deno.readTextFile(proposalPath),
+      currentStoreText,
     );
-    legacyStore.version = 1;
-    delete legacyStore.proposals[0]?.bound_commit;
+    incompleteStore.version = 1;
+    delete incompleteStore.proposals[0]?.bound_commit;
     await Deno.writeTextFile(
       proposalPath,
-      `${JSON.stringify(legacyStore)}\n`,
+      `${JSON.stringify(incompleteStore)}\n`,
     );
+    assertEquals((await readProposalStore(worktree)).status, "malformed");
+    await Deno.writeTextFile(proposalPath, currentStoreText);
 
     const repeated = await runAgent(worktree, [
       "standards",

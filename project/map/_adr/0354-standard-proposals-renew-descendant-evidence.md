@@ -1,5 +1,7 @@
 # ADR 0354: Standard proposals renew descendant evidence through target-scoped measurement
 
+> **Launch-format amendment (2026-09-03):** current proposal stores, structured Proof, and acceptance journals require `bound_commit`. The short-lived pre-rebinding normalizer was retired before v1; missing binding evidence is malformed rather than rewritten to `commit`.
+
 **Status**: accepted. Amends the exact-commit proposal and shared-measurement decision in [ADR 0339](0339-proposed-standard-limits-and-shared-measurements.md), the pin receipt in [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md), and exact-tree Proof reuse in [ADR 0067](0067-accept-validates-the-landed-tree.md).
 
 ## Context

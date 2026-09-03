@@ -2830,13 +2830,6 @@ export interface WorktreeRemovalCandidate {
   head: string;
 }
 
-/** One positively-owned dangling branch eligible for automatic retirement. */
-export interface OwnedBranchDeletionCandidate {
-  branch: string;
-  id: string;
-  expectedCommit: string;
-}
-
 /** One stale git worktree admin entry the scan found. */
 export interface StaleWorktreeMetadata {
   /** The checkout path git reports as prunable. */
@@ -2867,7 +2860,6 @@ export interface GitWorktreePruneScan {
   mainBranch: string;
   identitySettings: IdentitySettings;
   worktreesToRemove: WorktreeRemovalCandidate[];
-  branchesToDelete: OwnedBranchDeletionCandidate[];
   staleMetadata: OwnedStaleWorktreeMetadata[];
   worktreeLines: PruneScanLine[];
   branchLines: PruneScanLine[];
@@ -3102,7 +3094,6 @@ export async function scanGitWorktreesForPrune(
   }
 
   const worktreesToRemove: WorktreeRemovalCandidate[] = [];
-  const branchesToDelete: OwnedBranchDeletionCandidate[] = [];
   const staleMetadata: OwnedStaleWorktreeMetadata[] = [];
   const worktreeLines: PruneScanLine[] = [];
   const branchLines: PruneScanLine[] = [];
@@ -3302,7 +3293,6 @@ export async function scanGitWorktreesForPrune(
     mainBranch,
     identitySettings: opts.identitySettings,
     worktreesToRemove,
-    branchesToDelete,
     staleMetadata,
     worktreeLines,
     branchLines,
@@ -3414,7 +3404,7 @@ export async function pruneGitWorktrees(
   renderGitWorktreePruneScan(scan, log);
 
   const deleteBranchSafe = async (
-    candidate: OwnedBranchDeletionCandidate,
+    candidate: { branch: string; id: string; expectedCommit: string },
   ): Promise<boolean> => {
     const deleted = await deleteAutomaticallyOwnedBranch({
       repoRoot: scan.repoRoot,
@@ -3440,9 +3430,7 @@ export async function pruneGitWorktrees(
   const branchesDeleted: string[] = [];
   let failed = false;
 
-  if (
-    scan.worktreesToRemove.length === 0 && scan.branchesToDelete.length === 0
-  ) {
+  if (scan.worktreesToRemove.length === 0) {
     log.line("Nothing to remove.");
   } else {
     for (const candidate of scan.worktreesToRemove) {
@@ -3476,13 +3464,6 @@ export async function pruneGitWorktrees(
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        failed = true;
-      }
-    }
-    for (const branchCandidate of scan.branchesToDelete) {
-      if (await deleteBranchSafe(branchCandidate)) {
-        branchesDeleted.push(branchCandidate.branch);
-      } else {
         failed = true;
       }
     }

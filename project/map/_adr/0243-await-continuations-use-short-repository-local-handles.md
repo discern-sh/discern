@@ -1,5 +1,7 @@
 # ADR 0243: Await continuations use short repository-local handles
 
+> **Launch-input amendment (2026-09-03):** only the short repository-local handle is accepted. The private `v1.…` self-contained decoder was retired before v1; it never entered the public continuation population.
+
 **Status**: accepted. Supersedes [ADR 0232](0232-await-continuations-spend-the-transport-budget.md)'s self-contained token representation and [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md)'s no-Git-admin-state rule. Extends the common-state lifetime registry of [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md).
 
 ## Context

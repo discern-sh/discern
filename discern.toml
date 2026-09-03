@@ -898,6 +898,27 @@
     "deno.lock",
   ]
 
+# Dead direct-export standard — the Git-derived authored-Deno census rejects a
+# named declaration that is exported but has no local or authored-module
+# consumer. Public package roots and runtime-selected exports stay explicitly
+# live in the detector. Zero is the settled ceiling: remove an obsolete export
+# or add its real consumer; never manufacture reachability.
+[standards.dead_exports]
+  direction = "down"
+  limit = 0
+  run = "deno task dead-exports"
+  inputs = [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+    "deno.json",
+  ]
+
 # Duplication standard — each finding is one maximal normalized clone group,
 # and source ranges are admitted globally only when they do not overlap a
 # larger finding. The held scalar charges formatting-independent logical
@@ -1004,7 +1025,7 @@
 # so a shared wrapper cannot hide unlimited new discards behind one call.
 [standards.silent_error_boundaries]
   direction = "down"
-  limit = 186
+  limit = 185
   run = "deno task silent-error-boundaries"
   inputs = [
     "*.ts",

@@ -34,7 +34,6 @@
  */
 
 import { join } from "@std/path";
-import { decodeBase64 } from "@std/encoding/base64";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
@@ -152,14 +151,6 @@ interface AwaitContinuationPayload {
   branch_ever_unreachable?: boolean;
 }
 
-/** The self-contained format emitted before repository-local handles. It stays
- * readable so a watch already between calls survives an engine upgrade. */
-interface LegacyAwaitResumePayload extends AwaitContinuationPayload {
-  repository: string;
-}
-
-const LEGACY_AWAIT_RESUME_PREFIX = "v1.";
-const LEGACY_AWAIT_RESUME_TOKEN_MAX_LENGTH = 16_384;
 const AWAIT_CONTINUATION_KEYS = new Set([
   "version",
   "condition",
@@ -168,10 +159,6 @@ const AWAIT_CONTINUATION_KEYS = new Set([
   "tip",
   "trunk_start",
   "branch_ever_unreachable",
-]);
-const LEGACY_AWAIT_RESUME_KEYS = new Set([
-  ...AWAIT_CONTINUATION_KEYS,
-  "repository",
 ]);
 
 /** Narrow unknown input to one of the closed continuation wait conditions. */
@@ -236,58 +223,6 @@ function parseAwaitContinuationPayload(
       ? { branch_ever_unreachable: branchEverUnreachable }
       : {}),
   };
-}
-
-/** Decode the former inline token so stored-handle migration remains resumable. */
-function decodeLegacyResumeToken(
-  token: string,
-): LegacyAwaitResumePayload | undefined {
-  if (
-    token.length > LEGACY_AWAIT_RESUME_TOKEN_MAX_LENGTH ||
-    !token.startsWith(LEGACY_AWAIT_RESUME_PREFIX)
-  ) {
-    return undefined;
-  }
-  const encoded = token.slice(LEGACY_AWAIT_RESUME_PREFIX.length);
-  if (encoded === "" || !/^[A-Za-z0-9_-]+$/u.test(encoded)) {
-    return undefined;
-  }
-  const remainder = encoded.length % 4;
-  if (remainder === 1) {
-    return undefined;
-  }
-  const padded = encoded.replaceAll("-", "+").replaceAll("_", "/") +
-    "=".repeat((4 - remainder) % 4);
-  let decoded: unknown;
-  try {
-    const json = new TextDecoder("utf-8", { fatal: true }).decode(
-      decodeBase64(padded),
-    );
-    decoded = JSON.parse(json);
-  } catch {
-    // discern-best-effort: await-legacy-resume-decode
-    return undefined;
-  }
-  if (
-    typeof decoded !== "object" || decoded === null || Array.isArray(decoded)
-  ) {
-    return undefined;
-  }
-  const value = decoded as Record<string, unknown>;
-  if (
-    Object.keys(value).some((key) => !LEGACY_AWAIT_RESUME_KEYS.has(key)) ||
-    typeof value.repository !== "string" || value.repository === ""
-  ) {
-    return undefined;
-  }
-  const payload = parseAwaitContinuationPayload(
-    Object.fromEntries(
-      Object.entries(value).filter(([key]) => key !== "repository"),
-    ),
-  );
-  return payload === undefined
-    ? undefined
-    : { ...payload, repository: value.repository };
 }
 
 /** One condition evaluation: the verdict now, and the state behind it. */
@@ -593,24 +528,7 @@ export async function awaitResult(
 
   let resumed: AwaitContinuationPayload | undefined;
   let resumeHandle: string | undefined;
-  if (opts.resume?.startsWith(LEGACY_AWAIT_RESUME_PREFIX) === true) {
-    const legacy = decodeLegacyResumeToken(opts.resume);
-    if (legacy === undefined) {
-      return refusal(
-        "invalid_arguments",
-        "The `--resume` token is invalid or was written by an incompatible discern version.",
-        failureRecoveryHintTexts("await"),
-      );
-    }
-    if (legacy.repository !== commonGitDir || legacy.trunk !== trunk) {
-      return refusal(
-        "invalid_arguments",
-        "The `--resume` token belongs to a different repository or trunk branch.",
-        failureRecoveryHintTexts("await"),
-      );
-    }
-    resumed = legacy;
-  } else if (opts.resume !== undefined) {
+  if (opts.resume !== undefined) {
     const stored = await readContinuation(root, opts.resume);
     if (stored.kind === "invalid-handle") {
       return refusal(

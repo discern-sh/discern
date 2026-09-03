@@ -12564,11 +12564,6 @@
                                   ]
                                 }
                               },
-                              "legacy_events": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
                               "excluded_events": {
                                 "type": "integer",
                                 "minimum": 0,
@@ -12614,7 +12609,6 @@
                               "validation_state",
                               "matched_conditions",
                               "differing_conditions",
-                              "legacy_events",
                               "excluded_events",
                               "limitations",
                               "values"
@@ -17596,11 +17590,6 @@
                               ]
                             }
                           },
-                          "legacy_events": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
                           "excluded_events": {
                             "type": "integer",
                             "minimum": 0,
@@ -17646,7 +17635,6 @@
                           "validation_state",
                           "matched_conditions",
                           "differing_conditions",
-                          "legacy_events",
                           "excluded_events",
                           "limitations",
                           "values"
@@ -17824,11 +17812,6 @@
                               ]
                             }
                           },
-                          "legacy_events": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
                           "excluded_events": {
                             "type": "integer",
                             "minimum": 0,
@@ -17847,7 +17830,6 @@
                           "validation_versions",
                           "complete_validation_state",
                           "setup_conditions",
-                          "legacy_events",
                           "excluded_events",
                           "limitations"
                         ]
@@ -18228,11 +18210,6 @@
                                   "minimum": 0,
                                   "maximum": 9007199254740991
                                 },
-                                "legacy": {
-                                  "type": "integer",
-                                  "minimum": 0,
-                                  "maximum": 9007199254740991
-                                },
                                 "unattributed": {
                                   "type": "integer",
                                   "minimum": 0,
@@ -18243,7 +18220,6 @@
                                 "denominator",
                                 "complete",
                                 "incomplete",
-                                "legacy",
                                 "unattributed"
                               ]
                             },
@@ -22030,7 +22006,7 @@
                           "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
                         }
                       },
-                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
+                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
                     },
                     "brief": {
                       "type": "string"

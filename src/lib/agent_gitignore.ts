@@ -7,9 +7,8 @@
  * registry's ignored artifact kinds) — the compiled instruction files stay tracked,
  * so they never appear in it. It is authored in `templates/.gitignore.fragment`,
  * widened from the provider registry, and reconciled idempotently into existing
- * installs by absorbing old one-off `# discern:` fragments and scattered legacy
- * rules — including the instruction-file ignores earlier versions shipped, so an
- * upgraded install's compiled files become trackable again.
+ * installs by reconciling that exact owned region and the exact rules discern
+ * declares as its own.
  */
 
 import { join } from "@std/path";
@@ -521,18 +520,6 @@ function stripDiscernOwnedLines(
       continue;
     }
 
-    if (isLegacyDiscernMarker(trimmed)) {
-      insertionIndex ??= kept.length;
-      i++;
-      while (
-        i < lines.length &&
-        isLegacyBlockOwnedLine(lines[i] ?? "", canonicalOwned, artifacts)
-      ) {
-        i++;
-      }
-      continue;
-    }
-
     if (isStandaloneDiscernOwnedLine(line, canonicalOwned, artifacts)) {
       insertionIndex ??= kept.length;
       i++;
@@ -571,7 +558,6 @@ function isLegacyBlockOwnedLine(
     return false;
   }
   return canonicalOwned.has(trimmed) ||
-    isLegacyDiscernComment(trimmed) ||
     isDiscernOwnedRule(trimmed, artifacts);
 }
 
@@ -584,7 +570,6 @@ function isStandaloneDiscernOwnedLine(
   const trimmed = line.trim();
   return trimmed !== "" &&
     (canonicalOwned.has(trimmed) ||
-      isLegacyDiscernComment(trimmed) ||
       isDiscernOwnedRule(trimmed, artifacts));
 }
 
@@ -593,18 +578,6 @@ function isSectionMarker(line: string): boolean {
   return /^# --- .+ ---$/.test(line) &&
     line !== DISCERN_GITIGNORE_BEGIN &&
     line !== DISCERN_GITIGNORE_END;
-}
-
-/** Recognize the one-line `# discern:` headers emitted by older releases. */
-function isLegacyDiscernMarker(line: string): boolean {
-  return /^# discern:/.test(line);
-}
-
-/** Recognize Discern-specific prose eligible for removal from unmanaged ignore fragments. */
-function isLegacyDiscernComment(line: string): boolean {
-  return isLegacyDiscernMarker(line) ||
-    line ===
-      "# Per-branch work evidence captured by the gate (runtime store, not source).";
 }
 
 /** Recognize every current or retired ignore pattern that an upgrade may absorb. */

@@ -1043,21 +1043,6 @@ export function planToJson(plan: EnginePlan): PlanJson {
   };
 }
 
-/**
- * Serialize (plan, results) into the legacy generic apply-mode shape `{ok, steps}`.
- * Retained for the verbs not yet migrated to a {@link DiscernResult}; new code
- * should build a {@link DiscernResult} and serialize that instead.
- */
-export function resultsToJson(results: StepResult[]): {
-  ok: boolean;
-  steps: StepResultJson[];
-} {
-  return {
-    ok: results.every(stepResultSatisfiesCompletion),
-    steps: results.map(stepResultToJson),
-  };
-}
-
 /** Whether one executed step satisfied its required completion obligation. */
 export function stepResultSatisfiesCompletion(result: StepResult): boolean {
   if (result.outcome === "cancelled") return false;

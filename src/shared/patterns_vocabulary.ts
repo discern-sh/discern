@@ -158,7 +158,6 @@ export const PatternEvidenceBasisSchema = z.strictObject({
   }),
   matched_conditions: z.array(PatternEvidenceConditionSchema).max(16),
   differing_conditions: z.array(PatternEvidenceConditionSchema).max(16),
-  legacy_events: z.number().int().nonnegative(),
   excluded_events: z.number().int().nonnegative(),
   limitations: z.array(z.string().min(1)).max(16),
   values: z.record(
@@ -247,7 +246,6 @@ export const PatternInvestigationBoundarySchema = z.strictObject({
   validation_versions: z.array(z.number().int().nonnegative()).max(4),
   complete_validation_state: z.boolean(),
   setup_conditions: z.array(PatternEvidenceConditionSchema).max(16),
-  legacy_events: z.number().int().nonnegative(),
   excluded_events: z.number().int().nonnegative(),
   limitations: z.array(z.string().min(1)).max(16),
 });
@@ -426,7 +424,6 @@ const validationWorkflowStatsSchema = z.strictObject({
       denominator: z.number().int().nonnegative(),
       complete: z.number().int().nonnegative(),
       incomplete: z.number().int().nonnegative(),
-      legacy: z.number().int().nonnegative(),
       unattributed: z.number().int().nonnegative(),
     }),
     dirty_state: z.strictObject({

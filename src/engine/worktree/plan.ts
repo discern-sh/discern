@@ -625,12 +625,9 @@ export interface PrunePlan {
   reclaimContained: boolean;
 }
 
-/** Combine branches released by owned worktree removal with owned ref candidates. */
+/** List branches released by owned worktree removal. */
 function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
-  return [
-    ...scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== ""),
-    ...scan.branchesToDelete.map((candidate) => candidate.branch),
-  ];
+  return scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== "");
 }
 
 /** Project a prune plan onto the shared renderer, grouping by what is reclaimed. */

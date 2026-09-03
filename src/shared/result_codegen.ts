@@ -374,8 +374,7 @@ export function buildProofNoteJsonSchema(): JsonObject {
       "Standard signed DSSE envelopes carry at least one signature; discern's " +
       "unsigned extension carries an empty signatures array. keyid is an " +
       "unauthenticated lookup hint; a signing profile and trust policy decide " +
-      "the algorithm, verification key, and identity. A bare claim object " +
-      "with no payloadType is a legacy unsigned note.",
+      "the algorithm, verification key, and identity.",
     "x-discern-payload-type": PROOF_NOTE_PAYLOAD_TYPE,
     "x-discern-dsse-envelope": PROOF_NOTE_DSSE_ENVELOPE,
     "x-discern-dsse-protocol": PROOF_NOTE_DSSE_PROTOCOL,

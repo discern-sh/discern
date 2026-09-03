@@ -475,40 +475,6 @@ export type StandardLimitProposalData = z.infer<
   typeof StandardLimitProposalSchema
 >;
 
-/** The short-lived pre-rebinding wire shape. Persisted proposal and Proof
- * readers normalize it by treating the immutable proposal commit as the first
- * binding; new public results always emit {@link StandardLimitProposalSchema}. */
-export const LegacyStandardLimitProposalSchema = StandardLimitProposalSchema
-  .omit({ bound_commit: true });
-
-/** Normalize one persisted proposal across the pre-rebinding boundary. */
-export function canonicalStandardLimitProposal(
-  value: unknown,
-): StandardLimitProposalData | undefined {
-  const current = StandardLimitProposalSchema.safeParse(value);
-  if (current.success) {
-    return current.data;
-  }
-  const legacy = LegacyStandardLimitProposalSchema.safeParse(value);
-  return legacy.success
-    ? { ...legacy.data, bound_commit: legacy.data.commit }
-    : undefined;
-}
-
-/** Normalize a complete proposal array, refusing partial recovery when any
- * member is malformed. Compatibility readers share this all-or-nothing seam. */
-export function canonicalStandardLimitProposals(
-  value: unknown,
-): StandardLimitProposalData[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  const proposals = value.map(canonicalStandardLimitProposal);
-  return proposals.some((proposal) => proposal === undefined)
-    ? undefined
-    : proposals as StandardLimitProposalData[];
-}
-
 /** One exact approval challenge served at acceptance. The opaque token binds
  * the Standard name, proposed value, and verbatim reason; changing any member
  * produces a different token. */
@@ -752,7 +718,7 @@ export const ProofIssuerSchema = z.strictObject(PROOF_ISSUER_FIELDS).meta({
   description:
     "Identity details asserted by the proof payload. A verified Dead Simple " +
     "Signing Envelope (DSSE) signature protects these details from alteration " +
-    "but does not establish who controls the signing key. Nothing writes them at v1.0.0.",
+    "but does not establish who controls the signing key. Current writers leave them absent.",
 });
 export type ProofIssuer = z.infer<typeof ProofIssuerSchema>;
 
@@ -772,7 +738,7 @@ export const ProofNoteSignatureSchema = z.strictObject({
 }).meta({
   description:
     "One DSSE signature over this envelope's payload type and decoded payload " +
-    "bytes. No signing profile or trust policy is selected at v1.0.0.",
+    "bytes. No signing profile or trust policy is selected today.",
 });
 
 /** The closed structured claim a durable proof makes about one green gate run.
@@ -821,8 +787,8 @@ export const ProofNotePayloadSchema = z.strictObject({
   issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
-      "Reserved: a reference to a signed intent artifact. Nothing writes " +
-      "it at v1.0.0.",
+      "Reserved: a reference to a signed intent artifact. Current writers " +
+      "leave it absent.",
   }).optional(),
 }).meta({
   description:
@@ -850,7 +816,7 @@ export const ProofNoteSchema = z.strictObject({
   signatures: z.array(ProofNoteSignatureSchema).meta({
     description:
       "DSSE signatures over this payload. Standard signed envelopes carry at " +
-      "least one. An empty array is discern's unsigned extension, written at v1.0.0.",
+      "least one. Current unsigned writers emit discern's empty-array extension.",
   }),
 });
 /** The durable reader's payload schema. Unknown additive fields pass at every
@@ -862,12 +828,8 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
     mode: z.enum(GATE_MODES).optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
     standard_proposals: z.array(StandardLimitProposalSchema).optional(),
-    // Pre-split envelopes stored presentation inside `proof`. Keep reading
-    // those local pre-release notes without publishing that layout.
-    line: z.string().optional(),
-    markdown: z.string().optional(),
   }),
-  presentation: z.looseObject(PROOF_PRESENTATION_FIELDS).optional(),
+  presentation: z.looseObject(PROOF_PRESENTATION_FIELDS),
   acceptance: z.looseObject({
     consent: z.looseObject({
       source: z.string(),
@@ -879,7 +841,7 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
       subject: z.string(),
       why: z.string(),
     })),
-    standard_proposals: z.array(StandardLimitProposalSchema).optional(),
+    standard_proposals: z.array(StandardLimitProposalSchema),
   }).optional(),
   issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
   brief: z.string().optional(),

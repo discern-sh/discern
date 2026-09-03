@@ -130,6 +130,11 @@ Deno.test("the proof-note schema publishes one DSSE payload boundary", () => {
   assertEquals(schema["x-discern-payload-type"], PROOF_NOTE_PAYLOAD_TYPE);
   assertEquals(schema["x-discern-dsse-envelope"], PROOF_NOTE_DSSE_ENVELOPE);
   assertEquals(schema["x-discern-dsse-protocol"], PROOF_NOTE_DSSE_PROTOCOL);
+  assert(
+    typeof schema.description === "string" &&
+      !/(?:legacy|pre-correction|bare claim)/i.test(schema.description),
+    "the current Proof-note publication must not advertise private formats",
+  );
   assert(isRecord(schema.properties), "proof envelope should declare fields");
   const payloadType = schema.properties.payloadType;
   assert(isRecord(payloadType), "proof envelope should declare payloadType");

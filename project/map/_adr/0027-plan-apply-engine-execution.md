@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md)):** current pointers use `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), and `impact` where `scopes` names the verb; the decision and reasoning are unchanged.
 > - **[ADR 0028](0028-result-envelope-and-diagnostics.md) — plan locations:** the plan vocabulary (`StepKind`, `EnginePlan`, `renderPlan`, `planToJson`) was consolidated into `src/shared/result.ts` alongside the result envelope, and the per-verb plan builders live in `src/engine/gate/plan.ts`, `src/engine/gate/standard_plan.ts`, and the worktree lifecycle. The decision stands; only the file locations moved (the cited `engine/plan/*` paths below are updated to match).
 > - **[ADR 0335](0335-operation-policy-enrolls-faithful-previews.md) — preview enrollment:** the live [`OPERATION_EFFECTS`](../../../src/shared/operation_effects.ts) registry decides which command paths require `--dry-run`; the class guard no longer infers policy from the flag. Applied Discern effects must be a subset of the plan, while later runtime facts may safely skip or refine planned work and project-authored commands remain bounded by invocation disclosure.
+> - **Result serialization (2026-09-03):** applied commands serialize their typed `DiscernResult` through `serializeResult`; previews serialize `EnginePlan` through `planToJson`. The unused transitional `resultsToJson` helper was retired before v1.
 
 **Status**: accepted
 
@@ -45,7 +46,7 @@ We did **not** dogmatically inject every read. The plumbing (resolving a git dir
 
 ### One renderer
 
-[`src/shared/result.ts`](../../../src/shared/result.ts) is the engine mirror of `plan_view.ts`: `renderPlan` (→ human listing) and `planToJson` / `resultsToJson` (→ JSON). Every converted verb routes its `--dry-run` and `--json` through it. It writes through a minimal `RenderSink` that **both** the gate's `Out` and the installer's `Logger` implement (via `outSink` / `loggerSink`), which begins collapsing discern's two presentation paths into one — a welcome side-effect, not the goal.
+[`src/shared/result.ts`](../../../src/shared/result.ts) is the engine mirror of `plan_view.ts`: `renderPlan` and `planToJson` own plan presentation, while `serializeResult` owns applied-result JSON. Every converted verb routes its `--dry-run` and `--json` through these authorities. It writes through a minimal `RenderSink` that **both** the gate's `Out` and the installer's `Logger` implement (via `outSink` / `loggerSink`), which begins collapsing discern's two presentation paths into one — a welcome side-effect, not the goal.
 
 ### The gate plan is a substrate for the next thread
 

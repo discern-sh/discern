@@ -171,14 +171,14 @@ Deno.test("proof marker: a pre-evidence marker keeps its tree-only semantics (fa
   });
 });
 
-Deno.test("proof marker: a pre-rebinding Standard proposal binds to its proposal commit", async () => {
+Deno.test("proof marker: a proposal without bound_commit is not structured Proof", async () => {
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
     const head = await gitOut(dir, "rev-parse", "HEAD");
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
     const proof = ProofSchema.parse({
-      branch: "agent/legacy-proposal",
+      branch: "agent/incomplete-proposal",
       trunk: "main",
       head: head.slice(0, 12),
       files_total: 1,
@@ -226,10 +226,7 @@ Deno.test("proof marker: a pre-rebinding Standard proposal binds to its proposal
 
     const inspected = await inspectGateProof(dir);
     assertEquals(inspected.status, "honored");
-    assertEquals(
-      inspected.proof_data?.standard_proposals?.[0]?.bound_commit,
-      head,
-    );
+    assertEquals(inspected.proof_data, undefined);
   });
 });
 

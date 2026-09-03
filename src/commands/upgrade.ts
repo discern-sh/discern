@@ -511,8 +511,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   // 1c. Reconcile the discern-owned .gitignore block to the CURRENT shipped
-  // fragment (with registry-derived agent artifacts), absorbing old one-off
-  // `# discern:` sections into one canonical block. It runs after config
+  // fragment (with registry-derived agent artifacts), reconciling one exact
+  // marked block. It runs after config
   // scaffold reconciliation so a missing templates dir still reports the
   // config-template failure first, but before the schema stamp so an install is
   // not marked current until this co-managed block is current too.

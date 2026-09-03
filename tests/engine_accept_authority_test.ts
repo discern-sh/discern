@@ -259,11 +259,15 @@ async function injectInterruptedAcceptance(
   );
   assert(journal !== undefined);
   await Deno.mkdir(dirname(journal), { recursive: true });
+  const boundConsent = consent ??
+    (effortClaimPath === undefined
+      ? { source: "conversation" as const }
+      : { source: "effort-grant" as const });
   await Deno.writeTextFile(
     journal,
     `${
       JSON.stringify({
-        version: consent === undefined ? 1 : 2,
+        version: 1,
         id,
         worktree_branch: await gitOut(worktree, "branch", "--show-current"),
         trunk: "main",
@@ -271,7 +275,9 @@ async function injectInterruptedAcceptance(
         target,
         main_repo: mainRepo,
         effort_claim: effortClaimPath !== undefined,
-        ...(consent === undefined ? {} : { consent }),
+        consent: boundConsent,
+        variances: [],
+        standard_proposals: [],
       })
     }\n`,
   );
@@ -480,70 +486,6 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
     );
     assertEquals(await targetExists(interrupted.journal), false);
     assert(await targetExists(worktree));
-  });
-});
-
-Deno.test("an unconfirmed retry leaves an unbound post-CAS transaction byte-for-byte untouched and records a refusal", async () => {
-  await withTempDir(async (dir) => {
-    const worktree = await readyWorktree(
-      dir,
-      authorityConfig(),
-      { "feature.txt": "landed before checkout convergence\n" },
-      "unbound-cas-interruption",
-    );
-    const expected = await gitOut(dir, "rev-parse", "main");
-    const target = await gitOut(worktree, "rev-parse", "HEAD");
-    const interrupted = await injectInterruptedAcceptance(
-      worktree,
-      dir,
-      expected,
-      target,
-    );
-    await git(
-      dir,
-      "update-ref",
-      "-m",
-      `discern accept transaction ${interrupted.id}`,
-      "refs/heads/main",
-      target,
-      expected,
-    );
-    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
-    const journalBefore = await Deno.readTextFile(interrupted.journal);
-    const checkoutBefore = await gitOut(dir, "status", "--porcelain");
-    assert(
-      checkoutBefore !== "",
-      "the fixture stops before checkout convergence",
-    );
-
-    const refused = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(refused.code, 1, refused.output);
-    const envelope = decodeCliResult(refused.stdout, "accept");
-    assertEquals(envelope.error, "awaiting_consent");
-    assertEquals(
-      await Deno.readTextFile(interrupted.journal),
-      journalBefore,
-      "authority-free retry must not rewrite or remove the journal",
-    );
-    assertEquals(
-      await gitOut(dir, "status", "--porcelain"),
-      checkoutBefore,
-      "authority-free retry must not converge the main checkout",
-    );
-    assertEquals(await targetExists(join(dir, "feature.txt")), false);
-    assertEquals(
-      await readAcceptanceTransactionMarker(worktree, interrupted.id),
-      { kind: "present", target },
-    );
-
-    const event = (await acceptEvents(dir)).at(-1);
-    assert(event?.kind === "verb");
-    assertEquals(event.outcome, "refused");
-    assertEquals(event.error, "awaiting_consent");
-    assertEquals(
-      (event as unknown as { landing?: unknown }).landing,
-      undefined,
-    );
   });
 });
 

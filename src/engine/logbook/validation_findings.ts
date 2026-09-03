@@ -13,6 +13,7 @@ import {
 } from "../../shared/patterns_vocabulary.ts";
 import {
   canonicalJson,
+  RECORDED_VALIDATION_VERBS,
   type ValidationEvidence,
   type ValidationJobOutcome,
   validationJobOutcome,
@@ -393,16 +394,6 @@ export interface CurrentValidationJobObservation {
   readonly projection: ValidationConditionProjection;
 }
 
-export interface LegacyValidationJobObservation {
-  readonly source: "legacy";
-  readonly event: VerbEvent;
-  readonly basisKind: "legacy-clean-start" | "legacy-dirty-tracked-start";
-  readonly stateKey: string;
-  readonly jobId: string;
-  readonly mode: "full-gate" | "standalone-test";
-  readonly verdict: ComparableValidationVerdict;
-}
-
 /** Complete current evidence must make every condition in the planned-job
  * envelope available. An incomplete reason on a nominally complete record is
  * treated conservatively as incomplete too. */
@@ -434,7 +425,9 @@ export function currentValidationJobObservations(
 ): CurrentValidationJobObservation[] {
   const observations: CurrentValidationJobObservation[] = [];
   for (const event of events) {
-    if (event.verb !== "done" && event.verb !== "test") continue;
+    if (!RECORDED_VALIDATION_VERBS.some((verb) => verb === event.verb)) {
+      continue;
+    }
     const validation = event.validation;
     if (
       validation === undefined ||
@@ -456,58 +449,6 @@ export function currentValidationJobObservations(
         jobKind: job.kind,
         verdict: comparableVerdict(validationJobOutcome(job)),
         projection: validationConditionProjection(validation, job),
-      });
-    }
-  }
-  return observations;
-}
-
-/** Legacy job steps are useful only when they name the compared job. Full-Gate
- * events keep the existing conservative stage boundary; top-level outcomes
- * never substitute for a missing per-job step. */
-function legacyTestSteps(event: VerbEvent): NonNullable<VerbEvent["steps"]> {
-  return (event.steps ?? []).filter((step) => {
-    if (step.kind !== "job") return false;
-    if (event.verb === "test") return true;
-    return step.group === "Test" ||
-      /^(?:test|smoke)(?:#\d+)?$/.test(step.label);
-  });
-}
-
-/** Legacy clean and dirty evidence remain two disjoint bases. A dirty legacy
- * fingerprint covers tracked diff only; a clean event names one recorded HEAD. */
-export function legacyValidationJobObservations(
-  events: readonly VerbEvent[],
-): LegacyValidationJobObservation[] {
-  const observations: LegacyValidationJobObservation[] = [];
-  for (const event of events) {
-    if (
-      event.validation !== undefined ||
-      (event.verb !== "done" && event.verb !== "test") || event.head === null
-    ) {
-      continue;
-    }
-    const basis = event.clean === true
-      ? { kind: "legacy-clean-start" as const, key: event.head }
-      : event.clean === false && event.tree !== undefined
-      ? {
-        kind: "legacy-dirty-tracked-start" as const,
-        key: `${event.head}\0${event.tree}`,
-      }
-      : undefined;
-    if (basis === undefined) continue;
-    const steps = legacyTestSteps(event);
-    const ids = steps.map((step) => step.label);
-    if (new Set(ids).size !== ids.length) continue;
-    for (const step of steps) {
-      observations.push({
-        source: "legacy",
-        event,
-        basisKind: basis.kind,
-        stateKey: basis.key,
-        jobId: step.label,
-        mode: event.verb === "done" ? "full-gate" : "standalone-test",
-        verdict: comparableVerdict(validationJobOutcome(step)),
       });
     }
   }
@@ -554,25 +495,12 @@ export interface CurrentValidationRepeatGroup {
   readonly matchedConditions: PatternEvidenceBasis["matched_conditions"];
 }
 
-export interface LegacyValidationRepeatGroup {
-  readonly basisKind: "legacy-clean-start" | "legacy-dirty-tracked-start";
-  readonly stateVersion: null;
-  readonly jobId: string;
-  readonly head: string;
-  readonly observations: readonly LegacyValidationJobObservation[];
-  readonly matchedConditions: PatternEvidenceBasis["matched_conditions"];
-}
-
-export type ValidationRepeatGroup =
-  | CurrentValidationRepeatGroup
-  | LegacyValidationRepeatGroup;
-
 /** Repeated groups are the documented `considered` population for the retained
  * detector: eligible per-job observations whose full comparison key appears at
  * least twice. */
 export function sameEnvelopeValidationGroups(
   events: readonly VerbEvent[],
-): ValidationRepeatGroup[] {
+): CurrentValidationRepeatGroup[] {
   const current: CurrentValidationRepeatGroup[] = [];
   for (
     const observations of grouped(
@@ -597,36 +525,7 @@ export function sameEnvelopeValidationGroups(
     });
   }
 
-  const legacy: LegacyValidationRepeatGroup[] = [];
-  for (
-    const observations of grouped(
-      legacyValidationJobObservations(events),
-      (observation) =>
-        canonicalJson({
-          basis: observation.basisKind,
-          state: observation.stateKey,
-          job: observation.jobId,
-          mode: observation.mode,
-        }),
-    ).filter((group) => group.length >= 2)
-  ) {
-    const first = observations[0];
-    if (first === undefined) continue;
-    legacy.push({
-      basisKind: first.basisKind,
-      stateVersion: null,
-      jobId: first.jobId,
-      head: first.event.head ?? "?",
-      observations,
-      matchedConditions: [{
-        dimension: "execution-mode",
-        values: [first.mode],
-        distinct: 1,
-        omitted: 0,
-      }],
-    });
-  }
-  return [...current, ...legacy];
+  return current;
 }
 
 export interface ValidationContextBucket {

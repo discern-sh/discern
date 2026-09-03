@@ -35,11 +35,11 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-Readers accept additive fields and older bare or pre-correction notes; unknown payload types report unsupported. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
+Readers accept additive fields inside the current split v1 envelope. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
 
 ## Replay keeps the first presentation
 
-The write identity is the annotated subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. Legacy bare notes use the commit they annotate as their subject. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
+The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
 
 ## Authorship and failure
 

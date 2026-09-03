@@ -128,7 +128,6 @@ Deno.test("logbook routing: the additive evidence basis reaches wire and inline 
       omitted: 0,
     }],
     differing_conditions: [],
-    legacy_events: 0,
     excluded_events: 0,
     limitations: ["External context was not recorded."],
     values: {

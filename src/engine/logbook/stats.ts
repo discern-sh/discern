@@ -371,20 +371,16 @@ function isPrecommitToCleanGate(cycle: ValidationWorkflowCycle): boolean {
   );
 }
 
-/** Classify how much workflow evidence one run carries. Current validation
- * evidence must clear the complete 3A comparison boundary. Older `done` and
- * `test` runs may contribute their coarse recorded start state. `prepare`
- * has no versioned validation capture and remains unattributed here. */
+/** Classify how much current workflow evidence one run carries. Validation
+ * evidence must clear the complete comparison boundary. `prepare` has no
+ * versioned validation capture and remains unattributed here. */
 function validationWorkflowEvidence(
   event: VerbEvent,
-): "complete" | "incomplete" | "legacy" | "unattributed" {
+): "complete" | "incomplete" | "unattributed" {
   if (event.validation !== undefined) {
     return validationEvidenceIsComparable(event.validation)
       ? "complete"
       : "incomplete";
-  }
-  if (event.verb !== "prepare" && event.clean !== null) {
-    return "legacy";
   }
   return "unattributed";
 }
@@ -517,7 +513,6 @@ function validationWorkflowFeats(
     denominator: runs.length,
     complete: 0,
     incomplete: 0,
-    legacy: 0,
     unattributed: 0,
   };
   const dirtyState = {

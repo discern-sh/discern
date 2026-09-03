@@ -90,13 +90,13 @@ import {
 } from "./checkpoint_economics.ts";
 import {
   crossContextValidationGroups,
+  type CurrentValidationRepeatGroup,
   observedEvidenceValues,
   sameEnvelopeValidationGroups,
   VALIDATION_FINDING_RELATIONSHIPS,
   type ValidationContextBucket,
   validationContextLabel,
   type ValidationFindingRelationship,
-  type ValidationRepeatGroup,
 } from "./validation_findings.ts";
 
 export { median, round1 };
@@ -652,7 +652,6 @@ function decisionEvidenceBasis(
     events: readonly VerbEvent[];
     facts: StreamFacts;
     estimated?: ReadonlySet<string>;
-    legacyEvents?: number;
     excludedEvents?: number;
     limitations?: string[];
   },
@@ -668,7 +667,6 @@ function decisionEvidenceBasis(
     validation_state: { version: null, complete: false },
     matched_conditions: setupConditions(options.events, options.facts.analysis),
     differing_conditions: [],
-    legacy_events: options.legacyEvents ?? 0,
     excluded_events: options.excludedEvents ?? 0,
     limitations: options.limitations ?? [],
     values: Object.fromEntries(
@@ -3413,24 +3411,13 @@ function distinctValidationEvents(
 
 /** Complete common basis for one strict validation finding. */
 function strictValidationBasis(
-  group: ValidationRepeatGroup,
+  group: CurrentValidationRepeatGroup,
   counts: ValidationVerdictCounts,
   evidence: Record<string, number>,
 ): PatternEvidenceBasis {
-  const current = group.basisKind === "complete-validation-state";
-  const limitations = current
-    ? [
-      "Recorded repository and execution conditions matched; unrecorded external context remains outside the comparison.",
-    ]
-    : group.basisKind === "legacy-clean-start"
-    ? [
-      "Legacy evidence records one clean start at a HEAD, but not job definitions or a complete execution envelope.",
-      "Unrecorded external context and ignored inputs remain outside the comparison.",
-    ]
-    : [
-      "Legacy dirty evidence matches only the tracked start fingerprint; index/worktree form and untracked or mixed inputs were not distinguished.",
-      "Job definitions, a complete execution envelope, and external context were not recorded.",
-    ];
+  const limitations = [
+    "Recorded repository and execution conditions matched; unrecorded external context remains outside the comparison.",
+  ];
   return {
     kind: group.basisKind,
     coverage: {
@@ -3440,11 +3427,10 @@ function strictValidationBasis(
     },
     validation_state: {
       version: group.stateVersion,
-      complete: current,
+      complete: true,
     },
     matched_conditions: group.matchedConditions,
     differing_conditions: [],
-    legacy_events: current ? 0 : distinctValidationEvents(group.observations),
     excluded_events: distinctValidationEvents(
       group.observations.filter((observation) =>
         observation.verdict === "excluded"
@@ -3453,26 +3439,6 @@ function strictValidationBasis(
     limitations,
     values: observedEvidenceValues(evidence),
   };
-}
-
-/** The deliberately weaker sentence attached to one legacy basis. */
-function legacyValidationObservation(
-  group: Exclude<
-    ValidationRepeatGroup,
-    { basisKind: "complete-validation-state" }
-  >,
-  counts: ValidationVerdictCounts,
-): string {
-  const state = group.basisKind === "legacy-clean-start"
-    ? `a recorded clean start at \`${group.head}\``
-    : `one tracked start fingerprint at \`${group.head}\``;
-  return `\`${group.jobId}\` recorded ${
-    formatHumanNumber(counts.red)
-  } red and ${formatHumanNumber(counts.green)} green across ${
-    formatHumanNumber(counts.comparable)
-  } of ${
-    formatHumanNumber(counts.denominator)
-  } job runs sharing ${state}; legacy evidence did not record the job definition or complete execution conditions.`;
 }
 
 const sameEnvelopeRelationship = VALIDATION_FINDING_RELATIONSHIPS[0];
@@ -3503,22 +3469,19 @@ const sameTreeFlake: Detector = {
         green: counts.green,
         excluded_outcomes: counts.excluded,
       };
-      const observed = group.basisKind === "complete-validation-state"
-        ? `\`${group.jobId}\` recorded ${
-          formatHumanNumber(counts.red)
-        } red and ${formatHumanNumber(counts.green)} green across ${
-          formatHumanNumber(counts.comparable)
-        } of ${
-          formatHumanNumber(counts.denominator)
-        } job runs under one complete v${
-          formatHumanNumber(group.stateVersion)
-        } validation state and matching recorded execution conditions; external context was not recorded.`
-        : legacyValidationObservation(group, counts);
+      const observed = `\`${group.jobId}\` recorded ${
+        formatHumanNumber(counts.red)
+      } red and ${formatHumanNumber(counts.green)} green across ${
+        formatHumanNumber(counts.comparable)
+      } of ${
+        formatHumanNumber(counts.denominator)
+      } job runs under one complete v${
+        formatHumanNumber(group.stateVersion)
+      } validation state and matching recorded execution conditions; external context was not recorded.`;
       findings.push({
         subject: group.jobId,
-        summary: group.basisKind === "complete-validation-state"
-          ? "This validation job changed verdict under matching recorded conditions."
-          : "This validation job changed verdict under limited legacy conditions.",
+        summary:
+          "This validation job changed verdict under matching recorded conditions.",
         observed,
         evidence,
         basis: strictValidationBasis(group, counts, evidence),
@@ -3653,7 +3616,6 @@ const executionContextDivergence: Detector = {
         validation_state: { version: group.stateVersion, complete: true },
         matched_conditions: group.matchedConditions,
         differing_conditions: group.differingConditions,
-        legacy_events: 0,
         excluded_events: distinctValidationEvents(
           group.observations.filter((observation) =>
             observation.verdict === "excluded"
@@ -4220,15 +4182,9 @@ const standardTrajectory: Detector = {
       const recentFailures = recent.filter((entry) =>
         entry.standard.verdict === "regressed"
       ).length;
-      const legacyEligibilityReadings = recent.filter((entry) =>
-        entry.standard.pin_eligible === undefined ||
-        entry.standard.margin === undefined ||
-        entry.standard.measurement === undefined
-      ).length;
       const recommendationSupported = !retired && currentMeasurement === 1 &&
         mechanicallyEligible && persistentEligibility &&
-        recentReversals === 0 && recentFailures === 0 &&
-        legacyEligibilityReadings === 0;
+        recentReversals === 0 && recentFailures === 0;
       const headroom = (r: Reading): number | undefined =>
         r.standard.value === undefined || r.standard.limit === undefined
           ? undefined
@@ -4279,7 +4235,6 @@ const standardTrajectory: Detector = {
         recent_failures: recentFailures,
         recent_reversals: recentReversals,
         retired: retired ? 1 : 0,
-        legacy_eligibility_readings: legacyEligibilityReadings,
         ...(first.standard.limit !== undefined
           ? { limit_first: first.standard.limit }
           : {}),
@@ -4332,7 +4287,6 @@ const standardTrajectory: Detector = {
           unit: "Standard readings",
           events: currentEntries.map((entry) => entry.event),
           facts,
-          legacyEvents: legacyEligibilityReadings,
           excludedEvents: readings.length - comparableReadings.length,
           limitations: [
             "Mechanical eligibility is recorded from the Gate's pin authority; recommendation additionally requires current comparable persistence, no recent reversals, and no recent failures.",

@@ -55,7 +55,7 @@ For the overlap reading, a branch is in flight from its first analyzed event to 
 
 ### Validation workflow cycles
 
-A validation workflow run is an analyzed `prepare`, `test`, or `done`; recorded `clean` is its entry state. Complete, incomplete, legacy, and unattributed evidence share one run denominator. At the standalone-test boundary, complete dirty validation counts tracked-only, untracked-only, mixed, or unclassified state without filenames. Full-Gate evidence follows mutating pre-groups, so a dirty entry remains unclassified instead of mixing moments.
+A validation workflow run is an analyzed `prepare`, `test`, or `done`; recorded `clean` is its entry state. Complete, incomplete, and unattributed evidence share one run denominator. Current `test` and `done` writers always attach validation evidence. Older readable lines without it remain unattributed and cannot support a validation finding. At the standalone-test boundary, complete dirty validation counts tracked-only, untracked-only, mixed, or unclassified state without filenames. Full-Gate evidence follows mutating pre-groups, so a dirty entry remains unclassified instead of mixing moments.
 
 A validation workflow cycle links recorded events on one branch under one config epoch ([ADR 0275](https://discern.sh/docs/decisions/0275-validation-workflows-use-stream-bounded-change-cycles)). A successful `start` for a reused branch, a successful `accept`, or an epoch change closes it. After a clean green Gate, a later dirty entry or different recorded HEAD begins another cycle. A run without an epoch stands alone.
 

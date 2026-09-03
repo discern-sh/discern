@@ -18,7 +18,6 @@
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import {
@@ -51,7 +50,6 @@ import {
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
 const AWAIT_READINESS_POLL_MS = 25;
 
@@ -755,6 +753,7 @@ Deno.test("await continuation handles are closed, versioned, and repository-boun
     });
     assertEquals(malformed.ok, false);
     assertEquals(malformed.error, "invalid_arguments");
+    assertStringIncludes(malformed.message ?? "", "handle");
 
     await withTempDir(async (other) => {
       await scaffoldEngine(other);
@@ -770,43 +769,6 @@ Deno.test("await continuation handles are closed, versioned, and repository-boun
         "the refusal names the repository-local lookup",
       );
     });
-  });
-});
-
-Deno.test("legacy self-contained await tokens resume and migrate to short handles", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const dep = await addWorktree(dir, "legacy-dep");
-    await commitFile(dep, "dep.txt", "work", "legacy dep work");
-    const tip = await gitOut(dep, "rev-parse", "HEAD");
-    const trunkStart = await gitOut(dir, "rev-parse", "main");
-    const repository = await resolveCommonGitDir(dir);
-    assert(repository !== undefined);
-    const encoded = encodeBase64(
-      new TextEncoder().encode(JSON.stringify({
-        version: 1,
-        repository,
-        condition: "landed",
-        branch: "agent/legacy-dep",
-        trunk: "main",
-        tip,
-        trunk_start: trunkStart,
-        branch_ever_unreachable: true,
-      })),
-    ).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
-
-    const migrated = await awaitResult(dir, {
-      resume: `v1.${encoded}`,
-      timeoutSeconds: 0,
-    });
-    assertEquals(migrated.data?.met, false);
-    const resume = migrated.data?.resume;
-    assert(typeof resume === "string" && AWAIT_HANDLE_PATTERN.test(resume));
-
-    await git(dir, "merge", "-q", "--ff-only", tip);
-    const landed = await awaitResult(dir, { resume, timeoutSeconds: 0 });
-    assertEquals(landed.data?.met, true);
   });
 });
 

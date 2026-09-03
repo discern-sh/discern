@@ -3,7 +3,7 @@
   "$id": "https://discern.sh/schema/v1/discern-proof-note.schema.json",
   "x-discern-compatibility-policy": "result-output",
   "title": "DiscernProofNoteEnvelope",
-  "description": "The discern proof envelope follows the Dead Simple Signing Envelope (DSSE) field and payload boundary. Discern attaches it to a landed commit as a Git note under refs/notes/discern. The note body is this object as one line of JSON plus a newline. Decode payload from Base64 and keep those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), payload bytes). No other envelope field enters that signature input. payloadType points to the payload definition in this schema. Standard signed DSSE envelopes carry at least one signature; discern's unsigned extension carries an empty signatures array. keyid is an unauthenticated lookup hint; a signing profile and trust policy decide the algorithm, verification key, and identity. A bare claim object with no payloadType is a legacy unsigned note.",
+  "description": "The discern proof envelope follows the Dead Simple Signing Envelope (DSSE) field and payload boundary. Discern attaches it to a landed commit as a Git note under refs/notes/discern. The note body is this object as one line of JSON plus a newline. Decode payload from Base64 and keep those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), payload bytes). No other envelope field enters that signature input. payloadType points to the payload definition in this schema. Standard signed DSSE envelopes carry at least one signature; discern's unsigned extension carries an empty signatures array. keyid is an unauthenticated lookup hint; a signing profile and trust policy decide the algorithm, verification key, and identity.",
   "x-discern-payload-type": "https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernProofNotePayload",
   "x-discern-dsse-envelope": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md",
   "x-discern-dsse-protocol": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md",
@@ -40,9 +40,9 @@
         "required": [
           "sig"
         ],
-        "description": "One DSSE signature over this envelope's payload type and decoded payload bytes. No signing profile or trust policy is selected at v1.0.0."
+        "description": "One DSSE signature over this envelope's payload type and decoded payload bytes. No signing profile or trust policy is selected today."
       },
-      "description": "DSSE signatures over this payload. Standard signed envelopes carry at least one. An empty array is discern's unsigned extension, written at v1.0.0."
+      "description": "DSSE signatures over this payload. Standard signed envelopes carry at least one. Current unsigned writers emit discern's empty-array extension."
     }
   },
   "required": [
@@ -473,11 +473,11 @@
               "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
             }
           },
-          "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
+          "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
         },
         "brief": {
           "type": "string",
-          "description": "Reserved: a reference to a signed intent artifact. Nothing writes it at v1.0.0."
+          "description": "Reserved: a reference to a signed intent artifact. Current writers leave it absent."
         }
       },
       "required": [

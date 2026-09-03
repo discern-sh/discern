@@ -1,9 +1,9 @@
 /**
  * Acceptance journals bind narrow owner decisions to one exact
- * expected-to-target transition: v3 carries checkpoint variances; v4 also
- * carries Standard limit proposal tuples. Recorded grants cannot authorize
- * either narrow decision, and malformed/duplicated bindings remain inert for
- * inspection instead of replaying onto another tree.
+ * expected-to-target transition. The single v1 record always carries consent,
+ * checkpoint variances, and Standard limit proposal arrays. Recorded grants
+ * cannot authorize either narrow decision, and malformed/duplicated bindings
+ * remain inert for inspection instead of replaying onto another tree.
  */
 
 import { assert, assertEquals, assertRejects } from "@std/assert";
@@ -33,14 +33,14 @@ async function journaledWorktree(
   return { wt, path };
 }
 
-/** A structurally valid v3 journal body for this repo pair. */
+/** A structurally valid canonical journal body for this repo pair. */
 function journal(
   dir: string,
   overrides: Record<string, unknown> = {},
 ): string {
   return `${
     JSON.stringify({
-      version: 3,
+      version: 1,
       id: TRANSACTION_ID,
       worktree_branch: "agent/journaled",
       trunk: "main",
@@ -57,16 +57,18 @@ function journal(
           why: "The docs lag the new surface.",
         },
       ],
+      standard_proposals: [],
       ...overrides,
     })
   }\n`;
 }
 
-/** One structurally valid exact Standard proposal for v4 journal tests. */
+/** One structurally valid exact Standard proposal for journal tests. */
 function standardProposal(): Record<string, unknown> {
   return {
     standard: "source_count",
     commit: SHA_B,
+    bound_commit: SHA_B,
     measured_commit: SHA_A,
     definition_fingerprint: "definition-fingerprint",
     trunk: "main",
@@ -81,7 +83,7 @@ function standardProposal(): Record<string, unknown> {
   };
 }
 
-Deno.test("journal v3: a valid record surfaces its journal-bound conversation consent", async () => {
+Deno.test("journal v1: a complete record surfaces its journal-bound consent", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(path, journal(dir));
@@ -92,7 +94,7 @@ Deno.test("journal v3: a valid record surfaces its journal-bound conversation co
   });
 });
 
-Deno.test("journal v3: variances under a recorded grant are invalid — no engine ever wrote that record", async () => {
+Deno.test("journal v1: variances under a recorded grant are invalid", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
@@ -109,7 +111,7 @@ Deno.test("journal v3: variances under a recorded grant are invalid — no engin
   });
 });
 
-Deno.test("journal v3: a malformed variance binding is invalid", async () => {
+Deno.test("journal v1: a malformed variance binding is invalid", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
@@ -126,7 +128,7 @@ Deno.test("journal v3: a malformed variance binding is invalid", async () => {
   });
 });
 
-Deno.test("journal v3: an empty variance set under any consent source parses (the ordinary landing)", async () => {
+Deno.test("journal v1: empty decision arrays parse for an ordinary landing", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
@@ -135,28 +137,28 @@ Deno.test("journal v3: an empty variance set under any consent source parses (th
         consent: { source: "effort-grant" },
         effort_claim: true,
         variances: [],
+        standard_proposals: [],
       }),
     );
     const inspected = await inspectInterruptedAcceptance(wt, "main");
     assert(inspected.kind === "recorded");
-    assertEquals(inspected.transaction.version, 3);
+    assertEquals(inspected.transaction.version, 1);
   });
 });
 
-Deno.test("journal v4: exact Standard proposal tuples require and preserve conversation consent", async () => {
+Deno.test("journal v1: exact Standard proposals preserve conversation consent", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
       path,
       journal(dir, {
-        version: 4,
         variances: [],
         standard_proposals: [standardProposal()],
       }),
     );
     const inspected = await inspectInterruptedAcceptance(wt, "main");
     assert(inspected.kind === "recorded");
-    assert(inspected.transaction.version === 4);
+    assert(inspected.transaction.version === 1);
     assertEquals(inspected.consent, { source: "conversation" });
     assertEquals(
       inspected.transaction.standard_proposals[0]?.reason,
@@ -169,13 +171,12 @@ Deno.test("journal v4: exact Standard proposal tuples require and preserve conve
   });
 });
 
-Deno.test("journal v4: a recorded grant cannot authorize a Standard limit proposal", async () => {
+Deno.test("journal v1: a recorded grant cannot authorize a Standard proposal", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
       path,
       journal(dir, {
-        version: 4,
         consent: { source: "standing-grant", scopes: ["code"] },
         variances: [],
         standard_proposals: [standardProposal()],
@@ -189,13 +190,12 @@ Deno.test("journal v4: a recorded grant cannot authorize a Standard limit propos
   });
 });
 
-Deno.test("journal v4: duplicate or malformed proposal tuples are invalid", async () => {
+Deno.test("journal v1: duplicate or malformed proposal tuples are invalid", async () => {
   await withTempDir(async (dir) => {
     const { wt, path } = await journaledWorktree(dir);
     await Deno.writeTextFile(
       path,
       journal(dir, {
-        version: 4,
         variances: [],
         standard_proposals: [standardProposal(), standardProposal()],
       }),
@@ -209,7 +209,6 @@ Deno.test("journal v4: duplicate or malformed proposal tuples are invalid", asyn
     await Deno.writeTextFile(
       path,
       journal(dir, {
-        version: 4,
         variances: [],
         standard_proposals: [{ ...standardProposal(), reason: "" }],
       }),
@@ -219,5 +218,19 @@ Deno.test("journal v4: duplicate or malformed proposal tuples are invalid", asyn
       WorktreeGitError,
       "invalid",
     );
+  });
+});
+
+Deno.test("journal readers reject every retired transaction version", async () => {
+  await withTempDir(async (dir) => {
+    const { wt, path } = await journaledWorktree(dir);
+    for (const version of [2, 3, 4]) {
+      await Deno.writeTextFile(path, journal(dir, { version }));
+      await assertRejects(
+        () => inspectInterruptedAcceptance(wt, "main"),
+        WorktreeGitError,
+        "invalid",
+      );
+    }
   });
 });

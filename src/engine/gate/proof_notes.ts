@@ -13,8 +13,6 @@ import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
   type AcceptanceEvidenceData,
-  canonicalProof,
-  canonicalStandardLimitProposals,
   type DurableProofClaim,
   type Proof,
   type ProofIssuer,
@@ -24,7 +22,6 @@ import {
   type ProofPresentation,
   TolerantProofNotePayloadSchema,
   TolerantProofNoteSchema,
-  TolerantProofSchema,
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -46,11 +43,6 @@ function fetchRef(remote: string): string {
 /** Render the wildcard refspec that fetches proof notes without requiring their existence. */
 function fetchMapping(remote: string): string {
   return `+${PROOF_NOTES_REF}*:${fetchRef(remote)}*`;
-}
-
-/** Render the former exact proof-note refspec for upgrade cleanup. */
-function legacyFetchMapping(remote: string): string {
-  return `+${PROOF_NOTES_REF}:${fetchRef(remote)}`;
 }
 
 /** Prefer Git's stderr or stdout detail and fall back to its exit status. */
@@ -123,28 +115,6 @@ function pushUnique(values: string[], value: string): void {
   }
 }
 
-/** Leave safe Git arguments bare and single-quote every other value. */
-function shellArgument(value: string): string {
-  return /^[A-Za-z0-9._/@%+=:,~-]+$/.test(value)
-    ? value
-    : `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-/** Give the exact removal command for an unmarked legacy proof-note refspec. */
-function legacyMappingError(
-  remote: string,
-  key: string,
-  mapping: string,
-): string {
-  return `${key} contains an older proof-note mapping without discern's ` +
-    `ownership marker. This mapping makes \`git fetch ${
-      shellArgument(remote)
-    }\` fail whenever the remote has no proof note. Remove it with ` +
-    `\`git config --local --fixed-value --unset-all ${shellArgument(key)} ${
-      shellArgument(mapping)
-    }\`, then run \`discern refresh\` again.`;
-}
-
 /** One planned local Git-config mutation owned by proof-note fetch transport. */
 export interface ProofNotesFetchOperation {
   readonly kind: "add" | "remove" | "replace";
@@ -206,10 +176,8 @@ async function planManagedRemoteRemoval(
     };
   }
   const operations: ProofNotesFetchOperation[] = [];
-  for (const mapping of [fetchMapping(remote), legacyFetchMapping(remote)]) {
-    if (!current.values.includes(mapping)) {
-      continue;
-    }
+  const mapping = fetchMapping(remote);
+  if (current.values.includes(mapping)) {
     operations.push(proofNotesOperation({
       kind: "remove",
       key,
@@ -290,7 +258,6 @@ export async function planProofNotesFetch(
   for (const remote of remotes) {
     const key = `remote.${remote}.fetch`;
     const mapping = fetchMapping(remote);
-    const legacyMapping = legacyFetchMapping(remote);
     const current = await configValues(root, key);
     if (current.error !== undefined) {
       errors.push(`could not read ${key}: ${current.error}`);
@@ -299,39 +266,7 @@ export async function planProofNotesFetch(
     const operations: ProofNotesFetchOperation[] = [];
     const mappingCount = current.values.filter((value) => value === mapping)
       .length;
-    const hasLegacyMapping = current.values.includes(legacyMapping);
-    if (!managed.has(remote) && hasLegacyMapping) {
-      errors.push(legacyMappingError(remote, key, legacyMapping));
-      continue;
-    }
-
     if (managed.has(remote)) {
-      if (hasLegacyMapping && mappingCount === 0) {
-        operations.push(proofNotesOperation({
-          kind: "replace",
-          key,
-          value: mapping,
-          previous: legacyMapping,
-          remote,
-          addedKeys: [key],
-          removedKeys: [key],
-          failurePrefix:
-            `could not migrate ${key} to an optional proof-note mapping`,
-        }));
-        boundaries.push({ remote, operations });
-        continue;
-      }
-      if (hasLegacyMapping) {
-        operations.push(proofNotesOperation({
-          kind: "remove",
-          key,
-          value: legacyMapping,
-          remote,
-          removedKeys: [key],
-          failurePrefix:
-            `could not remove the older proof-note mapping from ${key}`,
-        }));
-      }
       if (mappingCount > 1) {
         operations.push(proofNotesOperation({
           kind: "replace",
@@ -574,15 +509,14 @@ export function canonicalProofNote(
   }) + "\n";
 }
 
-/** A durable note's parsed content, before its commit binding is checked:
- * a readable proof (`subject` present for the current format, absent for a
- * legacy bare note), or an explicit refusal naming a format identity this
- * binary does not know. Malformed content parses to `undefined`, as before. */
+/** A durable note's parsed content, before its commit binding is checked: a
+ * readable canonical proof or an explicit refusal naming a format identity
+ * this binary does not know. Malformed content parses to `undefined`. */
 type ParsedProofNote =
   | {
     kind: "proof";
     proof: Proof;
-    subject?: string;
+    subject: string;
     issuer?: ProofIssuer;
     brief?: string;
   }
@@ -602,16 +536,11 @@ function knownIssuerFields(
   };
 }
 
-/** Rebuild the runtime proof from current split payloads or pre-split local
- * envelopes, dropping every unknown durable field from the live result. */
+/** Rebuild the runtime proof from the canonical split payload, dropping every
+ * unknown durable field from the live result. */
 function proofFromProofPayload(
   payload: ReturnType<typeof TolerantProofNotePayloadSchema.parse>,
 ): Proof | undefined {
-  const line = payload.presentation?.line ?? payload.proof.line;
-  const markdown = payload.presentation?.markdown ?? payload.proof.markdown;
-  if (line === undefined || markdown === undefined) {
-    return undefined;
-  }
   return {
     branch: payload.proof.branch,
     trunk: payload.proof.trunk,
@@ -631,8 +560,8 @@ function proofFromProofPayload(
         evidence_paths: [...proposal.evidence_paths],
       })),
     }),
-    line,
-    markdown,
+    line: payload.presentation.line,
+    markdown: payload.presentation.markdown,
   };
 }
 
@@ -654,41 +583,6 @@ function decodeDsseBase64(value: string): Uint8Array | undefined {
     if (!(error instanceof TypeError)) throw error;
     return undefined;
   }
-}
-
-/** Normalize a proposal array on one loose compatibility record. Malformed
- * arrays remain in place so the tolerant schema still rejects them. */
-function canonicalProposalRecord(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return value;
-  }
-  const record: Record<string, unknown> = { ...value };
-  if (record.standard_proposals === undefined) {
-    return record;
-  }
-  const proposals = canonicalStandardLimitProposals(
-    record.standard_proposals,
-  );
-  return proposals === undefined
-    ? record
-    : { ...record, standard_proposals: proposals };
-}
-
-/** Normalize pre-rebinding proposal tuples at every durable payload location
- * before the tolerant note schema validates the remaining envelope. */
-function canonicalProofNotePayloadInput(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return value;
-  }
-  const record: Record<string, unknown> = { ...value };
-  record.proof = canonicalProposalRecord(record.proof);
-  if (
-    typeof record.acceptance === "object" && record.acceptance !== null &&
-    !Array.isArray(record.acceptance)
-  ) {
-    record.acceptance = canonicalProposalRecord(record.acceptance);
-  }
-  return record;
 }
 
 /** Decode the envelope once and parse the same bytes a future verifier checks. */
@@ -713,16 +607,14 @@ function parseProofNotePayload(
     if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
-  const payload = TolerantProofNotePayloadSchema.safeParse(
-    canonicalProofNotePayloadInput(parsed),
-  );
+  const payload = TolerantProofNotePayloadSchema.safeParse(parsed);
   return payload.success ? payload.data : undefined;
 }
 
 /**
  * Parse one note body. `payloadType` is the in-band format identity: the current
  * type reads the envelope and decoded payload tolerantly, any other type is
- * reported as unsupported, and a bare 8-field proof remains legacy unsigned.
+ * reported as unsupported. Bare and pre-split private-era notes are invalid.
  */
 function parseProofNote(content: string): ParsedProofNote | undefined {
   let parsed: unknown;
@@ -735,14 +627,7 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     return undefined;
   }
-  if (!("payloadType" in parsed)) {
-    const legacy = TolerantProofSchema.safeParse(
-      canonicalProposalRecord(parsed),
-    );
-    return legacy.success
-      ? { kind: "proof", proof: canonicalProof(legacy.data) }
-      : undefined;
-  }
+  if (!("payloadType" in parsed)) return undefined;
   const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
   if (payloadType !== PROOF_NOTE_PAYLOAD_TYPE) {
     return {
@@ -1031,18 +916,14 @@ async function notePathsFromRef(
   return paths;
 }
 
-/** Whether a parsed note is bound to the commit that carries it. The current
- * format's authority is the full-oid subject, with the display head kept
- * coherent; a legacy note's strongest binding is its abbreviated head. */
+/** Whether a parsed note is bound to the commit that carries it. The full-oid
+ * subject is authoritative and the abbreviated display head stays coherent. */
 function boundToCommit(
   parsed: ParsedProofNote & { kind: "proof" },
   commit: string,
 ): boolean {
-  if (parsed.subject !== undefined) {
-    return parsed.subject === commit &&
-      abbreviatedObjectIdMatches(parsed.proof.head, commit);
-  }
-  return abbreviatedObjectIdMatches(parsed.proof.head, commit);
+  return parsed.subject === commit &&
+    abbreviatedObjectIdMatches(parsed.proof.head, commit);
 }
 
 /**

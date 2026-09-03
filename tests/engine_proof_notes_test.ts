@@ -150,6 +150,8 @@ async function noteAt(root: string, commit: string): Promise<Proof> {
   const envelope = decodeWith(ProofNoteSchema, content);
   assertEquals(envelope.payloadType, PROOF_NOTE_PAYLOAD_TYPE);
   assertEquals(envelope.signatures, []);
+  assertEquals(/[-_]/u.test(envelope.payload), false);
+  assertEquals(envelope.payload.length % 4, 0);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
   const payload = decodeWith(ProofNotePayloadSchema, payloadText);
   const proof = ProofSchema.parse({
@@ -187,8 +189,8 @@ function proofFetchMapping(remote: string): string {
   return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
 }
 
-/** Render the former single-ref mapping used to test migration cleanup. */
-function legacyProofFetchMapping(remote: string): string {
+/** Render an unrecognized single-ref mapping used to prove non-ownership. */
+function unrecognizedProofFetchMapping(remote: string): string {
   return `+refs/notes/discern:refs/discern/remotes/${remote}/notes`;
 }
 
@@ -389,7 +391,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
         1,
       );
       assertEquals(
-        fetches.includes(legacyProofFetchMapping(remoteName)),
+        fetches.includes(unrecognizedProofFetchMapping(remoteName)),
         false,
       );
       const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
@@ -602,7 +604,7 @@ Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain
   });
 });
 
-Deno.test("proof-note fetch reconciliation migrates managed exact mappings and explains unowned collisions", async () => {
+Deno.test("proof-note fetch reconciliation leaves unrecognized refspecs untouched", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, proofConfig("fetch"));
@@ -614,115 +616,28 @@ Deno.test("proof-note fetch reconciliation migrates managed exact mappings and e
 
     const key = "remote.origin.fetch";
     const marker = "discern.proofNotesFetchRemote";
-    const legacy = legacyProofFetchMapping("origin");
+    const unrecognized = unrecognizedProofFetchMapping("origin");
     const optional = proofFetchMapping("origin");
     await git(dir, "config", "--local", "--add", marker, "origin");
-    await git(dir, "config", "--local", "--add", key, legacy);
-    await git(dir, "config", "--local", "--add", key, legacy);
+    await git(dir, "config", "--local", "--add", key, unrecognized);
 
-    const migrated = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(migrated.code, 0, migrated.output);
-    const migratedResult = decodeCliResult(migrated.stdout, "refresh");
-    assertResultDataKey(migratedResult, "proof_notes_fetch_changed");
-    assert(migratedResult.data.proof_notes_fetch_changed !== undefined);
-    assertEquals(migratedResult.ok, true);
+    const reconciled = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(reconciled.code, 0, reconciled.output);
+    const result = decodeCliResult(reconciled.stdout, "refresh");
+    assertResultDataKey(result, "proof_notes_fetch_changed");
+    assert(result.data.proof_notes_fetch_changed !== undefined);
+    assertEquals(result.ok, true);
     assert(
-      migratedResult.data.proof_notes_fetch_changed.includes(key),
-      migrated.output,
+      result.data.proof_notes_fetch_changed.includes(key),
+      reconciled.output,
     );
-    const migratedFetches = await localConfigValues(dir, key);
+    const fetches = await localConfigValues(dir, key);
     assertEquals(
-      migratedFetches.filter((value) => value === optional).length,
+      fetches.filter((value) => value === optional).length,
       1,
     );
-    assertEquals(migratedFetches.includes(legacy), false);
-    const emptyFetch = await runGit(["fetch", "origin"], { cwd: dir });
-    assert(
-      emptyFetch.success,
-      `ordinary fetch must succeed after migration: ${emptyFetch.stderr}`,
-    );
-
-    await git(
-      dir,
-      "config",
-      "--local",
-      "--fixed-value",
-      "--unset-all",
-      marker,
-      "origin",
-    );
-    await git(
-      dir,
-      "config",
-      "--local",
-      "--fixed-value",
-      "--unset-all",
-      key,
-      optional,
-    );
-    await git(dir, "config", "--local", "--add", key, legacy);
-
-    const collision = await runAgent(dir, ["refresh", "--json"]);
-    assertEquals(collision.code, 1, collision.output);
-    const collisionResult = decodeCliResult(collision.stdout, "refresh");
-    assertResultDataKey(collisionResult, "errors");
-    assert(collisionResult.data.errors !== undefined);
-    assertEquals(collisionResult.ok, false);
-    assertEquals(collisionResult.error, "partial_refresh");
-    const error = collisionResult.data.errors.find((message) =>
-      message.includes(key)
-    );
-    assert(error !== undefined, collision.output);
-    assertStringIncludes(error, "git fetch origin");
-    assertStringIncludes(
-      error,
-      `git config --local --fixed-value --unset-all ${key} ${legacy}`,
-    );
-    assertEquals(await localConfigValues(dir, marker), []);
-    assertEquals((await localConfigValues(dir, key)).includes(legacy), true);
-    assertEquals((await localConfigValues(dir, key)).includes(optional), false);
-
-    const failedFetch = await runGit(["fetch", "origin"], { cwd: dir });
-    assertEquals(failedFetch.success, false);
-    assertTerminalTextIncludes(
-      failedFetch.stderr,
-      "couldn't find remote ref refs/notes/discern",
-    );
-
-    const landing = await land(dir, "unowned-exact");
-    assertEquals(landing.result.ok, true);
-    assertEquals(
-      landing.result.data.proof_note.fetch.status,
-      "failed",
-    );
-    assertEquals(
-      landing.result.data.proof_note.fetch.errors,
-      collisionResult.data.errors,
-    );
-    assertEquals(
-      landing.result.data.proof_note.write.status,
-      "recorded",
-    );
-    assertEquals(
-      landing.result.advisories?.some((advisory) =>
-        advisory.kind === "proof-recording-unavailable" &&
-        advisory.evidence.includes(error)
-      ),
-      true,
-    );
-    const fetchStep = landing.result.steps?.find((step) =>
-      step.label === "reconcile-proof-note-fetch"
-    );
-    assertEquals(fetchStep?.outcome, "failed");
-    assertEquals(fetchStep?.advisory?.kind, "proof-recording-unavailable");
-    assertLacksHint(
-      landing.result,
-      HINTS["accept-publish-proof-note"],
-    );
-    assertLacksHint(
-      landing.result,
-      HINTS["accept-refresh-failed"],
-    );
+    assertEquals(fetches.includes(unrecognized), true);
+    assertEquals(await localConfigValues(dir, marker), ["origin"]);
   });
 });
 
@@ -833,54 +748,6 @@ Deno.test("proof-note replay keys identity to subject and stable claim", async (
     });
     assertEquals(conflicting.status, "record_failed");
     assertStringIncludes(conflicting.reason ?? "", "different proof note");
-
-    await git(
-      dir,
-      "commit",
-      "-q",
-      "--allow-empty",
-      "-m",
-      "Legacy proof subject",
-      "--no-gpg-sign",
-    );
-    const legacyCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const legacyProof = syntheticProof(legacyCommit, "agent/legacy-replay");
-    await git(
-      dir,
-      "notes",
-      "--ref=discern",
-      "add",
-      "-m",
-      JSON.stringify({ ...legacyProof, waited_ms: 10 }),
-      legacyCommit,
-    );
-    const legacyBody = await runGit(
-      ["notes", "--ref=discern", "show", legacyCommit],
-      { cwd: dir },
-    );
-    assert(legacyBody.success);
-
-    const legacyReplay = {
-      ...legacyProof,
-      line: "Legacy line rendered later",
-      markdown: "## Legacy page rendered later",
-      waited_ms: 20,
-    } as Proof & { waited_ms: number };
-    assertEquals(
-      (await writeProofNote(dir, legacyCommit, legacyReplay)).status,
-      "already_present",
-    );
-    const unchangedLegacy = await runGit(
-      ["notes", "--ref=discern", "show", legacyCommit],
-      { cwd: dir },
-    );
-    assertEquals(unchangedLegacy.stdout, legacyBody.stdout);
-
-    const legacyConflict = await writeProofNote(dir, legacyCommit, {
-      ...legacyReplay,
-      deletions: legacyReplay.deletions + 1,
-    });
-    assertEquals(legacyConflict.status, "record_failed");
   });
 });
 
@@ -1022,7 +889,7 @@ Deno.test("proof-note lookup binds the branch to newly landed trunk ancestry", a
     assertEquals(
       await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
-      "a legacy note's empty proof head cannot authenticate the commit carrying it",
+      "a bare note is not current Proof evidence",
     );
     await git(
       dir,
@@ -1060,44 +927,35 @@ Deno.test("proof-note lookup binds the branch to newly landed trunk ancestry", a
   });
 });
 
-Deno.test("the durable reader accepts legacy and newer same-major notes, and refuses an unknown format explicitly", async () => {
+Deno.test("the durable reader accepts additive current notes and rejects retired layouts", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
 
-    // A bare pre-format note still reads as an unsigned record with no issuer.
-    // The compatibility reader drops runtime telemetry added before the signed
-    // claim and presentation were separated.
+    // A bare private-era Proof is not a v1 note.
     await git(
       dir,
       "commit",
       "-q",
       "--allow-empty",
       "-m",
-      "Legacy landing",
+      "Bare private-era landing",
       "--no-gpg-sign",
     );
-    const legacyCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const legacyProof = syntheticProof(legacyCommit, "agent/legacy");
+    const bareCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const bareProof = syntheticProof(bareCommit, "agent/bare");
     await git(
       dir,
       "notes",
       "--ref=discern",
       "add",
       "-m",
-      `${JSON.stringify({ ...legacyProof, waited_ms: 70_000 })}\n`,
-      legacyCommit,
+      `${JSON.stringify({ ...bareProof, waited_ms: 70_000 })}\n`,
+      bareCommit,
     );
-    assertEquals(await readProofNoteAt(dir, legacyCommit), {
-      status: "valid",
-      commit: legacyCommit,
-      ref: PROOF_NOTES_REF,
-      proof: legacyProof,
-    });
+    assertEquals(await readProofNoteAt(dir, bareCommit), { status: "missing" });
 
-    // A pre-split same-major envelope still reads. Unknown additive fields in
-    // the envelope, signature entries, and decoded payload pass the tolerant
-    // reader, while old runtime telemetry is dropped from the live proof.
+    // A pre-split payload is also retired even when its envelope is current.
     await git(
       dir,
       "commit",
@@ -1109,9 +967,47 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     );
     const futureCommit = await gitOut(dir, "rev-parse", "HEAD");
     const futureProof = syntheticProof(futureCommit, "agent/future");
-    const futurePayload = encodedProofPayload({
+    const preSplitPayload = encodedProofPayload({
       subject: { commit: futureCommit, tree: "0".repeat(40) },
       proof: { ...futureProof, waited_ms: 70_000, verdict: "green" },
+      issuer: { name: "Future Owner", role: "maintainer" },
+      brief: "brief-0042",
+    });
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      JSON.stringify({
+        payloadType: PROOF_NOTE_PAYLOAD_TYPE,
+        payload: preSplitPayload,
+        signatures: [],
+      }),
+      futureCommit,
+    );
+    assertEquals(await readProofNoteAt(dir, futureCommit), {
+      status: "missing",
+    });
+
+    // Unknown additive fields and signature members pass within the current
+    // split payload. URL-safe unpadded Base64 remains the deliberate D-76
+    // future-signing tolerance.
+    const futurePayload = encodedProofPayload({
+      subject: { commit: futureCommit, tree: "0".repeat(40) },
+      proof: {
+        branch: futureProof.branch,
+        trunk: futureProof.trunk,
+        head: futureProof.head,
+        files_total: futureProof.files_total,
+        insertions: futureProof.insertions,
+        deletions: futureProof.deletions,
+        verdict: "green",
+      },
+      presentation: {
+        line: futureProof.line,
+        markdown: futureProof.markdown,
+      },
       issuer: { name: "Future Owner", role: "maintainer" },
       brief: "brief-0042",
       // Two astral characters guarantee a `+`/`/` sextet at every Base64
@@ -1127,6 +1023,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "notes",
       "--ref=discern",
       "add",
+      "--force",
       "-m",
       `${
         JSON.stringify({
@@ -1151,24 +1048,22 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       brief: "brief-0042",
     });
 
-    // A note written before descendant rebinding used the proposal commit as
-    // its implicit live binding. The durable reader restores that field and
-    // keeps the proposal in the returned Proof.
+    // A proposal without its current binding is not a v1 proposal.
     await git(
       dir,
       "commit",
       "-q",
       "--allow-empty",
       "-m",
-      "Legacy proposal landing",
+      "Incomplete proposal landing",
       "--no-gpg-sign",
     );
     const proposalCommit = await gitOut(dir, "rev-parse", "HEAD");
     const proposalProof = syntheticProof(
       proposalCommit,
-      "agent/legacy-proposal",
+      "agent/incomplete-proposal",
     );
-    const legacyProposal = {
+    const incompleteProposal = {
       standard: "sources",
       commit: proposalCommit,
       measured_commit: proposalCommit,
@@ -1183,7 +1078,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       reason: "The accepted feature adds one required source.",
       evidence_paths: ["src/feature.ts"],
     };
-    const legacyProposalPayload = encodedProofPayload({
+    const incompleteProposalPayload = encodedProofPayload({
       subject: { commit: proposalCommit },
       proof: {
         branch: proposalProof.branch,
@@ -1192,7 +1087,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
         files_total: proposalProof.files_total,
         insertions: proposalProof.insertions,
         deletions: proposalProof.deletions,
-        standard_proposals: [legacyProposal],
+        standard_proposals: [incompleteProposal],
       },
       presentation: {
         line: proposalProof.line,
@@ -1207,22 +1102,32 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "-m",
       JSON.stringify({
         payloadType: PROOF_NOTE_PAYLOAD_TYPE,
-        payload: legacyProposalPayload,
+        payload: incompleteProposalPayload,
         signatures: [],
       }),
       proposalCommit,
     );
     assertEquals(await readProofNoteAt(dir, proposalCommit), {
-      status: "valid",
-      commit: proposalCommit,
-      ref: PROOF_NOTES_REF,
-      proof: {
-        ...proposalProof,
-        standard_proposals: [{
-          ...legacyProposal,
-          bound_commit: proposalCommit,
-        }],
-      },
+      status: "missing",
+    });
+
+    // The unsigned v1 extension is an explicitly present empty signature
+    // array, not an omitted field.
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "--force",
+      "-m",
+      JSON.stringify({
+        payloadType: PROOF_NOTE_PAYLOAD_TYPE,
+        payload: futurePayload,
+      }),
+      futureCommit,
+    );
+    assertEquals(await readProofNoteAt(dir, futureCommit), {
+      status: "missing",
     });
 
     // A readable envelope still needs valid Base64, UTF-8, JSON, and the
@@ -1294,7 +1199,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     const mismatched = await writeProofNote(
       dir,
       unreadCommit,
-      syntheticProof(legacyCommit, "agent/mismatch"),
+      syntheticProof(bareCommit, "agent/mismatch"),
     );
     assertEquals(mismatched.status, "record_failed");
     assert(mismatched.reason?.includes("does not match the landed commit"));

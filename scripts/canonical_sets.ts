@@ -3858,6 +3858,8 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "checks upgrade's clean-tree pipeline invariant to keep upgrades reversible",
   "tests/await_readiness_guard_test.ts":
     "applies an elapsed-time readiness rule across authored await tests",
+  "tests/pre_v1_residue_guard_test.ts":
+    "applies an absence rule for retired private-era identifiers and Legacy exports across production source rather than guarding a live member set",
 };
 
 /**

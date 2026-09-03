@@ -1,5 +1,7 @@
 # ADR 0277: Patterns investigations preserve source findings
 
+> **Launch-evidence amendment (2026-09-03):** validation-less historical Logbook lines remain readable but cannot mint a validation finding or investigation. The pre-v1 `legacy` counts and suppressors were retired; incomplete current evidence still suppresses synthesis.
+
 **Status**: accepted. Builds on the advisory reader boundary in [ADR 0160](0160-local-logbook-advisory-readers.md), setup equality in [ADR 0224](0224-trend-comparability-is-setup-equality.md), validation evidence in [ADR 0274](0274-validation-findings-separate-matched-and-cross-context-divergence.md), and decision evidence in [ADR 0276](0276-patterns-recommendations-require-project-local-decision-evidence.md).
 
 ## Context

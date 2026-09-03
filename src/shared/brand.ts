@@ -35,17 +35,6 @@ function unattributedArtifactMarkerBody(source: string): string {
   return `Generated automatically via ${source}`;
 }
 
-/** An alternate attributed marker body accepted during reconciliation. */
-function alternateAttributedArtifactMarkerBody(source: string): string {
-  return `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
-}
-
-/** A marker body refresh recognizes and removes during reconciliation. */
-function legacyArtifactMarkerBody(source: string): string {
-  return `${DISCERN_NAME} | generated from ${source} | ` +
-    `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
-}
-
 /** A provenance marker's text without the format-specific hash-comment prefix. */
 export function generatedArtifactMarkerBody(
   source: string,
@@ -76,8 +65,6 @@ export function isGeneratedArtifactMarker(
   return [
     attributedArtifactMarkerBody(source),
     unattributedArtifactMarkerBody(source),
-    alternateAttributedArtifactMarkerBody(source),
-    legacyArtifactMarkerBody(source),
   ].some((body) => line === `# ${body}`);
 }
 

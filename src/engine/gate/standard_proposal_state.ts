@@ -7,7 +7,6 @@ import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import type { Diagnostic } from "../../shared/result.ts";
 import {
-  LegacyStandardLimitProposalSchema,
   type StandardLimitProposalData,
   StandardLimitProposalSchema,
 } from "../../shared/result_schemas.ts";
@@ -27,16 +26,6 @@ export const PROPOSAL_STORE_VERSION = 2;
 const StandardLimitProposalStoreSchema = z.strictObject({
   version: z.literal(PROPOSAL_STORE_VERSION),
   proposals: z.array(StandardLimitProposalSchema),
-}).refine(
-  ({ proposals }) =>
-    new Set(proposals.map((proposal) => proposal.standard)).size ===
-      proposals.length,
-  "proposal Standards must be unique",
-);
-
-const LegacyStandardLimitProposalStoreSchema = z.strictObject({
-  version: z.literal(1),
-  proposals: z.array(LegacyStandardLimitProposalSchema),
 }).refine(
   ({ proposals }) =>
     new Set(proposals.map((proposal) => proposal.standard)).size ===
@@ -99,27 +88,14 @@ export function sameStandardLimitProposalSet(
     leftKeys.every((key, index) => key === rightKeys[index]);
 }
 
-/** Parse the iterable authority and normalize the pre-rebinding store. */
+/** Parse the one canonical persisted proposal store. */
 function parseProposalStore(
   raw: string,
 ): StandardLimitProposalStore | undefined {
   try {
     const parsed: unknown = JSON.parse(raw);
     const current = StandardLimitProposalStoreSchema.safeParse(parsed);
-    if (current.success) {
-      return current.data;
-    }
-    const legacy = LegacyStandardLimitProposalStoreSchema.safeParse(parsed);
-    if (!legacy.success) {
-      return undefined;
-    }
-    return {
-      version: PROPOSAL_STORE_VERSION,
-      proposals: legacy.data.proposals.map((proposal) => ({
-        ...proposal,
-        bound_commit: proposal.commit,
-      })),
-    };
+    return current.success ? current.data : undefined;
   } catch {
     // discern-best-effort: standard-proposal-store-decode-fallback
     return undefined;

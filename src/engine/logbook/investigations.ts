@@ -182,7 +182,6 @@ function evidenceBoundary(
     setup_conditions: uniqueConditions(
       options.setup ?? bases.flatMap((basis) => basis.matched_conditions),
     ),
-    legacy_events: bases.reduce((sum, basis) => sum + basis.legacy_events, 0),
     excluded_events: bases.reduce(
       (sum, basis) => sum + basis.excluded_events,
       0,
@@ -213,11 +212,10 @@ function joinedObservation(findings: readonly PatternsFinding[]): string {
   return findings.map((finding) => finding.observed).join(" ");
 }
 
-/** Require complete current-version validation identity without legacy input. */
+/** Require complete current-version validation identity. */
 function completeCurrentValidation(finding: PatternsFinding): boolean {
   return finding.basis?.validation_state.version === 1 &&
-    finding.basis.validation_state.complete &&
-    finding.basis.legacy_events === 0;
+    finding.basis.validation_state.complete;
 }
 
 const validationInstability: InvestigationRelationship = {
@@ -239,7 +237,7 @@ const validationInstability: InvestigationRelationship = {
   completeValidationState: true,
   setup: "validation-source",
   suppressors: [
-    "legacy or incomplete validation evidence",
+    "incomplete validation evidence",
     "cross-context divergence without a matched-envelope verdict change",
   ],
   cohortPolicy: "pooled-only",
@@ -409,7 +407,7 @@ const validationScheduling: InvestigationRelationship = {
   suppressors: [
     "different or mixed recorded setups",
     "saved-tail estimate already exceeds later-round cost by 1.5 times",
-    "legacy decision evidence",
+    "incomplete decision evidence",
   ],
   cohortPolicy: "pooled-only",
   produce(findings): PatternInvestigation[] {
@@ -421,7 +419,7 @@ const validationScheduling: InvestigationRelationship = {
         basis: "required",
       },
     ).find((finding) =>
-      finding.basis?.legacy_events === 0 && !savingsConflict(finding)
+      finding.basis !== undefined && !savingsConflict(finding)
     );
     if (later === undefined) return [];
     const setup = setupSignature(later);
@@ -434,7 +432,7 @@ const validationScheduling: InvestigationRelationship = {
         basis: "required",
       },
     ).find((finding) =>
-      finding.basis?.legacy_events === 0 && setupSignature(finding) === setup
+      finding.basis !== undefined && setupSignature(finding) === setup
     );
     if (cost === undefined) return [];
     const sources = [later, cost];
@@ -494,7 +492,6 @@ const standardVariance: InvestigationRelationship = {
   suppressors: [
     "pin recommendation already supported",
     "retired Standard",
-    "legacy eligibility readings",
     "mixed recorded setup",
   ],
   cohortPolicy: "pooled-only",
@@ -510,8 +507,7 @@ const standardVariance: InvestigationRelationship = {
       finding.subject !== undefined &&
       finding.evidence.recommendation_supported === 0 &&
       finding.evidence.retired === 0 &&
-      finding.evidence.legacy_eligibility_readings === 0 &&
-      finding.basis?.legacy_events === 0 &&
+      finding.basis !== undefined &&
       setupSignature(finding) !== undefined
     ).slice(0, 3).map((finding) => ({
       id: investigationId(this.id, finding.subject),

@@ -43,13 +43,6 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
       "The preceding null, array, and object checks completely establish the asserted JsonObject alias.",
   },
   {
-    path: "src/engine/await/await.ts",
-    enclosingFunction: "decodeLegacyResumeToken",
-    rule: "asserted-json-boundary",
-    reason:
-      "The record cast follows a root-shape check; every consumed key is then checked or projected by the continuation validator.",
-  },
-  {
     path: "src/engine/continuations/store.ts",
     enclosingFunction: "parseRecord",
     rule: "asserted-json-boundary",

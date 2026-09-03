@@ -243,7 +243,6 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       mainBranch: "main",
       identitySettings: PRUNE_IDENTITY_SETTINGS,
       worktreesToRemove: [],
-      branchesToDelete: [],
       staleMetadata: [],
       worktreeLines: [],
       branchLines: [],
@@ -278,11 +277,6 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
         branch: "agent/stale",
         id: "stale",
         head: "1111111111111111111111111111111111111111",
-      }],
-      branchesToDelete: [{
-        branch: "agent/old",
-        id: "old",
-        expectedCommit: "2222222222222222222222222222222222222222",
       }],
       staleMetadata: [{
         path: "/repo/.wt/gone",
@@ -365,7 +359,6 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
       mainBranch: "main",
       identitySettings: PRUNE_IDENTITY_SETTINGS,
       worktreesToRemove: [],
-      branchesToDelete: [],
       staleMetadata: [],
       worktreeLines: [],
       branchLines: [],

@@ -1138,8 +1138,6 @@ function statsValidationWorkflowRows(
       evidenceShare(evidence.complete, evidence.denominator)
     } · incomplete ${
       evidenceShare(evidence.incomplete, evidence.denominator)
-    } · legacy ${
-      evidenceShare(evidence.legacy, evidence.denominator)
     } · unattributed ${
       evidenceShare(evidence.unattributed, evidence.denominator)
     }`,

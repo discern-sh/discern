@@ -101,7 +101,7 @@ Deno.test("the generated-artifact marker has attributed and source-only forms", 
   );
 });
 
-Deno.test("marker removal recognizes every attributed form and the source-only form", () => {
+Deno.test("marker removal recognizes exactly the two current forms", () => {
   const source = "the source registry";
   const legacy = `# ${DISCERN_NAME} | generated from ${source} | ` +
     `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
@@ -117,7 +117,7 @@ Deno.test("marker removal recognizes every attributed form and the source-only f
       `${legacy}\r\n${alternate}\r\n${attributed}\r\n${sourceOnly}\r\npayload\r\n`,
       source,
     ),
-    "payload\r\n",
+    `${legacy}\r\n${alternate}\r\npayload\r\n`,
   );
 });
 

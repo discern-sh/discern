@@ -44,7 +44,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 
 Normal acceptance adds an `acceptance` block with its consent evidence, checkpoint variances, and `standard_proposals`. The proposal array records the owner-approved tuples for that landing. A proposal-bearing proof claim without matching acceptance evidence remains a pending decision. A generic consent source does not imply approval.
 
-Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict. Legacy bare notes use their annotated commit as the implied subject ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
+Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
 
 ## Signature and identity boundary
 
@@ -56,15 +56,15 @@ PAE(UTF8(payloadType), decoded payload bytes)
 
 The verifier uses those bytes directly; parsing and serializing the JSON could change them. Policy interprets only `proof`.
 
-discern v1.0.0 neither signs nor verifies. A later profile chooses the algorithm, encoding, key lookup, and trust policy. `keyid` is an unauthenticated lookup hint; issuer fields gain meaning only when policy trusts the signing key.
+discern neither signs nor verifies today. A later profile chooses the algorithm, encoding, key lookup, and trust policy. `keyid` is an unauthenticated lookup hint; issuer fields gain meaning only when policy trusts the signing key.
 
 ## Reading rules
 
 1. Require `subject.commit` and abbreviated `proof.head` to match the noted commit.
 2. Accept additive v1 fields throughout the envelope and payload.
 3. Report an unknown `payloadType` as `data.landed_proof_unsupported`.
-4. Read a bare Proof with no `payloadType` as legacy unsigned evidence.
-5. Read pre-correction v1 presentation from `proof`, dropping runtime-only fields.
+4. Require the envelope, split `proof` and `presentation` blocks, an explicit subject, and `signatures`, including the empty unsigned extension.
+5. Accept standard or Base64url payload alphabets, with or without padding; current writers emit padded standard Base64.
 6. Treat proposal fields as structured landing evidence only when the proof claim and acceptance evidence both carry the approved records.
 
 `data.landed_proof` means the note is readable and commit-bound. This path performs no cryptographic verification.

@@ -1032,7 +1032,6 @@ async function staleRemovalScan(
         id: name,
         head: await gitOut(wt, "rev-parse", "HEAD"),
       }],
-      branchesToDelete: [],
       staleMetadata: [],
       worktreeLines: [],
       branchLines: [],

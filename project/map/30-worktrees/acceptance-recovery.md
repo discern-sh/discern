@@ -18,7 +18,7 @@ Acceptance moves the trunk ref and then converges its checkout. A process can en
 
 The common-repository lock and this checkout's lock cover recovery through cleanup. discern acquires common before checkout. A concurrent `discern accept` refuses immediately, states that the call made no change, and waits for the active operation to finish before retrying. It cannot read an active journal as abandoned state ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md)).
 
-Before authority or refs move, a versioned Git-admin journal records the transition. It includes the worktree branch, trunk, expected and target commits, receiving checkout, effort-claim participation, verified consent, and approved Standard limit proposals. The journal binds consent and proposal approval to this transition. The trunk update and a per-worktree marker ref then move in one Git transaction. Rollback restores the trunk and removes the marker together.
+Before authority or refs move, the complete v1 Git-admin journal records the transition. It includes the worktree branch, trunk, expected and target commits, receiving checkout, effort-claim participation, verified consent, authorized variances, and approved Standard limit proposals. Both decision arrays are present even when empty. The journal binds consent and proposal approval to this transition. The trunk update and a per-worktree marker ref then move in one Git transaction. Rollback restores the trunk and removes the marker together.
 
 The marker is durable evidence that the transition happened. It keeps one-shot authority spent even if another actor later returns the trunk to its expected commit or its reflog expires. A missing marker shows that discern's transaction did not commit.
 
@@ -32,7 +32,7 @@ A retry inspects the journal and current authority without changing the journal,
 
 A journal with Standard limit proposals always requires conversation consent bound to that transaction. A standing or effort grant cannot recover the narrower approval. Recovery validates the recorded proposal set before using it. Malformed, duplicate, or mismatched records leave the journal and refs unchanged.
 
-A legacy effort journal can prove authority through its matching claim. Legacy conversation and standing-grant journals contain no bound consent, so they remain untouched until current authority exists.
+A malformed or non-canonical journal proves no authority and remains untouched for inspection. Recovery never fills missing consent or decision fields from another source.
 
 Before the trunk transition, recovery restores a claimed effort grant only when no marker exists, clears the journal, and checks authority again before any fresh landing. Journal-bound consent cannot authorize that fresh transition.
 

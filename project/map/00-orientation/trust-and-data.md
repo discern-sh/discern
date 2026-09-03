@@ -37,7 +37,7 @@ discern routes identifiers, nonce values, key material, continuation handles, an
 
 A green landing records a DSSE-compatible Proof note under `refs/notes/discern`. Its Base64 payload separates structured result facts from human presentation and excludes runtime telemetry ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). `signatures: []` records no signature. discern performs no signing or identity verification today. A future policy will decide which signing keys to trust.
 
-Older bare and pre-correction notes still read. The note is authored by `discern <done@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
+Only the current split v1 envelope is a readable Proof note. The note is authored by `discern <done@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
 
 This local record is on by default. It changes no remote setting and sends nothing anywhere. `[repository].proof_notes = "fetch"` separately opts into transport: refresh adds a fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no Proof note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote Proof history. discern still makes no network request.
 

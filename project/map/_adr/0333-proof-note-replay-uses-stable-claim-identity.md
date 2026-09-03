@@ -1,5 +1,7 @@
 # ADR 0333: Proof-note replay uses stable claim identity
 
+> **Launch-format amendment (2026-09-03):** replay identity applies only to the current split v1 envelope with its explicit subject. The bare private-development reader and implied-subject rule were retired before v1; the stable-claim identity and first-presentation behavior stand.
+
 **Status**: accepted. Refines the durable Proof projection in [ADR 0253](0253-durable-proofs-project-runtime-receipts.md) and the Git-note transport in [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
 
 ## Context

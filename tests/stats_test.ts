@@ -401,7 +401,7 @@ Deno.test("stats: workflow evidence and current dirty shapes retain their denomi
       clean: false,
       validation: validation({ complete: false }),
     },
-    { verb: "test", branch: "agent/legacy", clean: true },
+    { verb: "test", branch: "agent/historical", clean: true },
     { verb: "prepare", branch: "agent/prepare", clean: false },
     { verb: "test", branch: "agent/unknown", clean: null },
   ]));
@@ -410,8 +410,7 @@ Deno.test("stats: workflow evidence and current dirty shapes retain their denomi
     denominator: 7,
     complete: 3,
     incomplete: 1,
-    legacy: 1,
-    unattributed: 2,
+    unattributed: 3,
   });
   assertEquals(b.validation_workflows.runs.dirty_state, {
     denominator: 3,
@@ -695,7 +694,6 @@ Deno.test("stats: an empty stream produces a card of zeros, not an error", () =>
         denominator: 0,
         complete: 0,
         incomplete: 0,
-        legacy: 0,
         unattributed: 0,
       },
       dirty_state: {

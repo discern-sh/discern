@@ -1,5 +1,7 @@
 # ADR 0273: Validation comparisons require complete keyed semantic evidence
 
+> **Launch-evidence amendment (2026-09-03):** every current registered `test` and `done` writer carries validation evidence. Historical Logbook lines without it remain readable but unattributed; no reader reconstructs test semantics or a separate compatibility identity from those lines. This narrows the private fallback paths below while preserving the complete-current-evidence comparison boundary.
+
 **Status**: accepted
 
 ## Context

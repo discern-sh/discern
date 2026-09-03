@@ -96,16 +96,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Landing deletes the branch by design, and the retained tip plus trunk reachability remains the authoritative transition evidence.",
   },
-  "await-legacy-resume-decode": {
-    path: "src/engine/await/await.ts",
-    enclosingFunction: "decodeLegacyResumeToken",
-    operation: "reject an invalid legacy inline continuation token",
-    kind: "direct",
-    shape: "sync",
-    observability: { kind: "unobservable" },
-    reason:
-      "Malformed base64, UTF-8, or JSON is invalid untrusted token input and has the same result as a structurally invalid payload.",
-  },
   "await-trunk-ref-fallback": {
     path: "src/engine/await/await.ts",
     enclosingFunction: "evaluateCondition",

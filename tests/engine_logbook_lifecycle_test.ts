@@ -615,8 +615,7 @@ realPtyTest({
           denominator: 2,
           complete: 0,
           incomplete: 0,
-          legacy: 1,
-          unattributed: 1,
+          unattributed: 2,
         },
         dirty_state: {
           denominator: 0,

@@ -64,11 +64,11 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts)).
 
-Readers accept additive fields and older bare or pre-correction notes; unknown payload types report unsupported. [Proof note format](proof-and-checkpoint-formats.md) defines the contract and reading rules.
+Readers accept additive fields inside the current split v1 envelope. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](proof-and-checkpoint-formats.md) defines the contract and reading rules.
 
 ### Replay keeps the first presentation
 
-The write identity is the annotated subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. Legacy bare notes use the commit they annotate as their subject. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
+The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
 
 ### Authorship and failure
 
@@ -125,8 +125,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 - `data.landed_proof` reports a readable note that is bound to its commit. This read path performs no signature or issuer-identity verification.
 - Direct Git inspection shows a Base64 payload. Use `discern status --verbose` for the rendered Proof.
 - A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
-- Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
-- An older marker may lack structured data. Acceptance honors its commit identity but reports `missing_proof`.
+- Refresh reconciles the canonical exact mapping discern owns. Any other exact mapping stays untouched.
 - A note with a different stable claim on the same commit fails open. Inspect the cause in `data.proof_note.write`.
 
 ## Proof note format
@@ -162,20 +161,20 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 
 ### Contract
 
-| Envelope field | Type          | Required | Contract                                                                      |
-| -------------- | ------------- | -------- | ----------------------------------------------------------------------------- |
-| `payloadType`  | string        | Yes      | Exact public schema id plus `#/$defs/DiscernProofNotePayload`.                |
-| `payload`      | Base64 string | Yes      | UTF-8 JSON bytes for the payload.                                             |
-| `signatures`   | array         | Yes      | Zero or more `{ keyid?, sig }` records; discern v1.0.0 writes an empty array. |
+| Envelope field | Type          | Required | Contract                                                                              |
+| -------------- | ------------- | -------- | ------------------------------------------------------------------------------------- |
+| `payloadType`  | string        | Yes      | Exact public schema id plus `#/$defs/DiscernProofNotePayload`.                        |
+| `payload`      | Base64 string | Yes      | UTF-8 JSON bytes for the payload.                                                     |
+| `signatures`   | array         | Yes      | Zero or more `{ keyid?, sig }` records; current unsigned writers emit an empty array. |
 
-| Payload field  | Type   | Required | Contract                                                          |
-| -------------- | ------ | -------- | ----------------------------------------------------------------- |
-| `subject`      | object | Yes      | `{ commit }`, where `commit` is the full landed object id.        |
-| `proof`        | object | Yes      | Stable Proof claim described below.                               |
-| `presentation` | object | Yes      | Human `line` and full `markdown`; excluded from replay identity.  |
-| `acceptance`   | object | No       | Consent, authorized variances, and approved Standard proposals.   |
-| `issuer`       | object | No       | Reserved asserted `name`, `email`, and `key`; v1.0.0 writes none. |
-| `brief`        | string | No       | Reserved signed-intent reference; v1.0.0 writes none.             |
+| Payload field  | Type   | Required | Contract                                                                 |
+| -------------- | ------ | -------- | ------------------------------------------------------------------------ |
+| `subject`      | object | Yes      | `{ commit }`, where `commit` is the full landed object id.               |
+| `proof`        | object | Yes      | Stable Proof claim described below.                                      |
+| `presentation` | object | Yes      | Human `line` and full `markdown`; excluded from replay identity.         |
+| `acceptance`   | object | No       | Consent, authorized variances, and approved Standard proposals.          |
+| `issuer`       | object | No       | Reserved asserted `name`, `email`, and `key`; current writers emit none. |
+| `brief`        | string | No       | Reserved signed-intent reference; current writers emit none.             |
 
 | `proof` field        | Type                 | Required | Contract                                                     |
 | -------------------- | -------------------- | -------- | ------------------------------------------------------------ |
@@ -189,7 +188,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 | `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                       |
 | `standard_proposals` | array                | No       | Commit-bound pending Standard proposals.                     |
 
-Acceptance has optional `consent`, `variances`, and `standard_proposals` fields. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
+When `acceptance` is present, its `consent`, `variances`, and `standard_proposals` fields are all required; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
 
 - `payloadType` identifies the contract and compatibility major.
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
@@ -199,7 +198,7 @@ Acceptance has optional `consent`, `variances`, and `standard_proposals` fields.
 
 Normal acceptance adds consent, variances, and approved `standard_proposals`. A proposal-bearing claim without matching acceptance remains pending; generic consent approves none.
 
-Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict. Legacy bare notes use their annotated commit as the implied subject ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
+Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
 
 ### Signature and identity boundary
 
@@ -211,15 +210,15 @@ PAE(UTF8(payloadType), decoded payload bytes)
 
 The verifier uses those bytes directly; parsing and serializing the JSON could change them. Policy interprets only `proof`.
 
-discern v1.0.0 neither signs nor verifies. A later profile chooses the algorithm, encoding, key lookup, and trust policy. `keyid` is an unauthenticated lookup hint; issuer fields gain meaning only when policy trusts the signing key.
+discern neither signs nor verifies today. A later profile chooses the algorithm, encoding, key lookup, and trust policy. `keyid` is an unauthenticated lookup hint; issuer fields gain meaning only when policy trusts the signing key.
 
 ### Reading rules
 
 1. Require `subject.commit` and abbreviated `proof.head` to match the noted commit.
 2. Accept additive v1 fields throughout the envelope and payload.
 3. Report an unknown `payloadType` as `data.landed_proof_unsupported`.
-4. Read a bare Proof with no `payloadType` as legacy unsigned evidence.
-5. Read pre-correction v1 presentation from `proof`, dropping runtime-only fields.
+4. Require the envelope, split `proof` and `presentation` blocks, an explicit subject, and `signatures`, including the empty unsigned extension.
+5. Accept standard or Base64url payload alphabets, with or without padding; current writers emit padded standard Base64.
 6. Treat proposal fields as structured landing evidence only when the proof claim and acceptance evidence both carry the approved records.
 
 `data.landed_proof` means the note is readable and commit-bound. This path performs no cryptographic verification.

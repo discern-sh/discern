@@ -56,7 +56,6 @@ function basis(
     setup?: string | undefined;
     completeValidation?: boolean | undefined;
     validationVersion?: number | null | undefined;
-    legacy?: number | undefined;
     estimated?: readonly string[] | undefined;
     mixedSetup?: boolean | undefined;
   } = {},
@@ -91,7 +90,6 @@ function basis(
         condition("writer-release", "9.9.9"),
       ],
     differing_conditions: [],
-    legacy_events: options.legacy ?? 0,
     excluded_events: 0,
     limitations: [],
     values: Object.fromEntries(
@@ -136,7 +134,7 @@ function finding(
 
 /** Build the valid or deliberately weakened validation relationship. */
 function validationSources(
-  options: { complete?: boolean; legacy?: number } = {},
+  options: { complete?: boolean } = {},
 ): PatternsFinding[] {
   const divergence = {
     runs: 4,
@@ -150,7 +148,6 @@ function validationSources(
       subject: "unit",
       basis: basis(divergence, {
         completeValidation: options.complete ?? true,
-        legacy: options.legacy,
       }),
     }),
     finding("confirmed-rerun", { confirmed_runs: 3, branches: 1 }),
@@ -193,7 +190,6 @@ function schedulingSources(
     setup?: string;
     costSetup?: string;
     savingsConflict?: boolean;
-    legacy?: number;
   } = {},
 ): PatternsFinding[] {
   const later = {
@@ -219,7 +215,6 @@ function schedulingSources(
     finding("masked-failures", later, {
       basis: basis(later, {
         setup: options.setup,
-        legacy: options.legacy,
         estimated: [
           "estimated_saved_tail_seconds",
           "conservative_saved_tail_seconds",
@@ -239,7 +234,6 @@ function varianceSource(
     reversal?: number;
     failure?: number;
     recommendation?: number;
-    legacy?: number;
   } = {},
 ): PatternsFinding {
   const evidence = {
@@ -255,11 +249,10 @@ function varianceSource(
     recent_failures: options.failure ?? 0,
     recent_reversals: options.reversal ?? 1,
     retired: 0,
-    legacy_eligibility_readings: 0,
   };
   return finding("standard-trajectory", evidence, {
     subject,
-    basis: basis(evidence, { legacy: options.legacy }),
+    basis: basis(evidence),
   });
 }
 
@@ -368,10 +361,8 @@ Deno.test("investigation near misses and conflicting evidence leave raw findings
     feedbackSources({ mixedSetup: true }),
     schedulingSources({ costSetup: "setup-b" }),
     schedulingSources({ savingsConflict: true }),
-    schedulingSources({ legacy: 1 }),
     [varianceSource("coverage", { reversal: 0, failure: 0 })],
     [varianceSource("coverage", { recommendation: 1 })],
-    [varianceSource("coverage", { legacy: 1 })],
   ];
   for (const sources of nearMisses) {
     assertEquals(synthesizeInvestigations(sources), []);

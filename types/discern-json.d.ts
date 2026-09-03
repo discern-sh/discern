@@ -4285,7 +4285,6 @@ export type DiscernImprovementResult = DiscernResultState & {
             distinct: number;
             omitted: number;
           }>;
-          legacy_events: number;
           excluded_events: number;
           limitations: Array<string>;
           values: {
@@ -5899,7 +5898,6 @@ export type DiscernPatternsResult = DiscernResultState & {
           distinct: number;
           omitted: number;
         }>;
-        legacy_events: number;
         excluded_events: number;
         limitations: Array<string>;
         values: {
@@ -5942,7 +5940,6 @@ export type DiscernPatternsResult = DiscernResultState & {
           distinct: number;
           omitted: number;
         }>;
-        legacy_events: number;
         excluded_events: number;
         limitations: Array<string>;
       };
@@ -6014,7 +6011,6 @@ export type DiscernPatternsResult = DiscernResultState & {
             denominator: number;
             complete: number;
             incomplete: number;
-            legacy: number;
             unattributed: number;
           };
           dirty_state: {
