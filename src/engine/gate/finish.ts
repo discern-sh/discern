@@ -148,6 +148,7 @@ import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   assertMainMerged,
   detectSilentDivergence,
+  inspectResolvedTrunkMerged,
   integrationBranch,
 } from "../worktree/git.ts";
 import {
@@ -168,6 +169,11 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
+import {
+  type CheckpointGateResolution,
+  type DonePreambleOperations,
+  resolveDonePreamble,
+} from "./done_preamble.ts";
 import { inlineFindingRoutes, proofFindingHints } from "../logbook/surfaces.ts";
 import {
   attachValidationEvidence,
@@ -1659,11 +1665,6 @@ function awaitingDeclarationRefusal(
   };
 }
 
-/** How the checkpoint gate resolved for one `done` invocation. */
-type CheckpointGateResolution =
-  | { kind: "refuse"; result: DiscernResult<GateData> }
-  | { kind: "proceed"; preflight: CheckpointPreflight };
-
 /**
  * Run the checkpoint pre-flight for one `done` invocation and decide whether
  * the run may proceed: an invalid declaring invocation or a still-outstanding
@@ -1773,22 +1774,31 @@ async function unchangedTreeRerunRefusal(
   };
 }
 
-/** Read the exact live proposal set. Undefined makes cache reuse fail closed;
- * the full Gate remains the authoritative fallback. */
-async function activeStandardLimitProposalSet(
+interface ActiveStandardLimitProposalState {
+  readonly trunk: string;
+  readonly proposals: StandardLimitProposalData[];
+}
+
+/** Read the exact live proposal set and its resolved trunk. Undefined makes
+ * cache reuse fail closed; the full Gate remains the authoritative fallback. */
+async function activeStandardLimitProposalState(
   root: string,
-): Promise<StandardLimitProposalData[] | undefined> {
+): Promise<ActiveStandardLimitProposalState | undefined> {
   try {
     const cfg = await loadConfig(root);
     const plan = buildStandardPlan(cfg);
+    const trunk = integrationBranch(cfg.repository.trunk);
     const inspected = await inspectActiveStandardLimitProposals(
       root,
-      integrationBranch(cfg.repository.trunk),
+      trunk,
       plan.standards,
     );
-    return [...inspected.active.values()].sort((left, right) =>
-      left.standard.localeCompare(right.standard)
-    );
+    return {
+      trunk,
+      proposals: [...inspected.active.values()].sort((left, right) =>
+        left.standard.localeCompare(right.standard)
+      ),
+    };
   } catch {
     // discern-best-effort: gate-active-standard-proposals-fallback
     return undefined;
@@ -1802,15 +1812,15 @@ async function gateRunEvidenceIdentity(
   root: string,
   checkpoint?: Pick<CheckpointPreflight, "evidence" | "policyCommit">,
 ): Promise<string | undefined> {
-  const proposals = await activeStandardLimitProposalSet(root);
-  if (proposals === undefined) {
+  const state = await activeStandardLimitProposalState(root);
+  if (state === undefined) {
     return checkpoint?.evidence;
   }
   return JSON.stringify({
     version: 1,
     checkpoints: checkpoint?.evidence ?? null,
     checkpoint_policy: checkpoint?.policyCommit ?? null,
-    standard_proposals: proposals.map(standardLimitProposalIdentity),
+    standard_proposals: state.proposals.map(standardLimitProposalIdentity),
   });
 }
 
@@ -1834,27 +1844,19 @@ async function reusableGreenProof(
   ) {
     return undefined;
   }
-  try {
-    const cfg = await loadConfig(root);
-    const merged = await assertMainMerged(
-      root,
-      integrationBranch(cfg.repository.trunk),
-    );
-    if (merged.kind === "behind" || merged.kind === "missing") {
-      return undefined;
-    }
-  } catch {
-    // discern-best-effort: gate-reusable-proof-integration-fallback
-    // A cache cannot convert unreadable integration evidence into green. The
-    // full Gate owns the typed diagnostic and recovery route.
+  const proposalState = await activeStandardLimitProposalState(root);
+  if (proposalState === undefined) return undefined;
+  const merged = await inspectResolvedTrunkMerged(root, proposalState.trunk);
+  if (
+    merged.kind === "behind" || merged.kind === "missing" ||
+    merged.kind === "unavailable"
+  ) {
     return undefined;
   }
-  const activeProposals = await activeStandardLimitProposalSet(root);
   if (
-    activeProposals === undefined ||
     !sameStandardLimitProposalSet(
       proof.proof_data.standard_proposals ?? [],
-      activeProposals,
+      proposalState.proposals,
     )
   ) {
     return undefined;
@@ -1872,56 +1874,12 @@ async function reusableGreenProof(
   };
 }
 
-/** A declaration changes checkpoint evidence and therefore always runs fresh. */
-function hasDeclarations(request: DeclarationRequest): boolean {
-  return request.met.length > 0 || request.unmet !== undefined;
-}
-
-type DonePreamble =
-  | { kind: "reuse"; result: DiscernResult<GateData> }
-  | { kind: "refuse"; result: DiscernResult<GateData> }
-  | { kind: "proceed"; preflight: CheckpointPreflight };
-
-/** Resolve the one pre-job `done` protocol shared by CLI, MCP, and composite
- * callers: safe Proof reuse, checkpoint reconciliation, then unchanged-tree
- * protection. No entry point may reorder or selectively omit these boundaries. */
-async function resolveDonePreamble(
-  root: string,
-  options: {
-    mode: "strict" | "report";
-    declarations: DeclarationRequest;
-    rerunRequested: boolean;
-    ciRecovery: boolean;
-    signal?: AbortSignal;
-  },
-): Promise<DonePreamble> {
-  if (
-    options.mode === "strict" && !options.rerunRequested &&
-    !hasDeclarations(options.declarations)
-  ) {
-    const reused = await reusableGreenProof(root);
-    if (reused !== undefined) return { kind: "reuse", result: reused };
-  }
-  const checkpoints = await resolveCheckpointGate(
-    root,
-    options.declarations,
-    options.mode,
-    options.ciRecovery,
-    options.signal,
-  );
-  if (checkpoints.kind === "refuse") {
-    return checkpoints;
-  }
-  if (options.mode === "strict") {
-    const refusal = await unchangedTreeRerunRefusal(
-      root,
-      options.rerunRequested,
-      await gateRunEvidenceIdentity(root, checkpoints.preflight),
-    );
-    if (refusal !== undefined) return { kind: "refuse", result: refusal };
-  }
-  return { kind: "proceed", preflight: checkpoints.preflight };
-}
+const DONE_PREAMBLE_OPERATIONS = {
+  reusableGreenProof,
+  resolveCheckpointGate,
+  unchangedTreeRerunRefusal,
+  gateRunEvidenceIdentity,
+} satisfies DonePreambleOperations;
 
 /** The output contract an in-process full-gate caller must choose explicitly. */
 export type FinishResultSurface =
@@ -2009,6 +1967,7 @@ export async function finishResult(
       ciRecovery: terminal.ciRequestsStaticOutput,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
+    DONE_PREAMBLE_OPERATIONS,
   );
   if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
@@ -2090,12 +2049,16 @@ export async function runFinish(
   };
   const rerunRequested = opts.rerun === true;
   const terminal = terminalContext();
-  const preamble = await resolveDonePreamble(root, {
-    mode,
-    declarations,
-    rerunRequested,
-    ciRecovery: terminal.ciRequestsStaticOutput,
-  });
+  const preamble = await resolveDonePreamble(
+    root,
+    {
+      mode,
+      declarations,
+      rerunRequested,
+      ciRecovery: terminal.ciRequestsStaticOutput,
+    },
+    DONE_PREAMBLE_OPERATIONS,
+  );
   if (preamble.kind === "reuse") {
     observeResult(preamble.result);
     if (opts.json) {

@@ -179,13 +179,11 @@ import {
   readOpenQuestions,
 } from "../checkpoints/open_questions.ts";
 import type {
-  AcceptanceEvidenceData,
   AcceptData,
   AcceptLandingState,
   AcceptProofNoteData,
   AuthorizedVarianceData,
   GateData,
-  LandingConsentData,
   Proof,
   StandardLimitApprovalRequestData,
   StandardLimitProposalData,
@@ -326,10 +324,10 @@ import {
 import { renderLandingProofLine } from "../gate/proof_render.ts";
 import { renderProofLineCli } from "../gate/presentation.ts";
 import {
-  proofNotesFetchSucceeded,
-  reconcileProofNotesFetch,
-  writeProofNote,
-} from "../gate/proof_notes.ts";
+  cloneLandingConsent,
+  recordLandingProofNote,
+  runLandingSmoke,
+} from "./accept_proof_recording.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
@@ -2488,14 +2486,6 @@ function cloneLandingState(
   return { ...landing };
 }
 
-/** Copy consent scopes before exposing them through acceptance result data. */
-function cloneLandingConsent(consent: LandingConsent): LandingConsentData {
-  return {
-    source: consent.source,
-    ...(consent.scopes === undefined ? {} : { scopes: [...consent.scopes] }),
-  };
-}
-
 /** Configured scope names matched by the landing's classified paths. Names
  * only: acceptance exposes no path or configuration value to the logbook. */
 function changedLandingScopes(
@@ -2692,184 +2682,6 @@ async function assertAcceptBranchStillCurrent(
         "Acceptance will not remove this worktree until the merge check can run.",
     );
   }
-}
-
-/**
- * Run only the configured smoke job in the landing checkout. The full
- * gate already validated the commit in the worktree; this second, deliberately
- * narrow pass proves the main checkout's local runtime state is usable after its
- * repository convergence commands. It is non-fatal because the trunk has
- * already moved, but its real job steps and diagnostics are retained.
- */
-async function runLandingSmoke(
-  mainRepo: string,
-  config: DiscernConfig,
-  plan: AcceptPlan,
-  log: Logger,
-): Promise<{
-  steps: StepResult[];
-  diagnostics: Diagnostic[];
-  hints: string[];
-}> {
-  if (plan.smokeSteps.length === 0) {
-    return { steps: [], diagnostics: [], hints: [] };
-  }
-  const group: JobGroup = {
-    stage: "test",
-    mode: "parallel",
-    heading: "Proving the landing checkout is ready...",
-    display: "Smoke",
-    jobs: plan.smokeSteps.map((job) => ({
-      label: job.label,
-      command: job.command,
-      kind: "known",
-      reportStage: "test",
-      willRun: true,
-      ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
-    })),
-  };
-  log.info("Running the smoke job in the landing checkout...");
-  // Always keep the gate runner quiet here: accept owns stdout (especially its
-  // JSON envelope), while serializeJobSteps retains failure output as structured
-  // diagnostics exactly as the normal gate does. The smoke group is a
-  // test-stage run, so the fleet test-run cap counts it like any other.
-  const policy = resolveGateRunPolicy(config.gate.stream, {
-    kind: "quiet-result",
-  });
-  const { runOpts, out, slots } = gateRunContext(mainRepo, config, policy);
-  const { results, failedStage } = await runJobGroups(
-    [group],
-    runOpts,
-    out,
-    slots,
-  );
-  const serialized = await serializeJobSteps(mainRepo, [group], results);
-  if (failedStage === null) {
-    log.ok("Landing-checkout smoke passed.");
-  } else {
-    log.warn("Landing-checkout smoke failed — the landing is kept.");
-  }
-  return { ...serialized, hints: hintTexts(serialized.hints) };
-}
-
-/**
- * Record one already-landed commit's Proof and optional fetch transport.
- *
- * Both uninterrupted acceptance and post-CAS recovery use this authority so an
- * interruption cannot silently skip the durable evidence boundary.
- */
-async function recordLandingProofNote(input: {
-  readonly mainRepo: string;
-  readonly commit: string;
-  readonly mode: "local" | "fetch";
-  readonly proof: Proof | undefined;
-  readonly checkpointDrops: readonly CheckpointDrop[];
-  readonly consent: LandingConsent;
-  readonly variances: readonly AuthorizedVarianceData[];
-  readonly standardProposals: readonly StandardLimitProposalData[];
-  readonly log: Logger;
-  readonly env: Pick<typeof Deno.env, "get">;
-}): Promise<{
-  readonly proofNote: AcceptProofNoteData;
-  readonly steps: StepResult[];
-  readonly hints: string[];
-}> {
-  const proofFetch = await reconcileProofNotesFetch(input.mainRepo, input.mode);
-  const proofFetchOk = proofNotesFetchSucceeded(proofFetch);
-  const fetchStep: StepResult = {
-    step: {
-      kind: "git",
-      label: BUILT_IN_STEP_LABELS.reconcileProofNoteFetch,
-      disposition: "run",
-      note: proofFetchOk
-        ? `proof-note transport is ${proofFetch.status}`
-        : proofFetch.errors.join("; "),
-    },
-    outcome: proofFetchOk ? "ok" : "failed",
-    ...(proofFetchOk ? {} : {
-      advisory: {
-        kind: "proof-recording-unavailable" as const,
-        evidence: proofFetch.errors.length === 0
-          ? [`Proof-note fetch transport status: ${proofFetch.status}.`]
-          : [...proofFetch.errors],
-        next_action:
-          "Repair the reported Git-notes fetch configuration; the landing itself does not need to be repeated.",
-      },
-    }),
-  };
-  if (!proofFetchOk) {
-    input.log.warn(
-      "Proof-note fetch transport could not converge — the landing is kept.",
-    );
-  }
-
-  const proofForNote = input.proof === undefined ? undefined : {
-    ...input.proof,
-    ...(input.checkpointDrops.length === 0 ? {} : {
-      checkpoint_drops: input.checkpointDrops.map((drop) => ({ ...drop })),
-    }),
-  };
-  const acceptanceEvidence: AcceptanceEvidenceData = {
-    consent: cloneLandingConsent(input.consent),
-    variances: input.variances.map((variance) => ({ ...variance })),
-    standard_proposals: input.standardProposals.map(cloneStandardLimitProposal),
-  };
-  const proofWrite = await writeProofNote(
-    input.mainRepo,
-    input.commit,
-    proofForNote,
-    input.env,
-    acceptanceEvidence,
-  );
-  const proofWritten = proofWrite.status === "recorded" ||
-    proofWrite.status === "already_present";
-  const writeStep: StepResult = {
-    step: {
-      kind: "git",
-      label: BUILT_IN_STEP_LABELS.writeProofNote,
-      disposition: "run",
-      note: proofWrite.reason ?? `${proofWrite.ref} at ${proofWrite.commit}`,
-    },
-    outcome: proofWritten ? "ok" : "failed",
-    ...(proofWritten ? {} : {
-      advisory: {
-        kind: "proof-recording-unavailable" as const,
-        evidence: [
-          proofWrite.reason ?? `Proof-note write status: ${proofWrite.status}.`,
-        ],
-        next_action:
-          "Repair the reported Git-notes storage problem and use the documented Proof-note recovery without repeating the landing.",
-      },
-    }),
-  };
-  if (proofWritten) {
-    input.log.ok(`Recorded the landing proof under ${proofWrite.ref}.`);
-  } else {
-    input.log.warn(
-      `The landing proof note was not recorded — the landing is kept. ${
-        proofWrite.reason ?? proofWrite.status
-      }`,
-    );
-  }
-
-  const publicationRemote = proofFetch.remotes.includes("origin")
-    ? "origin"
-    : proofFetch.remotes[0];
-  const shouldOfferPublication = input.mode === "fetch" && proofFetchOk &&
-    proofWritten &&
-    publicationRemote !== undefined;
-  const publicationHints = shouldOfferPublication
-    ? hintTexts([
-      fire(HINTS["accept-publish-proof-note"], {
-        remote: publicationRemote,
-      }),
-    ])
-    : hintTexts([]);
-  return {
-    proofNote: { fetch: proofFetch, write: proofWrite },
-    steps: [fetchStep, writeStep],
-    hints: publicationHints,
-  };
 }
 
 /**

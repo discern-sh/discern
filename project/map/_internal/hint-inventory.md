@@ -936,11 +936,11 @@ Rendered example:
 - Category: `notice`
 - Audience: `all`
 - Family: —
-- Emitting context: A Gate run cannot read every working-tree snapshot needed for strand detection.
+- Emitting context: A Gate run cannot read every strand-detection snapshot.
 
 Rendered example:
 
-> The Gate could not prove that its stages left no tracked output behind. Inspect the strand-check drop, restore Git status access, and re-run before relying on that dimension.
+> Restore Git status; re-run for strand evidence.
 
 ## `gate-test-run-queued`
 
@@ -1555,12 +1555,12 @@ Rendered example:
 
 - Category: `next-step`
 - Audience: `all`
-- Family: `standards-pin-proof`
+- Family: —
 - Emitting context: A pin commit invalidates the prior exact-HEAD Proof.
 
 Rendered example:
 
-> Run `discern done` before accepting, or acceptance will re-run the gate. The pin commit moved HEAD beyond every prior Proof.
+> Run `discern done`; this pin has no current Proof.
 
 ## `standards-pin-no-slack`
 
@@ -1599,12 +1599,12 @@ Rendered example:
 
 - Category: `next-step`
 - Audience: `all`
-- Family: `start-result`
+- Family: —
 - Emitting context: `start --from` selects a commit that is behind the local trunk.
 
 Rendered example:
 
-> The selected base is 2 commits behind main. The worktree was created from the exact requested commit; run `discern update` there before `discern done`.
+> The selected base trails main by 2 on the commit graph; the worktree uses the exact requested commit. Run `discern update` there before `discern done`.
 
 ## `start-landing-authority`
 

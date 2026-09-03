@@ -348,6 +348,12 @@ export type MainMergedResult =
   /** main has advanced: the branch is behind by `behind` commit(s) on `branch`. */
   | { kind: "behind"; behind: GitCount; branch: string };
 
+/** Read-only merge inspection, including Git evidence that could not be read. */
+export type MainMergedInspection = MainMergedResult | {
+  kind: "unavailable";
+  detail: string;
+};
+
 /**
  * Assert the current worktree's branch already contains the latest main. A
  * check, not a merge. No-op (`skipped`) outside a linked worktree. Mirrors
@@ -377,6 +383,18 @@ export async function assertResolvedTrunkMerged(
   cwd: string,
   mainBranch: string,
 ): Promise<MainMergedResult> {
+  const inspected = await inspectResolvedTrunkMerged(cwd, mainBranch);
+  if (inspected.kind === "unavailable") {
+    throw new WorktreeGitError(inspected.detail);
+  }
+  return inspected;
+}
+
+/** Inspect an already-resolved local trunk without throwing away read failure. */
+export async function inspectResolvedTrunkMerged(
+  cwd: string,
+  mainBranch: string,
+): Promise<MainMergedInspection> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → clean no-op (this sits at the end
   // of `discern done`, which also runs in the main checkout).
@@ -394,7 +412,10 @@ export async function assertResolvedTrunkMerged(
     return { kind: "missing", branch: mainBranch };
   }
   if (!hasMain.success) {
-    throw gitReadFailure(`inspect branch '${mainBranch}'`, hasMain);
+    return {
+      kind: "unavailable",
+      detail: gitReadFailure(`inspect branch '${mainBranch}'`, hasMain).message,
+    };
   }
   const ancestor = await git(
     ["merge-base", "--is-ancestor", mainBranch, "HEAD"],
@@ -404,10 +425,13 @@ export async function assertResolvedTrunkMerged(
     return { kind: "merged" };
   }
   if (ancestor.code !== 1) {
-    throw gitReadFailure(
-      `test whether HEAD contains '${mainBranch}'`,
-      ancestor,
-    );
+    return {
+      kind: "unavailable",
+      detail: gitReadFailure(
+        `test whether HEAD contains '${mainBranch}'`,
+        ancestor,
+      ).message,
+    };
   }
   const behindRun = await git(
     ["rev-list", "--count", `HEAD..${mainBranch}`],

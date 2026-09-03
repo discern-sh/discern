@@ -2026,12 +2026,9 @@ export const HINTS = {
     id: "gate-strand-check-unavailable",
     category: "notice",
     audience: "all",
-    when:
-      "A Gate run cannot read every working-tree snapshot needed for strand detection.",
+    when: "A Gate run cannot read every strand-detection snapshot.",
     example: {},
-    template: (): string =>
-      "The Gate could not prove that its stages left no tracked output behind. " +
-      "Inspect the strand-check drop, restore Git status access, and re-run before relying on that dimension.",
+    template: (): string => "Restore Git status; re-run for strand evidence.",
   }),
 
   "gate-proof-skipped-dirty": defineHint<{
@@ -2931,10 +2928,8 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when: "A pin commit invalidates the prior exact-HEAD Proof.",
-    family: "standards-pin-proof",
     example: undefined,
-    template: (): string =>
-      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. The pin commit moved HEAD beyond every prior Proof.`,
+    template: (): string => `Run ${CMD.done}; this pin has no current Proof.`,
   }),
 
   /** Standalone standards could not verify the branch limits against the trunk. */
@@ -3429,12 +3424,10 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when: "`start --from` selects a commit that is behind the local trunk.",
-    family: "start-result",
     example: { behind: 2, trunk: "main" },
     template: ({ behind, trunk }): string =>
-      `The selected base is ${behind} commit${behind === 1 ? "" : "s"} ` +
-      `behind ${trunk}. The worktree was created from the exact requested ` +
-      `commit; run ${CMD.update} there before ${CMD.done}.`,
+      `The selected base trails ${trunk} by ${behind} on the commit graph; the ` +
+      `worktree uses the exact requested commit. Run ${CMD.update} there before ${CMD.done}.`,
   }),
 
   /** Uncommitted main-checkout work stays behind when start forks a commit. */

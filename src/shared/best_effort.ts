@@ -576,7 +576,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "gate-active-standard-proposals-fallback": {
     path: "src/engine/gate/finish.ts",
-    enclosingFunction: "activeStandardLimitProposalSet",
+    enclosingFunction: "activeStandardLimitProposalState",
     operation:
       "omit advisory active Standard proposal decoration when inspection fails",
     kind: "direct",
@@ -595,17 +595,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "Captured job results remain authoritative and the false return preserves presentation failure without changing the scheduler verdict.",
-  },
-  "gate-reusable-proof-integration-fallback": {
-    path: "src/engine/gate/finish.ts",
-    enclosingFunction: "reusableGreenProof",
-    operation:
-      "treat unreadable local integration evidence as a reusable-Proof cache miss",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The optimization must not manufacture green from missing trunk evidence; the full Gate immediately rechecks the same precondition and returns its typed diagnostic and recovery.",
   },
   "gate-tty-observer-close": {
     path: "src/engine/gate/gate_tty.ts",

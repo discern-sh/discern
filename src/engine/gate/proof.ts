@@ -71,7 +71,6 @@ import {
   type GateProofCheckData,
   type GateStandard,
   type Proof,
-  TolerantProofSchema,
 } from "../../shared/result_schemas.ts";
 import {
   inspectOnDiskJsonVersion,
@@ -79,85 +78,24 @@ import {
   newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import {
+  type GateProofFile,
+  type LastGateRun,
+  type LastGateRunRead,
+  parseGateProofFile,
+  parseLastGateRun,
+} from "./proof_records.ts";
+
+export {
+  type LastGateRun,
+  type LastGateRunRead,
+  parseLastGateRun,
+} from "./proof_records.ts";
 
 type AdminStatePaths = Readonly<
   Record<ValidationAdminStateKey, string | undefined>
 >;
 type GateProofRecordData = NonNullable<GateData["gate_proof"]>;
-
-const GateProofFileSchema = z.strictObject({
-  version: z.literal(ON_DISK_FORMATS.gateProof.version),
-  head: z.string().min(1),
-  mode: z.enum(["strict", "report"]),
-  proof: z.unknown().optional(),
-  evidence: z.string().min(1).optional(),
-});
-
-interface GateProofFile {
-  readonly version: typeof ON_DISK_FORMATS.gateProof.version;
-  readonly head: string;
-  readonly mode: GateMode;
-  readonly proof?: Proof;
-  readonly evidence?: string;
-}
-
-type GateProofFileRead =
-  | { readonly status: "recorded"; readonly record: GateProofFile }
-  | { readonly status: "missing"; readonly reason: string }
-  | { readonly status: "newer"; readonly reason: string }
-  | { readonly status: "malformed"; readonly reason: string };
-
-/** Decode only the registered JSON format. The private-era text marker has no
- * migration path: it is a cache miss and a fresh strict `done` must replace it. */
-function parseGateProofFile(content: string): GateProofFileRead {
-  if (content.trim() === "") {
-    return { status: "missing", reason: "proof file was empty" };
-  }
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(content);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    return {
-      status: "missing",
-      reason: "unversioned Gate Proof requires a fresh `discern done`",
-    };
-  }
-  const version = inspectOnDiskRecordVersion("gateProof", decoded);
-  if (version.status === "newer") {
-    return {
-      status: "newer",
-      reason: newerOnDiskFormatMessage("gateProof", version.found),
-    };
-  }
-  if (version.status !== "current") {
-    return {
-      status: "malformed",
-      reason: "Gate Proof does not carry the registered format version",
-    };
-  }
-  const parsed = GateProofFileSchema.safeParse(decoded);
-  if (!parsed.success) {
-    return { status: "malformed", reason: "Gate Proof JSON is malformed" };
-  }
-  const proof = parsed.data.proof === undefined
-    ? undefined
-    : TolerantProofSchema.safeParse(parsed.data.proof);
-  return {
-    status: "recorded",
-    record: {
-      version: ON_DISK_FORMATS.gateProof.version,
-      head: parsed.data.head,
-      mode: parsed.data.mode,
-      ...(proof === undefined || !proof.success
-        ? {}
-        : { proof: canonicalProof(proof.data) }),
-      ...(parsed.data.evidence === undefined
-        ? {}
-        : { evidence: parsed.data.evidence }),
-    },
-  };
-}
 
 /** Brand for a successful, real write probe. Proof writers require this token,
  * making "probe before persist" a compile-time rule at every call site. */
@@ -540,23 +478,6 @@ export const UNCHANGED_TREE_RERUN_SLUG = "unchanged_tree_rerun";
 
 /** What the last completed gate run judged: the tree identity it ended on and
  * the verdict it reached. */
-export interface LastGateRun {
-  readonly version: typeof ON_DISK_FORMATS.lastGateRun.version;
-  /** HEAD at the end of the run (full sha). */
-  readonly head: string;
-  /** Working-state fingerprint, absent when the tree was clean
-   * ({@link workingStateFingerprint}). */
-  readonly tree?: string;
-  /** Whether the gate passed. */
-  readonly passed: boolean;
-  /** The declaration-evidence identity at the end of the run, when known —
-   * a changed conclusion or rationale makes the next invocation a different
-   * run, so the rerun guard must not refuse it. */
-  readonly evidence?: string;
-  /** Report runs never trigger strict unchanged-tree refusal. */
-  readonly mode?: GateMode;
-}
-
 /** A tree identity `done` can compare against a {@link LastGateRun}. */
 export type TreeIdentity = Pick<LastGateRun, "head" | "tree">;
 
@@ -635,72 +556,6 @@ export async function recordLastGateRun(
       { mode: 0o600, sync: false, trailingNewline: true },
     );
   });
-}
-
-export type LastGateRunRead =
-  | { readonly status: "recorded"; readonly run: LastGateRun }
-  | { readonly status: "missing" }
-  | { readonly status: "newer" | "malformed"; readonly reason: string }
-  | { readonly status: "unavailable"; readonly reason: string };
-
-/** Decode one registered last-run record without allowing absent versions. */
-export function parseLastGateRun(raw: string): LastGateRunRead {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    return { status: "malformed", reason: "last-gate-run is not valid JSON" };
-  }
-  const version = inspectOnDiskRecordVersion("lastGateRun", parsed);
-  if (version.status === "newer") {
-    return {
-      status: "newer",
-      reason: newerOnDiskFormatMessage("lastGateRun", version.found),
-    };
-  }
-  if (
-    version.status !== "current" || parsed === null ||
-    typeof parsed !== "object" || Array.isArray(parsed)
-  ) {
-    return {
-      status: "malformed",
-      reason: "last-gate-run does not carry the registered format version",
-    };
-  }
-  const record = parsed as Record<string, unknown>;
-  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
-    return {
-      status: "malformed",
-      reason: "last-gate-run fields are malformed",
-    };
-  }
-  if (record.tree !== undefined && typeof record.tree !== "string") {
-    return { status: "malformed", reason: "last-gate-run tree is malformed" };
-  }
-  if (record.evidence !== undefined && typeof record.evidence !== "string") {
-    return {
-      status: "malformed",
-      reason: "last-gate-run evidence is malformed",
-    };
-  }
-  if (
-    record.mode !== undefined && record.mode !== "strict" &&
-    record.mode !== "report"
-  ) {
-    return { status: "malformed", reason: "last-gate-run mode is malformed" };
-  }
-  return {
-    status: "recorded",
-    run: {
-      version: ON_DISK_FORMATS.lastGateRun.version,
-      head: record.head,
-      passed: record.passed,
-      ...(record.tree !== undefined ? { tree: record.tree } : {}),
-      ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
-      ...(record.mode !== undefined ? { mode: record.mode } : {}),
-    },
-  };
 }
 
 /** Read the complete format outcome so diagnostics can distinguish forward skew. */

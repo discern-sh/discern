@@ -111,6 +111,12 @@ import {
   inspectActiveStandardLimitProposals,
   staleProposalDiagnostic,
 } from "./standard_proposal_state.ts";
+import {
+  invalidStandardSelectionResult,
+  standardsCleanTreeMessage,
+  standardsPinCleanTreeMessage,
+  unverifiedTrunkHint,
+} from "./standards_selection.ts";
 
 export { readTrunkConfig, type TrunkConfigRead } from "./standard_limits.ts";
 
@@ -1731,17 +1737,6 @@ async function pinStandardsResult(
   );
 }
 
-/** Fire an advisory only when the trunk limits could not be verified. */
-function unverifiedTrunkHint(
-  verification: TrunkLimitsVerification,
-): FiredHint | undefined {
-  return verification.summary.status === "unverified"
-    ? fire(HINTS["standards-limits-unverified"], {
-      reason: verification.summary.reason,
-    })
-    : undefined;
-}
-
 /**
  * Compute the `standards` {@link DiscernResult} without printing or exiting — the
  * entry point the MCP server renders, and the source the CLI's `--json` serializes.
@@ -1779,18 +1774,8 @@ export async function standardsResult(
   const cfg = await loadConfig(root);
   const plan = buildStandardPlan(cfg);
   const names = opts.pinNames ?? [];
-  const known = new Set(plan.standards.map((standard) => standard.name));
-  const unknown = [...new Set(names.filter((name) => !known.has(name)))];
-  if (unknown.length > 0) {
-    return {
-      ok: false,
-      verb: "standards",
-      error: "invalid_value",
-      message: `Unknown Standard name${unknown.length === 1 ? "" : "s"}: ${
-        unknown.join(", ")
-      }. Configured Standards: ${[...known].join(", ") || "none"}.`,
-    };
-  }
+  const selectionError = invalidStandardSelectionResult(plan, names);
+  if (selectionError !== undefined) return selectionError;
   let result: DiscernResult;
   const firedHints: FiredHint[] = [];
   let verification: TrunkLimitsVerification | undefined;
@@ -2049,35 +2034,4 @@ export async function runStandards(
     renderStandardsResult(result, { pin });
   }
   return result.ok ? 0 : 1;
-}
-
-/** Explain why standalone measurements need committed state and how to recover. */
-async function standardsCleanTreeMessage(
-  root: string,
-): Promise<string | undefined> {
-  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
-  if (!status.success) {
-    return "Standards require a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern standards`; use `--force` only while authoring or debugging standards.";
-  }
-  if (status.stdout.trim() === "") {
-    return undefined;
-  }
-  return "Standards require a clean worktree: this pass records its measurements against the exact commit (for pin reuse and gate replay), so they must describe committed state. Commit or stash changes, then re-run `discern standards`; use `--force` only while authoring or debugging standards. (The gate itself measures a dirty tree as-is — `discern done` needs no clean tree to check standards.)";
-}
-
-/** The clean-tree guard for `--pin`: pin commits the limit change on its own, so an
- * unclean tree would sweep unrelated edits into that commit. Unlike a plain check, no
- * `--force` escape — a dirty pin is never safe. Returns undefined when the tree is
- * clean. */
-async function standardsPinCleanTreeMessage(
-  root: string,
-): Promise<string | undefined> {
-  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
-  if (!status.success) {
-    return "Pinning requires a clean worktree, but discern could not read git status. Fix the git status check and re-run `discern standards --pin`.";
-  }
-  if (status.stdout.trim() === "") {
-    return undefined;
-  }
-  return "Pinning requires a clean worktree: it commits the limit change on its own, so any other edit would be swept into that commit. Commit or stash your changes, then re-run `discern standards --pin`.";
 }

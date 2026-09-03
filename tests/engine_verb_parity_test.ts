@@ -79,12 +79,19 @@ Deno.test("KNOWN_VERBS covers EXACTLY the registered top-level CLI commands", ()
   );
 });
 
+/** The small structural CLI surface the recursive help-text guard reads. */
+interface DescribedCommand {
+  getCommands(includeHidden?: boolean): DescribedCommand[];
+  getName(): string;
+  getDescription(): string;
+}
+
 /** Every registered descendant command paired with its full command path. */
 function commandTree(
-  parent: Command,
+  parent: DescribedCommand,
   prefix: readonly string[] = [],
-): Array<{ path: string; command: Command }> {
-  const entries: Array<{ path: string; command: Command }> = [];
+): Array<{ path: string; command: DescribedCommand }> {
+  const entries: Array<{ path: string; command: DescribedCommand }> = [];
   for (const command of parent.getCommands(true)) {
     const parts = [...prefix, command.getName()];
     entries.push({ path: parts.join(" "), command });
@@ -94,7 +101,7 @@ function commandTree(
 }
 
 Deno.test("every registered CLI command has a non-empty description", () => {
-  const missing = commandTree(buildCli(false) as unknown as Command)
+  const missing = commandTree(buildCli(false))
     .filter(({ command }) => command.getDescription().trim() === "")
     .map(({ path }) => path);
   assertEquals(
