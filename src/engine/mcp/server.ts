@@ -431,9 +431,10 @@ export const TOOLS: McpTool[] = orderTools([
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
       "separate effort. setup_unfinished carries pending markers, known-job applicability, " +
-      "and assurance counts. incoming_overlap, reappeared_worktree_paths, setup_unfinished, " +
-      "stale_generated, stale_materialized, stale_integrations, and stale_adr_index " +
-      "preserve exceptions repaired by discern_refresh. Owner decisions appear under Owner attention. " +
+      "and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary " +
+      "discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive " +
+      "that plan. incoming_overlap previews what discern_update brings in, and " +
+      "reappeared_worktree_paths need discern worktree prune in a shell. Owner decisions appear under Owner attention. " +
       "Next action belongs to the reading agent. Set all=true to include the fleet from a worktree, " +
       "or local=true to suppress it.",
     inputSchema: {
@@ -512,9 +513,6 @@ export const TOOLS: McpTool[] = orderTools([
       rerun: z.boolean().optional().describe(
         "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
       ),
-      confirmed: z.boolean().optional().describe(
-        "Compatibility alias for rerun. Existing callers continue to work; new callers should use the Gate-specific rerun field.",
-      ),
       met: z.array(z.string()).optional().describe(
         "Checkpoint ids whose served question your change satisfies — your " +
           "recorded judgment, valid only for checkpoints with an active " +
@@ -543,7 +541,6 @@ export const TOOLS: McpTool[] = orderTools([
         dryRun: args.dry_run === true,
         ci: args.ci === true,
         rerun: args.rerun === true,
-        confirmed: args.confirmed === true,
         ...(args.met === undefined ? {} : { met: args.met }),
         ...(args.unmet === undefined ? {} : { unmet: args.unmet }),
         signal,
@@ -835,11 +832,10 @@ export const TOOLS: McpTool[] = orderTools([
       "concrete observed evidence with the relevant counts and denominator, " +
       "its exact subject and scope, structured evidence, any material " +
       "limitations, and one next_step. " +
-      "brief is a compatibility alias equal to summary. data.investigations " +
-      "connects eligible findings with the same summary/observed distinction, " +
+      "data.investigations connects eligible findings with the same " +
+      "summary/observed distinction, " +
       "a bounded evidence boundary, one diagnostic_action, and a falsifier; " +
-      "interpretation is a compatibility alias equal to summary. Treat " +
-      "estimated values only as estimates, cohort findings as descriptive rather " +
+      "treat estimated values only as estimates, cohort findings as descriptive rather " +
       "than comparative judgments, and adjacency as non-causal. " +
       "data.detectors includes fired, quiet, and insufficient-evidence states; " +
       "do not treat limited history as a clean bill. The default keeps a " +

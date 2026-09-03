@@ -76,8 +76,8 @@ Deno.test("done fails fast on the merge precondition when behind main — the ca
     );
     // ...and the human tail names the remedy: the deterministic `discern update`
     // verb (which brings main in and re-materializes), not a bare `git merge`.
-    // The tree is unchanged, so the deliberate rerun carries the attestation.
-    const json = await runAgent(wt, ["done", "--confirmed", "--json"]);
+    // The tree is unchanged, so the deliberate rerun is explicit.
+    const json = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(json.code, 1, json.output);
     const expected = assertHasHint(
       decodeCliResult(json.stdout, "done"),
@@ -141,8 +141,8 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
     assertStringIncludes(human.output, "[repository].trunk");
     assertStringIncludes(human.output, MARKER);
 
-    // The tree is unchanged, so the deliberate rerun carries the attestation.
-    const json = await runAgent(wt, ["done", "--confirmed", "--json"]);
+    // The tree is unchanged, so the deliberate rerun is explicit.
+    const json = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = decodeCliResult(json.stdout, "done");
     const expected = assertHasHint(

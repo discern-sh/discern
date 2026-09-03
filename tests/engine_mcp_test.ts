@@ -3948,19 +3948,15 @@ Deno.test("discern mcp: discern_status documents its actionable data fields", as
       `discern_status description exceeded its 1.5KB context budget:\n${status.description}`,
     );
 
-    // What the agent SEES (the tool description) must name every actionable advisory
-    // field status DOES emit — each tells the agent to run a command (`discern
-    // refresh`, or finish setup). `stale_materialized` is why this guard exists: it
-    // arrived with the materialized-skills currency check AFTER its two siblings were
-    // documented, and silently went unmentioned. Pin the set so a new advisory
-    // field can't drift into the payload undocumented the same way.
+    // What the agent SEES (the tool description) must name every actionable
+    // structured state status emits. Pin the set so a new advisory field cannot
+    // drift into the payload undocumented.
     for (
       const field of [
         "project",
         "gate_proof",
-        "stale_generated",
-        "stale_materialized",
-        "stale_integrations",
+        "pending_tracked_refresh",
+        "tracked_refresh_plan_errors",
         "setup_unfinished",
         "incoming_overlap",
         "reappeared_worktree_paths",

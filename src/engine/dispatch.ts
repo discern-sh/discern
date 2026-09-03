@@ -293,10 +293,6 @@ export function attachEngineCommands(
       "Run the full Gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
     )
     .option(
-      "--confirmed",
-      "Compatibility alias for --rerun. Existing scripts continue to work; new callers should use the Gate-specific spelling --rerun.",
-    )
-    .option(
       "--ci",
       "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
     )
@@ -368,7 +364,6 @@ export function attachEngineCommands(
           dryRun: o.dryRun ?? false,
           ci: o.ci ?? false,
           rerun: o.rerun ?? false,
-          confirmed: o.confirmed ?? false,
           plain: plainModeEnabled(),
           ...(o.met === undefined ? {} : { met: o.met }),
           ...(unmetId === undefined || o.why === undefined

@@ -1926,18 +1926,11 @@ export const StatusDataSchema = z.strictObject({
     format: z.string(),
   }).optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
-  stale_generated: z.array(z.string()).optional(),
-  stale_materialized: z.array(z.string()).optional(),
-  stale_integrations: z.array(z.string()).optional(),
   /** Tracked files the read-only refresh plan would change. This is the
-   * complete convergence view; the older stale_* fields remain as focused,
-   * backwards-compatible projections. */
+   * complete convergence view. */
   pending_tracked_refresh: z.array(z.string()).optional(),
   /** Read-only refresh transformations that could not be planned. */
   tracked_refresh_plan_errors: z.array(z.string()).optional(),
-  /** The maintained ADR index does not match the record files on disk (at
-   * most one path — the ADR README; present when stale). */
-  stale_adr_index: z.array(z.string()).optional(),
   tracked_ignored_artifacts: z.array(z.string()).optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),

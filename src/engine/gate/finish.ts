@@ -982,7 +982,7 @@ async function runGate(
       );
   // The last-run marker remembers what this run judged — every verdict, red
   // included, unlike the proof above — so the next `done` can resist an
-  // unchanged red retry unless it carries `--rerun` (or its compatibility alias).
+  // unchanged red retry unless it carries `--rerun`.
   if (writeAuthority !== undefined) {
     await recordLastGateRun(
       root,
@@ -1835,8 +1835,6 @@ export interface FinishResultOptions {
   dryRun?: boolean;
   /** Deliberately execute the Gate even when exact current Proof is reusable. */
   rerun?: boolean;
-  /** Deprecated compatibility alias for `rerun`. */
-  confirmed?: boolean;
   /** Explicit CI report lane; never inferred from the environment. */
   ci?: boolean;
   /** Checkpoint ids this invocation declares met (`--met`, repeatable). */
@@ -1858,8 +1856,8 @@ export interface FinishResultOptions {
  * machine-quiet default from every present and future caller.
  *
  * `dryRun` returns the preview (the plan, nothing run). `rerun` deliberately
- * executes the Gate on an exact already-judged state; `confirmed` remains a
- * compatibility alias. Aborting `signal` tree-kills the in-flight gate jobs and
+ * executes the Gate on an exact already-judged state. Aborting `signal`
+ * tree-kills the in-flight gate jobs and
  * returns the run as failed-with-cancellations.
  */
 export async function finishResult(
@@ -1898,7 +1896,7 @@ export async function finishResult(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true || opts.confirmed === true;
+  const rerunRequested = opts.rerun === true;
   if (
     mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
   ) {
@@ -1992,7 +1990,6 @@ export async function runFinish(
     cliModel: CliModelProvider;
     dryRun?: boolean;
     rerun?: boolean;
-    confirmed?: boolean;
     ci?: boolean;
     plain?: boolean;
     met?: string[];
@@ -2007,7 +2004,7 @@ export async function runFinish(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true || opts.confirmed === true;
+  const rerunRequested = opts.rerun === true;
   if (
     mode === "strict" && !rerunRequested && !hasDeclarations(declarations)
   ) {

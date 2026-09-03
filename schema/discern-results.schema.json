@@ -12416,10 +12416,6 @@
                             "type": "string",
                             "minLength": 1
                           },
-                          "brief": {
-                            "type": "string",
-                            "minLength": 1
-                          },
                           "series": {
                             "maxItems": 24,
                             "type": "array",
@@ -12637,7 +12633,6 @@
                           "scope",
                           "tone",
                           "summary",
-                          "brief",
                           "observed",
                           "evidence",
                           "strength",
@@ -17453,10 +17448,6 @@
                         "type": "string",
                         "minLength": 1
                       },
-                      "brief": {
-                        "type": "string",
-                        "minLength": 1
-                      },
                       "series": {
                         "maxItems": 24,
                         "type": "array",
@@ -17674,7 +17665,6 @@
                       "scope",
                       "tone",
                       "summary",
-                      "brief",
                       "observed",
                       "evidence",
                       "strength",
@@ -17870,10 +17860,6 @@
                         "type": "string",
                         "minLength": 1
                       },
-                      "interpretation": {
-                        "type": "string",
-                        "minLength": 1
-                      },
                       "diagnostic_action": {
                         "type": "string",
                         "minLength": 1
@@ -17891,7 +17877,6 @@
                       "evidence_boundary",
                       "summary",
                       "observed",
-                      "interpretation",
                       "diagnostic_action",
                       "falsifier"
                     ]
@@ -21558,24 +21543,6 @@
                     "format"
                   ]
                 },
-                "stale_generated": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "stale_materialized": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "stale_integrations": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
                 "pending_tracked_refresh": {
                   "type": "array",
                   "items": {
@@ -21583,12 +21550,6 @@
                   }
                 },
                 "tracked_refresh_plan_errors": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "stale_adr_index": {
                   "type": "array",
                   "items": {
                     "type": "string"

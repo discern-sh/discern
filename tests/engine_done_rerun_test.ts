@@ -2,8 +2,8 @@
  * The exact-state `done` contract. Canonical current green Proof is reusable
  * without executing any Gate effect; red or incomplete evidence never becomes
  * green through repetition. `--rerun` is the precise deliberate-execution
- * spelling and `--confirmed` remains a tested compatibility alias. Any change
- * to the tree runs normally, and `--dry-run` remains a read-only preview.
+ * spelling. Any change to the tree runs normally, and `--dry-run` remains a
+ * read-only preview.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -274,7 +274,7 @@ Deno.test("done: --dry-run never refuses, and never counts as the previous run",
   });
 });
 
-Deno.test("done: --rerun and the --confirmed compatibility alias both execute the in-process Gate", async () => {
+Deno.test("done: --rerun is the sole explicit Gate rerun input", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithWork(dir, GREEN_CONFIG);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
@@ -294,13 +294,9 @@ Deno.test("done: --rerun and the --confirmed compatibility alias both execute th
     assertEquals(rerun.ok, true, JSON.stringify(rerun));
     assertEquals(rerun.data?.gate_ran, true);
 
-    const confirmed = await finishResult(wt, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-      confirmed: true,
-    });
-    assertEquals(confirmed.ok, true, JSON.stringify(confirmed));
-    assertEquals(confirmed.data?.gate_ran, true);
+    const retired = await runAgent(wt, ["done", "--confirmed", "--json"]);
+    assertEquals(retired.code, 2, retired.output);
+    assertTerminalTextIncludes(retired.stdout, "Unknown option");
   });
 });
 

@@ -4257,7 +4257,6 @@ export type DiscernImprovementResult = DiscernResultState & {
         tone: "good" | "neutral" | "attention";
         subject?: string;
         summary: string;
-        brief: string;
         series?: Array<number>;
         observed: string;
         evidence: {
@@ -5872,7 +5871,6 @@ export type DiscernPatternsResult = DiscernResultState & {
       tone: "good" | "neutral" | "attention";
       subject?: string;
       summary: string;
-      brief: string;
       series?: Array<number>;
       observed: string;
       evidence: {
@@ -5950,7 +5948,6 @@ export type DiscernPatternsResult = DiscernResultState & {
       };
       summary: string;
       observed: string;
-      interpretation: string;
       diagnostic_action: string;
       falsifier: string;
     }>;
@@ -7030,12 +7027,8 @@ export type DiscernStatusResult = DiscernResultState & {
       ref: string;
       format: string;
     };
-    stale_generated?: Array<string>;
-    stale_materialized?: Array<string>;
-    stale_integrations?: Array<string>;
     pending_tracked_refresh?: Array<string>;
     tracked_refresh_plan_errors?: Array<string>;
-    stale_adr_index?: Array<string>;
     tracked_ignored_artifacts?: Array<string>;
     setup_unfinished?: {
       pending_markers: Array<string>;

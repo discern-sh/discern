@@ -2500,7 +2500,6 @@ Deno.test("patterns finding schema enforces additive evidence agreement without 
     tone: "attention" as const,
     subject: "test",
     summary: "This validation job changed verdict under matched conditions.",
-    brief: "This validation job changed verdict under matched conditions.",
     observed: "A recorded job passed and failed under matched conditions.",
     evidence: { runs: 2 },
     strength: 20,
@@ -2533,11 +2532,9 @@ Deno.test("patterns finding schema enforces additive evidence agreement without 
     "the strict wire contract must reject a confidence score",
   );
   assert(
-    !PatternsFindingSchema.safeParse({
-      ...finding,
-      brief: "A second independently authored claim.",
-    }).success,
-    "the compatibility brief must remain an exact summary projection",
+    !PatternsFindingSchema.safeParse({ ...finding, brief: finding.summary })
+      .success,
+    "the retired brief field must be rejected even when it duplicates summary",
   );
 });
 
@@ -3624,7 +3621,7 @@ for (const d of DETECTORS) {
         considered: r.considered,
       });
       assertEquals(wire.summary, f.summary, `${d.id}: summary drifted`);
-      assertEquals(wire.brief, wire.summary, `${d.id}: brief drifted`);
+      assertEquals("brief" in wire, false, `${d.id}: retired brief returned`);
       PatternsFindingSchema.parse(wire);
     }
   });

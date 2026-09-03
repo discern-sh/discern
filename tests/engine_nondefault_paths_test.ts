@@ -117,10 +117,11 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     assertEquals(r.code, 0, r.output);
     const status = decodeCliResult(r.stdout, "status");
     assert(status.data !== undefined && "location" in status.data, r.stdout);
-    const stale = status.data.stale_materialized ?? [];
     assert(
-      stale.length > 0,
-      `status must flag rendered skills stale after a repoint\n${r.stdout}`,
+      (status.hints ?? []).some((hint) =>
+        hint.includes("Materialized skills are out of date")
+      ),
+      r.stdout,
     );
 
     r = await runAgent(dir, ["done", "--json"]);

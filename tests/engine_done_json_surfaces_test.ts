@@ -134,8 +134,8 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
 
     // Human mode renders the exact same hint strings (one source of truth).
-    // The tree is unchanged, so the deliberate rerun carries the attestation.
-    const human = await runAgent(dir, ["done", "--confirmed"]);
+    // The tree is unchanged, so the deliberate rerun is explicit.
+    const human = await runAgent(dir, ["done", "--rerun"]);
     assertEquals(human.code, 0, human.output);
     for (const hint of obj.hints) {
       assertTerminalTextIncludes(human.output, hint);
@@ -586,9 +586,9 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     assertStringIncludes(marker, "\n\n### Proof");
 
     // Deterministic: the same tree emits the same compact Proof. The unchanged
-    // tree makes this a rerun, so it carries the required attestation.
+    // tree makes this a rerun, so it uses the Gate-specific spelling.
     const again = decodeGateResult(
-      (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
+      (await runAgent(wt, ["done", "--rerun", "--json"])).stdout,
     );
     assertEquals(again.data.proof, proof);
   });

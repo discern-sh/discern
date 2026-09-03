@@ -225,7 +225,7 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
     const result = await finishResult(dir, {
       surface: { kind: "quiet" },
       cliModel: TEST_CLI_MODEL,
-      confirmed: true,
+      rerun: true,
       validationCaptureOptions,
     });
     assertEquals(result.ok, false);

@@ -61,6 +61,7 @@ import {
   DatalessEnvelopeSchema,
   EnvelopeSchema,
   GateDataSchema,
+  StatusDataSchema,
   StepResultJsonSchema,
 } from "../src/shared/result_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
@@ -101,6 +102,46 @@ import {
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
+
+const RETIRED_STATUS_REFRESH_FIELDS = [
+  "stale_generated",
+  "stale_materialized",
+  "stale_integrations",
+  "stale_adr_index",
+] as const;
+
+Deno.test("status keeps one canonical refresh projection", async () => {
+  const schemaFields = new Set(Object.keys(StatusDataSchema.shape));
+  const implementationPaths = await structuralGuardScope({
+    guard: "tests/result_schemas_test.ts#retired-status-refresh-fields",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Only the status core and its MCP adapter can project status refresh fields onto the public result.",
+      include: (path) =>
+        path === "src/engine/status/status.ts" ||
+        path === "src/engine/mcp/server.ts",
+    },
+  });
+  const implementation = await Promise.all(
+    implementationPaths.map(async (path) => ({
+      path,
+      text: await Deno.readTextFile(join(REPO_ROOT, path)),
+    })),
+  );
+  const offenders: string[] = [];
+  for (const field of RETIRED_STATUS_REFRESH_FIELDS) {
+    if (schemaFields.has(field)) offenders.push(`schema: ${field}`);
+    for (const source of implementation) {
+      if (source.text.includes(field)) {
+        offenders.push(`${source.path}: ${field}`);
+      }
+    }
+  }
+  assertEquals(offenders, []);
+  assert(schemaFields.has("pending_tracked_refresh"));
+  assert(schemaFields.has("tracked_refresh_plan_errors"));
+});
 
 /** Validate a real verb result's serialized form against its declared schema, with a
  * readable failure (the Zod issues + the offending payload) when it drifts. */

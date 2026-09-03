@@ -1582,10 +1582,6 @@ Deno.test("status: a drifted agent file is listed and hinted to refresh", async 
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
-    assert(
-      (obj.data.stale_generated ?? []).includes("CLAUDE.md"),
-      `expected CLAUDE.md in stale_generated: ${r.stdout}`,
-    );
     assertHasHint(obj, HINTS["generated-agent-files-stale"], {
       paths: "CLAUDE.md",
     });
@@ -1608,7 +1604,6 @@ Deno.test("status: a missing agent file hints it isn't built yet", async () => {
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
-    assert((obj.data.stale_generated ?? []).includes("CLAUDE.md"), r.stdout);
     assertHasHint(obj, HINTS["generated-agent-files-missing"], {
       paths: "CLAUDE.md",
     });
@@ -1703,7 +1698,12 @@ Deno.test("status: missing provider hook integrations are listed and hinted to r
     const r = await runAgent(dir, ["status", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
-    assertEquals([...(obj.data.stale_integrations ?? [])].sort(), hookFiles);
+    assertEquals(
+      [...(obj.data.pending_tracked_refresh ?? [])].filter((path) =>
+        hookFiles.includes(path)
+      ).sort(),
+      hookFiles,
+    );
     assertHasHint(obj, HINTS["provider-integrations-missing"], {
       paths: hookPaths.join(", "),
     });

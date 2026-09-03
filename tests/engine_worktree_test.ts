@@ -206,11 +206,7 @@ async function assertLandedInstructionCurrent(
   assertEquals(status.code, 0, status.output);
   const result = decodeCliResult(status.stdout, "status");
   assertResultDataKey(result, "location");
-  assertEquals(
-    result.data.stale_generated ?? [],
-    [],
-    `generated instructions should be current after acceptance\n${status.stdout}`,
-  );
+  assertEquals(result.data.pending_tracked_refresh, undefined);
 }
 
 Deno.test("worktree setup: refreshes agent files and links skills inside the worktree", async () => {

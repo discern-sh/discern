@@ -6,6 +6,7 @@
 > - **[ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md) — consent vocabulary:** verb events now carry optional `consent` evidence lifted from successful acceptance results. Its source comes from the canonical `conversation`, `standing-grant`, and `effort-grant` vocabulary; standing-grant evidence may also carry the covering scope names. The recorder still stores evidence rather than inference.
 > - **Partial effect (2026-07-28):** verb outcomes now distinguish `partial` from `failed` and `refused`. A partial acceptance carries the four booleans from `data.landing` so the event records which recovery, trunk, worktree-removal, and branch-deletion effects happened. Rotation digests preserve a separate partial count; red-rate history treats partial effects as red work.
 > - **[ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md) — Gate execution:** `done` events carry `gate_ran`; explicit same-state probes record `rerun`, while the `--confirmed` compatibility path retains its historical flag. Readers can distinguish Proof reuse from measurement without inferring from timing or steps.
+> - **Launch contract (2026-09-03) — Gate rerun input:** current writers record only the `rerun` flag. Readers continue recognizing historical `confirmed` flags already present in local Logbooks, without exposing that spelling as input.
 
 **Status**: accepted
 

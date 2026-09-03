@@ -1,6 +1,7 @@
 /** Registry-driven tests for Patterns investigation synthesis. */
 
 import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
 import {
   INVESTIGATION_RELATIONSHIPS,
   synthesizeInvestigations,
@@ -9,7 +10,36 @@ import {
   type PatternEvidenceBasis,
   PatternInvestigationSchema,
   type PatternsFinding,
+  PatternsFindingSchema,
 } from "../src/shared/patterns_vocabulary.ts";
+
+/** Required string fields are independently meaningful claims, never aliases. */
+function assertNoRequiredStringAliases(
+  schema: z.ZodType,
+  values: readonly Record<string, unknown>[],
+  label: string,
+): void {
+  const json = z.toJSONSchema(schema) as {
+    required?: string[];
+    properties?: Record<string, { type?: string }>;
+  };
+  const keys = (json.required ?? []).filter((key) =>
+    json.properties?.[key]?.type === "string"
+  );
+  for (const value of values) {
+    const owners = new Map<string, string>();
+    for (const key of keys) {
+      const candidate = value[key];
+      if (typeof candidate !== "string") continue;
+      const earlier = owners.get(candidate);
+      assert(
+        earlier === undefined,
+        `${label}: required string fields ${earlier} and ${key} duplicate one value`,
+      );
+      owners.set(candidate, key);
+    }
+  }
+}
 
 /** Build one complete single-value evidence condition. */
 function condition(
@@ -96,7 +126,6 @@ function finding(
     tone: "attention",
     ...(options.subject === undefined ? {} : { subject: options.subject }),
     summary: `${detector} summary`,
-    brief: `${detector} summary`,
     observed: `${detector} observed ${JSON.stringify(evidence)}`,
     evidence,
     ...(options.basis === undefined ? {} : { basis: options.basis }),
@@ -241,6 +270,23 @@ const VALID_FIXTURES: Record<string, PatternsFinding[]> = {
   "standard-variance": [varianceSource()],
 };
 
+Deno.test("patterns schemas require one field for each string claim", () => {
+  const findings = Object.values(VALID_FIXTURES).flat();
+  const investigations = Object.values(VALID_FIXTURES).flatMap((fixture) =>
+    synthesizeInvestigations(fixture)
+  );
+  assertNoRequiredStringAliases(
+    PatternsFindingSchema,
+    findings,
+    "finding",
+  );
+  assertNoRequiredStringAliases(
+    PatternInvestigationSchema,
+    investigations,
+    "investigation",
+  );
+});
+
 Deno.test("investigation registry enrolls every relationship in shared invariants", () => {
   assertEquals(
     Object.keys(VALID_FIXTURES).sort(),
@@ -272,9 +318,9 @@ Deno.test("investigation registry enrolls every relationship in shared invariant
     assert(
       !PatternInvestigationSchema.safeParse({
         ...results[0],
-        interpretation: "A second independently authored claim.",
+        interpretation: results[0]?.summary,
       }).success,
-      `${relationship.id}: interpretation must project summary exactly`,
+      `${relationship.id}: retired interpretation field must be rejected`,
     );
     assertEquals(
       results[0]?.id.startsWith(relationship.id),
@@ -298,7 +344,6 @@ Deno.test("investigations keep source findings and their denominators traceable"
   for (const investigation of results) {
     assert(investigation.summary.length > 0);
     assert(investigation.observed.length > 0);
-    assertEquals(investigation.interpretation, investigation.summary);
     assert(/\d/.test(investigation.observed));
     assert(investigation.observations.length > 0);
     assert(

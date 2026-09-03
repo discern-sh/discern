@@ -135,12 +135,10 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
       "0001-first-choice.md": "# ADR 0001: A first choice",
     });
 
-    // status: advisory — the structured field plus the generated-drift hint.
+    // status: advisory through the registered generated-drift hint.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
     const statusObj = decodeCliResult(status.stdout, "status");
-    assertResultDataKey(statusObj, "stale_adr_index");
-    assertEquals(statusObj.data.stale_adr_index, [ADR_README_REL]);
     assertHasHint(statusObj, HINTS["adr-index-stale"], {
       path: ADR_README_REL,
     });

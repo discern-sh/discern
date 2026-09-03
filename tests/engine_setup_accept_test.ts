@@ -163,9 +163,6 @@ Deno.test("setup accept fast-forwards the setup branch onto main and deletes it"
     const statusResult = decodeCliResult(status.stdout, "status");
     assertResultDataKey(statusResult, "location");
     const statusData = statusResult.data;
-    assertEquals(statusData.stale_generated, undefined);
-    assertEquals(statusData.stale_materialized, undefined);
-    assertEquals(statusData.stale_integrations, undefined);
     assertEquals(statusData.pending_tracked_refresh, undefined);
     assert(statusData.landed_proof !== undefined, status.output);
     assertEquals(statusData.landed_proof.commit, proved.head);

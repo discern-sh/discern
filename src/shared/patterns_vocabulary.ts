@@ -174,8 +174,7 @@ export type PatternEvidenceBasis = z.infer<typeof PatternEvidenceBasisSchema>;
 /** One `patterns` finding: which detector spoke, its presentation tone, a
  * plain-language summary, an optional bounded trajectory series, the concrete
  * observation behind the summary, the named counts, and the recommended next
- * step. `brief` remains as a compatibility alias of `summary`; renderers must
- * project `summary` rather than author another claim. `strength` is the
+ * step. `strength` is the
  * report's ranking key — unitless, never evidence. */
 export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
@@ -184,7 +183,6 @@ export const PatternsFindingSchema = z.strictObject({
   tone: z.enum(PATTERN_FINDING_TONES),
   subject: z.string().optional(),
   summary: z.string().min(1),
-  brief: z.string().min(1),
   series: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
   observed: z.string(),
   evidence: z.record(z.string(), z.number()),
@@ -192,13 +190,6 @@ export const PatternsFindingSchema = z.strictObject({
   strength: z.number(),
   next_step: z.string(),
 }).superRefine((finding, context) => {
-  if (finding.brief !== finding.summary) {
-    context.addIssue({
-      code: "custom",
-      path: ["brief"],
-      message: "finding brief must be the canonical summary projection",
-    });
-  }
   if (finding.basis === undefined) {
     return;
   }
@@ -267,8 +258,7 @@ export type PatternInvestigationBoundary = z.infer<
 /** An advisory, unscored relationship among source findings. The source
  * findings remain in `data.findings`; this additive projection supplies one
  * plain summary, one concrete observation, a preferred diagnostic action, and
- * a falsifier. `interpretation` remains as a compatibility alias of
- * `summary`. */
+ * a falsifier. */
 export const PatternInvestigationSchema = z.strictObject({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -282,18 +272,9 @@ export const PatternInvestigationSchema = z.strictObject({
   evidence_boundary: PatternInvestigationBoundarySchema,
   summary: z.string().min(1),
   observed: z.string().min(1),
-  interpretation: z.string().min(1),
   diagnostic_action: z.string().min(1),
   falsifier: z.string().min(1),
 }).superRefine((investigation, context) => {
-  if (investigation.interpretation !== investigation.summary) {
-    context.addIssue({
-      code: "custom",
-      path: ["interpretation"],
-      message:
-        "investigation interpretation must be the canonical summary projection",
-    });
-  }
   const unique = new Set(investigation.finding_ids);
   if (unique.size !== investigation.finding_ids.length) {
     context.addIssue({

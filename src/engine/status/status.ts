@@ -389,36 +389,17 @@ export async function statusResult(
       root,
       cfg,
     );
-  if (instructionDrift.length > 0) {
-    data.stale_generated = instructionDrift.map((d) => d.path);
-  }
 
   // The same read-only currency check, for the MATERIALIZED skills (ADR 0034,
-  // extended to skills). Advisory here, like `stale_generated`: a drifted or
-  // not-yet-materialized skills dir is noticed at orientation. Reports the
-  // affected skill paths (dir/name), `missing` dirs included.
+  // extended to skills). A drifted or not-yet-materialized skills dir is
+  // noticed at orientation through its registered hint.
   const skillsDrift: SkillsDriftEntry[] = await checkSkillsCurrent(root, cfg);
-  {
-    // Report only `missing`/`stale` (parallel to `stale_generated` for instructions) — a
-    // `foreign` drop-in is NOT discern's to fix (the materializer leaves it and warns),
-    // so listing it under a `stale_`-named field would tell an agent to "refresh" a
-    // file a refresh won't touch. It is intentionally absent from the structured field.
-    const reportable = skillsDrift.filter((d) => d.reason !== "foreign");
-    if (reportable.length > 0) {
-      data.stale_materialized = reportable.map((d) =>
-        d.name === "" ? d.dir : `${d.dir}/${d.name}`
-      );
-    }
-  }
 
   // Provider integration currency. Hook files are provider-owned settings that
   // `discern refresh` re-seeds through registry-declared merge strategies. Surface
   // missing/stale hook files during orientation just like generated instructions and
   // materialized skills, but keep status read-only.
   const providerHookDrift = await checkProviderHooksCurrent(root, cfg);
-  if (providerHookDrift.length > 0) {
-    data.stale_integrations = providerHookDrift.map((d) => d.path);
-  }
 
   // The maintained ADR index — the same read-only currency shape, for the
   // record lists a refresh keeps between markers in the ADR README. Advisory
@@ -426,12 +407,8 @@ export async function statusResult(
   // means the project has not adopted the index, and `invalid` is a source
   // problem the gate diagnoses with the offending record).
   const adrIndex: AdrIndexState = await adrIndexState(root, cfg.map.dir);
-  if (adrIndex.kind === "stale") {
-    data.stale_adr_index = [adrIndex.path];
-  }
 
-  // The complete read-only tracked-refresh plan. Focused stale_* projections
-  // above remain for compatibility and richer hints; this field is the one
+  // The complete read-only tracked-refresh plan. This field is the one
   // authoritative answer to "would refresh change a tracked file?".
   const trackedRefreshPlan = await planTrackedRefresh(root, cfg);
   if (trackedRefreshPlan.changes.length > 0) {
@@ -459,7 +436,7 @@ export async function statusResult(
   // a lead hint) so a half-done setup isn't mistaken for a finished one. Walk for
   // leftover skeleton markers only when it could be unfinished (`bootstrapped` is
   // the cheap gate — a finished project never pays for the walk). Present in `data`
-  // only while outstanding, mirroring `stale_generated`.
+  // only while outstanding.
   let setupPending: string[] | undefined;
   if (!cfg.meta.bootstrapped) {
     // Derived progress (ADR 0075): the markers still pending PLUS which known jobs

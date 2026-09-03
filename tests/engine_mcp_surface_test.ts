@@ -23,7 +23,9 @@ import {
   mcpStartHint,
   renderMcpText,
   TOOLS,
+  verbOf,
 } from "../src/engine/mcp/server.ts";
+import { CONSENT_GATED_VERBS } from "../src/shared/consent.ts";
 import {
   configSchema,
   type DiscernConfig,
@@ -193,6 +195,26 @@ function toolProse(tool: (typeof TOOLS)[number]): string {
   }
   return parts.join("\n\n");
 }
+
+Deno.test("mcp surface: confirmed belongs only to consent-gated tools", () => {
+  const consentCommands = new Set(
+    CONSENT_GATED_VERBS.filter((entry) =>
+      new Set<string>(entry.surfaces).has("mcp")
+    )
+      .map((entry) => entry.command),
+  );
+  const carrying = TOOLS.filter((tool) => inputKeys(tool).includes("confirmed"))
+    .map((tool) => verbOf(tool.name));
+  assertEquals(new Set(carrying), consentCommands);
+});
+
+Deno.test("mcp surface: retired compatibility prose stays absent", () => {
+  const residue = /\b(?:compatibility alias|deprecated|existing callers)\b/iu;
+  const offenders = TOOLS.flatMap((tool) =>
+    residue.test(toolProse(tool)) ? [tool.name] : []
+  );
+  assertEquals(offenders, []);
+});
 
 Deno.test("mcp surface: every argument-shaped token names a declared tool input", () => {
   const envelope = new Set<string>(ENVELOPE_KEYS);

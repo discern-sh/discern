@@ -299,6 +299,33 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
   );
 });
 
+Deno.test("the public manual uses settled v1 compatibility language", async () => {
+  const banned = [
+    /\bbefore the tag\b/iu,
+    /\bpre-?release\b/iu,
+    /\bbefore the first release\b/iu,
+    /\bfirst release tag\b/iu,
+    /\bcompatibility projections?\b/iu,
+  ];
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#settled-v1-manual-language",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The settled-v1 wording contract applies to the shipped public manual.",
+      include: (rel) => rel.startsWith("project/manual/"),
+    },
+  });
+  const offenders: string[] = [];
+  for (const [rel, text] of await textFiles(files)) {
+    for (const pattern of banned) {
+      const hit = text.match(pattern);
+      if (hit !== null) offenders.push(`${rel}: ${JSON.stringify(hit[0])}`);
+    }
+  }
+  assertEquals(offenders, []);
+});
+
 /**
  * ADR 0120 renamed the tree discern maintains to THE MAP, and ADR 0131 retired
  * the old concept phrase outright: "docs tree" on an authored surface either

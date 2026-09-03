@@ -1681,27 +1681,27 @@ const confirmedRerun: Detector = {
   tier: "batch",
   tone: "attention",
   // Each explicit rerun re-executes a tree the Gate already judged — one is a
-  // deliberate probe; three is a habit worth naming. The legacy flag remains
-  // enrolled while compatibility callers migrate.
+  // deliberate probe; three is a habit worth naming. `rerun` is the current
+  // input, while readers also enroll stored `confirmed` evidence.
   threshold: 3,
   next_step:
     "Inspect why each already-judged tree was rerun. If a job changed verdict under matched recorded conditions, use the `discern-cure-a-bug` diagnose procedure; otherwise keep the recorded reason as context rather than inferring instability.",
   detect(facts): DetectorOutcome {
-    const confirmed = facts.agentish.filter((e) =>
+    const reruns = facts.agentish.filter((e) =>
       e.verb === "done" && ((e.flags ?? []).includes("rerun") ||
         (e.flags ?? []).includes("confirmed"))
     );
     const branches = new Set(
-      confirmed.map((e) => e.branch).filter((b): b is string => b !== null),
+      reruns.map((e) => e.branch).filter((b): b is string => b !== null),
     );
     const doneRuns = facts.agentish.filter((event) => event.verb === "done")
       .length;
-    const findings: DetectorFinding[] = confirmed.length >= 3
+    const findings: DetectorFinding[] = reruns.length >= 3
       ? [{
         summary: "The Gate was repeatedly rerun on already-judged trees.",
         observed:
           `an explicit \`done\` rerun re-executed the Gate on an already-judged tree ${
-            formatHumanNumber(confirmed.length)
+            formatHumanNumber(reruns.length)
           } times across ${
             formatHumanNumber(doneRuns)
           } recorded \`done\` runs` +
@@ -1709,11 +1709,11 @@ const confirmedRerun: Detector = {
             ? ` across ${formatHumanNumber(branches.size)} branches.`
             : "."),
         evidence: {
-          confirmed_runs: confirmed.length,
+          confirmed_runs: reruns.length,
           done_runs: doneRuns,
           branches: branches.size,
         },
-        strength: confirmed.length,
+        strength: reruns.length,
       }]
       : [];
     return { considered: facts.agentish.length, findings };

@@ -22,6 +22,10 @@ import { Command } from "@cliffy/command";
 import { measureText, stripAnsi } from "discern-design-system/cli";
 import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
+import {
+  cliCommandModel,
+  walkCliCommands,
+} from "../src/shared/cli_reference_codegen.ts";
 import { HIDDEN_VERBS, hiddenVerbNames } from "../src/shared/hidden_verbs.ts";
 import {
   COMMAND_GROUPS,
@@ -220,6 +224,25 @@ Deno.test("command help defines the core vocabulary and routes the three update 
     const description = child(root, name).getShortDescription();
     for (const peer of peers) assertStringIncludes(description, peer);
   }
+});
+
+Deno.test("command help contains no retired compatibility prose", () => {
+  const residue = /\b(?:compatibility alias|deprecated|existing callers)\b/iu;
+  const model = cliCommandModel(fullRoot());
+  const offenders: string[] = [];
+  for (const command of walkCliCommands(model)) {
+    if (residue.test(command.description)) {
+      offenders.push(`${command.path.join(" ") || "discern"}: description`);
+    }
+    for (const option of command.options) {
+      if (residue.test(option.description)) {
+        offenders.push(
+          `${command.path.join(" ") || "discern"}: ${option.flags.join("/")}`,
+        );
+      }
+    }
+  }
+  assertEquals(offenders, []);
 });
 
 Deno.test("worktree help renders the configured trunk name, never a hard-coded default", () => {

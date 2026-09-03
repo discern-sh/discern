@@ -50,7 +50,7 @@ Each detector declares a scope and a tier. Scope selects the reader. Tier contro
 
 The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed Gate stage, score, Proof identity, or acceptance decision.
 
-The shared result contract keeps one meaning across these routes. A finding's `summary` states the condition in plain language; `observed` carries its count, denominator, named subject and conditions, and any material limitation. `brief` is retained as an exact compatibility alias of `summary`. Investigations use the same two layers and retain `interpretation` as an exact compatibility alias of `summary`. Shorter routes project the canonical summary instead of maintaining separate claims.
+The shared result contract keeps one meaning across these routes. A finding's `summary` states the condition in plain language; `observed` carries its count, denominator, named subject and conditions, and any material limitation. Investigations use the same two layers. Shorter routes project the canonical summary instead of maintaining separate claims.
 
 ## What a line contains
 
@@ -101,7 +101,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity and the invocation facts that selected its boundary. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 
-For `done`, `gate_ran: false` marks current-Proof reuse. `--rerun` records `rerun`; compatible `done --confirmed` retains `confirmed`, and detectors recognize both.
+For `done`, `gate_ran: false` marks current-Proof reuse. `--rerun` records `rerun`. Readers still recognize historical `confirmed` flags as evidence from older local Logbooks; they do not expose that spelling as current input.
 
 ### Validation evidence
 

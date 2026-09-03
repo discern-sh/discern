@@ -269,7 +269,7 @@ realPtyTest({
         human.output,
       );
 
-      const json = await runAgent(dir, ["done", "--confirmed", "--json"]);
+      const json = await runAgent(dir, ["done", "--rerun", "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(json.stderr, "", json.output);
       const envelope = decodeCliResult(json.stdout, "done");

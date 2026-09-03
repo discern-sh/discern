@@ -387,6 +387,10 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     plain: { phrase: "the final quality check", match: String.raw`\bgates?\b` },
     definition:
       "The project's full quality check, run with `discern done`: its preconditions, the declared [jobs](#gate-job) by [stage](#stage), any [scope](#scope) gates that fired, and the [standards](#standard). Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).",
+    retired: [{
+      phrase: "done --confirmed",
+      pattern: String.raw`\bdone\s+--confirmed\b`,
+    }],
   },
   {
     term: "Generated file",

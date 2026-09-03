@@ -147,8 +147,8 @@ async function assertActionableFailureTail(
 
   // The real time-interleaved stream an agent captures with `<verb> 2>&1 | …`.
   // For `done` the tree is unchanged since the --json run above, so the
-  // output-parity rerun carries the attestation the rerun precondition requires.
-  const humanArgv = argv[0] === "done" ? [...argv, "--confirmed"] : argv;
+  // output-parity rerun uses the explicit Gate-rerun input.
+  const humanArgv = argv[0] === "done" ? [...argv, "--rerun"] : argv;
   const r = await runAgentMerged(dir, humanArgv);
   assertEquals(r.code, 1, r.output);
   const lines = r.stdout.split("\n").filter((l) => l.trim() !== "");
@@ -354,9 +354,9 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
       );
     }
 
-    // `done` now needs an attestation because the JSON run judged this exact
+    // `done` now needs an explicit rerun because the JSON run judged this exact
     // tree red. Its human failure tail prints the same fired texts verbatim.
-    const human = await runGate(["done", "--confirmed"]);
+    const human = await runGate(["done", "--rerun"]);
     assertEquals(human.code, 1, human.output);
     const safeEnvelopeHint = terminalMultiline(envelopeHint);
     assertStringIncludes(human.stderr, safeEnvelopeHint);

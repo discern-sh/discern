@@ -62,6 +62,7 @@ aliases:
   - harness
   - binary version
   - file dispositions
+  - done --confirmed
   - the binary's files
   - estate
   - guidance

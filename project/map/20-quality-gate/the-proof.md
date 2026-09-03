@@ -85,7 +85,7 @@ Every completed run records its exact tree, checkpoint evidence, and verdict. Be
 - returns canonical Proof with `data.gate_ran = false` only when strict evidence is complete and current; or
 - refuses read-only after red, or when green evidence is missing, unreadable, stale, dirty, report-only, or declaration-stale.
 
-`discern done --rerun` explicitly measures the same state and records that choice. Existing `done --confirmed` scripts remain compatible; consent-bearing commands keep `--confirmed`. Changed trees run normally, while `--dry-run` creates and reuses no evidence ([ADR 0319](../_adr/0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
+`discern done --rerun` explicitly measures the same state and records that choice. Consent-bearing commands use `--confirmed`; Gate reruns do not. Changed trees run normally, while `--dry-run` creates and reuses no evidence ([ADR 0319](../_adr/0319-current-green-proof-composes-and-red-reruns-stay-explicit.md), [ADR 0298](../_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

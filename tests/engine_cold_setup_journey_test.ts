@@ -413,9 +413,6 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         assertEquals(status.code, 0, status.output);
         const statusResult = decodeCliResult(status.stdout, "status");
         assertResultDataKey(statusResult, "location");
-        assertEquals(statusResult.data.stale_generated, undefined);
-        assertEquals(statusResult.data.stale_materialized, undefined);
-        assertEquals(statusResult.data.stale_integrations, undefined);
         assertEquals(statusResult.data.pending_tracked_refresh, undefined);
         assertEquals(
           await Deno.readTextFile(join(root, "deno.json")),

@@ -1,5 +1,7 @@
 # ADR 0319: Current green Proof composes and red reruns stay explicit
 
+> **Amendment (2026-09-03).** Before v1, the project confirmed that no public caller depends on the provisional `done --confirmed` spelling. Gate reruns now accept only `--rerun`; `--confirmed` remains reserved for consent-bearing operations. Historical Logbook events with a `confirmed` flag remain readable evidence. This reverses the compatibility-alias bullet, its consequences, and the corresponding rejected alternative below; the exact-state reuse and retry-resistance decision is unchanged.
+
 **Status**: accepted; supersedes [ADR 0185](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md).
 
 The decision retains ADR 0185's last-run marker and retry-resistance boundary while preserving the exact Proof identity of [ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) and declaration-evidence currency of [ADR 0298](0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md).

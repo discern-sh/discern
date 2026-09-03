@@ -288,8 +288,6 @@ const validationInstability: InvestigationRelationship = {
       summary:
         "One validation job changed verdict under matched recorded conditions, alongside repeated explicit Gate reruns.",
       observed: joinedObservation(sources),
-      interpretation:
-        "One validation job changed verdict under matched recorded conditions, alongside repeated explicit Gate reruns.",
       diagnostic_action:
         "Reproduce the named job under the recorded envelope, then vary one unrecorded input at a time before changing the Gate or retry policy.",
       falsifier:
@@ -369,8 +367,6 @@ const feedbackLoop: InvestigationRelationship = {
         summary:
           "This branch had repeated red Gates and separate evidence of work that preflight could perform.",
         observed: joinedObservation(sources),
-        interpretation:
-          "This branch had repeated red Gates and separate evidence of work that preflight could perform.",
         diagnostic_action:
           "On the next comparable change, run `discern prepare`, review its exact changes, then reserve `discern done` for the clean committed tree and compare the resulting Gate rounds.",
         falsifier:
@@ -469,8 +465,6 @@ const validationScheduling: InvestigationRelationship = {
       summary:
         "Later Gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
       observed: joinedObservation(sources),
-      interpretation:
-        "Later Gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
       diagnostic_action:
         "Run one bounded comparison of the current schedule against a single alternative, keeping jobs and setup fixed, then compare later-round time, queue wait, and distinct failures.",
       falsifier:
@@ -538,8 +532,6 @@ const standardVariance: InvestigationRelationship = {
       summary:
         `\`${finding.subject}\` is mechanically eligible to tighten, but its recent comparable readings are unstable.`,
       observed: finding.observed,
-      interpretation:
-        `\`${finding.subject}\` is mechanically eligible to tighten, but its recent comparable readings are unstable.`,
       diagnostic_action:
         `Run \`discern standards\` for a current \`${finding.subject}\` reading and inspect the recent comparable values before deciding whether the headroom is durable.`,
       falsifier:

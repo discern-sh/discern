@@ -73,7 +73,6 @@ function finding(detector: string): PatternsFinding {
     scope: "project",
     tone: "neutral",
     summary: "A recurring class of change repeats.",
-    brief: "A recurring class of change repeats.",
     observed: `\`${detector}\` observed the class on 4 of 6 recent efforts.`,
     evidence: { efforts: 6, matched: 4 },
     strength: 4,

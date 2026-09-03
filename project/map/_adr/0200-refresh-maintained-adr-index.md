@@ -1,5 +1,7 @@
 # ADR 0200: The ADR index is a refresh-maintained artifact, opted into by markers
 
+> **Amendment (2026-09-03).** Status now reports ADR-index drift through the canonical `data.pending_tracked_refresh` plan and the registered `adr-index-stale` hint. The provisional `data.stale_adr_index` projection was removed before v1; refresh and Gate behavior are unchanged.
+
 **Status**: accepted
 
 ## Context

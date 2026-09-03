@@ -1149,7 +1149,7 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
     assertStringIncludes(thrash.observed, "3 consecutive runs");
     assertEquals(thrash.tone, "attention");
     assertStringIncludes(thrash.summary, "repeated red Gates");
-    assertEquals(thrash.brief, thrash.summary);
+    assertEquals("brief" in thrash, false);
     assertStringIncludes(thrash.next_step, "discern-cure-a-bug");
     assertEquals(thrash.scope, "branch");
 
