@@ -51,7 +51,7 @@ import {
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { rebaseMarkdownLinks } from "../lib/markdown_links.ts";
 import { stampSchemaVersion } from "../lib/schema.ts";
-import { KIT_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../lib/version.ts";
 import {
   applyPlan,
   buildPlan,
@@ -994,7 +994,7 @@ async function recordProvenance(
   const editor = new TomlEditor(raw);
   let changed = false;
   if (!existing.has("meta.setup_version")) {
-    editor.setString("meta.setup_version", KIT_VERSION);
+    editor.setString("meta.setup_version", DISCERN_VERSION);
     changed = true;
   }
   const supplied = model?.trim();
@@ -1747,7 +1747,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
         agents: cfg?.project.agents ?? [],
       },
-      kit_version: KIT_VERSION,
+      discern_version: DISCERN_VERSION,
       written: scaffold?.written ?? [],
       instruction_refresh: instructionRefresh,
       mcp_wired: mcpWired,
@@ -2599,7 +2599,7 @@ function emitSetupDirtyRefusal(
     emitResult({
       ok: false,
       verb: "setup done",
-      error: "uncommitted_changes",
+      error: "dirty_worktree",
       message: refusal.message,
       data: {
         uncommitted: [...refusal.paths],
@@ -3967,7 +3967,7 @@ async function rootOrError(
       emitResult({
         ok: false,
         verb,
-        error: "no_project",
+        error: "not_initialized",
         message: NO_PROJECT_MESSAGE,
       });
     } else {

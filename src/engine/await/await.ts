@@ -401,7 +401,7 @@ function awaitTiming(
   const capped = cap !== undefined && cap < transportSeconds;
   const profileSeconds = capped ? cap : transportSeconds;
   const profileBasis: AwaitTiming["timeoutBasis"] = capped
-    ? "experimental-cap"
+    ? "cache-window"
     : profile;
   if (requested === undefined) {
     return {
@@ -793,11 +793,11 @@ export async function awaitResult(
     ...(branch !== undefined ? { branch } : {}),
     trunk,
     met: outcome === "met",
-    waited_ms: waitedMs,
-    timeout_seconds: timeoutSeconds,
+    elapsed_ms: waitedMs,
+    timeout_s: timeoutSeconds,
     timeout_basis: timeoutBasis,
     ...(timing.requestedTimeoutSeconds !== undefined
-      ? { requested_timeout_seconds: timing.requestedTimeoutSeconds }
+      ? { requested_timeout_s: timing.requestedTimeoutSeconds }
       : {}),
     observed: last.observed,
   };
@@ -873,7 +873,7 @@ export async function awaitResult(
     data: {
       ...base,
       resume,
-      retry_after_seconds: timing.retrySeconds,
+      retry_after_s: timing.retrySeconds,
       retry_basis: timing.retryBasis,
     },
     hints: hintTexts(hints),
@@ -1056,12 +1056,12 @@ function renderAwaitHuman(
   if (data === undefined || !("condition" in data)) {
     return;
   }
-  const waited = `${Math.round(data.waited_ms / 1000)}s`;
+  const waited = `${Math.round(data.elapsed_ms / 1000)}s`;
   if (data.met) {
     out.ok(`Condition met after ${waited}.`);
   } else {
     out.info(
-      `Not yet — waited ${waited} of the ${data.timeout_seconds}s timeout.`,
+      `Not yet — waited ${waited} of the ${data.timeout_s}s timeout.`,
     );
   }
   const hints = interactiveHintTexts(result.hints);

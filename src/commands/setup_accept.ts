@@ -321,7 +321,7 @@ export async function runSetupAccept(
   if (root === undefined) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "no_project",
+      error: "not_initialized",
       message: NO_PROJECT_MESSAGE,
       code: 1,
     });
@@ -378,7 +378,7 @@ export async function runSetupAccept(
   if (branch !== SETUP_BRANCH) {
     return emitAccept(opts, log, {
       ok: false,
-      error: "not_setup_branch",
+      error: "not_on_setup_branch",
       message:
         `You are on \`${branch}\`, not the \`${SETUP_BRANCH}\` branch this command lands. ` +
         `Landing here would sweep \`${branch}\`'s own commits onto \`${target}\`. ` +

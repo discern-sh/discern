@@ -69,7 +69,7 @@ function varied(id: string): CheckpointVarianceSummary {
 function finding(detector: string): PatternsFinding {
   return {
     detector,
-    family: "behaviour",
+    family: "behavior",
     scope: "project",
     tone: "neutral",
     summary: "A recurring class of change repeats.",

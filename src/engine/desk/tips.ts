@@ -81,7 +81,7 @@ export interface TipSeenEntry {
 export interface TipSeenState {
   readonly schema_version: number;
   /**
-   * The kit version current when this state file was first written. Entries
+   * The discern version current when this state file was first written. Entries
    * whose `since` post-dates it arrived by upgrade, so they render as new;
    * on a fresh install everything predates the baseline and nothing does.
    */

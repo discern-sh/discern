@@ -177,10 +177,16 @@ function rewritePublicOutput(value: JsonValue): JsonValue {
     }
     out[key] = rewritePublicOutput(child);
   }
+  if (Array.isArray(out.prefixItems)) {
+    const tupleLength = out.prefixItems.length;
+    out.minItems ??= tupleLength;
+    out.maxItems ??= tupleLength;
+    out.items ??= false;
+  }
   return out;
 }
 
-/** Describe every CLI result as a verb-discriminated union of contract definitions. */
+/** Describe every CLI result as the registered union of contract definitions. */
 function cliUnionSchema(): JsonObject {
   return {
     title: "DiscernCliJsonResult",
@@ -189,15 +195,6 @@ function cliUnionSchema(): JsonObject {
     oneOf: CLI_JSON_RESULT_CONTRACTS.map((contract) =>
       refFor(typeName(contract))
     ),
-    discriminator: {
-      propertyName: "verb",
-      mapping: Object.fromEntries(
-        CLI_JSON_RESULT_CONTRACTS.map((contract) => [
-          contract.verb,
-          `#/$defs/${typeName(contract)}`,
-        ]),
-      ),
-    },
   };
 }
 
@@ -222,13 +219,13 @@ function completionPolicyMetadata(contract: ResultContract): JsonObject {
     );
   }
   return {
-    requiredPostconditions: [...policy.requiredPostconditions],
-    optionalAdvisories: [...policy.optionalAdvisories],
+    required_postconditions: [...policy.requiredPostconditions],
+    optional_advisories: [...policy.optionalAdvisories],
     refusal: policy.refusal,
     cancellation: policy.cancellation,
-    partialEffect: policy.partialEffect,
-    noOp: policy.noOp,
-    recoveryOwner: policy.recoveryOwner,
+    partial_effect: policy.partialEffect,
+    no_op: policy.noOp,
+    recovery_owner: policy.recoveryOwner,
   };
 }
 
@@ -307,8 +304,8 @@ export function buildResultJsonSchema(): JsonObject {
       id: contract.id,
       verb: contract.verb,
       commands: [...contract.commands],
-      ...(contract.mcpTool === undefined ? {} : { mcpTool: contract.mcpTool }),
-      completionPolicy: completionPolicyMetadata(contract),
+      ...(contract.mcpTool === undefined ? {} : { mcp_tool: contract.mcpTool }),
+      completion_policy: completionPolicyMetadata(contract),
       [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: `#/$defs/${typeName(contract)}`,
       ...(contract.mcpTool === undefined ? {} : {
         [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: `#/$defs/${

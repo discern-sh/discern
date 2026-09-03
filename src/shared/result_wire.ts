@@ -124,10 +124,6 @@ function gateProofSummary(value: unknown): Record<string, unknown> | undefined {
     REQUIRED_PROOF_SUMMARY_FIELDS.every((field) => proof[field] !== undefined)
   ) {
     out.proof = proof;
-  } else if (typeof check.proof_line === "string") {
-    // Older marker writers carried presentation only. Keep their bounded line
-    // instead of pretending the missing structured facts exist.
-    out.proof_line = check.proof_line;
   }
   return out;
 }

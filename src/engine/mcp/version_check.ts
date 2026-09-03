@@ -11,7 +11,7 @@
  * restart (so the client starts the server fresh from the new binary) is the fix.
  *
  * So on every tool call we compare the version THIS server was compiled with
- * (`KIT_VERSION`, baked into the running process) against the version of the
+ * (`DISCERN_VERSION`, baked into the running process) against the version of the
  * discern binary currently on disk, and on a mismatch append a hint telling the
  * agent to restart.
  *
@@ -19,7 +19,7 @@
  * running executable is stat-keyed on every call (one syscall) and `<binary>
  * --version` is spawned ONLY when that key changes — which, for the running
  * binary, is exactly the replace event we care about. The resolver is seeded at
- * construction with the running binary's own stat → `KIT_VERSION`, so the steady
+ * construction with the running binary's own stat → `DISCERN_VERSION`, so the steady
  * state is one stat and zero spawns. It also stays silent (never a false alarm)
  * under `deno run`, where the executable is `deno`, not a discern binary: a
  * stable `deno` mtime never triggers a probe, and even if it did, `deno
@@ -27,7 +27,7 @@
  * requires.
  */
 
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 
 /**
@@ -62,7 +62,7 @@ export type ProbeVersion = (execPath: string) => Promise<string | undefined>;
  * with stubbed versions and to count probes without spawning a real process.
  */
 export interface InstalledVersionDeps {
-  /** The version compiled into THIS running server (defaults to `KIT_VERSION`). */
+  /** The version compiled into THIS running server (defaults to `DISCERN_VERSION`). */
   serverVersion?: string;
   /** Absolute path to the running executable (defaults to `Deno.execPath()`). */
   execPath?: string;
@@ -86,7 +86,7 @@ export interface InstalledVersionDeps {
 export function createInstalledVersionResolver(
   deps: InstalledVersionDeps = {},
 ): () => Promise<string | undefined> {
-  const serverVersion = deps.serverVersion ?? KIT_VERSION;
+  const serverVersion = deps.serverVersion ?? DISCERN_VERSION;
   const execPath = deps.execPath ?? Deno.execPath();
   const statKey = deps.statKey ?? defaultStatKey;
   const probeVersion = deps.probeVersion ?? defaultProbeVersion;

@@ -46,7 +46,7 @@ import {
 } from "../src/shared/public_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine } from "./engine_helpers.ts";
-import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
   defaultDocumentationScopePaths,
   defaultDocumentationScopes,
@@ -392,7 +392,7 @@ async function renderedTemplate(): Promise<string> {
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
     ),
-    kit_version: KIT_VERSION,
+    discern_version: DISCERN_VERSION,
     project_name: "Demo",
   };
   for (const [k, v] of Object.entries(fills)) t = t.replaceAll(`{{${k}}}`, v);

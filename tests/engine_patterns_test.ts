@@ -1588,7 +1588,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       median_hours: 2.5,
       fastest_hours: 2,
     });
-    assertEquals(stats.ratchet, {
+    assertEquals(stats.standards, {
       pins: 1,
       standards: 1,
       most_improved: {

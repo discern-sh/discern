@@ -11,7 +11,7 @@ import { assert, assertEquals } from "@std/assert";
 import { TIPS } from "../src/shared/tips.ts";
 import { allFeatureNodes } from "../scripts/feature_registry.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { compareTipVersions } from "../src/engine/desk/tips.ts";
 
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -81,8 +81,8 @@ Deno.test("no tip's since tag post-dates the shipping version", () => {
   const offenders = TIPS.filter(
     (tip) =>
       tip.since !== undefined &&
-      compareTipVersions(tip.since, KIT_VERSION) > 0,
-  ).map((tip) => `${tip.id}: since ${tip.since} > ${KIT_VERSION}`);
+      compareTipVersions(tip.since, DISCERN_VERSION) > 0,
+  ).map((tip) => `${tip.id}: since ${tip.since} > ${DISCERN_VERSION}`);
   assertEquals(
     offenders,
     [],

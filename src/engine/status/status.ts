@@ -153,7 +153,9 @@ import {
 } from "../logbook/read.ts";
 import {
   idleDaysOf,
+  presentFleetRow,
   renderStatusDashboard,
+  sortFleetRows,
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
@@ -172,6 +174,24 @@ export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
+
+/** Order the canonical fleet before any bounded wire projection samples it. */
+export function prioritizeStatusFleet(
+  fleet: readonly StatusFleetEntry[],
+  options: {
+    readonly trunk: string;
+    readonly nowMs: number;
+    readonly collisions?: readonly FleetCollision[];
+  },
+): StatusFleetEntry[] {
+  const main = fleet.filter((entry) => entry.is_main).slice(0, 1);
+  const active = sortFleetRows(
+    fleet
+      .filter((entry) => !entry.is_main)
+      .map((entry) => presentFleetRow(entry, options)),
+  ).map((row) => row.entry);
+  return [...main, ...active];
+}
 
 /** Flags accepted by `status` on both surfaces. */
 export interface StatusOptions {
@@ -517,7 +537,6 @@ export async function statusResult(
         }
       }
     }
-    data.fleet = fleet;
     // Cross-worktree changed-file collisions — the one fleet fact no single
     // row can carry: pairs of efforts whose fork diffs touch the same paths.
     const collisionBranches = fleet
@@ -544,6 +563,14 @@ export async function statusResult(
         fleetCollisionPairs = collisions;
       }
     }
+    fleet = prioritizeStatusFleet(fleet, {
+      trunk: mainBranch,
+      nowMs,
+      ...(fleetCollisionPairs === undefined
+        ? {}
+        : { collisions: fleetCollisionPairs }),
+    });
+    data.fleet = fleet;
   }
 
   // Unlanded `<branch_prefix>*` branches with NO worktree — abandoned work that

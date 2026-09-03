@@ -1045,9 +1045,9 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
         : `${plural(problems.length, "doctor check")} need attention.`,
     ),
     evidence: unique([
-      text(data.kit_version) === undefined
+      text(data.discern_version) === undefined
         ? undefined
-        : `discern version: ${code(data.kit_version)}.`,
+        : `discern version: ${code(data.discern_version)}.`,
       environment === undefined
         ? undefined
         : `Platform: ${code(environment.platform)}; Git: ${
@@ -1630,7 +1630,7 @@ const presentAwait: ResultMarkdownPresenter = (result) => {
       } the ${code(condition)} condition.`,
     ),
     evidence: unique([
-      `Waited ${duration(number(data.waited_ms) ?? 0)}.`,
+      `Waited ${duration(number(data.elapsed_ms) ?? 0)}.`,
       text(observed.proof_status) === undefined
         ? undefined
         : `Proof status: ${code(observed.proof_status)}.`,

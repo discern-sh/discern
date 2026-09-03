@@ -8,7 +8,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
-  KIT_VERSION,
+  DISCERN_VERSION,
   SCHEMA_VERSION,
   UPDATE_CHANNEL,
 } from "../src/lib/version.ts";
@@ -148,7 +148,7 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     // never an implied network poll (discern makes no network requests).
     const human = await runCli(["upgrade", "--check"], dir);
     assertEquals(human.code, 0, human.stderr);
-    assertTerminalTextIncludes(human.stderr, `discern ${KIT_VERSION}`);
+    assertTerminalTextIncludes(human.stderr, `discern ${DISCERN_VERSION}`);
     assertTerminalTextIncludes(human.stderr, `schema ${SCHEMA_VERSION}`);
     assertTerminalTextIncludes(human.stderr, UPDATE_CHANNEL);
     assertTerminalTextIncludes(human.stderr, "never checks the network");
@@ -157,8 +157,8 @@ Deno.test("upgrade --check on a current install tells the truth: version, channe
     const json = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(json.code, 0, json.stderr);
     const res = decodeCliResult(json.stdout, "upgrade");
-    assertResultDataKey(res, "kit_version");
-    assertEquals(res.data.kit_version, KIT_VERSION);
+    assertResultDataKey(res, "discern_version");
+    assertEquals(res.data.discern_version, DISCERN_VERSION);
     const expected = assertHasHint(res, HINTS["upgrade-newer-discern"], {
       updateChannel: UPDATE_CHANNEL,
     });

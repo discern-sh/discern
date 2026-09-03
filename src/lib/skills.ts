@@ -67,7 +67,7 @@ export interface SkillEntry {
   /** Absolute path of the directory to materialize from. */
   srcAbs: string;
   /** True when an authored skill shadows a bundled built-in of the same name. */
-  overridesBundled: boolean;
+  overrides_bundled: boolean;
 }
 
 /**
@@ -200,7 +200,7 @@ async function resolveSkillsByName(
       name,
       source: "bundled",
       srcAbs: join(bundledDir, name),
-      overridesBundled: false,
+      overrides_bundled: false,
     });
   }
   for (const name of authored) {
@@ -208,7 +208,7 @@ async function resolveSkillsByName(
       name,
       source: "authored",
       srcAbs: join(authoredDir, name),
-      overridesBundled: byName.has(name),
+      overrides_bundled: byName.has(name),
     });
   }
   return byName;
@@ -278,8 +278,8 @@ export async function listSkills(
     .map((e) => ({
       name: e.name,
       source: e.source,
-      overridesBundled: e.overridesBundled,
-      hasBundled: bundled.has(e.name),
+      overrides_bundled: e.overrides_bundled,
+      has_bundled: bundled.has(e.name),
       excluded: excluded.has(e.name),
     }));
 }

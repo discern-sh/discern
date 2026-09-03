@@ -12,6 +12,7 @@ import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   isPublicSchemaCompatibility,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_EXTENSION_KEYWORDS,
   type PUBLIC_SCHEMA_PUBLICATIONS,
   type PublicSchemaCompatibility,
   type PublicSchemaPublication,
@@ -26,6 +27,7 @@ import {
   buildResultJsonSchema,
 } from "../src/shared/result_codegen.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
+import { runGit } from "../src/shared/subprocess.ts";
 
 export type JsonValue =
   | null
@@ -76,7 +78,6 @@ const CURRENT_SCHEMA_BUILDERS: Record<
 
 const ANNOTATION_KEYS = new Set([
   "$comment",
-  "default",
   "description",
   "deprecated",
   "examples",
@@ -84,6 +85,123 @@ const ANNOTATION_KEYS = new Set([
   "title",
   "writeOnly",
 ]);
+
+/** Build a validator that recognizes every public-schema extension keyword. */
+function publicSchemaAjv(strict: boolean): Ajv2020 {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict,
+    validateSchema: true,
+  });
+  for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
+    ajv.addKeyword(keyword);
+  }
+  return ajv;
+}
+
+interface ReleaseTag {
+  readonly tag: string;
+  readonly major: number;
+  readonly minor: number;
+  readonly patch: number;
+  readonly prerelease: readonly (number | string)[];
+}
+
+const RELEASE_TAG_PATTERN =
+  /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+/** Parse exactly `v<SemVer>`, rejecting unsafe numeric components. */
+function releaseTag(value: string): ReleaseTag | undefined {
+  const match = RELEASE_TAG_PATTERN.exec(value);
+  if (match === null) return undefined;
+  const [majorText, minorText, patchText] = match.slice(1, 4);
+  if (
+    majorText === undefined || minorText === undefined ||
+    patchText === undefined
+  ) {
+    return undefined;
+  }
+  const core = [majorText, minorText, patchText].map(Number);
+  if (core.some((part) => !Number.isSafeInteger(part))) return undefined;
+  const prerelease = match[4] === undefined
+    ? []
+    : match[4].split(".").map((part): number | string =>
+      /^[0-9]+$/.test(part) ? Number(part) : part
+    );
+  return {
+    tag: value,
+    major: core[0] ?? 0,
+    minor: core[1] ?? 0,
+    patch: core[2] ?? 0,
+    prerelease,
+  };
+}
+
+/** SemVer precedence, with the tag spelling as a stable build-metadata tie-break. */
+function compareReleaseTags(left: ReleaseTag, right: ReleaseTag): number {
+  for (const key of ["major", "minor", "patch"] as const) {
+    const order = left[key] - right[key];
+    if (order !== 0) return order;
+  }
+  if (left.prerelease.length === 0 || right.prerelease.length === 0) {
+    if (left.prerelease.length === right.prerelease.length) {
+      return left.tag.localeCompare(right.tag);
+    }
+    return left.prerelease.length === 0 ? 1 : -1;
+  }
+  const length = Math.max(left.prerelease.length, right.prerelease.length);
+  for (let index = 0; index < length; index += 1) {
+    const before = left.prerelease[index];
+    const after = right.prerelease[index];
+    if (before === undefined || after === undefined) {
+      return before === after ? 0 : before === undefined ? -1 : 1;
+    }
+    if (before === after) continue;
+    if (typeof before === "number" && typeof after === "number") {
+      return before - after;
+    }
+    if (typeof before === "number") return -1;
+    if (typeof after === "number") return 1;
+    return before.localeCompare(after);
+  }
+  return left.tag.localeCompare(right.tag);
+}
+
+/**
+ * Select the release publication that freezes the current compatibility floor.
+ *
+ * Ordinary commits compare with the highest valid version tag. A release
+ * candidate at `HEAD` excludes every tag on that commit, so it compares with
+ * its predecessor instead of baselining itself. No predecessor leaves the
+ * ratchet deliberately unarmed until that first publication exists beneath a
+ * later commit.
+ */
+export async function publicSchemaBaselineTag(
+  cwd: string,
+): Promise<string | undefined> {
+  const listed = await runGit(["tag", "--list"], { cwd });
+  if (!listed.success) {
+    throw new Error(`cannot list release tags: ${listed.stderr}`);
+  }
+  const atHead = await runGit(["tag", "--points-at", "HEAD", "--list"], {
+    cwd,
+  });
+  if (!atHead.success) {
+    throw new Error(`cannot list release tags at HEAD: ${atHead.stderr}`);
+  }
+  const excluded = new Set(
+    atHead.stdout.split("\n").map((tag) => tag.trim()).filter(Boolean),
+  );
+  const candidates = listed.stdout.split("\n")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0 && !excluded.has(tag))
+    .flatMap((tag) => {
+      const parsed = releaseTag(tag);
+      return parsed === undefined ? [] : [parsed];
+    })
+    .sort(compareReleaseTags);
+  return candidates.at(-1)?.tag;
+}
 
 /** Narrow a schema value to a non-null, non-array JSON object. */
 function isObject(value: JsonValue | undefined): value is JsonObject {
@@ -289,14 +407,19 @@ function compareProperties(
   }
   for (const [key, currentValue] of addedProperties) {
     const childPath = pathKey(path, key);
-    if (isUnconstrainedSchema(currentValue)) {
+    const acceptanceValue = isObject(currentValue) && "default" in currentValue
+      ? Object.fromEntries(
+        Object.entries(currentValue).filter(([key]) => key !== "default"),
+      )
+      : currentValue;
+    if (isUnconstrainedSchema(acceptanceValue)) {
       continue;
     }
     if (isObject(catchall)) {
       const localIssues: string[] = [];
       compareNode(
         catchall,
-        currentValue,
+        acceptanceValue,
         childPath,
         {
           ...context,
@@ -370,14 +493,11 @@ function matchingContractReferenceRole(
 function transparentRoleAggregateAlternatives(
   definition: JsonValue | undefined,
 ): readonly JsonValue[] | undefined {
-  // A discriminator is transparent for aggregate detection: it only routes
-  // among the same oneOf alternatives, adding no constraint of its own (its
-  // mapping is held to the alternatives' own additive rules separately).
   if (
     !isObject(definition) ||
     !Array.isArray(definition.oneOf) ||
     !Object.keys(definition).every((key) =>
-      key === "oneOf" || key === "discriminator" || ANNOTATION_KEYS.has(key)
+      key === "oneOf" || ANNOTATION_KEYS.has(key)
     )
   ) {
     return undefined;
@@ -839,10 +959,10 @@ function comparisonContext(
       isObject(previousContract) &&
       previousCliReference !== undefined &&
       currentCliReference === previousCliReference &&
-      previousContract.mcpTool === undefined &&
+      previousContract.mcp_tool === undefined &&
       previousContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] === undefined &&
       isObject(contract) &&
-      typeof contract.mcpTool === "string";
+      typeof contract.mcp_tool === "string";
     for (const role of RESULT_CONTRACT_REFERENCE_ROLES) {
       const field = RESULT_CONTRACT_REFERENCE_FIELDS[role];
       const authorized = previousContract === undefined ||
@@ -960,87 +1080,6 @@ function compareContracts(
   }
 }
 
-/**
- * A discriminator routes among its sibling oneOf's alternatives, so its
- * `mapping` earns the same additive allowance those alternatives have: under
- * the result policy a NEW key is legal when it routes to a schema the
- * registered contract additions sanction for this aggregate's role.
- * Everything else — `propertyName`, existing mappings, removals — stays as
- * strict as the plain map compare this replaces.
- */
-function compareDiscriminator(
-  previous: JsonValue | undefined,
-  current: JsonValue | undefined,
-  parentPath: string,
-  path: string,
-  context: ComparisonContext,
-  issues: string[],
-): void {
-  if (!isObject(previous) || !isObject(current)) {
-    if (!sameJson(previous, current)) {
-      issues.push(
-        `${path}: changed from ${json(previous)} to ${json(current)}`,
-      );
-    }
-    return;
-  }
-  const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
-  for (const key of keys) {
-    if (key === "mapping") {
-      continue;
-    }
-    if (!sameJson(previous[key], current[key])) {
-      issues.push(
-        `${pathKey(path, key)}: changed from ${json(previous[key])} to ${
-          json(current[key])
-        }`,
-      );
-    }
-  }
-  const previousMapping = previous.mapping;
-  const currentMapping = current.mapping;
-  if (previousMapping === undefined && currentMapping === undefined) {
-    return;
-  }
-  const mappingPath = pathKey(path, "mapping");
-  if (!isObject(previousMapping) || !isObject(currentMapping)) {
-    if (!sameJson(previousMapping, currentMapping)) {
-      issues.push(
-        `${mappingPath}: changed from ${json(previousMapping)} to ${
-          json(currentMapping)
-        }`,
-      );
-    }
-    return;
-  }
-  const role = context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    ? context.contractAggregateRoles.get(pathKey(parentPath, "oneOf"))
-    : undefined;
-  const mappingKeys = new Set([
-    ...Object.keys(previousMapping),
-    ...Object.keys(currentMapping),
-  ]);
-  for (const key of mappingKeys) {
-    const before = previousMapping[key];
-    const after = currentMapping[key];
-    if (sameJson(before, after)) {
-      continue;
-    }
-    const sanctionedAddition = before === undefined &&
-      role !== undefined &&
-      typeof after === "string" &&
-      context.newContractRefs[role].has(after);
-    if (sanctionedAddition) {
-      continue;
-    }
-    issues.push(
-      `${pathKey(mappingPath, key)}: changed from ${json(before)} to ${
-        json(after)
-      }`,
-    );
-  }
-}
-
 /** Reject object catchall changes that admit fewer instances than trunk. */
 function compareAdditionalProperties(
   previous: JsonValue | undefined,
@@ -1150,8 +1189,15 @@ function compareNode(
       case "unevaluatedProperties":
         compareAdditionalProperties(before, after, childPath, context, issues);
         break;
-      case "discriminator":
-        compareDiscriminator(before, after, path, childPath, context, issues);
+      case "default":
+        if (
+          context.policy === CONFIG_SCHEMA_COMPATIBILITY_POLICY &&
+          !sameJson(before, after)
+        ) {
+          issues.push(
+            `${childPath}: changed from ${json(before)} to ${json(after)}`,
+          );
+        }
         break;
       case "x-discern-error-slugs": {
         const localIssues: string[] = [];
@@ -1206,13 +1252,10 @@ export function publicSchemaCompatibilityIssues(
 function publicSchemaValidityIssues(
   schema: JsonObject,
   label: string,
+  strict = false,
 ): string[] {
   try {
-    new Ajv2020({
-      allErrors: true,
-      strict: false,
-      validateSchema: true,
-    }).compile(schema);
+    publicSchemaAjv(strict).compile(schema);
     return [];
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1283,7 +1326,7 @@ export function publicSchemaPublicationIdentityIssues(
   current: JsonObject,
   publication: PublicSchemaPublication,
 ): string[] {
-  const issues = publicSchemaValidityIssues(current, "current schema");
+  const issues = publicSchemaValidityIssues(current, "current schema", true);
   if (issues.length > 0) {
     return issues;
   }

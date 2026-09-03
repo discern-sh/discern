@@ -27,6 +27,7 @@ import {
   PROOF_NOTE_PAYLOAD_TYPE,
   PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_EXTENSION_KEYWORDS,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
@@ -37,6 +38,19 @@ import { TOOLS } from "../src/engine/mcp/server.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
+
+/** Compile generated public artifacts with every discern extension declared. */
+function strictPublicSchemaValidator(): Ajv2020 {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: true,
+    validateSchema: true,
+  });
+  for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
+    ajv.addKeyword(keyword);
+  }
+  return ajv;
+}
 
 const DURABLE_PROOF_FACT_FIELDS = [
   "branch",
@@ -204,12 +218,15 @@ Deno.test("the generated result schema carries its public identity and policy", 
   );
 });
 
+Deno.test("generated result and proof-note schemas compile in strict mode", () => {
+  strictPublicSchemaValidator().compile(buildResultJsonSchema());
+  strictPublicSchemaValidator().compile(buildProofNoteJsonSchema());
+});
+
 Deno.test("the published result schema rejects contradictory envelopes", () => {
-  const validate = new Ajv2020({
-    allErrors: true,
-    strict: false,
-    validateSchema: true,
-  }).compile(buildResultJsonSchema());
+  const validate = strictPublicSchemaValidator().compile(
+    buildResultJsonSchema(),
+  );
   const plan = { title: "Future plan", details: [], steps: [] };
   const steps: unknown[] = [];
 
@@ -276,14 +293,14 @@ Deno.test("result contract metadata uses only the canonical schema-reference fie
     assert(isRecord(generated), `${contract.id} should publish metadata`);
     const policy = RESULT_COMPLETION_POLICIES[contract.verb];
     assert(policy !== undefined);
-    assertEquals(generated.completionPolicy, {
-      requiredPostconditions: [...policy.requiredPostconditions],
-      optionalAdvisories: [...policy.optionalAdvisories],
+    assertEquals(generated.completion_policy, {
+      required_postconditions: [...policy.requiredPostconditions],
+      optional_advisories: [...policy.optionalAdvisories],
       refusal: policy.refusal,
       cancellation: policy.cancellation,
-      partialEffect: policy.partialEffect,
-      noOp: policy.noOp,
-      recoveryOwner: policy.recoveryOwner,
+      partial_effect: policy.partialEffect,
+      no_op: policy.noOp,
+      recovery_owner: policy.recoveryOwner,
     });
     const referenceFields = Object.entries(generated)
       .filter(([, value]) =>
@@ -312,6 +329,49 @@ Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen
     committed,
     renderResultTypesDts(),
     "types/discern-json.d.ts is stale — run `deno task codegen`",
+  );
+});
+
+Deno.test("the triangle publication keeps its established contract names", () => {
+  const schema = buildResultJsonSchema();
+  assert(isRecord(schema.$defs), "result schema should carry $defs");
+  const triangle = schema.$defs.DiscernTriangleResult;
+  assert(isRecord(triangle), "triangle should publish DiscernTriangleResult");
+  assert(isRecord(triangle.properties), "triangle should declare properties");
+  assertEquals(triangle.properties.verb, {
+    type: "string",
+    const: "triangle",
+  });
+  const data = triangle.properties.data;
+  assert(isRecord(data) && Array.isArray(data.anyOf));
+  const successData = data.anyOf.find((candidate) =>
+    isRecord(candidate) && Array.isArray(candidate.required) &&
+    candidate.required.includes("mark")
+  );
+  assert(isRecord(successData));
+  assertEquals(successData.required, ["mark", "art"]);
+  assert(isRecord(successData.properties));
+  assertEquals(Object.keys(successData.properties), ["mark", "art"]);
+
+  const declarations = renderResultTypesDts();
+  assert(declarations.includes("export type DiscernTriangleResult ="));
+  assert(declarations.includes('verb: "triangle";'));
+});
+
+Deno.test("the manual links generated result declarations to a release tag", async () => {
+  const manual = await Deno.readTextFile(
+    new URL(
+      "../project/manual/30-reference/mcp-and-results.md",
+      import.meta.url,
+    ),
+  );
+  assert(
+    manual.includes("/blob/v1.0.0/types/discern-json.d.ts"),
+    "the public declaration link must identify a published release",
+  );
+  assert(
+    !manual.includes("/blob/main/types/discern-json.d.ts"),
+    "a mutable trunk link cannot identify the published declaration contract",
   );
 });
 
@@ -430,20 +490,6 @@ Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", 
       ),
     ),
   );
-  const discriminator = cli.discriminator;
-  assert(isRecord(discriminator), "CLI union should advertise a discriminator");
-  assertEquals(discriminator.propertyName, "verb");
-  assert(
-    isRecord(discriminator.mapping),
-    "discriminator should carry a mapping",
-  );
-  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
-    assertEquals(
-      discriminator.mapping[contract.verb],
-      `#/$defs/Discern${pascalCase(contract.id)}Result`,
-      `${contract.verb} should map to its per-verb schema`,
-    );
-  }
 
   const mcp = schema.$defs.DiscernMcpJsonResult;
   assert(isRecord(mcp), "DiscernMcpJsonResult should be a schema");

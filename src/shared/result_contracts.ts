@@ -94,7 +94,7 @@ export type CliPredicateState = (typeof CLI_PREDICATE_STATES)[number];
  */
 export const RESULT_CONTRACT_REFERENCE_FIELDS = {
   cli: "schema",
-  mcp: "mcpToolResultSchema",
+  mcp: "mcp_tool_result_schema",
 } as const;
 
 /** One option- or positional-selected predicate mode under a result contract. */
@@ -136,7 +136,7 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     // type documents the envelope a tool consumer actually receives. The
     // excluded paths (`help`, `mcp`, the hook namespace) hand stdout to some
     // OTHER protocol; the root does not.
-    id: "discern",
+    id: "root",
     commands: ["discern"],
     verb: "discern",
     schema: DiscernOutputSchema,

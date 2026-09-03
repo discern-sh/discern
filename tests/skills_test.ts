@@ -354,7 +354,7 @@ Deno.test("resolveEffectiveSkills: bundled-only when no authored dir", async () 
   await withTempDir(async (root) => {
     const eff = await resolveEffectiveSkills(root, cfg());
     assert(eff.length >= 2);
-    assert(eff.every((e) => e.source === "bundled" && !e.overridesBundled));
+    assert(eff.every((e) => e.source === "bundled" && !e.overrides_bundled));
     assert(eff.some((e) => e.name === "discern-write-adr"));
   });
 });
@@ -369,12 +369,12 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
     const overridden = byName.get("discern-document-subsystem");
     assertExists(overridden);
     assertEquals(overridden.source, "authored");
-    assertEquals(overridden.overridesBundled, true);
+    assertEquals(overridden.overrides_bundled, true);
 
     const mine = byName.get("my-skill");
     assertExists(mine);
     assertEquals(mine.source, "authored");
-    assertEquals(mine.overridesBundled, false);
+    assertEquals(mine.overrides_bundled, false);
 
     // A non-overridden built-in stays bundled.
     const writeAdr = byName.get("discern-write-adr");
@@ -383,7 +383,7 @@ Deno.test("resolveEffectiveSkills: authored overrides a bundled name; unique aut
   });
 });
 
-Deno.test("listSkills annotates source / override / hasBundled", async () => {
+Deno.test("listSkills annotates source / override / has_bundled", async () => {
   await withTempDir(async (root) => {
     await authoredSkill(root, "discern-document-subsystem");
     await authoredSkill(root, "my-skill");
@@ -394,15 +394,15 @@ Deno.test("listSkills annotates source / override / hasBundled", async () => {
     assertEquals(rows.get("discern-document-subsystem"), {
       name: "discern-document-subsystem",
       source: "authored",
-      overridesBundled: true,
-      hasBundled: true,
+      overrides_bundled: true,
+      has_bundled: true,
       excluded: false,
     });
     assertEquals(rows.get("my-skill"), {
       name: "my-skill",
       source: "authored",
-      overridesBundled: false,
-      hasBundled: false,
+      overrides_bundled: false,
+      has_bundled: false,
       excluded: false,
     });
     const writeAdr = rows.get("discern-write-adr");

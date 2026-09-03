@@ -552,7 +552,7 @@ Deno.test("stats: the ratchet counts pins and the distinct standards they tighte
     pin(t(2), "coverage", 85, 88),
     pin(t(3), "lint_suppressions", 5, 4),
   ]);
-  assertEquals(b.ratchet, { pins: 3, standards: 2 });
+  assertEquals(b.standards, { pins: 3, standards: 2 });
 });
 
 Deno.test("stats: breadth counts branches, active days, and the busiest day", () => {
@@ -754,7 +754,7 @@ Deno.test("stats: an empty stream produces a card of zeros, not an error", () =>
     },
   });
   assertEquals(b.cycles, undefined);
-  assertEquals(b.ratchet, { pins: 0, standards: 0 });
+  assertEquals(b.standards, { pins: 0, standards: 0 });
   assertEquals(b.agents, {
     detected: 0,
     identities: [],
@@ -831,7 +831,7 @@ Deno.test("stats: the most improved standard is percent-normalized, so scales co
       { name: "small_ceiling", direction: "down", value: 8 },
     ]),
   ]));
-  assertEquals(b.ratchet.most_improved, {
+  assertEquals(b.standards.most_improved, {
     standard: "small_ceiling",
     from: 10,
     to: 8,
@@ -850,8 +850,8 @@ Deno.test("stats: improvement is direction-adjusted — a rising floor and a fal
       { name: "floor", direction: "up", value: 60 },
     ]),
   ]));
-  assertEquals(b.ratchet.most_improved?.standard, "floor");
-  assertEquals(b.ratchet.most_improved?.better_percent, 20);
+  assertEquals(b.standards.most_improved?.standard, "floor");
+  assertEquals(b.standards.most_improved?.better_percent, 20);
 });
 
 Deno.test("stats: a standard that only worsened is never most improved, and a zero first reading is set aside", () => {
@@ -865,7 +865,7 @@ Deno.test("stats: a standard that only worsened is never most improved, and a ze
       { name: "zero_start", direction: "up", value: 5 },
     ]),
   ]));
-  assertEquals(b.ratchet.most_improved, undefined);
+  assertEquals(b.standards.most_improved, undefined);
 });
 
 Deno.test("stats: the ratchet trend averages per-day improvement, carrying unmeasured days forward", () => {
@@ -878,7 +878,7 @@ Deno.test("stats: the ratchet trend averages per-day improvement, carrying unmea
       { name: "ceiling", direction: "down", value: 90 },
     ]),
   ]));
-  assertEquals(b.ratchet.trend, [0, 0, 10]);
+  assertEquals(b.standards.trend, [0, 0, 10]);
 });
 
 /** An invocation-scoped identity signal naming one agent. */

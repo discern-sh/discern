@@ -721,7 +721,7 @@ function ratchetTrend(
  * Absent when nothing improved. */
 function mostImproved(
   tracks: readonly StandardTrack[],
-): PatternsStats["ratchet"]["most_improved"] {
+): PatternsStats["standards"]["most_improved"] {
   let best:
     | { standard: string; from: number; to: number; raw: number }
     | undefined;
@@ -910,7 +910,7 @@ export function computeStats(facts: StreamFacts): PatternsStats {
     },
     validation_workflows: validationWorkflowFeats(facts),
     ...(cycles !== undefined ? { cycles } : {}),
-    ratchet: {
+    standards: {
       pins: pins.length,
       standards: new Set(pins.map((p) => p.standard)).size,
       ...(trend !== undefined ? { trend } : {}),

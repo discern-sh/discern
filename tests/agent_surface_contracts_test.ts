@@ -400,7 +400,7 @@ Deno.test("supporting Skill Markdown auto-enrolls while skeleton payloads do not
       name: "future-guide",
       source: "authored",
       srcAbs: sourceDir,
-      overridesBundled: false,
+      overrides_bundled: false,
     };
     const surface = await operationalSkillSurface(skill);
     assertEquals(

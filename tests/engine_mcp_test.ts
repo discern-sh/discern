@@ -54,7 +54,7 @@ import {
 import { providerFor } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
@@ -924,7 +924,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     const init = await mcp.recv();
     assertEquals(init.id, 1);
     assertEquals(init.result.serverInfo.name, "discern");
-    assertEquals(init.result.serverInfo.version, KIT_VERSION);
+    assertEquals(init.result.serverInfo.version, DISCERN_VERSION);
     assertEquals(init.result.protocolVersion, "2025-06-18");
     assert(init.result.capabilities.tools, "should advertise tools capability");
 
@@ -1109,7 +1109,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "doctor data carries the per-check list",
     );
     assertEquals(
-      typeof doctor.result.structuredContent.data.kit_version,
+      typeof doctor.result.structuredContent.data.discern_version,
       "string",
     );
     assertEquals(
@@ -1349,7 +1349,7 @@ Deno.test("discern mcp: concurrent calls keep a crash signature on the call that
         new WorkingRoot(dir),
         {},
         undefined,
-        () => Promise.resolve(KIT_VERSION),
+        () => Promise.resolve(DISCERN_VERSION),
       ),
       runTool(
         successfulTool,
@@ -1360,7 +1360,7 @@ Deno.test("discern mcp: concurrent calls keep a crash signature on the call that
         new WorkingRoot(undefined),
         {},
         undefined,
-        () => Promise.resolve(KIT_VERSION),
+        () => Promise.resolve(DISCERN_VERSION),
       ),
     ]);
     assertEquals(crashResult.structuredContent.error, "internal_error");
@@ -3768,10 +3768,10 @@ Deno.test("discern mcp: await bounds follow the server's configured transport pr
       );
       assertEquals(result.isError, false, JSON.stringify(result));
       const data = result.structuredContent.data as {
-        timeout_seconds?: unknown;
+        timeout_s?: unknown;
         timeout_basis?: unknown;
       } | undefined;
-      assertEquals(data?.timeout_seconds, fixture.seconds);
+      assertEquals(data?.timeout_s, fixture.seconds);
       assertEquals(data?.timeout_basis, fixture.basis);
     }
   });

@@ -9,7 +9,7 @@ import { generatedArtifactMarkerBody } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { renderTomlStringList } from "./toml_render.ts";
-import { KIT_VERSION } from "./version.ts";
+import { DISCERN_VERSION } from "./version.ts";
 
 // The native agent/provider vocabulary is derived from the shared identity
 // catalogue, then re-exported by the canonical schema under `AGENT_NAMES`. The
@@ -169,6 +169,6 @@ export function tokensFromConfig(
       ARTIFACT_PROVENANCE_SOURCES.config,
       env,
     ),
-    kit_version: KIT_VERSION,
+    discern_version: DISCERN_VERSION,
   };
 }

@@ -31,7 +31,7 @@ import {
   renderCrashFrame,
   writeCrashArtifact,
 } from "../src/engine/crash.ts";
-import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, ISSUES_URL } from "../src/lib/version.ts";
 
 const FIXED_CRASH_TIME = Date.parse("2026-08-27T12:34:56.000Z");
 
@@ -146,7 +146,7 @@ Deno.test("captureCrashReport: stamps version, runtime, platform, and verb", () 
   const report = captureTestCrashReport("done", new TypeError("boom"));
   assertEquals(report.at, "2026-08-27T12:34:56.000Z");
   assertEquals(report.verb, "done");
-  assertEquals(report.version, KIT_VERSION);
+  assertEquals(report.version, DISCERN_VERSION);
   assertEquals(report.deno, Deno.version.deno);
   assertEquals(report.platform, `${Deno.build.os}-${Deno.build.arch}`);
   assertEquals(report.name, "TypeError");
@@ -165,7 +165,7 @@ Deno.test("renderCrashArtifact: the saved file is self-contained", () => {
   assertStringIncludes(body, "discern crash report");
   assertStringIncludes(
     body,
-    `version: ${KIT_VERSION} (deno ${Deno.version.deno}; ${report.platform})`,
+    `version: ${DISCERN_VERSION} (deno ${Deno.version.deno}; ${report.platform})`,
   );
   assertStringIncludes(body, "verb: status");
   assertStringIncludes(body, "TypeError: boom");
@@ -177,7 +177,7 @@ Deno.test("renderCrashFrame: names the version and verb, and points at the saved
   const withFile = renderCrashFrame(report, "/tmp/report.txt");
   assertStringIncludes(
     withFile,
-    `discern ${KIT_VERSION} crashed while running \`status\`.`,
+    `discern ${DISCERN_VERSION} crashed while running \`status\`.`,
   );
   assertStringIncludes(withFile, "TypeError: boom");
   assertStringIncludes(withFile, "/tmp/report.txt");
@@ -334,7 +334,7 @@ Deno.test("CLI crash: exit 70, the stderr frame, a saved report, and a signed lo
     assertEquals(run.code, CRASH_EXIT_CODE, run.output);
     assertTerminalTextIncludes(
       run.stderr,
-      `discern ${KIT_VERSION} crashed while running \`status\`.`,
+      `discern ${DISCERN_VERSION} crashed while running \`status\`.`,
     );
     assertTerminalTextIncludes(run.stderr, "Synthetic crash requested");
     assertStringIncludes(run.stderr, ISSUES_URL);

@@ -361,7 +361,7 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
     assertResultDataKey(res, "uncommitted");
     assert(res.message !== undefined);
     assertEquals(res.ok, false);
-    assertEquals(res.error, "uncommitted_changes");
+    assertEquals(res.error, "dirty_worktree");
     const uncommitted: string[] = res.data.uncommitted;
     assert(
       uncommitted.some((l) => l.includes("discern.toml")),
@@ -422,7 +422,7 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
     assertEquals(res.ok, false);
     assertEquals(
       res.error,
-      "uncommitted_changes",
+      "dirty_worktree",
       `a quoted-path untracked footprint file must block completion; got ${done.stdout}`,
     );
     const uncommitted: string[] = res.data.uncommitted;
@@ -653,7 +653,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
     assertEquals(done.code, 1, done.output);
     const refused = decodeCliResult(done.stdout, "setup done");
     assertResultDataKey(refused, "uncommitted");
-    assertEquals(refused.error, "uncommitted_changes");
+    assertEquals(refused.error, "dirty_worktree");
     assert(
       refused.data.uncommitted.some((l: string) =>
         l.includes(`${SOURCE_PATHS.map.defaultPath}README.md`)

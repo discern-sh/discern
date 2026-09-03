@@ -1,5 +1,5 @@
 /**
- * `discern upgrade` — bring an install forward to the current kit.
+ * `discern upgrade` — bring an install forward to the current discern release.
  *
  * discern keeps no managed copy of the engine — it lives in the binary, with
  * nothing committed to keep in sync — so upgrade is narrow and additive:
@@ -26,7 +26,11 @@ import { notInitializedResult } from "../shared/env.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
-import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
+import {
+  DISCERN_VERSION,
+  SCHEMA_VERSION,
+  UPDATE_CHANNEL,
+} from "../lib/version.ts";
 import {
   isRecordedSchemaNewer,
   newerSchemaRefusalMessage,
@@ -229,7 +233,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         ]),
         data: {
           check: true,
-          kit_version: KIT_VERSION,
+          discern_version: DISCERN_VERSION,
           schema: { recorded: migrateFrom, current: currentSchema },
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
@@ -250,7 +254,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       );
     } else if (ok) {
       log.ok(
-        `Install is up to date (discern ${KIT_VERSION}, schema ${currentSchema}).`,
+        `Install is up to date (discern ${DISCERN_VERSION}, schema ${currentSchema}).`,
       );
       log.info(newerDiscernHint().text);
     } else {
@@ -602,7 +606,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       hintTexts([newerDiscernHint(), restartAgentsHint()]),
     ),
     data: {
-      kit_version: KIT_VERSION,
+      discern_version: DISCERN_VERSION,
       // `from` is the pre-upgrade schema; the install now records `current`
       // (the stamp ran above), so reporting it as still "recorded" would mislead.
       schema: { from: migrateFrom, current: currentSchema },
@@ -789,7 +793,7 @@ function renderUpgradeSummary(
   // project to match the installed binary; getting a NEWER binary is separate.
   log.group("upgrade-next-steps");
   log.info(
-    `This refreshed your project to match the installed discern (${KIT_VERSION}). ${newerDiscernHint().text}`,
+    `This refreshed your project to match the installed discern (${DISCERN_VERSION}). ${newerDiscernHint().text}`,
   );
   log.info(restartAgentsHint().text);
 }

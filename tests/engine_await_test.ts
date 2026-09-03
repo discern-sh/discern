@@ -140,7 +140,7 @@ Deno.test("await --landed tracks the branch tip and survives its deletion", asyn
     assertEquals(notYet.data?.met, false);
     assertEquals(notYet.data?.observed.landed, false);
     assert(
-      typeof notYet.data?.retry_after_seconds === "number",
+      typeof notYet.data?.retry_after_s === "number",
       "a not-yet answer always says when to come back",
     );
 
@@ -163,7 +163,7 @@ Deno.test("await --landed tracks the branch tip and survives its deletion", asyn
     assertEquals(met.data?.observed.landed, true);
     assertEquals(met.data?.observed.tip, tip);
     assert(
-      (met.data?.waited_ms ?? Infinity) < 10_000,
+      (met.data?.elapsed_ms ?? Infinity) < 10_000,
       "the wake fires well before the deadline",
     );
     assert(
@@ -401,7 +401,7 @@ Deno.test("await --green is satisfied by a landing it watched happen", async () 
     assert(met.ok);
     assertEquals(met.data?.met, true);
     assertEquals(met.data?.observed.landed, true);
-    assert((met.data?.waited_ms ?? Infinity) < 10_000);
+    assert((met.data?.elapsed_ms ?? Infinity) < 10_000);
     assert(
       met.hints?.some((h) => h.includes("discern start")) === true,
       "a main-rooted green watch starts from the landed trunk",
@@ -510,7 +510,7 @@ Deno.test("await --trunk-moved wakes on the ref change, not the deadline", async
     assertEquals(met.data?.met, true);
     assertEquals(met.data?.observed.trunk_start, start);
     assert(met.data?.observed.trunk_head !== start, "the head moved");
-    assert((met.data?.waited_ms ?? Infinity) < 10_000);
+    assert((met.data?.elapsed_ms ?? Infinity) < 10_000);
     assert(
       met.hints?.some((hint) => hint.includes("discern start")) === true,
       "a main-rooted trunk watch starts a fresh worktree",
@@ -795,9 +795,9 @@ Deno.test("await uses the longest reliable call for every caller profile", async
         { callProfile: profile },
       );
       assertEquals(automatic.data?.timeout_basis, profile);
-      assertEquals(automatic.data?.timeout_seconds, expected[profile]);
+      assertEquals(automatic.data?.timeout_s, expected[profile]);
       assertEquals(automatic.data?.retry_basis, profile);
-      assertEquals(automatic.data?.retry_after_seconds, expected[profile]);
+      assertEquals(automatic.data?.retry_after_s, expected[profile]);
     }
 
     // A strict client cannot honor a longer request. It receives a complete,
@@ -810,10 +810,10 @@ Deno.test("await uses the longest reliable call for every caller profile", async
       cappedAbort.signal,
       { callProfile: "strict-client" },
     );
-    assertEquals(capped.data?.timeout_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assertEquals(capped.data?.timeout_s, AWAIT_STRICT_CALL_SECONDS);
     assertEquals(capped.data?.timeout_basis, "strict-client");
-    assertEquals(capped.data?.requested_timeout_seconds, 300);
-    assertEquals(capped.data?.retry_after_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assertEquals(capped.data?.requested_timeout_s, 300);
+    assertEquals(capped.data?.retry_after_s, AWAIT_STRICT_CALL_SECONDS);
     assert(
       capped.hints?.some((hint) =>
         hint.includes("--resume") && !hint.includes("--green")
@@ -831,9 +831,9 @@ Deno.test("await uses the longest reliable call for every caller profile", async
       explicitAbort.signal,
       { callProfile: "long-client" },
     );
-    assertEquals(explicit.data?.timeout_seconds, 30);
+    assertEquals(explicit.data?.timeout_s, 30);
     assertEquals(explicit.data?.timeout_basis, "explicit");
-    assertEquals(explicit.data?.retry_after_seconds, 30);
+    assertEquals(explicit.data?.retry_after_s, 30);
     assertEquals(explicit.data?.retry_basis, "explicit");
 
     const probe = await awaitResult(
@@ -842,9 +842,9 @@ Deno.test("await uses the longest reliable call for every caller profile", async
       undefined,
       { callProfile: "long-client" },
     );
-    assertEquals(probe.data?.timeout_seconds, 0);
+    assertEquals(probe.data?.timeout_s, 0);
     assertEquals(probe.data?.timeout_basis, "explicit");
-    assertEquals(probe.data?.retry_after_seconds, AWAIT_LONG_CALL_SECONDS);
+    assertEquals(probe.data?.retry_after_s, AWAIT_LONG_CALL_SECONDS);
     assertEquals(probe.data?.retry_basis, "long-client");
 
     // The direct CLI has no MCP transport deadline, so an explicit longer
@@ -856,9 +856,9 @@ Deno.test("await uses the longest reliable call for every caller profile", async
       { green: "agent/dep", timeoutSeconds: 4_000 },
       cliAbort.signal,
     );
-    assertEquals(cliExplicit.data?.timeout_seconds, 4_000);
+    assertEquals(cliExplicit.data?.timeout_s, 4_000);
     assertEquals(cliExplicit.data?.timeout_basis, "explicit");
-    assertEquals(cliExplicit.data?.requested_timeout_seconds, undefined);
+    assertEquals(cliExplicit.data?.requested_timeout_s, undefined);
   });
 });
 
@@ -884,10 +884,10 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
       answered(),
       { callProfile: "long-client", env: capped },
     );
-    assertEquals(automatic.data?.timeout_seconds, 1_500);
-    assertEquals(automatic.data?.timeout_basis, "experimental-cap");
-    assertEquals(automatic.data?.retry_after_seconds, 1_500);
-    assertEquals(automatic.data?.retry_basis, "experimental-cap");
+    assertEquals(automatic.data?.timeout_s, 1_500);
+    assertEquals(automatic.data?.timeout_basis, "cache-window");
+    assertEquals(automatic.data?.retry_after_s, 1_500);
+    assertEquals(automatic.data?.retry_basis, "cache-window");
 
     // A cap above the profile's bound changes nothing: min, never max.
     const above = await awaitResult(
@@ -896,7 +896,7 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
       answered(),
       { callProfile: "strict-client", env: fakeEnv({ [variable]: "10000" }) },
     );
-    assertEquals(above.data?.timeout_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assertEquals(above.data?.timeout_s, AWAIT_STRICT_CALL_SECONDS);
     assertEquals(above.data?.timeout_basis, "strict-client");
 
     // An explicit request inside the cap stays caller-owned.
@@ -906,7 +906,7 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
       answered(),
       { callProfile: "long-client", env: capped },
     );
-    assertEquals(inside.data?.timeout_seconds, 60);
+    assertEquals(inside.data?.timeout_s, 60);
     assertEquals(inside.data?.timeout_basis, "explicit");
 
     // An MCP request above the cap is sliced to it, the request recorded.
@@ -916,9 +916,9 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
       answered(),
       { callProfile: "long-client", env: capped },
     );
-    assertEquals(sliced.data?.timeout_seconds, 1_500);
-    assertEquals(sliced.data?.timeout_basis, "experimental-cap");
-    assertEquals(sliced.data?.requested_timeout_seconds, 3_000);
+    assertEquals(sliced.data?.timeout_s, 1_500);
+    assertEquals(sliced.data?.timeout_basis, "cache-window");
+    assertEquals(sliced.data?.requested_timeout_s, 3_000);
 
     // The direct CLI's explicit bound stays uncapped, as without the cap.
     const cliExplicit = await awaitResult(
@@ -927,7 +927,7 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
       answered(),
       { callProfile: "cli", env: capped },
     );
-    assertEquals(cliExplicit.data?.timeout_seconds, 4_000);
+    assertEquals(cliExplicit.data?.timeout_s, 4_000);
     assertEquals(cliExplicit.data?.timeout_basis, "explicit");
 
     // A value outside the exact syntax leaves the experiment off.
@@ -938,7 +938,7 @@ Deno.test("the experimental cap shortens automatic bounds and never lengthens on
         answered(),
         { callProfile: "long-client", env: fakeEnv({ [variable]: value }) },
       );
-      assertEquals(off.data?.timeout_seconds, AWAIT_LONG_CALL_SECONDS);
+      assertEquals(off.data?.timeout_s, AWAIT_LONG_CALL_SECONDS);
       assertEquals(off.data?.timeout_basis, "long-client");
     }
   });

@@ -32,7 +32,7 @@ import {
   defaultDocumentationScopes,
   defaultInstructionScopes,
 } from "./config.ts";
-import { KIT_VERSION } from "./version.ts";
+import { DISCERN_VERSION } from "./version.ts";
 import type { EnvReader } from "../shared/env.ts";
 import {
   type DiscernConfig,
@@ -185,7 +185,7 @@ export function renderConfigTemplateForConfig(
       ARTIFACT_PROVENANCE_SOURCES.config,
       env,
     ),
-    kit_version: KIT_VERSION,
+    discern_version: DISCERN_VERSION,
   };
   return substituteTokens(templateText, tokens).text;
 }

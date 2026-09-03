@@ -51,6 +51,16 @@ export const PROOF_NOTE_DSSE_ENVELOPE =
 export const PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY =
   "x-discern-compatibility-policy";
 
+/** Every discern extension keyword accepted by strict public-schema compilers. */
+export const PUBLIC_SCHEMA_EXTENSION_KEYWORDS = [
+  PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  "x-discern-contracts",
+  "x-discern-dsse-envelope",
+  "x-discern-dsse-protocol",
+  "x-discern-error-slugs",
+  "x-discern-payload-type",
+] as const;
+
 export const CONFIG_SCHEMA_COMPATIBILITY_POLICY = "config-input";
 export const RESULT_SCHEMA_COMPATIBILITY_POLICY = "result-output";
 

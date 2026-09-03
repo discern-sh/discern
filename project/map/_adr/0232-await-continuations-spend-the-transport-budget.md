@@ -29,7 +29,7 @@ The native provider catalogue has a total timeout-capability record. Adding a pr
 
 Claude Code, Codex, Gemini, and Copilot are configured with a 3,600-second tool timeout. Their `await` calls use at most 3,300 seconds, leaving five minutes for delivery and cancellation. Cursor uses 45 seconds, leaving 15 seconds beneath the CLI/ACP limit. Its IDE could support a longer call, but both surfaces read the same committed entry and observed client names are not a reliable capability contract. The shared entry therefore uses the shortest verified path. An MCP server without a provider declaration also uses 45 seconds. The CLI defaults to 3,300 seconds and has no MCP transport cap; an explicit CLI timeout remains exact.
 
-An explicit MCP timeout below the profile limit remains exact. A larger request is sliced at the safe limit, and `requested_timeout_seconds` records what the caller asked for. `timeout_seconds` and `timeout_basis` report the call that actually ran. A zero-second check still evaluates once, then recommends the profile maximum for a continuation.
+An explicit MCP timeout below the profile limit remains exact. A larger request is sliced at the safe limit, and `requested_timeout_s` records what the caller asked for. `timeout_s` and `timeout_basis` report the call that actually ran. A zero-second check still evaluates once, then recommends the profile maximum for a continuation.
 
 The logbook remains a wake signal, never a clock or verdict. Duration priors no longer shorten calls. `await` still returns as soon as the authoritative condition holds, so spending the available budget is strictly better than returning at an estimate.
 

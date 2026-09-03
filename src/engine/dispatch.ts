@@ -1426,7 +1426,7 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   for (
     const row of renderAlignedRows(rows.map((r) => {
       const base = r.source === "authored"
-        ? (r.overridesBundled ? "yours (overrides built-in)" : "yours")
+        ? (r.overrides_bundled ? "yours (overrides built-in)" : "yours")
         : "built-in";
       return {
         label: terminalLine(r.name),
@@ -1564,7 +1564,7 @@ async function planSkillsEject(
         name,
         source: "authored",
         srcAbs: ejection.destAbs,
-        overridesBundled: true,
+        overrides_bundled: true,
       },
     },
   );

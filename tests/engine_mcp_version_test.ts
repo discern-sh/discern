@@ -14,7 +14,7 @@ import {
   versionMismatchHint,
 } from "../src/engine/mcp/version_check.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
@@ -105,11 +105,11 @@ Deno.test("createInstalledVersionResolver: an unreadable binary resolves to unde
 
 Deno.test("createInstalledVersionResolver: real defaults keep a stable process and reject a replaced non-discern executable", async () => {
   const stable = createInstalledVersionResolver();
-  assertEquals(await stable(), KIT_VERSION);
+  assertEquals(await stable(), DISCERN_VERSION);
 
   let statKey = "running";
   const replaced = createInstalledVersionResolver({
-    serverVersion: KIT_VERSION,
+    serverVersion: DISCERN_VERSION,
     execPath: Deno.execPath(),
     statKey: () => statKey,
   });
@@ -126,7 +126,7 @@ Deno.test("runTool: a stale on-disk version leads every result with the restart 
 
     // A resolver reporting a newer on-disk version than this build → the rendered
     // result carries the restart hint alongside whatever the verb returned.
-    const staleVersion = `${KIT_VERSION}-newer`;
+    const staleVersion = `${DISCERN_VERSION}-newer`;
     const stale = await runTool(
       finish,
       new WorkingRoot(dir),
@@ -137,7 +137,7 @@ Deno.test("runTool: a stale on-disk version leads every result with the restart 
     assertHasMcpHint(
       stale.structuredContent,
       HINTS["mcp-version-mismatch"],
-      { serverVersion: KIT_VERSION, installedVersion: staleVersion },
+      { serverVersion: DISCERN_VERSION, installedVersion: staleVersion },
     );
     // The verb still ran: its own result is intact after the leading hint.
     assertEquals(stale.structuredContent.verb, "done");
@@ -157,12 +157,12 @@ Deno.test("runTool: a matching on-disk version adds no hint", async () => {
       new WorkingRoot(dir),
       { dry_run: true },
       undefined,
-      () => Promise.resolve(KIT_VERSION),
+      () => Promise.resolve(DISCERN_VERSION),
     );
     assertLacksMcpHint(
       fresh.structuredContent,
       HINTS["mcp-version-mismatch"],
-      { serverVersion: KIT_VERSION, installedVersion: KIT_VERSION },
+      { serverVersion: DISCERN_VERSION, installedVersion: DISCERN_VERSION },
     );
   });
 });

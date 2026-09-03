@@ -18,7 +18,7 @@ import {
   verbOf,
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { ConfigMissingError, loadConfig } from "../src/shared/config_schema.ts";
 import { RawConfig } from "../src/shared/config_read.ts";
@@ -27,7 +27,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
 
 const sameVersion = (): Promise<string | undefined> =>
-  Promise.resolve(KIT_VERSION);
+  Promise.resolve(DISCERN_VERSION);
 
 /** The discern_status tool — the representative registry member. */
 function statusTool(): (typeof TOOLS)[number] {

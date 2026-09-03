@@ -511,7 +511,7 @@ Deno.test("setup accept refuses to land a branch that is not the setup branch", 
     assertEquals(res.code, 1, res.output);
     assertEquals(
       decodeCliResult(res.stdout, "setup accept").error,
-      "not_setup_branch",
+      "not_on_setup_branch",
     );
 
     // main untouched, still on the feature branch, its commits intact.

@@ -72,7 +72,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`terminal-product-triangle-art`](#terminal-product-triangle-art--product-triangle-art)                               | `art/terminal/triangle.ts#DISCERN_PRODUCT_TRIANGLE_ART`                           | 2       | —                | —                           |
 | [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 19      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
-| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 68      | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 66      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 9       | —                | node `logbook`              |
@@ -94,7 +94,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
 | [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 68      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 66      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 47      | —                | node `bundled-docs`         |
@@ -2084,7 +2084,7 @@ The result fields a generic recovery instruction may cite. A failure with neithe
 The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
 
 - Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
-- Members: 68
+- Members: 66
   - `active_worktrees: evidence`
   - `ambiguous: tailored`
   - `apply_failed: evidence`
@@ -2117,7 +2117,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `invalid_value: evidence`
   - `no_docs: evidence`
   - `no_map: evidence`
-  - `no_project: evidence`
   - `no_repository: evidence`
   - `no_such_step: evidence`
   - `no_target: evidence`
@@ -2126,7 +2125,7 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `not_main_checkout: evidence`
   - `not_on_trunk: evidence`
   - `not_set_up: evidence`
-  - `not_setup_branch: evidence`
+  - `not_on_setup_branch: evidence`
   - `partial_acceptance: tailored`
   - `partial_materialization: tailored`
   - `partial_refresh: tailored`
@@ -2146,7 +2145,6 @@ The audited recovery mode for every canonical error slug: use the generic floor 
   - `templates_not_found: evidence`
   - `tidy_parse_failed: evidence`
   - `tidy_write_failed: evidence`
-  - `uncommitted_changes: evidence`
   - `unchanged_tree_rerun: tailored`
   - `unknown_category: evidence`
   - `unknown_command: tailored`
@@ -2225,7 +2223,7 @@ The categories that group every Patterns detector and finding. Schemas, registry
 - Members: 4
   - `trajectory`
   - `gate-fit`
-  - `behaviour`
+  - `behavior`
   - `funnel`
 - Guards: `tests/patterns_test.ts`, `tests/engine_patterns_test.ts`
 - Glossary: not enrolled — the Patterns entry defines the reader-facing concept, and this registry supplies its internal report groups
@@ -2640,7 +2638,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
 - Members: 51
-  - `discern`
+  - `root`
   - `setup`
   - `setupBegin`
   - `setupVerify`
@@ -2703,7 +2701,7 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 - Source: `src/shared/result_contracts.ts` — `RESULT_CONTRACT_REFERENCE_FIELDS`
 - Members: 2
   - `schema`
-  - `mcpToolResultSchema`
+  - `mcp_tool_result_schema`
 - Guards: `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`
 - Artifacts: `schema/discern-results.schema.json`
 - Glossary: not enrolled — the result-contract reference documents these machine schema fields
@@ -2847,14 +2845,14 @@ The public reporting channels, policy location, language, and bounded security.t
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 68
+- Members: 66
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
   - `awaiting_consent`
   - `awaiting_declaration`
-  - `awaiting_variance`
   - `awaiting_standard_approval`
+  - `awaiting_variance`
   - `below_min_score`
   - `brief_unparseable`
   - `checkout_failed`
@@ -2880,28 +2878,27 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `invalid_value`
   - `no_docs`
   - `no_map`
-  - `no_project`
   - `no_repository`
   - `no_such_step`
   - `no_target`
   - `not_found`
   - `not_initialized`
   - `not_main_checkout`
+  - `not_on_setup_branch`
   - `not_on_trunk`
   - `not_set_up`
-  - `not_setup_branch`
   - `partial_acceptance`
   - `partial_materialization`
   - `partial_refresh`
   - `pin_failed`
+  - `precondition_failed`
   - `proposal_failed`
   - `proposal_stale`
-  - `precondition_failed`
   - `provisioned_resources`
   - `read_error`
-  - `report_only_proof`
   - `renamed_command`
   - `renamed_config_key`
+  - `report_only_proof`
   - `schema_version_too_new`
   - `setup_plan_failed`
   - `skills_eject_failed`
@@ -2909,7 +2906,6 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `templates_not_found`
   - `tidy_parse_failed`
   - `tidy_write_failed`
-  - `uncommitted_changes`
   - `unchanged_tree_rerun`
   - `unknown_category`
   - `unknown_command`
@@ -4562,5 +4558,5 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it
 - `src/engine/gate/proof_render.ts` — the claim defines a derive-once invariant: Proof reads and reuses the result envelope
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
-- `src/lib/version.ts` — the kit version constant is one value with no member axis or satellites
+- `src/lib/version.ts` — the discern version constant is one value with no member axis or satellites
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

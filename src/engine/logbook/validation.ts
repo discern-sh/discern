@@ -8,7 +8,7 @@
  */
 
 import { z } from "@zod/zod";
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 
@@ -333,4 +333,4 @@ export function completeValidationEvidence(
 }
 
 /** Shared writer value for captures assembled without filesystem work. */
-export const VALIDATION_WRITER = KIT_VERSION;
+export const VALIDATION_WRITER = DISCERN_VERSION;

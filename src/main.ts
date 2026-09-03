@@ -9,7 +9,7 @@
 
 import { Command, ValidationError } from "@cliffy/command";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
-import { KIT_VERSION } from "./lib/version.ts";
+import { DISCERN_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { Logger } from "./lib/log.ts";
 import {
@@ -404,11 +404,11 @@ export function buildCli(
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   const root = new Command()
     .name("discern")
-    .version(KIT_VERSION)
+    .version(DISCERN_VERSION)
     .versionOption(
       "-V, --version",
       "Print the installed discern version.",
-      () => writeStdout(`discern ${KIT_VERSION}\n`),
+      () => writeStdout(`discern ${DISCERN_VERSION}\n`),
     )
     .usage("<command> [options]")
     .description(

@@ -1,6 +1,6 @@
 /** Validate a release tag and derive its native build matrix. */
 
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 
@@ -35,7 +35,7 @@ export function releasePlan(
         "make the repository public and complete launch lock-down 8A before tagging",
     );
   }
-  const version = options.version ?? KIT_VERSION;
+  const version = options.version ?? DISCERN_VERSION;
   const targets = options.targets ?? BUILD_TARGETS;
   const expectedTag = `v${version}`;
   if (tag !== expectedTag) {

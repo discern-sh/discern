@@ -36,7 +36,7 @@ export interface CliOption {
   flags: string[];
   description: string;
   /** Cliffy's value spec (`"<name:string>"`), `""` for a boolean flag. */
-  typeDefinition: string;
+  type_definition: string;
   hidden: boolean;
   /** True for a root `globalOption` inherited by every command. */
   global: boolean;
@@ -112,7 +112,7 @@ function walkCommand(
     options: cmd.getOptions(true).map((o) => ({
       flags: [...o.flags],
       description: o.description,
-      typeDefinition: o.typeDefinition ?? "",
+      type_definition: o.typeDefinition ?? "",
       hidden: o.hidden === true,
       global: o.global === true,
     })),
@@ -205,7 +205,7 @@ function optionsTable(node: CliCommand): string {
   const rows = node.options
     .filter((o) => !o.hidden && !o.global)
     .map((o) => {
-      const spec = valueSpec(o.typeDefinition);
+      const spec = valueSpec(o.type_definition);
       const label = o.flags.join(", ") + (spec === "" ? "" : ` ${spec}`);
       return `| \`${cell(label)}\` | ${cell(o.description)} |`;
     });
@@ -301,7 +301,7 @@ export function renderCliReferenceModel(
   const globalRows = model.options
     .filter((o) => !o.hidden)
     .map((o) => {
-      const spec = valueSpec(o.typeDefinition);
+      const spec = valueSpec(o.type_definition);
       const label = o.flags.join(", ") + (spec === "" ? "" : ` ${spec}`);
       return `| \`${cell(label)}\` | ${cell(o.description)} |`;
     });

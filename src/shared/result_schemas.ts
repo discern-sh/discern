@@ -295,7 +295,7 @@ export const EnvelopeSchema = envelopeObjectSchema({
 });
 
 /**
- * The envelope for the data-LESS verbs (`prepare`, `test`, `standards`): strict and
+ * The envelope for the data-LESS verbs (`prepare`, `test`, `tidy`): strict and
  * WITHOUT a `data` field. They carry no `data` today, and this makes that a checked
  * invariant — a result that grows a `data` payload fails its faithfulness test (and the
  * SDK's output validation) until the payload is modelled, the SSOT guard the bare
@@ -1240,8 +1240,6 @@ const GateProofWireSchema = z.strictObject({
   head: z.string().optional(),
   reason: z.string().optional(),
   proof: ProofSummarySchema.optional(),
-  /** Legacy marker writers may supply only their bounded one-line rendering. */
-  proof_line: z.string().optional(),
   checkpoint_drops: z.array(CheckpointDropSchema).optional(),
 });
 
@@ -1376,7 +1374,7 @@ export const ContinuationHandleSchema = z.string()
 export const AWAIT_RETRY_BASES = [
   "explicit",
   ...AWAIT_CALL_PROFILES,
-  "experimental-cap",
+  "cache-window",
 ] as const;
 
 /** The current call and its continuation share one bound vocabulary. */
@@ -1409,23 +1407,23 @@ const awaitObservedSchema = z.strictObject({
 /** `await` — one blocking wait on a fleet condition. `met` is the verdict this
  * call ends on (a timeout is `met: false` with `ok: true` — "not yet" is an
  * answer, not a failure); `observed` is the authoritative state behind it;
- * `timeout_seconds` + `timeout_basis` name the transport-safe bound this call
- * used; `requested_timeout_seconds` records a larger caller request when that
+ * `timeout_s` + `timeout_basis` name the transport-safe bound this call used;
+ * `requested_timeout_s` records a larger caller request when that
  * request had to be capped; `resume` is the short repository-local handle that
- * preserves the original pins across calls; `retry_after_seconds` +
+ * preserves the original pins across calls; `retry_after_s` +
  * `retry_basis` give the next lossless call's bound. */
 export const AwaitDataSchema = z.strictObject({
   condition: z.enum(AWAIT_CONDITIONS),
   branch: z.string().optional(),
   trunk: z.string(),
   met: z.boolean(),
-  waited_ms: z.number().int(),
-  timeout_seconds: z.number(),
+  elapsed_ms: z.number().int(),
+  timeout_s: z.number(),
   timeout_basis: z.enum(AWAIT_TIMEOUT_BASES),
-  requested_timeout_seconds: z.number().optional(),
+  requested_timeout_s: z.number().optional(),
   observed: awaitObservedSchema,
   resume: ContinuationHandleSchema.optional(),
-  retry_after_seconds: z.number().int().optional(),
+  retry_after_s: z.number().int().optional(),
   retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),
 });
 export type AwaitData = z.infer<typeof AwaitDataSchema>;
@@ -2058,7 +2056,7 @@ export const ProviderTrustDataSchema = z.strictObject({
 /** `doctor` — the install-verification payload. `execution_model` is the per-verb
  * ordered step list (optional: omitted only when no config can be read at all). */
 export const DoctorDataSchema = z.strictObject({
-  kit_version: z.string(),
+  discern_version: z.string(),
   environment: DoctorEnvironmentSchema,
   checks: z.array(CheckSchema),
   provider_trust: z.array(ProviderTrustDataSchema).optional(),
@@ -2241,7 +2239,7 @@ export interface HelpCommandData {
   readonly options: Array<{
     flags: string[];
     description: string;
-    typeDefinition: string;
+    type_definition: string;
     hidden: boolean;
     global: boolean;
   }>;
@@ -2263,7 +2261,7 @@ export const HelpCommandDataSchema: z.ZodType<HelpCommandData> = z.lazy(() =>
     options: z.array(z.strictObject({
       flags: z.array(z.string()),
       description: z.string(),
-      typeDefinition: z.string(),
+      type_definition: z.string(),
       hidden: z.boolean(),
       global: z.boolean(),
     })),
@@ -2416,7 +2414,7 @@ export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
 export const SetupVerifyConflictSchema = z.strictObject({
   kind: z.enum([
     "existing_instructions",
-    "dirty_tree",
+    "dirty_worktree",
     "not_a_repo",
     "missing_git_identity",
   ]),
@@ -2813,7 +2811,7 @@ export const SetupBeginDataSchema = z.strictObject({
   /** The git stderr line explaining a FAILED machinery auto-commit (absent when
    * committed, or when the skip was deliberate). */
   machinery_commit_error: z.string().optional(),
-  kit_version: z.string().optional(),
+  discern_version: z.string().optional(),
   written: z.array(z.string()).optional(),
   instruction_refresh: InstructionRefreshDataSchema.optional(),
   mcp_wired: z.array(z.string()).optional(),
@@ -3048,7 +3046,7 @@ export const UpgradeDataSchema = z.strictObject({
   ).optional(),
   changes: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
-  kit_version: z.string().optional(),
+  discern_version: z.string().optional(),
   migrations_applied: z.array(migrationStepSchema).optional(),
   config_reconciled: z.array(configReconcileOperationSchema).optional(),
   gitignore_reconciled: z.array(gitignoreReconcileOperationSchema).optional(),
@@ -3105,9 +3103,9 @@ const skillListingSchema = z.strictObject({
   name: z.string(),
   source: z.enum(["authored", "bundled"]),
   // True when this authored skill shadows a bundled built-in.
-  overridesBundled: z.boolean(),
+  overrides_bundled: z.boolean(),
   // True when a bundled built-in of this name exists (shadowed or not).
-  hasBundled: z.boolean(),
+  has_bundled: z.boolean(),
   // True when `[skills].exclude` drops this skill from materialization.
   excluded: z.boolean(),
 });

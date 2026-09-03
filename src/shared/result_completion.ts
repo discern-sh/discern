@@ -387,14 +387,6 @@ function instructionRefreshFailure(
       "The required instruction refresh did not complete; applied effects were preserved and the result names a safe retry.",
     );
   }
-  // Compatibility guard for producers written before the discriminated refresh
-  // payload landed. It is value-based, never inferred from an empty file list.
-  if (data?.instructions_compiled === false) {
-    return failed(
-      "partial_refresh",
-      "The required instruction refresh did not complete; applied effects were preserved.",
-    );
-  }
   return undefined;
 }
 

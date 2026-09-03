@@ -29,7 +29,7 @@
  *   - predicative: the phrase followed by "for", "of", or ":" — "the SSOT
  *     for the mode vocabulary";
  *   - appositive: the phrase directly after an em-dash, an optional article
- *     between — "The kit version — single source of truth.";
+ *     between — "The discern version — single source of truth.";
  *   - copular: "is/are the" directly before the phrase — "This table is the
  *     single source of truth.".
  *

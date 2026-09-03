@@ -1,5 +1,5 @@
 /**
- * The kit version — single source of truth.
+ * The discern version — single source of truth.
  *
  * The version lives in `deno.json` (the package version). Importing it as a
  * JSON module means `deno compile` bundles the literal into the binary, so the
@@ -9,8 +9,8 @@
 import denoJson from "../../deno.json" with { type: "json" };
 import { DISCERN_ISSUES_URL, INSTALL_COMMAND } from "../shared/brand.ts";
 
-/** The current kit version, e.g. "1.0.0". */
-export const KIT_VERSION: string = denoJson.version;
+/** The current discern version, e.g. "1.0.0". */
+export const DISCERN_VERSION: string = denoJson.version;
 
 /**
  * The one honest way to get a newer discern binary, cited verbatim by every
@@ -31,7 +31,7 @@ export const ISSUES_URL = DISCERN_ISSUES_URL;
 
 /**
  * The install schema version — the monotonic migration anchor recorded in
- * `[meta].schema_version` (ADR 0014). It is independent of `KIT_VERSION` and
+ * `[meta].schema_version` (ADR 0014). It is independent of `DISCERN_VERSION` and
  * changes only when an installed project needs a migration.
  *
  * The first public release establishes schema 1. Prerelease transitions were

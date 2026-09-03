@@ -34,7 +34,7 @@ import {
   loadConfig,
   toCommandList,
 } from "../src/shared/config_schema.ts";
-import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { DISCERN_GENERATED_MERGE_DRIVER } from "../src/lib/agent_gitattributes.ts";
@@ -572,7 +572,7 @@ Deno.test("doctor --json: a fresh install includes the seeded tidy format job", 
     assertEquals(code, 0);
     assertEquals(payload.ok, true);
     assertEquals(payload.verb, "doctor");
-    assertEquals(payload.data.kit_version, KIT_VERSION);
+    assertEquals(payload.data.discern_version, DISCERN_VERSION);
     for (
       const name of ["discern.toml", "schema version", "known jobs", "git"]
     ) {
@@ -598,7 +598,7 @@ Deno.test("doctor --json: a fresh install includes the seeded tidy format job", 
     // The git check reports the resolved version (triage context).
     assertStringIncludes(check(payload, "git").detail, ".");
     // The environment block is populated for bug-report triage.
-    assertEquals(payload.data.environment.discern, KIT_VERSION);
+    assertEquals(payload.data.environment.discern, DISCERN_VERSION);
     assert(
       payload.data.environment.platform.includes("/"),
       "platform should be os/arch",
@@ -707,7 +707,7 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertEquals(code, 0);
     assertStringIncludes(stderr, "discern doctor");
     // The environment header gives at-a-glance triage context.
-    assertStringIncludes(stderr, `discern ${KIT_VERSION} ·`);
+    assertStringIncludes(stderr, `discern ${DISCERN_VERSION} ·`);
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
     assertStringIncludes(

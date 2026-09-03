@@ -82,7 +82,7 @@ function parseState(text: string): TipSeenState | undefined {
 /**
  * Read the repository's tip seen-state. Every failure — no repository, a
  * missing file, a torn write, a foreign schema — resets to the fresh state
- * baselined at `version` (the current kit version), never throws.
+ * baselined at `version` (the current discern version), never throws.
  */
 export async function readTipSeenState(
   root: string,

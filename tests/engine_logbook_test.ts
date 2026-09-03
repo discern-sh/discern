@@ -39,7 +39,7 @@ import {
   verbOf,
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { fire, firedHintsFromTexts, HINTS } from "../src/shared/hints.ts";
 import {
   observeCheckpointActivity,
@@ -871,7 +871,7 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       new WorkingRoot(dir),
       {},
       undefined,
-      () => Promise.resolve(`${KIT_VERSION}-newer`),
+      () => Promise.resolve(`${DISCERN_VERSION}-newer`),
       {
         name: "codex-mcp-client",
         title: "Codex",
@@ -962,7 +962,7 @@ Deno.test("logbook: every known-root MCP refusal records its final delivered res
           new WorkingRoot(dir),
           refusal.args,
           undefined,
-          () => Promise.resolve(`${KIT_VERSION}-newer`),
+          () => Promise.resolve(`${DISCERN_VERSION}-newer`),
         );
         assertEquals(
           delivered.structuredContent.error,
@@ -1014,7 +1014,7 @@ Deno.test("logbook: an MCP path outside every project has no project logbook to 
           new WorkingRoot(dir),
           { path: outside, dry_run: true },
           undefined,
-          () => Promise.resolve(KIT_VERSION),
+          () => Promise.resolve(DISCERN_VERSION),
         );
         if (tool.rootIndependent !== true) {
           assertEquals(

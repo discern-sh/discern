@@ -3098,7 +3098,7 @@ Deno.test("tip adoption: every declaring registry entry resolves same- and cross
   assert(entries.length > 0, "the tip registry carries no adoption rules");
   const detectorUnderTest = detector("tip-adoption");
   assertEquals(detectorUnderTest.threshold, 3);
-  assertEquals(detectorUnderTest.family, "behaviour");
+  assertEquals(detectorUnderTest.family, "behavior");
   assertEquals(detectorUnderTest.scope, "project");
   assertEquals(detectorUnderTest.tier, "batch");
 

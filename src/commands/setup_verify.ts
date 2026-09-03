@@ -252,7 +252,7 @@ function buildConflicts(
     });
   } else if (git.kind === "dirty") {
     conflicts.push({
-      kind: "dirty_tree",
+      kind: "dirty_worktree",
       detail:
         "Uncommitted changes to tracked files — begin will ask you to commit or stash first. (Advanced: --allow-dirty sets up on the current branch as-is, skipping the isolated discern-setup branch — for CI or automated setups.)",
     });

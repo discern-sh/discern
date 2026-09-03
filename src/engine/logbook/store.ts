@@ -34,7 +34,7 @@ import { dirname, join } from "@std/path";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
@@ -264,7 +264,7 @@ async function rotate(
   const prune: PruneEvent = {
     schema: LOGBOOK_SCHEMA_VERSION,
     at: atIso,
-    writer: KIT_VERSION,
+    writer: DISCERN_VERSION,
     kind: "prune",
     removed,
   };

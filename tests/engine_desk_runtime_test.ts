@@ -63,7 +63,7 @@ import {
   type TipSeenState,
 } from "../src/engine/desk/tips.ts";
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { displayWidth, stripAnsi } from "../src/lib/text.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
@@ -399,7 +399,7 @@ function scriptedRuntime(
       launch: { command: "open", args: [url] },
     }),
     now: () => NOW,
-    readTipState: () => freshTipSeenState(KIT_VERSION),
+    readTipState: () => freshTipSeenState(DISCERN_VERSION),
     writeTipState: () => {},
     readPreferences: () => ({ schema_version: 1 }),
     writePreferences: () => ({ status: "saved" }),
@@ -3162,7 +3162,7 @@ Deno.test("desk wraps the complete tip at 60 columns without truncating it", asy
 });
 
 Deno.test("desk rotates the tip across sessions through the seen-state", async () => {
-  const stateRef = { state: freshTipSeenState(KIT_VERSION) };
+  const stateRef = { state: freshTipSeenState(DISCERN_VERSION) };
   const shown: string[] = [];
   const session = async (): Promise<void> => {
     const output = transcript();

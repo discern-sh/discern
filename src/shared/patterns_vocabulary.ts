@@ -21,7 +21,7 @@ import { z } from "@zod/zod";
 export const DETECTOR_FAMILIES = [
   "trajectory",
   "gate-fit",
-  "behaviour",
+  "behavior",
   "funnel",
 ] as const;
 /** One detector family ({@link DETECTOR_FAMILIES}). */
@@ -599,7 +599,7 @@ export const PatternsStatsSchema = z.strictObject({
   /** The standards ratchet, read from pin events and the standard readings
    * recorded on gate runs: limits tightened, how many distinct standards
    * they cover, and how the measured values moved. */
-  ratchet: z.strictObject({
+  standards: z.strictObject({
     pins: z.number().int(),
     standards: z.number().int(),
     /** Average improvement across all measured standards per series point,

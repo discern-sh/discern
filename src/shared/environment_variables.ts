@@ -291,9 +291,9 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     group: "experimental-features",
     lifecycle: "live",
     documentation: {
-      public: false,
-      reason:
-        "Caps the automatic bound of one `await` call below the transport-safe maximum; the contributor experimental-behaviors page records the trial.",
+      public: true,
+      description:
+        "Set to a positive whole number of seconds to cap one automatic `await` call below its transport-safe maximum; results report `timeout_basis: cache-window` when it decides the bound.",
     },
   },
 

@@ -683,7 +683,7 @@ function decisionEvidenceBasis(
 const doneThrash: Detector = {
   id: "done-thrash",
   title: "Consecutive red done runs",
-  family: "behaviour",
+  family: "behavior",
   scope: "branch",
   tier: "inline",
   tone: "attention",
@@ -735,7 +735,7 @@ const doneThrash: Detector = {
 const refusalLoop: Detector = {
   id: "refusal-loop",
   title: "Repeated refusals with one slug",
-  family: "behaviour",
+  family: "behavior",
   scope: "session",
   tier: "inline",
   tone: "attention",
@@ -1054,7 +1054,7 @@ function checkpointDeclarationEpisodes(
 const hintFollowThrough: Detector = {
   id: "hint-follow-through",
   title: "Hint follow-through by family",
-  family: "behaviour",
+  family: "behavior",
   scope: "session",
   tier: "inline",
   tone: "attention",
@@ -1414,7 +1414,7 @@ export function tipAdoptionOutcome(
 const tipAdoption: Detector = {
   id: "tip-adoption",
   title: "Tip adoption by tip",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "attention",
@@ -1473,7 +1473,7 @@ function preparePreventableKind(
 const skippedPrepare: Detector = {
   id: "skipped-prepare",
   title: "Repeated Gate work preventable by prepare",
-  family: "behaviour",
+  family: "behavior",
   scope: "branch",
   tier: "inline",
   tone: "attention",
@@ -1569,7 +1569,7 @@ const skippedPrepare: Detector = {
 const dirtyDoneChurn: Detector = {
   id: "dirty-done-churn",
   title: "Done churn on dirty trees",
-  family: "behaviour",
+  family: "behavior",
   scope: "branch",
   tier: "inline",
   tone: "attention",
@@ -1603,7 +1603,7 @@ const dirtyDoneChurn: Detector = {
 const trunkEdits: Detector = {
   id: "trunk-edits",
   title: "Edits on the trunk",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "inline",
   tone: "attention",
@@ -1638,7 +1638,7 @@ const trunkEdits: Detector = {
 const forceHabit: Detector = {
   id: "force-habit",
   title: "Recurring --force",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "attention",
@@ -1674,7 +1674,7 @@ const forceHabit: Detector = {
 const confirmedRerun: Detector = {
   id: "confirmed-rerun",
   title: "Recurring explicit Gate reruns",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "attention",
@@ -1760,7 +1760,7 @@ export function dormantWatchedVerbs(): Set<string> {
 const dormantVerbs: Detector = {
   id: "dormant-verbs",
   title: "Operator verbs absent from the Logbook",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",
@@ -1830,7 +1830,7 @@ function grantSourceLabel(source: string): string {
 const preAuthorizedLandings: Detector = {
   id: "pre-authorized-landings",
   title: "Pre-authorized landings",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",
@@ -1975,7 +1975,7 @@ const preAuthorizedLandings: Detector = {
 const grantSuggestion: Detector = {
   id: "grant-suggestion",
   title: "Repeated conversational landings in one scope",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",
@@ -2036,7 +2036,7 @@ const grantSuggestion: Detector = {
 const docsGap: Detector = {
   id: "docs-gap",
   title: "Documentation lookups and misses",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "inline",
   tone: "neutral",
@@ -2109,7 +2109,7 @@ const docsGap: Detector = {
 const abandonedWorktrees: Detector = {
   id: "abandoned-worktrees",
   title: "Inactive branches without a recorded green Gate",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "attention",
@@ -2164,7 +2164,7 @@ const abandonedWorktrees: Detector = {
 const sequenceAnomaly: Detector = {
   id: "sequence-anomaly",
   title: "Validation and acceptance ordering",
-  family: "behaviour",
+  family: "behavior",
   scope: "branch",
   tier: "batch",
   tone: "attention",
@@ -2244,7 +2244,7 @@ const sequenceAnomaly: Detector = {
 const identityGap: Detector = {
   id: "identity-gap",
   title: "Drivers the catalogue can't name",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",
@@ -2316,7 +2316,7 @@ const identityGap: Detector = {
 const providerFit: Detector = {
   id: "provider-fit",
   title: "A returning agent without its native integration",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "attention",
@@ -2382,7 +2382,7 @@ function instructionSurfaceOf(agent: string): string | undefined {
 const cohortDoneThrash: Detector = {
   id: "cohort-done-thrash",
   title: "Consecutive red done runs, by driver cohort",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",
@@ -2446,7 +2446,7 @@ const cohortDoneThrash: Detector = {
 const instructionParity: Detector = {
   id: "instruction-parity",
   title: "Instructions gaps by attributed driver cohort",
-  family: "behaviour",
+  family: "behavior",
   scope: "project",
   tier: "batch",
   tone: "neutral",

@@ -488,6 +488,11 @@ Deno.test("default status wire stays bounded as unrelated fleet state grows", ()
   assertEquals(omitted.standards, 74);
   assertEquals((projectedData.unlanded_branches as unknown[]).length, 6);
   assertEquals(omitted.unlanded_branches, 74);
+  assertEquals(Object.keys(omitted).sort(), [
+    "fleet",
+    "standards",
+    "unlanded_branches",
+  ]);
   assert(
     structured.length + markdown.length < 16_000,
     `bounded status result used ${
@@ -504,6 +509,9 @@ Deno.test("default status wire stays bounded as unrelated fleet state grows", ()
     { length: 80 },
     (_, index) => `observation-${index}`,
   );
+  futureData.future_groups = [{
+    items: Array.from({ length: 8 }, (_, index) => `item-${index}`),
+  }];
   const futureProjected = projectStatusResult(future);
   const futureProjectedData = futureProjected.data as Record<string, unknown>;
   assertEquals(
@@ -515,13 +523,27 @@ Deno.test("default status wire stays bounded as unrelated fleet state grows", ()
       .omitted as Record<string, unknown>).future_observations,
     74,
   );
+  const futureOmitted = (futureProjectedData.projection as Record<
+    string,
+    unknown
+  >).omitted as Record<string, number>;
+  assertEquals(futureOmitted["future_groups[0].items"], 2);
+  for (const [path, count] of Object.entries(futureOmitted)) {
+    assert(
+      /^(?:[a-z][a-z0-9_]*)(?:\.[a-z][a-z0-9_]*|\[[0-9]+\])*$/u.test(
+        path,
+      ),
+      `omission path must use dotted keys and zero-based array indexes: ${path}`,
+    );
+    assert(Number.isInteger(count) && count > 0, `${path} omitted ${count}`);
+  }
 
   const full = projectStatusResult(result, { wireProjection: "full" });
   StatusOutputSchema.parse(full);
   const fullData = full.data as Record<string, unknown>;
   assertEquals(
-    (fullData.projection as Record<string, unknown>).mode,
-    "full",
+    fullData.projection,
+    { mode: "full" },
   );
   assertEquals((fullData.fleet as unknown[]).length, 81);
   assertEquals((fullData.standards as unknown[]).length, 80);
@@ -1215,7 +1237,7 @@ Deno.test("durations and byte sizes render at readable units", () => {
     {
       ok: true,
       verb: "await",
-      data: { met: false, condition: "green", waited_ms: 60_000 },
+      data: { met: false, condition: "green", elapsed_ms: 60_000 },
     },
     resultPresenterForVerb("await"),
   );

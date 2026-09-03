@@ -28,7 +28,7 @@ export type ContentTokenName =
   | "scopes_neutral"
   | "scopes_instructions"
   | "artifact_provenance_marker"
-  | "kit_version";
+  | "discern_version";
 
 /** The concrete token values resolved for one `setup` run. */
 export type TokenMap = Record<ContentTokenName, string>;

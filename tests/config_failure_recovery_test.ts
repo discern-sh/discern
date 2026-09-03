@@ -10,7 +10,7 @@ import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { z } from "@zod/zod";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   configSchema,
@@ -222,7 +222,7 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
 
       // The same long-lived process first reads config from before the newer root
       // section existed. It succeeds and leaves the known bytes untouched.
-      let installedVersion = KIT_VERSION;
+      let installedVersion = DISCERN_VERSION;
       const working = new WorkingRoot(dir);
       const resolveInstalledVersion = (): Promise<string | undefined> =>
         Promise.resolve(installedVersion);
@@ -247,7 +247,7 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
       assertLacksMcpHint(
         healthy.structuredContent,
         HINTS["mcp-version-mismatch"],
-        { serverVersion: KIT_VERSION, installedVersion: KIT_VERSION },
+        { serverVersion: DISCERN_VERSION, installedVersion: DISCERN_VERSION },
       );
       assertEquals(await Deno.readTextFile(configPath), before);
 
@@ -256,7 +256,7 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
       const broken = `${before}\n[${introducedSection}]\n`;
       assert(parseConfig(broken).config !== undefined);
       await Deno.writeTextFile(configPath, broken);
-      installedVersion = `${KIT_VERSION}-newer`;
+      installedVersion = `${DISCERN_VERSION}-newer`;
       const result = await runTool(
         staleStatus,
         working,
@@ -281,7 +281,7 @@ Deno.test("long-lived MCP maps an unknown root to config recovery and leads with
       const expectedRestart = assertHasMcpHint(
         result.structuredContent,
         HINTS["mcp-version-mismatch"],
-        { serverVersion: KIT_VERSION, installedVersion },
+        { serverVersion: DISCERN_VERSION, installedVersion },
       );
       const expectedConfig = assertHasMcpHint(
         result.structuredContent,

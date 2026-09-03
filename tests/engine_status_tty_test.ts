@@ -31,6 +31,8 @@ import {
   sortFleetRows,
   STATUS_REPORT_MAX_WIDTH,
 } from "../src/engine/status/tty.ts";
+import { prioritizeStatusFleet } from "../src/engine/status/status.ts";
+import { projectStatusData } from "../src/shared/result_wire.ts";
 
 const ESC = String.fromCharCode(27);
 const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, "gu");
@@ -1105,4 +1107,55 @@ Deno.test("status dashboard: importance sorting is stable and current wins only 
     "agent/zulu-111aaa",
     "agent/alpha-333ccc",
   ]);
+});
+
+Deno.test("status orientation samples main plus six from canonical attention/current/recent/lexical priority", () => {
+  const main = entry({
+    path: "/repo",
+    branch: "main",
+    id: "main",
+    is_main: true,
+  });
+  const ordinary = Array.from({ length: 7 }, (_, index) =>
+    entry({
+      path: `/repo.worktrees/ordinary-${index}`,
+      branch: `agent/ordinary-${index}`,
+      id: `ordinary-${index}`,
+      last_activity: `2026-08-03T0${index}:00:00.000Z`,
+    }));
+  const current = entry({
+    path: "/repo.worktrees/current",
+    branch: "agent/current",
+    id: "current",
+    is_current: true,
+    last_activity: "2026-08-03T01:00:00.000Z",
+  });
+  const failed = entry({
+    path: "/repo.worktrees/failed",
+    branch: "agent/failed",
+    id: "failed",
+    last_action: {
+      verb: "done",
+      outcome: "failed",
+      at: "2026-08-03T00:00:00.000Z",
+    },
+  });
+  const ordered = prioritizeStatusFleet(
+    [main, ...ordinary.reverse(), current, failed],
+    { trunk: "main", nowMs: NOW },
+  );
+  const projected = projectStatusData({
+    location: "main",
+    project: "fixture",
+    fleet: ordered,
+  });
+  const sampled = projected.fleet as StatusFleetEntry[];
+  assertEquals(sampled.length, 7);
+  assertEquals(sampled[0]?.branch, "main");
+  assertEquals(sampled[1]?.branch, "agent/failed");
+  assertEquals(sampled[2]?.branch, "agent/current");
+  assertEquals(
+    (projected.projection as { omitted: Record<string, number> }).omitted.fleet,
+    3,
+  );
 });

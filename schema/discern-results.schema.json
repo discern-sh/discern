@@ -370,8 +370,8 @@
         }
       ]
     },
-    "DiscernDiscernResult": {
-      "title": "DiscernDiscernResult",
+    "DiscernRootResult": {
+      "title": "DiscernRootResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -1643,7 +1643,7 @@
                 "machinery_commit_error": {
                   "type": "string"
                 },
-                "kit_version": {
+                "discern_version": {
                   "type": "string"
                 },
                 "written": {
@@ -2613,7 +2613,7 @@
                         "type": "string",
                         "enum": [
                           "existing_instructions",
-                          "dirty_tree",
+                          "dirty_worktree",
                           "not_a_repo",
                           "missing_git_identity"
                         ]
@@ -5829,7 +5829,7 @@
                     ]
                   }
                 },
-                "kit_version": {
+                "discern_version": {
                   "type": "string"
                 },
                 "migrations_applied": {
@@ -6898,7 +6898,7 @@
             {
               "type": "object",
               "properties": {
-                "kit_version": {
+                "discern_version": {
                   "type": "string"
                 },
                 "environment": {
@@ -7112,7 +7112,7 @@
                 }
               },
               "required": [
-                "kit_version",
+                "discern_version",
                 "environment",
                 "checks"
               ]
@@ -12752,7 +12752,7 @@
                             "enum": [
                               "trajectory",
                               "gate-fit",
-                              "behaviour",
+                              "behavior",
                               "funnel"
                             ]
                           },
@@ -17139,12 +17139,12 @@
                 "met": {
                   "type": "boolean"
                 },
-                "waited_ms": {
+                "elapsed_ms": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
-                "timeout_seconds": {
+                "timeout_s": {
                   "type": "number"
                 },
                 "timeout_basis": {
@@ -17155,10 +17155,10 @@
                     "long-client",
                     "strict-client",
                     "unknown-client",
-                    "experimental-cap"
+                    "cache-window"
                   ]
                 },
-                "requested_timeout_seconds": {
+                "requested_timeout_s": {
                   "type": "number"
                 },
                 "observed": {
@@ -17224,7 +17224,7 @@
                   "maxLength": 15,
                   "pattern": "^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$"
                 },
-                "retry_after_seconds": {
+                "retry_after_s": {
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
@@ -17237,7 +17237,7 @@
                     "long-client",
                     "strict-client",
                     "unknown-client",
-                    "experimental-cap"
+                    "cache-window"
                   ]
                 }
               },
@@ -17245,8 +17245,8 @@
                 "condition",
                 "trunk",
                 "met",
-                "waited_ms",
-                "timeout_seconds",
+                "elapsed_ms",
+                "timeout_s",
                 "timeout_basis",
                 "observed"
               ]
@@ -17778,7 +17778,7 @@
                         "enum": [
                           "trajectory",
                           "gate-fit",
-                          "behaviour",
+                          "behavior",
                           "funnel"
                         ]
                       },
@@ -18243,7 +18243,7 @@
                         "enum": [
                           "trajectory",
                           "gate-fit",
-                          "behaviour",
+                          "behavior",
                           "funnel"
                         ]
                       },
@@ -18925,7 +18925,7 @@
                         "fastest_hours"
                       ]
                     },
-                    "ratchet": {
+                    "standards": {
                       "type": "object",
                       "properties": {
                         "pins": {
@@ -19239,7 +19239,7 @@
                     "accepted",
                     "gate",
                     "validation_workflows",
-                    "ratchet",
+                    "standards",
                     "agents",
                     "breadth"
                   ]
@@ -22221,9 +22221,6 @@
                     "proof": {
                       "$ref": "#/$defs/DiscernProofSummary"
                     },
-                    "proof_line": {
-                      "type": "string"
-                    },
                     "checkpoint_drops": {
                       "type": "array",
                       "items": {
@@ -22832,9 +22829,6 @@
                           "proof": {
                             "$ref": "#/$defs/DiscernProofSummary"
                           },
-                          "proof_line": {
-                            "type": "string"
-                          },
                           "checkpoint_drops": {
                             "type": "array",
                             "items": {
@@ -23064,7 +23058,10 @@
                           {
                             "type": "string"
                           }
-                        ]
+                        ],
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": false
                       },
                       "total": {
                         "type": "number"
@@ -25372,9 +25369,6 @@
                         },
                         "proof": {
                           "$ref": "#/$defs/DiscernProofSummary"
-                        },
-                        "proof_line": {
-                          "type": "string"
                         },
                         "checkpoint_drops": {
                           "type": "array",
@@ -29795,10 +29789,10 @@
                           "bundled"
                         ]
                       },
-                      "overridesBundled": {
+                      "overrides_bundled": {
                         "type": "boolean"
                       },
-                      "hasBundled": {
+                      "has_bundled": {
                         "type": "boolean"
                       },
                       "excluded": {
@@ -29808,8 +29802,8 @@
                     "required": [
                       "name",
                       "source",
-                      "overridesBundled",
-                      "hasBundled",
+                      "overrides_bundled",
+                      "has_bundled",
                       "excluded"
                     ]
                   }
@@ -30917,7 +30911,7 @@
               "description": {
                 "type": "string"
               },
-              "typeDefinition": {
+              "type_definition": {
                 "type": "string"
               },
               "hidden": {
@@ -30930,7 +30924,7 @@
             "required": [
               "flags",
               "description",
-              "typeDefinition",
+              "type_definition",
               "hidden",
               "global"
             ]
@@ -31934,7 +31928,7 @@
       "description": "Any `discern <command> --json` result. Consumers with a known verb should prefer the per-verb schema referenced by x-discern-contracts for clearer validation errors.",
       "oneOf": [
         {
-          "$ref": "#/$defs/DiscernDiscernResult"
+          "$ref": "#/$defs/DiscernRootResult"
         },
         {
           "$ref": "#/$defs/DiscernSetupResult"
@@ -32086,63 +32080,7 @@
         {
           "$ref": "#/$defs/DiscernSkillsEjectResult"
         }
-      ],
-      "discriminator": {
-        "propertyName": "verb",
-        "mapping": {
-          "discern": "#/$defs/DiscernDiscernResult",
-          "setup": "#/$defs/DiscernSetupResult",
-          "setup begin": "#/$defs/DiscernSetupBeginResult",
-          "setup verify": "#/$defs/DiscernSetupVerifyResult",
-          "setup step": "#/$defs/DiscernSetupStepResult",
-          "setup done": "#/$defs/DiscernSetupDoneResult",
-          "setup accept": "#/$defs/DiscernSetupAcceptResult",
-          "upgrade": "#/$defs/DiscernUpgradeResult",
-          "uninstall": "#/$defs/DiscernUninstallResult",
-          "doctor": "#/$defs/DiscernDoctorResult",
-          "licenses": "#/$defs/DiscernLicensesResult",
-          "triangle": "#/$defs/DiscernTriangleResult",
-          "map": "#/$defs/DiscernMapResult",
-          "docs": "#/$defs/DiscernDocsResult",
-          "help": "#/$defs/DiscernHelpResult",
-          "config": "#/$defs/DiscernConfigResult",
-          "done": "#/$defs/DiscernDoneResult",
-          "prepare": "#/$defs/DiscernPrepareResult",
-          "test": "#/$defs/DiscernTestResult",
-          "improvement": "#/$defs/DiscernImprovementResult",
-          "checkpoints": "#/$defs/DiscernCheckpointsResult",
-          "standards": "#/$defs/DiscernStandardsResult",
-          "standards propose": "#/$defs/DiscernStandardsProposeResult",
-          "refresh": "#/$defs/DiscernRefreshResult",
-          "tidy": "#/$defs/DiscernTidyResult",
-          "impact": "#/$defs/DiscernImpactResult",
-          "coupling": "#/$defs/DiscernCouplingResult",
-          "await": "#/$defs/DiscernAwaitResult",
-          "patterns": "#/$defs/DiscernPatternsResult",
-          "patterns reset": "#/$defs/DiscernPatternsResetResult",
-          "patterns seal": "#/$defs/DiscernPatternsSealResult",
-          "patterns archives": "#/$defs/DiscernPatternsArchivesResult",
-          "desk": "#/$defs/DiscernDeskResult",
-          "enter": "#/$defs/DiscernEnterResult",
-          "status": "#/$defs/DiscernStatusResult",
-          "start": "#/$defs/DiscernStartResult",
-          "worktree rename": "#/$defs/DiscernWorktreeRenameResult",
-          "worktree ensure": "#/$defs/DiscernWorktreeEnsureResult",
-          "accept": "#/$defs/DiscernAcceptResult",
-          "update": "#/$defs/DiscernUpdateResult",
-          "identity": "#/$defs/DiscernIdentityResult",
-          "scripts": "#/$defs/DiscernScriptsResult",
-          "worktree": "#/$defs/DiscernWorktreeResult",
-          "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
-          "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
-          "worktree drop": "#/$defs/DiscernWorktreeDropResult",
-          "worktree park": "#/$defs/DiscernWorktreeParkResult",
-          "worktree prune": "#/$defs/DiscernWorktreePruneResult",
-          "skills": "#/$defs/DiscernSkillsResult",
-          "skills list": "#/$defs/DiscernSkillsListResult",
-          "skills eject": "#/$defs/DiscernSkillsEjectResult"
-        }
-      }
+      ]
     },
     "DiscernMcpJsonResult": {
       "title": "DiscernMcpJsonResult",
@@ -32210,23 +32148,23 @@
   },
   "x-discern-contracts": [
     {
-      "id": "discern",
+      "id": "root",
       "verb": "discern",
       "commands": [
         "discern"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
-      "schema": "#/$defs/DiscernDiscernResult"
+      "schema": "#/$defs/DiscernRootResult"
     },
     {
       "id": "setup",
@@ -32234,16 +32172,16 @@
       "commands": [
         "setup"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSetupResult"
     },
@@ -32253,20 +32191,20 @@
       "commands": [
         "setup begin"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "instruction-refresh"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "setup-machinery-commit-failed"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSetupBeginResult"
     },
@@ -32276,16 +32214,16 @@
       "commands": [
         "setup verify"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSetupVerifyResult"
     },
@@ -32295,16 +32233,16 @@
       "commands": [
         "setup step"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSetupStepResult"
     },
@@ -32314,13 +32252,13 @@
       "commands": [
         "setup done"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "setup-completion"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "checkpoint-evidence-dropped",
           "setup-forced-completion",
           "proof-recording-unavailable",
@@ -32329,9 +32267,9 @@
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSetupDoneResult"
     },
@@ -32341,21 +32279,21 @@
       "commands": [
         "setup accept"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "setup-landing"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "proof-recording-unavailable",
           "acceptance-cleanup-incomplete"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "owner"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "owner"
       },
       "schema": "#/$defs/DiscernSetupAcceptResult"
     },
@@ -32365,20 +32303,20 @@
       "commands": [
         "upgrade"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "instruction-refresh"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "generated-attribute-pattern-untranslated"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernUpgradeResult"
     },
@@ -32388,19 +32326,19 @@
       "commands": [
         "uninstall"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "uninstall-strip-incomplete"
         ],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernUninstallResult"
     },
@@ -32410,23 +32348,23 @@
       "commands": [
         "doctor"
       ],
-      "mcpTool": "discern_doctor",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_doctor",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "doctor-checks"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "doctor-warning"
         ],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernDoctorResult",
-      "mcpToolResultSchema": "#/$defs/DiscernDoctorMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernDoctorMcpToolResult"
     },
     {
       "id": "licenses",
@@ -32434,16 +32372,16 @@
       "commands": [
         "licenses"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernLicensesResult"
     },
@@ -32453,16 +32391,16 @@
       "commands": [
         "triangle"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernTriangleResult"
     },
@@ -32472,20 +32410,20 @@
       "commands": [
         "map"
       ],
-      "mcpTool": "discern_map",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_map",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernMapResult",
-      "mcpToolResultSchema": "#/$defs/DiscernMapMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernMapMcpToolResult"
     },
     {
       "id": "docs",
@@ -32493,20 +32431,20 @@
       "commands": [
         "docs"
       ],
-      "mcpTool": "discern_docs",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_docs",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernDocsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernDocsMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernDocsMcpToolResult"
     },
     {
       "id": "help",
@@ -32514,16 +32452,16 @@
       "commands": [
         "help"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernHelpResult"
     },
@@ -32543,17 +32481,17 @@
         "config keys",
         "config explain"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernConfigResult"
     },
@@ -32563,14 +32501,14 @@
       "commands": [
         "done"
       ],
-      "mcpTool": "discern_done",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_done",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "gate-finish"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "checkpoint-evidence-dropped",
           "execution-cap-unavailable",
           "landing-authority-unverified",
@@ -32579,12 +32517,12 @@
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernDoneResult",
-      "mcpToolResultSchema": "#/$defs/DiscernDoneMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernDoneMcpToolResult"
     },
     {
       "id": "prepare",
@@ -32592,23 +32530,23 @@
       "commands": [
         "prepare"
       ],
-      "mcpTool": "discern_prepare",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_prepare",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "execution-cap-unavailable"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernPrepareResult",
-      "mcpToolResultSchema": "#/$defs/DiscernPrepareMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernPrepareMcpToolResult"
     },
     {
       "id": "test",
@@ -32616,23 +32554,23 @@
       "commands": [
         "test"
       ],
-      "mcpTool": "discern_test",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_test",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "execution-cap-unavailable"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernTestResult",
-      "mcpToolResultSchema": "#/$defs/DiscernTestMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernTestMcpToolResult"
     },
     {
       "id": "improvement",
@@ -32640,20 +32578,20 @@
       "commands": [
         "improvement"
       ],
-      "mcpTool": "discern_improvement",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_improvement",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernImprovementResult",
-      "mcpToolResultSchema": "#/$defs/DiscernImprovementMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernImprovementMcpToolResult"
     },
     {
       "id": "checkpoints",
@@ -32661,22 +32599,22 @@
       "commands": [
         "checkpoints"
       ],
-      "mcpTool": "discern_checkpoints",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_checkpoints",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "checkpoint-evidence-dropped"
         ],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernCheckpointsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernCheckpointsMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernCheckpointsMcpToolResult"
     },
     {
       "id": "standards",
@@ -32684,24 +32622,24 @@
       "commands": [
         "standards"
       ],
-      "mcpTool": "discern_standards",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_standards",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "execution-cap-unavailable",
           "standards-limits-unverified"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernStandardsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernStandardsMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernStandardsMcpToolResult"
     },
     {
       "id": "standardsPropose",
@@ -32709,21 +32647,21 @@
       "commands": [
         "standards propose"
       ],
-      "mcpTool": "discern_standards_propose",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_standards_propose",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernStandardsProposeResult",
-      "mcpToolResultSchema": "#/$defs/DiscernStandardsProposeMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernStandardsProposeMcpToolResult"
     },
     {
       "id": "refresh",
@@ -32731,22 +32669,22 @@
       "commands": [
         "refresh"
       ],
-      "mcpTool": "discern_refresh",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_refresh",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "refresh-artifacts"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernRefreshResult",
-      "mcpToolResultSchema": "#/$defs/DiscernRefreshMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernRefreshMcpToolResult"
     },
     {
       "id": "tidy",
@@ -32754,17 +32692,17 @@
       "commands": [
         "tidy"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernTidyResult"
     },
@@ -32774,20 +32712,20 @@
       "commands": [
         "impact"
       ],
-      "mcpTool": "discern_impact",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_impact",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernImpactResult",
-      "mcpToolResultSchema": "#/$defs/DiscernImpactMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernImpactMcpToolResult"
     },
     {
       "id": "coupling",
@@ -32795,20 +32733,20 @@
       "commands": [
         "coupling"
       ],
-      "mcpTool": "discern_coupling",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_coupling",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernCouplingResult",
-      "mcpToolResultSchema": "#/$defs/DiscernCouplingMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernCouplingMcpToolResult"
     },
     {
       "id": "await",
@@ -32816,20 +32754,20 @@
       "commands": [
         "await"
       ],
-      "mcpTool": "discern_await",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_await",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernAwaitResult",
-      "mcpToolResultSchema": "#/$defs/DiscernAwaitMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernAwaitMcpToolResult"
     },
     {
       "id": "patterns",
@@ -32837,20 +32775,20 @@
       "commands": [
         "patterns"
       ],
-      "mcpTool": "discern_patterns",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_patterns",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernPatternsResult",
-      "mcpToolResultSchema": "#/$defs/DiscernPatternsMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernPatternsMcpToolResult"
     },
     {
       "id": "patternsReset",
@@ -32858,17 +32796,17 @@
       "commands": [
         "patterns reset"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernPatternsResetResult"
     },
@@ -32878,17 +32816,17 @@
       "commands": [
         "patterns seal"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernPatternsSealResult"
     },
@@ -32898,16 +32836,16 @@
       "commands": [
         "patterns archives"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernPatternsArchivesResult"
     },
@@ -32917,17 +32855,17 @@
       "commands": [
         "desk"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernDeskResult"
     },
@@ -32937,16 +32875,16 @@
       "commands": [
         "enter"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernEnterResult"
     },
@@ -32956,22 +32894,22 @@
       "commands": [
         "status"
       ],
-      "mcpTool": "discern_status",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_status",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "landing-authority-unverified"
         ],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernStatusResult",
-      "mcpToolResultSchema": "#/$defs/DiscernStatusMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernStatusMcpToolResult"
     },
     {
       "id": "start",
@@ -32979,24 +32917,24 @@
       "commands": [
         "start"
       ],
-      "mcpTool": "discern_start",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_start",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "landing-authority-unverified",
           "optional-resource-unavailable"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "not-applicable",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "not-applicable",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernStartResult",
-      "mcpToolResultSchema": "#/$defs/DiscernStartMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernStartMcpToolResult"
     },
     {
       "id": "worktreeRename",
@@ -33004,17 +32942,17 @@
       "commands": [
         "worktree rename"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeRenameResult"
     },
@@ -33024,19 +32962,19 @@
       "commands": [
         "worktree ensure"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "optional-resource-unavailable"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeEnsureResult"
     },
@@ -33046,14 +32984,14 @@
       "commands": [
         "accept"
       ],
-      "mcpTool": "discern_accept",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_accept",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "accept-landing"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "acceptance-cleanup-incomplete",
           "checkpoint-evidence-dropped",
           "checkout-clean-observation-unavailable",
@@ -33063,12 +33001,12 @@
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "not-applicable",
-        "recoveryOwner": "owner"
+        "partial_effect": "failure",
+        "no_op": "not-applicable",
+        "recovery_owner": "owner"
       },
       "schema": "#/$defs/DiscernAcceptResult",
-      "mcpToolResultSchema": "#/$defs/DiscernAcceptMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernAcceptMcpToolResult"
     },
     {
       "id": "update",
@@ -33076,21 +33014,21 @@
       "commands": [
         "update"
       ],
-      "mcpTool": "discern_update",
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "mcp_tool": "discern_update",
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernUpdateResult",
-      "mcpToolResultSchema": "#/$defs/DiscernUpdateMcpToolResult"
+      "mcp_tool_result_schema": "#/$defs/DiscernUpdateMcpToolResult"
     },
     {
       "id": "identity",
@@ -33098,16 +33036,16 @@
       "commands": [
         "identity"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernIdentityResult"
     },
@@ -33117,17 +33055,17 @@
       "commands": [
         "scripts"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernScriptsResult"
     },
@@ -33137,16 +33075,16 @@
       "commands": [
         "worktree"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeResult"
     },
@@ -33156,19 +33094,19 @@
       "commands": [
         "worktree setup"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [
+        "optional_advisories": [
           "optional-resource-unavailable"
         ],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeSetupResult"
     },
@@ -33178,17 +33116,17 @@
       "commands": [
         "worktree teardown"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeTeardownResult"
     },
@@ -33198,17 +33136,17 @@
       "commands": [
         "worktree drop"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeDropResult"
     },
@@ -33218,17 +33156,17 @@
       "commands": [
         "worktree park"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreeParkResult"
     },
@@ -33238,17 +33176,17 @@
       "commands": [
         "worktree prune"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "successful-no-effect",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernWorktreePruneResult"
     },
@@ -33258,16 +33196,16 @@
       "commands": [
         "skills"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSkillsResult"
     },
@@ -33277,16 +33215,16 @@
       "commands": [
         "skills list"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "not-applicable",
-        "partialEffect": "not-applicable",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSkillsListResult"
     },
@@ -33296,18 +33234,18 @@
       "commands": [
         "skills eject"
       ],
-      "completionPolicy": {
-        "requiredPostconditions": [
+      "completion_policy": {
+        "required_postconditions": [
           "declared-outcome",
           "executed-steps",
           "skill-materialization"
         ],
-        "optionalAdvisories": [],
+        "optional_advisories": [],
         "refusal": "failure",
         "cancellation": "failure",
-        "partialEffect": "failure",
-        "noOp": "success",
-        "recoveryOwner": "caller"
+        "partial_effect": "failure",
+        "no_op": "success",
+        "recovery_owner": "caller"
       },
       "schema": "#/$defs/DiscernSkillsEjectResult"
     }
@@ -33318,8 +33256,8 @@
     "apply_failed",
     "awaiting_consent",
     "awaiting_declaration",
-    "awaiting_variance",
     "awaiting_standard_approval",
+    "awaiting_variance",
     "below_min_score",
     "brief_unparseable",
     "checkout_failed",
@@ -33345,28 +33283,27 @@
     "invalid_value",
     "no_docs",
     "no_map",
-    "no_project",
     "no_repository",
     "no_such_step",
     "no_target",
     "not_found",
     "not_initialized",
     "not_main_checkout",
+    "not_on_setup_branch",
     "not_on_trunk",
     "not_set_up",
-    "not_setup_branch",
     "partial_acceptance",
     "partial_materialization",
     "partial_refresh",
     "pin_failed",
+    "precondition_failed",
     "proposal_failed",
     "proposal_stale",
-    "precondition_failed",
     "provisioned_resources",
     "read_error",
-    "report_only_proof",
     "renamed_command",
     "renamed_config_key",
+    "report_only_proof",
     "schema_version_too_new",
     "setup_plan_failed",
     "skills_eject_failed",
@@ -33374,7 +33311,6 @@
     "templates_not_found",
     "tidy_parse_failed",
     "tidy_write_failed",
-    "uncommitted_changes",
     "unchanged_tree_rerun",
     "unknown_category",
     "unknown_command",

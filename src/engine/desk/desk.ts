@@ -128,7 +128,7 @@ import {
 import { readTipSeenState, writeTipSeenState } from "./tip_state.ts";
 import { TIPS } from "../../shared/tips.ts";
 import { observeShownTip } from "../../shared/result_capture.ts";
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import { terminalSize } from "../../lib/text.ts";
 import {
   terminalContext,
@@ -691,7 +691,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     runDeskProjectScript(root, name, args, env),
   openBrowser: (url) => openInBrowser(url),
   now: SYSTEM_CLOCK.wallNow,
-  readTipState: (root) => readTipSeenState(root, KIT_VERSION),
+  readTipState: (root) => readTipSeenState(root, DISCERN_VERSION),
   writeTipState: (root, state) => writeTipSeenState(root, state),
   readPreferences: (root) => readDeskPreferences(root),
   writePreferences: (root, preferences) =>

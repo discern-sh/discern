@@ -405,7 +405,7 @@ function presentationOut(terminal: TerminalContext): Out {
 export const PATTERNS_FAMILY_SECTIONS = {
   trajectory: { heading: "Trajectory: how the numbers moved" },
   "gate-fit": { heading: "Gate fit: time and failure patterns" },
-  behaviour: { heading: "Workflow behavior: recorded actions" },
+  behavior: { heading: "Workflow behavior: recorded actions" },
   funnel: { heading: "Task funnel: the path to green" },
 } satisfies Record<DetectorFamily, FamilyPresentation>;
 
@@ -1279,17 +1279,17 @@ function statsBreadthRows(
  * percent-normalized against its first reading so different scales read
  * like-for-like. */
 function statsStandardsRows(
-  ratchet: PatternsStats["ratchet"],
+  standards: PatternsStats["standards"],
 ): string[] {
   const rows: string[] = [];
-  if (ratchet.pins > 0) {
+  if (standards.pins > 0) {
     rows.push(
-      `${plural(ratchet.pins, "limit")} tightened across ${
-        plural(ratchet.standards, "standard")
+      `${plural(standards.pins, "limit")} tightened across ${
+        plural(standards.standards, "standard")
       }. Loosening fails the Gate.`,
     );
   }
-  const improved = ratchet.most_improved;
+  const improved = standards.most_improved;
   if (improved !== undefined) {
     rows.push(
       `most improved: \`${improved.standard}\` ${
@@ -1515,11 +1515,11 @@ function renderStatsReport(
   if (pace.length > 0) {
     statsSection(out, width, STATS_SECTIONS.pace, pace);
   }
-  const standards = statsStandardsRows(stats.ratchet);
+  const standards = statsStandardsRows(stats.standards);
   if (standards.length > 0) {
     // The trend can honestly fall, so unlike the count sparks it shows
     // whenever it moves at all.
-    const trend = stats.ratchet.trend;
+    const trend = stats.standards.trend;
     statsSection(
       out,
       width,

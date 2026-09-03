@@ -29,12 +29,13 @@ function tokens(): TokenMap {
     scopes_neutral: '"${map.dir}", ".discern/", ".claude/"',
     scopes_instructions: '"discern/instructions.md", "discern/skills/"',
     artifact_provenance_marker: "discern provenance marker",
-    kit_version: "0.1.0",
+    discern_version: "0.1.0",
   };
 }
 
 Deno.test("substituteTokens replaces every known content token", () => {
-  const input = "name={{project_name}} slug={{project_slug}} v={{kit_version}}";
+  const input =
+    "name={{project_name}} slug={{project_slug}} v={{discern_version}}";
   const { text, unknown } = substituteTokens(input, tokens());
   assertEquals(text, "name=Demo App slug=demo-app v=0.1.0");
   assertEquals(unknown, []);

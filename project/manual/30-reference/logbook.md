@@ -71,7 +71,7 @@ Once the span holds 2 days, cadence sparklines sit beside the Accepted, Gate, St
 
 Every number is a count or duration from the same analysis population the detectors read: CI runs, `--dry-run` previews, and setup-era events stay out. The card assigns no score, grade, or rank. The Logbook never leaves the machine, so there is no external corpus for comparison ([ADR 0229](https://discern.sh/docs/decisions/0229-practice-stats-are-counted-local-and-never-comparative)). Each number can be re-derived from the checkout.
 
-`--json` carries the counts as `data.stats`, and over MCP `discern_patterns` takes `stats: true`. Without the flag the payload carries no stats key at all.
+`--json` carries the counts as `data.stats`; the Standards section is `data.stats.standards`. Over MCP `discern_patterns` takes `stats: true`. Without the flag the payload carries no stats key at all.
 
 Stats is a separate counted projection of the same local evidence. It does not rewrite Pattern summaries or turn cohort counts into a comparison. Use the default `discern patterns` report when a finding's condition, evidence, limitation, and next action are the question.
 
@@ -115,6 +115,8 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
 - observed checkpoint economics (`discern checkpoints`)
 - Logbook storage checks in `discern doctor`
+
+Pattern findings classify `family` as `trajectory`, `gate-fit`, `behavior`, or `funnel`.
 
 ### Where findings appear
 

@@ -15,7 +15,7 @@ _Run the machine Gate and report checkpoint questions on pull requests, then mak
 
 CI runs the Gate for changes without a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the governing checkpoint policy and runs the ordinary machine jobs. Fired stop questions await review; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it for landing. A later ordinary `discern done` in a local worktree performs the strict review.
 
-The workflow installs a pinned binary and the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It proves no agent review and transports no declarations.
+The workflow installs a pinned binary and the project's toolchain, fetches release tags plus the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Tags supply the last published public-schema baseline; the later shallow `git fetch --no-tags` updates trunk without deleting them. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It proves no agent review and transports no declarations.
 
 ## Add the workflow
 
@@ -47,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-tags: true
 
       - name: Fetch trunk
         shell: bash
@@ -118,4 +120,5 @@ A cloud coding agent may start from a clone without the discern binary or materi
 - Do not run `discern refresh` in the gate job. CI verifies committed instructions and accepts an intentionally missing untracked copy; regenerating first can hide drift.
 - Do not put `--met`, `--unmet`, or a rationale in workflow YAML. `--ci` rejects declaration flags before any checkpoint or Gate write; review conclusions belong to a stateful local worktree.
 - Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
+- Keep `fetch-tags: true` on every checkout that can run discern's gate. A release candidate at `HEAD` is deliberately excluded from its own schema baseline, so it compares with the previous version tag.
 - `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.

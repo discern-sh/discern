@@ -140,7 +140,7 @@ import {
   worktreeErrorResult,
 } from "../worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../../lib/paths.ts";
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import {
   fire,
   type FiredHint,
@@ -772,7 +772,7 @@ export const TOOLS: McpTool[] = orderTools([
       "a known configurable client, or " +
       `${AWAIT_STRICT_CALL_SECONDS}s on a strict or unknown client. A larger ` +
       "request is sliced to that transport-safe bound and reported in " +
-      "data.requested_timeout_seconds. The condition returns as soon as it holds. " +
+      "data.requested_timeout_s. The condition returns as soon as it holds. " +
       "On success the hint chooses `discern_start` from the main checkout or " +
       "`discern_update` from an existing worktree, including the green " +
       "result's immutable commit as `from` when composing below the trunk.",
@@ -1968,7 +1968,7 @@ export async function runTool(
   // If the binary on disk changed since this server started, every result needs
   // the restart hint — including dispatch refusals.
   const stale = versionMismatchHint(
-    KIT_VERSION,
+    DISCERN_VERSION,
     await resolveInstalledVersion(),
   );
   const pending = await dispatchToolCall(
@@ -2296,11 +2296,11 @@ export async function runMcpServer(
   // resources resolve it per call/read, so the whole surface follows the re-aim.
   const working = new WorkingRoot(spawnRoot);
   // The version handshake's resolver, created once so it seeds its baseline stat at
-  // server start (this process IS KIT_VERSION); every tool call reuses it to detect
+  // server start (this process IS DISCERN_VERSION); every tool call reuses it to detect
   // the on-disk binary being replaced mid-session.
   const installedVersion = createInstalledVersionResolver();
   const server = new McpServer(
-    { name: SERVER_NAME, version: KIT_VERSION },
+    { name: SERVER_NAME, version: DISCERN_VERSION },
     {
       instructions: renderMcpText(buildInstructions(), cfg),
     },

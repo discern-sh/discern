@@ -120,7 +120,7 @@ export interface TipDef<P = undefined> {
   /**
    * The release whose upgrade should surface this tip. Entries newer than the
    * seen-state baseline render with a "New in \<version\>" prefix and rank
-   * first among unseen tips. Must not exceed the current kit version: a fresh
+   * first among unseen tips. Must not exceed the current discern version: a fresh
    * install baselines at the current version, and a future-dated entry would
    * wrongly render as new there (the closed-set guard enforces this).
    */

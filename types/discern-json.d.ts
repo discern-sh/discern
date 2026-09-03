@@ -6,8 +6,8 @@ export type DiscernKnownErrorSlug =
   | "apply_failed"
   | "awaiting_consent"
   | "awaiting_declaration"
-  | "awaiting_variance"
   | "awaiting_standard_approval"
+  | "awaiting_variance"
   | "below_min_score"
   | "brief_unparseable"
   | "checkout_failed"
@@ -33,28 +33,27 @@ export type DiscernKnownErrorSlug =
   | "invalid_value"
   | "no_docs"
   | "no_map"
-  | "no_project"
   | "no_repository"
   | "no_such_step"
   | "no_target"
   | "not_found"
   | "not_initialized"
   | "not_main_checkout"
+  | "not_on_setup_branch"
   | "not_on_trunk"
   | "not_set_up"
-  | "not_setup_branch"
   | "partial_acceptance"
   | "partial_materialization"
   | "partial_refresh"
   | "pin_failed"
+  | "precondition_failed"
   | "proposal_failed"
   | "proposal_stale"
-  | "precondition_failed"
   | "provisioned_resources"
   | "read_error"
-  | "report_only_proof"
   | "renamed_command"
   | "renamed_config_key"
+  | "report_only_proof"
   | "schema_version_too_new"
   | "setup_plan_failed"
   | "skills_eject_failed"
@@ -62,7 +61,6 @@ export type DiscernKnownErrorSlug =
   | "templates_not_found"
   | "tidy_parse_failed"
   | "tidy_write_failed"
-  | "uncommitted_changes"
   | "unchanged_tree_rerun"
   | "unknown_category"
   | "unknown_command"
@@ -394,7 +392,7 @@ export type __schema0 = {
   options: Array<{
     flags: Array<string>;
     description: string;
-    typeDefinition: string;
+    type_definition: string;
     hidden: boolean;
     global: boolean;
   }>;
@@ -481,7 +479,7 @@ export type DiscernAuthorizedVariance = {
   why: string;
 };
 
-export type DiscernDiscernResult = DiscernResultState & {
+export type DiscernRootResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -921,7 +919,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
     branch?: string | null;
     machinery_committed?: boolean;
     machinery_commit_error?: string;
-    kit_version?: string;
+    discern_version?: string;
     written?: Array<string>;
     instruction_refresh?: {
       status: "complete";
@@ -1175,7 +1173,7 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
     conflicts?: Array<{
       kind:
         | "existing_instructions"
-        | "dirty_tree"
+        | "dirty_worktree"
         | "not_a_repo"
         | "missing_git_identity";
       detail: string;
@@ -2151,7 +2149,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
       path: string;
       message: string;
     }>;
-    kit_version?: string;
+    discern_version?: string;
     migrations_applied?: Array<{
       from: number;
       to: number;
@@ -2481,7 +2479,7 @@ export type DiscernDoctorResult = DiscernResultState & {
   message?: string;
   verb: "doctor";
   data?: {
-    kit_version: string;
+    discern_version: string;
     environment: {
       discern: string;
       platform: string;
@@ -4403,7 +4401,7 @@ export type DiscernImprovementResult = DiscernResultState & {
     history: {
       findings: Array<{
         detector: string;
-        family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
+        family: "trajectory" | "gate-fit" | "behavior" | "funnel";
         scope: "branch" | "session" | "project";
         tone: "good" | "neutral" | "attention";
         subject?: string;
@@ -5813,16 +5811,16 @@ export type DiscernAwaitResult = DiscernResultState & {
     branch?: string;
     trunk: string;
     met: boolean;
-    waited_ms: number;
-    timeout_seconds: number;
+    elapsed_ms: number;
+    timeout_s: number;
     timeout_basis:
       | "explicit"
       | "cli"
       | "long-client"
       | "strict-client"
       | "unknown-client"
-      | "experimental-cap";
-    requested_timeout_seconds?: number;
+      | "cache-window";
+    requested_timeout_s?: number;
     observed: {
       proof_status?:
         | "honored"
@@ -5843,14 +5841,14 @@ export type DiscernAwaitResult = DiscernResultState & {
       overlap_total?: number;
     };
     resume?: string;
-    retry_after_seconds?: number;
+    retry_after_s?: number;
     retry_basis?:
       | "explicit"
       | "cli"
       | "long-client"
       | "strict-client"
       | "unknown-client"
-      | "experimental-cap";
+      | "cache-window";
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -6016,7 +6014,7 @@ export type DiscernPatternsResult = DiscernResultState & {
     };
     findings: Array<{
       detector: string;
-      family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
+      family: "trajectory" | "gate-fit" | "behavior" | "funnel";
       scope: "branch" | "session" | "project";
       tone: "good" | "neutral" | "attention";
       subject?: string;
@@ -6102,7 +6100,7 @@ export type DiscernPatternsResult = DiscernResultState & {
     detectors: Array<{
       id: string;
       title: string;
-      family: "trajectory" | "gate-fit" | "behaviour" | "funnel";
+      family: "trajectory" | "gate-fit" | "behavior" | "funnel";
       scope: "branch" | "session" | "project";
       tier: "inline" | "batch";
       status: "fired" | "quiet" | "insufficient-evidence";
@@ -6226,7 +6224,7 @@ export type DiscernPatternsResult = DiscernResultState & {
         median_hours: number;
         fastest_hours: number;
       };
-      ratchet: {
+      standards: {
         pins: number;
         standards: number;
         trend?: Array<number>;
@@ -7255,7 +7253,6 @@ export type DiscernStatusResult = DiscernResultState & {
       head?: string;
       reason?: string;
       proof?: DiscernProofSummary;
-      proof_line?: string;
       checkpoint_drops?: Array<
         {
           scope: "policy";
@@ -7420,7 +7417,6 @@ export type DiscernStatusResult = DiscernResultState & {
         head?: string;
         reason?: string;
         proof?: DiscernProofSummary;
-        proof_line?: string;
         checkpoint_drops?: Array<
           {
             scope: "policy";
@@ -8235,7 +8231,6 @@ export type DiscernAcceptResult = DiscernResultState & {
         head?: string;
         reason?: string;
         proof?: DiscernProofSummary;
-        proof_line?: string;
         checkpoint_drops?: Array<
           {
             scope: "policy";
@@ -9809,8 +9804,8 @@ export type DiscernSkillsListResult = DiscernResultState & {
     skills: Array<{
       name: string;
       source: "authored" | "bundled";
-      overridesBundled: boolean;
-      hasBundled: boolean;
+      overrides_bundled: boolean;
+      has_bundled: boolean;
       excluded: boolean;
     }>;
   } | {
@@ -9968,7 +9963,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
 };
 
 export type DiscernCliJsonResult =
-  | DiscernDiscernResult
+  | DiscernRootResult
   | DiscernSetupResult
   | DiscernSetupBeginResult
   | DiscernSetupVerifyResult
@@ -10021,7 +10016,7 @@ export type DiscernCliJsonResult =
   | DiscernSkillsEjectResult;
 
 export interface DiscernResultByVerb {
-  discern: DiscernDiscernResult;
+  discern: DiscernRootResult;
   setup: DiscernSetupResult;
   "setup begin": DiscernSetupBeginResult;
   "setup verify": DiscernSetupVerifyResult;
@@ -10075,7 +10070,7 @@ export interface DiscernResultByVerb {
 }
 
 export interface DiscernResultByCommand {
-  discern: DiscernDiscernResult;
+  discern: DiscernRootResult;
   setup: DiscernSetupResult;
   "setup begin": DiscernSetupBeginResult;
   "setup verify": DiscernSetupVerifyResult;

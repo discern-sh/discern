@@ -630,6 +630,30 @@ Deno.test("runtime result schemas accept only the canonical error-slug vocabular
   );
 });
 
+Deno.test("canonical error slugs stay sorted and exclude retired synonyms", () => {
+  assertEquals(
+    [...ERROR_SLUGS],
+    [...ERROR_SLUGS].sort(),
+    "the published error vocabulary must stay alphabetically stable",
+  );
+  const retiredSynonyms = {
+    dirty_tree: "dirty_worktree",
+    no_project: "not_initialized",
+    not_setup_branch: "not_on_setup_branch",
+    uncommitted_changes: "dirty_worktree",
+  } as const;
+  for (const [retired, canonical] of Object.entries(retiredSynonyms)) {
+    assert(
+      !(ERROR_SLUGS as readonly string[]).includes(retired),
+      `${retired} duplicates canonical slug ${canonical}`,
+    );
+    assert(
+      (ERROR_SLUGS as readonly string[]).includes(canonical),
+      `${canonical} must remain the canonical replacement for ${retired}`,
+    );
+  }
+});
+
 Deno.test("accept's partial envelope carries the exact irreversible effect state", () => {
   const partial = {
     ok: false,
@@ -699,25 +723,12 @@ Deno.test("every canonical error slug has a production source anchor", async () 
 // ids against its own calls, so an id cannot be enrolled without that same test
 // exercising it, and no evidence crosses a Deno.test boundary.
 
-/** Published contracts still awaiting a faithfulness test — explicit debt, not
- * silence. Shrink this set; never grow it for an MCP-exposed contract (the SDK
- * validates structuredContent against the advertised outputSchema on every
- * call, so an unproven schema there turns valid calls into errors). */
-const FAITHFULNESS_DEBT = new Set<string>([
-  "setup",
-  "setupBegin",
-  "setupDone",
-  "setupAccept",
-  "setupStep",
-  "setupVerify",
-  "skillsEject",
-  "uninstall",
-  "upgrade",
-  "worktreeDrop",
-  "worktreePrune",
-  "worktreeSetup",
-  "worktreeTeardown",
-]);
+/** Published contracts awaiting a real-result faithfulness case. */
+const FAITHFULNESS_DEBT = new Set<string>();
+
+Deno.test("the public result registry carries no faithfulness debt", () => {
+  assertEquals(FAITHFULNESS_DEBT.size, 0);
+});
 
 Deno.test("every published result contract is enrolled: faithfulness-covered or explicit debt", () => {
   const ids = new Set(CLI_JSON_RESULT_CONTRACTS.map((c) => c.id));
@@ -770,7 +781,7 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
 const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "root, utility, read, and command-group CLI results are faithful",
   [
-    "discern",
+    "root",
     "help",
     "licenses",
     "triangle",
@@ -789,7 +800,7 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await gitInit(dir);
 
     const cases = [
-      { id: "discern", args: ["--json"] },
+      { id: "root", args: ["--json"] },
       {
         id: "help",
         args: ["help", "worktree", "ensure", "--json"],
@@ -824,7 +835,7 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
 
     for (const testCase of cases) {
       const result = await runAgent(dir, [...testCase.args]);
-      const command = testCase.id === "discern"
+      const command = testCase.id === "root"
         ? "discern"
         : testCase.id === "config"
         ? `config ${testCase.args[1]}`
@@ -851,6 +862,102 @@ const ROOT_COMMANDS_FAITHFULNESS_CASE = defineFaithfulnessCase(
       decodeCliResult(identity.stdout, "identity"),
       "identity --port --json",
     );
+  });
+});
+
+const SETUP_MAINTENANCE_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "setup, maintenance, and worktree lifecycle refusals are faithful before initialization",
+  [
+    "setup",
+    "setupBegin",
+    "setupDone",
+    "setupAccept",
+    "setupStep",
+    "setupVerify",
+    "skillsEject",
+    "uninstall",
+    "upgrade",
+    "worktreeDrop",
+    "worktreePrune",
+    "worktreeSetup",
+    "worktreeTeardown",
+  ],
+)(async ({ expectSerializedFaithful }) => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(`${dir}/README.md`, "fixture\n");
+    await gitInit(dir);
+    const cases = [
+      { id: "setup", command: "setup", args: ["setup", "--json"] },
+      {
+        id: "setupBegin",
+        command: "setup begin",
+        args: ["setup", "begin", "--json"],
+      },
+      {
+        id: "setupDone",
+        command: "setup done",
+        args: ["setup", "done", "--json"],
+      },
+      {
+        id: "setupAccept",
+        command: "setup accept",
+        args: ["setup", "accept", "--dry-run", "--json"],
+      },
+      {
+        id: "setupStep",
+        command: "setup step",
+        args: ["setup", "step", "1", "--json"],
+      },
+      {
+        id: "setupVerify",
+        command: "setup verify",
+        args: ["setup", "verify", "--json"],
+      },
+      {
+        id: "skillsEject",
+        command: "skills eject",
+        args: ["skills", "eject", "discern-write-adr", "--json"],
+      },
+      {
+        id: "uninstall",
+        command: "uninstall",
+        args: ["uninstall", "--dry-run", "--json"],
+      },
+      {
+        id: "upgrade",
+        command: "upgrade",
+        args: ["upgrade", "--check", "--json"],
+      },
+      {
+        id: "worktreeDrop",
+        command: "worktree drop",
+        args: ["worktree", "drop", "missing", "--json"],
+      },
+      {
+        id: "worktreePrune",
+        command: "worktree prune",
+        args: ["worktree", "prune", "--dry-run", "--json"],
+      },
+      {
+        id: "worktreeSetup",
+        command: "worktree setup",
+        args: ["worktree", "setup", "--json"],
+      },
+      {
+        id: "worktreeTeardown",
+        command: "worktree teardown",
+        args: ["worktree", "teardown", "--json"],
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const result = await runAgent(dir, [...testCase.args]);
+      expectSerializedFaithful(
+        testCase.id,
+        decodeCliResult(result.stdout, testCase.command),
+        testCase.args.join(" "),
+      );
+    }
   });
 });
 
@@ -1857,10 +1964,10 @@ const SKILLS_LIST_FAITHFULNESS_CASE = defineFaithfulnessCase(
     expectFaithful("skillsList", result, "skills list");
 
     const rows = new Map((result.data?.skills ?? []).map((r) => [r.name, r]));
-    assertEquals(rows.get("my-own-skill")?.hasBundled, false);
+    assertEquals(rows.get("my-own-skill")?.has_bundled, false);
     assertEquals(rows.get("my-own-skill")?.excluded, true);
     assertEquals(rows.get("discern-write-adr")?.source, "authored");
-    assertEquals(rows.get("discern-write-adr")?.overridesBundled, true);
+    assertEquals(rows.get("discern-write-adr")?.overrides_bundled, true);
     assertEquals(rows.get("discern-cure-a-bug")?.source, "bundled");
     assertEquals(rows.get("discern-cure-a-bug")?.excluded, true);
   });
@@ -2012,6 +2119,7 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
  */
 const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
   ROOT_COMMANDS_FAITHFULNESS_CASE,
+  SETUP_MAINTENANCE_FAITHFULNESS_CASE,
   DONE_FAITHFULNESS_CASE,
   PREPARE_TEST_FAITHFULNESS_CASE,
   REFRESH_FAITHFULNESS_CASE,

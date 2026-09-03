@@ -359,16 +359,16 @@ Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
   );
 });
 
-Deno.test("mcp server version imports KIT_VERSION instead of hardcoding semver", async () => {
+Deno.test("mcp server version imports DISCERN_VERSION instead of hardcoding semver", async () => {
   const source = await Deno.readTextFile(
     `${REPO}/src/engine/mcp/server.ts`,
   );
   assert(
-    source.includes("KIT_VERSION"),
-    "the MCP server should report the package version via KIT_VERSION",
+    source.includes("DISCERN_VERSION"),
+    "the MCP server should report the package version via DISCERN_VERSION",
   );
   assert(
     !/["'`]\d+\.\d+\.\d+["'`]/.test(source),
-    "src/engine/mcp/server.ts must not contain a hardcoded semver literal; import KIT_VERSION instead",
+    "src/engine/mcp/server.ts must not contain a hardcoded semver literal; import DISCERN_VERSION instead",
   );
 });

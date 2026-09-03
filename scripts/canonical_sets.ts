@@ -3952,7 +3952,7 @@ export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
   "src/lib/providers.ts":
     "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
   "src/lib/version.ts":
-    "the kit version constant is one value with no member axis or satellites",
+    "the discern version constant is one value with no member axis or satellites",
   "src/shared/result_schemas.ts":
     "wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts",
 };

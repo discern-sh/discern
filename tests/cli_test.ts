@@ -12,7 +12,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { join } from "@std/path";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -35,11 +35,11 @@ async function assertNotExists(path: string): Promise<void> {
   assert(!(await targetExists(path)), `expected ${path} not to exist`);
 }
 
-Deno.test("--version prints the kit version", async () => {
+Deno.test("--version prints the discern version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
     assertEquals(code, 0);
-    assertStringIncludes(stdout, KIT_VERSION);
+    assertStringIncludes(stdout, DISCERN_VERSION);
   });
 });
 
@@ -350,7 +350,7 @@ interface InformationalPath {
  * KNOWN_VERBS (the routing SSOT), so a new verb enrols without a test edit. */
 function informationalPaths(): InformationalPath[] {
   return [
-    { label: "--version", args: ["--version"], markers: [KIT_VERSION] },
+    { label: "--version", args: ["--version"], markers: [DISCERN_VERSION] },
     {
       label: "licenses",
       args: ["licenses"],

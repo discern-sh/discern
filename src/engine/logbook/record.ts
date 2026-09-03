@@ -48,7 +48,7 @@ import { loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
-import { KIT_VERSION } from "../../lib/version.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
 import { type Clock, SYSTEM_CLOCK, wallTimeIso } from "../../shared/clock.ts";
 import {
   type SecureEntropy,
@@ -551,7 +551,7 @@ async function advanceEpoch(
     await appendEvent(ctx.commonGitDir, {
       schema: LOGBOOK_SCHEMA_VERSION,
       at: atIso,
-      writer: KIT_VERSION,
+      writer: DISCERN_VERSION,
       kind: "config-change",
       branch: ctx.branch,
       sections: changedSections(previous.sections, ctx.epoch.sections),
@@ -599,7 +599,7 @@ export function beginRecording(
         const event: BeginEvent = {
           schema: LOGBOOK_SCHEMA_VERSION,
           at: startedAt,
-          writer: KIT_VERSION,
+          writer: DISCERN_VERSION,
           kind: "begin",
           invocation,
           verb: begin.verb,
@@ -654,7 +654,7 @@ export function beginRecording(
         const event: VerbEvent = {
           schema: LOGBOOK_SCHEMA_VERSION,
           at,
-          writer: KIT_VERSION,
+          writer: DISCERN_VERSION,
           kind: "verb",
           invocation,
           verb: report.verb,
@@ -718,7 +718,7 @@ export function beginRecording(
           const pinEvent: PinEvent = {
             schema: LOGBOOK_SCHEMA_VERSION,
             at,
-            writer: KIT_VERSION,
+            writer: DISCERN_VERSION,
             kind: "pin",
             branch: ctx.branch,
             standard: pin.name,

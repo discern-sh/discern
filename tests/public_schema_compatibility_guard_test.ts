@@ -14,6 +14,7 @@ import {
   type JsonObject,
   type JsonValue,
   publicSchemaArtifactEnrollmentIssues,
+  publicSchemaBaselineTag,
   publicSchemaCompatibilityIssues,
   publicSchemaPublicationCompatibilityIssues,
   publicSchemaPublicationIdentityIssues,
@@ -27,10 +28,10 @@ import {
 } from "../src/shared/public_schemas.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -47,9 +48,48 @@ const JsonObjectSchema: z.ZodType<JsonObject> = z.record(
   JsonValueSchema,
 );
 
+/** Narrow JSON to an object record. */
+function isRecord(value: JsonValue | undefined): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Deep-copy a JSON Schema fixture so each mutation case remains isolated. */
 function clone(value: JsonObject): JsonObject {
   return structuredClone(value);
+}
+
+interface LocatedJsonObject {
+  readonly path: string;
+  readonly value: JsonObject;
+}
+
+/** Walk every object in a generated schema graph with a stable diagnostic path. */
+function jsonObjects(
+  value: JsonValue,
+  path = "$",
+): LocatedJsonObject[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      jsonObjects(item, `${path}[${index}]`)
+    );
+  }
+  if (!isRecord(value)) return [];
+  return [
+    { path, value },
+    ...Object.entries(value).flatMap(([key, item]) =>
+      jsonObjects(item, `${path}.${key}`)
+    ),
+  ];
+}
+
+/** Split a generated PascalCase definition name into semantic word segments. */
+function definitionSegments(value: string): string[] {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((segment) => segment.toLowerCase());
 }
 
 /** Compile a schema and test one instance through the production validator dialect. */
@@ -156,7 +196,7 @@ const RESULT_OUTPUT_FIXTURE: JsonObject = {
       id: "voyageLaunch",
       verb: "launch",
       commands: ["launch"],
-      mcpTool: "voyage_launch",
+      mcp_tool: "voyage_launch",
       [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLaunchResult",
       [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]:
         "#/$defs/VoyageLaunchMcpToolResult",
@@ -355,6 +395,40 @@ Deno.test("config property additions may preserve an open parent's accepted valu
   }
 });
 
+Deno.test("config defaults are structural while result defaults remain annotations", () => {
+  const previousConfig = clone(CONFIG_INPUT_FIXTURE);
+  const currentConfig = clone(CONFIG_INPUT_FIXTURE);
+  ((previousConfig.properties as JsonObject).beacon as JsonObject).default =
+    "north";
+  ((currentConfig.properties as JsonObject).beacon as JsonObject).default =
+    "south";
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previousConfig,
+      currentConfig,
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    ['$.properties.beacon.default: changed from "north" to "south"'],
+  );
+
+  const previousResult = clone(RESULT_OUTPUT_FIXTURE);
+  const currentResult = clone(RESULT_OUTPUT_FIXTURE);
+  const previousSignal = (previousResult.$defs as JsonObject)
+    .VoyageStringSignal as JsonObject;
+  const currentSignal = (currentResult.$defs as JsonObject)
+    .VoyageStringSignal as JsonObject;
+  previousSignal.default = "north";
+  currentSignal.default = "south";
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previousResult,
+      currentResult,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+});
+
 Deno.test("config catchall inclusion permits a named type-set superset", () => {
   const previous: JsonObject = {
     type: "object",
@@ -458,7 +532,7 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
       id: "voyageLand",
       verb: "land",
       commands: ["land"],
-      mcpTool: "voyage_land",
+      mcp_tool: "voyage_land",
       [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
       [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: "#/$defs/VoyageLandMcpToolResult",
     },
@@ -521,106 +595,6 @@ Deno.test("adding a discriminated state constraint is a same-major result break"
     [
       '$.$defs.VoyageLaunchResult.allOf: changed from undefined to [{"$ref":"#/$defs/VoyageResultState"}]',
     ],
-  );
-});
-
-Deno.test("a discriminator on a role aggregate stays transparent and admits mappings only for new contracts", () => {
-  // Trunk: the CLI aggregate carries an OpenAPI-style discriminator over its
-  // oneOf — the shape the real generated artifact ships.
-  const previous = clone(RESULT_OUTPUT_FIXTURE);
-  const previousCli = (previous.$defs as JsonObject)
-    .VoyageCliResult as JsonObject;
-  previousCli.discriminator = {
-    propertyName: "verb",
-    mapping: { launch: "#/$defs/VoyageLaunchResult" },
-  };
-
-  // A new registered contract adds its definition, its oneOf alternative, AND
-  // its mapping key — the sanctioned additive change, in the artifact's shape.
-  const current = clone(previous);
-  const defs = current.$defs as JsonObject;
-  defs.VoyageLandResult = {
-    type: "object",
-    properties: {
-      verb: { const: "land" },
-      ok: { type: "boolean" },
-    },
-    required: ["verb", "ok"],
-  };
-  const cli = defs.VoyageCliResult as JsonObject;
-  cli.oneOf = [
-    ...(cli.oneOf as JsonValue[]),
-    { $ref: "#/$defs/VoyageLandResult" },
-  ];
-  (cli.discriminator as JsonObject).mapping = {
-    launch: "#/$defs/VoyageLaunchResult",
-    land: "#/$defs/VoyageLandResult",
-  };
-  current["x-discern-contracts"] = [
-    ...(current["x-discern-contracts"] as JsonValue[]),
-    {
-      id: "voyageLand",
-      verb: "land",
-      commands: ["land"],
-      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
-    },
-  ];
-  assertEquals(
-    publicSchemaCompatibilityIssues(
-      previous,
-      current,
-      RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    ),
-    [],
-    "a discriminator must not defeat the registered-contract addition allowance",
-  );
-
-  // An added mapping key with no registered new contract behind it stays a
-  // break — the mapping cannot smuggle routes the contract registry never
-  // sanctioned.
-  const smuggled = clone(previous);
-  const smuggledCli = (smuggled.$defs as JsonObject)
-    .VoyageCliResult as JsonObject;
-  (smuggledCli.discriminator as JsonObject).mapping = {
-    launch: "#/$defs/VoyageLaunchResult",
-    rogue: "#/$defs/VoyageStringSignal",
-  };
-  assert(
-    publicSchemaCompatibilityIssues(
-      previous,
-      smuggled,
-      RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    ).some((issue) => issue.includes("discriminator.mapping.rogue")),
-    "an unsanctioned mapping addition must stay flagged",
-  );
-
-  // Re-routing an existing mapping stays a break, as does changing the
-  // discriminating property.
-  const rerouted = clone(previous);
-  const reroutedCli = (rerouted.$defs as JsonObject)
-    .VoyageCliResult as JsonObject;
-  (reroutedCli.discriminator as JsonObject).mapping = {
-    launch: "#/$defs/VoyageStringSignal",
-  };
-  assert(
-    publicSchemaCompatibilityIssues(
-      previous,
-      rerouted,
-      RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    ).some((issue) => issue.includes("discriminator.mapping.launch")),
-    "a re-routed existing mapping must stay flagged",
-  );
-  const renamedProperty = clone(previous);
-  const renamedCli = (renamedProperty.$defs as JsonObject)
-    .VoyageCliResult as JsonObject;
-  (renamedCli.discriminator as JsonObject).propertyName = "kind";
-  assert(
-    publicSchemaCompatibilityIssues(
-      previous,
-      renamedProperty,
-      RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    ).some((issue) => issue.includes("discriminator.propertyName")),
-    "a changed discriminator property must stay flagged",
   );
 });
 
@@ -742,7 +716,7 @@ Deno.test("new contract references widen only their canonical role aggregates", 
       id: "voyageLand",
       verb: "land",
       commands: ["land"],
-      mcpTool: "voyage_land",
+      mcp_tool: "voyage_land",
       [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
       [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: "#/$defs/VoyageLandMcpToolResult",
     });
@@ -1124,7 +1098,7 @@ Deno.test("result compatibility permits adding MCP exposure to an existing CLI c
   const contracts = current["x-discern-contracts"] as JsonObject[];
   const survey = contracts.find((contract) => contract.id === "voyageSurvey");
   assert(survey !== undefined);
-  survey.mcpTool = "voyage_survey";
+  survey.mcp_tool = "voyage_survey";
   survey[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
     "#/$defs/VoyageSurveyMcpToolResult";
 
@@ -1171,7 +1145,7 @@ Deno.test("result compatibility permits creating the first role aggregate", () =
   delete previousDefs.VoyageLaunchMcpToolResult;
   const previousContract = (previous["x-discern-contracts"] as JsonObject[])[0];
   assert(previousContract !== undefined);
-  delete previousContract.mcpTool;
+  delete previousContract.mcp_tool;
   delete previousContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp];
 
   const current = clone(previous);
@@ -1191,7 +1165,7 @@ Deno.test("result compatibility permits creating the first role aggregate", () =
   });
   const currentContract = (current["x-discern-contracts"] as JsonObject[])[0];
   assert(currentContract !== undefined);
-  currentContract.mcpTool = "voyage_launch";
+  currentContract.mcp_tool = "voyage_launch";
   currentContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
     "#/$defs/VoyageLaunchMcpToolResult";
 
@@ -1503,7 +1477,7 @@ Deno.test("malformed public schemas fail before structural compatibility", () =>
   const baselineContract =
     (emptyMcpBaseline["x-discern-contracts"] as JsonObject[])[0];
   assert(baselineContract !== undefined);
-  delete baselineContract.mcpTool;
+  delete baselineContract.mcp_tool;
   delete baselineContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp];
 
   const firstMcpExposure = clone(emptyMcpBaseline);
@@ -1522,7 +1496,7 @@ Deno.test("malformed public schemas fail before structural compatibility", () =>
   const currentContract =
     (firstMcpExposure["x-discern-contracts"] as JsonObject[])[0];
   assert(currentContract !== undefined);
-  currentContract.mcpTool = "voyage_launch";
+  currentContract.mcp_tool = "voyage_launch";
   currentContract[RESULT_CONTRACT_REFERENCE_FIELDS.mcp] =
     "#/$defs/VoyageLaunchMcpToolResult";
 
@@ -1756,8 +1730,8 @@ Deno.test("schema identities stay append-only and a new major starts a separate 
   const previous = clone(RESULT_OUTPUT_FIXTURE);
   const nextMajor = clone(RESULT_OUTPUT_FIXTURE);
   const nextDefs = nextMajor.$defs as JsonObject;
-  const nextLaunch = nextDefs.VoyageLaunchResult as JsonObject;
-  nextLaunch.type = "string";
+  const nextSignal = nextDefs.VoyageStringSignal as JsonObject;
+  nextSignal.type = "boolean";
   assertEquals(
     publicSchemaPublicationCompatibilityIssues(
       previous,
@@ -1765,7 +1739,7 @@ Deno.test("schema identities stay append-only and a new major starts a separate 
       VOYAGE_PUBLICATION,
     ),
     [
-      '$.$defs.VoyageLaunchResult.type: changed from "object" to "string"',
+      '$.$defs.VoyageStringSignal.type: changed from "string" to "boolean"',
     ],
     "the same structural break remains blocked within v1",
   );
@@ -1847,15 +1821,232 @@ Deno.test("schema publication paths keep every trunk artifact enrolled while all
   );
 });
 
-Deno.test("generated public schemas carry their identities and, once released, remain compatible with each configured-trunk artifact", async () => {
-  const config = await loadConfig(REPO_ROOT);
-  const trunk = config.repository.trunk;
+Deno.test("public property and contract-metadata names use the frozen snake_case vocabulary", () => {
+  const allowedExternalProperties = {
+    isError: "MCP SDK CallToolResult field",
+    payloadType: "DSSE protocol field",
+    structuredContent: "MCP SDK CallToolResult field",
+  } as const;
+  const observedExternalProperties = new Set<string>();
+  const offenders: string[] = [];
+  for (
+    const publication of PUBLIC_SCHEMA_PUBLICATIONS.filter((entry) =>
+      entry.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+    )
+  ) {
+    const schema = buildCurrentPublicSchema(publication);
+    for (const node of jsonObjects(schema)) {
+      const properties = node.value.properties;
+      if (!isRecord(properties)) continue;
+      for (const property of Object.keys(properties)) {
+        if (/^[a-z][a-z0-9_]*$/.test(property)) {
+          if (property.endsWith("_seconds")) {
+            offenders.push(
+              `${publication.artifactPath}:${node.path}.properties.${property} uses _seconds instead of _s`,
+            );
+          }
+          continue;
+        }
+        if (Object.hasOwn(allowedExternalProperties, property)) {
+          observedExternalProperties.add(property);
+          continue;
+        }
+        offenders.push(
+          `${publication.artifactPath}:${node.path}.properties.${property} is not snake_case`,
+        );
+      }
+    }
+  }
+  assertEquals(offenders, [], offenders.join("\n"));
+  assertEquals(
+    [...observedExternalProperties].sort(),
+    Object.keys(allowedExternalProperties).sort(),
+    "each protocol-owned casing exception must remain live",
+  );
+
+  const resultPublication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.artifactPath === "schema/discern-results.schema.json"
+  );
+  assert(resultPublication !== undefined);
+  const contracts = buildCurrentPublicSchema(resultPublication)[
+    "x-discern-contracts"
+  ];
+  assert(Array.isArray(contracts));
+  const metadataOffenders = contracts.flatMap((contract, index) =>
+    jsonObjects(contract, `$[${index}]`).flatMap(({ path, value }) =>
+      Object.keys(value)
+        .filter((key) => !/^[a-z][a-z0-9_]*$/.test(key))
+        .map((key) => `${path}.${key}`)
+    )
+  );
+  assertEquals(
+    metadataOffenders,
+    [],
+    `x-discern-contracts metadata must be snake_case:\n${
+      metadataOffenders.join("\n")
+    }`,
+  );
+});
+
+Deno.test("public definition names never repeat an adjacent semantic segment", () => {
+  const offenders: string[] = [];
+  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+    const schema = buildCurrentPublicSchema(publication);
+    const definitions = schema.$defs;
+    if (!isRecord(definitions)) continue;
+    for (const name of Object.keys(definitions)) {
+      const segments = definitionSegments(name);
+      if (segments.some((segment, index) => segment === segments[index - 1])) {
+        offenders.push(`${publication.artifactPath}:$defs.${name}`);
+      }
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `generated definition names repeat a word segment:\n${
+      offenders.join("\n")
+    }`,
+  );
+});
+
+Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {
+  const repo = await Deno.makeTempDir({ prefix: "discern-schema-tags-" });
+  try {
+    await Deno.writeTextFile(`${repo}/README.md`, "schema tag fixture\n");
+    await gitInit(repo);
+    assertEquals(await publicSchemaBaselineTag(repo), undefined);
+
+    for (const tag of ["release-99", "v01.0.0", "v1.0.0"]) {
+      await git(repo, "tag", tag);
+    }
+    assertEquals(
+      await publicSchemaBaselineTag(repo),
+      undefined,
+      "the first publication at HEAD has no predecessor and leaves the ratchet unarmed",
+    );
+
+    await git(
+      repo,
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      "interim trunk work",
+      "--no-gpg-sign",
+    );
+    assertEquals(await publicSchemaBaselineTag(repo), "v1.0.0");
+
+    await git(repo, "tag", "v1.5.0", "HEAD^");
+    await git(repo, "tag", "v2.0.0");
+    assertEquals(
+      await publicSchemaBaselineTag(repo),
+      "v1.5.0",
+      "every release tag at HEAD is excluded while its predecessor is selected by SemVer",
+    );
+
+    await git(
+      repo,
+      "commit",
+      "--allow-empty",
+      "-q",
+      "-m",
+      "post-release work",
+      "--no-gpg-sign",
+    );
+    assertEquals(
+      await publicSchemaBaselineTag(repo),
+      "v2.0.0",
+      "an ordinary later commit compares with the highest tagged publication",
+    );
+  } finally {
+    await Deno.remove(repo, { recursive: true });
+  }
+});
+
+Deno.test("interim trunk schema churn is provisional but a tagged regression is rejected", async () => {
+  const repo = await Deno.makeTempDir({ prefix: "discern-schema-regression-" });
+  try {
+    const path = `${repo}/schema.json`;
+    await Deno.writeTextFile(`${repo}/README.md`, "tag fixture\n");
+    await gitInit(repo);
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify(CONFIG_INPUT_FIXTURE, null, 2) + "\n",
+    );
+    await git(repo, "add", "schema.json");
+    await git(
+      repo,
+      "commit",
+      "-q",
+      "-m",
+      "publish schema",
+      "--no-gpg-sign",
+    );
+    await git(repo, "tag", "v1.0.0");
+    assertEquals(await publicSchemaBaselineTag(repo), undefined);
+
+    const interim = clone(CONFIG_INPUT_FIXTURE);
+    (interim.properties as JsonObject).future_signal = { type: "boolean" };
+    await Deno.writeTextFile(path, JSON.stringify(interim, null, 2) + "\n");
+    await git(repo, "add", "schema.json");
+    await git(
+      repo,
+      "commit",
+      "-q",
+      "-m",
+      "stage additive contract work",
+      "--no-gpg-sign",
+    );
+    assertEquals(await publicSchemaBaselineTag(repo), "v1.0.0");
+    assertEquals(
+      publicSchemaCompatibilityIssues(
+        CONFIG_INPUT_FIXTURE,
+        interim,
+        CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+      [],
+    );
+
+    const regression = clone(interim);
+    delete (regression.properties as JsonObject).beacon;
+    const baseline = await runGit(["show", "v1.0.0:schema.json"], {
+      cwd: repo,
+    });
+    assert(baseline.success);
+    const published = decodeWith(JsonObjectSchema, baseline.stdout);
+    assert(
+      publicSchemaCompatibilityIssues(
+        published,
+        regression,
+        CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+      ).some((issue) => issue.includes("beacon")),
+      "a regression against the tagged publication must fail",
+    );
+  } finally {
+    await Deno.remove(repo, { recursive: true });
+  }
+});
+
+Deno.test("generated public schemas carry their identities and remain compatible with the last tagged publication", async () => {
+  const baselineTag = await publicSchemaBaselineTag(REPO_ROOT);
+  if (baselineTag === undefined) {
+    for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+      const current = buildCurrentPublicSchema(publication);
+      assertEquals(
+        publicSchemaPublicationIdentityIssues(current, publication),
+        [],
+        `${publication.artifactPath} must carry its registered public identity`,
+      );
+    }
+    return;
+  }
   const listed = await runGit(
     [
       "ls-tree",
       "-r",
       "--name-only",
-      trunk,
+      baselineTag,
       "--",
       "schema",
       "src/shared/public_schemas.ts",
@@ -1864,22 +2055,12 @@ Deno.test("generated public schemas carry their identities and, once released, r
   );
   assert(
     listed.success,
-    `cannot list public schemas from configured trunk ${trunk}: ${listed.stderr}`,
+    `cannot list public schemas from ${baselineTag}: ${listed.stderr}`,
   );
-  // The append-only promise begins at the first release tag (ADR 0208, pre-tag
-  // reset amendment): before any tag exists no consumer has pinned an identity,
-  // so publications may still be corrected in place. Any tag arms the freeze —
-  // erring toward freezing early is the safe direction for a ratchet.
-  const tags = await runGit(["tag", "--list"], { cwd: REPO_ROOT });
-  assert(
-    tags.success,
-    `cannot list release tags: ${tags.stderr}`,
-  );
-  const released = tags.stdout.split("\n").some((tag) => tag.trim().length > 0);
   const trunkPaths = new Set(
     listed.stdout.split("\n").filter((path) => path.length > 0),
   );
-  const baselineArmed = released && trunkPaths.has(
+  const baselineArmed = trunkPaths.has(
     "src/shared/public_schemas.ts",
   );
   const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
@@ -1892,7 +2073,7 @@ Deno.test("generated public schemas carry their identities and, once released, r
         PUBLIC_SCHEMA_PUBLICATIONS,
       ),
       [],
-      `configured trunk ${trunk} has a public schema artifact that is no longer enrolled`,
+      `${baselineTag} has a public schema artifact that is no longer enrolled`,
     );
   }
 
@@ -1915,12 +2096,12 @@ Deno.test("generated public schemas carry their identities and, once released, r
       continue;
     }
     const previousResult = await runGit(
-      ["show", `${trunk}:${publication.artifactPath}`],
+      ["show", `${baselineTag}:${publication.artifactPath}`],
       { cwd: REPO_ROOT },
     );
     assert(
       previousResult.success,
-      `cannot read ${publication.artifactPath} from configured trunk ${trunk}: ${previousResult.stderr}`,
+      `cannot read ${publication.artifactPath} from ${baselineTag}: ${previousResult.stderr}`,
     );
     const previous = decodeWith(JsonObjectSchema, previousResult.stdout);
     assertEquals(
@@ -1930,7 +2111,7 @@ Deno.test("generated public schemas carry their identities and, once released, r
         publication,
       ),
       [],
-      `${publication.artifactPath} breaks or evades its registered public contract from configured trunk ${trunk}`,
+      `${publication.artifactPath} breaks or evades its registered public contract from ${baselineTag}`,
     );
   }
 });

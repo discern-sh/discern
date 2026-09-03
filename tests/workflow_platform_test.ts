@@ -126,6 +126,22 @@ function missingFrozenInstall(document: GithubYaml): string[] {
   return offenders;
 }
 
+/** Locate authoritative checkouts that omit the release tags used by schema guards. */
+function missingReleaseTags(document: GithubYaml): string[] {
+  return document.mappings
+    .filter(({ value }) =>
+      typeof value.uses === "string" &&
+      value.uses.startsWith("actions/checkout@")
+    )
+    .filter(({ value }) => {
+      const withValues = value.with;
+      return withValues === null || typeof withValues !== "object" ||
+        Array.isArray(withValues) ||
+        (withValues as Record<string, unknown>)["fetch-tags"] !== true;
+    })
+    .map(({ path }) => `${document.path}:${path}.with.fetch-tags`);
+}
+
 /** Slice one named workflow job up to the next sibling for focused policy assertions. */
 function job(source: string, name: string, next: string): string {
   const start = source.indexOf(`  ${name}:`);
@@ -240,6 +256,41 @@ Deno.test("hosted automation never exports a trunk override into project tests",
       offenders.join("\n")
     }`,
   );
+});
+
+Deno.test("every authoritative checkout fetches release tags for compatibility baselines", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/workflow_platform_test.ts#release-tag-checkouts",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "This release-baseline rule governs GitHub workflow and action YAML.",
+      include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+    },
+  });
+  const offenders = (await githubYaml(files)).flatMap(missingReleaseTags);
+  assertEquals(
+    offenders,
+    [],
+    `every actions/checkout step must set fetch-tags: true:\n${
+      offenders.join("\n")
+    }`,
+  );
+});
+
+Deno.test("the release-tag guard catches a future shallow checkout", () => {
+  const fixture: GithubYaml = {
+    path: "future-workflow.yml",
+    mappings: yamlMappings(parseYaml(`
+jobs:
+  contract_gate:
+    steps:
+      - uses: actions/checkout@deadbeef
+`)),
+  };
+  assertEquals(missingReleaseTags(fixture), [
+    "future-workflow.yml:$.jobs.contract_gate.steps[0].with.fetch-tags",
+  ]);
 });
 
 Deno.test("the trunk-override guard catches a future nested workflow lane", () => {

@@ -115,7 +115,7 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_instructions: defaultInstructionScopes().join(", "),
     artifact_provenance_marker: "discern provenance marker",
-    kit_version: "0.0.0",
+    discern_version: "0.0.0",
     project_name: "Demo",
   };
   for (const [k, v] of Object.entries(fills)) t = t.replaceAll(`{{${k}}}`, v);

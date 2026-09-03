@@ -34,7 +34,7 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { bestEffort, bestEffortSync } from "../shared/best_effort.ts";
-import { ISSUES_URL, KIT_VERSION } from "../lib/version.ts";
+import { DISCERN_VERSION, ISSUES_URL } from "../lib/version.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
@@ -240,7 +240,7 @@ export function captureCrashReport(
   return {
     at: wallTimeIso(nowMs),
     verb: verb === undefined || verb === "" ? "discern" : verb,
-    version: KIT_VERSION,
+    version: DISCERN_VERSION,
     deno: Deno.version.deno,
     platform: `${Deno.build.os}-${Deno.build.arch}`,
     name: signature.name,

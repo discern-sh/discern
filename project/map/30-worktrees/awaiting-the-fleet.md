@@ -43,9 +43,9 @@ Omit `timeout` and let discern use the longest reliable call for the configured 
 
 The condition returns immediately when it holds. Once called, do not surface progress updates until it returns. A direct user message still gets a response. Client cancellation still ends the call promptly.
 
-An explicit smaller MCP timeout remains exact. discern caps a larger request at the verified transport limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
+An explicit smaller MCP timeout remains exact. discern caps a larger request at the verified transport limit and records it in `data.requested_timeout_s`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
 
-The effective bound and source are `data.timeout_seconds` and `data.timeout_basis`. A separate decision records the vendor evidence ([ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md)).
+The effective bound and source are `data.timeout_s` and `data.timeout_basis`. A separate decision records the vendor evidence ([ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md)).
 
 ## Continue without a gap
 

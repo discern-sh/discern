@@ -37,7 +37,11 @@ import {
 } from "../lib/terminal.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { isRecordedSchemaNewer, resolveRecordedSchema } from "../lib/schema.ts";
-import { KIT_VERSION, SCHEMA_VERSION, UPDATE_CHANNEL } from "../lib/version.ts";
+import {
+  DISCERN_VERSION,
+  SCHEMA_VERSION,
+  UPDATE_CHANNEL,
+} from "../lib/version.ts";
 import {
   AGENT_NAMES,
   type DiscernConfig,
@@ -164,7 +168,7 @@ export type { DoctorEnvironment };
 export async function doctorEnvironment(): Promise<DoctorEnvironment> {
   const git = await gitVersion();
   return {
-    discern: KIT_VERSION,
+    discern: DISCERN_VERSION,
     platform: `${Deno.build.os}/${Deno.build.arch}`,
     ...(git !== undefined ? { git } : {}),
     ...(inDeskSession() ? { desk_session: true as const } : {}),
@@ -1297,7 +1301,7 @@ export async function doctorResult(
     verb: "doctor",
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
     data: {
-      kit_version: KIT_VERSION,
+      discern_version: DISCERN_VERSION,
       environment: await doctorEnvironment(),
       checks,
       ...(cfg === undefined ? {} : {
