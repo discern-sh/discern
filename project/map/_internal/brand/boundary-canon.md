@@ -195,7 +195,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Evidence:**
 
 - Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — places the security boundary with the coding-agent provider.
-- Guard: `tests/engine_env_plumbing_test.ts` — holds the environment boundary at explicit project and worktree contracts.
+- Guard: `tests/engine_env_plumbing_test.ts` — holds the shipped Claude settings seed to hooks alone, with no permission rule.
 - Source: `src/lib/providers.ts` — owns provider-specific integration rules.
 
 ### evidence-kind-separation
@@ -377,7 +377,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Decision: `project/map/_adr/0271-destructive-drops-retain-bounded-recovery-refs.md` — requires bounded recovery refs.
 - Source: `src/engine/worktree/recovery_refs.ts` — creates and expires recovery refs.
-- Guard: `tests/engine_worktree_drop_test.ts` — proves destructive worktree drops retain the bounded recovery ref.
+- Guard: `tests/engine_worktree_drop_test.ts` — retains a bounded recovery ref before removing the branch and worktree.
 
 ### invoked-process-lifecycle
 
@@ -430,6 +430,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Source: `src/engine/worktree/env_file.ts` — owns selected environment-value projection.
 - Source: `src/engine/worktree/resources.ts` — owns configured per-worktree resources.
+- Guard: `tests/credential_boundary_test.ts` — keeps credential-shaped environment reads, configuration keys, and credential stores out of the shipped program.
 
 ### non-gamified-practice
 
@@ -441,6 +442,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Decision: `project/map/_adr/0229-practice-stats-are-counted-local-and-never-comparative.md` — rejects grades, rankings, and composite scores.
 - Decision: `project/map/_adr/0244-brand-addresses-the-owner.md` — keeps evaluation on project work.
+- Guard: `tests/non_gamified_practice_test.ts` — keeps score, rank, grade, badge, point, level, and reward fields out of the Patterns result contract.
 
 ### measured-standards
 
@@ -465,6 +467,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Source: `project/map/20-quality-gate/the-proof.md` — defines Proof as scoped engineering evidence.
 - Source: `src/engine/gate/proof_render.ts` — renders the conditions and commit the Proof covers.
+- Guard: `tests/engine_proof_render_test.ts` — keeps certifying vocabulary out of every rendered Proof page and line.
 - Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — keeps machine, agent, and owner evidence distinct.
 
 ### pre-share-lifecycle

@@ -54,11 +54,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`provider-trust-action-kinds`](#provider-trust-action-kinds--provider-trust-action-kinds)                            | `src/shared/provider_trust.ts#TRUST_ACTION_KINDS`                                 | 5       | —                | node `providers`            |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 12      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
-| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
+| [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 18      | —                | —                           |
 | [`brand-boundaries`](#brand-boundaries--boundary-canon)                                                               | `scripts/brand/boundaries.ts#BOUNDARIES`                                          | 102     | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
-| [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 4       | —                | —                           |
+| [`brand-foundation-reading-steps`](#brand-foundation-reading-steps--brand-writing-foundations)                        | `scripts/brand/voice.ts#BRAND_FOUNDATION_READING_STEPS`                           | 5       | —                | —                           |
 | [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 47      | —                | —                           |
+| [`consequence-canon`](#consequence-canon--consequence-canon)                                                          | `scripts/brand/consequences.ts#CONSEQUENCE_CANON`                                 | 36      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
@@ -107,7 +108,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 358     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 360     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -137,9 +138,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 126     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 127     | —                | node `canonical-sets`       |
 
-126 sets · 177 guard tests · 66 committed artifacts.
+127 sets · 180 guard tests · 67 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -196,12 +197,14 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`                      | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/config_set_schema_guard_test.ts`            | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/config_template_test.ts`                    | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/consequence_canon_test.ts`                  | [`consequence-canon`](#consequence-canon--consequence-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/demand_canon_test.ts`                       | [`demand-canon`](#demand-canon--demand-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/do_not_claim_guard_test.ts`                 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_accept_authority_test.ts`            | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`acceptance-transaction-boundaries`](#acceptance-transaction-boundaries--acceptance-transaction-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_adr_index_test.ts`                   | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/engine_agent_wiring_test.ts`                | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -238,6 +241,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/environment_variables_codegen_test.ts`      | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/evidence_basis_guard_test.ts`               | [`brand-boundaries`](#brand-boundaries--boundary-canon), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/exit_status_registry_test.ts`               | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -360,6 +364,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
 | `project/map/_internal/brand/boundary-canon.md`            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
 | `project/map/_internal/brand/claims-and-evidence.md`       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
+| `project/map/_internal/brand/consequence-canon.md`         | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
 | `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
 | `project/map/_internal/brand/demand-canon.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
 | `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            | —                                             |
@@ -1398,11 +1403,12 @@ The integration seams discern wires for each coding agent. The operational-inter
 The Brand Operating System's document map: every brand document as one typed row, where generated pages compile from the registry through the codegen chokepoint and authored overlay documents stay declared path-and-job rows without content.
 
 - Source: `scripts/brand_registry.ts` — `BRAND_DOCUMENTS`
-- Members: 17
+- Members: 18
   - `readme`
   - `positioning`
   - `audiences`
   - `demand-canon`
+  - `consequence-canon`
   - `boundary-canon`
   - `messaging`
   - `register-bridge`
@@ -1417,7 +1423,7 @@ The Brand Operating System's document map: every brand document as one typed row
   - `claims-residue`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/boundary-canon.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/demand-canon.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
+- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/boundary-canon.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/consequence-canon.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/demand-canon.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
 - Glossary: not enrolled — the internal brand canon defines this strategy vocabulary
 - Feature canon: not enrolled — public copy applies this internal strategy to the product nodes it describes
 
@@ -1529,7 +1535,7 @@ discern's conceptual product boundaries and their three generated projections: b
   - `no-privilege-escalation`
   - `no-provider-sdk`
   - `no-credential-store`
-- Guards: `tests/boundary_canon_test.ts`, `tests/brand_registry_codegen_test.ts`
+- Guards: `tests/boundary_canon_test.ts`, `tests/brand_registry_codegen_test.ts`, `tests/evidence_basis_guard_test.ts`
 - Glossary: not enrolled — the internal Boundary Canon defines this product-boundary vocabulary
 - Feature canon: not enrolled — the Feature Canon owns what the product does; this set owns the complementary noes and category distinctions
 
@@ -1559,7 +1565,7 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
   - `map-mechanically-checked`
   - `agent-as-operator`
   - `runs-on-itself`
-- Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
+- Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`, `tests/evidence_basis_guard_test.ts`, `tests/do_not_claim_guard_test.ts`
 - Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
 - Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
 
@@ -1568,10 +1574,11 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
 The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.
 
 - Source: `scripts/brand/voice.ts` — `BRAND_FOUNDATION_READING_STEPS`
-- Members: 4
+- Members: 5
   - `positioning`
   - `audiences`
   - `demand-canon`
+  - `consequence-canon`
   - `messaging`
 - Guards: `tests/brand_registry_codegen_test.ts`
 - Glossary: not enrolled — the internal brand operating system owns this writing-context vocabulary
@@ -1633,6 +1640,52 @@ The market-side counterpart of the Human Benefit Canon: evidence-tagged struggli
 - Guards: `tests/demand_canon_test.ts`, `tests/canon_editor_parity_test.ts`
 - Glossary: not enrolled — the internal demand canon defines this market-evidence vocabulary
 - Feature canon: not enrolled — demand entries cite the benefits that answer them rather than product nodes
+
+## `consequence-canon` — Consequence canon
+
+The second-order account above the benefit canons: what changes for the person and the coding agent once the benefits hold, each entry deductive on cited benefits and claims for its consequence and evidence-classed for the behavior it predicts, rendered into the consequence page the brand-documents set owns.
+
+- Source: `scripts/brand/consequences.ts` — `CONSEQUENCE_CANON`
+- Members: 36
+  - `evidence-outlives-the-agent`
+  - `cheap-failure-buys-bold-work`
+  - `the-job-moves-up-a-level`
+  - `review-grows-slower-than-output`
+  - `autonomy-widens-by-record`
+  - `decisions-wait-for-the-person`
+  - `a-project-that-only-gets-better`
+  - `institutional-memory-without-an-institution`
+  - `quality-that-shows-its-work`
+  - `one-practice-every-project`
+  - `the-practice-keeps-its-own-notes`
+  - `every-bug-fixed-once`
+  - `raising-the-bar-costs-one-line`
+  - `taste-becomes-infrastructure`
+  - `the-same-interview-for-every-agent`
+  - `what-agents-learn-you-own`
+  - `documentation-stops-being-owed`
+  - `parallel-by-default`
+  - `ci-confirms-what-you-know`
+  - `rewrite-the-app-keep-the-practice`
+  - `try-it-where-it-matters`
+  - `get-serious-when-it-gets-real`
+  - `discipline-before-expertise`
+  - `the-parts-multiply`
+  - `every-promise-comes-with-its-test`
+  - `stopping-is-safe`
+  - `the-gate-remembers`
+  - `sessions-come-and-go`
+  - `each-red-run-points-at-the-fix`
+  - `not-sure-is-a-valid-answer`
+  - `judgment-recorded-as-judgment`
+  - `coordination-through-the-repository`
+  - `run-it-again-nothing-doubles`
+  - `no-second-model-to-argue-with`
+  - `unwritten-knowledge-on-record`
+  - `capable-operators-at-lower-cost`
+- Guards: `tests/consequence_canon_test.ts`
+- Glossary: not enrolled — the internal consequence canon defines this second-order vocabulary
+- Feature canon: not enrolled — consequences cite the benefits and claims they rest on rather than product nodes
 
 ## `setup-subverbs` — Setup sub-verbs
 
@@ -3264,7 +3317,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 358
+- Members: 360
   - `0003`
   - `0005`
   - `0006`
@@ -3599,6 +3652,8 @@ The numbered decision records in the Map, including records later superseded.
   - `0366`
   - `0367`
   - `0368`
+  - `0369`
+  - `0370`
   - `0001`
   - `0002`
   - `0004`
@@ -4436,7 +4491,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 126
+- Members: 127
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4484,6 +4539,7 @@ This meta-registry: the closed set of closed sets.
   - `brand-claims`
   - `brand-foundation-reading-steps`
   - `demand-canon`
+  - `consequence-canon`
   - `setup-subverbs`
   - `setup-human-moments`
   - `authored-commit-sites`
