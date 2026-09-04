@@ -1,6 +1,6 @@
 # ADR 0370: The consequence canon records second-order effects above the benefit canons
 
-**Status**: accepted. Extends the benefit canon of [ADR 0268](0268-the-benefit-canon-transposes-the-feature-registry.md) and the demand canon of [ADR 0292](0292-the-demand-canon-counters-the-benefit-canon.md); applies the claim altitudes of [ADR 0244](0244-the-brand-addresses-the-owner-and-treats-agents-as-a-chosen-workforce.md) and the evidence classes of [ADR 0270](0270-the-benefit-canon-separates-value-from-claim-qualification.md).
+**Status**: accepted. Extends the benefit canon of [ADR 0268](0268-the-benefit-canon-transposes-the-feature-registry.md) and the demand canon of [ADR 0292](0292-the-demand-canon-counters-the-benefit-canon.md); applies the claim altitudes of [ADR 0244](0244-brand-addresses-the-owner.md) and the evidence classes of [ADR 0270](0270-the-benefit-canon-separates-value-from-claim-qualification.md).
 
 ## Context
 
