@@ -1319,6 +1319,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_internal/brand/consequence-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_internal/brand/copy-patterns.md",
         kind: "generated-file",
         banner: true,
@@ -1501,6 +1506,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       return [
         ...demand.DEMAND_CANON.map((territory) => territory.id),
         ...demand.allDemandEntries().map(({ entry }) => entry.id),
+      ];
+    },
+  },
+  {
+    id: "consequence-canon",
+    title: "Consequence canon",
+    what:
+      "The second-order account above the benefit canons: what changes for the person and the coding agent once the benefits hold, each entry deductive on cited benefits and claims for its consequence and evidence-classed for the behavior it predicts, rendered into the consequence page the brand-documents set owns.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/consequences.ts",
+      exportName: "CONSEQUENCE_CANON",
+    },
+    guards: ["tests/consequence_canon_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal consequence canon defines this second-order vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "consequences cite the benefits and claims they rest on rather than product nodes",
+      },
+    },
+    members: async () => {
+      const consequences = await import("./brand/consequences.ts");
+      return [
+        ...consequences.CONSEQUENCE_CANON.map((entry) => entry.id),
+        ...Object.keys(consequences.SHARED_HYPOTHESES),
       ];
     },
   },

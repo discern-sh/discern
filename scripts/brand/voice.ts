@@ -27,6 +27,11 @@ export const BRAND_FOUNDATION_READING_STEPS = [
     id: "demand-canon",
     instruction: "the relevant territory and entries from `demand-canon.md`",
   },
+  {
+    id: "consequence-canon",
+    instruction:
+      "the relevant entries from `consequence-canon.md` when the surface argues what changes over time",
+  },
   { id: "messaging", instruction: "`messaging.md`" },
 ] as const;
 

@@ -430,6 +430,7 @@
     "${map.dir}_internal/brand/README.md",
     "${map.dir}_internal/brand/boundary-canon.md",
     "${map.dir}_internal/brand/claims-and-evidence.md",
+    "${map.dir}_internal/brand/consequence-canon.md",
     "${map.dir}_internal/brand/copy-patterns.md",
     "${map.dir}_internal/brand/demand-canon.md",
     "${map.dir}_internal/brand/messaging.md",
