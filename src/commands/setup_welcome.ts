@@ -119,15 +119,15 @@ assertSetupHumanSurfaceConsumption("welcome", [
 ]);
 
 const FRESH_AGENT_INSTRUCTIONS =
-  "You are discern's configuration engine for this project. Run read-only `discern setup verify` now, relay its owner conversation naturally, and carry setup through each stated next action. Nothing is written until `begin`; wait only for applicable decisions, preserve explicit consent and Proof, and never infer landing authority.";
+  "You are discern's configuration engine. Run read-only `discern setup verify`, relay its owner conversation naturally, and follow every stated next action. Nothing is written until `begin`; wait only for real decisions, preserve consent and Proof, and never infer landing authority.";
 
 const FRESH_OWNER_WELCOME = [
   "Welcome. This one-time setup gives future coding sessions a dependable way to understand, change, and check this project.",
-  "The selected agent will study the repository, preserve its workflows, set up the final quality check (the Gate) and separate working copies for tasks, then write the maintained project guide and shared agent instructions. discern keeps that working practice in place.",
+  "The selected agent studies the repository, preserves its workflows, sets up the final quality check (the Gate) and isolated task worktrees, then writes the maintained project guide and shared agent instructions.",
   "Expect roughly 20–40 minutes and a meaningful number of tokens, prepared as small commits on a separate reviewable branch. You decide cost, access, durable data, new dependencies, exceptions, and landing.",
   `${SETUP_REVERSIBILITY.welcome} ${SETUP_REVERSIBILITY.uninstall}`,
-  "The footprint includes the root `discern.toml` and one visible `discern/` folder for authored sources, plus managed blocks in `.gitignore` and `.gitattributes`, Agent files compiled from the authored instructions, and the selected coding tools' local integration files. Generated provider skill directories stay Git-ignored. No API key or outside service is required by discern itself.",
-  "Because future sessions inherit this work, I recommend your strongest suitable reasoning model. Switch with the coding tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the next preflight are read-only.",
+  "The footprint is the root `discern.toml`, one visible `discern/` source folder, managed `.gitignore` and `.gitattributes` blocks, the Agent file compiled from authored instructions, and the selected tools' local integration. Provider skill directories stay generated and Git-ignored. Discern needs no API key or outside service.",
+  "Future sessions inherit this work, so use your strongest suitable reasoning model. Switch with the tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the preflight are read-only.",
 ] as const;
 
 const FRESH_HUMAN_FRAMING = FRESH_OWNER_WELCOME.join(" ");

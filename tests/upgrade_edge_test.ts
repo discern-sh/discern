@@ -33,6 +33,7 @@ import {
 } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
@@ -59,6 +60,8 @@ Deno.test("upgrade --check help enumerates every exit-affecting reconciliation f
 
 /** Fresh install in `dir` (the standard scaffold the other suites use). */
 async function setup(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+  await gitInit(dir);
   assertEquals(
     (await runCli([
       "setup",
@@ -72,6 +75,8 @@ async function setup(dir: string): Promise<void> {
       .code,
     0,
   );
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-m", "install discern");
 }
 
 /** Run a git command in `dir`, throwing on failure. */
@@ -88,11 +93,6 @@ async function git(dir: string, ...args: string[]): Promise<void> {
 /** A fresh install committed into a new git repo — a clean starting tree. */
 async function initCommittedRepo(dir: string): Promise<void> {
   await setup(dir);
-  await git(dir, "init");
-  await git(dir, "config", "user.email", "test@example.com");
-  await git(dir, "config", "user.name", "Test");
-  await git(dir, "add", "-A");
-  await git(dir, "commit", "-m", "initial");
 }
 
 /** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */
@@ -230,6 +230,8 @@ Deno.test("upgrade fills agents from defaults when discern.toml carries no agent
       .filter((l) => !/^\s*agents\s*=/.test(l))
       .join("\n");
     await Deno.writeTextFile(tomlPath, stripped);
+    await git(dir, "add", "discern.toml");
+    await git(dir, "commit", "-m", "model install without agent selection");
     // The upgrade still succeeds and compiles the default agent files.
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 0, r.stderr);
@@ -251,6 +253,8 @@ Deno.test("upgrade --json reports a partial refresh as top-level not-ok while ke
     await setup(dir);
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+    await git(dir, "add", ".mcp.json");
+    await git(dir, "commit", "-m", "model malformed provider settings");
 
     const r = await runCli(["upgrade", "--json"], dir);
     assertEquals(r.code, 1, r.stderr);

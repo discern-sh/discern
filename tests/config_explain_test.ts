@@ -7,6 +7,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import {
   CONFIG_REFERENCE_URL,
@@ -19,6 +20,7 @@ import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import { renderTomlLiteral } from "../src/shared/toml_literal.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 Deno.test("every documented unit explains itself with its what and why", () => {
   for (const unit of configProseUnits()) {
@@ -179,6 +181,8 @@ Deno.test("an unknown path explains nothing", () => {
 
 Deno.test("config explain runs inside an install with the current value, and outside one without", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+    await gitInit(dir);
     const setup = await runCli(
       [
         "setup",

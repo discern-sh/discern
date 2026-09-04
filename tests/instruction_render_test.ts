@@ -19,6 +19,8 @@ import { providerFor } from "../src/lib/providers.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { defaultMapPath } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 /** A temp project emitting both providers, with one user instruction source. */
 async function scaffold(
@@ -647,20 +649,33 @@ Deno.test("renderAgentFiles: every mentioned skill disappears when excluded", as
 });
 
 Deno.test("every bundled skill mention is inside its has_skill predicate", async () => {
-  const root = fromFileUrl(new URL("../", import.meta.url));
-  const skills = new Set<string>();
-  for await (const entry of Deno.readDir(join(root, "templates", "skills"))) {
-    if (entry.isDirectory) skills.add(entry.name);
-  }
+  const files = await structuralGuardScope({
+    guard: "tests/instruction_render_test.ts#bundled-skill-mentions",
+    universe: "tracked-markdown",
+    narrow: {
+      reason:
+        "Bundled skill mentions exist only in shipped instruction and skill Markdown.",
+      include: (path) =>
+        path.startsWith("templates/instructions/") ||
+        path.startsWith("templates/skills/"),
+    },
+  });
+  const skills = new Set(
+    files.flatMap((path) => {
+      const match = /^templates\/skills\/([^/]+)\/SKILL\.md$/u.exec(path);
+      return match?.[1] === undefined ? [] : [match[1]];
+    }),
+  );
   const token =
     /\{\{#if\s+([a-z0-9_]+)\}\}|\{\{\/if\}\}|`(discern-[a-z0-9-]+)`/gu;
-  for await (
-    const entry of Deno.readDir(join(root, "templates", "instructions"))
+  for (
+    const path of files.filter((candidate) =>
+      candidate.startsWith("templates/instructions/") &&
+      candidate.endsWith(".md")
+    )
   ) {
-    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
-    const text = await Deno.readTextFile(
-      join(root, "templates", "instructions", entry.name),
-    );
+    const text = await Deno.readTextFile(join(REPO_ROOT, path));
+    const name = path.slice("templates/instructions/".length);
     const predicates: string[] = [];
     for (const match of text.matchAll(token)) {
       const opened = match[1];
@@ -673,7 +688,7 @@ Deno.test("every bundled skill mention is inside its has_skill predicate", async
         const expected = `has_skill_${skill.replaceAll("-", "_")}`;
         assert(
           predicates.includes(expected),
-          `${entry.name}: \`${skill}\` must be gated by {{#if ${expected}}}`,
+          `${name}: \`${skill}\` must be gated by {{#if ${expected}}}`,
         );
       }
     }

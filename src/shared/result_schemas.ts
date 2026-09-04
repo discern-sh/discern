@@ -3193,10 +3193,10 @@ export type SkillsEjectData = z.infer<typeof SkillsEjectDataSchema>;
 // call's `structuredContent` against `<schema>.shape`. The data-less verbs use the
 // bare {@link EnvelopeSchema}.
 
-/** `setup` output: envelope + the read-only welcome `data`. */
+/** `setup` output: envelope + the read-only welcome or boundary-recovery data. */
 export const SetupOutputSchema = resultOutputSchema(
   "setup",
-  SetupWelcomeDataSchema,
+  z.union([SetupWelcomeDataSchema, SetupNextActionOnlyDataSchema]),
 );
 
 /** `setup begin` output: envelope + scaffold preview/outcome `data`. */

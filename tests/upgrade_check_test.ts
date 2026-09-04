@@ -18,7 +18,7 @@ import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 /** Fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
@@ -84,6 +84,8 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
     );
     const refresh = await runCli(["refresh", "--json"], dir);
     assertEquals(refresh.code, 0, `${refresh.stdout}${refresh.stderr}`);
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-m", "declare generated bundle");
     const attributesPath = join(dir, ".gitattributes");
     const current = await Deno.readTextFile(attributesPath);
     await Deno.writeTextFile(
@@ -101,7 +103,7 @@ Deno.test("upgrade detects and reconciles a stale generated-merge block", async 
       [{ kind: "replace-block", path: ".gitattributes" }],
     );
 
-    const upgrade = await runCli(["upgrade"], dir);
+    const upgrade = await runCli(["upgrade", "--allow-dirty"], dir);
     assertEquals(upgrade.code, 0, upgrade.stderr);
     assertTerminalTextIncludes(
       upgrade.stderr,

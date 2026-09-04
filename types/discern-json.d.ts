@@ -774,6 +774,8 @@ export type DiscernSetupResult = DiscernResultState & {
       };
     };
   } | {
+    next_action: string;
+  } | {
     issues: Array<{
       kind?: "unknown_root_section";
       path: string;

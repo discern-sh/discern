@@ -1060,70 +1060,47 @@
         "data": {
           "anyOf": [
             {
-              "type": "object",
-              "properties": {
-                "phase": {
-                  "type": "string",
-                  "enum": [
-                    "fresh",
-                    "in_progress",
-                    "done"
-                  ]
-                },
-                "complete": {
-                  "type": "boolean"
-                },
-                "setup_completion": {
-                  "type": "string",
-                  "enum": [
-                    "proven",
-                    "unproven"
-                  ]
-                },
-                "next_action": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "agent_instructions": {
-                  "type": "string"
-                },
-                "human_framing": {
-                  "type": "string"
-                },
-                "progress": {
+              "anyOf": [
+                {
                   "type": "object",
                   "properties": {
-                    "pending_markers": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "fresh",
+                        "in_progress",
+                        "done"
+                      ]
                     },
-                    "known_jobs": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": {
-                            "type": "string"
-                          },
-                          "wired": {
-                            "type": "boolean"
-                          },
-                          "not_applicable": {
-                            "type": "boolean",
-                            "const": true
-                          }
-                        },
-                        "required": [
-                          "name",
-                          "wired"
-                        ]
-                      }
+                    "complete": {
+                      "type": "boolean"
                     },
-                    "assurance": {
+                    "setup_completion": {
+                      "type": "string",
+                      "enum": [
+                        "proven",
+                        "unproven"
+                      ]
+                    },
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "agent_instructions": {
+                      "type": "string"
+                    },
+                    "human_framing": {
+                      "type": "string"
+                    },
+                    "progress": {
                       "type": "object",
                       "properties": {
+                        "pending_markers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "known_jobs": {
                           "type": "array",
                           "items": {
@@ -1132,71 +1109,110 @@
                               "name": {
                                 "type": "string"
                               },
-                              "state": {
-                                "type": "string",
-                                "enum": [
-                                  "enforced",
-                                  "deferred",
-                                  "absent"
-                                ]
+                              "wired": {
+                                "type": "boolean"
                               },
                               "not_applicable": {
-                                "type": "boolean",
-                                "const": true
-                              },
-                              "reason": {
-                                "type": "string"
-                              },
-                              "self_supplied": {
                                 "type": "boolean",
                                 "const": true
                               }
                             },
                             "required": [
                               "name",
-                              "state"
+                              "wired"
                             ]
                           }
                         },
-                        "enforced": {
-                          "type": "number"
-                        },
-                        "total": {
-                          "type": "number"
-                        },
-                        "known_total": {
-                          "type": "number"
-                        },
-                        "not_applicable": {
-                          "type": "number"
-                        },
-                        "verdict": {
-                          "type": "string",
-                          "enum": [
-                            "full",
-                            "partial",
-                            "minimal"
+                        "assurance": {
+                          "type": "object",
+                          "properties": {
+                            "known_jobs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "enforced",
+                                      "deferred",
+                                      "absent"
+                                    ]
+                                  },
+                                  "not_applicable": {
+                                    "type": "boolean",
+                                    "const": true
+                                  },
+                                  "reason": {
+                                    "type": "string"
+                                  },
+                                  "self_supplied": {
+                                    "type": "boolean",
+                                    "const": true
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "state"
+                                ]
+                              }
+                            },
+                            "enforced": {
+                              "type": "number"
+                            },
+                            "total": {
+                              "type": "number"
+                            },
+                            "known_total": {
+                              "type": "number"
+                            },
+                            "not_applicable": {
+                              "type": "number"
+                            },
+                            "verdict": {
+                              "type": "string",
+                              "enum": [
+                                "full",
+                                "partial",
+                                "minimal"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "known_jobs",
+                            "enforced",
+                            "total",
+                            "verdict"
                           ]
                         }
                       },
                       "required": [
-                        "known_jobs",
-                        "enforced",
-                        "total",
-                        "verdict"
+                        "pending_markers",
+                        "known_jobs"
                       ]
                     }
                   },
                   "required": [
-                    "pending_markers",
-                    "known_jobs"
+                    "phase",
+                    "complete",
+                    "next_action"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "next_action"
                   ]
                 }
-              },
-              "required": [
-                "phase",
-                "complete",
-                "next_action"
               ]
             },
             {

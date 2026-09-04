@@ -25,7 +25,7 @@ import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
-import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { buildCli } from "../src/main.ts";
 
@@ -37,6 +37,8 @@ function resultMessage(result: { message?: string | undefined }): string {
 
 /** Scaffold a fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+  await gitInit(dir);
   const r = await runCli(
     [
       "setup",

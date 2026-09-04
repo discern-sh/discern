@@ -31,7 +31,7 @@ const DOCS = {
     "templates",
     "setup",
     "skeleton",
-    "docs",
+    "map",
     "80-development",
     "done-gate-gotchas.md",
   ),

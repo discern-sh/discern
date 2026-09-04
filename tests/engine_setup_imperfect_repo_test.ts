@@ -52,9 +52,9 @@ import {
   writeNewerOnDiskJsonFixture,
 } from "./on_disk_format_fixtures.ts";
 
-type SetupData = Exclude<
+type SetupData = Extract<
   NonNullable<CliResultForCommand<"setup">["data"]>,
-  { issues: unknown }
+  { phase: unknown }
 >;
 type SetupBeginData = Exclude<
   NonNullable<CliResultForCommand<"setup begin">["data"]>,

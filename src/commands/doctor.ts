@@ -8,6 +8,7 @@
  */
 
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import {
   resolveConfigPath,
   resolveInstructionSources,
@@ -79,6 +80,7 @@ import {
   assessSetupAssurance,
   classifyKnownJob,
 } from "../shared/setup_assurance.ts";
+
 import {
   commandExists,
   leadingCommandWord,
@@ -128,6 +130,8 @@ import type {
 import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import { inDeskSession } from "../engine/desk/session.ts";
+
+const JSON_OBJECT_SCHEMA = z.record(z.string(), z.unknown());
 
 /** Options accepted by the `doctor` command. */
 export interface DoctorOptions {
@@ -1187,13 +1191,11 @@ export async function runChecks(
       if (raw === undefined) continue;
       try {
         const parsed: unknown = JSON.parse(raw);
-        const hooks = typeof parsed === "object" && parsed !== null &&
-            !Array.isArray(parsed) &&
-            typeof (parsed as Record<string, unknown>).hooks === "object" &&
-            (parsed as Record<string, unknown>).hooks !== null &&
-            !Array.isArray((parsed as Record<string, unknown>).hooks)
-          ? (parsed as Record<string, unknown>).hooks as Record<string, unknown>
-          : {};
+        const root = JSON_OBJECT_SCHEMA.safeParse(parsed);
+        const hookObject = root.success
+          ? JSON_OBJECT_SCHEMA.safeParse(root.data.hooks)
+          : undefined;
+        const hooks = hookObject?.success === true ? hookObject.data : {};
         // Scan EVERY hook group for a worktree-touching command (the registry's
         // needle) that isn't discern's — no hardcoded event-name list to fall behind.
         const needle = new RegExp(providerWorktreeHookNeedle(integ), "i");

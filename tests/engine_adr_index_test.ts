@@ -235,6 +235,8 @@ Deno.test("engine adr-index: a marker pair missing its end marker points the rem
 
 Deno.test("engine adr-index: the fresh setup skeleton yields a working index end-to-end", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+    await gitInit(dir);
     const setup = await runAgent(dir, [
       "setup",
       "begin",

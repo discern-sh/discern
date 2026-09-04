@@ -270,7 +270,7 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
     );
     assertEquals(
       await gitOut(wt, "show", "-s", "--format=%s", regeneratedCommit),
-      "Regenerate artifacts after update",
+      "Regenerate artifacts after discern update",
     );
   });
 });

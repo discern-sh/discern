@@ -96,7 +96,7 @@ Deno.test("setup is read-only and setup begin exclusively owns scaffold options"
       "--slug",
       "--config",
       "--dry-run",
-      "--force",
+      "--reseed",
       "--allow-dirty",
       "--confirmed",
     ]
@@ -190,6 +190,8 @@ Deno.test("version, usage, option ownership, and the top-level boundary use cano
     assertEquals(refusal.error, "invalid_arguments");
     assertStringIncludes(refusal.message ?? "", "setup begin --help");
 
+    await Deno.writeTextFile(`${dir}/README.md`, "# Fixture\n");
+    await gitInit(dir);
     const begin = await runCli(
       [
         "setup",

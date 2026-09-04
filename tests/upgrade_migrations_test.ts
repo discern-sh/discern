@@ -17,11 +17,14 @@ import { readTarget, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
 /** Create a current named installation that migration cases can deliberately age. */
 async function setup(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+  await gitInit(dir);
   assertEquals(
     (await runCli([
       "setup",
@@ -35,6 +38,8 @@ async function setup(dir: string): Promise<void> {
       .code,
     0,
   );
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-m", "install discern");
 }
 
 /** Overwrite the install's recorded `[meta].schema_version` (to model one behind). */

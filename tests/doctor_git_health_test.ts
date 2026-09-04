@@ -26,6 +26,8 @@ const GIT_ISOLATION = {
 
 /** Scaffold one configured repository without the separate logbook assertion. */
 async function setupRepository(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+  await gitInit(dir);
   const setup = await runCli([
     "setup",
     "begin",
@@ -42,7 +44,8 @@ async function setupRepository(dir: string): Promise<void> {
       "logbook = false",
     ),
   );
-  await gitInit(dir);
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-m", "configure doctor fixture");
 }
 
 /** Run doctor's JSON surface with optional process-environment overrides. */
@@ -230,6 +233,8 @@ Deno.test("dubious-ownership diagnostics are distinguished from a non-repository
 
 Deno.test("doctor: dubious ownership gets the exact-path trust remedy", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Fixture\n");
+    await gitInit(dir);
     const setup = await runCli([
       "setup",
       "begin",

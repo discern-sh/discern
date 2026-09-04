@@ -16,6 +16,7 @@
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
 import { fencedBlocks } from "../src/lib/docs_integrity.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const TEMPLATE_PATH = join(
@@ -23,7 +24,7 @@ const TEMPLATE_PATH = join(
   "templates",
   "setup",
   "skeleton",
-  "docs",
+  "map",
   "80-development",
   "done-gate-gotchas.md",
 );
@@ -85,12 +86,16 @@ Deno.test("the shipped gotchas template and the live map list the same stack-ind
     await Deno.readTextFile(TEMPLATE_PATH),
   );
   const live = stackIndependentTraps(await Deno.readTextFile(LIVE_PATH));
+  const trunk = (await loadConfig(REPO_ROOT)).repository.trunk;
+  const projectedTemplate = template.map((trap) =>
+    trap.replaceAll("{{trunk}}", trunk)
+  );
   assert(
     template.length > 0,
     `no traps found under "${SECTION_HEADING}" in ${TEMPLATE_PATH}`,
   );
   assertEquals(
-    template,
+    projectedTemplate,
     live,
     "the seeded trap inventory drifted: a stack-independent trap on one page is missing or re-ordered on the other. Backport the entry (generic wording, no internal citations) so both pages carry it.",
   );
