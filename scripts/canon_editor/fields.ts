@@ -26,7 +26,7 @@ import type {
   RetiredException,
   RetiredSynonym,
 } from "../glossary_registry.ts";
-import type { Claim } from "../brand/model.ts";
+import type { Claim, EvidenceSource } from "../brand/model.ts";
 import type {
   DemandAnswer,
   DemandEntry,
@@ -289,7 +289,15 @@ export const CLAIM_FIELDS = {
   tacticalUse: { edit: "prose", register: "brand" },
   wordingCorrection: { edit: "prose", register: "brand" },
   primarySource: { edit: "prose", register: "brand" },
+  basis: { edit: "nested" },
 } as const satisfies Record<keyof Claim, FieldSpec>;
+
+/** One inspectable source behind a claim: the path is identity, the summary prose. */
+export const CLAIM_BASIS_FIELDS = {
+  kind: { edit: "locked", reason: "the evidence-source kinds are a closed set" },
+  path: { edit: "locked", reason: "must name a real path — the guard checks" },
+  summary: { edit: "prose", register: "technical" },
+} as const satisfies Record<keyof EvidenceSource, FieldSpec>;
 
 /** The technical fields whose plain twins ride the same node. */
 export const PLAIN_TWIN: Readonly<Record<string, string>> = {
@@ -320,6 +328,7 @@ function nestedMap(
   if (registry === "glossary" && head === "retired") {
     return RETIRED_SYNONYM_FIELDS;
   }
+  if (registry === "claims" && head === "basis") return CLAIM_BASIS_FIELDS;
   return undefined;
 }
 

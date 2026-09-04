@@ -92,6 +92,12 @@ export interface Claim {
   readonly tacticalUse?: string;
   readonly wordingCorrection?: string;
   readonly primarySource: string;
+  /**
+   * The inspectable decisions, guards, and sources behind the claim. A
+   * structural claim carries at least one guard, and the guard test cites
+   * the claim slug in return, so the ledger and the Gate move together.
+   */
+  readonly basis: readonly [EvidenceSource, ...EvidenceSource[]];
 }
 
 /** One message territory of the canonical hierarchy; the body stays prose. */
