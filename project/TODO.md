@@ -86,6 +86,8 @@ _Product positioning, messaging, and launch/content tasks._
 
 - [ ] **Explore taste as the human contribution.** Develop careful positioning for human technical and creative direction as the durable quality bar behind agent-written implementation, respecting the public voice constraints around the word taste. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `project/skills/discern-brand-voice/SKILL.md`.
 
+- [ ] **Enrol the consequence canon in Canon Editor.** Register the consequence registry's fields, pickers, and page in the editor so its prose can be edited on the generated page like the other canons. Evidence: `scripts/brand/consequences.ts`; `scripts/canon_editor/fields.ts`; `scripts/canon_editor/registry_ast.ts`; `project/map/80-development/canon-editor.md`.
+
 - [ ] **Explore grows-your-discernment as a marketing angle.** Test whether teaching reusable categories of judgment can frame discern as a mentor that compounds for an enthusiastic audience still building its own quality instincts. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `site`.
 
 ## Maintainer follow-ups
