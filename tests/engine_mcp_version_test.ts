@@ -11,6 +11,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   createInstalledVersionResolver,
   parseDiscernVersion,
+  resolveCommandPath,
   versionMismatchHint,
 } from "../src/engine/mcp/version_check.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
@@ -115,6 +116,51 @@ Deno.test("createInstalledVersionResolver: real defaults keep a stable process a
   });
   statKey = "replaced";
   assertEquals(await replaced(), undefined);
+});
+
+Deno.test("createInstalledVersionResolver: a PATH command symlink retarget invalidates the shared cache", async () => {
+  await withTempDir(async (dir) => {
+    const first = `${dir}/discern-9.0.0`;
+    const second = `${dir}/discern-9.1.0`;
+    const command = `${dir}/discern`;
+    await Deno.writeTextFile(first, "#!/bin/sh\nprintf 'discern 9.0.0\\n'\n");
+    await Deno.writeTextFile(second, "#!/bin/sh\nprintf 'discern 9.1.0\\n'\n");
+    await Deno.chmod(first, 0o755);
+    await Deno.chmod(second, 0o755);
+    await Deno.symlink(first, command);
+
+    const resolve = createInstalledVersionResolver({
+      serverVersion: "9.0.0",
+      execPath: Deno.execPath(),
+      commandPath: command,
+    });
+    assertEquals(await resolve(), "9.0.0");
+
+    await Deno.remove(command);
+    await Deno.symlink(second, command);
+    assertEquals(await resolve(), "9.1.0");
+    assertEquals(await resolve(), "9.1.0");
+  });
+});
+
+Deno.test("MCP server creates one shared installed-version resolver at startup", async () => {
+  const source = await Deno.readTextFile(
+    new URL("../src/engine/mcp/server.ts", import.meta.url),
+  );
+  assertEquals(
+    source.match(/createInstalledVersionResolver\s*\(/g)?.length ?? 0,
+    1,
+  );
+  assert(source.includes("resolveCommandPath(DISCERN_MCP_SERVER.command)"));
+});
+
+Deno.test("resolveCommandPath resolves a PATH executable and refuses a missing command", async () => {
+  assertEquals(
+    await resolveCommandPath("discern-command-that-cannot-exist"),
+    undefined,
+  );
+  const shell = await resolveCommandPath("sh");
+  assert(shell?.startsWith("/"), shell);
 });
 
 Deno.test("runTool: a stale on-disk version leads every result with the restart hint", async () => {

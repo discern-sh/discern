@@ -66,6 +66,8 @@ export interface InstalledVersionDeps {
   serverVersion?: string;
   /** Absolute path to the running executable (defaults to `Deno.execPath()`). */
   execPath?: string;
+  /** PATH-resolved discern command installed for provider calls, when available. */
+  commandPath?: string;
   /** Stat a path to a cheap change-key (defaults to a real inode/mtime/size stat). */
   statKey?: StatKey;
   /** Resolve a binary's version by spawning it (defaults to `<path> --version`). */
@@ -88,14 +90,23 @@ export function createInstalledVersionResolver(
 ): () => Promise<string | undefined> {
   const serverVersion = deps.serverVersion ?? DISCERN_VERSION;
   const execPath = deps.execPath ?? Deno.execPath();
+  const commandPath = deps.commandPath;
+  const probePath = commandPath ?? execPath;
+  const watchedPaths = commandPath === undefined || commandPath === execPath
+    ? [execPath]
+    : [execPath, commandPath];
   const statKey = deps.statKey ?? defaultStatKey;
   const probeVersion = deps.probeVersion ?? defaultProbeVersion;
 
-  let cachedKey = statKey(execPath);
+  const currentKey = (): string | undefined => {
+    const keys = watchedPaths.map((path) => statKey(path));
+    return keys.some((key) => key === undefined) ? undefined : keys.join("|");
+  };
+  let cachedKey = currentKey();
   let cachedVersion: string | undefined = serverVersion;
 
   return async (): Promise<string | undefined> => {
-    const key = statKey(execPath);
+    const key = currentKey();
     if (key === undefined) {
       // The binary vanished or is unreadable — can't compare, so don't guess.
       return undefined;
@@ -106,16 +117,50 @@ export function createInstalledVersionResolver(
     // The executable was replaced since we last looked: resolve the new version
     // once and remember it against the new key so later calls stay spawn-free.
     cachedKey = key;
-    cachedVersion = await probeVersion(execPath);
+    cachedVersion = await probeVersion(probePath);
     return cachedVersion;
   };
 }
 
-/** Real stat-key: inode/mtime/size, the components a file replace changes. */
+/**
+ * Resolve one executable through PATH with the same POSIX shell contract used by
+ * discern's provider integrations. `undefined` keeps the resolver conservative:
+ * it can still watch the running executable and never invents an installed copy.
+ */
+export async function resolveCommandPath(
+  command: string,
+): Promise<string | undefined> {
+  try {
+    const output = await new Deno.Command("sh", {
+      args: ["-c", 'command -v "$1"', "sh", command],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    if (!output.success) return undefined;
+    const path = new TextDecoder().decode(output.stdout).trim();
+    return path.startsWith("/") ? path : undefined;
+  } catch {
+    // discern-best-effort: mcp-version-command-path-fallback
+    return undefined;
+  }
+}
+
+/** Real stat-key: link identity + resolved target identity. A symlink retarget
+ * changes the key even when both target files already existed with stable stats. */
 function defaultStatKey(path: string): string | undefined {
   try {
-    const info = Deno.statSync(path);
-    return `${info.ino ?? 0}:${info.mtime?.getTime() ?? 0}:${info.size}`;
+    const link = Deno.lstatSync(path);
+    const real = Deno.realPathSync(path);
+    const target = Deno.statSync(real);
+    return [
+      link.ino ?? 0,
+      link.mtime?.getTime() ?? 0,
+      link.size,
+      real,
+      target.ino ?? 0,
+      target.mtime?.getTime() ?? 0,
+      target.size,
+    ].join(":");
   } catch {
     // discern-best-effort: mcp-version-stat-fallback
     return undefined;

@@ -49,6 +49,39 @@ const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 /** Pre-Cliffy exec boundaries that call `recordedRun` directly. */
 const LOGBOOK_DIRECT_CLI_VERBS: ReadonlySet<string> = new Set(["queue"]);
 
+const FROZEN_V1_SHELL_ONLY_VERBS = [
+  "worktree",
+  "identity",
+  "skills",
+  "mcp",
+  "scripts",
+  "queue",
+  "tidy",
+  "desk",
+  "enter",
+  "setup",
+  "upgrade",
+  "uninstall",
+  "config",
+  "help",
+  "licenses",
+  "triangle",
+] as const;
+
+Deno.test("MCP shell-only v1 membership is exact and every reason is durable", () => {
+  assertEquals(
+    [...MCP_SHELL_ONLY_VERBS.keys()],
+    [...FROZEN_V1_SHELL_ONLY_VERBS],
+  );
+  for (const [verb, reason] of MCP_SHELL_ONLY_VERBS) {
+    assert(reason.trim().length >= 20, `${verb} needs a substantive reason`);
+    assert(
+      !/\b(?:for now|currently|temporary|not yet)\b/i.test(reason),
+      `${verb} has a temporary reason: ${reason}`,
+    );
+  }
+});
+
 Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → handler)", () => {
   // Attach the engine commands to a fresh root (every verb is unconditional, ADR
   // 0101), then read back the registered command names. They must be

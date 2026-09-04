@@ -154,6 +154,8 @@ MCP `tools/list` returns full definitions. Clients choose the startup context. d
 | Unknown MCP client                 | Unknown                      | 45 seconds                  |
 | CLI                                | No MCP client limit          | 3,300 seconds               |
 
+Cursor's strict profile keeps `discern_await` below the Agent CLI's 60-second transport limit. Gate calls can take longer, so run `discern done --markdown` in a shell; use the corresponding `discern prepare --markdown` or `discern test --markdown` command when those stages are the intended operation.
+
 The long profile reserves 300 seconds for delivery and cancellation. The strict profile reserves 15 seconds against Cursor's shortest verified surface. A watch returns immediately when its condition holds. When the budget expires first, the result is `ok: true`, `data.met: false`, and includes a 15-character `data.resume` handle. Continue with that handle; do not rebuild the watch from observed state. Handles are repository-local, expire after 7 days, and share a 512-record cap. CLI reports the not-yet result with exit `124`; MCP returns a normal tool result. `timeout` may shorten a call but cannot extend its selected profile.
 
 #### Find a map or manual page

@@ -1074,17 +1074,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The CI marker is advisory session metadata, and denied access cannot support a positive CI claim.",
   },
-  "mcp-server-config-fallback": {
-    path: "src/engine/mcp/server.ts",
-    enclosingFunction: "resolveServerConfig",
-    operation:
-      "render server-wide text from defaults while project config is unavailable",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "Per-call verb cores reload and report the real config error, while startup text must not retain unresolved template tokens.",
-  },
   "mcp-setup-gate-config-fallback": {
     path: "src/engine/mcp/server.ts",
     enclosingFunction: "setupGatePasses",
@@ -1094,6 +1083,16 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "Setup tools are the repair path for a broken config and their own cores retain the actionable parse failure.",
+  },
+  "mcp-version-command-path-fallback": {
+    path: "src/engine/mcp/version_check.ts",
+    enclosingFunction: "resolveCommandPath",
+    operation: "omit an unavailable PATH-resolved discern executable",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "The running executable remains observable, while an unavailable provider command cannot support an installed-version claim and must not block MCP startup.",
   },
   "mcp-version-probe-fallback": {
     path: "src/engine/mcp/version_check.ts",

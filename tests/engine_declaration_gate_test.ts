@@ -64,9 +64,12 @@ question = "${QUESTION}"
 `;
 
 /** Scaffold main + a worktree with one committed change under `api/`. */
-async function checkpointedWorktree(dir: string): Promise<string> {
+async function checkpointedWorktree(
+  dir: string,
+  config = CONFIG,
+): Promise<string> {
   await scaffoldEngine(dir);
-  await writeConfig(dir, CONFIG);
+  await writeConfig(dir, config);
   await writeExecutable(
     join(dir, "check.sh"),
     "#!/usr/bin/env sh\nexit 0\n",
@@ -103,6 +106,50 @@ async function runMcp(
     env: outcome.structuredContent as Record<string, unknown>,
   };
 }
+
+Deno.test("MCP done records one strict unmet declaration per call and composes successive calls", async () => {
+  await withTempDir(async (dir) => {
+    const config = `${CONFIG}
+
+[checkpoints.risk-notes]
+paths = ["api/**"]
+question = "The changed surface records its operational risks."
+`;
+    const wt = await checkpointedWorktree(dir, config);
+
+    const first = await runMcp("discern_done", wt, {
+      unmet: {
+        id: "api-review",
+        why: "The documentation follows in a separately reviewed change.",
+      },
+    });
+    assertEquals(first.isError, true);
+    assertEquals(first.env.error, AWAITING_DECLARATION_SLUG);
+    const firstData = first.env.data as {
+      checkpoints?: { outstanding?: { id: string }[] };
+    };
+    assertEquals(
+      firstData.checkpoints?.outstanding?.map((entry) => entry.id),
+      ["risk-notes"],
+    );
+
+    const second = await runMcp("discern_done", wt, {
+      unmet: {
+        id: "risk-notes",
+        why:
+          "The owner must decide whether the remaining operational risk is acceptable.",
+      },
+    });
+    assertEquals(second.isError, false, JSON.stringify(second.env));
+    const secondData = second.env.data as {
+      checkpoints?: { declared_unmet?: { id: string }[] };
+    };
+    assertEquals(
+      secondData.checkpoints?.declared_unmet?.map((entry) => entry.id).sort(),
+      ["api-review", "risk-notes"],
+    );
+  });
+});
 
 /** What one surface observation must prove. */
 interface SurfaceObservation {

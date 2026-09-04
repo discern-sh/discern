@@ -30,6 +30,7 @@ import {
   RefreshOutputSchema,
   ScopesDataSchema,
   StandardsOutputSchema,
+  StandardsProposeOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   StatusWireDataSchema,
@@ -125,6 +126,7 @@ const MCP_STRUCTURED_CONTENT_SCHEMA = z.union([
   PrepareOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
+  StandardsProposeOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
   TestOutputSchema,
@@ -565,6 +567,83 @@ async function readMcpVerbEvents(
   return events;
 }
 
+Deno.test("MCP logbook recording derives positional targets from the live CLI model", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+    const cases = [
+      {
+        tool: "discern_standards",
+        args: { names: ["coverage", "size"], force: true, dry_run: true },
+        verb: "standards",
+        target: "coverage size",
+        flags: ["force"],
+      },
+      {
+        tool: "discern_standards_propose",
+        args: {
+          name: "coverage",
+          reason: "Exercise positional recording.",
+          dry_run: true,
+        },
+        verb: "standards propose",
+        target: "coverage",
+        flags: ["reason"],
+      },
+      {
+        tool: "discern_coupling",
+        args: { file: "src/a.ts", with: "src/b.ts" },
+        verb: "coupling",
+        target: "src/a.ts src/b.ts",
+        flags: undefined,
+      },
+      {
+        tool: "discern_docs",
+        args: { target: "config-reference" },
+        verb: "docs",
+        target: "30-reference/config-reference",
+        flags: undefined,
+      },
+      {
+        tool: "discern_map",
+        args: { target: "00-orientation" },
+        verb: "map",
+        target: "00-orientation",
+        flags: undefined,
+      },
+    ] as const;
+
+    for (const contract of cases) {
+      const tool = TOOLS.find((candidate) => candidate.name === contract.tool);
+      assert(tool !== undefined, `${contract.tool} is not registered`);
+      await runTool(
+        tool,
+        new WorkingRoot(dir),
+        contract.args,
+        undefined,
+        () => Promise.resolve(undefined),
+        undefined,
+        "unknown-client",
+        TEST_CLI_MODEL,
+      );
+    }
+
+    const events = await readMcpVerbEvents(dir);
+    for (const contract of cases) {
+      const event = events.findLast((candidate) =>
+        candidate.verb === contract.verb
+      );
+      assert(event !== undefined, `missing ${contract.verb} event`);
+      assertEquals(event.target, contract.target, contract.verb);
+      assertEquals(
+        event.flags,
+        contract.flags === undefined ? undefined : [...contract.flags],
+        contract.verb,
+      );
+    }
+  });
+});
+
 /** Create a clean accepted HEAD while allowing an empty fixture commit. */
 async function commitWorktreeForAcceptance(
   dir: string,
@@ -869,9 +948,45 @@ Deno.test("mcp (live): discern_docs serves discern's own docs from a server spaw
     await using mcp = await spawnMcp(dir);
     await mcp.initialize();
 
+    await mcp.send({ jsonrpc: "2.0", id: 2, method: "resources/list" });
+    const listed = await mcp.recv();
+    const uris = (listed.result.resources as { uri: string }[]).map((entry) =>
+      entry.uri
+    );
+    assert(uris.includes("discern://docs"), JSON.stringify(uris));
+    assert(!uris.includes("discern://status"), JSON.stringify(uris));
+
     await mcp.send({
       jsonrpc: "2.0",
-      id: 2,
+      id: 3,
+      method: "resources/templates/list",
+    });
+    const templates = await mcp.recv();
+    const resourceTemplates = templates.result.resourceTemplates as {
+      uriTemplate: string;
+    }[];
+    assert(
+      resourceTemplates.some((entry) =>
+        entry.uriTemplate === "discern://docs/{+target}"
+      ),
+      JSON.stringify(resourceTemplates),
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "resources/read",
+      params: { uri: "discern://docs" },
+    });
+    const index = await mcp.recv();
+    assertStringIncludes(
+      index.result.contents[0]?.text ?? "",
+      "config-reference",
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 5,
       method: "tools/call",
       params: { name: "discern_docs", arguments: {} },
     });
@@ -3793,11 +3908,11 @@ Deno.test("discern mcp: await bounds follow the server's configured transport pr
     assert(tool !== undefined);
     assertStringIncludes(
       tool.description,
-      "Do not surface progress updates until it returns",
+      "Do not surface progress until it returns",
     );
     assertStringIncludes(
       tool.description,
-      "continue with `data.resume` without surfacing an update",
+      "resume with `data.resume` without an update",
     );
     assertStringIncludes(tool.description, AWAIT_WATCH_POLICY);
 
@@ -4106,7 +4221,7 @@ Deno.test("discern mcp: text content is the CLI Markdown projection of structure
   });
 });
 
-Deno.test("discern mcp: a tool call's structuredContent validates against its advertised schema", async () => {
+Deno.test("discern mcp: every live tool call validates against its own advertised schema", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -4119,44 +4234,50 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
     });
     await mcp.recv();
 
-    // The SDK already validates structuredContent against the outputSchema before
-    // sending (a mismatch would surface as an error), but assert it independently
-    // against the SAME Zod source the schema is built from — the end-to-end SSOT
-    // check, on top of Phase 2's core-level faithfulness tests.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const status = await mcp.recv();
-    assertEquals(status.result.isError, false);
-    const sParsed = StatusOutputSchema.safeParse(
-      status.result.structuredContent,
-    );
-    assert(
-      sParsed.success,
-      `status structuredContent drifted: ${
-        JSON.stringify(sParsed.success ? [] : sParsed.error.issues)
-      }`,
-    );
+    // Drive every registry member through the real SDK. The required-argument
+    // exceptions remain beside the registry walk; future tools auto-enrol and must
+    // either accept the generic safe preview or declare their minimal live probe.
+    const argumentsFor = (
+      tool: (typeof TOOLS)[number],
+    ): Record<string, unknown> => {
+      if (tool.name === "discern_await") {
+        return { trunk_moved: true, timeout: 0 };
+      }
+      if (tool.name === "discern_standards_propose") {
+        return {
+          name: "missing-standard",
+          reason: "Validate the live MCP result contract.",
+          dry_run: true,
+        };
+      }
+      return Object.hasOwn(tool.inputSchema, "dry_run")
+        ? { dry_run: true }
+        : {};
+    };
 
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_doctor", arguments: {} },
-    });
-    const doctor = await mcp.recv();
-    const dParsed = DoctorOutputSchema.safeParse(
-      doctor.result.structuredContent,
-    );
-    assert(
-      dParsed.success,
-      `doctor structuredContent drifted: ${
-        JSON.stringify(dParsed.success ? [] : dParsed.error.issues)
-      }`,
-    );
+    let id = 2;
+    for (const tool of TOOLS) {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name: tool.name, arguments: argumentsFor(tool) },
+      });
+      const response = await mcp.recv();
+      assertEquals(response.id, id, tool.name);
+      assertEquals(response.error, undefined, JSON.stringify(response));
+      assert(tool.outputSchema !== undefined, `${tool.name} needs a schema`);
+      const parsed = tool.outputSchema.safeParse(
+        response.result.structuredContent,
+      );
+      assert(
+        parsed.success,
+        `${tool.name} structuredContent drifted: ${
+          JSON.stringify(parsed.success ? [] : parsed.error.issues)
+        }`,
+      );
+      id += 1;
+    }
 
     assertEquals(await mcp.close(), 0);
   });
@@ -4304,7 +4425,7 @@ Deno.test("mcp: discern_standards returns and measures exactly the requested ord
     const standards = TOOLS.find((tool) => tool.name === "discern_standards");
     assert(standards !== undefined);
     const result = await runTool(standards, new WorkingRoot(dir), {
-      pin_names: ["selected"],
+      names: ["selected"],
     });
     assertEquals(result.isError, false, JSON.stringify(result));
     const payload = StandardsOutputSchema.parse(result.structuredContent);
@@ -4367,57 +4488,63 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
   });
 });
 
-Deno.test("discern mcp: the rendered surface names the project's configured trunk", async () => {
+Deno.test("discern mcp: target-generic descriptions and each cross-project result use the selected trunk", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    // Customise the trunk — the value the graduate_to / instructions.sources
-    // fixes proved the agent files must reflect. The MCP surface must reflect it too:
-    // a description that names the branch shows the REAL one, never a baked-in "main".
-    const set = await runAgent(dir, [
-      "config",
-      "set",
-      "repository.trunk",
-      "trunkline",
-    ]);
-    assertEquals(set.code, 0, set.output);
+    const first = join(dir, "first");
+    const second = join(dir, "second");
+    await Deno.mkdir(first);
+    await Deno.mkdir(second);
+    for (
+      const [root, trunk] of [
+        [first, "trunk-one"],
+        [second, "trunk-two"],
+      ] as const
+    ) {
+      await scaffoldEngine(root);
+      await gitInit(root);
+      const set = await runAgent(root, [
+        "config",
+        "set",
+        "repository.trunk",
+        trunk,
+      ]);
+      assertEquals(set.code, 0, set.output);
+    }
 
-    await using mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(first);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
       params: initParams(),
     });
-    const init = await mcp.recv();
-    // No template token ever escapes to the wire — every {{var}} is rendered.
-    const instructions = init.result.instructions as string;
-    assert(
-      !instructions.includes("{{"),
-      `an unrendered template token reached the wire:\n${instructions}`,
-    );
+    await mcp.recv();
 
     await mcp.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const list = await mcp.recv();
-    // discern_standards names the branch ("loosened versus `<main_branch>`") and is
-    // visible from the main checkout, so it is the end-to-end witness here.
-    const standards =
-      (list.result.tools as { name: string; description: string }[])
-        .find((t) => t.name === "discern_standards");
-    assert(standards !== undefined, "discern_standards should be listed");
-    assert(
-      standards.description.includes("trunkline"),
-      `the description must name the configured branch; got:\n${standards.description}`,
-    );
-    assert(
-      !standards.description.includes("versus main"),
-      `the hardcoded default must be gone; got:\n${standards.description}`,
-    );
-    assert(
-      !standards.description.includes("before pushing"),
-      `standards should not assume a remote-push workflow; got:\n${standards.description}`,
-    );
-    assert(!standards.description.includes("{{"), standards.description);
+    const prose = JSON.stringify(list.result.tools);
+    assert(!prose.includes("trunk-one"), prose);
+    assert(!prose.includes("trunk-two"), prose);
+    assertStringIncludes(prose, "selected project's configured trunk");
+
+    for (
+      const [id, path, trunk] of [
+        [3, undefined, "trunk-one"],
+        [4, second, "trunk-two"],
+      ] as const
+    ) {
+      await mcp.send({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: {
+          name: "discern_status",
+          arguments: path === undefined ? {} : { path },
+        },
+      });
+      const status = await mcp.recv();
+      assertEquals(status.result.structuredContent.data.git.trunk, trunk);
+    }
 
     assertEquals(await mcp.close(), 0);
   });

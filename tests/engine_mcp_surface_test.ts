@@ -1,17 +1,5 @@
 /**
- * Class guard for "an MCP agent-facing string states a `discern.toml`-configurable
- * value as a fixed literal" — the MCP sibling of the instructions-render guard
- * (`instruction_render_test.ts`). The graduate_to / instructions.sources fixes templated
- * the INSTRUCTIONS surface against config; this holds the MCP surface (every tool
- * description + title, and the instructions block for both locations) to the same
- * bar: a value it names must flow from config, never a baked-in default that
- * misleads a project which changed it.
- *
- * Driven off the SSOT — `mcpContext`'s own variable set — so a newly exposed
- * `{{var}}` can't ship without a metamorphic case here, and swapping any `{{var}}`
- * back to a literal makes that case stop tracking config. The render goes through the
- * SAME `renderMcpText` the server ships, so the guard can never pass on a render that
- * differs from production.
+ * MCP surface contract guards, driven from the live tool registry.
  *
  * Guards: claim:agent-as-operator
  */
@@ -21,115 +9,90 @@ import { fromFileUrl } from "@std/path";
 import { z } from "@zod/zod";
 import {
   buildInstructions,
-  mcpContext,
+  CODEX_INSTRUCTIONS_PREFIX_CHARS,
+  MCP_INSTRUCTIONS_BYTE_LIMIT,
+  MCP_TOOL_DESCRIPTION_BYTE_LIMIT,
   mcpStartHint,
-  renderMcpText,
+  toolDescriptionForProfile,
   TOOLS,
   verbOf,
 } from "../src/engine/mcp/server.ts";
 import { CONSENT_GATED_VERBS } from "../src/shared/consent.ts";
-import {
-  configSchema,
-  type DiscernConfig,
-} from "../src/shared/config_schema.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
-/** The schema defaults with `patch` merged in — the metamorphic lever ("changing
- * this value changes the rendered surface"). `configSchema.parse({})` is the
- * fully-defaulted config (every section prefaulted). */
-function configWith(patch: Record<string, unknown>): DiscernConfig {
-  return configSchema.parse(patch);
-}
-
-/**
- * Every agent-facing string the server renders for `config`: each tool's
- * description + title (interpolated through the production `renderMcpText`), each
- * input schema's `.describe()` text (static — not interpolated, but scanned so a
- * stray literal there is caught too), and the instructions
- * (the fullest text). Joined into one blob for scanning.
- */
-function mcpSurface(config: DiscernConfig): string {
+/** Every static agent-facing string advertised by the server. */
+function mcpSurface(): string {
   const parts: string[] = [];
   for (const tool of TOOLS) {
-    parts.push(renderMcpText(tool.description, config));
+    parts.push(tool.description);
     if (tool.title !== undefined) {
-      parts.push(renderMcpText(tool.title, config));
+      parts.push(tool.title);
     }
     if (tool.inputSchema !== undefined) {
       // The advertised input JSON Schema carries every `.describe()` string.
       parts.push(JSON.stringify(z.toJSONSchema(z.object(tool.inputSchema))));
     }
   }
-  parts.push(renderMcpText(buildInstructions(), config));
+  parts.push(buildInstructions());
   return parts.join("\n\n");
 }
 
-Deno.test("mcp surface: every config value it names flows from config — no hardcoded literal", () => {
-  // The SSOT cases: each `mcpContext` var paired with a sentinel value to set it to,
-  // the default literal that must NOT survive once it does, and `allow` — the CLOSED,
-  // finite set of legitimate non-branch uses of an overloaded default token. "main"
-  // is overloaded: as the integration BRANCH (the bug) it must interpolate, but as
-  // the checkout/location ROLE ("the main checkout/repo") and the `data.location`
-  // enum value (`"main"`) it is correct and stays. `allow` enumerates exactly those
-  // legitimate uses — it is not a deny-list that grows, but the vocabulary in which
-  // the token may appear; anything else is a hardcoded branch literal and fails.
-  const cases: Record<string, {
-    patch: Record<string, unknown>;
-    sentinel: string;
-    def: string;
-    allow: string[];
-  }> = {
-    main_branch: {
-      patch: { repository: { trunk: "zzbranch" } },
-      sentinel: "zzbranch",
-      def: "main",
-      // `range.main` is the update payload's wire FIELD name (the incoming-tip
-      // anchor) — a fixed schema key, not a branch literal.
-      allow: ["main checkout", "main repo", '"main"', "range.main"],
-    },
-  };
+Deno.test("mcp surface: descriptions are target-generic and carry no startup interpolation", () => {
+  const surface = mcpSurface();
+  assert(!surface.includes("{{"), surface);
+  for (const name of ["discern_start", "discern_update", "discern_accept"]) {
+    const tool = TOOLS.find((candidate) => candidate.name === name);
+    assert(tool !== undefined, `${name} is not registered`);
+    assertStringIncludes(
+      tool.description,
+      "selected project's configured trunk",
+    );
+  }
+});
 
-  // SSOT coupling: the cases must name EXACTLY `mcpContext`'s variables — a newly
-  // exposed var can't ship without a guard, and a removed one can't leave a dead
-  // case behind (mirrors instruction_render_test's `Object.keys` coupling).
-  assertEquals(
-    Object.keys(cases).sort(),
-    Object.keys(mcpContext(configWith({})).vars).sort(),
-    "every mcpContext {{var}} needs a config-driven case here (and vice versa)",
+Deno.test("mcp surface: instructions lead with a complete Codex routing paragraph", () => {
+  const instructions = buildInstructions();
+  assert(
+    new TextEncoder().encode(instructions).length < MCP_INSTRUCTIONS_BYTE_LIMIT,
+    instructions,
   );
+  const paragraphEnd = instructions.indexOf("\n\n");
+  assert(paragraphEnd > 0 && paragraphEnd <= CODEX_INSTRUCTIONS_PREFIX_CHARS);
+  const paragraph = instructions.slice(0, paragraphEnd);
+  for (
+    const name of [
+      "discern_status",
+      "discern_start",
+      "discern_done",
+      "discern_accept",
+    ]
+  ) {
+    assertStringIncludes(paragraph, name);
+  }
+  assert(/[.!?]$/.test(paragraph), paragraph);
 
-  const baseline = mcpSurface(configWith({}));
-  for (const [name, c] of Object.entries(cases)) {
-    const custom = mcpSurface(configWith(c.patch));
+  const tokens = new Set(instructions.match(/\bdiscern_[a-z_]+\b/g) ?? []);
+  assertEquals(tokens, new Set(TOOLS.map((tool) => tool.name)));
+});
 
-    // Config-driven: changing the value changes the rendered surface...
-    assert(
-      custom !== baseline,
-      `${name}: changing its config must change the rendered surface`,
-    );
-    // ...the configured value actually reaches the surface (interpolation is real)...
-    assert(
-      custom.includes(c.sentinel),
-      `${name}: the configured value "${c.sentinel}" must appear in the surface`,
-    );
-    // ...and the DEFAULT literal does not survive, outside its closed allow-list, so
-    // nothing hardcodes it instead of interpolating `{{${name}}}`.
-    let stripped = custom;
-    for (const phrase of c.allow) {
-      stripped = stripped.split(phrase).join(" ");
+Deno.test("mcp surface: every advertised tool description stays within its byte budget", () => {
+  for (const profile of ["long-client", "strict-client"] as const) {
+    for (const tool of TOOLS) {
+      const description = toolDescriptionForProfile(tool, profile);
+      const bytes = new TextEncoder().encode(description).length;
+      assert(
+        bytes <= MCP_TOOL_DESCRIPTION_BYTE_LIMIT,
+        `${profile} ${tool.name}: ${bytes} bytes exceeds ${MCP_TOOL_DESCRIPTION_BYTE_LIMIT}`,
+      );
+      if (
+        profile === "strict-client" && tool.annotations?.readOnlyHint !== true
+      ) {
+        assertStringIncludes(description, "60 seconds", tool.name);
+        assertStringIncludes(description, "discern done --markdown", tool.name);
+      }
     }
-    const escaped = c.def.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const leak = new RegExp(`\\b${escaped}\\b`, "i");
-    const offending = stripped.split("\n").filter((l) => leak.test(l));
-    assert(
-      offending.length === 0,
-      `${name}: the default "${c.def}" still appears hardcoded in the MCP ` +
-        `surface — interpolate {{${name}}} instead. Offending lines:\n${
-          offending.join("\n")
-        }`,
-    );
   }
 });
 
@@ -197,6 +160,67 @@ function toolProse(tool: (typeof TOOLS)[number]): string {
   }
   return parts.join("\n\n");
 }
+
+type JsonObject = Record<string, unknown>;
+
+/** Narrow an unknown JSON Schema fragment to its object representation. */
+function asObject(value: unknown): JsonObject | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as JsonObject
+    : undefined;
+}
+
+/** Direct property names offered by every object branch of one JSON Schema. */
+function schemaObjectProperties(schema: unknown): Set<string> {
+  const found = new Set<string>();
+  const visit = (value: unknown): void => {
+    const object = asObject(value);
+    if (object === undefined) return;
+    const properties = asObject(object.properties);
+    if (properties !== undefined) {
+      for (const name of Object.keys(properties)) found.add(name);
+    }
+    for (const key of ["anyOf", "oneOf", "allOf"] as const) {
+      const branches = object[key];
+      if (Array.isArray(branches)) branches.forEach(visit);
+    }
+  };
+  visit(schema);
+  return found;
+}
+
+Deno.test("mcp surface: every described data field exists in that tool's output schema", () => {
+  const failures: string[] = [];
+  for (const tool of TOOLS) {
+    assert(
+      tool.outputSchema !== undefined,
+      `${tool.name} needs an output schema`,
+    );
+    const schema = asObject(z.toJSONSchema(tool.outputSchema));
+    const properties = asObject(schema?.properties);
+    const dataFields = schemaObjectProperties(properties?.data);
+    const described = new Set(
+      [...toolProse(tool).matchAll(/\bdata\.([a-z][a-z0-9_]*)\b/g)]
+        .flatMap((match) => match[1] === undefined ? [] : [match[1]]),
+    );
+    for (const field of described) {
+      if (!dataFields.has(field)) failures.push(`${tool.name}: data.${field}`);
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("mcp surface: done declarations preserve their deliberate asymmetry", () => {
+  const done = TOOLS.find((tool) => tool.name === "discern_done");
+  assert(done !== undefined);
+  const schema = asObject(z.toJSONSchema(z.strictObject(done.inputSchema)));
+  const properties = asObject(schema?.properties);
+  assertEquals(asObject(properties?.met)?.type, "array");
+  const unmet = asObject(properties?.unmet);
+  assertEquals(unmet?.type, "object");
+  assertEquals(unmet?.additionalProperties, false);
+  assertEquals(unmet?.required, ["id", "why"]);
+});
 
 Deno.test("mcp surface: confirmed belongs only to consent-gated tools", () => {
   const consentCommands = new Set(
@@ -332,13 +356,14 @@ Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
       "tests",
       "may rewrite files",
     ],
-    discern_update: ["trunk's latest", "discern_accept", "discern_refresh"],
+    discern_update: [
+      "selected project's configured trunk",
+      "discern_accept",
+      "discern_refresh",
+    ],
     discern_impact: ["scopes", "named regions of the repository"],
     discern_map: ["regions digest", "freshness facts"],
-    discern_standards: [
-      "numbers that can never get worse",
-      "limits may only improve",
-    ],
+    discern_standards: ["Pass names", "measurement and pin candidates"],
     discern_improvement: [
       "ranked next action",
       "health audit",
@@ -355,10 +380,14 @@ Deno.test("renamed MCP tools retain the routing vocabulary agents need", () => {
 
   const standards = TOOLS.find((tool) => tool.name === "discern_standards");
   assert(standards !== undefined);
+  assertEquals(inputKeys(standards).includes("names"), true);
+  assertEquals(inputKeys(standards).includes("pin_names"), false);
   assert(
     !/ratchet/i.test(standards.description),
     "standards description must route without the retired noun",
   );
+  const coupling = TOOLS.find((tool) => tool.name === "discern_coupling");
+  assertEquals(coupling?.title, "Show co-change coupling");
 });
 
 Deno.test("mcp server version imports DISCERN_VERSION instead of hardcoding semver", async () => {

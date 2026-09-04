@@ -118,6 +118,7 @@ Deno.test("a future tool inherits the vanished-root refusal without enrolment", 
       name: "discern_zzz_probe",
       description: "synthetic future tool for the vanished-root guard",
       inputSchema: {},
+      outputSchema: statusTool().outputSchema,
       run: (): Promise<DiscernResult> => {
         throw new Error(
           "the vanished-root guard must refuse before any verb runs",

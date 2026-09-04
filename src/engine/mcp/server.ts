@@ -45,7 +45,10 @@ import {
 } from "../../shared/entropy.ts";
 import { fileExists, pathExists } from "../../shared/fs_presence.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
-import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
+import {
+  type CliModelProvider,
+  walkCliCommands,
+} from "../../shared/cli_reference_codegen.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import { resultPresenterForVerb } from "../../shared/result_contracts.ts";
 import { renderResultMarkdown } from "../../shared/result_markdown.ts";
@@ -102,15 +105,7 @@ import {
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../../shared/result_schemas.ts";
-import {
-  configSchema,
-  type DiscernConfig,
-  loadConfig,
-} from "../../shared/config_schema.ts";
-import {
-  type InstructionContext,
-  renderInstructionTemplate,
-} from "../instruction_template.ts";
+import { loadConfig } from "../../shared/config_schema.ts";
 import {
   NOT_SET_UP_MESSAGE,
   verbNeedsSetup,
@@ -155,19 +150,21 @@ import { configFailureResult } from "../../shared/config_failure.ts";
 import { renderCommandRefsMcp } from "../../shared/command_reference.ts";
 import {
   createInstalledVersionResolver,
+  resolveCommandPath,
   versionMismatchHint,
 } from "./version_check.ts";
 import {
   AWAIT_WATCH_POLICY,
-  operatingPolicyStatementsFor,
+  OPERATING_POLICIES,
   worktreeContinuityPolicy,
 } from "../../shared/operating_policies.ts";
 import { OperationLockError, withOperationLock } from "../operation_lock.ts";
+import { DISCERN_MCP_SERVER } from "../../lib/providers.ts";
 
 const SERVER_NAME = "discern";
 
 /**
- * Honest behavioural hints for a tool — the MCP `ToolAnnotations`. Mirrors the
+ * Honest behavioral hints for a tool — the MCP `ToolAnnotations`. Mirrors the
  * SDK's type (which `registerTool` accepts) field-for-field; declared here because
  * the SDK keeps that type behind a `types.js` subpath its package `exports` map
  * doesn't expose. All properties are hints, never guarantees.
@@ -201,7 +198,7 @@ const MUTATING: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
 };
-/** Rewrites discern-owned generated/co-managed artifacts only. It mutates the
+/** Rewrites discern-owned generated/shared artifacts only. It mutates the
  * filesystem, but it is safe to re-run and does not execute project commands. */
 const REFRESH: ToolAnnotations = {
   readOnlyHint: false,
@@ -279,8 +276,8 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   /** The complete result schema this tool advertises. The SDK validates every
    * call's `structuredContent` against it, including the envelope's structural
    * state contract, so it MUST match what the verb actually returns (ADR 0041). */
-  outputSchema?: z.ZodType;
-  /** Honest behavioural hints (read-only / destructive / …). */
+  outputSchema: z.ZodType;
+  /** Honest behavioral hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
   /** This verb's result does not depend on WHICH project it runs in — it serves the
    * same answer from anywhere, so it must stay reachable even when the server spawned
@@ -346,6 +343,25 @@ export function strictInput(shape: z.ZodRawShape): z.ZodType {
 
 /** The exclusive UTF-8 byte limit for Claude Code's server instructions. */
 export const MCP_INSTRUCTIONS_BYTE_LIMIT = 2 * 1024;
+/** Every tool description, including a strict-client fallback, stays bounded. */
+export const MCP_TOOL_DESCRIPTION_BYTE_LIMIT = 2 * 1024;
+/** Codex indexes only this leading slice when choosing among many MCP servers. */
+export const CODEX_INSTRUCTIONS_PREFIX_CHARS = 512;
+
+const STRICT_CLIENT_GATE_FALLBACK =
+  "This strict client stops MCP calls after 60 seconds. If the operation may " +
+  "take longer, run its `discern … --markdown` equivalent in a shell; use " +
+  "`discern done --markdown` for the gate.";
+
+/** Render a profile-faithful description without changing the live tool table. */
+export function toolDescriptionForProfile(
+  tool: McpTool,
+  profile: AwaitCallProfile,
+): string {
+  return profile === "strict-client" && tool.annotations?.readOnlyHint !== true
+    ? `${tool.description} ${STRICT_CLIENT_GATE_FALLBACK}`
+    : tool.description;
+}
 
 /** The startup-visible lifecycle, in the order an agent should follow it. */
 export const MCP_CORE_LIFECYCLE = [
@@ -430,7 +446,8 @@ export const TOOLS: McpTool[] = orderTools([
       "cleanliness and trunk divergence; data.gate lists checks that would run; " +
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
-      "separate effort. setup_unfinished carries pending markers, known-job applicability, " +
+      "separate effort. data.git.trunk is the selected project's configured trunk. " +
+      "data.setup_unfinished carries pending markers, known-job applicability, " +
       "and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary " +
       "discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive " +
       "that plan. incoming_overlap previews what discern_update brings in, and " +
@@ -464,7 +481,7 @@ export const TOOLS: McpTool[] = orderTools([
     description: "Refresh the agent files, materialized skills, provider " +
       "integration artifacts, and the maintained ADR index (the record lists " +
       "between markers in the map's ADR README, regenerated from the record " +
-      "files on disk). It rewrites discern-generated or co-managed artifacts " +
+      "files on disk). It rewrites discern-generated or shared artifacts " +
       "only; edit instruction sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
       "Set dry_run to preview every target and change nothing. Use discern_update " +
@@ -493,8 +510,8 @@ export const TOOLS: McpTool[] = orderTools([
       "a named region of the repository with its own check. Return the structured result " +
       "with per-step outcomes plus normalized diagnostics " +
       "(tool, file/line when available, message, and the exact command to reproduce " +
-      "each failure). A green run over a clean committed tree ahead of the trunk — " +
-      "the shared landing branch (`{{main_branch}}`) — " +
+      "each failure). A green run over a clean committed tree ahead of the selected " +
+      "project's configured trunk — its shared landing branch — " +
       "also carries data.proof and resolves any recorded grant into " +
       "data.landing_authority. Follow the resolution-gated hints: an uncovered " +
       "landing is reported to the owner in your own words and ends with " +
@@ -583,32 +600,17 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StandardsOutputSchema,
     annotations: MUTATING,
     description:
-      "Check every configured quality standard — numbers that can never get worse. " +
-      "Run each measurement command, compare it to its limit, and assert that the " +
-      "limits may only improve versus `{{main_branch}}`. Returns the per-standard " +
-      "steps[]. This is the ON-DEMAND pass: discern_done already verifies every " +
-      "limit and measures each standard alongside the tests on every run, so " +
-      'reach for this to measure a deferred (measure = "on-demand") standard, ' +
-      "to re-measure explicitly (it always measures — never replays), or to pin. " +
-      "Non-dry-run calls require a clean worktree " +
-      "(a separate checkout and branch for one effort) " +
-      "unless force is set while authoring or debugging standards. Set dry_run to " +
-      "preview which standards would run — it measures nothing, with or without " +
-      "pin. Set pin to " +
-      "capture measured improvements INSTEAD of just checking: it tightens each " +
-      "limit to the measured value (the pin_names standards, or every one with " +
-      "slack), commits that change on its own, and carries the gate proof " +
-      "forward so accept skips the redundant gate re-run — the ergonomic way to " +
-      "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +
-      "and pins nothing while any standard is failing. A green check's hints[] " +
-      "already name any pinnable slack with measured values, so the whole flow is " +
-      "check then pin — never spend a call just to see whether a pin is worthwhile. " +
-      "Authoring a NEW standard? Sort the number first: an invariant a healthy " +
-      "project never adds holds the raw count; a quality that scales holds a " +
-      "rate (per); a total that grows with the product needs margin and an owner " +
-      "willing to raise the limit as it grows — a ceiling pinned at today's value " +
-      "fails the next legitimate change and invites offsetting edits from " +
-      "unrelated code.",
+      "Measure the selected configured standards and compare each value with its " +
+      "limit. Pass names to narrow both measurement and pin candidates; omit it " +
+      "for every standard. The comparison uses the selected project's configured " +
+      "trunk. This call always measures; discern_done already measures ordinary " +
+      "standards with the tests and verifies their limits. Use this tool for an " +
+      'on-demand (`measure = "on-demand"`) standard, an explicit remeasurement, ' +
+      "or a pin. Non-dry-run calls require a clean worktree unless force is set " +
+      "for authoring or diagnosis. dry_run previews without measuring. pin captures " +
+      "measured improvements, commits only the tighter limits, and carries the " +
+      "Proof forward. Pinning requires a clean worktree and refuses while any " +
+      "selected standard fails. Never hand-edit a limit to make the gate pass.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",
@@ -619,8 +621,8 @@ export const TOOLS: McpTool[] = orderTools([
       pin: z.boolean().optional().describe(
         "Capture measured improvements, commit the limit change alone, and carry Gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
       ),
-      pin_names: z.array(z.string()).optional().describe(
-        "Measure only these Standards. With pin, change only this set too; measurement narrows after honored Gate Proof validates the clean tree, otherwise the complete Standard set is validated before mutating only the named limits (default: every Standard).",
+      names: z.array(z.string()).optional().describe(
+        "Measure only these standards. With pin, only these standards are pin candidates too (default: every standard).",
       ),
       ...PATH_PARAM,
     },
@@ -629,7 +631,7 @@ export const TOOLS: McpTool[] = orderTools([
         dryRun: args.dry_run === true,
         force: args.force === true,
         pin: args.pin === true,
-        ...(args.pin_names !== undefined ? { pinNames: args.pin_names } : {}),
+        ...(args.names !== undefined ? { pinNames: args.names } : {}),
         signal,
       }),
   }),
@@ -704,7 +706,7 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_coupling",
-    title: "Coupling",
+    title: "Show co-change coupling",
     outputSchema: CouplingOutputSchema,
     annotations: READ_ONLY,
     description:
@@ -759,10 +761,10 @@ export const TOOLS: McpTool[] = orderTools([
       "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
       "waits until that branch's worktree holds an honored gate proof — a " +
       "green `discern_done` on its current clean HEAD (the work landing on " +
-      "`{{main_branch}}` also satisfies it, since only a validated tree " +
+      "the selected project's configured trunk also satisfies it, since only a validated tree " +
       "lands); `landed` (a branch name) waits until that branch's work — its " +
-      "latest observed tip after it has work — is reachable from `{{main_branch}}`; `trunk_moved` " +
-      "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
+      "latest observed tip after it has work — is reachable from the selected " +
+      "project's configured trunk; `trunk_moved` waits until that trunk moves. Conditions ground in git " +
       "ancestry, gate proofs, and landed proof notes, never in recorded " +
       "activity. If the bound expires, the result stays ok with data.met false. " +
       "Pass data.resume by itself on the next call: it preserves the original " +
@@ -934,7 +936,7 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: READ_ONLY,
     description:
       "Read or search the configured project Map, the agent-maintained source for " +
-      "documented project behaviour. With no input, return its full index and " +
+      "documented project behavior. With no input, return its full index and " +
       "top-level regions digest with file-linked freshness facts. Pass `target` to " +
       "read one page or list one region. Pass `search` to get the full match count " +
       "and up to five highest-ranked results with context and canonical targets; " +
@@ -1007,33 +1009,19 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: DESTRUCTIVE,
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
-      "Accept THIS worktree's branch onto the trunk (`{{main_branch}}`) — the shared " +
-      "landing branch. A worktree is a separate checkout and branch for one effort. " +
-      "Tear down the worktree's resources, advance the trunk directly to the branch " +
-      "tip, remove the clean worktree, and delete the " +
-      "now-merged branch. Before the fast-forward it verifies that the current " +
-      "tracked refresh plan is empty, even when an older gate proof is honored. " +
-      "After the fast-forward it materializes only checkout-local Agent artifacts; " +
-      "tracked instructions and provider integrations must already be committed on the " +
-      "branch. This is the single deterministic implementation — " +
-      "run it rather than reproducing the steps with git; commit the work with a real " +
-      "message first so it lands as a proper review commit. After a green landing, " +
-      "report it in your own words and end with data.proof_line verbatim; " +
-      "the full review page remains available through `discern status --verbose`. " +
-      "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
-      "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
-      '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
-      "step (e.g. call discern_update first). Landing authority comes from either " +
-      "a `confirmed` conversation or a machine-verified grant recorded on the " +
-      "trunk or at the desk. Before recovering an interrupted acceptance, it " +
-      "also accepts consent bound to that recorded transaction. Journal-bound " +
-      "consent finishes only that transaction; it never authorizes a new trunk " +
-      "transition. Without current or journal-bound authority, it refuses " +
-      "read-only and re-serves the review moment (relay the proof, wait for " +
-      "the owner) instead of landing. Set dry_run to preview " +
-      "the plan without touching anything. " +
-      "Operates on the worktree this call selects: the server's current target by " +
-      "default, or the discern worktree containing an explicit absolute `path`.",
+      "Resolve the selected project's configured trunk for this call, then " +
+      "fast-forward that shared landing branch to this worktree's tip. The tool " +
+      "first verifies a clean committed branch containing the latest trunk, a clean " +
+      "main checkout on that trunk, current Proof, and an empty tracked refresh plan. " +
+      "It tears down worktree resources, removes the worktree, and deletes the merged " +
+      "branch. Tracked instructions and provider integrations must already be committed; " +
+      "after landing only checkout-local agent artifacts are materialized. Landing " +
+      "authority comes from confirmed current consent or a machine-verified grant. " +
+      "Recorded grants never cover a checkpoint variance or Standard proposal. Without " +
+      "authority the call is read-only and re-serves the review moment. Use discern_update " +
+      "when the branch is behind. Set dry_run to preview without changing anything. " +
+      "After success, report the result in your own words and end with data.proof_line " +
+      "verbatim; the full review page remains available through `discern status --verbose`.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the acceptance plan and touch nothing (default false).",
@@ -1086,44 +1074,23 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: UpdateOutputSchema,
     annotations: UPDATE,
     description:
-      "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
-      "worktree's branch and run the complete refresh reconciliation, including " +
-      "shared generated metadata and checkout-local Agent artifacts — the inverse of " +
-      "discern_accept, and the action that resolves discern_done's merge check " +
-      "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
-      "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
-      "nothing to look up or confirm for the routine call. " +
-      "Just call it: you do NOT need to run git to check first — it performs every " +
-      "precondition itself and returns exactly what to do next. It is idempotent and " +
-      "safe to call anytime: when the branch already contains the source nothing is " +
-      "merged and the worktree is still re-converged (complete refresh rerun, " +
-      "[worktree.setup].ensure re-run). If that no-merge refresh changes a tracked " +
-      "artifact, the result names the path and leaves it for review and an intentional " +
-      "commit; it does not create a bookkeeping commit. A plain re-run is also the recovery " +
-      "after you resolve a merge conflict by hand; it merges into a tracked-clean tree only, so " +
-      'it refuses (error:"precondition_failed") on uncommitted tracked changes; and on a merge ' +
-      "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
-      "conflicted files and the manual path to resolve them. " +
-      "On a merge it returns `data` summarizing what landed BENEATH your work: the " +
-      "commits and files brought in (each capped, with a `*_total` and `*_truncated`), " +
-      "which of your own files `overlap` them (RE-READ those — a clean merge can still " +
-      "conflict semantically), the `scopes_incoming` touched, and a `range` of commit " +
-      "SHAs (`range.main` is the incoming tip — the source ref's, whichever it was). " +
-      "When a list is capped, pull the full set in ONE git call from the range " +
-      "rather than guessing it — e.g. `git diff --stat <range.before>..<range.after>`, " +
-      "or `git diff <range.before>..<range.after> -- <path>` for one file; the hints " +
-      "carry the exact command. Set dry_run to preview the " +
-      "plan (and the SAME predicted `data`, computed read-only without merging) without " +
-      "touching anything. Never touches the main checkout; it updates the worktree " +
-      "this call selects, using the current target by default or an explicit " +
-      "absolute `path`. This updates the branch; run " +
-      "`discern upgrade` to update discern itself, or use discern_refresh to run " +
-      "the refresh reconciliation alone.",
+      "Update this branch: merge the selected project's configured trunk into the " +
+      "selected worktree and run the complete refresh reconciliation. This is the " +
+      "inverse of discern_accept and resolves discern_done's behind-trunk check. Omit " +
+      "from for the configured trunk; pass from only to compose on a different ref or " +
+      "worktree. The operation is idempotent and never changes the main checkout. It " +
+      "requires a tracked-clean tree, aborts a conflicting merge without leaving conflict " +
+      "state, and remains the recovery after conflicts are resolved. Even when no merge " +
+      "is needed it reruns refresh and [worktree.setup].ensure; review and commit any " +
+      "tracked result. data.commits, data.files, data.overlap, data.scopes_incoming, and " +
+      "data.range report what arrived beneath this work. Capped lists carry their totals. " +
+      "Set dry_run to return the same predicted data without changing anything. Use " +
+      "discern_refresh for refresh alone and `discern upgrade` to update discern itself.",
     inputSchema: {
       from: z.string().optional().describe(
         "Pull a ref (branch, tag, or commit) or an unambiguous worktree id or path " +
           "into this worktree instead of the trunk. OMIT for the routine call — " +
-          "the default is always the trunk (`{{main_branch}}`), so there is nothing " +
+          "the default is always the selected project's configured trunk, so there is nothing " +
           "to check first. Use this only to compose on unlanded work.",
       ),
       dry_run: z.boolean().optional().describe(
@@ -1146,37 +1113,17 @@ export const TOOLS: McpTool[] = orderTools([
       `${
         worktreeContinuityPolicy("`discern_start`")
       } Create a fresh ISOLATED ` +
-      "worktree — a separate checkout and branch for one " +
-      "effort — from the main checkout, set it up, and return where it landed " +
-      "(data.path). When the trunk records standing landing scopes, " +
-      "data.landing_authority and the matching hint name them prospectively; final " +
-      "coverage is always rechecked against the changed paths. The new branch forks " +
-      "from the trunk (`{{main_branch}}`), the " +
-      "shared landing branch, regardless of what " +
-      "branch the main checkout is sitting on — you do NOT need to check or pass " +
-      "anything for the normal case. " +
-      "Use this when you are on the trunk (the main checkout) and beginning a new " +
-      "effort that has no worktree. Never adopt a worktree created for another " +
-      "effort because it is idle or clean. On success it RE-AIMS these discern tools at the " +
-      "new worktree automatically — your later discern_done / discern_update / " +
-      "discern_accept operate on it with nothing for you to thread. But that moves " +
-      "only the discern tools: you MUST still move your OWN file operations into " +
-      "data.path — re-root there, or if you can't change your working root, prefix " +
-      "every shell command with `cd <path> &&` and pass `path` to every discern tool " +
-      "— so your edits land in the worktree, not the trunk; otherwise your edits and " +
-      "the gate diverge. Optionally pass `name` — a few words describing the task " +
-      "you're about to start (e.g. `fix-upload-retry`, or a phrase like `fix the " +
-      "upload retry path`) — and discern normalises it into the branch name so the " +
-      "worktree is identifiable at a glance instead of an opaque codename; omit it " +
-      "and you get a random codename as before. Starting work in a DIFFERENT " +
-      "discern project (a dependency's repo, another component of a multi-repo " +
-      "app)? Pass `path` — any absolute path inside that project — and the " +
-      "worktree is created for THAT project, the re-aim following it exactly as " +
-      "for a same-project start. Each call mints a NEW worktree and is not " +
-      "idempotent. If you " +
-      "are already inside a worktree, do NOT call this (you'd create a pointless " +
-      'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
-      "dry_run to preview the plan without creating anything.",
+      "worktree — a separate checkout and branch for one effort — from the selected " +
+      "project's configured trunk. The result reports that trunk and data.path. Run " +
+      "this only from a main checkout when the effort has no worktree; it refuses from " +
+      "a linked worktree. The call sets up the checkout and re-aims later discern tools " +
+      "at it, but you must also move your own file operations to data.path. Pass an " +
+      "absolute path to start in another discern project. name seeds a normalized, " +
+      "readable worktree id; title and brief carry task metadata. from deliberately " +
+      "selects a non-trunk starting point. data.landing_authority reports any prospective " +
+      "standing grant, whose final coverage is rechecked against changed paths. Each " +
+      "non-preview call creates a new worktree and is not idempotent. Set dry_run to " +
+      "preview the plan without creating anything.",
     inputSchema: {
       name: z.string().optional().describe(
         "Optional task title and worktree-id seed. discern preserves the supplied " +
@@ -1193,7 +1140,7 @@ export const TOOLS: McpTool[] = orderTools([
       from: z.string().optional().describe(
         "Branch the new worktree from a ref (branch, tag, or commit) or an " +
           "unambiguous worktree id or path instead of the trunk. OMIT for everyday " +
-          "starts — the default is always the trunk (`{{main_branch}}`), so there is " +
+          "starts — the default is always the selected project's configured trunk, so there is " +
           "nothing to look up or confirm. Use this only to build on unlanded or " +
           "experimental work.",
       ),
@@ -1246,7 +1193,10 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
     "queue",
     "a shell command wrapper whose child owns its arguments, streams, and exit status",
   ],
-  ["tidy", "embedded formatting is CLI-only for now"],
+  [
+    "tidy",
+    "embedded formatter output belongs to the interactive terminal boundary",
+  ],
   [
     "desk",
     "the interactive human surface; it wields supervisory actions over other efforts",
@@ -1474,17 +1424,9 @@ function prependHint(result: DiscernResult, hint: FiredHint): DiscernResult {
   };
 }
 
-/**
- * The process-wide version resolver used when {@link runTool} is called without an
- * explicit one (the direct-call test path). Lazily created so importing this
- * module has no stat/exec side effect; the live server passes its own resolver,
- * created once at startup in {@link runMcpServer}.
- */
-let sharedInstalledVersion: (() => Promise<string | undefined>) | undefined;
-/** Read the running binary's version for setup calls that omit an override. */
-function defaultInstalledVersion(): Promise<string | undefined> {
-  sharedInstalledVersion ??= createInstalledVersionResolver();
-  return sharedInstalledVersion();
+/** Direct-call fallback: only the live server owns an installed-version resolver. */
+function unresolvedInstalledVersion(): Promise<undefined> {
+  return Promise.resolve(undefined);
 }
 
 /**
@@ -1567,21 +1509,47 @@ async function mcpDriverFacts(
   };
 }
 
-/** The argument NAMES a tool call provided — the MCP mirror of CLI flag names,
- * already registry-vetted by the tool's input schema. Values never land; names
- * are normalized to the CLI's hyphenated spelling so readers see one
- * vocabulary. `path` (plumbing) and `dry_run` (a first-class field) drop out;
- * a string-valued `target` argument is lifted as the verb's target instead. */
+/** The argument facts a tool call provided, projected through the live CLI model.
+ * Positional values become the operation target; only actual CLI options become
+ * flags. Values for options never land. `path` is plumbing and `dry_run` has its
+ * own field. A missing model retains the historic target behavior for direct
+ * test calls, while the live server always supplies its attached model. */
 function mcpCallFacts(
+  verb: string,
   args: Record<string, unknown>,
+  cliModel: CliModelProvider,
 ): { flags: string[] | undefined; target: string | undefined } {
+  let positionalNames: readonly string[] = [];
+  if (cliModel !== missingCliModel) {
+    positionalNames = [...walkCliCommands(cliModel())]
+      .find((command) => command.path.join(" ") === verb)?.args
+      .map((arg) => arg.name) ?? [];
+  }
+  const positional = new Set(positionalNames);
   const names = Object.keys(args)
-    .filter((k) => k !== "path" && k !== "dry_run" && k !== "target")
+    .filter((key) =>
+      key !== "path" && key !== "dry_run" && key !== "target" &&
+      !positional.has(key)
+    )
     .map((k) => k.replaceAll("_", "-"))
     .sort();
-  const target = typeof args.target === "string" && args.target !== ""
-    ? args.target
-    : undefined;
+  const targets = positionalNames.flatMap((name) => {
+    const value = args[name];
+    if (typeof value === "string" && value !== "") return [value];
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string =>
+        typeof item === "string" && item !== ""
+      );
+    }
+    return [];
+  });
+  if (
+    !positional.has("target") && typeof args.target === "string" &&
+    args.target !== ""
+  ) {
+    targets.push(args.target);
+  }
+  const target = targets.length > 0 ? targets.join(" ") : undefined;
   return { flags: names.length > 0 ? names : undefined, target };
 }
 
@@ -1601,9 +1569,10 @@ function beginMcpRecording(
   verb: string,
   args: Record<string, unknown>,
   mcpClient?: RecordedMcpClient,
+  cliModel: CliModelProvider = missingCliModel,
 ): McpRecording {
   const driver = mcpDriverFacts(mcpClient);
-  const { flags } = mcpCallFacts(args);
+  const { flags } = mcpCallFacts(verb, args, cliModel);
   const dryRun = args.dry_run === true;
   const operationFacts = {
     ...(flags === undefined ? {} : { flags }),
@@ -1661,7 +1630,7 @@ async function runVerb(
   try {
     throwIfCrashProbe();
     const command = verbOf(tool.name);
-    const { flags } = mcpCallFacts(args);
+    const { flags } = mcpCallFacts(command, args, cliModel);
     return {
       result: await withOperationLock(
         root,
@@ -1709,6 +1678,7 @@ async function completeToolCall(
   args: Record<string, unknown>,
   pending: PendingToolCall,
   stale: FiredHint | undefined,
+  cliModel: CliModelProvider,
 ): Promise<ToolResult> {
   const prepared = withFailureRecoveryHint(
     evaluateResultCompletion(pending.result),
@@ -1736,7 +1706,11 @@ async function completeToolCall(
   const checkpointActivity = takeCheckpointActivity();
   const recording = pending.recording;
   if (recording !== undefined) {
-    const { flags, target } = mcpCallFacts(args);
+    const { flags, target } = mcpCallFacts(
+      verbOf(tool.name),
+      args,
+      cliModel,
+    );
     await recording.recorder.finish({
       verb: verbOf(tool.name),
       surface: "mcp",
@@ -1826,6 +1800,7 @@ async function dispatchToolCall(
         verbOf(tool.name),
         args,
         mcpClient,
+        cliModel,
       ),
     };
   }
@@ -1855,9 +1830,13 @@ async function dispatchToolCall(
           verbOf(tool.name),
           vanishedHeldRootMessage(root, home),
         ),
-        recording: home === undefined
-          ? undefined
-          : beginMcpRecording(home, verbOf(tool.name), args, mcpClient),
+        recording: home === undefined ? undefined : beginMcpRecording(
+          home,
+          verbOf(tool.name),
+          args,
+          mcpClient,
+          cliModel,
+        ),
       };
     }
     // A root-independent answer never depended on the vanished root: continue
@@ -1896,6 +1875,7 @@ async function dispatchToolCall(
     verbOf(tool.name),
     args,
     mcpClient,
+    cliModel,
   );
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_map`) refuses until the project records
@@ -1955,7 +1935,7 @@ export async function runTool(
   args: Record<string, unknown>,
   signal?: AbortSignal,
   resolveInstalledVersion: () => Promise<string | undefined> =
-    defaultInstalledVersion,
+    unresolvedInstalledVersion,
   mcpClient?: RecordedMcpClient,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
   cliModel: CliModelProvider = missingCliModel,
@@ -1980,7 +1960,7 @@ export async function runTool(
     awaitCallProfile,
     cliModel,
   );
-  return await completeToolCall(tool, args, pending, stale);
+  return await completeToolCall(tool, args, pending, stale, cliModel);
 }
 
 /**
@@ -1998,59 +1978,6 @@ async function setupGatePasses(root: string): Promise<boolean> {
     // discern-best-effort: mcp-setup-gate-config-fallback
     return true;
   }
-}
-
-/**
- * Resolve the config the server renders + gates against: the project's real
- * `discern.toml`, or — outside a project, or when the config can't be parsed — the
- * fully-defaulted config (`configSchema.parse({})`). Resolved ONCE at startup for
- * the text rendering below. The defaulted fallback
- * gives {@link mcpContext} a sane fallback
- * `main_branch` ("main") instead of leaving a raw `{{main_branch}}` token on the wire.
- */
-async function resolveServerConfig(
-  root: string | undefined,
-): Promise<DiscernConfig> {
-  if (root !== undefined) {
-    try {
-      return await loadConfig(root);
-    } catch {
-      // discern-best-effort: mcp-server-config-fallback
-      // A missing / mid-edit / invalid config falls through to the defaults below;
-      // the verb cores still surface the real config error when actually invoked.
-    }
-  }
-  return configSchema.parse({});
-}
-
-/**
- * The template context the MCP agent-facing text renders against — the
- * `discern.toml`-configurable values its tool descriptions, titles, and instructions
- * may name, so a project that customised one reads its real value rather than
- * discern's default. The MCP sibling of `instructionContext` (`instruction_render.ts`):
- * the SAME `{{var}}` engine, a different surface. PURE function of config. Keep it
- * minimal — add a var only when a description/instruction actually interpolates it;
- * every exposed var is held to that by the surface guard (`engine_mcp_surface_test`).
- */
-export function mcpContext(config: DiscernConfig): InstructionContext {
-  return {
-    vars: {
-      main_branch: config.repository.trunk,
-    },
-    preds: {},
-  };
-}
-
-/**
- * Render one piece of MCP agent-facing text (a tool description/title, or the
- * instructions block) against the project's config via {@link mcpContext}. The
- * SINGLE interpolation shared by {@link runMcpServer}'s tool registration and the
- * surface guard, so the guard can never test a different render than ships. Text
- * with no `{{var}}` passes through untouched; an unknown `{{var}}` throws (the
- * engine's strictness — a typo'd token fails loudly, never reaches the wire blank).
- */
-export function renderMcpText(text: string, config: DiscernConfig): string {
-  return renderInstructionTemplate(text, mcpContext(config));
 }
 
 // ── resources (readable context, paired with the tools; ADR 0041) ────────────
@@ -2150,16 +2077,15 @@ function registerDocTree(
 
 /**
  * Register the readable resources, mirroring the tools' pre-setup gating:
- * `discern://status`, `discern://impact`, `discern://config`, and
- * `discern://docs` (+ a `{+target}` template) are always available;
- * `discern://map` (+ template)
+ * `discern://status`, `discern://impact`, and `discern://config` are available
+ * inside a project; `discern://map` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
  * do. Every read recomputes from the verb core against the server's CURRENT working
  * root (resolved per read via {@link WorkingRoot}, ADR 0062), so the resources follow
  * `discern_start` / `discern_accept` exactly as the tools do — never a spawn root
  * frozen at registration.
  */
-function registerResources(
+function registerProjectResources(
   server: McpServer,
   working: WorkingRoot,
 ): void {
@@ -2220,15 +2146,6 @@ function registerResources(
       resourceText(uri, JSON_MIME, asJson(await loadConfig(currentRoot()))),
   );
 
-  // docs — discern's OWN documentation, always available (the pre-setup surface).
-  registerDocTree(
-    server,
-    "docs",
-    "discern's complete published product manual",
-    () => docsResult(currentRoot()),
-    (target) => docsResult(currentRoot(), { target }),
-  );
-
   // map — the project's agent-maintained documentation, gated (per read) on setup completion,
   // mirroring the discern_map tool.
   registerDocTree(
@@ -2248,6 +2165,17 @@ function registerResources(
   );
 }
 
+/** Register discern's own manual resources independently of project discovery. */
+function registerDocsResources(server: McpServer, processCwd: string): void {
+  registerDocTree(
+    server,
+    "docs",
+    "discern's complete published product manual",
+    () => docsResult(processCwd),
+    (target) => docsResult(processCwd, { target }),
+  );
+}
+
 /**
  * The server's `instructions` — the native "when to use which tool" block capable
  * clients load when MCP connects (it rides in the `initialize` result). discern's
@@ -2261,17 +2189,42 @@ function registerResources(
  * lifecycle through this one connection.
  */
 export function buildInstructions(): string {
+  const prefixPolicyIds = new Set([
+    "iterate-fast-loop",
+    "done-is-the-bar",
+    "update-behind",
+    "accept-on-handoff",
+  ]);
+  const statement = (id: string): string =>
+    OPERATING_POLICIES.find((policy) => policy.id === id)?.statement ?? "";
+  const firstParagraph = [
+    "Start with discern_status.",
+    "On trunk, discern_start opens and selects an isolated worktree.",
+    statement("iterate-fast-loop"),
+    statement("done-is-the-bar"),
+    statement("update-behind"),
+    "Use discern_await for a sibling or trunk dependency.",
+    statement("accept-on-handoff"),
+  ].join(" ");
+  const remainingPolicies = OPERATING_POLICIES
+    .filter((policy) =>
+      policy.surfaces.includes("mcp-instructions") &&
+      !prefixPolicyIds.has(policy.id)
+    )
+    .map((policy) => `- ${policy.statement}`);
+  const named = new Set(
+    [firstParagraph, ...remainingPolicies]
+      .join("\n")
+      .match(/\bdiscern_[a-z_]+\b/g) ?? [],
+  );
+  const remainingTools = TOOLS.map((tool) => tool.name)
+    .filter((name) => !named.has(name));
   const lines = [
-    "discern provides the Gate and worktrees. Use its tools and results.",
+    firstParagraph,
     "",
-    "- Start with discern_status.",
-    ...operatingPolicyStatementsFor("mcp-instructions").map(
-      (statement) => `- ${statement}`,
-    ),
+    ...remainingPolicies,
     "",
-    "- Tools: discern_refresh, discern_map, discern_docs, discern_doctor, " +
-    "discern_standards, discern_patterns, " +
-    "discern_improvement.",
+    `- Other tools: ${remainingTools.join(", ")}.`,
   ];
   return lines.join("\n");
 }
@@ -2288,9 +2241,9 @@ export function buildInstructions(): string {
 export async function runMcpServer(
   cliModel: CliModelProvider,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
+  processCwd: string = Deno.cwd(),
 ): Promise<number> {
-  const spawnRoot = await findRoot();
-  const cfg = await resolveServerConfig(spawnRoot);
+  const spawnRoot = await findRoot(processCwd);
   // The server's logical cwd, made explicit: seeded from the spawn root, then
   // re-pointed on discern_start / discern_accept. Both the tools and the readable
   // resources resolve it per call/read, so the whole surface follows the re-aim.
@@ -2298,11 +2251,14 @@ export async function runMcpServer(
   // The version handshake's resolver, created once so it seeds its baseline stat at
   // server start (this process IS DISCERN_VERSION); every tool call reuses it to detect
   // the on-disk binary being replaced mid-session.
-  const installedVersion = createInstalledVersionResolver();
+  const commandPath = await resolveCommandPath(DISCERN_MCP_SERVER.command);
+  const installedVersion = createInstalledVersionResolver(
+    commandPath === undefined ? {} : { commandPath },
+  );
   const server = new McpServer(
     { name: SERVER_NAME, version: DISCERN_VERSION },
     {
-      instructions: renderMcpText(buildInstructions(), cfg),
+      instructions: buildInstructions(),
     },
   );
 
@@ -2320,17 +2276,13 @@ export async function runMcpServer(
 
   for (const tool of TOOLS) {
     // The shared config: description plus the honest metadata (title, the per-verb
-    // outputSchema the SDK validates structuredContent against, and the behavioural
+    // outputSchema the SDK validates structuredContent against, and the behavioral
     // annotations). Built with conditional keys so an absent field is omitted rather
     // than set to `undefined` (exactOptionalPropertyTypes).
     const config = {
-      description: renderMcpText(tool.description, cfg),
-      ...(tool.title !== undefined
-        ? { title: renderMcpText(tool.title, cfg) }
-        : {}),
-      ...(tool.outputSchema !== undefined
-        ? { outputSchema: tool.outputSchema }
-        : {}),
+      description: toolDescriptionForProfile(tool, awaitCallProfile),
+      ...(tool.title !== undefined ? { title: tool.title } : {}),
+      outputSchema: tool.outputSchema,
       ...(tool.annotations !== undefined
         ? { annotations: tool.annotations }
         : {}),
@@ -2360,12 +2312,14 @@ export async function runMcpServer(
     );
   }
 
-  // Resources — readable context paired with the tools (ADR 0041). Registered only
-  // when the server spawned inside a project; each read recomputes fresh against the
-  // CURRENT working root (so the resources follow discern_start / discern_accept
-  // exactly as the tools do — ADR 0062).
+  // Product documentation is installed with discern itself, so its resources exist
+  // even when the client starts the server outside a discern project.
+  registerDocsResources(server, processCwd);
+
+  // Project resources follow the mutable working root and therefore require an
+  // initial project. Their reads re-resolve after start/accept (ADR 0062).
   if (spawnRoot !== undefined) {
-    registerResources(server, working);
+    registerProjectResources(server, working);
   }
 
   const transport = new StdioServerTransport();

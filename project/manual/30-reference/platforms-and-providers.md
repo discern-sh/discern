@@ -520,6 +520,8 @@ The editor's IDE Agent follows a different path. Cursor support reports its time
 
 The editor and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. When the condition has not been met, the result carries a 15-character continuation handle and `--resume` command that preserve the original watch. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency.
 
+Gate calls can exceed the Cursor Agent CLI's 60-second transport limit. Run `discern done --markdown` in a shell instead; use `discern prepare --markdown` or `discern test --markdown` there for the corresponding gate stages.
+
 ### `.cursor/hooks.json`
 
 The discern-owned Cursor hook seed is:

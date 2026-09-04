@@ -4332,8 +4332,8 @@ Every named production error discard, with its exact module, enclosing function,
   - `map-link-uri-decode-fallback`
   - `mcp-agent-signals-fallback`
   - `mcp-ci-marker-fallback`
-  - `mcp-server-config-fallback`
   - `mcp-setup-gate-config-fallback`
+  - `mcp-version-command-path-fallback`
   - `mcp-version-probe-fallback`
   - `mcp-version-stat-fallback`
   - `operation-lock-acquire-rollback`
