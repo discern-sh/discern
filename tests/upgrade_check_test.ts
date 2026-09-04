@@ -3,6 +3,8 @@
  * `--check` reports schema and scaffold currency without writing. The first
  * public baseline has no pending production migrations; synthetic in-process
  * tests exercise that branch until the first public migration exists.
+ *
+ * Guards: boundary:explicit-upgrades
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

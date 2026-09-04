@@ -1,6 +1,8 @@
 /**
  * Acceptance's recorded-authority paths: standing coverage, per-effort grants,
  * fail-closed refusals, dry-run disclosure, proof evidence, and logbook lift.
+ *
+ * Guards: boundary:landing-authority, claim:gate-grants-no-authority
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

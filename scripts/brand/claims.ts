@@ -13,6 +13,7 @@ import {
   EVIDENCE_CLASS_NAMES,
   type EvidenceClass,
   type EvidenceClassDefinition,
+  evidenceSourceLabel,
 } from "./model.ts";
 import { annotateProse } from "../canon_editor/annotation.ts";
 
@@ -70,6 +71,19 @@ export const CLAIMS = {
     forbiddenInference:
       "setup makes every project professionally engineered without good repository evidence, a capable setup agent, or human decisions.",
     primarySource: "setup brief; feature registry/canon.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_setup_done_test.ts",
+        summary:
+          "refuses to record setup complete until the Gate and the worktree probe pass",
+      },
+      {
+        kind: "source",
+        path: "templates/setup/instructions.md",
+        summary: "briefs the setup agent through every stage",
+      },
+    ],
   },
   "no-manual-configuration": {
     audience: "human",
@@ -84,6 +98,19 @@ export const CLAIMS = {
     forbiddenInference:
       "setup is instantaneous, requires no agent effort, or never asks the human a question.",
     primarySource: "`discern setup begin` brief.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_setup_messages_test.ts",
+        summary:
+          "pins the consent and completion messages that make the agent the configuration engine",
+      },
+      {
+        kind: "source",
+        path: "templates/setup/instructions.md",
+        summary: "asks the human only for the decisions the agent cannot make",
+      },
+    ],
   },
   "one-instruction-source": {
     audience: "shared",
@@ -98,6 +125,25 @@ export const CLAIMS = {
     forbiddenInference:
       "all providers behave identically or support identical integrations.",
     primarySource: "feature registry/canon; config schema; glossary.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/agent_parity_test.ts",
+        summary:
+          "holds every provider's instruction surface to the provider registry and the instruction source",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_refresh_test.ts",
+        summary:
+          "compiles the instruction files for every configured provider from one source",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_done_json_surfaces_test.ts",
+        summary: "fails the Gate on a stale agent file",
+      },
+    ],
   },
   "switch-without-reteaching": {
     audience: "shared",
@@ -114,6 +160,24 @@ export const CLAIMS = {
     tacticalUse: "quota and subscription-capacity juggling.",
     primarySource:
       "provider instructions registry; setup and refresh behavior.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/providers_test.ts",
+        summary: "derives every native integration from one typed registry",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_refresh_test.ts",
+        summary:
+          "regenerates a newly configured provider's files from the same project sources",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0031-typed-provider-integration.md",
+        summary: "makes the provider registry the single integration authority",
+      },
+    ],
   },
   "shaped-delegation": {
     audience: "shared",
@@ -129,6 +193,20 @@ export const CLAIMS = {
     forbiddenInference:
       "every backlog can safely run in parallel, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.",
     primarySource: "`discern-delegate-work` Skill.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/skills_wellformed_test.ts",
+        summary:
+          "holds every bundled skill, the delegate-work skill included, to the well-formedness contract",
+      },
+      {
+        kind: "source",
+        path: "templates/skills/discern-delegate-work/SKILL.md",
+        summary:
+          "defines the handoff, parallel, and staged shapes with their authority and review steps",
+      },
+    ],
   },
   "reduced-review-burden": {
     audience: "human",
@@ -146,6 +224,20 @@ export const CLAIMS = {
       "founder dogfooding supports the intended outcome; external validation remains limited.",
     primarySource:
       "founder account; Gate instructions; Delegate Work Skill; current practice evidence.",
+    basis: [
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0270-the-benefit-canon-separates-value-from-claim-qualification.md",
+        summary:
+          "records the deduction from exact-tree evidence to reduced inspection, and its limits",
+      },
+      {
+        kind: "source",
+        path: "templates/skills/discern-delegate-work/SKILL.md",
+        summary: "carries the independent adversarial review step",
+      },
+    ],
   },
   "isolated-worktrees": {
     audience: "shared",
@@ -159,6 +251,24 @@ export const CLAIMS = {
     forbiddenInference:
       "logical source changes can never overlap, semantic merge conflicts are impossible, or discern provides a security sandbox.",
     primarySource: "feature registry/canon; worktree config and glossary.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_test.ts",
+        summary:
+          "drives the real linked-worktree lifecycle through the dispatcher",
+      },
+      {
+        kind: "guard",
+        path: "tests/worktree_identity_test.ts",
+        summary: "pins the deterministic per-worktree identity",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_resources_test.ts",
+        summary: "creates and reclaims declared per-worktree resources",
+      },
+    ],
   },
   "no-checkout-collisions": {
     audience: "shared",
@@ -171,6 +281,18 @@ export const CLAIMS = {
     forbiddenInference:
       "`parallel agents cannot collide` without qualification.",
     primarySource: "worktree lifecycle and fleet collision behavior.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_test.ts",
+        summary: "gives every effort its own checkout and branch",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_status_test.ts",
+        summary: "surfaces cross-worktree file collisions and incoming overlap",
+      },
+    ],
   },
   "standards-cannot-loosen": {
     audience: "shared",
@@ -184,6 +306,18 @@ export const CLAIMS = {
     forbiddenInference:
       "every quality dimension is measured, or a metric cannot be poorly designed.",
     primarySource: "Standards registry, config schema, feature canon.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_gate_standards_test.ts",
+        summary: "fails the Gate when a branch loosens or deletes a limit",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0133-standards-join-the-gate.md",
+        summary: "puts the limit comparison inside every Gate run",
+      },
+    ],
   },
   "pin-measured-gains": {
     audience: "shared",
@@ -197,6 +331,19 @@ export const CLAIMS = {
     forbiddenInference:
       "every short-term fluctuation should be pinned or improvement is always monotonic in practice.",
     primarySource: "Standards documentation and command behavior.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_standards_pin_test.ts",
+        summary:
+          "tightens a limit from a measured gain and commits the change on its own",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0106-standards-pin-carries-the-gate-receipt.md",
+        summary: "defines the pin as a measured, committed tightening",
+      },
+    ],
   },
   "proof-exact-tree": {
     audience: "shared",
@@ -212,6 +359,26 @@ export const CLAIMS = {
       "formal proof of universal correctness, security, absence of defects, production suitability, permission to land, or machine verification of an agent declaration.",
     primarySource:
       "Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/gate_proof_evidence_test.ts",
+        summary:
+          "stales a recorded Proof when the tree or its declaration evidence changes",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_proof_render_test.ts",
+        summary:
+          "pins the exact commit, branch, and conditions the Proof names",
+      },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md",
+        summary: "binds Proof currency to declaration evidence",
+      },
+    ],
   },
   "gate-grants-no-authority": {
     audience: "shared",
@@ -226,6 +393,25 @@ export const CLAIMS = {
     forbiddenInference:
       "the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.",
     primarySource: "landing authority, acceptance config, Delegate Work Skill.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_accept_authority_test.ts",
+        summary:
+          "exercises every landing-authority source and refuses the uncovered ones",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_accept_test.ts",
+        summary: "requires owner authorization for a declared-unmet variance",
+      },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md",
+        summary: "defines the machine-checked grant model",
+      },
+    ],
   },
   "no-model-inside": {
     audience: "shared",
@@ -240,6 +426,26 @@ export const CLAIMS = {
     forbiddenInference:
       "the entire development environment is offline or network-free.",
     primarySource: "Foundations; CLI tips; product architecture.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/shipped_no_network_test.ts",
+        summary:
+          "proves the shipped graph reaches no network API and the binary holds no network permission",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_gate_test.ts",
+        summary:
+          "records checkpoint declarations as agent evidence rather than model results",
+      },
+      {
+        kind: "source",
+        path: "scripts/build.ts",
+        summary:
+          "compiles the binary with the permission set that excludes the network",
+      },
+    ],
   },
   "local-logbook": {
     audience: "shared",
@@ -254,6 +460,23 @@ export const CLAIMS = {
     forbiddenInference:
       "all project data and tooling stay local or discern is a security boundary.",
     primarySource: "Logbook glossary and feature canon.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/logbook_no_network_test.ts",
+        summary: "proves the Logbook module graph has no network path",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_checkpoints_observation_test.ts",
+        summary: "keeps checkpoint rationales out of every Logbook byte",
+      },
+      {
+        kind: "source",
+        path: "src/engine/logbook/store.ts",
+        summary: "writes the Logbook under the local Git admin directory",
+      },
+    ],
   },
   "patterns-compare-cohorts": {
     audience: "human",
@@ -270,6 +493,25 @@ export const CLAIMS = {
       "replace claims that `nothing is compared` with `cohorts may be compared; agents are not graded or ranked.`",
     primarySource:
       "current `discern patterns --json` output and Patterns implementation.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_patterns_test.ts",
+        summary:
+          "holds bounded cohort findings with their denominators and the advisory boundary",
+      },
+      {
+        kind: "guard",
+        path: "tests/stats_test.ts",
+        summary: "keeps every Stats number a plain local count",
+      },
+      {
+        kind: "decision",
+        path:
+          "project/map/_adr/0229-practice-stats-are-counted-local-and-never-comparative.md",
+        summary: "rules out grades, rankings, and composite scores",
+      },
+    ],
   },
   "one-config-file": {
     audience: "shared",
@@ -282,6 +524,23 @@ export const CLAIMS = {
     forbiddenInference:
       "discern touches only one tracked file, or the project contains no instructions, Map, agent files, Skills, or integration files.",
     primarySource: "config reference; one-file-settings tip.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/paths_write_surface_test.ts",
+        summary: "enumerates every path discern may write in a project",
+      },
+      {
+        kind: "source",
+        path: "src/shared/config_schema.ts",
+        summary: "defines every key of the root configuration file",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0020-dissolve-discern-dir.md",
+        summary: "dissolves the hidden namespace into one root file",
+      },
+    ],
   },
   "setup-proves-worktree": {
     audience: "shared",
@@ -295,6 +554,24 @@ export const CLAIMS = {
     forbiddenInference:
       "all deployment environments, external services, production data, or security conditions are thereby proven.",
     primarySource: "setup brief.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_setup_done_test.ts",
+        summary:
+          "refuses setup completion when the throwaway worktree probe fails",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_probe_test.ts",
+        summary: "creates, runs, and tears down the throwaway probe worktree",
+      },
+      {
+        kind: "decision",
+        path: "project/map/_adr/0090-setup-proves-worktree-viability.md",
+        summary: "makes the probe the completion condition",
+      },
+    ],
   },
   "map-mechanically-checked": {
     audience: "shared",
@@ -307,6 +584,25 @@ export const CLAIMS = {
     forbiddenInference:
       "discern can determine whether every sentence remains conceptually current.",
     primarySource: "Map integrity behavior and feature canon.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_map_integrity_test.ts",
+        summary:
+          "fails the Gate on dead links, anchors, stale command examples, audience leaks, and unknown skill citations",
+      },
+      {
+        kind: "guard",
+        path: "tests/map_integrity_test.ts",
+        summary:
+          "applies the shipped integrity core to this repository's own Map",
+      },
+      {
+        kind: "source",
+        path: "src/lib/map_integrity.ts",
+        summary: "implements the integrity preflight every Gate runs",
+      },
+    ],
   },
   "agent-as-operator": {
     audience: "coding-agent",
@@ -319,17 +615,56 @@ export const CLAIMS = {
     forbiddenInference:
       "humans are secondary in authority, or discern itself is an agent.",
     primarySource: "Foundations; interfaces; hint audience registry.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/engine_verb_parity_test.ts",
+        summary: "ties the MCP tool table to the CLI verb vocabulary",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_mcp_surface_test.ts",
+        summary:
+          "holds every MCP description to configured values rather than baked literals",
+      },
+      {
+        kind: "source",
+        path: "src/engine/mcp/server.ts",
+        summary:
+          "serves the typed tools and the result envelope to the coding agent",
+      },
+    ],
   },
   "runs-on-itself": {
     audience: "shared",
     title: "discern runs on itself",
-    evidence: ["demonstrated", "observational"],
+    evidence: ["structural", "demonstrated", "observational"],
     strongestPublicForm:
       "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.",
     conditions:
       "dogfooding provides product evidence from internal use. Independent external validation remains separate.",
     forbiddenInference: "self-use proves absence of defects or market fit.",
     primarySource: "feature canon and repository practice.",
+    basis: [
+      {
+        kind: "guard",
+        path: "tests/dogfood_gate_test.ts",
+        summary:
+          "reads this repository's own Gate, Standards, Map, worktree, and Logbook declarations, and the hosted lane that runs the same Gate",
+      },
+      {
+        kind: "guard",
+        path: "tests/dogfood_refresh_test.ts",
+        summary:
+          "holds this repository's own provider integrations to what refresh expects",
+      },
+      {
+        kind: "source",
+        path: "discern.toml",
+        summary:
+          "declares this repository's own Gate, Standards, Map, and worktree practice",
+      },
+    ],
   },
 } as const satisfies Readonly<Record<string, Claim>>;
 
@@ -423,6 +758,12 @@ function renderClaim(slug: string, claim: Claim): string {
     `- **Primary source:** ${
       claimProse(slug, "primarySource", claim.primarySource)
     }`,
+    "- **Inspectable basis:**",
+    ...claim.basis.map((item) =>
+      `  - ${
+        evidenceSourceLabel(item.kind)
+      }: \`${item.path}\` — ${item.summary}.`
+    ),
   );
   return lines.join("\n");
 }
@@ -462,6 +803,8 @@ export function renderClaimsDoc(): string {
     "5. current `discern patterns --json` evidence;",
     "6. dated public qualitative corpora and their recorded limits;",
     "7. founder account and approved user anecdotes.",
+    "",
+    "Every claim also carries an inspectable basis: the exact decisions, guards, and sources a reader can open. A guard is a test module that names the claim it holds, and every structural claim carries at least one, so the claim fails the Gate the moment its mechanism regresses.",
     "",
     "The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.",
     "",

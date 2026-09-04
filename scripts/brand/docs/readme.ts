@@ -61,6 +61,7 @@ export const READING_PATHS = [
       "`positioning.md`;",
       "`visual-identity.md`;",
       "`launch-narrative.md`;",
+      "the relevant entries from `consequence-canon.md`;",
       "the `discern-brand-voice` skill;",
       "the relevant surface brief and only the claims the work introduces.",
     ],

@@ -7,6 +7,7 @@
  */
 
 import type { ClaimSlug } from "./claims.ts";
+import { type EvidenceSource, evidenceSourceLabel } from "./model.ts";
 
 /** How strongly one boundary is intended to persist. */
 export const BOUNDARY_STABILITIES = [
@@ -33,13 +34,6 @@ export interface MistakenIdentity {
   readonly discriminatingFact: string;
 }
 
-/** One inspectable source behind a boundary. */
-export interface BoundaryEvidence {
-  readonly kind: "decision" | "guard" | "source";
-  readonly path: string;
-  readonly summary: string;
-}
-
 /** One conceptual product boundary and any public projections it owns. */
 export interface ProductBoundary<Slug extends string = string> {
   readonly id: string;
@@ -50,7 +44,7 @@ export interface ProductBoundary<Slug extends string = string> {
   /** Required for edition and implementation properties. */
   readonly horizon?: string;
   readonly claims?: readonly [Slug, ...Slug[]];
-  readonly evidence: readonly [BoundaryEvidence, ...BoundaryEvidence[]];
+  readonly evidence: readonly [EvidenceSource, ...EvidenceSource[]];
   readonly refusals?: readonly [BoundaryProjection, ...BoundaryProjection[]];
   readonly identities?: readonly [MistakenIdentity, ...MistakenIdentity[]];
   readonly absences?: readonly [BoundaryProjection, ...BoundaryProjection[]];
@@ -129,7 +123,7 @@ export const BOUNDARIES = [
         kind: "guard",
         path: "tests/engine_env_plumbing_test.ts",
         summary:
-          "holds the environment boundary at explicit project and worktree contracts",
+          "holds the shipped Claude settings seed to hooks alone, with no permission rule",
       },
       {
         kind: "source",
@@ -698,7 +692,7 @@ export const BOUNDARIES = [
         kind: "guard",
         path: "tests/engine_worktree_drop_test.ts",
         summary:
-          "proves destructive worktree drops retain the bounded recovery ref",
+          "retains a bounded recovery ref before removing the branch and worktree",
       },
     ],
     refusals: [{
@@ -825,6 +819,12 @@ export const BOUNDARIES = [
         path: "src/engine/worktree/resources.ts",
         summary: "owns configured per-worktree resources",
       },
+      {
+        kind: "guard",
+        path: "tests/credential_boundary_test.ts",
+        summary:
+          "keeps credential-shaped environment reads, configuration keys, and credential stores out of the shipped program",
+      },
     ],
     refusals: [{
       order: 19,
@@ -857,6 +857,12 @@ export const BOUNDARIES = [
         kind: "decision",
         path: "project/map/_adr/0244-brand-addresses-the-owner.md",
         summary: "keeps evaluation on project work",
+      },
+      {
+        kind: "guard",
+        path: "tests/non_gamified_practice_test.ts",
+        summary:
+          "keeps score, rank, grade, badge, point, level, and reward fields out of the Patterns result contract",
       },
     ],
     refusals: [{
@@ -908,6 +914,12 @@ export const BOUNDARIES = [
         kind: "source",
         path: "src/engine/gate/proof_render.ts",
         summary: "renders the conditions and commit the Proof covers",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_proof_render_test.ts",
+        summary:
+          "keeps certifying vocabulary out of every rendered Proof page and line",
       },
       {
         kind: "decision",
@@ -1462,18 +1474,6 @@ export function allBoundaryProjections(): readonly ProjectedBoundary[] {
   return [...inOrder(refusals), ...inOrder(identities), ...inOrder(absences)];
 }
 
-/** The display label for one evidence kind. */
-function evidenceLabel(kind: BoundaryEvidence["kind"]): string {
-  switch (kind) {
-    case "decision":
-      return "Decision";
-    case "guard":
-      return "Guard";
-    case "source":
-      return "Source";
-  }
-}
-
 /** Render one projection section from the flattened authority. */
 function renderProjectionSection(
   heading: string,
@@ -1526,7 +1526,7 @@ function renderBoundaryRecord(
     "**Evidence:**",
     "",
     ...boundary.evidence.map((item) =>
-      `- ${evidenceLabel(item.kind)}: \`${item.path}\` — ${item.summary}.`
+      `- ${evidenceSourceLabel(item.kind)}: \`${item.path}\` — ${item.summary}.`
     ),
   );
   return lines;

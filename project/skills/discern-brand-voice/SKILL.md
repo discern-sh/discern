@@ -25,10 +25,11 @@ Read only the context the surface requires:
 1. `positioning.md`
 2. `audiences.md`
 3. the relevant territory and entries from `demand-canon.md`
-4. `messaging.md`
-5. the relevant section of `website-brief.md`
-6. relevant claim slugs from `claims-and-evidence.md`
-7. `register-bridge.md` when product concepts must enter
+4. the relevant entries from `consequence-canon.md` when the surface argues what changes over time
+5. `messaging.md`
+6. the relevant section of `website-brief.md`
+7. relevant claim slugs from `claims-and-evidence.md`
+8. `register-bridge.md` when product concepts must enter
 
 For manifesto, founder philosophy, motion, or extended visual work, also read `visual-identity.md` and `launch-narrative.md`. Treat the metaphysical interpretation as the founder's account. Do not assign it to the reader.
 
@@ -58,6 +59,8 @@ If the brief, audience, destination, or evidence for a required claim is unavail
 A `corroborated` demand entry can be stated directly as a situation its segments will recognize, with no hypothesis label. Its corpus limits still hold: several public accounts are not “most developers,” a frequency, a cause, a typical outcome, an endorsement, or evidence that discern solves it.
 
 An `observational` entry is told as discern's own experience, attributed and dated. An `anecdotal` entry stays with the named person's permitted words. A `hypothesis` stays internal or is labelled as one.
+
+A demand entry's class governs only how the struggle is told. The product fact that answers it keeps its own class from the claims ledger: a `structural` claim stays structural beside a `hypothesis` demand entry, and a hypothesis label never spreads from the situation to the product.
 
 Founder scenes in `launch-narrative.md` are first-person memory and can be told that way. Give a number only when the sweep behind the scene records a measurement for it. Product claims still come from their claim slugs.
 

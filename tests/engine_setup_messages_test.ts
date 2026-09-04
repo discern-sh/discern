@@ -5,6 +5,8 @@
  * branch of the consent and completion blocks, deterministically, from constructed
  * inputs — so a wording or structure regression in any branch fails here, not just in
  * the branch a fixture happens to hit.
+ *
+ * Guards: claim:no-manual-configuration
  */
 
 import { assert, assertStringIncludes } from "@std/assert";

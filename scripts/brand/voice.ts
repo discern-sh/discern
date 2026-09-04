@@ -27,6 +27,11 @@ export const BRAND_FOUNDATION_READING_STEPS = [
     id: "demand-canon",
     instruction: "the relevant territory and entries from `demand-canon.md`",
   },
+  {
+    id: "consequence-canon",
+    instruction:
+      "the relevant entries from `consequence-canon.md` when the surface argues what changes over time",
+  },
   { id: "messaging", instruction: "`messaging.md`" },
 ] as const;
 
@@ -88,6 +93,8 @@ If the brief, audience, destination, or evidence for a required claim is unavail
         `A \`corroborated\` demand entry can be stated directly as a situation its segments will recognize, with no hypothesis label. Its corpus limits still hold: several public accounts are not “most developers,” a frequency, a cause, a typical outcome, an endorsement, or evidence that discern solves it.
 
 An \`observational\` entry is told as discern's own experience, attributed and dated. An \`anecdotal\` entry stays with the named person's permitted words. A \`hypothesis\` stays internal or is labelled as one.
+
+A demand entry's class governs only how the struggle is told. The product fact that answers it keeps its own class from the claims ledger: a \`structural\` claim stays structural beside a \`hypothesis\` demand entry, and a hypothesis label never spreads from the situation to the product.
 
 Founder scenes in \`launch-narrative.md\` are first-person memory and can be told that way. Give a number only when the sweep behind the scene records a measurement for it. Product claims still come from their claim slugs.`,
     }, {

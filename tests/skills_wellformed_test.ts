@@ -10,6 +10,8 @@
  * "Well-formed" is `skillFrontmatterIssues`, the one validator the engine's
  * gate precondition also applies: valid YAML whose `name`/`description` are
  * non-empty strings, with `name` equal to the directory.
+ *
+ * Guards: claim:shaped-delegation
  */
 
 import { assert, assertEquals } from "@std/assert";

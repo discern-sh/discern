@@ -19,6 +19,8 @@
  * When this fails, the fix is to remove the network reach (or restructure so
  * the logbook stops importing the module that gained it) — never to widen the
  * scan or silence the finding.
+ *
+ * Guards: boundary:local-private-evidence, boundary:offline-owned-engine, claim:local-logbook
  */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";

@@ -28,6 +28,38 @@ export const EVIDENCE_CLASS_NAMES = [
 
 export type EvidenceClass = (typeof EVIDENCE_CLASS_NAMES)[number];
 
+/**
+ * How one inspectable source backs a claim or a boundary: a recorded
+ * `decision`, an executable `guard` that fails when the fact regresses, or
+ * the `source` that implements it.
+ */
+export const EVIDENCE_SOURCE_KINDS = ["decision", "guard", "source"] as const;
+
+export type EvidenceSourceKind = (typeof EVIDENCE_SOURCE_KINDS)[number];
+
+/**
+ * One inspectable source behind a claim or a boundary. A `guard` names a
+ * test module that cites the claim slug or boundary id it holds, so the
+ * registry and the test point at each other.
+ */
+export interface EvidenceSource {
+  readonly kind: EvidenceSourceKind;
+  readonly path: string;
+  readonly summary: string;
+}
+
+/** The display label for one evidence-source kind. */
+export function evidenceSourceLabel(kind: EvidenceSourceKind): string {
+  switch (kind) {
+    case "decision":
+      return "Decision";
+    case "guard":
+      return "Guard";
+    case "source":
+      return "Source";
+  }
+}
+
 /** Whose outcome a public claim primarily describes. */
 export const CLAIM_AUDIENCES = ["human", "coding-agent", "shared"] as const;
 
@@ -60,6 +92,12 @@ export interface Claim {
   readonly tacticalUse?: string;
   readonly wordingCorrection?: string;
   readonly primarySource: string;
+  /**
+   * The inspectable decisions, guards, and sources behind the claim. A
+   * structural claim carries at least one guard, and the guard test cites
+   * the claim slug in return, so the ledger and the Gate move together.
+   */
+  readonly basis: readonly [EvidenceSource, ...EvidenceSource[]];
 }
 
 /** One message territory of the canonical hierarchy; the body stays prose. */

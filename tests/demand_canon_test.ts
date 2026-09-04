@@ -30,8 +30,8 @@ import {
 import { EVIDENCE_CLASS_NAMES } from "../scripts/brand/model.ts";
 import { renderBrandDoc } from "../scripts/brand_registry.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { assertFreshCanonIds, KEBAB } from "./canon_ids.ts";
 
-const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SENTENCE = /[.!?]$/u;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const OWNER_DIMINISHING_LANGUAGE =
@@ -53,18 +53,10 @@ Deno.test("demand ids are unique and do not collide with the benefit canon or th
     ...HUMAN_BENEFIT_CANON.map((cluster) => cluster.id),
     ...allHumanBenefitEntries().map(({ entry }) => entry.id),
   ]);
-  const seen = new Set<string>();
-  const claim = (id: string): void => {
-    assert(!seen.has(id), `duplicate demand-canon id: ${id}`);
-    assert(
-      !taken.has(id),
-      `demand-canon id collides with a benefit or feature id: ${id}`,
-    );
-    assert(KEBAB.test(id), `demand-canon id is not kebab-case: ${id}`);
-    seen.add(id);
-  };
-  for (const territory of DEMAND_CANON) claim(territory.id);
-  for (const { entry } of allDemandEntries()) claim(entry.id);
+  assertFreshCanonIds("demand-canon", [
+    ...DEMAND_CANON.map((territory) => territory.id),
+    ...allDemandEntries().map(({ entry }) => entry.id),
+  ], taken);
 });
 
 Deno.test("every demand statement is complete and stays in human language", () => {

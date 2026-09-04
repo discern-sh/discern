@@ -30,6 +30,12 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Bind the machine edition's checkable claims to their guards.** The "Checkable claims" section names six falsifiers as hand-authored prose; render it from a registry whose entries cite the guard test that proves each one, so the section and the suite cannot drift. Evidence: `site/text/discern.txt`; `scripts/brand/claims.ts`; `tests/evidence_basis_guard_test.ts`.
+
+- [ ] **Cite claim slugs from the public landing copy.** The trust page declares its claims as typed slug references that its test resolves; the landing copy carries none, and the `claim-annotation` mechanical check stays deferred for want of an authority. Give the fresh landing copy typed claim citations and lift the deferral. Evidence: `site/page-src/trust.tsx`; `scripts/brand/vale.ts`; `tests/site_trust_test.ts`.
+
+- [ ] **Derive the site's evidence specimen figures from the recorded snapshot.** The specimens page hard-codes dated Standard-trajectory numbers in source; read them from the recorded snapshot at build time, or hold them to it with a test, so the page cannot drift from the evidence it cites. Evidence: `site/page-src/specimens.tsx`; `project/map/_private/brand/claims-residue.md`.
+
 - [ ] **Detect duplicated standalone-test preflights before the Gate.** Add a Logbook detector for a green standalone test followed by a full Gate on the same commit and validation configuration, while preserving intentional standalone results. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/validation_findings.ts`; `tests/engine_patterns_test.ts`.
 
 - [ ] **Detect the hot-test inversion and suggest a canary check job.** Rank test diagnostic classes against stage duration, detect when frequent failures occupy little runtime, and recommend a cheap check-stage canary while retaining the full evidence ranking in structured output. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/schema.ts`; `tests/engine_patterns_test.ts`; `scripts/canary_registry.ts`; `scripts/canary_audit.ts`; `project/map/_adr/0325-the-canary-job-hears-hot-tests-before-the-full-suite.md`.
@@ -79,6 +85,8 @@ _Product positioning, messaging, and launch/content tasks._
 - [ ] **Explore the project-gets-smarter positioning.** Test language that explains how captured lessons enter durable project surfaces and become available to every future agent. Evidence: `templates/skills/discern-teach-the-project/SKILL.md`; `site`.
 
 - [ ] **Explore taste as the human contribution.** Develop careful positioning for human technical and creative direction as the durable quality bar behind agent-written implementation, respecting the public voice constraints around the word taste. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `project/skills/discern-brand-voice/SKILL.md`.
+
+- [ ] **Enrol the consequence canon in Canon Editor.** Register the consequence registry's fields, pickers, and page in the editor so its prose can be edited on the generated page like the other canons. Evidence: `scripts/brand/consequences.ts`; `scripts/canon_editor/fields.ts`; `scripts/canon_editor/registry_ast.ts`; `project/map/80-development/canon-editor.md`.
 
 - [ ] **Explore grows-your-discernment as a marketing angle.** Test whether teaching reusable categories of judgment can frame discern as a mentor that compounds for an enthusiastic audience still building its own quality instincts. Evidence: `templates/skills/discern-write-it-once/SKILL.md`; `site`.
 

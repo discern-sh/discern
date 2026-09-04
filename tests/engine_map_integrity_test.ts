@@ -11,6 +11,8 @@
  * matching fix (or the deliberate escape) turns the gate green again. The
  * preflight is a fail-fast precondition, so it fires before scope
  * classification can excuse a docs-only change.
+ *
+ * Guards: claim:map-mechanically-checked
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";

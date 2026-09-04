@@ -34,6 +34,7 @@ import {
 } from "./brand/bridge.ts";
 import { renderBoundaryCanonDoc } from "./brand/boundaries.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
+import { renderConsequenceCanonDoc } from "./brand/consequences.ts";
 import { renderDemandCanonDoc } from "./brand/demand.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
@@ -79,6 +80,14 @@ export const BRAND_DOCUMENTS = [
     job:
       "States the struggling moments the benefits answer — evidence-tagged, with current alternatives and forces — and holds two-way coverage against the Human Benefit Canon.",
     mode: { kind: "generated", render: renderDemandCanonDoc },
+  },
+  {
+    id: "consequence-canon",
+    file: "consequence-canon.md",
+    status: "Canonical",
+    job:
+      "States what changes for the person and the coding agent once the benefits hold: second-order consequences, each deductive on cited benefits and claims and evidence-classed for the behavior it predicts.",
+    mode: { kind: "generated", render: renderConsequenceCanonDoc },
   },
   {
     id: "boundary-canon",

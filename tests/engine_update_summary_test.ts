@@ -5,6 +5,8 @@
  * `--dry-run` parity.
  * Each test drives a REAL linked worktree in a hermetic git repo and reads the
  * `--json` envelope an agent would.
+ *
+ * Guards: boundary:mechanical-update
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

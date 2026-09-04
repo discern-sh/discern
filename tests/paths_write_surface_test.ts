@@ -21,6 +21,8 @@
  *    diff every file the run created or modified against the contract,
  *    derived from the paths registry and the provider registry — never a
  *    hand-copied list. A stray write inside a sanctioned module fails here.
+ *
+ * Guards: claim:one-config-file
  */
 
 import { assert, assertEquals, assertRejects } from "@std/assert";

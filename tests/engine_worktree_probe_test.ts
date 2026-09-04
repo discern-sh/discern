@@ -9,6 +9,8 @@
  * teardown machinery and its outcome classification are proven without a real gate:
  * a viable probe, a probe whose callback fails, a worktree whose own setup step fails
  * (setup_failed), and an unborn branch that cannot be probed at all (uncreatable).
+ *
+ * Guards: claim:setup-proves-worktree
  */
 
 import { assert, assertEquals } from "@std/assert";

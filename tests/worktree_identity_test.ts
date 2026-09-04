@@ -6,6 +6,8 @@
  *
  * Two layers are pinned: the POSIX `cksum` vectors (the hash the derivation rests
  * on) and the full identity cases (id/site/branch/port/db for slug `discern`).
+ *
+ * Guards: claim:isolated-worktrees
  */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";

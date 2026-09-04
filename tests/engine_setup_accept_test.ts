@@ -8,6 +8,8 @@
  * fast-forward, merge, the refusals (dirty tree, conflict, missing target), and the
  * no-ops (already landed, no repo) — asserting both the result envelope and the git
  * state it leaves behind.
+ *
+ * Guards: boundary:installed-practice
  */
 
 import {

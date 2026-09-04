@@ -21,6 +21,8 @@
  * pre-flight OBSERVES through the shared process-local accumulator
  * (`shared/result_capture.ts`), and only the Logbook recorder — outside every
  * decision path — drains it.
+ *
+ * Guards: boundary:worker-neutral-measurement
  */
 
 import { assert, assertEquals } from "@std/assert";

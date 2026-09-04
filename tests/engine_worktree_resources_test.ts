@@ -5,6 +5,8 @@
  * the resources of a worktree that vanished without a clean teardown. The
  * fine-grained GC guards are unit-tested in `worktree_resources_test.ts`; this
  * pins the wiring — that the verbs, the ledger, and runtime discovery line up.
+ *
+ * Guards: claim:isolated-worktrees
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

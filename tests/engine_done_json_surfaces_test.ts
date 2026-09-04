@@ -4,6 +4,8 @@
  * (instructions, skills, ADR numbers, tracked artifacts), and the proof.
  * Split from `engine_done_json_test.ts` so `deno test --parallel` (which
  * distributes per FILE) can spread these serial `done` runs across workers.
+ *
+ * Guards: claim:one-instruction-source
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

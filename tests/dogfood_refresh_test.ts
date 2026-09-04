@@ -5,6 +5,8 @@
  * Temp-project tests prove the generic scaffold/refresh path. This file covers
  * the self-hosted case that temp scaffolds miss: the discern repo is itself a
  * long-lived discern install with tracked, co-managed provider settings.
+ *
+ * Guards: claim:runs-on-itself
  */
 
 import { assertEquals } from "@std/assert";

@@ -6,6 +6,8 @@
  * are independent, each gated on its feature, so a project with no authored
  * instructions still gets discoverable skills. These tests pin both jobs under the
  * real dispatcher.
+ *
+ * Guards: claim:one-instruction-source, claim:switch-without-reteaching
  */
 
 import {

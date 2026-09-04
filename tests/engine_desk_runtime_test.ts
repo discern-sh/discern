@@ -6,6 +6,8 @@
  * boundary and exercise the same session loop the CLI uses: fleet rendering,
  * refresh, inspect, jump, update, acceptance, destructive drop, and lifecycle
  * refusals. No test mutates a real worktree.
+ *
+ * Guards: boundary:agent-runtime-boundary, boundary:invoked-process-lifecycle
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

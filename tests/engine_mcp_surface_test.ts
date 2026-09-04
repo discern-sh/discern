@@ -12,6 +12,8 @@
  * back to a literal makes that case stop tracking config. The render goes through the
  * SAME `renderMcpText` the server ships, so the guard can never pass on a render that
  * differs from production.
+ *
+ * Guards: claim:agent-as-operator
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

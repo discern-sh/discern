@@ -19,6 +19,8 @@
  *
  * When this fails for a new verb, the fix is NOT to weaken the assertion — it is to
  * teach the named satellite about the verb (the message says which one and how).
+ *
+ * Guards: claim:agent-as-operator
  */
 
 import { assert, assertEquals } from "@std/assert";

@@ -6,6 +6,8 @@
  * funnel detector matches them, the pin ratchet, and breadth. The reader shares the
  * detectors' analysis population, so CI runs, previews, and setup-era events
  * must never reach a feat.
+ *
+ * Guards: boundary:worker-neutral-measurement, claim:patterns-compare-cohorts
  */
 
 import { assert, assertEquals } from "@std/assert";

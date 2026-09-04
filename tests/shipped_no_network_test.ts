@@ -1,4 +1,8 @@
-/** The compiled discern graph has neither network APIs nor network permission. */
+/**
+ * The compiled discern graph has neither network APIs nor network permission.
+ *
+ * Guards: claim:no-model-inside
+ */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";

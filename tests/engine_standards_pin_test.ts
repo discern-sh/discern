@@ -13,6 +13,8 @@
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing a complete registered JSON record there, then assert that a pin does
  * not rewrite its exact commit identity.
+ *
+ * Guards: boundary:owner-chosen-standard-limits, claim:pin-measured-gains
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

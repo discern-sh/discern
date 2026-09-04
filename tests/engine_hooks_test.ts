@@ -10,6 +10,8 @@
  * settings and runs it exactly as the harness would — `sh -c <command>` with the
  * event's JSON payload on stdin — so a regression in the hook contract surfaces
  * here. The file matches `engine_*_test.ts`, so it runs in CI's dash/bash matrix.
+ *
+ * Guards: boundary:owner-bypass
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

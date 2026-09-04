@@ -19,6 +19,8 @@
  * When this test fails for a newly-added agent, the fix is NOT to weaken the test —
  * it is to teach the named satellite about the agent (the failure message says
  * which one and how).
+ *
+ * Guards: claim:one-instruction-source
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

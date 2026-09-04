@@ -4,6 +4,8 @@
  * `.env.local` supplies the higher-precedence default, fleet rows derive
  * identity when nothing is recorded, and a newly minted port avoids live
  * siblings.
+ *
+ * Guards: boundary:provider-security-boundary
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

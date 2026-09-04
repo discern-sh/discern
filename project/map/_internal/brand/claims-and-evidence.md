@@ -28,6 +28,8 @@ When a claim needs verification, consult:
 6. dated public qualitative corpora and their recorded limits;
 7. founder account and approved user anecdotes.
 
+Every claim also carries an inspectable basis: the exact decisions, guards, and sources a reader can open. A guard is a test module that names the claim it holds, and every structural claim carries at least one, so the claim fails the Gate the moment its mechanism regresses.
+
 The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.
 
 ## Claim ledger
@@ -41,6 +43,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** “Practice” names the connected product system. Installation alone does not establish cultural transformation.
 - **Forbidden inference:** setup makes every project professionally engineered without good repository evidence, a capable setup agent, or human decisions.
 - **Primary source:** setup brief; feature registry/canon.
+- **Inspectable basis:**
+  - Guard: `tests/engine_setup_done_test.ts` — refuses to record setup complete until the Gate and the worktree probe pass.
+  - Source: `templates/setup/instructions.md` — briefs the setup agent through every stage.
 
 ### `no-manual-configuration` — the human does not manually configure discern
 
@@ -51,6 +56,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** the agent performs substantial project-specific work; “zero configuration” means zero manual configuration by the human.
 - **Forbidden inference:** setup is instantaneous, requires no agent effort, or never asks the human a question.
 - **Primary source:** `discern setup begin` brief.
+- **Inspectable basis:**
+  - Guard: `tests/engine_setup_messages_test.ts` — pins the consent and completion messages that make the agent the configuration engine.
+  - Source: `templates/setup/instructions.md` — asks the human only for the decisions the agent cannot make.
 
 ### `one-instruction-source` — every configured provider receives the same project instructions
 
@@ -61,6 +69,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** applies to supported and configured providers; provider-specific capabilities still differ.
 - **Forbidden inference:** all providers behave identically or support identical integrations.
 - **Primary source:** feature registry/canon; config schema; glossary.
+- **Inspectable basis:**
+  - Guard: `tests/agent_parity_test.ts` — holds every provider's instruction surface to the provider registry and the instruction source.
+  - Guard: `tests/engine_refresh_test.ts` — compiles the instruction files for every configured provider from one source.
+  - Guard: `tests/engine_done_json_surfaces_test.ts` — fails the Gate on a stale agent file.
 
 ### `switch-without-reteaching` — switching providers does not require re-teaching the project
 
@@ -72,6 +84,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Forbidden inference:** every provider can resume identical hidden conversational state or proprietary provider features.
 - **Current tactical use case:** quota and subscription-capacity juggling.
 - **Primary source:** provider instructions registry; setup and refresh behavior.
+- **Inspectable basis:**
+  - Guard: `tests/providers_test.ts` — derives every native integration from one typed registry.
+  - Guard: `tests/engine_refresh_test.ts` — regenerates a newly configured provider's files from the same project sources.
+  - Decision: `project/map/_adr/0031-typed-provider-integration.md` — makes the provider registry the single integration authority.
 
 ### `shaped-delegation` — substantial delegated work can be shaped into parallel or staged programs
 
@@ -82,6 +98,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** the work must contain real seams; dispatch remains under user control; parallel streams should avoid shared files in flight.
 - **Forbidden inference:** every backlog can safely run in parallel, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.
 - **Primary source:** `discern-delegate-work` Skill.
+- **Inspectable basis:**
+  - Guard: `tests/skills_wellformed_test.ts` — holds every bundled skill, the delegate-work skill included, to the well-formedness contract.
+  - Source: `templates/skills/discern-delegate-work/SKILL.md` — defines the handoff, parallel, and staged shapes with their authority and review steps.
 
 ### `reduced-review-burden` — discern supports reduced human line-by-line review
 
@@ -93,6 +112,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Forbidden inference:** no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artifact.
 - **Evidence note:** founder dogfooding supports the intended outcome; external validation remains limited.
 - **Primary source:** founder account; Gate instructions; Delegate Work Skill; current practice evidence.
+- **Inspectable basis:**
+  - Decision: `project/map/_adr/0270-the-benefit-canon-separates-value-from-claim-qualification.md` — records the deduction from exact-tree evidence to reduced inspection, and its limits.
+  - Source: `templates/skills/discern-delegate-work/SKILL.md` — carries the independent adversarial review step.
 
 ### `isolated-worktrees` — each task receives an isolated worktree and declared resources
 
@@ -103,6 +125,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** isolation covers the checkout and declared resources.
 - **Forbidden inference:** logical source changes can never overlap, semantic merge conflicts are impossible, or discern provides a security sandbox.
 - **Primary source:** feature registry/canon; worktree config and glossary.
+- **Inspectable basis:**
+  - Guard: `tests/engine_worktree_test.ts` — drives the real linked-worktree lifecycle through the dispatcher.
+  - Guard: `tests/worktree_identity_test.ts` — pins the deterministic per-worktree identity.
+  - Guard: `tests/engine_worktree_resources_test.ts` — creates and reclaims declared per-worktree resources.
 
 ### `no-checkout-collisions` — parallel efforts cannot overwrite the same checkout
 
@@ -112,6 +138,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** two efforts may still change the same source files independently; status surfaces the overlap and the later landing must update and re-read shared paths.
 - **Forbidden inference:** `parallel agents cannot collide` without qualification.
 - **Primary source:** worktree lifecycle and fleet collision behavior.
+- **Inspectable basis:**
+  - Guard: `tests/engine_worktree_test.ts` — gives every effort its own checkout and branch.
+  - Guard: `tests/engine_status_test.ts` — surfaces cross-worktree file collisions and incoming overlap.
 
 ### `standards-cannot-loosen` — a Standard cannot be loosened on a branch
 
@@ -122,6 +151,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** applies to configured Standards and correctly chosen metrics.
 - **Forbidden inference:** every quality dimension is measured, or a metric cannot be poorly designed.
 - **Primary source:** Standards registry, config schema, feature canon.
+- **Inspectable basis:**
+  - Guard: `tests/engine_gate_standards_test.ts` — fails the Gate when a branch loosens or deletes a limit.
+  - Decision: `project/map/_adr/0133-standards-join-the-gate.md` — puts the limit comparison inside every Gate run.
 
 ### `pin-measured-gains` — measured gains can be captured
 
@@ -132,6 +164,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** margin and metric design affect the appropriate limit.
 - **Forbidden inference:** every short-term fluctuation should be pinned or improvement is always monotonic in practice.
 - **Primary source:** Standards documentation and command behavior.
+- **Inspectable basis:**
+  - Guard: `tests/engine_standards_pin_test.ts` — tightens a limit from a measured gain and commits the change on its own.
+  - Decision: `project/map/_adr/0106-standards-pin-carries-the-gate-receipt.md` — defines the pin as a measured, committed tightening.
 
 ### `proof-exact-tree` — Proof covers the exact committed tree that passed
 
@@ -142,6 +177,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** Use “Proof” consistently, keep the claim scoped to the declared Gate over the exact tree, and describe checkpoint conclusions as declared rather than verified.
 - **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, permission to land, or machine verification of an agent declaration.
 - **Primary source:** Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.
+- **Inspectable basis:**
+  - Guard: `tests/gate_proof_evidence_test.ts` — stales a recorded Proof when the tree or its declaration evidence changes.
+  - Guard: `tests/engine_proof_render_test.ts` — pins the exact commit, branch, and conditions the Proof names.
+  - Decision: `project/map/_adr/0298-declaration-evidence-binds-proof-currency-and-variance-authorization.md` — binds Proof currency to declaration evidence.
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 
@@ -152,6 +191,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** pre-authorization can permit independent landing once the changed paths satisfy the grant and no current declared-unmet conclusion requires a variance.
 - **Forbidden inference:** the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.
 - **Primary source:** landing authority, acceptance config, Delegate Work Skill.
+- **Inspectable basis:**
+  - Guard: `tests/engine_accept_authority_test.ts` — exercises every landing-authority source and refuses the uncovered ones.
+  - Guard: `tests/engine_checkpoints_accept_test.ts` — requires owner authorization for a declared-unmet variance.
+  - Decision: `project/map/_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md` — defines the machine-checked grant model.
 
 ### `no-model-inside` — discern contains no AI model and needs no API key
 
@@ -162,6 +205,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** coding agents, project commands, and checkpoint `when` commands may independently use networks, models, or paid services.
 - **Forbidden inference:** the entire development environment is offline or network-free.
 - **Primary source:** Foundations; CLI tips; product architecture.
+- **Inspectable basis:**
+  - Guard: `tests/shipped_no_network_test.ts` — proves the shipped graph reaches no network API and the binary holds no network permission.
+  - Guard: `tests/engine_checkpoints_gate_test.ts` — records checkpoint declarations as agent evidence rather than model results.
+  - Source: `scripts/build.ts` — compiles the binary with the permission set that excludes the network.
 
 ### `local-logbook` — evidence and the Logbook stay local
 
@@ -172,6 +219,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** publication or Git transport of other artifacts may be explicitly configured by the user.
 - **Forbidden inference:** all project data and tooling stay local or discern is a security boundary.
 - **Primary source:** Logbook glossary and feature canon.
+- **Inspectable basis:**
+  - Guard: `tests/logbook_no_network_test.ts` — proves the Logbook module graph has no network path.
+  - Guard: `tests/engine_checkpoints_observation_test.ts` — keeps checkpoint rationales out of every Logbook byte.
+  - Source: `src/engine/logbook/store.ts` — writes the Logbook under the local Git admin directory.
 
 ### `patterns-compare-cohorts` — Patterns can compare cohorts and configurations
 
@@ -183,6 +234,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Forbidden inference:** fair performance leaderboard, model benchmark, employee surveillance, or causal proof.
 - **Canonical wording correction:** replace claims that `nothing is compared` with `cohorts may be compared; agents are not graded or ranked.`
 - **Primary source:** current `discern patterns --json` output and Patterns implementation.
+- **Inspectable basis:**
+  - Guard: `tests/engine_patterns_test.ts` — holds bounded cohort findings with their denominators and the advisory boundary.
+  - Guard: `tests/stats_test.ts` — keeps every Stats number a plain local count.
+  - Decision: `project/map/_adr/0229-practice-stats-are-counted-local-and-never-comparative.md` — rules out grades, rankings, and composite scores.
 
 ### `one-config-file` — one configuration file governs the installation
 
@@ -192,6 +247,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Mechanism:** config schema; other surfaces are bundled, pointed to, authored, shared, or generated.
 - **Forbidden inference:** discern touches only one tracked file, or the project contains no instructions, Map, agent files, Skills, or integration files.
 - **Primary source:** config reference; one-file-settings tip.
+- **Inspectable basis:**
+  - Guard: `tests/paths_write_surface_test.ts` — enumerates every path discern may write in a project.
+  - Source: `src/shared/config_schema.ts` — defines every key of the root configuration file.
+  - Decision: `project/map/_adr/0020-dissolve-discern-dir.md` — dissolves the hidden namespace into one root file.
 
 ### `setup-proves-worktree` — setup proves the project runs in a worktree
 
@@ -202,6 +261,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** a project that needs a human-provisioned secret, database, or external resource must resolve that requirement before the completion probe can establish a green setup; record unresolved decisions so they do not disappear between sessions.
 - **Forbidden inference:** all deployment environments, external services, production data, or security conditions are thereby proven.
 - **Primary source:** setup brief.
+- **Inspectable basis:**
+  - Guard: `tests/engine_setup_done_test.ts` — refuses setup completion when the throwaway worktree probe fails.
+  - Guard: `tests/engine_worktree_probe_test.ts` — creates, runs, and tears down the throwaway probe worktree.
+  - Decision: `project/map/_adr/0090-setup-proves-worktree-viability.md` — makes the probe the completion condition.
 
 ### `map-mechanically-checked` — the Map is mechanically checked
 
@@ -211,6 +274,10 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** file-linked freshness supplies evidence; the current checks do not judge subjective prose freshness.
 - **Forbidden inference:** discern can determine whether every sentence remains conceptually current.
 - **Primary source:** Map integrity behavior and feature canon.
+- **Inspectable basis:**
+  - Guard: `tests/engine_map_integrity_test.ts` — fails the Gate on dead links, anchors, stale command examples, audience leaks, and unknown skill citations.
+  - Guard: `tests/map_integrity_test.ts` — applies the shipped integrity core to this repository's own Map.
+  - Source: `src/lib/map_integrity.ts` — implements the integrity preflight every Gate runs.
 
 ### `agent-as-operator` — discern is designed around the coding agent as operator
 
@@ -220,15 +287,23 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Mechanism:** typed MCP tools, one result envelope, context bounds, relevant hints, self-checking verbs, explicit next actions, provider instructions, and relay-safe prose.
 - **Forbidden inference:** humans are secondary in authority, or discern itself is an agent.
 - **Primary source:** Foundations; interfaces; hint audience registry.
+- **Inspectable basis:**
+  - Guard: `tests/engine_verb_parity_test.ts` — ties the MCP tool table to the CLI verb vocabulary.
+  - Guard: `tests/engine_mcp_surface_test.ts` — holds every MCP description to configured values rather than baked literals.
+  - Source: `src/engine/mcp/server.ts` — serves the typed tools and the result envelope to the coding agent.
 
 ### `runs-on-itself` — discern runs on itself
 
 - **Audience:** shared
-- **Evidence:** demonstrated / observational
+- **Evidence:** structural / demonstrated / observational
 - **Strongest supported public form:** “discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.”
 - **Conditions:** dogfooding provides product evidence from internal use. Independent external validation remains separate.
 - **Forbidden inference:** self-use proves absence of defects or market fit.
 - **Primary source:** feature canon and repository practice.
+- **Inspectable basis:**
+  - Guard: `tests/dogfood_gate_test.ts` — reads this repository's own Gate, Standards, Map, worktree, and Logbook declarations, and the hosted lane that runs the same Gate.
+  - Guard: `tests/dogfood_refresh_test.ts` — holds this repository's own provider integrations to what refresh expects.
+  - Source: `discern.toml` — declares this repository's own Gate, Standards, Map, and worktree practice.
 
 ## Absolute do-not-claim list
 

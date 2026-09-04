@@ -3,6 +3,8 @@
  * Proof stales at an UNCHANGED HEAD when a conclusion or rationale changes,
  * restores when the identical claim returns, and fails open (stays honored)
  * for markers written before the component existed.
+ *
+ * Guards: boundary:exact-tree-proof, claim:proof-exact-tree
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
