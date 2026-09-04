@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # desc: summarize this checkout against discern's quality bar
 
-exec deno run --allow-run=discern - <<'DISCERN_SELF_AUDIT'
+exec deno run --allow-run=discern - <<'SELF_AUDIT_DENO'
 async function runJson(label, args) {
   const command = new Deno.Command("discern", {
     args,
@@ -104,4 +104,4 @@ try {
   console.error(`self-audit: ${message}`);
   Deno.exit(1);
 }
-DISCERN_SELF_AUDIT
+SELF_AUDIT_DENO

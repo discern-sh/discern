@@ -8,7 +8,6 @@ import { denoRunInvocation } from "../site/dev.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { mainRepoPath } from "../src/engine/worktree/git.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
@@ -16,7 +15,6 @@ const PACKAGE_NAME = "@discern-sh/design-system";
 const PACKAGE_NAME_SPECIFIER = `jsr:${PACKAGE_NAME}`;
 const PACKAGE_EXPORTS = [".", "./react", "./runtime"] as const;
 const PACKAGE_REPOSITORY = "discern-design-system";
-const PATH_ENV = DISCERN_ENVIRONMENT_VARIABLES.designSystemPath;
 const SEMVER_PATTERN =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
@@ -36,7 +34,6 @@ interface ParsedLocalDesignSystemArgs {
 /** Parse the flags and optional checkout override supplied by the operator. */
 function parseLocalDesignSystemArgs(
   args: readonly string[],
-  environmentPath: string | undefined,
 ): ParsedLocalDesignSystemArgs {
   let buildOnly = false;
   let packageRoot: string | undefined;
@@ -59,12 +56,6 @@ function parseLocalDesignSystemArgs(
   if (packageRoot !== undefined && packageRoot.trim() === "") {
     throw new Error("the design-system checkout path cannot be empty");
   }
-  if (
-    packageRoot === undefined && environmentPath !== undefined &&
-    environmentPath.trim() !== ""
-  ) {
-    packageRoot = environmentPath;
-  }
   return { buildOnly, packageRoot };
 }
 
@@ -75,17 +66,16 @@ function parseLocalDesignSystemArgs(
  */
 export async function resolveLocalDesignSystemArgs(
   args: readonly string[],
-  environmentPath: string | undefined,
   resolveMainCheckout: () => Promise<string | undefined>,
 ): Promise<LocalDesignSystemArgs> {
-  const parsed = parseLocalDesignSystemArgs(args, environmentPath);
+  const parsed = parseLocalDesignSystemArgs(args);
   if (parsed.packageRoot !== undefined) {
     return { buildOnly: parsed.buildOnly, packageRoot: parsed.packageRoot };
   }
   const mainCheckout = await resolveMainCheckout();
   if (mainCheckout === undefined) {
     throw new Error(
-      `could not locate discern's main checkout; pass a design-system checkout or set ${PATH_ENV}`,
+      "could not locate discern's main checkout; pass a design-system checkout",
     );
   }
   return {
@@ -317,7 +307,8 @@ Usage:
   discern scripts site-design-system [<checkout>]
 
 The helper uses the sibling discern-design-system repository beside discern's
-Git main checkout. Pass another checkout or set ${PATH_ENV} to override it.
+Git main checkout. Pass another checkout as the positional argument to
+override it.
 It writes an untracked temporary Deno config, aligns that copy's package version
 so Deno accepts an ahead or behind checkout, verifies that the public export
 resolves locally, and leaves deno.json and deno.lock unchanged. Without
@@ -332,7 +323,6 @@ async function main(): Promise<number> {
   }
   const options = await resolveLocalDesignSystemArgs(
     Deno.args,
-    Deno.env.get(PATH_ENV),
     () => mainRepoPath(REPO_ROOT),
   );
   const packageRoot = await Deno.realPath(resolve(options.packageRoot));

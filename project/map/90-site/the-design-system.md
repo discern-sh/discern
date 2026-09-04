@@ -40,7 +40,7 @@ Use a one-shot build when another process already serves the generated site:
 discern scripts site-design-system -- --build-only
 ```
 
-Pass an absolute checkout path after the script name, or set `DISCERN_DESIGN_SYSTEM_PATH`, to override the sibling checkout. The local link provides visual and integration evidence only. The full gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+Pass an absolute checkout path after the script name to override the sibling checkout. The local link provides visual and integration evidence only. The full gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
 
 ## CLI-owned integration
 

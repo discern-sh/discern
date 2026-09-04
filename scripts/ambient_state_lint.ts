@@ -369,14 +369,6 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
     reason:
       "The interactive shell picker owns the real-host dependency adapter supplied to its pure core.",
   },
-  "site-design-system-path": {
-    path: "scripts/site_local_design_system.ts",
-    enclosingFunction: "main",
-    primitive: "env.get",
-    operation: "preserve PATH for the design-system child",
-    reason:
-      "The standalone design-system launcher composes the child PATH from the operator process.",
-  },
   "site-development-port": {
     path: "site/dev.ts",
     enclosingFunction: "runLocalSite",

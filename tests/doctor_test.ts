@@ -62,6 +62,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
 const DOCTOR_DIAGNOSTIC_ROUND_TRIP_SCHEMA = z.object({
   name: z.string(),
@@ -1731,6 +1732,25 @@ Deno.test("doctor: a fresh install passes the script-contract check (no project 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     assertEquals(check(payload, "script contract").ok, true);
+  });
+});
+
+Deno.test("doctor: this repository's Project Scripts satisfy the public environment contract", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const scriptsDir = join(dir, "discern/scripts");
+    await Deno.mkdir(scriptsDir, { recursive: true });
+    for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.scripts)) {
+      if (!entry.isFile || entry.name === "README.md") continue;
+      await Deno.copyFile(
+        join(REPO_AUTHORED_PATHS.scripts, entry.name),
+        join(scriptsDir, entry.name),
+      );
+    }
+    const { code, payload } = await runDoctorJson(dir);
+    const script = check(payload, "script contract");
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    assertEquals(script.ok, true, script.detail);
   });
 });
 

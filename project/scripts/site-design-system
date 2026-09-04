@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# desc: Serve discern.sh against the sibling design-system checkout; pass a path or set DISCERN_DESIGN_SYSTEM_PATH to override it
+# desc: Serve discern.sh against the sibling design-system checkout; pass a path to override it
 set -eu
 
 ROOT="${DISCERN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
@@ -7,5 +7,5 @@ cd "$ROOT"
 
 exec deno run --config "$ROOT/deno.json" \
   --allow-read --allow-write --allow-run \
-  --allow-env=DISCERN_DESIGN_SYSTEM_PATH,GIT_BIN \
+  --allow-env=GIT_BIN \
   "$ROOT/scripts/site_local_design_system.ts" "$@"

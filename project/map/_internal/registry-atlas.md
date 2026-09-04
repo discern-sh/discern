@@ -19,7 +19,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 39      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
 | [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 23      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
@@ -129,7 +129,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 24      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
-| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 49      | —                | —                           |
+| [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
@@ -647,7 +647,7 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
 - Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
-- Members: 39
+- Members: 38
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
@@ -671,7 +671,6 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_TEMPLATES_DIR`
   - `DISCERN_DOCS_DIR`
   - `DISCERN_GATE_TEST_REPORTER`
-  - `DISCERN_DESIGN_SYSTEM_PATH`
   - `DISCERN_DESK_SESSION`
   - `DISCERN_TEST_SLOT`
   - `DISCERN_SPAWNED_BY`
@@ -4146,7 +4145,7 @@ The operating-system properties that justify a real pseudo-terminal test; every 
 Every direct environment or cwd read and mutation retained at a host boundary, with its stable id, exact path, enclosing function, primitive, semantic operation, and reason.
 
 - Source: `scripts/ambient_state_lint.ts` — `AMBIENT_READ_BOUNDARIES`
-- Members: 49
+- Members: 48
   - `read:canon-editor-port`
   - `read:checkpoint-input-path`
   - `read:checkpoint-invocation-root`
@@ -4185,7 +4184,6 @@ Every direct environment or cwd read and mutation retained at a host boundary, w
   - `read:setup-welcome-branch-cwd`
   - `read:setup-welcome-git-cwd`
   - `read:shell-picker-cwd-adapter`
-  - `read:site-design-system-path`
   - `read:site-development-port`
   - `read:site-production-port`
   - `read:site-specimen-port`

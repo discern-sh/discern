@@ -170,7 +170,7 @@ Deno.test("the temporary link resolves an unrelated local version without changi
   }, { prefix: "discern-local-package-guard-" });
 });
 
-Deno.test("local design-system arguments resolve overrides before the conventional sibling checkout", async () => {
+Deno.test("local design-system arguments resolve an explicit checkout before the conventional sibling", async () => {
   let mainCheckoutQueries = 0;
   const mainCheckout = (): Promise<string> => {
     mainCheckoutQueries += 1;
@@ -180,21 +180,12 @@ Deno.test("local design-system arguments resolve overrides before the convention
   assertEquals(
     await resolveLocalDesignSystemArgs(
       ["--", "--build-only", "/tmp/component-worktree"],
-      undefined,
       mainCheckout,
     ),
     { buildOnly: true, packageRoot: "/tmp/component-worktree" },
   );
   assertEquals(
-    await resolveLocalDesignSystemArgs(
-      [],
-      "/tmp/environment-worktree",
-      mainCheckout,
-    ),
-    { buildOnly: false, packageRoot: "/tmp/environment-worktree" },
-  );
-  assertEquals(
-    await resolveLocalDesignSystemArgs([], undefined, mainCheckout),
+    await resolveLocalDesignSystemArgs([], mainCheckout),
     { buildOnly: false, packageRoot: "/srv/discern-design-system" },
   );
   assertEquals(mainCheckoutQueries, 1);
@@ -203,7 +194,6 @@ Deno.test("local design-system arguments resolve overrides before the convention
     () =>
       resolveLocalDesignSystemArgs(
         [],
-        undefined,
         () => Promise.resolve(undefined),
       ),
     Error,
@@ -213,7 +203,6 @@ Deno.test("local design-system arguments resolve overrides before the convention
     () =>
       resolveLocalDesignSystemArgs(
         ["/tmp/one", "/tmp/two"],
-        undefined,
         mainCheckout,
       ),
     Error,
