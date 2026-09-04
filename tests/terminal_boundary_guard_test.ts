@@ -501,7 +501,7 @@ function cliffyImportFindings(rel: string, source: string): Finding[] {
 }
 
 /**
- * Text-bearing leaves in the published 0.29.0 `*CliProps` contracts and their
+ * Text-bearing leaves in the published 0.30.1 `*CliProps` contracts and their
  * exported nested row shapes. Generic future renderer names deliberately
  * inherit this vocabulary; a package upgrade must re-audit the public types.
  */
@@ -1678,14 +1678,6 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
   },
   {
-    file: "scripts/canon_editor/assets.ts",
-    rule: "direct-theme-threading",
-    authority: "emitCanonEditorAssets",
-    count: 1,
-    reason:
-      "Canon Editor's web bundle selects the design system's site theme, not a terminal theme.",
-  },
-  {
     file: "scripts/terminal_capture.ts",
     rule: "direct-theme-threading",
     authority: "parseOptions",
@@ -2040,7 +2032,7 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
   assertEquals(
     structuralTerminalFindings(
       "site/build.ts",
-      "const page = { theme: selection.theme };",
+      'const page = { theme: "light" };',
     ),
     [],
     "the independent web theme is outside the terminal-presenter class",

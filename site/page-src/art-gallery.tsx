@@ -16,6 +16,7 @@ import {
   type ArtGalleryEntry,
 } from "../../art/terminal/gallery.ts";
 import { DISCERN_MARK } from "../brand.ts";
+import { SITE_APPEARANCE } from "../appearance.ts";
 import { pageDocument } from "./document.ts";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
@@ -56,7 +57,7 @@ function BrowserArtwork(
         {PREVIEW_THEMES.map((theme) => (
           <section
             className="art-gallery__theme"
-            data-discern-root
+            {...SITE_APPEARANCE.rootAttributes}
             data-discern-theme={theme}
             aria-label={`${artwork.title}, ${theme} theme`}
             key={theme}

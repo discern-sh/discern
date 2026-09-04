@@ -52,6 +52,7 @@ import {
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { repositoryBlobUrl, repositoryTreeUrl } from "../src/shared/brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
+import { siteAppearanceRootAttributes } from "./appearance.ts";
 import { decorateDocumentHtml } from "./document_html.ts";
 import {
   authoredHeadingNumberClass,
@@ -1069,7 +1070,7 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
       <a href="/docs/reference/cli-reference">Commands</a>
       <a href="/docs/reference/config-reference">Configuration</a>`;
   return `<!doctype html>
-<html lang="en" data-discern-root data-discern-theme="light">
+<html lang="en" ${siteAppearanceRootAttributes()} data-discern-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -9,6 +9,7 @@ import {
   SkipLink,
 } from "discern-design-system/react";
 import { DISCERN_MARK } from "../brand.ts";
+import { SITE_APPEARANCE } from "../appearance.ts";
 import { pageDocument } from "./document.ts";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
@@ -140,7 +141,7 @@ function SpecimenSection(
         {PREVIEW_THEMES.map((theme) => (
           <article
             className="specimen-theme"
-            data-discern-root
+            {...SITE_APPEARANCE.rootAttributes}
             data-discern-theme={theme}
             aria-label={`${title}, ${theme} theme`}
             key={theme}

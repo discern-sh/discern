@@ -13,6 +13,7 @@ import {
 } from "./annotation.ts";
 import type { Snapshot, SnapshotPage } from "./snapshot.ts";
 import { escapeHtml, renderMarkdownHtml } from "../../src/lib/markdown.ts";
+import { siteAppearanceRootAttributes } from "../../site/appearance.ts";
 
 /** How the editor may treat a span, from the AST classification of its field. */
 export type SpanState = "editable" | "locked" | "unknown";
@@ -238,7 +239,7 @@ export function renderShell(options: {
     requestTokenHeader,
   };
   return `<!doctype html>
-<html lang="en" data-discern-root data-discern-theme="light">
+<html lang="en" ${siteAppearanceRootAttributes()} data-discern-theme="light">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />

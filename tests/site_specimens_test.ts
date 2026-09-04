@@ -110,6 +110,10 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   assertEquals(document.querySelectorAll(".specimen-section").length, 4);
   assertEquals(document.querySelectorAll(".specimen-theme").length, 8);
   assertEquals(
+    document.querySelectorAll(".specimen-theme[data-discern-accent]").length,
+    8,
+  );
+  assertEquals(
     document.querySelectorAll('.specimen-theme[data-discern-theme="light"]')
       .length,
     4,

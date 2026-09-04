@@ -14,6 +14,7 @@ import {
   DESIGN_SYSTEM_BUNDLES,
   type DesignSystemBundleName,
 } from "./design_system.ts";
+import { SITE_APPEARANCE } from "./appearance.ts";
 import { MARKETING_PAGES } from "./marketing_pages.ts";
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
@@ -85,7 +86,7 @@ async function emitBundle(name: DesignSystemBundleName): Promise<BuildSummary> {
     components: selection.components,
     groups: selection.groups,
     assets: selection.assets,
-    theme: selection.theme,
+    appearanceScopes: SITE_APPEARANCE.appearanceScopes,
   });
 }
 

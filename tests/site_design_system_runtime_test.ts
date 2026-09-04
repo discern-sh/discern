@@ -7,7 +7,10 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
-import { packageManifest } from "discern-design-system";
+import {
+  packageManifest,
+  RUNTIME_MANIFEST_SCHEMA_VERSION,
+} from "discern-design-system";
 import { z } from "@zod/zod";
 import {
   COPIED_PAGE_ASSETS,
@@ -19,6 +22,7 @@ import {
   designSystemAssetPath,
   type DesignSystemBundleName,
 } from "../site/design_system.ts";
+import { SITE_APPEARANCE } from "../site/appearance.ts";
 import { MARKETING_PAGES } from "../site/marketing_pages.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
@@ -29,7 +33,7 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
 const ROOT = fromFileUrl(new URL("../", import.meta.url));
-const DESIGN_SYSTEM_VERSION = "0.29.0";
+const DESIGN_SYSTEM_VERSION = "0.30.1";
 const DESIGN_SYSTEM_SPECIFIER =
   `jsr:@discern-sh/design-system@${DESIGN_SYSTEM_VERSION}`;
 
@@ -80,7 +84,7 @@ const DENO_INFO_SCHEMA = z.object({
 }).passthrough();
 
 const RUNTIME_MANIFEST_SCHEMA = z.object({
-  schemaVersion: z.number(),
+  schemaVersion: z.literal(RUNTIME_MANIFEST_SCHEMA_VERSION),
   package: z.string(),
   selection: z.object({
     all: z.boolean(),
@@ -88,7 +92,7 @@ const RUNTIME_MANIFEST_SCHEMA = z.object({
     requestedGroups: z.array(z.string()),
     resolvedComponents: z.array(z.string()),
     assets: z.array(z.string()),
-    theme: z.string(),
+    appearanceScopes: z.boolean(),
   }),
   groups: z.array(z.object({
     name: z.string(),
@@ -309,6 +313,7 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     const expected = DESIGN_SYSTEM_BUNDLES[name];
     const runtime = await bundleManifest(name);
     const resolved = resolvedSelection(name);
+    assertEquals(runtime.schemaVersion, packageManifest.schemaVersion);
     assertEquals(runtime.package, packageManifest.package);
     assertEquals(
       runtime.groups,
@@ -347,7 +352,48 @@ Deno.test("each emitted bundle is the dependency closure of the site selection",
     assertEquals(runtime.selection.requestedGroups, [...expected.groups]);
     assertEquals(runtime.selection.resolvedComponents, resolved);
     assertEquals(runtime.selection.assets, [...expected.assets]);
-    assertEquals(runtime.selection.theme, expected.theme);
+    assertEquals(
+      runtime.selection.appearanceScopes,
+      SITE_APPEARANCE.appearanceScopes,
+    );
+  }
+});
+
+Deno.test("production roots keep the blue Appearance active in light and dark modes", async () => {
+  for (
+    const [name, route] of [
+      ["compositions", "/"],
+      ["docs", "/docs"],
+    ] as const satisfies readonly [DesignSystemBundleName, string][]
+  ) {
+    const response = await handler(
+      new Request(`https://discern.sh${route}`, { headers: BROWSER }),
+    );
+    assertEquals(response.status, 200, route);
+    const html = await response.text();
+    const root = html.match(/<html\b[^>]*>/u)?.[0];
+    assert(root !== undefined, `${route} has no document root`);
+    for (const attribute of Object.keys(SITE_APPEARANCE.rootAttributes)) {
+      assertStringIncludes(root, attribute, route);
+    }
+    assertStringIncludes(
+      root,
+      `${SITE_APPEARANCE.accentHueProperty}: ${SITE_APPEARANCE.accentHue}`,
+      route,
+    );
+
+    const css = await Deno.readTextFile(join(bundleRoot(name), "discern.css"));
+    for (
+      const [mode, selector] of [
+        ["light", "[data-discern-root][data-discern-accent]"],
+        [
+          "dark",
+          '[data-discern-root][data-discern-theme="dark"][data-discern-accent]',
+        ],
+      ] as const
+    ) {
+      assertStringIncludes(css, selector, `${name} omits ${mode} Appearance`);
+    }
   }
 });
 

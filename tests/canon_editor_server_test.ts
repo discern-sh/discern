@@ -15,6 +15,7 @@ import {
   MARK_OPEN,
   MARK_SEP,
 } from "../scripts/canon_editor/annotation.ts";
+import { SITE_APPEARANCE } from "../site/appearance.ts";
 import { mainCheckoutIssue, REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { buildSnapshot } from "../scripts/canon_editor/snapshot.ts";
 import { fieldSpecFor } from "../scripts/canon_editor/fields.ts";
@@ -95,6 +96,15 @@ Deno.test("Canon Editor serves annotated pages with clean spans", async () => {
     const response = await request(editor, "/page/feature-canon");
     assertEquals(response.status, 200);
     const html = await response.text();
+    for (const attribute of Object.keys(SITE_APPEARANCE.rootAttributes)) {
+      assert(html.includes(attribute), `editor root includes ${attribute}`);
+    }
+    assert(
+      html.includes(
+        `${SITE_APPEARANCE.accentHueProperty}: ${SITE_APPEARANCE.accentHue}`,
+      ),
+      "editor root includes the site Accent hue",
+    );
     assert(html.includes('data-ref="feature:proof:what"'), "span refs render");
     for (const marker of [MARK_OPEN, MARK_SEP, MARK_CLOSE]) {
       assert(!html.includes(marker), "no raw markers survive the transform");

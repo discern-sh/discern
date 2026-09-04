@@ -6,6 +6,7 @@
 
 import { join, toFileUrl } from "@std/path";
 import { emitDesignSystemRuntime } from "discern-design-system/runtime";
+import { SITE_APPEARANCE } from "../../site/appearance.ts";
 
 /** Where the emitted bundle lives, relative to the repository root. */
 export const CANON_EDITOR_ASSET_DIR: readonly string[] = [
@@ -29,7 +30,7 @@ export async function emitCanonEditorAssets(root: string): Promise<string> {
     groups: ["Editorial"],
     components: ["icon-button", "badge", "divider"],
     assets: ["fonts"],
-    theme: "discern",
+    appearanceScopes: SITE_APPEARANCE.appearanceScopes,
   });
   return dir;
 }

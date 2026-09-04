@@ -12,7 +12,6 @@ interface SiteDesignSystemBundle {
   readonly groups: readonly ComponentGroup[];
   readonly components: readonly string[];
   readonly assets: readonly RuntimeAssetSelection[];
-  readonly theme: "discern" | "none";
 }
 
 /**
@@ -36,7 +35,6 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "table-of-contents",
     ],
     assets: ["fonts"],
-    theme: "discern",
   },
   compositions: {
     output: "pages/assets/design-system/compositions/",
@@ -57,7 +55,6 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "skip-link",
     ],
     assets: ["fonts"],
-    theme: "discern",
   },
 } as const satisfies Record<string, SiteDesignSystemBundle>;
 

@@ -96,7 +96,6 @@ Deno.test(
         outputRoot: new URL(`${toFileUrl(bundleRoot).href}/`),
         groups: ["Docs"],
         assets: ["fonts"],
-        theme: "discern",
       });
       const html = await fixtureHtml(bundleRoot);
       const moduleRoot = join(ROOT, "site", "pages", "assets");

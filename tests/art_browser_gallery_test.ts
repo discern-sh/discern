@@ -171,6 +171,10 @@ Deno.test("the art archive renders every browser study twice and every terminal 
       ["light", "dark"],
     );
     for (const theme of themes) {
+      assert(
+        theme.hasAttribute("data-discern-accent"),
+        `${artwork.slug} must retain the site Accent projection`,
+      );
       const svg = theme.querySelector('svg[role="img"]');
       assert(svg !== null, `${artwork.slug} must render one accessible SVG`);
       const labelledBy = (svg.getAttribute("aria-labelledby") ?? "")
