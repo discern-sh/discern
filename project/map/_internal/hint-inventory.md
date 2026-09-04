@@ -61,7 +61,7 @@ Rendered example:
 
 Rendered example:
 
-> The owner can share this landing's Proof with other clones by running `git push origin refs/notes/discern`. discern records Proof locally; network publication remains an explicit owner action.
+> The owner can share this landing's Proof with other clones by running `git push origin refs/notes/discern`; discern records it locally and never publishes it.
 
 ## `accept-reconcile-partial-effects`
 

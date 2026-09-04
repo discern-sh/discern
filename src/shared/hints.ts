@@ -72,12 +72,10 @@ export type HintCategory =
   | "notice";
 
 /**
- * A semantic audience plus a suppression flag for the interactive terminal
- * presentation, not a format-targeting field: every entry rides JSON, Markdown,
- * and MCP results. `all` renders everywhere; `agent` marks instructions only an
- * agent can execute and is dropped by the terminal renderer; `owner` reserves a
- * decision or external effect for the human owner and remains visible there.
- * Projection keys on this field, not reconstructed prose.
+ * Semantic audience and interactive-terminal suppression, not format routing.
+ * Every entry reaches JSON, Markdown, and MCP. `all` also reaches the terminal;
+ * `agent` is suppressed there, while `owner` reserves an external effect or
+ * decision for the human owner. Projection reads this field, never rendered prose.
  */
 export type HintAudience = "all" | "agent" | "owner";
 
@@ -3238,9 +3236,7 @@ export const HINTS = {
     when: "A landing Proof note is recorded with fetch transport enabled.",
     example: { remote: "origin" },
     template: ({ remote }): string =>
-      `The owner can share this landing's Proof with other clones by running ` +
-      `\`git push ${remote} ${PROOF_NOTES_REF}\`. discern records Proof locally; ` +
-      "network publication remains an explicit owner action.",
+      `The owner can share this landing's Proof with other clones by running \`git push ${remote} ${PROOF_NOTES_REF}\`; discern records it locally and never publishes it.`,
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
