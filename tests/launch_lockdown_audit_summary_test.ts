@@ -20,6 +20,9 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
+const PROGRAMME_README_REL =
+  "project/map/_private/planning/launch-lockdown-workstreams/README.md";
+
 /** Read the authored audit that owns every projected finding fact. */
 async function sourceAudit(): Promise<string> {
   return await Deno.readTextFile(join(REPO_ROOT, LAUNCH_LOCKDOWN_AUDIT_REL));
@@ -121,6 +124,59 @@ Deno.test("the digest indexes every source finding once and stays compact", asyn
   }
 });
 
+/** Expand the compact D-01–D-03 notation used by the closeout table. */
+function decisionIds(text: string): string[] {
+  const ids: string[] = [];
+  for (const match of text.matchAll(/D-(\d{2})(?:–D-(\d{2}))?/g)) {
+    const first = Number(match[1]);
+    const last = Number(match[2] ?? match[1]);
+    for (let value = first; value <= last; value++) {
+      ids.push(`D-${String(value).padStart(2, "0")}`);
+    }
+  }
+  return ids;
+}
+
+Deno.test("the programme closeout accounts for every finding and decision", async () => {
+  const source = await sourceAudit();
+  const audit = parseLaunchLockdownAudit(source);
+  assertEquals(
+    audit.findings.filter((finding) => finding.completion === undefined),
+    [],
+    "every finding needs a completion or routing outcome",
+  );
+  assertEquals(audit.findings.length, 186);
+  assertEquals(
+    audit.findings
+      .filter((finding) => /\brouted\b/iu.test(finding.completion ?? ""))
+      .map((finding) => finding.id),
+    ["L-034", "L-037", "L-074", "L-098"],
+  );
+
+  const programme = await Deno.readTextFile(
+    join(REPO_ROOT, PROGRAMME_README_REL),
+  );
+  const accountingStart = programme.indexOf("\n## Final accounting");
+  const accountingEnd = programme.indexOf(
+    "\n## External joins",
+    accountingStart,
+  );
+  assert(accountingStart >= 0 && accountingEnd > accountingStart);
+  const accounting = programme.slice(accountingStart, accountingEnd);
+  const decisionRows = accounting.split("\n").filter((line) =>
+    /^\| [1-6]A \|/.test(line)
+  );
+  const accounted = decisionRows.flatMap(decisionIds);
+  const declared = [...source.matchAll(/^\d+\. \[x\] \*\*(D-\d{2}) /gm)]
+    .map((match) => match[1] ?? "");
+  assertEquals(new Set(accounted).size, accounted.length);
+  assertEquals(
+    accounted.toSorted(),
+    declared.toSorted(),
+    "the decision table must name every settled decision exactly once",
+  );
+});
+
 Deno.test("a future finding enrolls in parsing, rendering, and batch membership", async () => {
   const source = await sourceAudit();
   const current = parseLaunchLockdownAudit(source);
@@ -185,7 +241,10 @@ Deno.test("completion outcomes are non-empty, unique metadata-adjacent paragraph
   const metadataEnd = source.indexOf("\n", metadataAt + 1);
   assert(metadataEnd >= 0, "fixture needs a complete metadata line");
   const before = source.slice(0, metadataEnd);
-  const after = source.slice(metadataEnd);
+  const after = source.slice(metadataEnd).replace(
+    /^\n\nCompleted: [^\n]+\n\n/,
+    "\n\n",
+  );
 
   assertThrows(
     () => parseLaunchLockdownAudit(`${before}\n\nCompleted:${after}`),
