@@ -410,7 +410,7 @@ export function renderProofLine(
   );
   const checkpointsSegment = lineCheckpointsSegment(facts.checkpoints);
   const segments = [
-    `The Gate passed for ${code(facts.branch)} at ${code(facts.head)}`,
+    `Gate passed for ${code(facts.branch)} at ${code(facts.head)}`,
     `${diffstat(facts)} vs ${code(facts.trunk)}`,
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
     ...(proposalsSegment !== undefined ? [proposalsSegment] : []),

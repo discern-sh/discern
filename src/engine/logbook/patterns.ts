@@ -836,7 +836,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     out.group("empty-logbook");
     out.raw(`${
       presenter.present(renderEmptyStateCli, {
-        title: terminalLine("The Logbook is empty"),
+        title: terminalLine("The logbook is empty"),
         description: terminalLine(
           "Privacy: local metadata only; nothing leaves the machine.",
         ),
@@ -862,7 +862,7 @@ export const STATS_EMPTY_TITLE = "No stats yet";
 
 /** Empty-state explanation for a stats card with no analyzed runs behind it. */
 export const STATS_EMPTY_DESCRIPTION =
-  "The Logbook holds no analyzed runs. Check back after some use.";
+  "The logbook holds no analyzed runs. Check back after some use.";
 
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
@@ -872,7 +872,7 @@ export const STATS_PROVENANCE =
 /** Section labels for the stats card, in render order. */
 export const STATS_SECTIONS = {
   accepted: "Accepted",
-  gate: "The Gate",
+  gate: "The gate",
   workflows: "Validation workflows",
   pace: "Pace",
   standards: "Standards",
@@ -1473,7 +1473,7 @@ function renderStatsReport(
     out.raw(`${
       presenter.present(renderMeterCli, {
         kind: "determinate-progress",
-        label: terminalLine("Green Gate runs"),
+        label: terminalLine("Green gate runs"),
         lifecycle: { status: "active" },
         completed: stats.gate.greens,
         total: stats.gate.runs,
@@ -2520,7 +2520,7 @@ export async function runPatternsArchives(
     return 1;
   }
   const { presenter, width } = presentationFacts(out);
-  out.heading(terminalLine("Sealed Logbook archives"));
+  out.heading(terminalLine("Sealed logbook archives"));
   if (result.data.archives.length === 0) {
     out.raw(`${
       presenter.present(renderResultSummaryCli, {

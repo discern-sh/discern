@@ -85,7 +85,7 @@ Inspect one compiled output for ordering and wording, then confirm the other out
 
 **Coding agent:** Run `discern prepare`. It refreshes instruction surfaces again and checks that the tree converges. Review any rewrite, then commit the authored source and every tracked generated change in the same logical commit.
 
-Run `discern done` on the clean commit. The Gate must leave no stale generated or integration artifact. Any edit after that run stales its Proof and requires another final gate.
+Run `discern done` on the clean commit. The gate must leave no stale generated or integration artifact. Any edit after that run stales its Proof and requires another final gate.
 
 ## 6. Confirm future sessions receive it
 

@@ -2,7 +2,7 @@
  * Bounded, privacy-preserving capture of the repository state a validation
  * boundary presents to configured jobs.
  *
- * Every manifest is canonical and exists only in memory. The Logbook receives
+ * Every manifest is canonical and exists only in memory. The logbook receives
  * repository-keyed HMACs, aggregate counts/bytes, and explicit incompleteness —
  * never paths, contents, commands, config values, or reusable plain hashes.
  */

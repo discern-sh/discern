@@ -30,7 +30,7 @@ Instructions have a cost model worth respecting. They are always loaded, so ever
 
 ## Skills: procedures that load at need
 
-A Skill is a focused playbook: one directory with a `SKILL.md` whose description says when it applies and whose body carries the procedure, including the judgment it takes to apply well. `discern refresh` places the effective set where each configured agent expects to find skills, so the collection is declared once and identical for every agent.
+A skill is a focused playbook: one directory with a `SKILL.md` whose description says when it applies and whose body carries the procedure, including the judgment it takes to apply well. `discern refresh` places the effective set where each configured agent expects to find skills, so the collection is declared once and identical for every agent.
 
 The set combines discern's bundled skills, which teach the practice's own methods (delegating work, waiting on another task, curing a bug at its class), with any the project authors under its skills directory. A project skill with a bundled skill's name replaces it, and `[skills].exclude` drops named entries.
 
@@ -38,11 +38,11 @@ Skills answer the cost problem instructions can't: only the name and description
 
 ### Make an operational procedure self-contained
 
-A Skill that performs effects should carry its own boundaries: the target it operates on, how to verify the result, the conditions that mean stop, and the recovery when a step fails. A fresh session has no memory of the session that authored the skill, so the playbook has to stand alone. Once it does, a task brief can name the skill instead of restating the method.
+A skill that performs effects should carry its own boundaries: the target it operates on, how to verify the result, the conditions that mean stop, and the recovery when a step fails. A fresh session has no memory of the session that authored the skill, so the playbook has to stand alone. Once it does, a task brief can name the skill instead of restating the method.
 
-## The Map: what the agents understand
+## The map: what the agents understand
 
-The Map is the account of your project that agents maintain: the architecture, the boundaries and conventions, where to start reading, and the decisions behind them. Agents write it, navigate by it, and keep it current under the gate — an out-of-date page is treated as a defect of the change that outdated it.
+The map is the account of your project that agents maintain: the architecture, the boundaries and conventions, where to start reading, and the decisions behind them. Agents write it, navigate by it, and keep it current under the gate — an out-of-date page is treated as a defect of the change that outdated it.
 
 For you, the map is an audit surface. Delegating more work usually makes a project less legible to its owner; the map reverses that by making the agents' working understanding readable. What your agents believe about the project stops being hidden in session history.
 
@@ -55,7 +55,7 @@ Significant decisions get their own record: an ADR (Architecture Decision Record
 Nearby kinds of writing tend to blur together, and keeping them apart is part of the model:
 
 - **Your project's own documentation** — its README, docs site, and comments — belongs to the project and its authors. discern doesn't touch documentation outside the paths the project supplies to it.
-- **The Map** is the agents' maintained account of your project, kept at the path your config names.
+- **The map** is the agents' maintained account of your project, kept at the path your config names.
 - **This manual** is discern's product documentation. It describes discern, ships with the install, and is readable offline with `discern docs`.
 - **discern's own map** is the live example: discern is developed under its own practice, and its map is published [at discern.sh/map](https://discern.sh/map), so you can inspect what its agents understand about it — the same inspection your project's map offers you.
 

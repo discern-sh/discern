@@ -193,14 +193,14 @@ provides = "license-audit"`,
     seeds: [
       {
         comment:
-          "Documentation the agents maintain. No Gate; landing may be pre-authorized.",
+          "Documentation the agents maintain. No gate; landing may be pre-authorized.",
         toml: `[scopes.map]
 paths   = [{{scopes_neutral}}]
 neutral = true`,
       },
       {
         comment:
-          "Instruction sources and skills. No Gate; landing stays owner-reviewed.",
+          "Instruction sources and skills. No gate; landing stays owner-reviewed.",
         toml: `[scopes.instructions]
 paths   = [{{scopes_instructions}}]
 neutral = true`,

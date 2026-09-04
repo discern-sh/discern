@@ -275,7 +275,7 @@ const stageEnum = z.enum(STAGES);
 /** A custom `[jobs.<name>]` table with an explicit stage. */
 const customJobValue = z.strictObject({
   stage: stageEnum.describe(
-    "The Gate stage this job runs in: fix, build, check, or test.",
+    "The gate stage this job runs in: fix, build, check, or test.",
   ),
   run: commandOrList.describe(
     `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,

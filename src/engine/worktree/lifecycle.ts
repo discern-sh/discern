@@ -2349,13 +2349,13 @@ async function enforceStandardLimitApprovals(
     !sameStandardLimitProposalSet(proofProposals, active)
   ) {
     throw new WorktreeResultError(
-      "The Standard limit proposal record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
+      "The standard limit proposal record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          "The Standard limit proposal record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
+          "The standard limit proposal record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
       },
     );
   }
@@ -2382,7 +2382,7 @@ async function enforceStandardLimitApprovals(
   );
   if (extras.length > 0) {
     throw new WorktreeResultError(
-      "The Standard approval set names a proposal that is not current.",
+      "The standard approval set names a proposal that is not current.",
       {
         ok: false,
         verb: "accept",
@@ -3021,13 +3021,13 @@ async function executeAcceptPlan(
     )
   ) {
     throw new WorktreeResultError(
-      "The Standard limit proposal was changed or revoked after validation.",
+      "The standard limit proposal was changed or revoked after validation.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          `The Standard limit proposal was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
+          `The standard limit proposal was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
       },
     );
   }

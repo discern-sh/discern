@@ -453,12 +453,12 @@ function requiredFailure(
       if (data === undefined || !("failed_stage" in data)) {
         return failed(
           "gate_failed",
-          "The Gate result omitted its required finish-stage verdict.",
+          "The gate result omitted its required finish-stage verdict.",
         );
       }
       return data.failed_stage === null ? undefined : failed(
         "gate_failed",
-        `The Gate did not complete its required ${
+        `The gate did not complete its required ${
           String(data.failed_stage)
         } stage.`,
       );

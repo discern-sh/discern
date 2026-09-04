@@ -3338,7 +3338,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // The final-tree transaction starts here. Preserve the original bytes and Proof
   // so an exactly-owned rollback can restore the sampled predecessor. The marker is
   // written and committed BEFORE refresh, doctor, the structural worktree probe,
-  // and the final Gate. The Gate runs last, so no successful tracked effect follows
+  // and the final Gate. The gate runs last, so no successful tracked effect follows
   // the Proof it records.
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const originalConfig = await Deno.readTextFile(path);

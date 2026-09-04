@@ -418,7 +418,7 @@ export function consentRelayItems(
       ? [{
         key: "existing-docs",
         message:
-          "Existing documentation: this project already has `docs/`; it remains owner material and discern does not adopt or overwrite it. The Map is a separate tree.",
+          "Existing documentation: this project already has `docs/`; it remains owner material and discern does not adopt or overwrite it. The map is a separate tree.",
       }]
       : []),
     { key: "plan", message: plan },

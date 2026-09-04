@@ -31,7 +31,7 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 Your subtree serves a layered audience:
 
 - **`README.md` in your subtree** — newcomers and visitors. 200–350 words, plain language, no internal jargon. The canonical terms from `concepts.md` are fine. End with a table of the leaves, one line each.
-- **Child Map pages (leaves)** — future-you (a memory aid) and coding agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
+- **Child map pages (leaves)** — future-you (a memory aid) and coding agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
 
 If your subtree's audience contract differs (e.g. an existing plain-English deep-dive the project values), your scope manifest will say so.
 
@@ -93,7 +93,7 @@ Frontmatter is metadata the documentation tooling reads; it is not content, and 
 | Key           | Rule                                                                                |
 | ------------- | ----------------------------------------------------------------------------------- |
 | `title`       | Short label for map navigation — max 48 chars. Only when the H1 runs long.          |
-| `description` | 50–160 chars. Fronts Map search results and section tables; say what the page does. |
+| `description` | 50–160 chars. Fronts map search results and section tables; say what the page does. |
 | `order`       | Non-negative integer; unique among sibling pages; leave gaps of 10.                 |
 
 The H1 stays the long-form canonical title on the page; the first substantive paragraph stays the canonical summary unless `description` overrides it.

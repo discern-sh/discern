@@ -57,7 +57,7 @@ const FULL_PROOF = {
   insertions: 21,
   deletions: 8,
   line:
-    "> **Proof:** The Gate passed for `agent/presentation` at `abc123def456` · 3 files changed (+21 −8) vs `main` · View the full Proof: `discern status --verbose`",
+    "> **Proof:** Gate passed for `agent/presentation` at `abc123def456` · 3 files changed (+21 −8) vs `main` · View the full Proof: `discern status --verbose`",
   markdown: PROOF_SENTINEL,
 };
 

@@ -29,7 +29,7 @@ Use this guide to make the project's declared gate a required continuous-integra
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI Gate runs fail closed if that local trunk or its standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the gate may start several jobs in parallel, so dependency downloads that race inside the first gate run belong in a serial step ahead of it.
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI gate runs fail closed if that local trunk or its standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the gate may start several jobs in parallel, so dependency downloads that race inside the first gate run belong in a serial step ahead of it.
 
 Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and standards remain the authority, so local agents and CI run the same declaration.
 

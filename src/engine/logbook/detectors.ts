@@ -1472,7 +1472,7 @@ function preparePreventableKind(
 
 const skippedPrepare: Detector = {
   id: "skipped-prepare",
-  title: "Repeated Gate work preventable by prepare",
+  title: "Repeated gate work preventable by prepare",
   family: "behavior",
   scope: "branch",
   tier: "inline",
@@ -1696,7 +1696,7 @@ const confirmedRerun: Detector = {
       .length;
     const findings: DetectorFinding[] = reruns.length >= 3
       ? [{
-        summary: "The Gate was repeatedly rerun on already-judged trees.",
+        summary: "The gate was repeatedly rerun on already-judged trees.",
         observed:
           `an explicit \`done\` rerun re-executed the gate on an already-judged tree ${
             formatHumanNumber(reruns.length)
@@ -2227,7 +2227,7 @@ const sequenceAnomaly: Detector = {
     if (redundant >= 2) {
       findings.push({
         summary:
-          "The Gate was rerun on unchanged trees that already had a valid Proof.",
+          "The gate was rerun on unchanged trees that already had a valid Proof.",
         observed: `${formatHumanNumber(redundant)} of ${
           formatHumanNumber(dones.length)
         } recorded \`done\` runs repeated the full gate on an identical tree that already had a valid Proof.`,
@@ -3238,7 +3238,7 @@ const durationCreep: Detector = {
       sizeLate <= Math.max(sizeEarly, 1) * 1.25
     ) {
       findings.push({
-        summary: "Green Gate runs became slower under one recorded setup.",
+        summary: "Green gate runs became slower under one recorded setup.",
         observed: `median green \`done\` duration rose from ${
           formatHumanNumber(round1(durEarly))
         }s to ${formatHumanNumber(round1(durLate))}s across ${
@@ -4268,7 +4268,7 @@ const standardTrajectory: Detector = {
         : `\`${name}\` is not mechanically eligible under its recorded margin and current limit; keep the trajectory as a statistic.`;
       findings.push({
         subject: name,
-        summary: `This Standard ${movement}: ${
+        summary: `This standard ${movement}: ${
           formatHumanNumber(firstValue)
         } → ${formatHumanNumber(lastValue)}${againstLimit}.`,
         tone,

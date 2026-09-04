@@ -69,7 +69,7 @@ When `worktree_removed` is false, return to the original worktree and follow the
 discern accept
 ```
 
-discern reads that worktree's journal, marker, current refs, authority, and checkout state before acting. It reuses consent only when it is bound to the interrupted transaction. A Standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
+discern reads that worktree's journal, marker, current refs, authority, and checkout state before acting. It reuses consent only when it is bound to the interrupted transaction. A standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
 
 When `worktree_removed` is true, do not rerun acceptance: `data.root` is the main checkout, the worktree-local journal is gone, and the trunk has already landed. From `data.root`, verify that the trunk still names the exact landed SHA reported by the Proof:
 

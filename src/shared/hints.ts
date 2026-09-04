@@ -1773,7 +1773,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "A Logbook reset or archive apply is requested outside an eligible terminal.",
+      "A logbook reset or archive apply is requested outside an eligible terminal.",
     family: "patterns-lifecycle",
     example: undefined,
     template: (): string =>
@@ -2025,7 +2025,7 @@ export const HINTS = {
     id: "gate-strand-check-unavailable",
     category: "notice",
     audience: "all",
-    when: "A Gate run cannot read every strand-detection snapshot.",
+    when: "A gate run cannot read every strand-detection snapshot.",
     example: {},
     template: (): string => "Restore Git status access; rerun.",
   }),
@@ -2838,7 +2838,7 @@ export const HINTS = {
     example: { scope: "site", command: "./scripts/preview-site.sh" },
     template: ({ scope, command }): string =>
       `Preview the changed \`${scope}\` scope by running \`${command}\` from ` +
-      "this worktree. The Gate reports this configured read-only action; it did not run it.",
+      "this worktree. The gate reports this configured read-only action; it did not run it.",
   }),
 
   /** The pin pass has no configured metric to measure or tighten. */

@@ -47,7 +47,7 @@ Selected command output is kept in your system temp directory for 24 hours so yo
 
 | Prefix           | What it holds                                                           |
 | ---------------- | ----------------------------------------------------------------------- |
-| `discern-job-`   | A Gate job's complete captured output.                                  |
+| `discern-job-`   | A gate job's complete captured output.                                  |
 | `discern-diag-`  | The full text behind a truncated diagnostic.                            |
 | `discern-crash-` | A [crash report](#discern-crashed) written outside any repository.      |
 | `discern-self-`  | A fallback command shim for a run that had no repository root.          |
@@ -61,9 +61,9 @@ discern's runtime state lives inside the repository's Git directory, out of your
 
 Treat it as owned storage. Nothing in normal use requires touching it, and hand-deleting it destroys real evidence — Proof that acceptance would have reused, logbook history, the records that make [reappeared-path cleanup](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back) safe. The supported removal is `discern uninstall`, which takes runtime state with it — and refuses while provisioned worktree resources remain, so nothing external is orphaned by the exit. [Files and ownership](../30-reference/files-and-ownership.md) lists every path discern writes and who owns its lifecycle.
 
-## The Logbook looks empty or off
+## The logbook looks empty or off
 
-The Logbook is discern's local record of runs and outcomes, and its quiet states are mostly healthy ones. An enabled logbook with nothing in it hasn't seen events yet. A denied write warns and disables recording _for that process_ without blocking the work — recording is advisory and never blocks a command. Disabled-by-configuration, invalid, and missed-event states are reported distinctly, so a result telling you recording is off also tells you why. The [Logbook reference](../30-reference/logbook.md) covers storage, rotation, and the archive and reset lifecycle, each an explicit command there.
+The logbook is discern's local record of runs and outcomes, and its quiet states are mostly healthy ones. An enabled logbook with nothing in it hasn't seen events yet. A denied write warns and disables recording _for that process_ without blocking the work — recording is advisory and never blocks a command. Disabled-by-configuration, invalid, and missed-event states are reported distinctly, so a result telling you recording is off also tells you why. The [Logbook reference](../30-reference/logbook.md) covers storage, rotation, and the archive and reset lifecycle, each an explicit command there.
 
 ## When to stop
 

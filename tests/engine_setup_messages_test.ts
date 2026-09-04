@@ -29,7 +29,7 @@ const WORKTREE_ENV = {
   inheritedEnvNames: [],
 } as const;
 const PROOF_LINE =
-  "> **Proof:** The Gate passed for `agent/setup` at `abc123def456` · View the full Proof: `discern status --verbose`";
+  "> **Proof:** Gate passed for `agent/setup` at `abc123def456` · View the full Proof: `discern status --verbose`";
 
 /** Project one registry provider into setup's consent shape. */
 function consentProvider(

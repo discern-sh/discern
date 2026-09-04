@@ -673,13 +673,13 @@ export async function standardsProposeResult(
   if (branch === undefined || branch === mainBranch) {
     return proposalFailure(
       "precondition_failed",
-      `A Standard limit proposal requires a named worktree branch ahead of ${mainBranch}; it never edits the trunk checkout directly.`,
+      `A standard limit proposal requires a named worktree branch ahead of ${mainBranch}; it never edits the trunk checkout directly.`,
     );
   }
   if (head === undefined) {
     return proposalFailure(
       "precondition_failed",
-      "A Standard limit proposal requires a readable current HEAD.",
+      "A standard limit proposal requires a readable current HEAD.",
     );
   }
   // Recovery itself is an apply operation. Dry-run never creates or completes
@@ -709,7 +709,7 @@ export async function standardsProposeResult(
   if (!(await isWorktreeFullyClean(root))) {
     return proposalFailure(
       "dirty_worktree",
-      "A Standard limit proposal requires a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
+      "A standard limit proposal requires a clean worktree so the config-only proposal commit cannot absorb unrelated changes. Commit or stash the current changes, take a fresh measurement, then retry.",
     );
   }
   // Recovery may have restored the pre-proposal config bytes. Plan only from

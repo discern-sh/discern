@@ -216,7 +216,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 | `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                       |
 | `standard_proposals` | array                | No       | Commit-bound pending standard proposals.                     |
 
-When `acceptance` is present, its `consent`, `variances`, and `standard_proposals` fields are all required; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
+When `acceptance` is present, its `consent`, `variances`, and `standard_proposals` fields are all required; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
 
 - `payloadType` identifies the contract and compatibility major.
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
@@ -289,7 +289,7 @@ Every governing row projects one `obligation`, the decision a bare `discern done
 | `awaiting_declaration` | A persisted open question already awaits a conclusion.                               |
 | `reopened`             | Subject or definition currency requires a fresh conclusion.                          |
 | `declared_met`         | A current declared-met conclusion lets the gate proceed.                             |
-| `declared_unmet`       | The Gate proceeds; landing remains bound to an owner-authorized variance.            |
+| `declared_unmet`       | The gate proceeds; landing remains bound to an owner-authorized variance.            |
 | `unknown`              | Store, subject, diff, or a pending `when` condition keeps the read decision unknown. |
 
 ### Declarations at the gate

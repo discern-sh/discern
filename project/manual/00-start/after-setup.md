@@ -52,7 +52,7 @@ Claude Code keeps every permission rule already in its shared settings file. Cod
 
 Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` combine discern's built-in operating instructions with your `discern/instructions.md`. They're committed, so a new clone starts with the same written instructions. The MCP server, session hooks, and generated skill folders still need the discern binary on that machine. Install discern, run `discern refresh`, and open a new coding-agent session after cloning.
 
-Never edit a compiled file by hand. Change the source and run `discern refresh`; the gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized Skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
+Never edit a compiled file by hand. Change the source and run `discern refresh`; the gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
 
 ## One repository, one installation
 
@@ -63,7 +63,7 @@ Install discern once at the root of each Git repository. In a monorepo, the root
 Parts of the practice never join the diff:
 
 - **Task workspaces.** The first `discern start` creates a sibling folder, `<repo>.worktrees` by default, holding one isolated worktree per task. `discern accept` removes a worktree when its work lands, and `discern worktree prune` clears abandoned leftovers.
-- **The Logbook.** discern's local activity record lives inside the repository's Git directory, holds metadata about discern use rather than code or command output, and never enters tracked files. [Local control](../20-understand/local-control.md) covers where evidence lives and what leaves your machine, which is nothing on discern's account.
+- **The logbook.** discern's local activity record lives inside the repository's Git directory, holds metadata about discern use rather than code or command output, and never enters tracked files. [Local control](../20-understand/local-control.md) covers where evidence lives and what leaves your machine, which is nothing on discern's account.
 
 ## The decision the diff supports
 

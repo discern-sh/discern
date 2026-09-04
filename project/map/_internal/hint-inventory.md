@@ -830,7 +830,7 @@ Rendered example:
 
 Rendered example:
 
-> Preview the changed `site` scope by running `./scripts/preview-site.sh` from this worktree. The Gate reports this configured read-only action; it did not run it.
+> Preview the changed `site` scope by running `./scripts/preview-site.sh` from this worktree. The gate reports this configured read-only action; it did not run it.
 
 ## `gate-proof-clear-failed`
 
@@ -936,7 +936,7 @@ Rendered example:
 - Category: `notice`
 - Audience: `all`
 - Family: —
-- Emitting context: A Gate run cannot read every strand-detection snapshot.
+- Emitting context: A gate run cannot read every strand-detection snapshot.
 
 Rendered example:
 
@@ -1178,7 +1178,7 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `patterns-lifecycle`
-- Emitting context: A Logbook reset or archive apply is requested outside an eligible terminal.
+- Emitting context: A logbook reset or archive apply is requested outside an eligible terminal.
 
 Rendered example:
 

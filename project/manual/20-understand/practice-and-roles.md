@@ -42,7 +42,7 @@ Operating and deciding stay separate. The agent drives the tools, and the author
 
 Each piece answers a question you would otherwise be answering by hand:
 
-- **The Gate** is the project's definition of done. `discern done` runs the jobs the project declares (format, build, lint, tests, and the rest), plus extra checks for the areas the change touched, and every quality measure the project keeps. Because the project declares the commands, the same practice serves any stack: discern ships none of your build tools and runs whatever `discern.toml` names.
+- **The gate** is the project's definition of done. `discern done` runs the jobs the project declares (format, build, lint, tests, and the rest), plus extra checks for the areas the change touched, and every quality measure the project keeps. Because the project declares the commands, the same practice serves any stack: discern ships none of your build tools and runs whatever `discern.toml` names.
 - **[Proof](proof.md)** is the evidence a passing gate produces: a record that the declared checks passed for one exact commit, presented for your review and kept with the landed change.
 - **[Worktrees](worktrees-and-trunk.md)** give each task its own checkout and branch, so parallel work stays separate and unfinished work stays off the shared branch until you accept it.
 - **[Checkpoints](checkpoints.md)** pause the gate for questions that need judgment rather than a command's exit status, and record the agent's answer where your review can see it.

@@ -999,7 +999,7 @@ const CLAUDE_LOCAL_SETTINGS_FILE = ".claude/settings.local.json";
  * cross-tool `.agents/skills/` (anthropics/claude-code#31005), so it keeps its own. */
 const CLAUDE_SKILLS_DIR = ".claude/skills";
 
-/** The cross-tool Agent Skills standard project directory — Codex's only repo path
+/** The cross-tool Agent skills standard project directory — Codex's only repo path
  * and Gemini's preferred alias — so the two share one materialization target. */
 const AGENTS_SKILLS_DIR = ".agents/skills";
 

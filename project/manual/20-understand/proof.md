@@ -26,13 +26,13 @@ discern uses Proof to do that checking for you. It confirms that the project's d
 
 After a successful `discern done`, the agent returns a one-line summary such as this:
 
-> **Proof:** The Gate passed for `agent/user-onboarding-fixes-0a7563` at `c5a02addf12a` · 6 files changed (+568 −345) vs `main` · Standards held (8 improved) · 1 checkpoint declared met · View the full Proof: `discern status --verbose`
+> **Proof:** Gate passed for `agent/user-onboarding-fixes-0a7563` at `c5a02addf12a` · 6 files changed (+568 −345) vs `main` · Standards held (8 improved) · 1 checkpoint declared met · View the full Proof: `discern status --verbose`
 
 The blockquote visually distinguishes Proof from the agent's account, while code styling separates Git identities and the inspection command from prose. The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so you can review the exact result and decide what becomes part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
 
 ## What green establishes
 
-The Gate is the project's definition of done. It runs the declared jobs, such as build, lint, and tests; checks the areas the change touched; and measures the project's standards, its quality measures that may only improve. Green means those declared checks passed for the tree the gate evaluated.
+The gate is the project's definition of done. It runs the declared jobs, such as build, lint, and tests; checks the areas the change touched; and measures the project's standards, its quality measures that may only improve. Green means those declared checks passed for the tree the gate evaluated.
 
 That scope matters. Green clears away routine verification, but it can't establish that no defect remains, settle whether the design is right, or say that the project is ready for release — and it doesn't replace running the code for yourself. Those judgments still belong to review and to the project's own release process.
 

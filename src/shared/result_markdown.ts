@@ -1216,7 +1216,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         return `Preview ${code(scope)}: run ${
           code(command)
         } from this worktree. ` +
-          "The Gate did not run this command.";
+          "The gate did not run this command.";
       }),
       standards.length === 0
         ? undefined
@@ -1499,7 +1499,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         : undefined,
     ]),
     boundary: proposal === undefined ? [] : [
-      "The Gate must remeasure this exact value. Landing requires explicit owner approval for this standard/value/reason tuple; generic grants never cover it.",
+      "The gate must remeasure this exact value. Landing requires explicit owner approval for this standard/value/reason tuple; generic grants never cover it.",
     ],
   };
 };

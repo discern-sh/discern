@@ -207,6 +207,43 @@ Deno.test("the glossary case detector rejects both directions", () => {
   assertEquals(hits.map((rule) => rule.term).sort(), ["Gate", "Proof"]);
 });
 
+Deno.test("lowercase glossary terms stay lowercase after capitalized lead-ins", () => {
+  const misses = runningProseCaseRules()
+    .filter((rule) =>
+      rule.expected ===
+        rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
+    )
+    .filter((rule) =>
+      !new RegExp(rule.pattern).test(`The ${rule.term} remains visible.`)
+    )
+    .map((rule) => rule.term);
+  assertEquals(
+    misses,
+    [],
+    `capitalized lead-ins escaped the running-prose detector: ${misses.join(", ")}`,
+  );
+});
+
+Deno.test("lowercase glossary terms retain case at true prose starts", () => {
+  const falseHits = runningProseCaseRules()
+    .filter((rule) =>
+      rule.expected ===
+        rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
+    )
+    .flatMap((rule) =>
+      [
+        `${rule.term} remains visible.`,
+        `Proof: ${rule.term} remains visible.`,
+      ].filter((text) => new RegExp(rule.pattern).test(text))
+        .map((text) => `${rule.term}: ${text}`)
+    );
+  assertEquals(
+    falseHits,
+    [],
+    `true prose starts were rejected: ${falseHits.join(", ")}`,
+  );
+});
+
 Deno.test("the glossary case detector leaves dotted contract fields alone", () => {
   const prose = "Return data.proof and data.proof.line to the caller.".replace(
     DOTTED_IDENTIFIER,

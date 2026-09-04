@@ -25,7 +25,7 @@ The outcome is one bounded change with a named reason, owner, verification, and 
 ## Starting state
 
 - Run read-only review against the trunk when you want the state shared by future tasks. Use a task worktree when investigating an in-flight change.
-- The Logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata only.
+- The logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata only.
 - The person can decide whether a recommendation belongs in the current backlog and whether it changes project policy.
 
 ## 1. Ask for the highest-value next action

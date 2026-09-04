@@ -206,7 +206,7 @@ function gitDisplayVersion(raw: string): string {
 }
 
 /**
- * The Logbook health check distinguishes configuration, point-in-time write
+ * The logbook health check distinguishes configuration, point-in-time write
  * authority, readable schema, and an honestly empty new store. Unmatched
  * lifecycle gaps are interruption evidence rather than storage-health
  * evidence. Logbook recording is advisory: every unhealthy state warns but

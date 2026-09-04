@@ -397,7 +397,7 @@ export const SETUP_HUMAN_MOMENTS = [
     applicability: { kind: "always" },
     purpose: "Choose the reasoning model for the one-time setup.",
     owner_outcome:
-      "The Gate, worktree policy, map, and project instructions inherited by later sessions are grounded in the best repository study the owner chooses to provide now.",
+      "The gate, worktree policy, map, and project instructions inherited by later sessions are grounded in the best repository study the owner chooses to provide now.",
     why:
       "A stronger reasoning model is more likely to notice hidden boundaries, preserve existing workflows, challenge false assumptions, and write useful project context. Better analysis during setup reduces repeated correction and repository reading in later sessions.",
     current_action:
@@ -677,7 +677,7 @@ export const SETUP_HUMAN_MOMENTS = [
     owner_outcome:
       "Later agents receive useful automatic feedback without setup rewriting project workflows or adding unapproved cost, access, or dependencies.",
     why:
-      "The Gate sets the feedback floor for future work. Adding tools can also change lockfiles, runtime, network access, and maintenance obligations.",
+      "The gate sets the feedback floor for future work. Adding tools can also change lockfiles, runtime, network access, and maintenance obligations.",
     current_action:
       "Show the missing protection, recommendation, project impact, and the command that would change the project.",
     authority:
@@ -796,7 +796,7 @@ export const SETUP_HUMAN_MOMENTS = [
     owner_outcome:
       "Future agents start with the project's verified boundaries, invariants, commands, and owner policies instead of rediscovering them or inventing replacements.",
     why:
-      "The Map and instruction source are committed project context. Better context reduces repository reading, makes incorrect assumptions easier for the owner to audit, and guides later changes after this setup session ends.",
+      "The map and instruction source are committed project context. Better context reduces repository reading, makes incorrect assumptions easier for the owner to audit, and guides later changes after this setup session ends.",
     current_action:
       "Author only verified, durable context and show the owner the proposed primary-subsystem understanding before final synthesis.",
     authority:
@@ -900,7 +900,7 @@ export const SETUP_HUMAN_MOMENTS = [
     current_action:
       "Report the enforced protections, absences, and applicability before final documentation freezes the configuration.",
     authority:
-      "The Gate result verifies configured commands; the owner still controls consequential additions and landing.",
+      "The gate result verifies configured commands; the owner still controls consequential additions and landing.",
     reversibility:
       "Gate wiring remains reviewable on the setup branch, and each independent tool addition has its own commit.",
     recovery:
@@ -928,7 +928,7 @@ export const SETUP_HUMAN_MOMENTS = [
     purpose:
       "Let the owner correct the agent's project mental model before it becomes lasting context.",
     owner_outcome:
-      "The Map starts future sessions in the right subsystem with a correct boundary and non-obvious invariant.",
+      "The map starts future sessions in the right subsystem with a correct boundary and non-obvious invariant.",
     why:
       "Repository evidence can show structure while missing product ownership or the most useful starting point. A lightweight sanity check catches that error before it is inherited.",
     current_action:
@@ -961,7 +961,7 @@ export const SETUP_HUMAN_MOMENTS = [
         id: "correct-mental-model",
         label: "Correct the project understanding",
         consequence:
-          "The Map plan changes before future sessions inherit an incorrect boundary or starting point.",
+          "The map plan changes before future sessions inherit an incorrect boundary or starting point.",
         owner_action:
           "State the boundary, ownership, or starting-point correction.",
         agent_action:
@@ -1075,7 +1075,7 @@ export const SETUP_HUMAN_MOMENTS = [
         id: "record-open-item",
         label: "Record the claim as open",
         consequence:
-          "The Map stays factual and the ledger names the missing decision or implementation with evidence.",
+          "The map stays factual and the ledger names the missing decision or implementation with evidence.",
         owner_action: "Confirm that the unresolved item should remain visible.",
         agent_action:
           "Remove the confident claim and record the concrete item.",
@@ -1085,7 +1085,7 @@ export const SETUP_HUMAN_MOMENTS = [
         id: "supply-product-intent",
         label: "Supply product intent",
         consequence:
-          "The Map may record the intent as such, while absent implementation remains an open item rather than current behavior.",
+          "The map may record the intent as such, while absent implementation remains an open item rather than current behavior.",
         owner_action: "State the intended product rule.",
         agent_action:
           "Separate intent from verified behavior and retain any implementation gap.",

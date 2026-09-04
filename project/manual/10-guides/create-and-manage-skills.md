@@ -87,7 +87,7 @@ Start a representative request in a fresh configured-provider session. The agent
 
 If it does not load, strengthen the description with the phrases people and agents use for that task. If it loads for unrelated requests, narrow the triggers. If the steps leave a real decision undefined, revise the procedure and rerun the same scenario.
 
-Run `discern prepare`, commit the authored skill, and run the full gate. Materialized Skill directories are generated and commonly gitignored; the authored directory is the project authority.
+Run `discern prepare`, commit the authored skill, and run the full gate. Materialized skill directories are generated and commonly gitignored; the authored directory is the project authority.
 
 ## Customize a bundled Skill
 
@@ -117,7 +117,7 @@ Run `discern refresh --dry-run`, apply it, and confirm the name is absent from `
 
 When a session produces a correction, hard-won procedure, or unrecorded decision, **coding agent:** offer at a natural pause to use `discern-teach-the-project`.
 
-That Skill routes the lesson to one smallest authority:
+That skill routes the lesson to one smallest authority:
 
 - instructions for a rule every session needs;
 - a skill for a recurring method;
@@ -130,6 +130,6 @@ That Skill routes the lesson to one smallest authority:
 
 ## Completion
 
-A Skill change is complete when one authored `SKILL.md` owns the method, `discern skills list` shows the intended effective set, a representative request exercises selection and completion, refresh reports no pending materialization, and the full gate passes. A taught lesson is complete only when the chosen project surface is live and the person knows where it was recorded.
+A skill change is complete when one authored `SKILL.md` owns the method, `discern skills list` shows the intended effective set, a representative request exercises selection and completion, refresh reports no pending materialization, and the full gate passes. A taught lesson is complete only when the chosen project surface is live and the person knows where it was recorded.
 
 Read [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) for placement tradeoffs, [Config reference](../30-reference/config-reference.md) for skill settings, and [Connect a coding agent](connect-a-coding-agent.md) when one provider cannot see a materialized skill.

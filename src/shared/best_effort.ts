@@ -1236,7 +1236,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "A Gate Proof is emitted only from complete measured facts, and the caller retains the ordinary non-reusable gate result when evidence is unavailable.",
+      "A gate Proof is emitted only from complete measured facts, and the caller retains the ordinary non-reusable gate result when evidence is unavailable.",
   },
   "proof-standard-measurements-clear": {
     path: "src/engine/gate/proof.ts",

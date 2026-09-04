@@ -90,7 +90,7 @@ The agent returns to you only for decisions the code can't settle, such as a wro
 
 When the authoring is committed, the agent runs `discern setup done`. discern diagnoses the authored setup for completeness, exercises it in a throwaway worktree, and runs the full gate. Success returns Proof, discern's evidence that one exact commit passed the declared checks, as a single line:
 
-> **Proof:** The Gate passed for `discern-setup` at `4561b231d9c4` · 26 files changed (+1758 −0) vs `main` · View the full Proof: `discern status --verbose`
+> **Proof:** Gate passed for `discern-setup` at `4561b231d9c4` · 26 files changed (+1758 −0) vs `main` · View the full Proof: `discern status --verbose`
 
 The agent relays a handoff with that line: where future sessions will start, which checks are now active, one important rule it found, and what remains open. Then it waits.
 
@@ -136,7 +136,7 @@ The worktree keeps unfinished work off your trunk, and the main checkout stays c
 
 This decision is yours, and the practice is built around it. From the worktree, `discern status --verbose` opens the full Proof: which commands ran, what they covered, and the diffstat for the exact commit. Read the change itself with `git diff main...<branch>`, and exercise the new behavior if it warrants it.
 
-The Gate has already done the routine verification, so spend your review on what it can't judge: whether the behavior is right, the design fits, and the change belongs in the project.
+The gate has already done the routine verification, so spend your review on what it can't judge: whether the behavior is right, the design fits, and the change belongs in the project.
 
 When you say to land it, the agent runs `discern accept`. discern verifies your authority, fast-forwards the trunk to the reviewed commit, removes the worktree, and deletes the merged branch. The Proof is preserved as a durable note on the landed commit, so the evidence outlives the branch.
 

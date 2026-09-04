@@ -13,7 +13,7 @@ aliases:
   - "brag"
   - "bragging rights"
   - "vanity metrics"
-  - "The Logbook"
+  - "The logbook"
   - "usage recording"
   - "operational history"
   - "Logbook lifecycle"
@@ -41,7 +41,7 @@ discern patterns --stats
 | Section              | Counts                                                                                                                                                                                                                            |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Accepted             | Changes accepted and the branches they came from; lines added and removed with their ratio; the changes that removed more than they added; the biggest change; the best day; the longest streak.                                  |
-| The Gate             | `done` runs and greens, the red runs the gate stopped, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`.                                          |
+| The gate             | `done` runs and greens, the red runs the gate stopped, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`.                                          |
 | Validation workflows | Clean, dirty, and unknown `prepare`, `test`, and `done` entry states; success, failure, and retry counts by route; test-first changes that later reached a clean committed gate; evidence coverage and current dirty-state shape. |
 | Pace                 | Starts that ended in an accepted change, measured start-to-accept cycles with the median and fastest times and how many finished inside a day, and the acceptance cadence across the span.                                        |
 | Standards            | Limits tightened and how many standards they cover, the average measured trend, and the most improved standard.                                                                                                                   |
@@ -51,7 +51,7 @@ discern patterns --stats
 
 An accepted change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](../20-understand/evidence-and-improvement.md#what-the-detectors-watch) matches them. A cycle therefore needs both ends on record: an accept whose start predates the logbook counts as accepted without adding a cycle.
 
-For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The Standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
+For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
 
 ### Validation workflow cycles
 
@@ -69,7 +69,7 @@ Once the span holds 2 days, cadence sparklines sit beside the Accepted, gate, st
 
 ### The rules of the surface
 
-Every number is a count or duration from the same analysis population the detectors read: CI runs, `--dry-run` previews, and setup-era events stay out. The card assigns no score, grade, or rank. The Logbook never leaves the machine, so there is no external corpus for comparison ([ADR 0229](https://discern.sh/docs/decisions/0229-practice-stats-are-counted-local-and-never-comparative)). Each number can be re-derived from the checkout.
+Every number is a count or duration from the same analysis population the detectors read: CI runs, `--dry-run` previews, and setup-era events stay out. The card assigns no score, grade, or rank. The logbook never leaves the machine, so there is no external corpus for comparison ([ADR 0229](https://discern.sh/docs/decisions/0229-practice-stats-are-counted-local-and-never-comparative)). Each number can be re-derived from the checkout.
 
 `--json` carries the counts as `data.stats`; the standards section is `data.stats.standards`. Over MCP `discern_patterns` takes `stats: true`. Without the flag the payload carries no stats key at all.
 
@@ -87,7 +87,7 @@ A single accepted change keeps `biggest` and `best day` off the card, since eith
 | Counts proven from synthetic streams   | [`stats_test.ts`](https://github.com/jackwh/discern/blob/main/tests/stats_test.ts)                                                                                                                                               |
 | Black-box CLI and archive coverage     | [`engine_patterns_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_patterns_test.ts), [`engine_logbook_lifecycle_test.ts`](https://github.com/jackwh/discern/blob/main/tests/engine_logbook_lifecycle_test.ts) |
 
-## The Logbook
+## The logbook
 
 _The Logbook is a local activity record containing metadata rather than code or output._
 
@@ -190,7 +190,7 @@ Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, 
 | `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions  |
 | `epoch`         | a fingerprint of your config                                            |
 
-`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-understand/evidence-and-improvement.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
+`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack. A saved [crash report file](../40-troubleshooting/crashes-and-local-state.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-understand/evidence-and-improvement.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 
@@ -224,7 +224,7 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 
 ### Local storage only
 
-discern writes the logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own gate. A write failure does not change the verb outcome; the verb continues without recording the event.
+discern writes the logbook under the Git administrative area, outside commits and ignore rules. The logbook writer has no network interface under a test in discern's own gate. A write failure does not change the verb outcome; the verb continues without recording the event.
 
 Doctor treats an enabled empty logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](https://discern.sh/docs/decisions/0320-setup-plans-own-write-authority-and-activation-recovery)).
 

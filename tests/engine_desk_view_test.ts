@@ -762,7 +762,7 @@ Deno.test("recovery, main, and completion views use package workflow evidence", 
       head: "abc1234",
       completed_at: "2026-08-27T11:00:00.000Z",
       proof_line:
-        "> **Proof:** The Gate passed for `agent/completed` at `abc1234` · View the full Proof: `discern status --verbose`",
+        "> **Proof:** Gate passed for `agent/completed` at `abc1234` · View the full Proof: `discern status --verbose`",
     }],
   };
   const completed = stripAnsi(
@@ -770,14 +770,14 @@ Deno.test("recovery, main, and completion views use package workflow evidence", 
   );
   assertStringIncludes(completed, "Recent completed tasks");
   assertStringIncludes(completed, "agent/completed");
-  assertStringIncludes(completed, "**Proof:** The Gate passed");
+  assertStringIncludes(completed, "**Proof:** Gate passed");
   assertStringIncludes(completed, "`agent/completed`");
   assertBounded(completed, size.columns);
 });
 
 Deno.test("Proof-first review renders stored Markdown and every review evidence class", () => {
   const proofLine =
-    "> **Proof:** The Gate passed for `agent/review-a1b2c3` at `abc1234` · View the full Proof: `discern status --verbose`";
+    "> **Proof:** Gate passed for `agent/review-a1b2c3` at `abc1234` · View the full Proof: `discern status --verbose`";
   const proofPage =
     "# Gate Proof\n\n## Checks\n\n- test passed\n\n## Standards\n\n- coverage held";
   const [row] = rows([entry("review-a1b2c3", {
@@ -848,7 +848,7 @@ Deno.test("Proof-first review renders stored Markdown and every review evidence 
   ) {
     assertStringIncludes(plain, expected);
   }
-  assertStringIncludes(plain, "**Proof:** The Gate passed");
+  assertStringIncludes(plain, "**Proof:** Gate passed");
   assertStringIncludes(plain, "`agent/review-a1b2c3`");
   assertEquals(plain.includes("Proof line"), false);
   const editor = deskReviewGroups(review).flatMap((group) => group.items)

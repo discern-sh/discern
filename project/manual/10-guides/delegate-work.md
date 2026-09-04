@@ -7,7 +7,7 @@ publish: true
 kind: guide
 aliases:
   - "guide-delegate-work"
-  - "The Desk"
+  - "The desk"
   - "interactive worktree manager"
   - "fleet dashboard"
   - "worktree picker"
@@ -38,7 +38,7 @@ The person controls dispatch and every landing decision. A planning agent may pr
 
 **Planning agent:** State the goal as one observable result. Identify the concrete changes, exclusions, likely files, and decisions. Challenge a proposed split when its streams would edit the same authority or generated output.
 
-The Skill is the operating procedure for prompt design, dispatch consent, staged dependencies, and adversarial review. This guide keeps the person-facing decisions visible.
+The skill is the operating procedure for prompt design, dispatch consent, staged dependencies, and adversarial review. This guide keeps the person-facing decisions visible.
 
 ## 2. Choose the smallest topology that fits
 
@@ -99,7 +99,7 @@ Offer to dispatch if the environment supports it, then wait.
 
 **Person:** From the main checkout, run bare `discern`.
 
-The Desk groups the fleet by current state and offers valid actions for the selected worktree. Use it to start a task, open a configured coding-agent CLI found on `PATH`, inspect a branch, or record a one-worktree landing grant. It owns child sessions it launches.
+The desk groups the fleet by current state and offers valid actions for the selected worktree. Use it to start a task, open a configured coding-agent CLI found on `PATH`, inspect a branch, or record a one-worktree landing grant. It owns child sessions it launches.
 
 Treat the desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
 

@@ -297,7 +297,7 @@ async function runGate(
     runOut.warn(mergeWarning.text);
   }
 
-  // 1a. The Standard protection (Tier 1) — every existing [standards]
+  // 1a. The standard protection (Tier 1) — every existing [standards]
   //     definition and limit against the trunk's committed copy, deletions
   //     included.
   //     Placed HERE, directly after the merge check: it is the cheapest
@@ -774,7 +774,7 @@ async function runGate(
   await failOnStrandedTree();
 
   // Snapshot uncertainty cannot silently erase a checked dimension from a
-  // green result. The Gate may still report its job verdict, but Proof and
+  // green result. The gate may still report its job verdict, but Proof and
   // acceptance retain this bounded account and a later run never treats the
   // missing observation as if it had succeeded.
   if (

@@ -137,15 +137,15 @@ function regexLiteral(value: string): string {
 
 /**
  * Derive enforceable running-prose casing from every glossary entry. Headings
- * and sentence starts retain title/sentence case. A preceding lowercase word
- * or hyphenated modifier identifies ordinary prose without requiring either
- * the source-string guard or Vale to guess at document ASTs.
+ * and true sentence starts retain title/sentence case. Any immediately
+ * preceding word identifies a term inside running prose; restricting that word
+ * to lowercase mistakes title-cased sentence openers such as "The Gate" for a
+ * sentence-initial use of the term itself.
  */
 export function runningProseCaseRules(
   glossary: readonly GlossaryEntry[] = GLOSSARY,
 ): RunningProseCaseRule[] {
-  const context = String
-    .raw`\b(?:[a-z][\w-]*|[A-Z][a-z]+-[a-z][\w-]*)\s+`;
+  const context = String.raw`\b[A-Za-z][\w-]*\s+`;
   const rules: RunningProseCaseRule[] = [];
   for (const entry of glossary) {
     if (entry.runningCase === "proof-family") {

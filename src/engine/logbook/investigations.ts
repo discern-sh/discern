@@ -461,7 +461,7 @@ const validationScheduling: InvestigationRelationship = {
         ],
       }),
       summary:
-        "Later Gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
+        "Later gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
       observed: joinedObservation(sources),
       diagnostic_action:
         "Run one bounded comparison of the current schedule against a single alternative, keeping jobs and setup fixed, then compare later-round time, queue wait, and distinct failures.",

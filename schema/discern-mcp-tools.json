@@ -327,7 +327,7 @@
     },
     {
       "name": "discern_standards_propose",
-      "title": "Propose Standard limit",
+      "title": "Propose standard limit",
       "description": "Finalize a proposed limit for a standard breached by this change. Run after the intended tree is committed and clean. The tool measures only the named standard, then commits only the proposed limit and records its value, delta, reason, definition, trunk baseline, and responsible input paths. Repeating an unchanged proposal on an eligible descendant renews its measured binding without another commit. A changed tuple or value refuses. The resulting gate Proof cannot land until the owner approves the current proposal; generic landing authority never covers it.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

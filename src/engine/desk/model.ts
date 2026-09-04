@@ -991,7 +991,7 @@ export const DESK_ACTION_REGISTRY = {
         ["Desk session"],
         ["The selected project-authored script may change project state"],
         [],
-        ["The Desk re-surveys the task after the script exits"],
+        ["The desk re-surveys the task after the script exits"],
       ),
     confirmation: {
       kind: "confirm",

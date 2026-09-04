@@ -35,7 +35,7 @@ The agent iterates on that reproduce command, or on `discern prepare` for fix an
 
 The result is the first authority. If its message and diagnostics genuinely don't explain the failure, the classes below distinguish the less obvious causes.
 
-## The Gate refuses before running anything
+## The gate refuses before running anything
 
 A refusal is not a failed check: nothing ran, and the message names what to change.
 
@@ -55,9 +55,9 @@ Nearby results invite misreading:
 - **A pass that prints errors.** A job can exit successfully while printing error-like lines — a suite that swallows failures, for instance. The result flags this loud success and points at the captured output; have the agent review it rather than trusting the exit code alone.
 - **Queued tests.** When the project caps concurrent test runs, a gate arriving while every slot is busy reports that its tests are queued and starts them as a slot frees. The run isn't stuck, and waiting is correct. The same cap is why agents wrap direct test commands in `discern queue -- <command>` instead of racing the fleet.
 
-## The Gate finished with a different tree than it started
+## The gate finished with a different tree than it started
 
-You committed a clean tree, and the result says files changed anyway. The Gate never commits its own output — it stops and shows you, because a green result must describe the tree that would land, with nothing left over. The diagnostic tells you which cause you have:
+You committed a clean tree, and the result says files changed anyway. The gate never commits its own output — it stops and shows you, because a green result must describe the tree that would land, with nothing left over. The diagnostic tells you which cause you have:
 
 **A stage rewrote a tracked file** (the result calls it a strand, or `tree_drift`). A formatter normalized something, a build refreshed a manifest, a test updated a snapshot. The diagnostic names each file, the stage that changed it, and a capped diff; `git diff` reproduces the full picture. Decide whether the rewrite is intended output (usually it is), then commit it and rerun `discern done`. If the job should never write at all, change its command to a verify-only form instead.
 
@@ -69,7 +69,7 @@ Recovery is complete when `discern done` runs green from a clean commit — and 
 
 ## Green, but no Proof
 
-The Gate can pass while telling you it recorded no Proof. The checks ran; what's missing is the durable claim that they describe one exact commit that could land:
+The gate can pass while telling you it recorded no Proof. The checks ran; what's missing is the durable claim that they describe one exact commit that could land:
 
 - **The tree was dirty.** Uncommitted edits mean there's no single commit for the evidence to bind to. This is normal mid-iteration — `discern prepare` and `discern test` are the faster loop there. Before handoff, the agent commits the final tree and reruns `discern done` on the clean commit.
 - **The commit moved during the run.** Something amended or committed while the gate ran, so the passing result describes a tree that's no longer HEAD. Rerun on the final commit.
@@ -80,9 +80,9 @@ The Gate can pass while telling you it recorded no Proof. The checks ran; what's
 
 `discern status` or `discern accept` reports that Proof no longer covers the branch. Some edit arrived after the green run — a commit, an uncommitted change, a regenerated file, or a changed checkpoint conclusion. This is routine: Proof binds to one exact tree and its recorded judgments, so anything that changes either retires the old evidence. The agent commits the intended final state and reruns `discern done`; fresh Proof covers the new tree. [Proof](../20-understand/proof.md#why-proof-becomes-stale) explains why staleness is the feature doing its job.
 
-## A Standard failed
+## A standard failed
 
-A Standard is a project measure held at a limit that may only improve. Distinct failures share the word:
+A standard is a project measure held at a limit that may only improve. Distinct failures share the word:
 
 - **The measured value got worse.** Cut the waste the change introduced until the measure recovers. Sometimes the work itself legitimately grew the number — a feature that genuinely adds code to a size budget, say. That's not the agent's call to absorb: report it, because moving a limit is an owner decision made on the trunk. A branch that edits the limit to pass fails the gate on that edit itself.
 - **The limits couldn't be verified.** The never-loosen comparison reads the trunk, and in a shallow CI clone the trunk branch may be absent. The result names the exact fetch to run — typically `git fetch origin main:main` — so the comparison has both sides.

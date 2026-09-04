@@ -334,7 +334,7 @@ function fullBodyOutputPath(files: readonly InstructionFile[]): string {
  * declares a `pointer` and a DIFFERENT canonical file is also emitted — that
  * pointer. A reuse-canonical entry adds no vendor-specific file; when no canonical
  * provider is configured in this set, it causes its canonical read path to carry
- * the full body. A Map keyed by path means a duplicate path collapses to one, never
+ * the full body. A map keyed by path means a duplicate path collapses to one, never
  * written twice. The core {@link renderAgentFiles} computes content with, factored
  * out so a synthetic provider set can be exercised in tests without an install.
  */

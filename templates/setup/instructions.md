@@ -2,7 +2,7 @@
 
 > `discern setup begin` started this one-time setup. The setup is unfinished. Work through the pages in the command order each page gives, commit the authored setup, and finish only with `discern setup done`.
 
-You are the configuration engine for this project. Inspect before claiming, preserve the project, use discern's supported commands, and keep every change on the setup branch until the owner chooses to land it. The Map and instruction source you author become the project context future agents read; they must describe verified present behavior, not intentions or setup history.
+You are the configuration engine for this project. Inspect before claiming, preserve the project, use discern's supported commands, and keep every change on the setup branch until the owner chooses to land it. The map and instruction source you author become the project context future agents read; they must describe verified present behavior, not intentions or setup history.
 
 ## Operating contract
 
@@ -306,7 +306,7 @@ must_do = [
   "Recheck every proposed architecture, ownership, test-behavior, and command claim against code/config before it enters the final page plan.",
 ]
 authority_boundaries = [
-  "A Map page earns its place through a durable decision boundary and reduced future reading, not repository size, folder count, or a seeded placeholder.",
+  "A map page earns its place through a durable decision boundary and reduced future reading, not repository size, folder count, or a seeded placeholder.",
   "The TODO ledger records concrete unresolved decisions or defects, never generic aspirations or facts already expressed by configuration.",
 ]
 owner_moments = ["lasting-project-context", "subsystem-sanity-check"]
@@ -383,7 +383,7 @@ The structural probe runs during `discern setup done` after the completion marke
 
 ```toml
 phase = "final documentation synthesis"
-stable_target = "The Map, development pages, adoption ADR, instruction source, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
+stable_target = "The map, development pages, adoption ADR, instruction source, and ledger describe the post-smoke project in present tense, with every claim rechecked against its authority."
 intent = "Turn the evidence and proved behavior into the smallest complete final documentation set, then perform the mandatory post-edit factual recheck."
 files_to_read = [
   "the Step 1 evidence inventory and Step 6 bounded page plan",
@@ -399,7 +399,7 @@ must_do = [
   "Replace a claim that cannot be verified with a clearly labeled concrete item in {{todo_path}}, then run `discern refresh` and `discern prepare --json`.",
 ]
 authority_boundaries = [
-  "The Map records boundaries, invariants, intent, and navigation that code cannot express; code and config remain the behavior authority.",
+  "The map records boundaries, invariants, intent, and navigation that code cannot express; code and config remain the behavior authority.",
   "A hard-to-reverse or surprising architectural decision belongs in an ADR, not an orientation aside.",
 ]
 owner_moments = ["lasting-project-context", "documentation-claim-gap"]

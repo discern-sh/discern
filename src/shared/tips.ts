@@ -498,7 +498,7 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["standards", "standards-direction", "skill-set-the-standard"],
     example: undefined,
     template: (): string =>
-      "A Standard is a quality measure that can only improve. " +
+      "A standard is a quality measure that can only improve. " +
       "`discern-set-the-standard` helps a coding agent set its floor or ceiling.",
   }),
 
@@ -836,7 +836,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   Record<string, string>
 > = {
   "feature:jobs-table":
-    "The Gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.",
+    "The gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.",
   "feature:job-format":
     "Projects author this gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-build":
@@ -896,9 +896,9 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:env-inheritance":
     "Setup configures private-setting inheritance; routine desk use requires no separate action.",
   "feature:ignored-drift":
-    "A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.",
+    "A worktree check teaches this advanced diagnostic when it detects ignored-file drift.",
   "feature:instructions-conditionals":
-    "The Map documents this advanced instruction-authoring feature.",
+    "The map documents this advanced instruction-authoring feature.",
   "feature:providers":
     "The agent-integration reference documents provider support; the desk exposes actions for active tasks.",
   "feature:provider-claude-code":
@@ -918,11 +918,11 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:docs-integrity":
     "A failed map validation names the page and repair.",
   "feature:map-freshness":
-    "The Gate enforces this maintainer rule and names stale map pages.",
+    "The gate enforces this maintainer rule and names stale map pages.",
   "feature:publish-predicate":
-    "The Map documentation owns publication boundaries and their maintainer action.",
+    "The map documentation owns publication boundaries and their maintainer action.",
   "feature:adr-discipline":
-    "The `discern-write-adr` Skill teaches decision-record authoring.",
+    "The `discern-write-adr` skill teaches decision-record authoring.",
   "feature:cli-help":
     "Each command displays its own built-in help, making a rotating lesson redundant.",
   "feature:glossary-canon":
@@ -951,7 +951,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:result-envelope":
     "The integration reference documents the result envelope for machine consumers.",
   "feature:idempotent-verbs":
-    "This Engine guarantee makes safe retries possible; each command describes its own rerun behavior.",
+    "This engine guarantee makes safe retries possible; each command describes its own rerun behavior.",
   "feature:mcp-surface":
     "The Model Context Protocol (MCP) is an agent integration surface; the desk owns human actions.",
   "feature:published-contracts":
@@ -963,7 +963,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:forgiving-cli":
     "This command-line parser behavior normalizes input; each command tip teaches the resulting action.",
   "feature:output-discipline":
-    "This Engine contract governs result rendering; individual tips teach human actions.",
+    "This engine contract governs result rendering; individual tips teach human actions.",
   "feature:foundations":
     "Product principles explain discern's design; concrete actions appear with their features.",
   "feature:agent-is-user":
@@ -981,7 +981,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:dogfooding":
     "Running discern on itself supplies product evidence; user actions appear with their concrete features.",
   "feature:interruption-safety":
-    "The Engine applies this cleanup guarantee when a command stops and reports any recovery action.",
+    "The engine applies this cleanup guarantee when a command stops and reports any recovery action.",
   "feature:bounded-status-projection":
     "The status tip teaches the human current-state action; bounding is a structured-consumer context guarantee.",
   "feature:owner-attention":

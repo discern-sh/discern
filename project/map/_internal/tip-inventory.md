@@ -248,7 +248,7 @@ Rendered line:
 
 Rendered line:
 
-> A Standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
+> A standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
 
 ## `standards-on-demand`
 
@@ -544,7 +544,7 @@ The enrollment guard derives every feature node and top-level verb from its live
 
 | Member                                    | Why it has no tip                                                                                                                    |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `feature:adr-discipline`                  | The `discern-write-adr` Skill teaches decision-record authoring.                                                                     |
+| `feature:adr-discipline`                  | The `discern-write-adr` skill teaches decision-record authoring.                                                                     |
 | `feature:agent-autodetect`                | Setup selects the provider automatically and reports the choice; routine desk use requires no action.                                |
 | `feature:agent-is-user`                   | This design principle governs coding-agent interfaces; the agent reference documents it.                                             |
 | `feature:all-subsystems-core`             | This product-shape decision defines the shipped subsystem set; concrete actions appear with each subsystem.                          |
@@ -574,12 +574,12 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:glossary-canon`                  | The glossary and generated references own canonical vocabulary.                                                                      |
 | `feature:gotchas-pointer`                 | The failure that needs the troubleshooting pointer supplies it directly.                                                             |
 | `feature:hints`                           | Each hint appears with the action that makes it relevant.                                                                            |
-| `feature:idempotent-verbs`                | This Engine guarantee makes safe retries possible; each command describes its own rerun behavior.                                    |
-| `feature:ignored-drift`                   | A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.                                                |
+| `feature:idempotent-verbs`                | This engine guarantee makes safe retries possible; each command describes its own rerun behavior.                                    |
+| `feature:ignored-drift`                   | A worktree check teaches this advanced diagnostic when it detects ignored-file drift.                                                |
 | `feature:install`                         | The installer teaches installation before the desk becomes available.                                                                |
-| `feature:instructions-conditionals`       | The Map documents this advanced instruction-authoring feature.                                                                       |
+| `feature:instructions-conditionals`       | The map documents this advanced instruction-authoring feature.                                                                       |
 | `feature:interfaces`                      | Machine interfaces serve integrations and coding agents; the desk owns human actions.                                                |
-| `feature:interruption-safety`             | The Engine applies this cleanup guarantee when a command stops and reports any recovery action.                                      |
+| `feature:interruption-safety`             | The engine applies this cleanup guarantee when a command stops and reports any recovery action.                                      |
 | `feature:job-build`                       | Projects author this gate job in config; the `done` tip teaches the combined final check.                                            |
 | `feature:job-format`                      | Projects author this gate job in config; the `done` tip teaches the combined final check.                                            |
 | `feature:job-lint`                        | Projects author this gate job in config; the `done` tip teaches the combined final check.                                            |
@@ -587,11 +587,11 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:job-test`                        | Projects author this gate job in config; the `done` tip teaches the combined final check.                                            |
 | `feature:job-timeouts`                    | Timeout diagnostics explain this gate safety rule when it fires.                                                                     |
 | `feature:job-typecheck`                   | Projects author this gate job in config; the `done` tip teaches the combined final check.                                            |
-| `feature:jobs-table`                      | The Gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.                        |
+| `feature:jobs-table`                      | The gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.                        |
 | `feature:licenses`                        | The legal reference and command help own license output.                                                                             |
-| `feature:map-freshness`                   | The Gate enforces this maintainer rule and names stale map pages.                                                                    |
+| `feature:map-freshness`                   | The gate enforces this maintainer rule and names stale map pages.                                                                    |
 | `feature:mcp-surface`                     | The Model Context Protocol (MCP) is an agent integration surface; the desk owns human actions.                                       |
-| `feature:output-discipline`               | This Engine contract governs result rendering; individual tips teach human actions.                                                  |
+| `feature:output-discipline`               | This engine contract governs result rendering; individual tips teach human actions.                                                  |
 | `feature:owner-attention`                 | Status and the desk present owner attention when it exists, so it needs no separate rotating lesson.                                 |
 | `feature:ownership-buckets`               | Upgrade explains ownership buckets when a migration needs them.                                                                      |
 | `feature:patterns-investigations`         | The patterns tip teaches the human action; investigation synthesis is part of that result rather than a separate desk control.       |
@@ -603,7 +603,7 @@ The enrollment guard derives every feature node and top-level verb from its live
 | `feature:provider-cursor`                 | The agent-integration reference documents this provider; its integration adds no desk action.                                        |
 | `feature:provider-gemini`                 | The agent-integration reference documents this provider; its integration adds no desk action.                                        |
 | `feature:providers`                       | The agent-integration reference documents provider support; the desk exposes actions for active tasks.                               |
-| `feature:publish-predicate`               | The Map documentation owns publication boundaries and their maintainer action.                                                       |
+| `feature:publish-predicate`               | The map documentation owns publication boundaries and their maintainer action.                                                       |
 | `feature:published-contracts`             | The reference documents published schemas for integrations.                                                                          |
 | `feature:relay-messages`                  | Relay messages coordinate coding agents; human actions arrive through the desk.                                                      |
 | `feature:result-envelope`                 | The integration reference documents the result envelope for machine consumers.                                                       |

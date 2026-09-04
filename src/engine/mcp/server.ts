@@ -250,7 +250,7 @@ interface McpToolContext {
 
 /** Direct-call fallback that fails only when a Gate-capable tool needs the model. */
 const missingCliModel: CliModelProvider = () => {
-  throw new Error("MCP Gate execution requires a live CLI model provider");
+  throw new Error("MCP gate execution requires a live CLI model provider");
 };
 
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
@@ -637,7 +637,7 @@ export const TOOLS: McpTool[] = orderTools([
   }),
   defineTool({
     name: "discern_standards_propose",
-    title: "Propose Standard limit",
+    title: "Propose standard limit",
     outputSchema: StandardsProposeOutputSchema,
     annotations: PROPOSAL,
     description:

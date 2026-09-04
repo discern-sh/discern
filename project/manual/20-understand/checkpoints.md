@@ -43,7 +43,7 @@ Any change under `lib/api/` now carries that question with it. A longer question
 When a change matches a `stop` checkpoint, `discern done` refuses before any job runs and serves the open question (the question now awaiting an answer for this change) together with the files that matched. The agent weighs it against the change and records a conclusion:
 
 - **Declared met:** the agent judges the question satisfied and runs `discern done --met api-compatibility`. The declaration is recorded and the gate continues in the same run.
-- **Declared unmet:** the truthful answer is no, and satisfying the question sits outside this task. The agent runs `discern done --unmet api-compatibility --why "<rationale>"`, with a short rationale written for you. The Gate still runs and can pass; the consequence comes later, at landing.
+- **Declared unmet:** the truthful answer is no, and satisfying the question sits outside this task. The agent runs `discern done --unmet api-compatibility --why "<rationale>"`, with a short rationale written for you. The gate still runs and can pass; the consequence comes later, at landing.
 
 The questions don't wait for the finish line. `discern prepare` and `discern status` name the questions a change has already triggered, so the agent can answer while the reasoning is fresh.
 
@@ -51,7 +51,7 @@ A checkpoint in `advise` mode serves its question the same way and blocks nothin
 
 ## A declaration is the agent's judgment
 
-The Gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
+The gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
 
 That separation is what makes the record trustworthy. A declared-met conclusion tells you which questions were considered and by whom; it doesn't launder the agent's judgment into a machine result. When you review Proof, you can see both kinds of evidence and weigh them differently.
 

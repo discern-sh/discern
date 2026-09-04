@@ -605,7 +605,7 @@ export function ProofSpecimen() {
 
             <blockquote className="proof-line">
               <p>
-                <strong>Proof:</strong> The Gate passed for{" "}
+                <strong>Proof:</strong> Gate passed for{" "}
                 <code>agent/homepage-1a-b9ab45</code> at{" "}
                 <code>9457535abebe</code> · 7 files changed (+182 −149) vs{" "}
                 <code>main</code>{" "}

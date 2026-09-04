@@ -41,8 +41,8 @@ A failed result carries a message, a next-step instruction, and diagnostics with
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Setup or an agent connection won't begin, resume, or take effect.   | [Setup and integrations](setup-and-integrations.md).                        |
 | A configured check failed: build, lint, tests, a scope's gate.      | [Fix a red gate](../10-guides/fix-a-red-gate.md), the working procedure.    |
-| The Gate refused, rewrote files, or withheld Proof.                 | [Gate and Proof](gate-and-proof.md).                                        |
-| A Standard or checkpoint stopped the change.                        | [Gate and Proof](gate-and-proof.md).                                        |
+| The gate refused, rewrote files, or withheld Proof.                 | [Gate and Proof](gate-and-proof.md).                                        |
+| A standard or checkpoint stopped the change.                        | [Gate and Proof](gate-and-proof.md).                                        |
 | A worktree command refused, or cleanup failed or left something.    | [Worktrees and resources](worktrees-and-resources.md).                      |
 | A removed path or branch came back.                                 | [Worktrees and resources](worktrees-and-resources.md).                      |
 | A task was interrupted, or a dropped branch is needed back.         | [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md). |

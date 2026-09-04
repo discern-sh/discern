@@ -174,7 +174,7 @@ function assertLandingProofRelay(
   assertExists(obj.data.proof_line);
   assertStringIncludes(
     obj.data.proof_line,
-    `> **Proof:** The Gate passed for \`agent/${branch}\` at `,
+    `> **Proof:** Gate passed for \`agent/${branch}\` at `,
   );
   const relayHint = assertHasHint(
     obj,

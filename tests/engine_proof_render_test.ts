@@ -437,8 +437,8 @@ Deno.test("done TTY render: color paints success and the proof without widening 
     { status: "recorded" },
   );
   assert(SGR.test(rendered));
-  assertStringIncludes(stripSgr(rendered), "│ Proof: The Gate passed");
-  assertStringIncludes(plain, "│ **Proof:** The Gate passed");
+  assertStringIncludes(stripSgr(rendered), "│ Proof: Gate passed");
+  assertStringIncludes(plain, "│ **Proof:** Gate passed");
   for (const line of [...rendered.split("\n"), ...plain.split("\n")]) {
     assert(
       displayWidth(line) <= 80,
@@ -520,7 +520,7 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
 Deno.test("proof line: fixed facts pin the exact CommonMark blockquote", () => {
   assertEquals(
     renderProofLine(FACTS),
-    "> **Proof:** The Gate passed for `agent/upload-retry` at `abc1234def01` · " +
+    "> **Proof:** Gate passed for `agent/upload-retry` at `abc1234def01` · " +
       "2 files changed (+42 −7) vs `main` · View the full Proof: `discern status --verbose`",
   );
 });

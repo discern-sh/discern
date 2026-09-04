@@ -54,4 +54,4 @@ The boundaries matter as much as the assurances:
 - **It doesn't ship.** discern neither deploys nor pushes on your behalf. Everything after landing belongs to the project's own release process.
 - **It doesn't decide what lands.** A passing gate makes a change eligible; the authority stays with you. [Proof](proof.md) explains how that decision is recorded and verified.
 
-[Files and ownership](../30-reference/files-and-ownership.md) is the complete inventory of what discern writes and who owns each file. [The Logbook](../30-reference/logbook.md) lists every recorded field. To weigh these boundaries before installing, read [Evaluate discern](../00-start/evaluate-discern.md).
+[Files and ownership](../30-reference/files-and-ownership.md) is the complete inventory of what discern writes and who owns each file. [The logbook](../30-reference/logbook.md) lists every recorded field. To weigh these boundaries before installing, read [Evaluate discern](../00-start/evaluate-discern.md).

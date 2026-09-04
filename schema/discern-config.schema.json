@@ -422,7 +422,7 @@
                   "check",
                   "test"
                 ],
-                "description": "The Gate stage this job runs in: fix, build, check, or test."
+                "description": "The gate stage this job runs in: fix, build, check, or test."
               },
               "run": {
                 "anyOf": [

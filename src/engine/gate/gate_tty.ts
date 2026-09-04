@@ -195,7 +195,7 @@ function gateActivityProducer(
     } catch {
       failPresentation();
     } finally {
-      // The Gate runner owns child cancellation and signal re-delivery. End the
+      // The gate runner owns child cancellation and signal re-delivery. End the
       // package bracket now so cursor restoration wins that race.
       endLifetime();
     }
@@ -281,7 +281,7 @@ export async function createGateTtyProgress(
     label: options.kind === "test" ? "Test" : "Gate",
     io,
     onInterrupt: (): void => {
-      // The Gate's process-level interrupt tracker owns child cancellation and
+      // The gate's process-level interrupt tracker owns child cancellation and
       // re-delivery. End this package bracket so it restores before that signal
       // is re-raised after the detached children have been reaped.
       interrupted = true;

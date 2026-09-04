@@ -494,7 +494,7 @@ async function evaluateStandardProcessResult(
         ...verdict,
         summary: `${
           verdict.summary ?? `standard '${standard.name}' held.`
-        } The Standard limit proposal awaits exact owner approval.`,
+        } The standard limit proposal awaits exact owner approval.`,
       };
     }
   }

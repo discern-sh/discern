@@ -14,7 +14,7 @@ aliases:
 
 # Place and answer Checkpoints
 
-Use this guide for a review question that becomes relevant when a narrow kind of change occurs and that a machine cannot decide. A Checkpoint pairs a deterministic trigger with a question for the coding agent. It can stop the gate until the agent records a conclusion, or serve the question as advice.
+Use this guide for a review question that becomes relevant when a narrow kind of change occurs and that a machine cannot decide. A checkpoint pairs a deterministic trigger with a question for the coding agent. It can stop the gate until the agent records a conclusion, or serve the question as advice.
 
 The coding agent owns the declared conclusion. The person responsible owns policy placement and the decision to land a declared-unmet conclusion. discern records those roles separately from machine-verified gate results.
 
@@ -97,7 +97,7 @@ If it is not satisfied, either change the work and re-evaluate, or record the cu
 discern done --unmet checkpoint-id --why "Reason this change does not satisfy the question"
 ```
 
-The Gate records the declaration before it runs. A met declaration is still agent judgment; discern does not verify its truth. An unmet declaration lets the gate run and carries its rationale into Proof.
+The gate records the declaration before it runs. A met declaration is still agent judgment; discern does not verify its truth. An unmet declaration lets the gate run and carries its rationale into Proof.
 
 ### 2. Re-evaluate after relevant edits
 

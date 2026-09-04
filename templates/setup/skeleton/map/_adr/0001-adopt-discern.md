@@ -43,7 +43,7 @@ discern seeded this record when the project adopted the practice, and the agent 
 
 - A future contributor or agent can read how the project works, and why, from the repository itself: the instructions, the maintained documentation called the map, and these records. The project keeps that account current as the code changes.
 - Separate worktrees prevent concurrent efforts from overwriting the same checkout. discern manages their lifecycle. Source overlap still requires integration before landing.
-- The Gate adds verification time to technical completion. The project maintains its jobs and chooses what its standards measure. A branch cannot loosen a configured standard; changing a limit remains a project decision.
+- The gate adds verification time to technical completion. The project maintains its jobs and chooses what its standards measure. A branch cannot loosen a configured standard; changing a limit remains a project decision.
 - Agent instruction files and materialized skills come from authored sources. Contributors edit those sources and run `discern refresh`; edits to generated copies are overwritten.
 - The project depends on discern for this workflow. Uninstalling discern retains the authored instructions and map. The project must replace any removed enforcement and lifecycle behavior it still needs.
 

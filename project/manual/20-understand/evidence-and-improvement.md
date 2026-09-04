@@ -30,9 +30,9 @@ aliases:
 
 # Evidence and improvement
 
-Some project problems only ever arrive as anecdotes. The tests feel flaky. The Gate seems slower than it used to be. One agent keeps re-running checks without progress. Anecdotes are hard to act on: they carry no counts, no baseline, and no way to tell a real pattern from a memorable Tuesday.
+Some project problems only ever arrive as anecdotes. The tests feel flaky. The gate seems slower than it used to be. One agent keeps re-running checks without progress. Anecdotes are hard to act on: they carry no counts, no baseline, and no way to tell a real pattern from a memorable Tuesday.
 
-With the practice running, the project accumulates its own evidence about how work moves. The [Logbook](local-control.md) records one metadata line per run, and `discern patterns` reads that record with a set of named detectors, reporting recurring conditions as plain counts with the evidence behind them and a recommended next step. The report is advisory: it informs and never blocks. The Gate and standards remain the only enforcement, so reading the evidence can't change a verdict.
+With the practice running, the project accumulates its own evidence about how work moves. The [Logbook](local-control.md) records one metadata line per run, and `discern patterns` reads that record with a set of named detectors, reporting recurring conditions as plain counts with the evidence behind them and a recommended next step. The report is advisory: it informs and never blocks. The gate and standards remain the only enforcement, so reading the evidence can't change a verdict.
 
 ## What a finding is
 
@@ -77,4 +77,4 @@ Identity itself is treated as evidence, with the same restraint. Signals can mar
 
 Findings earn their keep when they become decisions. [Improve the practice](../10-guides/improve-the-practice.md) is that loop: read the report, choose one bounded change (an instruction line, a configuration value, a reworded [checkpoint](checkpoints.md) question, a new standard), and let later evidence show whether it helped. `discern improvement` ranks the most valuable next action across the setup when you want a starting point.
 
-[The Logbook](../30-reference/logbook.md) reference lists every recorded field, the stats definitions, and the archive and reset lifecycle. What the record contains and why it stays local is covered in [Local control](local-control.md).
+[The logbook](../30-reference/logbook.md) reference lists every recorded field, the stats definitions, and the archive and reset lifecycle. What the record contains and why it stays local is covered in [Local control](local-control.md).

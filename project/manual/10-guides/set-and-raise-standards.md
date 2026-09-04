@@ -14,7 +14,7 @@ aliases:
 
 # Set and raise Standards
 
-Use this guide when a project has a deterministic quality number that future changes must preserve. A Standard holds today's earned ground: a floor may rise, or a ceiling may fall. It is the wrong tool for a question that needs judgment or an aspirational target the project has not reached.
+Use this guide when a project has a deterministic quality number that future changes must preserve. A standard holds today's earned ground: a floor may rise, or a ceiling may fall. It is the wrong tool for a question that needs judgment or an aspirational target the project has not reached.
 
 The person responsible decides whether the metric deserves to block work and owns any proposal to move a limit in the weaker direction. The coding agent designs and tests the measurement, follows the `discern-set-the-standard` skill, and never loosens an existing limit to pass.
 
@@ -74,7 +74,7 @@ Run `discern prepare`, commit the measurement, config, and current documentation
 
 ### 1. Preserve the trunk limit
 
-**Coding agent:** Read the measured value, limit, direction, and delta from the result. Never delete the standard or weaken its limit in the branch. The Gate compares the branch definition with the trunk and refuses that regression.
+**Coding agent:** Read the measured value, limit, direction, and delta from the result. Never delete the standard or weaken its limit in the branch. The gate compares the branch definition with the trunk and refuses that regression.
 
 If this task introduced avoidable instances, remove those instances within the task's scope and rerun the named standard. Do not offset legitimate growth by degrading unrelated code or documentation.
 

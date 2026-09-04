@@ -422,7 +422,7 @@ export class LogbookLifecycleBusyError extends Error {
   /** Build the stable busy-lock refusal. */
   constructor() {
     super(
-      "Another Logbook lifecycle action is already running. Wait for it to finish, then retry this command.",
+      "Another logbook lifecycle action is already running. Wait for it to finish, then retry this command.",
     );
     this.name = "LogbookLifecycleBusyError";
   }

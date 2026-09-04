@@ -237,7 +237,7 @@ Deno.test("the Proof specimen uses the canonical CommonMark semantics", () => {
   assertEquals(proofLine?.querySelectorAll("code").length, 4);
   assertStringIncludes(
     readableText(proofLine?.textContent ?? null),
-    "The Gate passed for agent/homepage-1a-b9ab45 at 9457535abebe",
+    "Gate passed for agent/homepage-1a-b9ab45 at 9457535abebe",
   );
   rendered.window.close();
 });

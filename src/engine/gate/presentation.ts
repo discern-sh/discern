@@ -163,8 +163,8 @@ export const GATE_FAILED_STAGE_LABEL = {
   refresh_drift: "Tracked refresh currency",
   tracked_artifacts: "Tracked-artifact ownership",
   instructions: "Agent instruction currency",
-  skills: "Agent Skill currency",
-  skill_frontmatter: "Agent Skill metadata",
+  skills: "Agent skill currency",
+  skill_frontmatter: "Agent skill metadata",
   adr_numbers: "ADR numbering",
   adr_index: "ADR index currency",
   map_integrity: "Map integrity",
@@ -232,22 +232,22 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   skipped_dirty: {
     checkState: "skip",
     stateLabel: "not recorded",
-    summary: "The Gate passed, but the worktree was dirty when the run began.",
+    summary: "The gate passed, but the worktree was dirty when the run began.",
   },
   skipped_head_moved: {
     checkState: "skip",
     stateLabel: "not recorded",
-    summary: "The Gate passed, but HEAD moved while the gate was running.",
+    summary: "The gate passed, but HEAD moved while the gate was running.",
   },
   unavailable: {
     checkState: "fail",
     stateLabel: "unavailable",
-    summary: "The Gate passed, but Proof recording was unavailable.",
+    summary: "The gate passed, but Proof recording was unavailable.",
   },
   record_failed: {
     checkState: "fail",
     stateLabel: "record failed",
-    summary: "The Gate passed, but the Proof record could not be written.",
+    summary: "The gate passed, but the Proof record could not be written.",
   },
   cleared: {
     checkState: "skip",
@@ -257,7 +257,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   clear_failed: {
     checkState: "fail",
     stateLabel: "clear failed",
-    summary: "The Gate failed, and its prior Proof could not be cleared.",
+    summary: "The gate failed, and its prior Proof could not be cleared.",
   },
 } as const satisfies Readonly<
   Record<GateProofRecordStatus, ProofPresentationState>
@@ -487,7 +487,7 @@ function dashboardSubject(kind: GateLiveDashboardKind): {
     : {
       noun: "Gate",
       label: "Gate progress",
-      empty: "No Gate job is configured, so no project command ran.",
+      empty: "No gate job is configured, so no project command ran.",
     };
 }
 
@@ -510,7 +510,7 @@ export function renderGateFullDashboard(
     ? {
       status: "validation-error" as const,
       message: safeLine(
-        dashboard.kind === "test" ? "Tests failed." : "A Gate job failed.",
+        dashboard.kind === "test" ? "Tests failed." : "A gate job failed.",
       ),
     }
     : dashboard.state === "cancelled"
@@ -519,7 +519,7 @@ export function renderGateFullDashboard(
       reason: safeLine(
         dashboard.kind === "test"
           ? "The test run was cancelled."
-          : "The Gate run was cancelled.",
+          : "The gate run was cancelled.",
       ),
     }
     : dashboard.state === "complete"
@@ -686,7 +686,7 @@ export function renderGatePlan(
       ...context,
       presenter.present(renderResultSummaryCli, {
         state: "unchanged",
-        fact: "The Gate plan contains no project command.",
+        fact: "The gate plan contains no project command.",
         maxWidth: width,
       }),
     ].join("\n\n");
@@ -731,7 +731,7 @@ function standardSummaryState(
 function standardEvidence(standard: GateStandard): string {
   switch (standard.measurement) {
     case "measured":
-      return "The Standard command measured this value in the current gate run.";
+      return "The standard command measured this value in the current gate run.";
     case "replayed":
       return standard.replayed_from === undefined
         ? "A recorded value was replayed because the standard inputs did not change."

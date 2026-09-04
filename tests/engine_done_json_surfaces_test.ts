@@ -575,7 +575,7 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     assertEquals(proof.head, shortHead);
     assertStringIncludes(
       proof.line,
-      `> **Proof:** The Gate passed for \`agent/alpha\` at \`${shortHead}\` · 1 file changed `,
+      `> **Proof:** Gate passed for \`agent/alpha\` at \`${shortHead}\` · 1 file changed `,
     );
     assertStringIncludes(
       proof.line,
