@@ -5,8 +5,7 @@
 # register applies. Brand pages enforce their sibling rule; ADRs retain
 # reduced styling. Compound code identifiers keep their own word boundaries,
 # and code spans are never linted.
-# Sources: proposed check product/canonical-glossary-terms; agent voice rule
-# language-rules/write-the-product-name-as-discern.
+# Sources: agent voice rule language-rules/write-the-product-name-as-discern.
 extends: existence
 message: "The product name is lower-case 'discern': recast the sentence rather than capitalizing the name."
 level: warning

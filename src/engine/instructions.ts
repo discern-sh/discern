@@ -367,7 +367,7 @@ export async function applyRefreshPlan(
   addRefreshHints(plan, summary);
   if (summary.agentsWritten.length > 0) {
     log.ok(
-      `refresh: compiled ${plan.sourceCount} source(s) + built-in instructions into ${summary.agentsWritten.length} changed Agent file(s): ${
+      `refresh: compiled ${plan.sourceCount} source(s) + built-in instructions into ${summary.agentsWritten.length} changed agent file(s): ${
         summary.agentsWritten.join(",")
       }`,
     );

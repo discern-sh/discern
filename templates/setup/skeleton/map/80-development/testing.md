@@ -16,4 +16,4 @@ _(How the `test` job invokes the suite, how to run a single test or a filtered s
 
 <!-- setup fills this -->
 
-_(The conventions for a good test here: structure, what to assert, fixtures/factories, what to mock and what not to. If the project practices a particular discipline — write the failing test first, test behaviour not implementation — state it and what it requires.)_
+_(The conventions for a good test here: structure, what to assert, fixtures/factories, what to mock and what not to. If the project practices a particular discipline — write the failing test first, test behavior not implementation — state it and what it requires.)_

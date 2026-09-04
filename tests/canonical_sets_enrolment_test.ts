@@ -34,7 +34,7 @@ import {
   UNAFFILIATED_CODEGEN_TARGETS,
   UNAFFILIATED_GUARDS,
 } from "../scripts/canonical_sets.ts";
-import { GENERATED_INVENTORY_POLICIES } from "../src/shared/generated_inventory_policy.ts";
+import { GENERATED_INVENTORY_POLICIES } from "../scripts/generated_inventory_policy.ts";
 import { generatedBrandDocuments } from "../scripts/brand_registry.ts";
 import { REGISTERS } from "../scripts/brand/model.ts";
 import { valeStyleFiles } from "../scripts/brand/vale.ts";
@@ -120,7 +120,11 @@ function artifactOffenders(
   }
   const offenders: string[] = [];
   if (artifact.kind === "generated-file") {
-    if (artifact.banner && !text.includes("GENERATED")) {
+    const carriesBanner = text.includes("GENERATED") ||
+      text.includes("This reference is generated") ||
+      text.includes("This table is generated") ||
+      /^(?:\/\/|#) Generated from\b/m.test(text);
+    if (artifact.banner && !carriesBanner) {
       offenders.push(
         `${artifact.path} carries no generated banner — the renderer must ` +
           "stamp one so a reader cannot mistake it for an authored file",

@@ -228,6 +228,10 @@ export const TENET_UPHELD_FIELDS = {
 /** A glossary term's fields. */
 export const GLOSSARY_ENTRY_FIELDS = {
   term: IDENTITY_LOCK,
+  runningCase: {
+    edit: "locked",
+    reason: "the product-language casing contract consumed by generated guards",
+  },
   summary: { edit: "prose", register: "public" },
   matches: { edit: "list", picker: "free" },
   plain: { edit: "nested" },

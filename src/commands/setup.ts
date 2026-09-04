@@ -259,7 +259,7 @@ export const SETUP_HUMAN_AUDIENCES: Record<
   "setup accept": {
     offRamp: false,
     reason:
-      "a landing proof — operational git output read the same way by both audiences",
+      "a landing Proof — operational git output read the same way by both audiences",
   },
 };
 
@@ -1915,7 +1915,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     heavyRule,
     "  SETUP STARTED — NOT FINISHED.",
     "  What follows is a task for you, the agent, to perform now — not a",
-    "  result to summarise back to the user as already done.",
+    "  result to summarize back to the user as already done.",
     ...humanOffRampLines().map((line) => `  ${line}`),
     heavyRule,
   ];
@@ -1937,7 +1937,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (machineryCommitted) {
     scaffoldLines.push(
-      "Committed discern's wiring (config, managed Git blocks, MCP, and hooks) for you — the Map, instructions, and TODO below are yours to fill and commit.",
+      "Committed discern's wiring (config, managed Git blocks, MCP, and hooks) for you — the map, instructions, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
     scaffoldLines.push(
@@ -2585,7 +2585,7 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     paths: uncommitted,
     group: "uncommitted-items",
     recovery: [
-      "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+      "  The completion Proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
       "  (Untracked scratch outside the setup files never blocks; --unproven skips this check.)",
     ],
   });
@@ -2725,7 +2725,7 @@ function assuranceLines(a: SetupAssurance): string[] {
       ? "•"
       : "·";
     const label = c.not_applicable === true
-      ? "does not apply — excluded from setup assurance; no Gate command is configured"
+      ? "does not apply — excluded from setup assurance; no gate command is configured"
       : c.state === "enforced"
       ? "enforced — runs on every `discern done`"
       : c.self_supplied === true
@@ -2796,7 +2796,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
   const setupUnlanded = landing.inRepo && !landing.onTarget;
   const completionLines = [
     unproven
-      ? "Setup completion is unproven — the event is recorded, but the Gate did not prove it."
+      ? "Setup completion is unproven — the event is recorded, but the gate did not prove it."
       : setupUnlanded
       ? `Setup Proof is ready on \`${
         landing.branch || SETUP_BRANCH
@@ -2810,7 +2810,7 @@ function printDoneSuccess(view: DoneSuccessView): void {
   ];
   if (completion === "replayed") {
     completionLines.push(
-      "This exact clean commit already has current Proof; no write, worktree probe, or Gate job ran.",
+      "This exact clean commit already has current Proof; no write, worktree probe, or gate job ran.",
     );
   } else if (completion === "validated") {
     completionLines.push(
@@ -3140,7 +3140,7 @@ async function runExistingSetupCompletion(
         state: "The existing marker and any prior evidence were retained.",
         nextAction: "discern setup done",
         recovery:
-          "Make HEAD readable on the setup branch. Discern will validate that existing marker instead of creating another commit.",
+          "Make HEAD readable on the setup branch. discern will validate that existing marker instead of creating another commit.",
       },
     );
   }
@@ -3148,7 +3148,7 @@ async function runExistingSetupCompletion(
     return emitDoneGateFailure(
       opts.json,
       "proof",
-      "the Gate already judged this exact marker-bearing tree red and nothing has changed",
+      "the gate already judged this exact marker-bearing tree red and nothing has changed",
       { state: "not_needed" },
       {
         error: "unchanged_tree_rerun",
@@ -3157,7 +3157,7 @@ async function runExistingSetupCompletion(
           "The marker remains present and unproved; the recorded failure was retained.",
         nextAction: "discern done --rerun",
         recovery:
-          "Change the failing input, or explicitly re-run the Gate once. Repeating setup completion alone will not retry until green.",
+          "Change the failing input, or explicitly re-run the gate once. Repeating setup completion alone will not retry until green.",
       },
     );
   }
@@ -3419,7 +3419,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       {
         state: rollback.state === "owned_commit_removed"
           ? "The transaction-owned marker commit was removed and the sampled predecessor is current."
-          : "Discern retained the exact marker-bearing state because safe ownership or preservation could not be proved.",
+          : "discern retained the exact marker-bearing state because safe ownership or preservation could not be proved.",
         nextAction: completion.nextAction,
         recovery: rollback.state === "retained"
           ? `${rollback.detail}. ${completion.recovery}`
@@ -3623,7 +3623,7 @@ async function proveFinalSetupTree(
       nextAction: diagnosticRecovery?.nextAction ??
         "discern done",
       recovery: diagnosticRecovery?.recovery ??
-        "Use the Gate's first diagnostic and reproduce command, correct that failure, then retry `discern setup done`.",
+        "Use the gate's first diagnostic and reproduce command, correct that failure, then retry `discern setup done`.",
     };
   }
   const proof = await inspectGateProof(root);
@@ -3635,7 +3635,7 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "proof",
       detail:
-        `the final Gate did not record a complete current Proof (${proof.status}${
+        `the final gate did not record a complete current Proof (${proof.status}${
           proof.reason === undefined ? "" : `: ${proof.reason}`
         })`,
       nextAction: "discern setup done",
@@ -3687,7 +3687,7 @@ async function proveWorktreeViable(
         return {
           ok: false,
           detail:
-            `the structural probe did not retain current Gate evidence for the completion-marker commit (${proof.status})`,
+            `the structural probe did not retain current gate evidence for the completion-marker commit (${proof.status})`,
           remedy: "worktree" as const,
         };
       }
@@ -3716,7 +3716,7 @@ async function proveWorktreeViable(
           ok: false,
           stage: "worktree_probe",
           detail:
-            `the Gate found a content or integrity error inside the fresh worktree: ${
+            `the gate found a content or integrity error inside the fresh worktree: ${
               outcome.detail ?? "the copy is not viable"
             }`,
           ...(outcome.diagnostics === undefined

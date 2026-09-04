@@ -1,4 +1,4 @@
-/** Reviewed legacy modules below the product's per-module line coverage floor. */
+/** Reviewed modules below the product's per-module line coverage floor. */
 
 import type { ModuleCoverageException } from "./coverage_lib.ts";
 
@@ -14,8 +14,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     path: "src/commands/setup_accept.ts",
     measuredPct: 69.3,
     owner: "setup lifecycle",
-    reason:
-      "Legacy landing and recovery branches need isolated Git-state seams.",
+    reason: "Landing and recovery branches need isolated Git-state seams.",
     recovery:
       "Drive each acceptance refusal and recovery state through the result core.",
   },
@@ -24,7 +23,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     measuredPct: 67.8,
     owner: "upgrade lifecycle",
     reason:
-      "Legacy migration and partial-refresh branches span many filesystem states.",
+      "Reconciliation and partial-refresh branches span many filesystem states.",
     recovery:
       "Add behavioral fixtures for migration failures and partial refresh outcomes.",
   },
@@ -33,7 +32,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     measuredPct: 73.5,
     owner: "gate presentation",
     reason:
-      "Legacy terminal layouts retain uncommon width and write-failure branches.",
+      "Terminal layouts retain uncommon width and write-failure branches.",
     recovery:
       "Extend the terminal matrix across the remaining responsive and failure states.",
   },
@@ -42,7 +41,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     measuredPct: 74.4,
     owner: "Standards lifecycle",
     reason:
-      "Legacy transaction recovery spans stale, interrupted, and divergent stores.",
+      "Transaction recovery spans stale, interrupted, and divergent stores.",
     recovery:
       "Exercise the remaining proposal reconciliation states through public results.",
   },
@@ -60,7 +59,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     measuredPct: 63.3,
     owner: "worktree lifecycle",
     reason:
-      "Grant cleanup spans legacy Git-admin absence and corruption recovery states.",
+      "Grant cleanup spans Git-admin absence and corruption recovery states.",
     recovery:
       "Plant each missing, malformed, retained, and successfully reaped grant state.",
   },
@@ -78,7 +77,7 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     measuredPct: 73,
     owner: "worktree lifecycle",
     reason:
-      "Legacy ownership inference spans incomplete identity and branch-shape states.",
+      "Ownership inference spans incomplete identity and branch-shape states.",
     recovery:
       "Add table-driven cases for every ownership evidence combination.",
   },

@@ -1,7 +1,7 @@
 ---
 id: reference-proof-and-checkpoint-formats
 title: "Proof and checkpoint formats"
-description: "Look up Proof-note fields, checkpoint states/declarations, variance fields, and the when protocol exactly."
+description: "Look up Proof note fields, checkpoint states/declarations, variance fields, and the when protocol exactly."
 order: 50
 publish: true
 kind: reference
@@ -10,15 +10,15 @@ aliases:
   - "reference-proof-and-checkpoint-formats"
   - "Proof notes"
   - "refs/notes/discern"
-  - "fetch proof notes"
-  - "publish proof notes"
+  - "fetch Proof notes"
+  - "publish Proof notes"
   - "git notes"
-  - "proof format"
-  - "proof note schema"
+  - "Proof format"
+  - "Proof note schema"
   - "Proof note format"
-  - "durable proof"
-  - "proof subject"
-  - "proof note"
+  - "durable Proof"
+  - "Proof subject"
+  - "Proof note"
   - "Checkpoint state and declarations"
   - "awaiting_declaration"
   - "awaiting_variance"
@@ -36,13 +36,13 @@ aliases:
 
 # Proof and checkpoint formats
 
-Look up Proof-note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
+Look up Proof note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
 
 Prerequisite: a Proof field, checkpoint id/state, declaration, variance, or `when` input you need to interpret. Linked explanations add context but are not required to use these contracts.
 
 ## Worktree Gate Proof marker
 
-_A local marker can skip repeated Gate work only while its complete evidence still names the exact clean `HEAD`._
+_A local marker can skip repeated gate work only while its complete evidence still names the exact clean `HEAD`._
 
 The worktree-local marker resolves with:
 
@@ -62,9 +62,9 @@ Its registered JSON format is version 1:
 }
 ```
 
-`head` is the commit pinned before the Gate and rechecked before the write. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live Standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
+`head` is the commit pinned before the gate and rechecked before the write. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
 
-A current record may omit `proof` or `evidence` while an interrupted or narrow operation records observable state, but that incomplete record cannot narrow Standard measurement, satisfy Gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
+A current record may omit `proof` or `evidence` while an interrupted or narrow operation records observable state, but that incomplete record cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
 
 This worktree-local cache disappears with the worktree. Acceptance writes the durable Proof note below after the exact commit reaches the trunk.
 
@@ -96,7 +96,7 @@ Readers accept additive fields inside the current split v1 envelope. Unknown pay
 
 ### Replay keeps the first presentation
 
-The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
+The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed Proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
 
 ### Authorship and failure
 
@@ -160,7 +160,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 _A Proof note is the durable claim that `discern accept` attaches to a landed commit._
 
-A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/discern`. Its schema is <https://discern.sh/schema/v1/discern-proof-note.schema.json>:
+A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/discern`. Its schema is <https://discern.sh/schema/v1/discern-Proof note.schema.json>:
 
 ```json
 {
@@ -200,21 +200,21 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 | `subject`      | object | Yes      | `{ commit }`, where `commit` is the full landed object id.               |
 | `proof`        | object | Yes      | Stable Proof claim described below.                                      |
 | `presentation` | object | Yes      | Human `line` and full `markdown`; excluded from replay identity.         |
-| `acceptance`   | object | No       | Consent, authorized variances, and approved Standard proposals.          |
+| `acceptance`   | object | No       | Consent, authorized variances, and approved standard proposals.          |
 | `issuer`       | object | No       | Reserved asserted `name`, `email`, and `key`; current writers emit none. |
 | `brief`        | string | No       | Reserved signed-intent reference; current writers emit none.             |
 
 | `proof` field        | Type                 | Required | Contract                                                     |
 | -------------------- | -------------------- | -------- | ------------------------------------------------------------ |
 | `branch`             | string               | Yes      | Validated effort branch.                                     |
-| `trunk`              | string               | Yes      | Integration branch used by the Gate.                         |
+| `trunk`              | string               | Yes      | Trunk branch used by the gate.                               |
 | `head`               | string               | Yes      | Validated commit id.                                         |
 | `files_total`        | number               | Yes      | Changed-file count.                                          |
 | `insertions`         | number               | Yes      | Added-line count.                                            |
 | `deletions`          | number               | Yes      | Removed-line count.                                          |
 | `mode`               | `strict` or `report` | No       | `report` is CI review evidence and is not landing authority. |
 | `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                       |
-| `standard_proposals` | array                | No       | Commit-bound pending Standard proposals.                     |
+| `standard_proposals` | array                | No       | Commit-bound pending standard proposals.                     |
 
 When `acceptance` is present, its `consent`, `variances`, and `standard_proposals` fields are all required; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A Standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
 
@@ -247,7 +247,7 @@ discern neither signs nor verifies today. A later profile chooses the algorithm,
 3. Report an unknown `payloadType` as `data.landed_proof_unsupported`.
 4. Require the envelope, split `proof` and `presentation` blocks, an explicit subject, and `signatures`, including the empty unsigned extension.
 5. Accept standard or Base64url payload alphabets, with or without padding; current writers emit padded standard Base64.
-6. Treat proposal fields as structured landing evidence only when the proof claim and acceptance evidence both carry the approved records.
+6. Treat proposal fields as structured landing evidence only when the Proof claim and acceptance evidence both carry the approved records.
 
 `data.landed_proof` means the note is readable and commit-bound. This path performs no cryptographic verification.
 
@@ -280,7 +280,7 @@ The structural trigger opens a question. A readable open question whose id still
 
 ### Strict obligation states
 
-Every governing row projects one `obligation`, the decision a bare `discern done` would make before Gate jobs:
+Every governing row projects one `obligation`, the decision a bare `discern done` would make before gate jobs:
 
 | Obligation             | Strict meaning                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------ |
@@ -288,7 +288,7 @@ Every governing row projects one `obligation`, the decision a bare `discern done
 | `will_open`            | The settled trigger will open its question and require a conclusion.                 |
 | `awaiting_declaration` | A persisted open question already awaits a conclusion.                               |
 | `reopened`             | Subject or definition currency requires a fresh conclusion.                          |
-| `declared_met`         | A current declared-met conclusion lets the Gate proceed.                             |
+| `declared_met`         | A current declared-met conclusion lets the gate proceed.                             |
 | `declared_unmet`       | The Gate proceeds; landing remains bound to an owner-authorized variance.            |
 | `unknown`              | Store, subject, diff, or a pending `when` condition keeps the read decision unknown. |
 
@@ -302,7 +302,7 @@ A current declared-unmet conclusion makes `discern accept` refuse until the owne
 
 ### Read surfaces
 
-`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` route the same obligation through the advisory channel, and `discern done --dry-run` describes the same refusal-or-proceed decision. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as `unknown` and “may require”) and writes no open question, declaration, Gate marker, or checkpoint lifecycle observation. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints), executable input and output in the [`when` protocol](proof-and-checkpoint-formats.md), and the result contract in [MCP tools & results](mcp-and-results.md).
+`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` route the same obligation through the advisory channel, and `discern done --dry-run` describes the same refusal-or-proceed decision. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as `unknown` and “may require”) and writes no open question, declaration, gate marker, or checkpoint lifecycle observation. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints), executable input and output in the [`when` protocol](proof-and-checkpoint-formats.md), and the result contract in [MCP tools & results](mcp-and-results.md).
 
 ## Checkpoint `when` protocol
 

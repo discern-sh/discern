@@ -1,10 +1,10 @@
 # Orientation
 
-The shape of the system in plain English. Read this tier once and the rest of the Map slots into place.
+The shape of the system in plain English. Read this tier once and the rest of the map slots into place.
 
 Orientation is deliberately small and stable. The subsystem subtrees go deep on mechanism; this tier exists so you understand _what the pieces are_ and _why the system is shaped the way it is_ before you read how any one piece works.
 
-> These four Map pages start as skeletons. The `discern setup` command fills them from the repository and a few questions it asks you. Look for the `<!-- setup fills this -->` markers.
+> These four map pages start as skeletons. The `discern setup` command fills them from the repository and a few questions it asks you. Look for the `<!-- setup fills this -->` markers.
 
 ---
 
@@ -25,4 +25,4 @@ Once you've read these, return to the [Map front page](../README.md) and pick a 
 
 - **concepts.md** is the narrative; **glossary.md** is the dictionary; **system-map.md** is the picture. They describe the same system at three altitudes.
 - **design-principles.md** is the constitution. When a subsystem doc explains _why_ a thing is done a certain way, it usually traces back to a principle here — and any deliberate exception to a principle is recorded as an ADR in [`../_adr/`](../_adr/).
-- The capitalised canonical nouns defined in the glossary are used verbatim everywhere else in the tree. Synonyms are not introduced.
+- The canonical terms defined in the glossary use their declared running-prose casing everywhere else in the tree. Synonyms are not introduced.

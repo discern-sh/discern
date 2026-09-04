@@ -127,7 +127,7 @@ export async function nextLogbookArchiveFileName(
       throw error;
     }
   }
-  throw new Error("could not allocate a collision-safe Logbook archive name");
+  throw new Error("could not allocate a collision-safe logbook archive name");
 }
 
 /** Set once this process intentionally removed the store (uninstall taking
@@ -487,7 +487,7 @@ export async function removeLogbook(
     await Deno.remove(detached, { recursive: true });
   } catch (error) {
     throw new LogbookLifecycleError(
-      `could not remove the detached Logbook; the source remains recoverable at ${detached}: ${
+      `could not remove the detached logbook; the source remains recoverable at ${detached}: ${
         error instanceof Error ? error.message : String(error)
       }`,
       detached,
@@ -577,7 +577,7 @@ export async function archiveLogbook(
   options: ArchiveLogbookOptions = {},
 ): Promise<ArchivedLogbook> {
   if (!isLogbookArchiveFileName(filename)) {
-    throw new Error(`invalid Logbook archive filename: ${filename}`);
+    throw new Error(`invalid logbook archive filename: ${filename}`);
   }
   const archives = logbookArchiveDir(commonGitDir);
   await ensureDir(archives);
@@ -596,7 +596,7 @@ export async function archiveLogbook(
   const detached = await detachLogbook(commonGitDir, "archive", entropy);
   if (detached === undefined) {
     throw new Error(
-      "the active Logbook disappeared before it could be archived",
+      "the active logbook disappeared before it could be archived",
     );
   }
   const tempPath = join(
@@ -646,7 +646,7 @@ export async function archiveLogbook(
       throw error;
     }
     throw new LogbookLifecycleError(
-      `could not seal the active Logbook; its source remains recoverable at ${detached}: ${
+      `could not seal the active logbook; its source remains recoverable at ${detached}: ${
         error instanceof Error ? error.message : String(error)
       }`,
       detached,

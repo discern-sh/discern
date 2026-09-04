@@ -16,7 +16,7 @@ aliases:
 
 A project earns an improvement: test coverage climbs, the bundle shrinks, the last lint suppressions come out. Months later the gain has eroded. Nobody decided to give it back; it slipped away one reasonable-looking change at a time. Asking agents to "keep quality high" doesn't prevent this, because an adjective can't be enforced. A number can.
 
-A Standard is a quality measure that can only improve. Each entry under `[standards]` in `discern.toml` names a measurement, which direction is better, and the current limit. Every run of the project's final quality check (the Gate) measures it and compares the limit against the trunk's: a floor may only rise, a ceiling may only fall, and a change that would make the number worse fails.
+A Standard is a quality measure that can only improve. Each entry under `[standards]` in `discern.toml` names a measurement, which direction is better, and the current limit. Every run of the project's final quality check (the gate) measures it and compares the limit against the trunk's: a floor may only rise, a ceiling may only fall, and a change that would make the number worse fails.
 
 A project holding the line on lint suppressions might keep:
 
@@ -27,13 +27,13 @@ A project holding the line on lint suppressions might keep:
   run = "./tools/count-suppressions"
 ```
 
-The `run` command can be anything that prints `DISCERN_METRIC lint_suppressions <number>`: a measuring tool in any language can feed a Standard, with no plugin to build. The last matching metric line supplies the value. That metric protocol, not the command's exit code, decides the Standard verdict; a missing or non-numeric value fails.
+The `run` command can be anything that prints `DISCERN_METRIC lint_suppressions <number>`: a measuring tool in any language can feed a standard, with no plugin to build. The last matching metric line supplies the value. That metric protocol, not the command's exit code, decides the standard verdict; a missing or non-numeric value fails.
 
 ## What a limit records
 
-The number never grades the project against an outside scale. A limit of 12 doesn't mean 12 is good; it means some past change reached 12, and the project has decided not to fall behind its own achievement. That's why a passing Standard tells you something specific: the project is at least as good, on this measure, as it has ever proven itself to be.
+The number never grades the project against an outside scale. A limit of 12 doesn't mean 12 is good; it means some past change reached 12, and the project has decided not to fall behind its own achievement. That's why a passing standard tells you something specific: the project is at least as good, on this measure, as it has ever proven itself to be.
 
-The comparison runs against the limit committed on the trunk, the project's shared branch. A branch can't edit the limit it is being judged by: a loosened or deleted limit fails the Gate the same way a worsened measurement does. The rule a change must satisfy was agreed before the change existed.
+The comparison runs against the limit committed on the trunk, the project's shared branch. A branch can't edit the limit it is being judged by: a loosened or deleted limit fails the gate the same way a worsened measurement does. The rule a change must satisfy was agreed before the change existed.
 
 ## Capturing a gain
 
@@ -45,20 +45,20 @@ Pinning is mechanical so the record stays trustworthy: a recorded limit moves be
 
 Sometimes a change grows the number for a defensible reason: a real feature adds bundle size, or a migration must temporarily add code. The agent must never loosen the limit to pass. Moving a limit is your decision.
 
-With your agreement, the agent proposes the new limit from the committed change, and the [Proof](proof.md#approve-a-standard-limit-proposal) carries the proposal to acceptance: the Standard, its current and proposed limits, the measured value, and the reason. Landing waits until you approve that exact proposal in the conversation; recorded grants never cover it. If you decline, the agent restores the trunk's limit and the Gate runs under ordinary enforcement — which usually means the change must shed what it added.
+With your agreement, the agent proposes the new limit from the committed change, and the [Proof](proof.md#approve-a-standard-limit-proposal) carries the proposal to acceptance: the standard, its current and proposed limits, the measured value, and the reason. Landing waits until you approve that exact proposal in the conversation; recorded grants never cover it. If you decline, the agent restores the trunk's limit and the gate runs under ordinary enforcement — which usually means the change must shed what it added.
 
 ## Standards that survive daily use
 
-Several parts of the design keep a Standard sustainable rather than a tax on every change:
+Several parts of the design keep a standard sustainable rather than a tax on every change:
 
 - **Rates.** `per` divides the measurement by a size, so a healthy, growing project isn't punished for growth. A ceiling on suppressions per thousand lines stays meaningful as the codebase doubles.
-- **Replay.** `inputs` names the files a measurement reads. When those files and the complete Standard definition are unchanged, the Gate reuses the recorded value and its original measured commit instead of measuring again. Replay does not record a new measurement at the current commit, and the no-loosening check still runs.
+- **Replay.** `inputs` names the files a measurement reads. When those files and the complete standard definition are unchanged, the gate reuses the recorded value and its original measured commit instead of measuring again. Replay does not record a new measurement at the current commit, and the no-loosening check still runs.
 - **On-demand measurement.** A measurement too slow for every run moves to `discern standards`, which measures on request. The check that no limit was loosened has no off switch.
 
-Over time, the project's own record shows each Standard's trajectory, and [Patterns](evidence-and-improvement.md#standard-trajectory-decisions) can recommend a pin when the headroom looks durable rather than momentary.
+Over time, the project's own record shows each standard's trajectory, and [patterns](evidence-and-improvement.md#standard-trajectory-decisions) can recommend a pin when the headroom looks durable rather than momentary.
 
 ## What a number can't hold
 
 Not every quality dimension reduces to a measurement, and a poorly chosen metric can hold the wrong thing steady. Standards guard the measures the project chose to define; design judgment, review, and [checkpoints](checkpoints.md) carry the questions that can't be counted. Together they make up the practice's answer to "did this change make the project worse?": the countable part is enforced, and the rest is asked at the moment it matters.
 
-[Set and raise Standards](../10-guides/set-and-raise-standards.md) is the working procedure: choosing a metric worth defending, responding when a Standard fires, and the falling-ceiling route for driving a legacy pattern to zero. The [config reference](../30-reference/config-reference.md) lists every field.
+[Set and raise standards](../10-guides/set-and-raise-standards.md) is the working procedure: choosing a metric worth defending, responding when a standard fires, and the falling-ceiling route for driving a legacy pattern to zero. The [config reference](../30-reference/config-reference.md) lists every field.

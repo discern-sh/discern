@@ -8,9 +8,9 @@ aliases:
 
 # Gate gotchas
 
-_Recovery for `discern done` failures whose immediate diagnostic needs more context. The routine Gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md)._
+_Recovery for `discern done` failures whose immediate diagnostic needs more context. The routine gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md)._
 
-When a fix, build, check, or test stage exits non-zero, the Gate links this page through the wiring in [`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts). `[project].gotchas_doc` in `discern.toml` sets the path. A fenced `gotcha-match` block can also put an entry directly in the failure output. Its Tom's Obvious Minimal Language (TOML) fields are `stage`, which matches `failed_stage`, and `evidence`, a regular expression over diagnostic messages and output. [`gotcha_match.ts`](../../../src/engine/gate/gotcha_match.ts) parses and matches the block. The first matching entry in document order wins. A malformed block produces a warning that names the entry at failure time ([ADR 0189](../_adr/0189-a-matched-gotchas-trap-inlines-into-the-gate-failure.md)).
+When a fix, build, check, or test stage exits non-zero, the gate links this page through the wiring in [`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts). `[project].gotchas_doc` in `discern.toml` sets the path. A fenced `gotcha-match` block can also put an entry directly in the failure output. Its Tom's Obvious Minimal Language (TOML) fields are `stage`, which matches `failed_stage`, and `evidence`, a regular expression over diagnostic messages and output. [`gotcha_match.ts`](../../../src/engine/gate/gotcha_match.ts) parses and matches the block. The first matching entry in document order wins. A malformed block produces a warning that names the entry at failure time ([ADR 0189](../_adr/0189-a-matched-gotchas-trap-inlines-into-the-gate-failure.md)).
 
 When a recurring failure needs context beyond its diagnostic, add a symptom, cause, fix, and optional `gotcha-match` block to this page.
 
@@ -24,13 +24,13 @@ These failures come from Git worktrees, parallel stages, build artifacts, and th
 
 **Symptom.** `discern done` stops before the fixers, build, checks, or tests run. Its message says that your branch lacks the latest `main`. You perform the update separately.
 
-**Cause.** The fail-fast merge check is the Gate's first step (ADR 0049). While you were working, `main` moved, so your branch is behind it. Updating changes the tree and requires a fresh Gate run. The precondition avoids spending the slower stages on the superseded tree.
+**Cause.** The fail-fast merge check is the gate's first step (ADR 0049). While you were working, `main` moved, so your branch is behind it. Updating changes the tree and requires a fresh gate run. The precondition avoids spending the slower stages on the superseded tree.
 
-**Fix.** Commit your work, then run `discern update`. It brings `main` in and refreshes the generated agent files and Skills. On a conflict, the command aborts the merge and names the files. Resolve them with `git merge main`, then commit the merge. Run `discern done` again to verify the merged tree. In the main checkout, this check is a no-op because there is no branch to update.
+**Fix.** Commit your work, then run `discern update`. It brings `main` in and refreshes the generated agent files and skills. On a conflict, the command aborts the merge and names the files. Resolve them with `git merge main`, then commit the merge. Run `discern done` again to verify the merged tree. In the main checkout, this check is a no-op because there is no branch to update.
 
 ### A generated or local discern artifact was force-added
 
-**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized Skills, or machine-local provider state under `.claude/`.
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or machine-local provider state under `.claude/`.
 
 **Cause.** The file matches the discern-owned `.gitignore` block, but `git add -f` or an equivalent operation forced it into the index. The reviewable source is `project/instructions.md`, `[skills].dir`, or provider config. A generated or local artifact remains untracked even when its bytes are current.
 
@@ -46,7 +46,7 @@ stage = "tracked_artifacts"
 
 **Cause.** The fix stage (here `deno fmt`) is allowed to mutate files, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The Gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
 
-**Fix.** The diff is the Gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and rerun `done`. Run `done` or `prepare` before the final commit to put generated files in canonical form first. Tree drift applies only when a stage changes an already committed file.
+**Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and rerun `done`. Run `done` or `prepare` before the final commit to put generated files in canonical form first. Tree drift applies only when a stage changes an already committed file.
 
 ```gotcha-match
 stage = "tree_drift"
@@ -54,7 +54,7 @@ stage = "tree_drift"
 
 ### A generator changes the tree after every regeneration commit
 
-**Symptom.** `discern done` reports `failed_stage: "generated_drift"`. The diagnostic names a `[generated.<name>]` group, its command, and the files it rewrote. You run that command, commit the regeneration, and rerun the Gate. The same files become dirty again immediately.
+**Symptom.** `discern done` reports `failed_stage: "generated_drift"`. The diagnostic names a `[generated.<name>]` group, its command, and the files it rewrote. You run that command, commit the regeneration, and rerun the gate. The same files become dirty again immediately.
 
 **Cause.** The generator does not produce stable bytes from the same tree. Timestamps, random values, environment-dependent content, and unsorted input traversal are common causes. A `generated-coverage` diagnostic is a related declaration failure: the Build group changed files that match none of the configured `paths` globs ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
@@ -82,11 +82,11 @@ stage = "generated_drift"
 
 ### A merge pulled in a new dependency
 
-**Symptom.** After `git merge main`, the next Gate run fails in a check or test stage on a missing module, class, or package. The dependency exists on `main` and is absent from the local checkout.
+**Symptom.** After `git merge main`, the next gate run fails in a check or test stage on a missing module, class, or package. The dependency exists on `main` and is absent from the local checkout.
 
 **Cause.** In an isolated worktree, dependencies are usually absent from version control. A merge updates the lockfile text and installs nothing. The new code references a dependency that has not been fetched into this checkout.
 
-**Fix.** Reinstall dependencies in this checkout with the stack's `install`, `restore`, or `sync` step before rerunning the Gate. If the toolchain has a generated index, autoloader, or classmap, regenerate it too. A merge that adds a source path can leave the generated index stale, which some tools report as a blank bootstrap failure or an unexplained non-zero exit.
+**Fix.** Reinstall dependencies in this checkout with the stack's `install`, `restore`, or `sync` step before rerunning the gate. If the toolchain has a generated index, autoloader, or classmap, regenerate it too. A merge that adds a source path can leave the generated index stale, which some tools report as a blank bootstrap failure or an unexplained non-zero exit.
 
 ### A command hangs, then fails with a timeout
 
@@ -108,7 +108,7 @@ evidence = 'timed out after \d+s and was killed'
 
 **Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure`. discern runs them in every managed worktree and after acceptance updates the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources. Put one-shot scaffolding under `[worktree.setup].steps` ([ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
-The self-shim makes `discern` available to every operator command. The Engine prepends the shim to `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job such as the seeded `format = "discern tidy"` resolves to the Engine running the Gate. This also applies when CI drives the Engine from source or an MCP server starts with a stripped environment. The shim is cached once per Engine identity under the repository's Git administrative directory ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
+The self-shim makes `discern` available to every operator command. The Engine prepends the shim to `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job such as the seeded `format = "discern tidy"` resolves to the engine running the gate. This also applies when CI drives the engine from source or an MCP server starts with a stripped environment. The shim is cached once per engine identity under the repository's Git administrative directory ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
 
 ```gotcha-match
 evidence = 'failed \(exit 127\)'
@@ -118,17 +118,17 @@ evidence = 'failed \(exit 127\)'
 
 **Symptom.** You pipe `discern done` into `tee`, `tail`, or another command to capture its output, and it appears to succeed even though a stage clearly failed.
 
-**Cause.** A pipeline reports the last command's exit code. The pipe masks the Gate's non-zero status.
+**Cause.** A pipeline reports the last command's exit code. The pipe masks the gate's non-zero status.
 
 **Fix.** Run `discern done` bare to see its true exit code. If you must capture output, use a method that preserves the original exit status, such as redirecting to a file or enabling your shell's `pipefail` option.
 
 ### The gate skips a step you expected it to run (scope detection)
 
-**Symptom.** A changed path does not trigger the expected scope Gate, preview, or build. For example, a documentation-only change can run almost nothing.
+**Symptom.** A changed path does not trigger the expected scope gate, preview, or build. For example, a documentation-only change can run almost nothing.
 
-**Cause.** The Gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected. A change confined to a `neutral` scope runs no scope Gates and gets no preview. Classification fails open: a path matching no scope counts as a real code change and runs additional Gates.
+**Cause.** The Gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected. A change confined to a `neutral` scope runs no scope gates and gets no preview. Classification fails open: a path matching no scope counts as a real code change and runs additional gates.
 
-**Fix.** If an expected scope Gate was skipped, widen the `[scopes]` globs to match the changed paths. If an unexpected Gate ran, the path reached the fail-open default. Add the path to `neutral` or the applicable scope only when it needs no Gate.
+**Fix.** If an expected scope gate was skipped, widen the `[scopes]` globs to match the changed paths. If an unexpected gate ran, the path reached the fail-open default. Add the path to `neutral` or the applicable scope only when it needs no gate.
 
 ---
 

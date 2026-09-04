@@ -640,11 +640,13 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
     glossaryMentions([
       {
         term: "Gate",
+        runningCase: "lowercase",
         definition: "The full check.",
         plain: { keep: "fixture" },
       },
       {
         term: "Gate job",
+        runningCase: "lowercase",
         definition: "One unit of gate work.",
         plain: { keep: "fixture" },
       },
@@ -655,6 +657,7 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
     glossaryMentions([
       {
         term: "Hidden",
+        runningCase: "lowercase",
         definition: "A hidden term.",
         matches: [],
         plain: { keep: "fixture" },
@@ -667,12 +670,14 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
       glossaryMentions([
         {
           term: "First",
+          runningCase: "lowercase",
           definition: "The first term.",
           matches: ["same phrase"],
           plain: { keep: "fixture" },
         },
         {
           term: "Second",
+          runningCase: "lowercase",
           definition: "The second term.",
           matches: ["Same phrase"],
           plain: { keep: "fixture" },

@@ -1,7 +1,7 @@
 ---
 id: start-first-success
 title: "Install and set up discern"
-description: "Take one repository from installation through setup to a first real change: proved by the Gate, reviewed by you, and landed with your authority."
+description: "Take one repository from installation through setup to a first real change: proved by the gate, reviewed by you, and landed with your authority."
 order: 30
 publish: true
 kind: tutorial
@@ -23,7 +23,7 @@ aliases:
 
 # Install and set up discern
 
-This tutorial takes one repository from a bare install to a first landed change. At the end, your project has a final quality check it defines (the Gate), an isolated workspace for each task (a worktree), and shared instructions every future coding session inherits. You will have watched one real change pass the Gate, read its evidence, and made the landing decision yourself.
+This tutorial takes one repository from a bare install to a first landed change. At the end, your project has a final quality check it defines (the gate), an isolated workspace for each task (a worktree), and shared instructions every future coding session inherits. You will have watched one real change pass the gate, read its evidence, and made the landing decision yourself.
 
 Your coding agent does the operating throughout. You install one binary, answer setup's questions, review what it built, and keep the decisions that stay yours: what the setup may write, and what lands on your shared branch.
 
@@ -80,21 +80,21 @@ Answer in plain language. For a safe technical choice, "use your recommendation"
 
 ## 3. Setup works on its own branch
 
-With your consent, the agent begins on a new `discern-setup` branch, so everything setup produces arrives as an ordinary branch diff you can read. The agent studies how the project already works, wires the project's own commands into the Gate's format, build, lint, typecheck, test, and smoke jobs, marking any that don't apply, and writes the instruction source, the maintained project guide (the Map), and a ledger for deferred work. It narrates each stage and commits as it goes.
+With your consent, the agent begins on a new `discern-setup` branch, so everything setup produces arrives as an ordinary branch diff you can read. The agent studies how the project already works, wires the project's own commands into the gate's format, build, lint, typecheck, test, and smoke jobs, marking any that don't apply, and writes the instruction source, the maintained project guide (the map), and a ledger for deferred work. It narrates each stage and commits as it goes.
 
-Setup is real engineering work, and your repository may push back. A check that fails, or a formatter that fights a generated file, surfaces as a Gate diagnostic that names the failing command and the recovery, and the agent iterates. An interrupted setup resumes: `discern setup` reports the recorded phase and continues without repeating finished writes.
+Setup is real engineering work, and your repository may push back. A check that fails, or a formatter that fights a generated file, surfaces as a gate diagnostic that names the failing command and the recovery, and the agent iterates. An interrupted setup resumes: `discern setup` reports the recorded phase and continues without repeating finished writes.
 
 The agent returns to you only for decisions the code can't settle, such as a wrong project name, a file that points outside the repository, or a consequential choice about the project's intent.
 
 ## 4. Setup proves itself
 
-When the authoring is committed, the agent runs `discern setup done`. discern diagnoses the authored setup for completeness, exercises it in a throwaway worktree, and runs the full Gate. Success returns Proof, discern's evidence that one exact commit passed the declared checks, as a single line:
+When the authoring is committed, the agent runs `discern setup done`. discern diagnoses the authored setup for completeness, exercises it in a throwaway worktree, and runs the full gate. Success returns Proof, discern's evidence that one exact commit passed the declared checks, as a single line:
 
 > **Proof:** The Gate passed for `discern-setup` at `4561b231d9c4` · 26 files changed (+1758 −0) vs `main` · View the full Proof: `discern status --verbose`
 
 The agent relays a handoff with that line: where future sessions will start, which checks are now active, one important rule it found, and what remains open. Then it waits.
 
-Green is not landed. The proved work is still on `discern-setup`, and your shared branch is unchanged until you decide. That separation holds for every change from now on: the Gate supplies the evidence, and the landing decision stays with you.
+Green is not landed. The proved work is still on `discern-setup`, and your shared branch is unchanged until you decide. That separation holds for every change from now on: the gate supplies the evidence, and the landing decision stays with you.
 
 ## 5. Review and land setup
 
@@ -123,10 +123,10 @@ In the fresh session, ask for a small real change with a visible result, such as
 
 1. **Start the workspace.** The agent runs `discern start`, which creates an isolated worktree on an `agent/…` branch and reports its path; the agent moves its own work there.
 2. **Make the change.** The agent edits in the worktree, iterating with `discern prepare`, the fast fix-and-check loop, then commits the result.
-3. **Run the Gate.** On the clean commit, the agent runs `discern done`. A failure names the failing command and its first diagnostic; green records Proof for that commit.
-4. **Hand the work back.** The agent reports what changed, ends with the proof line, and waits for your decision.
+3. **Run the gate.** On the clean commit, the agent runs `discern done`. A failure names the failing command and its first diagnostic; green records Proof for that commit.
+4. **Hand the work back.** The agent reports what changed, ends with the Proof line, and waits for your decision.
 
-**You are done when:** the agent's report ends with a proof line for a clean commit on its `agent/…` branch.
+**You are done when:** the agent's report ends with a Proof line for a clean commit on its `agent/…` branch.
 
 <!-- /discern-workflow -->
 
@@ -142,7 +142,7 @@ When you say to land it, the agent runs `discern accept`. discern verifies your 
 
 ## What you now have
 
-Look at the repository: `git log` shows the landed setup and your first change at the tip of the trunk, each carrying its proof note. No worktree or task branch remains. The next session you open inherits the instructions, the Map, and the Gate, without you re-explaining anything.
+Look at the repository: `git log` shows the landed setup and your first change at the tip of the trunk, each carrying its Proof note. No worktree or task branch remains. The next session you open inherits the instructions, the map, and the gate, without you re-explaining anything.
 
 That is the working loop you'll repeat: the agent proves a change in isolation, you review evidence instead of reconstructing checks, and landing happens with your authority.
 

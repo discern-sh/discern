@@ -23,7 +23,7 @@ A guard is an **under-scoped guard** exactly when both hold:
 
 Just as important, a finding is **not**:
 
-- **Shared mechanism.** Two tests using the same helper or scaffold while asserting genuinely different, member-specific behaviour. Each member's _unique_ semantics deserves its own test — that is depth, keep it.
+- **Shared mechanism.** Two tests using the same helper or scaffold while asserting genuinely different, member-specific behavior. Each member's _unique_ semantics deserves its own test — that is depth, keep it.
 - **Depth on one feature.** Several tests probing different edge cases of a single member are not instances of a class property.
 - **Already-iterating tests.** A test that walks the canonical set is the guard, not a finding.
 - **Look-alike assertions.** Superficial resemblance (same assertion helper, similar names) without a shared ∀-statement. If you cannot phrase the invariant as "for every member of _X_, _P_", there is no cluster.
@@ -88,7 +88,7 @@ A small suite is a solo pass. For a large one, partition the files by subsystem 
 
 ## 9. Close each finding with a class guard
 
-The fix for a verified cluster is one test that derives the members from the single source of truth and asserts the property over all of them — a new member then auto-enrols the moment it is registered. Where a member legitimately differs, record it in an explicit, named **exception set** that the guard also asserts is still honest (each exception must still _be_ a member, still differing for the stated reason) — an exception that can go stale is a second hand-copied list. Keep the member-specific tests that assert genuinely unique behaviour; delete the ones the guard subsumes. Wire the guard into the gate, and if the class had no source of truth, create the registry first and point both the code and the guard at it — the full discipline is the cure procedure (`SKILL.md`), steps 2–6.
+The fix for a verified cluster is one test that derives the members from the single source of truth and asserts the property over all of them — a new member then auto-enrols the moment it is registered. Where a member legitimately differs, record it in an explicit, named **exception set** that the guard also asserts is still honest (each exception must still _be_ a member, still differing for the stated reason) — an exception that can go stale is a second hand-copied list. Keep the member-specific tests that assert genuinely unique behavior; delete the ones the guard subsumes. Wire the guard into the gate, and if the class had no source of truth, create the registry first and point both the code and the guard at it — the full discipline is the cure procedure (`SKILL.md`), steps 2–6.
 
 Close an under-scoped guard by **widening, never narrowing**: restate what it protects as a name-independent predicate that passes the fresh-name test, then rebuild the guard to derive its cases from the broadest set a new manifestation cannot avoid joining — so new members _and_ new containers both auto-enrol. Run the widened guard **before** fixing anything: its failures are the class's current population, and every live member it surfaces gets fixed to green as part of the close. Prove the widening with an adversarial future-sibling fixture — the mechanism rebuilt under unrelated names that the guard must reject without a case-table edit. If the widened guard reveals more than this pass can fix, fix what you can and hold the remainder behind an explicit ratchet that may only shrink — never a silent skip, and never a re-narrowed guard.
 

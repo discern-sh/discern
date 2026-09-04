@@ -104,7 +104,7 @@ function noColorFrom(color: boolean | undefined): boolean {
  * Thread the one resolved terminal context to every surface that emits colour or
  * makes a theme-dependent layout choice:
  *  - package-backed Logger and engine output consume the installed context;
- *  - the `@std/fmt/colors` module-global remains synchronized for legacy
+ *  - the `@std/fmt/colors` module-global remains synchronized for remaining
  *    consumers outside the package-backed 2C surfaces;
  *  - the engine's `colorEnabled()` reads the installed context.
  * Root help strips Cliffy's generated presentation unconditionally and renders
@@ -443,7 +443,7 @@ export function buildCli(
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.noColor,
-      "Disable colour (also honours NO_COLOR and non-TTY output).",
+      "Disable color (also honors NO_COLOR and non-TTY output).",
     )
     .globalOption(
       ROOT_GLOBAL_FLAGS.plain,
@@ -451,7 +451,7 @@ export function buildCli(
     )
     .globalOption(
       `${ROOT_GLOBAL_FLAGS.theme} <theme:string>`,
-      "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+      "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
       {
         value: terminalThemeValue,
       },
@@ -690,7 +690,7 @@ export function buildCli(
   root
     .command("map [target:string]")
     .description(
-      "Browse the configured project Map that coding agents maintain, or read a named Map page.",
+      "Browse the configured project map that coding agents maintain, or read a named map page.",
     )
     .option(
       "--raw",
@@ -843,7 +843,7 @@ export function buildCli(
   // `.command(name, instance)` (the reliable Cliffy form for a command group).
   const setJob = new Command()
     .description(
-      `Set a Gate job. Known names (${knownJobList()}) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.`,
+      `Set a gate job. Known names (${knownJobList()}) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.`,
     )
     .arguments("<name:string> [command:string]")
     .option(
@@ -906,7 +906,7 @@ export function buildCli(
     .option("--gate <cmd:string>", "A command to run when this scope changed.")
     .option(
       "--timeout <seconds:string>",
-      "Per-scope Gate-command budget in seconds; 0 removes the bound.",
+      "Per-scope gate-command budget in seconds; 0 removes the bound.",
     )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(recordedExit(

@@ -13,7 +13,7 @@ aliases:
 
 # Cursor integration
 
-_The Cursor integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Cursor integration supplies canonical instructions, shared skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 When `[project].agents` includes Cursor, discern uses these project-local files:
 
@@ -47,7 +47,7 @@ To let a Local session write into a sibling discern worktree, turn off External 
 
 ### Cursor's Worktree option
 
-To keep External File Protection enabled, select Cursor's native [**Worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor launches the agent inside its checkout. The `sessionStart` hook readies it for discern's normal workflow.
+To keep External File Protection enabled, select Cursor's native [**worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor launches the agent inside its checkout. The `sessionStart` hook readies it for discern's normal workflow.
 
 Acceptance removes that checkout. Cursor shows the landing response, then the session ends. Its transcript accepts no follow-up, so start a new session.
 
@@ -60,7 +60,7 @@ You can instead set `[worktree].root` to keep discern-created worktrees inside t
 root = ".worktrees"
 ```
 
-Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full Gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
+Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
 ## Instructions and Skills
 
@@ -68,7 +68,7 @@ Cursor reads the root `AGENTS.md` natively, so discern reuses the canonical file
 
 discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Cursor also reads `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
+Cursor also reads `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
 
 ## Model Context Protocol configuration
 
@@ -132,7 +132,7 @@ discern does not set Cursor sandbox options, static command permission lists, mo
 
 Cursor workspace trust gates committed `.cursor/` config. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
 
-Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing Skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
+Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 
 ## See also
 

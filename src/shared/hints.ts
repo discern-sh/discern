@@ -1180,7 +1180,7 @@ export const HINTS = {
         total === 1 ? "has" : "have"
       } unreadable Git state: ${
         boundedNameSummary(total, names)
-      }. Unsaved work is unverifiable. In the Desk, select ${
+      }. Unsaved work is unverifiable. In the desk, select ${
         total === 1 ? "the task" : "each task"
       } and choose Show recovery steps.`;
     },
@@ -1190,7 +1190,7 @@ export const HINTS = {
       } whose Git state ` +
       `cannot be read: ${
         boundedNameSummary(total, names)
-      }. In the Desk, select ${
+      }. In the desk, select ${
         total === 1 ? "the task" : "each task"
       } and choose Show recovery steps.`,
   }),
@@ -1213,13 +1213,13 @@ export const HINTS = {
         total === 1 ? "has" : "have"
       } incomplete setup: ${
         boundedNameSummary(total, names)
-      }. In the Desk, select ${
+      }. In the desk, select ${
         total === 1 ? "the task" : "each task"
       } and choose Show recovery steps before cleanup.`;
     },
     interactiveTemplate: ({ total, names }): string =>
       `Diagnose ${total} worktree${total === 1 ? "" : "s"} whose setup did ` +
-      `not complete: ${boundedNameSummary(total, names)}. In the Desk, select ${
+      `not complete: ${boundedNameSummary(total, names)}. In the desk, select ${
         total === 1 ? "the task" : "each task"
       } and choose Show recovery steps.`,
   }),
@@ -2255,7 +2255,7 @@ export const HINTS = {
     example: {
       id: "deletion-heavy-change",
       question: "Is the cut proven dead, and recovery bounded?",
-      matched: ["src/legacy_module.ext"],
+      matched: ["src/deprecated_module.ext"],
       related: [],
     },
     template: ({
@@ -2837,7 +2837,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when: "A successful gate includes a change that has a configured preview.",
-    example: { scope: "site", command: "deno task site" },
+    example: { scope: "site", command: "./scripts/preview-site.sh" },
     template: ({ scope, command }): string =>
       `Preview the changed \`${scope}\` scope by running \`${command}\` from ` +
       "this worktree. The Gate reports this configured read-only action; it did not run it.",
@@ -3114,10 +3114,10 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `Fix every reported materialization error, then run ${CMD.refresh} ` +
-      "to materialize the ejected Skill in every configured agent directory.",
+      "to materialize the ejected skill in every configured agent directory.",
     interactiveTemplate: (): string =>
       `Fix every reported materialization error, then run ${CMD.refresh} ` +
-      "to materialize the ejected Skill in every configured agent directory.",
+      "to materialize the ejected skill in every configured agent directory.",
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -3537,10 +3537,10 @@ export const HINTS = {
     template: (): string =>
       `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
       `use \`--unproven\` only ` +
-      "to record completion without that proof.",
+      "to record completion without that Proof.",
     interactiveTemplate: (): string =>
       `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
-      "use `--unproven` only to record completion without that proof.",
+      "use `--unproven` only to record completion without that Proof.",
   }),
 
   /** Existing authored agent instructions were preserved in the canonical source. */
@@ -3663,7 +3663,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "Setup records an unproven completion event and therefore has no Gate Proof.",
+      "Setup records an unproven completion event and therefore has no gate Proof.",
     family: "setup-done-next",
     example: undefined,
     template: (): string =>

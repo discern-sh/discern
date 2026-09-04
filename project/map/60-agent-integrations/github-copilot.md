@@ -10,7 +10,7 @@ aliases:
 
 # GitHub Copilot integration
 
-_The GitHub Copilot integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The GitHub Copilot integration supplies canonical instructions, shared skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[project].agents`:
 
@@ -40,7 +40,7 @@ The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so d
 
 discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
+Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
 
 ## `.mcp.json`
 

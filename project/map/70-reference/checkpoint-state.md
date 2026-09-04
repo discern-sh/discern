@@ -37,7 +37,7 @@ The structural trigger opens a question. A readable open question whose id still
 
 ## Strict obligation states
 
-Every governing row projects one `obligation`, the decision a bare `discern done` would make before Gate jobs:
+Every governing row projects one `obligation`, the decision a bare `discern done` would make before gate jobs:
 
 | Obligation             | Strict meaning                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------ |

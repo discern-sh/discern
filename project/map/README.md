@@ -35,6 +35,6 @@ Start with [orientation](00-orientation/) for the product model and vocabulary. 
 
 ## Browsing and maintenance
 
-`discern map [target]` browses this repository's configured Map. `discern docs [target]` browses the separately sourced product manual. Both commands use the same neutral document reader, renderer, target resolver, and search model; their corpus policies decide what is admitted and delivered.
+`discern map [target]` browses this repository's configured map. `discern docs [target]` browses the separately sourced product manual. Both commands use the same neutral document reader, renderer, target resolver, and search model; their corpus policies decide what is admitted and delivered.
 
-Update the Map when a change alters a durable boundary, supported workflow, or maintainer mental model. Link the implementation authority instead of copying facts that code or registries already make mechanically derivable. Update the manual only when the reader-facing product contract changes. The Gate validates both corpora with distinct integrity, checkpoint, and prose policies.
+Update the map when a change alters a durable boundary, supported workflow, or maintainer mental model. Link the implementation authority instead of copying facts that code or registries already make mechanically derivable. Update the manual only when the reader-facing product contract changes. The Gate validates both corpora with distinct integrity, checkpoint, and prose policies.

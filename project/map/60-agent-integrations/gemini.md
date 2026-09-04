@@ -10,7 +10,7 @@ aliases:
 
 # Gemini integration
 
-_The Gemini integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Gemini integration supplies shared instructions and skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
@@ -32,7 +32,7 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 
 `AGENTS.md` remains the canonical agent file. discern generates it from built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
+Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
 
 ## `.gemini/settings.json`
 

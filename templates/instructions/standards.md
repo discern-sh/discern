@@ -4,7 +4,7 @@ Standards are **numbers that can never get worse**: metrics held at a `limit` th
 
 **Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
 
-After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named Standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
+After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
 
 When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.{{else}}## Quality standards
 

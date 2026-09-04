@@ -12,7 +12,7 @@ aliases:
 
 _Bundled Skills are task playbooks that discern ships in the binary and adds to a project's effective set._
 
-Every bundled name carries the `discern-` prefix, so it remains identifiable beside project-authored and vendor-provided Skills. Run the live listing to see the bundled catalog together with this project's overrides and exclusions:
+Every bundled name carries the `discern-` prefix, so it remains identifiable beside project-authored and vendor-provided skills. Run the live listing to see the bundled catalog together with this project's overrides and exclusions:
 
 ```sh
 discern skills list
@@ -33,7 +33,7 @@ discern skills list
 | [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | A significant decision needs its context and reasoning recorded.                                                                                      |
 | [`discern-write-it-once`](../../../templates/skills/discern-write-it-once/SKILL.md)           | A request concerns agent-written code practices, a fact spans consumers, a set outgrows its guards, or an effectful workflow needs repeatable reruns. |
 
-The table summarizes each live `SKILL.md` description. Open a Skill for its triggers, procedure, and completion conditions. A Skill can contain deeper procedures as files inside its directory. For example, `discern-cure-a-bug` contains the diagnose and suite-audit procedures, `discern-set-the-standard` contains the outlaw procedure, and `discern-write-it-once` contains the bind-the-fact and plan-the-effects procedures.
+The table summarizes each live `SKILL.md` description. Open a skill for its triggers, procedure, and completion conditions. A Skill can contain deeper procedures as files inside its directory. For example, `discern-cure-a-bug` contains the diagnose and suite-audit procedures, `discern-set-the-standard` contains the outlaw procedure, and `discern-write-it-once` contains the bind-the-fact and plan-the-effects procedures.
 
 ## Current state & gotchas
 

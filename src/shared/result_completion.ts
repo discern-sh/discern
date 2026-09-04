@@ -559,7 +559,7 @@ function derivedAdvisories(
   if (data?.setup_completion === "unproven") {
     add(
       "setup-unproven-completion",
-      ["Setup completion bypassed Gate Proof and the worktree-viability proof."],
+      ["Setup completion bypassed gate Proof and the worktree-viability Proof."],
       "Run `discern doctor`, then `discern done`, and review the resulting Proof before relying on this setup.",
     );
   }
@@ -603,7 +603,7 @@ function derivedAdvisories(
     add(
       "standards-limits-unverified",
       [nonBlank(standardsLimits.reason) ?? "the trunk limits were unavailable"],
-      "Make the trunk configuration available, then re-run the same Gate or Standards command.",
+      "Make the trunk configuration available, then re-run the same gate or standards command.",
     );
   }
 
@@ -640,7 +640,7 @@ function derivedAdvisories(
     add(
       "proof-recording-unavailable",
       proofEvidence,
-      "Inspect `data.proof_note`, repair Git-notes storage, and retry the documented Proof-note recovery without repeating the landing.",
+      "Inspect `data.proof_note`, repair Git-notes storage, and retry the documented Proof note recovery without repeating the landing.",
     );
   }
 
@@ -676,7 +676,7 @@ function derivedAdvisories(
     add(
       "acceptance-cleanup-incomplete",
       [proofClearError],
-      "Clear the stale local Gate Proof after confirming the landed commit remains recorded.",
+      "Clear the stale local gate Proof after confirming the landed commit remains recorded.",
     );
   }
 

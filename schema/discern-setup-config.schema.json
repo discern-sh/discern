@@ -397,7 +397,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no Gate, as for documentation and agent instructions.",
+            "description": "true: changes here need no gate, as for documentation and agent instructions.",
             "type": "boolean"
           },
           "preview": {
@@ -614,7 +614,7 @@
           },
           "measure": {
             "default": "gate",
-            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
+            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.",
             "type": "string",
             "enum": [
               "gate",
@@ -622,7 +622,7 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"

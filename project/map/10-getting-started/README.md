@@ -10,7 +10,7 @@ aliases:
 
 # Getting started
 
-_Install discern, set up your repository, and take one real change through the project's final quality check (the Gate)._
+_Install discern, set up your repository, and take one real change through the project's final quality check (the gate)._
 
 You need a Git repository, a supported coding agent, and macOS, Linux, or WSL 2. discern is a self-contained binary. The project does not need Deno or Node to run discern.
 

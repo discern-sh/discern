@@ -101,9 +101,9 @@ Offer to dispatch if the environment supports it, then wait.
 
 The Desk groups the fleet by current state and offers valid actions for the selected worktree. Use it to start a task, open a configured coding-agent CLI found on `PATH`, inspect a branch, or record a one-worktree landing grant. It owns child sessions it launches.
 
-Treat the Desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
+Treat the desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
 
-The selected task determines which actions are available, recommended, disabled, or require confirmation. This guarded projection keeps their labels and command evidence aligned with the live Desk registry:
+The selected task determines which actions are available, recommended, disabled, or require confirmation. This guarded projection keeps their labels and command evidence aligned with the live desk registry:
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -113,7 +113,7 @@ The selected task determines which actions are available, recommended, disabled,
 | `retry_setup`  | Manage | Retry setup                                                                     | `discern worktree setup`             | No by default; Retry                                             |
 | `done`         | Work   | Run final checks                                                                | `discern done`                       | No by default; Run                                               |
 | `accept`       | Review | Run final checks, then land on &lt;trunk&gt; / Review and land on &lt;trunk&gt; | `discern accept`                     | No by default; Land                                              |
-| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; Update                                            |
+| `update`       | Manage | Update branch from &lt;trunk&gt;                                                | `discern update`                     | No by default; update                                            |
 | `agent`        | Work   | Continue with an agent                                                          | `<configured-agent>`                 | None                                                             |
 | `follow_up`    | Work   | Start a follow-up from this task                                                | `discern start --from <branch>`      | None                                                             |
 | `scripts`      | Work   | Run a Project Script                                                            | `discern scripts <name>`             | No by default; Run                                               |
@@ -136,13 +136,13 @@ Broken, setup-incomplete, and Git-unreadable tasks recommend **Show recovery ste
 
 When a task reports green, **person or reviewing agent:** inspect the branch diff against the trunk, compare every deliverable with the brief, exercise the real outcome, and read its current Proof. Check for scope drift, a weakened test or policy, a hand-edited generated file, an uncured defect class, and decisions made without the required owner input.
 
-Send focused feedback back to the same worktree. Any resulting commit stales its Proof, so the receiving agent must run the final Gate again. A green report remains unlanded until the recorded authority covers the final changed paths and any separate variance or Standard proposal.
+Send focused feedback back to the same worktree. Any resulting commit stales its Proof, so the receiving agent must run the final gate again. A green report remains unlanded until the recorded authority covers the final changed paths and any separate variance or standard proposal.
 
 ## The bundled catalog
 
 ### Bundled Skills
 
-`discern skills list` shows the effective bundled and project-authored Skills. Name the relevant Skill in a brief instead of copying its full procedure. Delegation commonly composes with `discern-await-the-fleet`, `discern-cure-a-bug`, `discern-write-adr`, and `discern-teach-the-project`. [Create and manage Skills](create-and-manage-skills.md) covers customization and exclusions.
+`discern skills list` shows the effective bundled and project-authored skills. Name the relevant skill in a brief instead of copying its full procedure. Delegation commonly composes with `discern-await-the-fleet`, `discern-cure-a-bug`, `discern-write-adr`, and `discern-teach-the-project`. [Create and manage skills](create-and-manage-skills.md) covers customization and exclusions.
 
 ## Completion
 

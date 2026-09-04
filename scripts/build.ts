@@ -22,7 +22,7 @@
  * Run: `deno task build` (optionally `deno task build <target>` to build one).
  */
 
-import { copy, ensureDir, walk } from "@std/fs";
+import { ensureDir, walk } from "@std/fs";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
@@ -172,17 +172,13 @@ export async function stageBundledManual(
       }
       const destination = join(fresh, page.entry.relToDocs);
       await ensureDir(dirname(destination));
-      await copy(source, destination);
-      const [sourceBytes, stagedBytes] = await Promise.all([
-        Deno.readFile(source),
-        Deno.readFile(destination),
-      ]);
-      if (
-        sourceBytes.length !== stagedBytes.length ||
-        sourceBytes.some((byte, index) => byte !== stagedBytes[index])
-      ) {
+      const sourceText = await Deno.readTextFile(source);
+      const expected = stripManualSourceComments(sourceText);
+      await Deno.writeTextFile(destination, expected);
+      const stagedText = await Deno.readTextFile(destination);
+      if (stagedText !== expected) {
         throw new Error(
-          `${page.entry.relToDocs}: staged manual bytes differ from the source`,
+          `${page.entry.relToDocs}: staged manual differs from its public projection`,
         );
       }
     }
@@ -194,6 +190,14 @@ export async function stageBundledManual(
     await Deno.rename(fresh, stagedDocs);
     return staged;
   }, { parent });
+}
+
+/** Remove source-generation comments before the manual enters a release binary. */
+export function stripManualSourceComments(source: string): string {
+  return source.replace(
+    /<!--[^]*?-->\r?\n?/g,
+    (comment) => /\b(?:generated|regenerate)\b/iu.test(comment) ? "" : comment,
+  );
 }
 
 /** Prepare the repo-relative include tree consumed by `deno compile`. */

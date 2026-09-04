@@ -33,7 +33,7 @@ Work in explicit rounds, and keep a written trail:
 
 The written trail is what prevents circular debugging — re-testing yesterday's guess because nobody recorded that it already failed. And keep the experiments _observations_, not fixes: an experiment shaped like a fix conflates diagnosis with treatment, and a disappearing symptom is not a confirmed cause.
 
-Keep at least one live competing hypothesis until an experiment distinguishes it from the leader. The first explanation that fits the evidence often names a local participant while missing the more general mechanism that made its behaviour dangerous.
+Keep at least one live competing hypothesis until an experiment distinguishes it from the leader. The first explanation that fits the evidence often names a local participant while missing the more general mechanism that made its behavior dangerous.
 
 ---
 
@@ -67,7 +67,7 @@ Before declaring the cause proven, distinguish:
 
 Do not stop at a statement whose subject is only the component first observed. Remove incident-specific names and ask whether the causal claim still identifies a checkable mechanism. If it does not, the diagnosis may explain this occurrence without yet providing a sound seed for the defect class.
 
-Causal proof and scope proof are different: the forward/backward experiment proves why this incident happens; the cure workflow must still enumerate everywhere the generative mechanism exists or could be reintroduced. Preserve that distinction in the handoff.
+Causal Proof and scope Proof are different: the forward/backward experiment proves why this incident happens; the cure workflow must still enumerate everywhere the generative mechanism exists or could be reintroduced. Preserve that distinction in the handoff.
 
 ---
 

@@ -22,7 +22,7 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 ### A generated or local discern artifact was force-added
 
-**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized Skills, or machine-local provider state.
+**Symptom.** `discern status` warns that discern-managed ignored artifacts are tracked by Git, or `discern done` stops before running jobs with `failed_stage: "tracked_artifacts"`. The named files are usually agent files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), materialized skills, or machine-local provider state.
 
 **Cause.** The file matches the discern-owned `.gitignore` block, but someone used `git add -f` or otherwise forced it into the index. The reviewable source lives elsewhere — the instruction source, `[skills].dir`, or provider config — and the generated or local artifact stays untracked even when its bytes are current.
 
@@ -116,7 +116,7 @@ evidence = 'failed \(exit 127\)'
 
 ### The gate skips a step you expected it to run (scope detection)
 
-**Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a Map-only change runs almost nothing.
+**Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a map-only change runs almost nothing.
 
 **Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs _more_ gates, never fewer.
 

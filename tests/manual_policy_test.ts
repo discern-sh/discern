@@ -23,6 +23,7 @@ import {
 import { addsOrReplacesFrontDoor } from "../scripts/manual_front_door_checkpoint.ts";
 import { countManualFrontDoors } from "../scripts/manual_front_doors.ts";
 import { discoverDocs } from "../src/lib/docs.ts";
+import { fencedCommandFindings } from "../src/lib/map_integrity.ts";
 import { SEARCH_KIND_WEIGHT } from "../src/lib/docs_search.js";
 import {
   buildManualProjection,
@@ -39,6 +40,7 @@ import {
   MANUAL_KINDS,
 } from "../src/shared/manual.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 /** Load the repository manual through its canonical strict policy. */
 async function repositoryManual(): Promise<ManualProjection> {
@@ -49,6 +51,39 @@ async function repositoryManual(): Promise<ManualProjection> {
   assert(tree !== undefined);
   return await buildManualProjection(tree.entries);
 }
+
+Deno.test("every fenced discern command follows the live CLI model", async () => {
+  const manual = await repositoryManual();
+  const findings = [];
+  for (const page of manual.pages) {
+    const text = await Deno.readTextFile(page.entry.absPath);
+    findings.push(
+      ...fencedCommandFindings(
+        page.entry.relToDocs,
+        text,
+        TEST_CLI_MODEL(),
+        new Set(),
+      ),
+    );
+  }
+  assertEquals(
+    findings.map((finding) =>
+      `${finding.file}:${finding.line} ${finding.detail}`
+    ),
+    [],
+  );
+});
+
+Deno.test("the manual fence guard rejects an unknown live option", () => {
+  const findings = fencedCommandFindings(
+    "fixture.md",
+    "```sh\ndiscern done --no-such-option\n```\n",
+    TEST_CLI_MODEL(),
+    new Set(),
+  );
+  assertEquals(findings.length, 1);
+  assertStringIncludes(findings[0]?.detail ?? "", "--no-such-option");
+});
 
 Deno.test("manual kind policy is closed and every member owns one checkpoint", async () => {
   assertEquals(

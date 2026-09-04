@@ -12,11 +12,11 @@ aliases:
 
 _Add a named `SKILL.md` under `[skills].dir`, then refresh to make it available to every configured agent._
 
-Installed projects default to `discern/skills`; this repository points the same source at `project/skills/`. The project owns this path. Commit authored Skills and edit them in place.
+Installed projects default to `discern/skills`; this repository points the same source at `project/skills/`. The project owns this path. Commit authored skills and edit them in place.
 
 ## Create the Skill directory
 
-Create one directory for each procedure. The directory name is the Skill's identity.
+Create one directory for each procedure. The directory name is the skill's identity.
 
 ```text
 discern/skills/
@@ -24,9 +24,9 @@ discern/skills/
     └── SKILL.md
 ```
 
-Open `SKILL.md` with `name` and `description` frontmatter, with `name` matching the directory. Write one description sentence that states what the Skill does and when it applies.
+Open `SKILL.md` with `name` and `description` frontmatter, with `name` matching the directory. Write one description sentence that states what the skill does and when it applies.
 
-The block uses YAML. The `discern done` Gate checks every effective Skill: the block must parse, `name` and `description` must be non-empty strings, and `name` must use lowercase letters, digits, and hyphens. Quote a value containing `:`.
+The block uses YAML. The `discern done` Gate checks every effective skill: the block must parse, `name` and `description` must be non-empty strings, and `name` must use lowercase letters, digits, and hyphens. Quote a value containing `:`.
 
 ```markdown
 ---
@@ -52,7 +52,7 @@ discern refresh
 discern skills list
 ```
 
-`refresh` links each authored Skill into every configured agent's Skills directory; the listing reports it as `yours`.
+`refresh` links each authored skill into every configured agent's skills directory; the listing reports it as `yours`.
 
 ## Current state & gotchas
 

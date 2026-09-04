@@ -57,7 +57,7 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   {
     key: "epoch-pin-trajectory",
     phrase:
-      "configuration-change attribution and each Standard's limit history",
+      "configuration-change attribution and each standard's limit history",
     surface: "`discern patterns` trajectory findings",
     readers: ["src/engine/logbook/patterns.ts"],
   },
@@ -93,7 +93,7 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   {
     key: "doctor-storage-checks",
     phrase: "Logbook storage checks in `discern doctor`",
-    surface: "the Logbook check in `discern doctor`",
+    surface: "the logbook check in `discern doctor`",
     readers: ["src/commands/doctor.ts"],
   },
 ];

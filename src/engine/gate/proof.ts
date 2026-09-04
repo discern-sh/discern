@@ -364,7 +364,7 @@ export async function recordGateOutcome(
   const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
     return proofRecord("unavailable", {
-      reason: "could not resolve the gate proof path",
+      reason: "could not resolve the gate Proof path",
     });
   }
 
@@ -605,7 +605,7 @@ export async function inspectGateProof(
   if (path === undefined) {
     return {
       status: "unavailable",
-      reason: "could not resolve the gate proof path",
+      reason: "could not resolve the gate Proof path",
     };
   }
   let content: string;
@@ -677,7 +677,7 @@ export async function inspectGateProof(
       ...proofDrops,
       policyCheckpointDrop(
         "declaration_evidence_unavailable",
-        "the Gate Proof carries no checkpoint declaration evidence identity; a fresh Gate is required before reuse",
+        "the gate Proof carries no checkpoint declaration evidence identity; a fresh gate is required before reuse",
         proofData.checkpoints?.policy,
       ),
     ]);
@@ -698,7 +698,7 @@ export async function inspectGateProof(
         recorded,
         head,
         reason:
-          "the checkpoint declarations changed since this proof was recorded",
+          "the checkpoint declarations changed since this Proof was recorded",
       };
     }
     if (evidenceNow.status === "unavailable") {
@@ -1093,7 +1093,7 @@ function parseFreshStandardMeasurementEvidence(
     return decodeJson(
       FreshStandardMeasurementEvidenceSchema,
       raw,
-      "fresh Standard measurement evidence",
+      "fresh standard measurement evidence",
     );
   } catch {
     // discern-best-effort: proof-fresh-standard-evidence-decode-fallback

@@ -853,7 +853,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
     state: defaultState(
       result,
       unproven
-        ? "discern setup was recorded without Gate Proof."
+        ? "discern setup was recorded without gate Proof."
         : "discern setup is complete.",
     ),
     evidence: unique([
@@ -1468,7 +1468,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
           : `Measured ${plural(standards.length, "standard")}.`
         : `${
           text(proposalResult?.status) ?? "Recorded"
-        } the proposed limit for ${code(proposalName ?? "a Standard")}.`,
+        } the proposed limit for ${code(proposalName ?? "a standard")}.`,
     ),
     evidence: unique([
       proposal === undefined
@@ -1499,7 +1499,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         : undefined,
     ]),
     boundary: proposal === undefined ? [] : [
-      "The Gate must remeasure this exact value. Landing requires explicit owner approval for this Standard/value/reason tuple; generic grants never cover it.",
+      "The Gate must remeasure this exact value. Landing requires explicit owner approval for this standard/value/reason tuple; generic grants never cover it.",
     ],
   };
 };

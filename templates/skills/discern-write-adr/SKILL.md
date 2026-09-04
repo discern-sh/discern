@@ -10,7 +10,7 @@ metadata:
 
 An Architecture Decision Record captures a significant decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder _"why on earth was it done this way?"_
 
-The project's ADRs live in the configured Map, at `{{map_dir}}_adr/`. **The canonical format lives in `{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not restate the format — it walks you through _applying_ it. There is one home for "how we write ADRs", and that's the README; this skill points there on purpose.
+The project's ADRs live in the configured map, at `{{map_dir}}_adr/`. **The canonical format lives in `{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not restate the format — it walks you through _applying_ it. There is one home for "how we write ADRs", and that's the README; this skill points there on purpose.
 
 ---
 
@@ -18,7 +18,7 @@ The project's ADRs live in the configured Map, at `{{map_dir}}_adr/`. **The cano
 
 ADRs live in `{{map_dir}}_adr/`. If that directory does not exist, copy this skill's `skeleton/map/_adr/` directory there before writing. The skeleton contains the canonical `README.md` format guide, `0000-template.md`, and the seeded adoption record `0001-adopt-discern.md`.
 
-Complete the seeded record before the ADR you came to write. Replace its `setup fills this` markers with the project's reason for adopting discern, the jobs its Gate runs, and project-specific consequences. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material. If the ADR directory already exists, skip this step.
+Complete the seeded record before the ADR you came to write. Replace its `setup fills this` markers with the project's reason for adopting discern, the jobs its gate runs, and project-specific consequences. Keep the provenance sentence. It identifies discern as the source of the seed and the configuring agent as the writer of its project-specific material. If the ADR directory already exists, skip this step.
 
 ---
 
@@ -55,7 +55,7 @@ Copy `{{map_dir}}_adr/0000-template.md` to `{{map_dir}}_adr/NNNN-slug.md` and fi
 - **Consequences** — what follows, good and bad. Be honest about the costs.
 - **Alternatives considered** — only if the rejection is non-obvious; otherwise drop the heading.
 
-Keep it as short as the decision allows — a paragraph that names the decision and why beats an over-filled form. Write in the same present-tense, no-marketing voice as the rest of the configured Map.
+Keep it as short as the decision allows — a paragraph that names the decision and why beats an over-filled form. Write in the same present-tense, no-marketing voice as the rest of the configured map.
 
 ---
 
@@ -64,9 +64,9 @@ Keep it as short as the decision allows — a paragraph that names the decision 
 An ADR nobody can find from the code it governs is half-wasted. After writing:
 
 - If it **overrides or grounds a design principle**, link it from that principle in `{{map_dir}}00-orientation/design-principles.md`.
-- If it explains a subsystem's behaviour, link it from that subtree's doc.
+- If it explains a subsystem's behavior, link it from that subtree's doc.
 - If it **supersedes** an earlier ADR, set the older one's status to `superseded by ADR-NNNN` and link forward — leave the old file in place as the record of what was once true.
-- If the decision changes something the Map describes, update those pages too (the Map says what _is_; the ADR says _why_).
+- If the decision changes something the map describes, update those pages too (the map says what _is_; the ADR says _why_).
 - Run `discern refresh`. When `{{map_dir}}_adr/README.md` carries the maintained-index markers, refresh rewrites the record list between them to include the new record — commit the rewritten README with the record. Never edit the list by hand; the gate refuses an index that has drifted from the files.
 
 ---

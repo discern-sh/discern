@@ -113,7 +113,7 @@ export const CONFIG_PROSE = {
   repository: {
     what: "Policy every checkout of this repository shares.",
     why:
-      "The trunk is where accepted work lands and where the Gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.",
+      "The trunk is where accepted work lands and where the gate compares from. Branch naming and convergence commands keep the main checkout and every linked worktree usable after their tracked tree changes.",
     keys: {
       proof_notes: {
         detail: [
@@ -144,7 +144,7 @@ export const CONFIG_PROSE = {
     ],
   },
   jobs: {
-    what: "The commands the Gate runs, in one namespace.",
+    what: "The commands the gate runs, in one namespace.",
     why:
       "A known name derives its stage; a custom `[jobs.<name>]` table declares one. `discern done` runs the fix stage, then build, then check and test in parallel, and reports what each command returned, so done means the project's own bar was met.",
     detail: [
@@ -180,7 +180,7 @@ provides = "license-audit"`,
   setup: {
     what: "Known jobs that do not apply to this project.",
     why:
-      "Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the Gate's schedule still comes from [jobs].",
+      "Setup measures how many applicable known jobs are wired. A lifecycle the project does not have is declared here, so the measure counts what exists; the gate's schedule still comes from [jobs].",
     detail: [
       "  discern config set-job build --not-applicable   declare one",
       "  discern config set-job build --applicable       restore it",
@@ -189,7 +189,7 @@ provides = "license-audit"`,
   scopes: {
     what: "Named regions of the repository.",
     why:
-      "A change inside a scope can skip the Gate, run its own gate, or offer a preview. A path that matches no scope counts as code and runs every stage.",
+      "A change inside a scope can skip the gate, run its own gate, or offer a preview. A path that matches no scope counts as code and runs every stage.",
     seeds: [
       {
         comment:
@@ -319,7 +319,7 @@ run       = "your-linter --count"  # DISCERN_METRIC warnings <count>`,
   checkpoints: {
     what: "Change-triggered review rules.",
     why:
-      "A deterministic trigger decides when a change makes a question relevant; the agent answers the question and the answer travels with the Proof. The configuration at an effort's merge-base governs, so editing these tables on a branch never changes that branch's own Gate.",
+      "A deterministic trigger decides when a change makes a question relevant; the agent answers the question and the answer travels with the Proof. The configuration at an effort's merge-base governs, so editing these tables on a branch never changes that branch's own gate.",
     detail: [
       "Naming a shipped checkpoint enables it with its built-in trigger, mode,",
       "and question; a field set beneath it overrides the built-in. Delete or",
@@ -378,7 +378,7 @@ revisit.
   gate: {
     what: "How `discern done` runs its parallel stages.",
     why:
-      "Fail-fast, a per-command time budget, and a cap on concurrent test runs keep the Gate fast for one agent and fair across a fleet of worktrees sharing one machine.",
+      "Fail-fast, a per-command time budget, and a cap on concurrent test runs keep the gate fast for one agent and fair across a fleet of worktrees sharing one machine.",
   },
   coupling: {
     what: "Co-change detection from git history.",
@@ -391,7 +391,7 @@ revisit.
       "`discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.",
   },
   meta: {
-    what: "Installer bookkeeping.",
+    what: "installer bookkeeping.",
     why:
       "discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.",
     keys: Object.fromEntries(

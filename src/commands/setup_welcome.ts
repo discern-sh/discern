@@ -123,10 +123,10 @@ const FRESH_AGENT_INSTRUCTIONS =
 
 const FRESH_OWNER_WELCOME = [
   "Welcome. This one-time setup gives future coding sessions a dependable way to understand, change, and check this project.",
-  "The selected agent studies the repository, preserves its workflows, sets up the final quality check (the Gate) and separate working copies for tasks, then writes the maintained project guide and shared agent instructions.",
+  "The selected agent studies the repository, preserves its workflows, sets up the final quality check (the gate) and separate working copies for tasks, then writes the maintained project guide and shared agent instructions.",
   "Expect roughly 20–40 minutes and a meaningful number of tokens, prepared as small commits on a separate reviewable branch. You decide cost, access, durable data, new dependencies, exceptions, and landing.",
   `${SETUP_REVERSIBILITY.welcome} ${SETUP_REVERSIBILITY.uninstall}`,
-  "The footprint is the root `discern.toml`, one visible `discern/` folder, managed `.gitignore` and `.gitattributes` blocks, the Agent file compiled from authored instructions, and the selected coding tools' local integration files. Provider skill directories stay generated and Git-ignored. No API key or outside service is required.",
+  "The footprint is the root `discern.toml`, one visible `discern/` folder, managed `.gitignore` and `.gitattributes` blocks, the agent file compiled from authored instructions, and the selected coding tools' local integration files. Provider skill directories stay generated and Git-ignored. No API key or outside service is required.",
   "Because future sessions inherit this work, use your strongest suitable reasoning model. Switch with the tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the preflight are read-only.",
 ] as const;
 
@@ -148,7 +148,7 @@ const ABANDONED_AGENT_INSTRUCTIONS =
   `Setup is already in progress on the \`${SETUP_BRANCH}\` branch. Resume it with \`discern setup begin --confirmed\`; discern checks out that branch and reprints the current brief without replaying completed scaffold writes. Continue it, then run \`discern setup done\` to finish.`;
 
 const UNPROVEN_AGENT_INSTRUCTIONS =
-  "Setup was recorded as unproven, so it cannot be accepted or activated yet. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to replace the persisted state with proven Gate evidence.";
+  "Setup was recorded as unproven, so it cannot be accepted or activated yet. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to replace the persisted state with proven gate evidence.";
 
 /**
  * Render the welcome for the cwd's project, resolving its lifecycle phase from config

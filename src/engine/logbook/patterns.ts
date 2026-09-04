@@ -153,7 +153,7 @@ function noRepository(verb: string): DiscernResult<never> {
     verb,
     error: "no_repository",
     message:
-      "this directory isn't inside a git repository, so it has no Logbook to read. " +
+      "this directory isn't inside a git repository, so it has no logbook to read. " +
       "Run discern from the project's checkout.",
   };
 }
@@ -200,7 +200,7 @@ async function readSelectedArchive(
   ) {
     throw new ArchiveSelectionError(
       "invalid_arguments",
-      "--logbook-file accepts one sealed archive basename from `discern patterns archives`; paths and active Logbook names are not allowed.",
+      "--logbook-file accepts one sealed archive basename from `discern patterns archives`; paths and active logbook names are not allowed.",
     );
   }
   const path = join(logbookArchiveDir(commonGitDir), filename);
@@ -211,12 +211,12 @@ async function readSelectedArchive(
     if (error instanceof Deno.errors.NotFound) {
       throw new ArchiveSelectionError(
         "not_found",
-        `No sealed Logbook archive named ${filename} exists. Run \`discern patterns archives\` to list valid filenames.`,
+        `No sealed logbook archive named ${filename} exists. Run \`discern patterns archives\` to list valid filenames.`,
       );
     }
     throw new ArchiveSelectionError(
       "read_error",
-      `Could not inspect sealed Logbook archive ${filename}: ${
+      `Could not inspect sealed logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error },
@@ -225,7 +225,7 @@ async function readSelectedArchive(
   if (!info.isFile || info.isSymlink) {
     throw new ArchiveSelectionError(
       "invalid_arguments",
-      `${filename} is not a regular sealed Logbook archive file.`,
+      `${filename} is not a regular sealed logbook archive file.`,
     );
   }
   try {
@@ -233,7 +233,7 @@ async function readSelectedArchive(
   } catch (error) {
     throw new ArchiveSelectionError(
       "read_error",
-      `Could not read sealed Logbook archive ${filename}: ${
+      `Could not read sealed logbook archive ${filename}: ${
         error instanceof Error ? error.message : String(error)
       }`,
       { cause: error },
@@ -768,7 +768,7 @@ function renderClosingAccount(
     presenter.present(renderResultSummaryCli, {
       state: "unchanged",
       fact: terminalMultiline([
-        "The report is advisory and does not change the Gate.",
+        "The report is advisory and does not change the gate.",
         ...(quiet.length === 0 ? [] : [
           `No finding (${quiet.length}): ${
             quiet.map((detector) => detector.title).join(" · ")
@@ -867,7 +867,7 @@ export const STATS_EMPTY_DESCRIPTION =
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
 export const STATS_PROVENANCE =
-  "Counted from this repository's local Logbook. Nothing leaves the machine.";
+  "Counted from this repository's local logbook. Nothing leaves the machine.";
 
 /** Section labels for the stats card, in render order. */
 export const STATS_SECTIONS = {
@@ -1044,7 +1044,7 @@ function statsGateRows(gate: PatternsStats["gate"]): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${plural(reds, "red run")} stopped at the Gate`,
+      `${plural(reds, "red run")} stopped at the gate`,
     );
   }
   const tail: string[] = [];
@@ -1112,7 +1112,7 @@ function statsValidationWorkflowRows(
         formatHumanNumber(route.successful_runs)
       } ok / ${formatHumanNumber(route.failed_runs)} failed runs · ${
         formatHumanNumber(route.successful_cycles)
-      } reached a clean Gate / ${
+      } reached a clean gate / ${
         formatHumanNumber(route.failed_cycles)
       } had a failure · ${plural(route.retried_cycles, "retried cycle")} / ${
         plural(route.retry_runs, "retry run")
@@ -1124,7 +1124,7 @@ function statsValidationWorkflowRows(
     route.route === "test-first"
   );
   rows.push(
-    `pre-commit validation → clean Gate: ${
+    `pre-commit validation → clean gate: ${
       formatHumanNumber(precommit.cycles)
     } of ${plural(testFirst?.cycles ?? 0, "test-first cycle")} across ${
       plural(precommit.branches, "branch", "branches")
@@ -1169,7 +1169,7 @@ function statsValidationWorkflowRows(
           formatHumanNumber(identity.test_first_cycles)
         } · commit-first ${
           formatHumanNumber(identity.commit_first_cycles)
-        } · clean Gate ${
+        } · clean gate ${
           formatHumanNumber(identity.successful_cycles)
         } · failed ${formatHumanNumber(identity.failed_cycles)} · retried ${
           formatHumanNumber(identity.retried_cycles)
@@ -1286,7 +1286,7 @@ function statsStandardsRows(
     rows.push(
       `${plural(standards.pins, "limit")} tightened across ${
         plural(standards.standards, "standard")
-      }. Loosening fails the Gate.`,
+      }. Loosening fails the gate.`,
     );
   }
   const improved = standards.most_improved;
@@ -1956,7 +1956,7 @@ function inFlightRefusal<T>(
     verb,
     error: "precondition_failed",
     message:
-      `Cannot replace the active Logbook while ${active.verb} on ${branch} remains in flight (started ${active.started}). ` +
+      `Cannot replace the active logbook while ${active.verb} on ${branch} remains in flight (started ${active.started}). ` +
       `Wait for that invocation to finish, then re-run \`${verb}\`. If it already stopped, \`discern status --all\` shows when the unmatched start ages out.`,
     data,
   };
@@ -2029,7 +2029,7 @@ export async function patternsResetResult(
       ok: false,
       verb: "patterns reset",
       error: "read_error",
-      message: `Could not inspect the active Logbook: ${
+      message: `Could not inspect the active logbook: ${
         error instanceof Error ? error.message : String(error)
       }`,
     };
@@ -2066,7 +2066,7 @@ export async function patternsSealResult(
       ok: false,
       verb: "patterns seal",
       error: "read_error",
-      message: `Could not inspect the active Logbook: ${
+      message: `Could not inspect the active logbook: ${
         error instanceof Error ? error.message : String(error)
       }`,
     };
@@ -2089,7 +2089,7 @@ function changedDuringConfirmation<T>(
     verb,
     error: "precondition_failed",
     message:
-      `The active Logbook changed while confirmation was open. Nothing was detached; re-run \`${verb}\` to review the current scope.`,
+      `The active logbook changed while confirmation was open. Nothing was detached; re-run \`${verb}\` to review the current scope.`,
     data,
   };
 }
@@ -2188,14 +2188,14 @@ async function applyReset(
         ...(resetHints.length > 0 ? { hints: hintTexts(resetHints) } : {}),
       };
       const code = presentLifecycleResult("reset", result, false, out);
-      out.raw("Removed the active Logbook permanently.\n");
+      out.raw("Removed the active logbook permanently.\n");
       return code;
     });
   } catch (error) {
     if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
-      : `Could not apply the Logbook reset: ${
+      : `Could not apply the logbook reset: ${
         error instanceof Error ? error.message : String(error)
       }`;
     return presentLifecycleResult(
@@ -2251,7 +2251,7 @@ async function applySeal(
         lifecycleSpan(reviewedData)
       } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
         formatHumanNumber(reviewedData.source_bytes)
-      } bytes, as ${filename} and begin a fresh active Logbook? Recording restarts with the next eligible command when enabled.`,
+      } bytes, as ${filename} and begin a fresh active logbook? Recording restarts with the next eligible command when enabled.`,
       { noLabel: "Keep", yesLabel: "Seal" },
       confirm,
     );
@@ -2336,7 +2336,7 @@ async function applySeal(
     if (error instanceof LifecycleConfirmationFault) throw error.fault;
     const message = error instanceof LogbookLifecycleBusyError
       ? error.message
-      : `Could not apply the Logbook archive: ${
+      : `Could not apply the logbook archive: ${
         error instanceof Error ? error.message : String(error)
       }`;
     return presentLifecycleResult(
@@ -2496,7 +2496,7 @@ export async function patternsArchivesResult(
       ok: false,
       verb: "patterns archives",
       error: "read_error",
-      message: `Could not list sealed Logbook archives: ${
+      message: `Could not list sealed logbook archives: ${
         error instanceof Error ? error.message : String(error)
       }`,
     };

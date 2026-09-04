@@ -78,4 +78,4 @@ Do not add a filename directly to `done`, `status`, or acceptance. Those surface
 
 ## Adding operational agent copy
 
-Add the normal Skill or setup source; the universe enrolls it. State facts in prose, bind classification and evidence in `AGENT_SURFACE_CONTRACTS`, generate voices through `scripts/brand/voice.ts`, then run `discern refresh`. Classification and relay completeness remain semantic review ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
+Add the normal skill or setup source; the universe enrolls it. State facts in prose, bind classification and evidence in `AGENT_SURFACE_CONTRACTS`, generate voices through `scripts/brand/voice.ts`, then run `discern refresh`. Classification and relay completeness remain semantic review ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).

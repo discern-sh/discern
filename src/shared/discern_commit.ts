@@ -647,7 +647,7 @@ export async function commitDiscernChanges(
     ) {
       return refusedCommit(
         options.site,
-        "staged proof changed before Git ran; refusing the commit",
+        "staged Proof changed before Git ran; refusing the commit",
       );
     }
     proof = {
@@ -740,7 +740,7 @@ export async function commitDiscernChanges(
       code: 2,
       stdout: commit.stdout,
       stderr:
-        `discern-authored commit site '${options.site.id}' saw Git report a successful commit but could not identify that exact commit. Discern did not guess at a rollback; inspect the branch before continuing`,
+        `discern-authored commit site '${options.site.id}' saw Git report a successful commit but could not identify that exact commit. discern did not guess at a rollback; inspect the branch before continuing`,
     };
   }
   const object = await authoredCommitObject(options.cwd, committedHead);
@@ -750,7 +750,7 @@ export async function commitDiscernChanges(
       code: 2,
       stdout: commit.stdout,
       stderr:
-        `discern-authored commit site '${options.site.id}' saw Git report a successful commit but could not inspect that exact commit. Discern did not guess at a rollback; inspect the branch before continuing`,
+        `discern-authored commit site '${options.site.id}' saw Git report a successful commit but could not inspect that exact commit. discern did not guess at a rollback; inspect the branch before continuing`,
     };
   }
   const expectedParents = proof.head === null ? [] : [proof.head];

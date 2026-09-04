@@ -35,9 +35,9 @@ If a change you are about to make violates one of these, treat that as a signal 
 
 > This is a placeholder principle, here only to show the shape. `discern setup` replaces it with principles drawn from this project's brief. It is deliberately generic — do not keep it as-is.
 
-Every fact in the system — a piece of configuration, a documented convention, a unit of behaviour — lives in exactly one authoritative place. Where a second copy must exist, it is _generated_ from the source, marked as generated, and never hand-edited.
+Every fact in the system — a piece of configuration, a documented convention, a unit of behavior — lives in exactly one authoritative place. Where a second copy must exist, it is _generated_ from the source, marked as generated, and never hand-edited.
 
-**Why it matters.** Duplicated facts drift, and drift is silent until something breaks: a reader follows a stale doc, two copies of one behaviour diverge with every fix that lands in only one of them. With one source per fact, consistency is a property of the system rather than of human vigilance.
+**Why it matters.** Duplicated facts drift, and drift is silent until something breaks: a reader follows a stale doc, two copies of one behavior diverge with every fix that lands in only one of them. With one source per fact, consistency is a property of the system rather than of human vigilance.
 
 **How it shows up.** _(A real principle names concrete places: which file owns which fact, which artifacts are generated and from what, where the build regenerates rather than trusts a checked-in copy.)_
 
@@ -47,6 +47,6 @@ Every fact in the system — a piece of configuration, a documented convention, 
 
 <!-- setup fills this -->
 
-_(Once the principles exist, summarise how they reinforce each other — the few sentences that explain why this particular set, taken together, produces the system's character. Principles are rarely independent; this is where you show the reader how they interlock.)_
+_(Once the principles exist, summarize how they reinforce each other — the few sentences that explain why this particular set, taken together, produces the system's character. Principles are rarely independent; this is where you show the reader how they interlock.)_
 
 When you propose a change that violates one of these principles, that is a signal to question the change — not the principle. If you have a genuinely good reason to override one, write an ADR (see [`../_adr/`](../_adr/)).

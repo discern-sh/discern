@@ -176,7 +176,7 @@ function checkStatus(check: DraftCheck): Check["status"] {
   return check.status ?? (!check.ok ? "fail" : check.warn ? "warn" : "ok");
 }
 
-/** Derive status and legacy compatibility fields for one doctor diagnostic. */
+/** Derive status and compatibility fields for one doctor diagnostic. */
 function normalizeCheck(check: DraftCheck): Check {
   const status = checkStatus(check);
   return {
@@ -231,7 +231,7 @@ async function logbookCheck(
   const authority = await preflightPlannedWrites([{
     kind: "directory-tree",
     path: dir,
-    description: "the advisory Logbook store",
+    description: "the advisory logbook store",
   }]);
   if (!authority.ok) {
     disableLogbookWritesForSession();
@@ -240,7 +240,7 @@ async function logbookCheck(
       ok: true,
       status: "warn",
       detail:
-        `recording is configured, but the environment refused this invocation's Logbook write probe; recording is disabled for this session (${
+        `recording is configured, but the environment refused this invocation's logbook write probe; recording is disabled for this session (${
           writePreflightFailureMessage(authority)
         })`,
       fix: `authorize this command to write ${authority.path}, then retry once`,

@@ -464,8 +464,8 @@ function notYetSummary(
     const status = observed.proof_status;
     const detail = status === "no-worktree"
       ? "no checkout holds it"
-      : `proof ${status ?? "unreadable"}`;
-    return `\`${branch}\` has no valid proof yet (${detail})`;
+      : `Proof ${status ?? "unreadable"}`;
+    return `\`${branch}\` has no valid Proof yet (${detail})`;
   }
   if (condition === "landed") {
     return `the work from \`${branch}\` has not reached \`${trunk}\` yet`;
@@ -713,7 +713,7 @@ export async function awaitResult(
       return refusal(
         "not_found",
         `No checkout holds branch \`${branch}\` — its worktree was reclaimed ` +
-          `or removed, and a gate proof can only be recorded inside one, so ` +
+          `or removed, and a gate Proof can only be recorded inside one, so ` +
           `\`--green ${branch}\` can never be met.`,
         hintTexts([
           fire(HINTS["await-green-no-worktree"], {

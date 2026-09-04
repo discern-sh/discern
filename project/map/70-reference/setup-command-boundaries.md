@@ -14,7 +14,7 @@ _Setup keeps consent, provider authority, landing authority, and observed write 
 
 ## Authority is specific
 
-Owner consent authorizes the setup act, provider authorization controls process access, and a landing grant covers trunk advancement. Each effectful command still performs a point-in-time write preflight; success cannot grant or persist provider authority. A denied Logbook write remains advisory.
+Owner consent authorizes the setup act, provider authorization controls process access, and a landing grant covers trunk advancement. Each effectful command still performs a point-in-time write preflight; success cannot grant or persist provider authority. A denied logbook write remains advisory.
 
 Before consent, setup recommends the strongest suitable model and records the executing agent's self-declared identifier, or `unreported`. The owner may continue or switch through the provider's model selector; [Setup decisions](../10-getting-started/setup-decisions.md) explains that boundary.
 
@@ -42,4 +42,4 @@ After `setup accept`, each provider gets one fresh-session instruction. Inspect 
 
 Acceptance is idempotent where no landing applies. A project without a Git repository and a checkout already on the trunk both return `ok: true` with typed `data.completion.status = "no_op"`; `data.completion.reason` distinguishes the two states. An absent landing payload is not a no-op signal.
 
-For a truncated result, repeat `setup done` on the unchanged clean marker: it returns the same Proof, inventory, and landing facts with `data.completion = "replayed"` and no effects or Gate. Missing or stale Proof validates that commit; dirty state retains existing evidence and refuses ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
+For a truncated result, repeat `setup done` on the unchanged clean marker: it returns the same Proof, inventory, and landing facts with `data.completion = "replayed"` and no effects or gate. Missing or stale Proof validates that commit; dirty state retains existing evidence and refuses ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).

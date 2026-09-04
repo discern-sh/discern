@@ -22,7 +22,7 @@ aliases:
 
 Use this guide when every future coding-agent session must inherit a durable project rule. Author the rule once in the configured instruction source, compile every selected provider surface, and commit source and outputs together.
 
-Instructions are always-loaded policy. A multi-step method belongs in a Skill, a judgment tied to a narrow change belongs in a Checkpoint, and a fact already enforced by code does not need a second prose authority.
+Instructions are always-loaded policy. A multi-step method belongs in a skill, a judgment tied to a narrow change belongs in a checkpoint, and a fact already enforced by code does not need a second prose authority.
 
 ## Starting state
 
@@ -42,7 +42,7 @@ sources = ["discern/instructions.md", "docs/agent-policy/*.md"]
 
 Source order is declared order, with each glob resolved deterministically. discern's built-in operating instructions are prepended. Project sources extend them; they do not replace them.
 
-Do not edit `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or materialized provider files directly. They are generated outputs and the Gate rejects drift from their sources.
+Do not edit `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or materialized provider files directly. They are generated outputs and the gate rejects drift from their sources.
 
 ## 2. Write one rule for every selected provider
 
@@ -51,7 +51,7 @@ Do not edit `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or materialized provider file
 Keep always-loaded prose scarce:
 
 - Put commands, flags, and exhaustive file lists in a Reference page.
-- Put a repeatable procedure in a Skill and leave at most a short instruction pointing to it.
+- Put a repeatable procedure in a skill and leave at most a short instruction pointing to it.
 - Put a hard-to-reverse decision and its rationale in an ADR, with the instruction carrying only the standing rule.
 - Update an existing authority instead of adding the same fact to another source.
 
@@ -65,7 +65,7 @@ Write for a future session with no memory of the conversation. Avoid provider UI
 discern refresh --dry-run
 ```
 
-The result lists every create, update, and removal across compiled instructions, materialized Skills, provider integration, and the maintained ADR index. Check that only the intended source-driven outputs will change.
+The result lists every create, update, and removal across compiled instructions, materialized skills, provider integration, and the maintained ADR index. Check that only the intended source-driven outputs will change.
 
 A refusal names an invalid source path, malformed provider configuration, or inaccessible target. Correct that authority and rerun the dry plan.
 
@@ -85,7 +85,7 @@ Inspect one compiled output for ordering and wording, then confirm the other out
 
 **Coding agent:** Run `discern prepare`. It refreshes instruction surfaces again and checks that the tree converges. Review any rewrite, then commit the authored source and every tracked generated change in the same logical commit.
 
-Run `discern done` on the clean commit. The Gate must leave no stale generated or integration artifact. Any edit after that run stales its Proof and requires another final Gate.
+Run `discern done` on the clean commit. The Gate must leave no stale generated or integration artifact. Any edit after that run stales its Proof and requires another final gate.
 
 ## 6. Confirm future sessions receive it
 
@@ -95,6 +95,6 @@ If the file is current but the session does not show the rule, restart the provi
 
 ## Completion
 
-The instruction change is complete when one authored source owns the rule, `discern refresh --dry-run` reports no pending change after compilation, source and tracked outputs are committed together, the full Gate passes, and a fresh configured provider reads the rule.
+The instruction change is complete when one authored source owns the rule, `discern refresh --dry-run` reports no pending change after compilation, source and tracked outputs are committed together, the full gate passes, and a fresh configured provider reads the rule.
 
-Read [Instructions, Skills, and the Map](../20-understand/instructions-skills-and-map.md) for placement choices, [Config reference](../30-reference/config-reference.md) for source syntax, and [Files and ownership](../30-reference/files-and-ownership.md) for generated boundaries.
+Read [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) for placement choices, [Config reference](../30-reference/config-reference.md) for source syntax, and [Files and ownership](../30-reference/files-and-ownership.md) for generated boundaries.

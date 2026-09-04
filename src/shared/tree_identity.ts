@@ -1,9 +1,9 @@
 /**
- * How two legacy/current consumers fingerprint recorded working state at two
+ * How earlier and current consumers fingerprint recorded working state at two
  * precisions:
  *
  * - {@link treeDiffFingerprint} — the POSIX cksum of `git diff HEAD` (tracked
- *   files only). The logbook stamps it into each legacy event's `tree` field.
+ *   files only). The logbook stamps it into each earlier event's `tree` field.
  *   It supports a deliberately weak tracked-start comparison; it is not a
  *   complete validation-input identity.
  * - {@link workingStateFingerprint} — the tracked diff PLUS every path

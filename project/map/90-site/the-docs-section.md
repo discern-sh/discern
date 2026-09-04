@@ -9,7 +9,7 @@ aliases:
 
 # The docs section
 
-`/docs` is the authored product manual. `/map` is a separate trust exhibit of the configured project Map. They share neutral discovery, Markdown, link, search-record, and rendering primitives, but each route family owns its admission, navigation, search scope, metadata, raw policy, and reader promise ([ADR 0314](../_adr/0314-separate-public-manual-and-project-map.md)).
+`/docs` is the authored product manual. `/map` is a separate trust exhibit of the configured project map. They share neutral discovery, Markdown, link, search-record, and rendering primitives, but each route family owns its admission, navigation, search scope, metadata, raw policy, and reader promise ([ADR 0314](../_adr/0314-separate-public-manual-and-project-map.md)).
 
 ## Authorities and route families
 
@@ -23,7 +23,7 @@ aliases:
 | `/map/index.json`                    | Every admitted Map page                                                      | Map-only local search.                                                                        |
 | `/docs/decisions` and its records    | Published `_adr/` records                                                    | Labelled project history.                                                                     |
 
-Every document route has a pristine `.md` edition and text-client negotiation. The sitemap derives from the same admitted route sets. `/llms.txt` and `/llms-full.txt` list the manual and exclude the Map; decisions remain outside ordinary manual search and navigation.
+Every document route has a pristine `.md` edition and text-client negotiation. The sitemap derives from the same admitted route sets. `/llms.txt` and `/llms-full.txt` list the manual and exclude the map; decisions remain outside ordinary manual search and navigation.
 
 ## The manual journey
 
@@ -39,21 +39,21 @@ The manual claims no pre-public address as historical. After publication, a move
 
 [`readerVisibleMarkdown`](../../../src/lib/markdown.ts) removes every HTML comment outside inline and fenced code before headings, body text, code terms, ranking, or snippets are derived. The predicate is syntax-based rather than marker-name-based. Authored and generated ownership comments therefore remain in raw Markdown and exports without leaking into the reading or search experience, while a literal `<!-- example -->` inside code remains visible and searchable.
 
-Each browser fetches its index once and searches locally. There is no query telemetry or persistence. Manual results target only `/docs`; Map results target only `/map`. Published/admitted inputs are selected before index construction, so snippets cannot expose withheld pages, protected Map material, frontmatter, or source-only comments.
+Each browser fetches its index once and searches locally. There is no query telemetry or persistence. Manual results target only `/docs`; Map results target only `/map`. Published/admitted inputs are selected before index construction, so snippets cannot expose withheld pages, protected map material, frontmatter, or source-only comments.
 
 ## The public Map exhibit
 
-The Map projection widens discovery first, then applies the canonical safe predicate. It admits the root README and every public document in a registered Map section, including intended contributor tiers. It rejects `_internal`, `_private`, `_adr`, any other underscore-prefixed protected directory, unregistered tiers, and `publish: false`.
+The Map projection widens discovery first, then applies the canonical safe predicate. It admits the root README and every public document in a registered map section, including intended contributor tiers. It rejects `_internal`, `_private`, `_adr`, any other underscore-prefixed protected directory, unregistered tiers, and `publish: false`.
 
-The exhibit has a rooted navigation tree, its own breadcrumbs and pager, unique metadata even when authored titles repeat, isolated search, pristine raw Markdown, sitemap enrollment, and corpus-specific empty/not-found responses. Its persistent label explains that discern is developed under its own practice, making the Map working evidence from internal use rather than independent validation. Every Map page points readers back to `/docs` for product documentation.
+The exhibit has a rooted navigation tree, its own breadcrumbs and pager, unique metadata even when authored titles repeat, isolated search, pristine raw Markdown, sitemap enrollment, and corpus-specific empty/not-found responses. Its persistent label explains that discern is developed under its own practice, making the map working evidence from internal use rather than independent validation. Every Map page points readers back to `/docs` for product documentation.
 
-The predicate follows [`MAP_SECTION_REGISTRY`](../../../src/lib/paths.ts) and [`isPublicDoc`](../../../src/lib/docs.ts); adding a safe page enrolls it automatically, and adding protected material creates a tested rejection. The site must never add a hand-picked Map page list.
+The predicate follows [`MAP_SECTION_REGISTRY`](../../../src/lib/paths.ts) and [`isPublicDoc`](../../../src/lib/docs.ts); adding a safe page enrolls it automatically, and adding protected material creates a tested rejection. The site must never add a hand-picked map page list.
 
 ## Rendering and resilience
 
 Markdown renders at request time and caches for the process lifetime. The shared renderer strips frontmatter and source-only comments for HTML, preserves code examples, rewrites links only within the active corpus, and keeps raw bytes untouched. Manual workflow markers project ordinary Markdown into browser semantics; the source remains complete without Cascading Style Sheets (CSS) or JavaScript.
 
-The manual and Map consume the design system's Docs bundle, including its Table component. Page composition owns layout, drawer, search, copy, and contents behavior. The server emits heading permalink groups and scroll-contained table wrappers in the initial document; JavaScript only adds behavior, so enhancement cannot rearrange prose after first paint. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
+The manual and map consume the design system's Docs bundle, including its Table component. Page composition owns layout, drawer, search, copy, and contents behavior. The server emits heading permalink groups and scroll-contained table wrappers in the initial document; JavaScript only adds behavior, so enhancement cannot rearrange prose after first paint. Without JavaScript, disclosure controls stay hidden and the full navigation remains in flow.
 
 Rooted navigation shows destination names without repeating each page's editorial kind, and its link hit areas form one contiguous vertical run. The contents rail derives ordinary section numbers, but when an authored procedure numbers its headings, those numbers remain authoritative and unnumbered framing sections stay unnumbered. Tables preserve words and useful column widths, then scroll inside the prose measure when their exact content needs more room.
 

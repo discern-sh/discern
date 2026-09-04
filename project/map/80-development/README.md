@@ -10,9 +10,9 @@ aliases:
 
 _How contributors set up the checkout, change code, run the checks, and prepare a release._
 
-This subtree documents local setup, the testing approach, the conventions the tooling enforces, and the recovery reference for a Gate failure whose immediate diagnostic needs more context. The Gate is the project's final quality check.
+This subtree documents local setup, the testing approach, the conventions the tooling enforces, and the recovery reference for a gate failure whose immediate diagnostic needs more context. The Gate is the project's final quality check.
 
-Contributors use the same `discern <verb>` commands as installed projects. In this repository, the local-development wrapper runs each command against the current checkout's Engine:
+Contributors use the same `discern <verb>` commands as installed projects. In this repository, the local-development wrapper runs each command against the current checkout's engine:
 
 - `start` provisions an isolated workspace for one task (a Git worktree). See the worktree rule in the project instructions.
 - `prepare` is the fast inner loop. It applies fix-stage work, regenerates declared artifacts, completes refresh convergence, then runs check-stage work. Other build jobs and tests stay omitted.

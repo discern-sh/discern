@@ -4,7 +4,7 @@ Read [`documenter-agent-brief.md`](../documenter-agent-brief.md) first.
 
 ## What this subtree documents
 
-This subtree documents the public Worktree workflow: isolation, identity, resources, Fleet coordination, Landing authority, and the path from task start to accepted cleanup. Gate internals belong in `20-quality-gate`; exact command and result contracts belong in `70-reference`.
+This subtree documents the public worktree workflow: isolation, identity, resources, Fleet coordination, Landing authority, and the path from task start to accepted cleanup. Gate internals belong in `20-quality-gate`; exact command and result contracts belong in `70-reference`.
 
 ## Files to produce
 

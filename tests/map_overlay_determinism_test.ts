@@ -52,8 +52,18 @@ const PUBLIC_SECTION =
 
 /** The fixture glossary: Widget is used by the baseline, Sprocket is dead. */
 const GLOSSARY_FIXTURE = [
-  { term: "Widget", plain: { phrase: "widget" }, definition: "A part." },
-  { term: "Sprocket", plain: { phrase: "sprocket" }, definition: "A gear." },
+  {
+    term: "Widget",
+    runningCase: "lowercase",
+    plain: { phrase: "widget" },
+    definition: "A part.",
+  },
+  {
+    term: "Sprocket",
+    runningCase: "lowercase",
+    plain: { phrase: "sprocket" },
+    definition: "A gear.",
+  },
 ] as const satisfies readonly GlossaryEntry[];
 
 /**

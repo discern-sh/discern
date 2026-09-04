@@ -12,7 +12,7 @@ aliases:
 
 _Every direct child-process constructor has one declared boundary._
 
-[`subprocess.ts`](../../../src/shared/subprocess.ts) owns ordinary Git and buffered shell execution, including safe arguments, capture, bounds, and descendant quiescence. Use `runGit` or `runShell` when they fit. Specialized operations retain constructors for interactive input/output, live Gate streaming, platform launch, standard-input formatting, or process-group supervision.
+[`subprocess.ts`](../../../src/shared/subprocess.ts) owns ordinary Git and buffered shell execution, including safe arguments, capture, bounds, and descendant quiescence. Use `runGit` or `runShell` when they fit. Specialized operations retain constructors for interactive input/output, live gate streaming, platform launch, standard-input formatting, or process-group supervision.
 
 [`SUBPROCESS_SPAWN_BOUNDARIES`](../../../tests/spawn_surfaces.ts) records each production-and-tooling constructor by path, function, operation, reason, binary class, and role. Future authored source roots join automatically; tests construct the processes under test and remain outside the population.
 

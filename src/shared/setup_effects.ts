@@ -193,7 +193,7 @@ export async function plannedGitMutationWrites(
       ["index", join(checkout, "index"), "index"],
       ["objects", join(common, "objects"), "object database"],
       ["branch-refs", join(common, "refs", "heads"), "branch refs"],
-      ["proof-note-refs", join(common, "refs", "notes"), "Proof-note refs"],
+      ["proof-note-refs", join(common, "refs", "notes"), "Proof note refs"],
       [
         "branch-reflogs",
         join(common, "logs", "refs", "heads"),

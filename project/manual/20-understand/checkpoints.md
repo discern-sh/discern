@@ -25,7 +25,7 @@ aliases:
 
 Some review questions have no exit status. Is this migration's trade-off acceptable? Does this large deletion keep anything it shouldn't lose? Is this new dependency worth carrying? A test can't answer those, so they usually wait for a person — and as you delegate more work, they either interrupt you constantly or get skipped.
 
-A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the project's final quality check (the Gate) runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
+A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the project's final quality check (the gate) runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
 
 A checkpoint is one entry in `discern.toml`. A project that wants API changes considered before they land might keep:
 
@@ -42,7 +42,7 @@ Any change under `lib/api/` now carries that question with it. A longer question
 
 When a change matches a `stop` checkpoint, `discern done` refuses before any job runs and serves the open question (the question now awaiting an answer for this change) together with the files that matched. The agent weighs it against the change and records a conclusion:
 
-- **Declared met:** the agent judges the question satisfied and runs `discern done --met api-compatibility`. The declaration is recorded and the Gate continues in the same run.
+- **Declared met:** the agent judges the question satisfied and runs `discern done --met api-compatibility`. The declaration is recorded and the gate continues in the same run.
 - **Declared unmet:** the truthful answer is no, and satisfying the question sits outside this task. The agent runs `discern done --unmet api-compatibility --why "<rationale>"`, with a short rationale written for you. The Gate still runs and can pass; the consequence comes later, at landing.
 
 The questions don't wait for the finish line. `discern prepare` and `discern status` name the questions a change has already triggered, so the agent can answer while the reasoning is fresh.
@@ -51,7 +51,7 @@ A checkpoint in `advise` mode serves its question the same way and blocks nothin
 
 ## A declaration is the agent's judgment
 
-The Gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and Standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
+The Gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
 
 That separation is what makes the record trustworthy. A declared-met conclusion tells you which questions were considered and by whom; it doesn't launder the agent's judgment into a machine result. When you review Proof, you can see both kinds of evidence and weigh them differently.
 
@@ -81,7 +81,7 @@ Continuous integration keeps the same separation. `discern done --ci` runs the m
 
 ## Interruptions have to earn their keep
 
-A `stop` checkpoint taxes every matching change, so each one should earn its interruption the way a good reviewer's does. A rule agents need while shaping most decisions belongs in the always-loaded instructions; a repeatable method belongs in a Skill; a rule a machine can decide belongs in a Gate job or a Standard; a decision only you may make stays with consent at landing. A checkpoint earns its place when a specific kind of change raises a question that genuinely needs judgment at that moment.
+A `stop` checkpoint taxes every matching change, so each one should earn its interruption the way a good reviewer's does. A rule agents need while shaping most decisions belongs in the always-loaded instructions; a repeatable method belongs in a skill; a rule a machine can decide belongs in a gate job or a standard; a decision only you may make stays with consent at landing. A checkpoint earns its place when a specific kind of change raises a question that genuinely needs judgment at that moment.
 
 A fresh install activates a small built-in set (one, for example, asks whether a deletion-heavy change is proven safe), and the project adds its own. The record shows how the economics work out in practice: how often each checkpoint fires and how it was answered, so a dead, noisy, or frequently varied question can be reworded or retired. [Improve the practice](../10-guides/improve-the-practice.md) covers reading that evidence.
 

@@ -40,7 +40,7 @@ export interface StandardDefinitionPolicy {
 export const STANDARD_DEFINITION_POLICIES = {
   metric: {
     kind: "enforcement-meaning",
-    reason: "selects the emitted numerator the Standard reads",
+    reason: "selects the emitted numerator the standard reads",
   },
   direction: {
     kind: "enforcement-meaning",
@@ -69,7 +69,7 @@ export const STANDARD_DEFINITION_POLICIES = {
   },
   measure: {
     kind: "enforcement-meaning",
-    reason: "decides whether every Gate refreshes the measurement evidence",
+    reason: "decides whether every gate refreshes the measurement evidence",
   },
   inputs: {
     kind: "enforcement-meaning",
@@ -354,7 +354,7 @@ export interface TrunkLimitsVerification {
 const LOOSENING_NEXT_STEP =
   "If this branch caused the metric breach, commit the final clean tree and " +
   'run `discern standards propose <name> --reason "…"`; that command measures ' +
-  "the named Standard before creating its proposal. " +
+  "the named standard before creating its proposal. " +
   "Otherwise move the metric the right way. Only an exact proposal and exact " +
   "owner approval can move the held limit.";
 
@@ -382,7 +382,7 @@ export async function verifyTrunkLimits(
         tool: "standards",
         severity: "error",
         message:
-          `the Standard never-loosen check cannot read the configured local trunk '${mainBranch}': ${trunk.reason}. ` +
+          `the standard never-loosen check cannot read the configured local trunk '${mainBranch}': ${trunk.reason}. ` +
           `A remote-tracking ref is not a substitute; fetch the local trunk ref and retry.`,
         reproduce_cmd: `git fetch origin ${mainBranch}:${mainBranch}`,
       }],
@@ -402,7 +402,7 @@ export async function verifyTrunkLimits(
         tool: "standards",
         severity: "error",
         message:
-          `the Standard never-loosen check cannot verify definitions and limits from [standards]: ${trunk.reason}. ` +
+          `the standard never-loosen check cannot verify definitions and limits from [standards]: ${trunk.reason}. ` +
           `Fix the trunk's config (a broken trunk config is a real defect, not a skippable one).`,
         reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
       }],
@@ -429,7 +429,7 @@ export async function verifyTrunkLimits(
   for (const standard of standards) {
     const mainValue = trunk.config.getNumber(standard.limitKey);
     // A trunk table without a numeric bound was never an enforceable Standard.
-    // Preserve the tolerant legacy behavior: the branch entry is new for this
+    // Preserve tolerant comparison: the branch entry is new for this
     // comparison rather than making an old schema shape fail current parsing.
     if (mainValue === undefined) {
       continue;

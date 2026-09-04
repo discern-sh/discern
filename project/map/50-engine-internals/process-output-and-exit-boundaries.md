@@ -21,7 +21,7 @@ The ordinary route is higher-level. A verb builds `DiscernResult`; [`emitResult`
 
 The MCP server uses the same result cores with quiet `Logger` and runner instances. Project-command streams are piped or discarded; only the SDK's stdio transport writes protocol frames to stdout. [`engine_mcp_test.ts`](../../../tests/engine_mcp_test.ts) plants a successful repository command that attempts to log during a tool call. Any unframed line makes the protocol decoder fail.
 
-[`process_boundaries.ts`](../../../scripts/process_boundaries.ts) scans the Git-derived `authored-ts` universe narrowed to `src/`. It follows the live local aliases and bound properties, rejects unknown calls, and rejects stale rows independently. The same validated run emits the `process_output_boundaries` and `process_exit_boundaries` metrics. Their falling Standards hold the exact live registry sizes; removal lowers the populations permanently when pinned.
+[`process_boundaries.ts`](../../../scripts/process_boundaries.ts) scans the Git-derived `authored-ts` universe narrowed to `src/`. It follows the live local aliases and bound properties, rejects unknown calls, and rejects stale rows independently. The same validated run emits the `process_output_boundaries` and `process_exit_boundaries` metrics. Their falling standards hold the exact live registry sizes; removal lowers the populations permanently when pinned.
 
 The rule covers production process egress under `src/`. Standalone scripts own their separate executable presentation surfaces.
 

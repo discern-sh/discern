@@ -61,7 +61,7 @@ export function gitBin(
 /**
  * Git variables that can retarget a command away from its requested `cwd`.
  *
- * Git exports several of these to hooks. Discern may legitimately run inside
+ * Git exports several of these to hooks. discern may legitimately run inside
  * an owner hook, but every Git operation still belongs to the repository named
  * by its caller. Identity, configuration, and tracing variables remain intact;
  * only repository-location state is removed at the child boundary.
@@ -171,7 +171,7 @@ export interface GitResult {
   code: number;
   stdout: string;
   /** Exact stdout bytes when the shared runner produced this result. Optional
-   * for injected test doubles and legacy callers that construct a result. */
+   * for injected test doubles and existing callers that construct a result. */
   stdoutBytes?: Uint8Array | undefined;
   stderr: string;
   /** Exact stderr bytes when the shared runner produced this result. */
@@ -209,7 +209,7 @@ export const DISCERN_FORBIDDEN_GIT_TRANSPORT_SUBCOMMANDS = [
 
 /** Diagnostic returned when discern code reaches for Git transport. */
 export const GIT_TRANSPORT_BOUNDARY_ERROR =
-  "Discern's Git boundary is local-only; remote transport remains an explicit owner command.";
+  "discern's Git boundary is local-only; remote transport remains an explicit owner command.";
 
 /** Git reads that neither mutate repository state nor invoke owner hooks. */
 export const ISOLATED_GIT_READ_SUBCOMMANDS = [

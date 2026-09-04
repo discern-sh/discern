@@ -189,12 +189,14 @@ Once a product term exists, use it identically across:
 First use may include a plain-language explanation:
 
 - “an isolated workspace for one task (a worktree)”;
-- “the project's final quality check (the Gate)”;
+- “the project's final quality check (the gate)”;
 - “evidence for the exact committed change (Proof).”
 
 After introduction, use the canonical term.
 
 ### Audiences and gates
+
+In running prose, capitalize **Proof** and its family (**Proof line**, **Proof note**) only. Write every other glossary concept — including gate, map, standard, desk, logbook, fleet, skill, and checkpoint — in lowercase except at sentence or title start or when spelling an exact identifier or external proper name.
 
 Formats and features are described by capability, never by the reader they were designed for:
 
@@ -207,12 +209,12 @@ Formats and features are described by capability, never by the reader they were 
 
 **Proof** is the canonical term for discern's completion evidence:
 
-- call the one-line form the **proof line**;
-- call the durable Git-note record a **proof note**;
-- keep the claim scoped to the declared Gate over the exact tree;
+- call the one-line form the **Proof line**;
+- call the durable Git-note record a **Proof note**;
+- keep the claim scoped to the declared gate over the exact tree;
 - use the same term across CLI, JSON/MCP, documentation, tips, and hints.
 
-Review sentences around the machine state `honored` so they read naturally; in human copy, prefer “a valid proof” when that is the intended meaning.
+Review sentences around the machine state `honored` so they read naturally; in human copy, prefer “a valid Proof” when that is the intended meaning.
 
 ## Sentence design
 

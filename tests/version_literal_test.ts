@@ -59,6 +59,36 @@ Deno.test("authored TypeScript never hardcodes the package semver", async () => 
   );
 });
 
+/** Manual pages that repeat the current package semver instead of its authority. */
+async function manualVersionSites(version: string): Promise<string[]> {
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const literal = new RegExp(`\\bv?${escaped}\\b`, "u");
+  const files = await structuralGuardScope({
+    guard: "tests/version_literal_test.ts#manual-package-version",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "Only the bundled manual can freeze the package version as shipped reference prose.",
+      include: (rel) => rel.startsWith("project/manual/"),
+    },
+  });
+  const offenders: string[] = [];
+  for (const rel of files) {
+    if (literal.test(await Deno.readTextFile(join(REPO_ROOT, rel)))) {
+      offenders.push(rel);
+    }
+  }
+  return offenders;
+}
+
+Deno.test("the public manual never hardcodes the current package semver", async () => {
+  assertEquals(
+    await manualVersionSites(DISCERN_VERSION),
+    [],
+    "refer to a matching release or the current major instead of copying the package semver",
+  );
+});
+
 Deno.test("the version guard enrolls a fresh literal in any authored tree", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

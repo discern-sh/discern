@@ -1,6 +1,6 @@
-/** Reviewed legacy files that remain in FTA's extreme complexity tail. */
+/** Reviewed files that remain in FTA's extreme complexity tail. */
 
-/** One file-specific ceiling retained while a legacy hotspot is decomposed. */
+/** One file-specific ceiling retained while a hotspot is decomposed. */
 export interface ComplexityHotspotBudget {
   readonly file: string;
   readonly maxScore: number;

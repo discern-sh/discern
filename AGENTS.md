@@ -8,7 +8,7 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 
 - **Orient first.** Call **`discern_status`** at session start for a fast read-only account of what's true and next.
 - **Keep one worktree for the whole effort.** The worktree carries the effort's branch, identity, and any recorded authority, so review feedback and resumed sessions continue there; a second worktree would split the effort's history and its evidence. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern_start` again. For a new effort, run **`discern_start`** from the main checkout and work only at the returned path. Read-only work needs none.
-- **`discern_done` is the bar for "done".** Call work finished only after its full gate passes. Iterate with **`discern_prepare`** or a diagnostic's reproduce command; each diagnostic names its location and exact command. With a positive `[gate].concurrent_test_runs`, run direct tests through **`discern queue -- <command>`**. `discern_test` runs the complete test stage on demand. `discern_done` already includes the same test stage, so a final Gate run needs no standalone test preflight.
+- **`discern_done` is the bar for "done".** Call work finished only after its full gate passes. Iterate with **`discern_prepare`** or a diagnostic's reproduce command; each diagnostic names its location and exact command. With a positive `[gate].concurrent_test_runs`, run direct tests through **`discern queue -- <command>`**. `discern_test` runs the complete test stage on demand. `discern_done` already includes the same test stage, so a final gate run needs no standalone test preflight.
 - **Follow discern's printed next action.** A discern refusal or failure names its own next step in the result, and `hints` are matched to the state you are in. Prefer the stated remedy over improvising around it with raw git or shell — discern gives you instructions which are optimized, deterministic, and fleet-aware.
 - **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
@@ -27,15 +27,15 @@ The `discern_status` fleet isn't a pool. Never adopt another effort's worktree b
 - **`discern_start`** — only for an effort without a worktree. From the main checkout, create one (branch prefix `agent/`, forked from `main`) and re-root into the returned path using your native worktree-entering tool when available; otherwise cd in, or start a session there. Continue in the worktree throughout the entire effort. Already there? Stay there. If you can't change your working root, prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Starting re-aims the discern tools at the new worktree, but your own file operations move only when you move them — edits made from the old root land on the trunk while the gate runs in the worktree, and the two quietly diverge.
 - **`discern_update`** brings `main` into your branch when behind and reports upstream overlap — re-read any of your files it names, since a merge that applies cleanly can still conflict in meaning. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
 - **`discern_await`** watches a sibling or the trunk in one longest-safe call. Do not surface progress updates until it returns. If `data.met: false`, continue with `data.resume` without surfacing an update. Repeat without a fixed limit until the condition holds, or until stopped or unnecessary. An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input. On success, follow its `start`/`update` hint.
-- **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. A green gate is evidence your work is ready, but the owner decides what to do with it. After a green `discern done`, follow its authority-aware hint: either report the one-line proof and stop, or land under the verified grant. Landing fast-forwards `main` and removes the worktree and branch.
+- **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. A green gate is evidence your work is ready, but the owner decides what to do with it. After a green `discern done`, follow its authority-aware hint: either report the one-line Proof and stop, or land under the verified grant. Landing fast-forwards `main` and removes the worktree and branch.
 
 Use `discern_test` when the complete test stage is the intended standalone result. While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Acceptance lands your branch history as-is.
 
 **Finishing an effort.** Proof binds to one exact commit, so the order matters:
 
 1. Run `discern_prepare` and commit everything, so the final tree is committed and the fixers have nothing left to rewrite.
-2. Then run `discern_done` once on the clean HEAD — acceptance reuses that proof. A later edit invalidates it, and `done` runs again on the new tree.
-3. Report completion in your own words — what changed and why, plus anything the gate did not cover (a deferred standard, a decision the owner still holds) — and end with the proof line verbatim. Never paste the full proof page; the owner retrieves it with `discern status --verbose`.
+2. Then run `discern_done` once on the clean HEAD — acceptance reuses that Proof. A later edit invalidates it, and `done` runs again on the new tree.
+3. Report completion in your own words — what changed and why, plus anything the gate did not cover (a deferred standard, a decision the owner still holds) — and end with the Proof line verbatim. Never paste the full Proof page; the owner retrieves it with `discern status --verbose`.
 
 ## Quality standards
 
@@ -43,7 +43,7 @@ Standards are **numbers that can never get worse**: metrics held at a `limit` th
 
 **Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
 
-After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named Standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
+After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
 
 When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.
 
@@ -59,7 +59,7 @@ When a session yields a durable lesson — a correction, a hard-won procedure, a
 
 ## The Map & decisions
 
-`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Agents use the map to learn and navigate the project; humans use the map to audit agent understanding. Update the map when the reader's mental model, a durable boundary, a supported workflow, or a product behaviour changes.
+`project/map/` is the agent-maintained **map**, browsable with **`discern_map`**. Agents use the map to learn and navigate the project; humans use the map to audit agent understanding. Update the map when the reader's mental model, a durable boundary, a supported workflow, or a product behavior changes.
 
 Staleness is a defect, so keep the map current — a page is current when nothing in it is false. A map page must **reduce** the total amount of repository reading required to make a correct decision, so it should never restate what code, tests, or config already express — link the authority instead. Do not use the map to maintain independently mechanically derivable facts.
 

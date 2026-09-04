@@ -146,7 +146,7 @@ async function preflightProposalWrites(
     return {
       ok: false,
       path: root,
-      description: "the Standard proposal transaction state",
+      description: "the standard proposal transaction state",
       reason: "Git could not resolve its worktree-local proposal paths",
     };
   }
@@ -177,12 +177,12 @@ async function preflightProposalWrites(
     {
       kind: "directory-entry",
       path: dirname(proposalPath),
-      description: "the Standard proposal record",
+      description: "the standard proposal record",
     },
     {
       kind: "directory-entry",
       path: dirname(transactionPath),
-      description: "the Standard proposal recovery journal",
+      description: "the standard proposal recovery journal",
     },
   ]);
   if (!preflight.ok) {
@@ -290,7 +290,7 @@ async function recoverProposalTransaction(
   const transaction = parseProposalTransaction(raw);
   if (transaction === undefined) {
     throw new Error(
-      `the Standard proposal recovery journal is malformed at ${authority.transactionPath}; no project file was changed`,
+      `the standard proposal recovery journal is malformed at ${authority.transactionPath}; no project file was changed`,
     );
   }
   const [head, branch] = await Promise.all([
@@ -314,7 +314,7 @@ async function recoverProposalTransaction(
   }
   if (head === undefined || branch !== transaction.branch) {
     throw new Error(
-      "the Standard proposal transaction no longer belongs to the current branch/HEAD; ordinary enforcement remains active",
+      "the standard proposal transaction no longer belongs to the current branch/HEAD; ordinary enforcement remains active",
     );
   }
   const proposal: StandardLimitProposalData = {
@@ -329,7 +329,7 @@ async function recoverProposalTransaction(
   );
   if (shape !== undefined) {
     throw new Error(
-      `the interrupted Standard proposal cannot be recovered because ${shape}; ordinary enforcement remains active`,
+      `the interrupted standard proposal cannot be recovered because ${shape}; ordinary enforcement remains active`,
     );
   }
   await persistProposal(authority, proposal);
@@ -558,7 +558,7 @@ async function proposalMeasurement(
         "precondition_failed",
         `standard '${standard.name}' did not yield a numeric metric in its targeted measurement${
           diagnostic === undefined ? "" : `: ${diagnostic.message}`
-        }. Fix the command or emitted metric, then retry this proposal command; it measures only the named Standard.`,
+        }. Fix the command or emitted metric, then retry this proposal command; it measures only the named standard.`,
         diagnostic,
       ),
     };
@@ -765,7 +765,7 @@ export async function standardsProposeResult(
     } catch (error) {
       return proposalFailure(
         "proposal_failed",
-        `could not replace the Standard proposal reason: ${errText(error)}`,
+        `could not replace the standard proposal reason: ${errText(error)}`,
       );
     }
     return proposalResult("replaced", replaced);
@@ -777,7 +777,7 @@ export async function standardsProposeResult(
   if (trunk.kind !== "parsed") {
     return proposalFailure(
       "precondition_failed",
-      `the trunk Standard definition cannot be verified (${
+      `the trunk standard definition cannot be verified (${
         trunk.kind === "unreadable" || trunk.kind === "parse_failed"
           ? trunk.reason
           : "discern.toml is absent"
@@ -888,7 +888,7 @@ export async function standardsProposeResult(
     } catch (error) {
       return proposalFailure(
         "proposal_failed",
-        `could not renew the Standard proposal binding: ${
+        `could not renew the standard proposal binding: ${
           errText(error)
         }. The Git history and configured limit were not changed; retry the same command.`,
       );
@@ -940,7 +940,7 @@ export async function standardsProposeResult(
   } catch (error) {
     return proposalFailure(
       "proposal_failed",
-      `could not apply the Standard limit proposal: ${
+      `could not apply the standard limit proposal: ${
         errText(error)
       }. Retry the same command; the recovery journal will finish or safely unwind the exact transaction.`,
     );

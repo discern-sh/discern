@@ -14,7 +14,7 @@ _Setup turns one repository study into a dependable way for future coding sessio
 
 ## Choose the model for the repository study
 
-discern recommends the strongest suitable reasoning model because setup creates the final quality check (the Gate), separate-task rules, maintained project guide (the Map), and instructions later sessions inherit. A stronger model is more likely to find hidden boundaries and preserve existing workflows.
+discern recommends the strongest suitable reasoning model because setup creates the final quality check (the gate), separate-task rules, maintained project guide (the map), and instructions later sessions inherit. A stronger model is more likely to find hidden boundaries and preserve existing workflows.
 
 The agent reports its current provider/model identifier, or `unreported`, as advisory context. To switch, select another model, open a fresh project session, and repeat the setup request. The current agent stops without writing. To continue here, say so plainly.
 
@@ -34,7 +34,7 @@ A project file can point to another checkout, database, or machine-local path. S
 
 ## Review what later sessions will inherit
 
-Before landing, the handoff explains where later agents start, other areas with distinct responsibilities, one important rule, active checks, and open work. The proof that the finished change passed the project's checks (Proof) belongs to the exact commit and grants no landing authority. You may land, leave for review, or decline.
+Before landing, the handoff explains where later agents start, other areas with distinct responsibilities, one important rule, active checks, and open work. The Proof that the finished change passed the project's checks (Proof) belongs to the exact commit and grants no landing authority. You may land, leave for review, or decline.
 
 After landing, open a fresh provider session, inspect its registered tools, and invoke the exact local action shown. A missing action routes to local recovery or `discern doctor`.
 

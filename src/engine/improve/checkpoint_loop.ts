@@ -115,7 +115,7 @@ export const ESTATE_AUDIT_TEACH =
 const DORMANT_ESTATE_AUDIT_TEACH =
   "This checkpoint's selector currently expands to no matchable path, so it " +
   "serves no flow judgment. Audit what already exists against this question. " +
-  "Configure a matchable selector if new violations should meet the Gate.";
+  "Configure a matchable selector if new violations should meet the gate.";
 
 /**
  * The configured checkpoints whose question the improvement catalog does not

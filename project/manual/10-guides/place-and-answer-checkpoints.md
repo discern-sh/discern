@@ -1,6 +1,6 @@
 ---
 id: guide-place-and-answer-checkpoints
-title: "Place and answer Checkpoints"
+title: "Place and answer checkpoints"
 description: "Place a scarce judgment stop, answer it with evidence, and route an unmet conclusion to the owner."
 order: 50
 publish: true
@@ -14,25 +14,25 @@ aliases:
 
 # Place and answer Checkpoints
 
-Use this guide for a review question that becomes relevant when a narrow kind of change occurs and that a machine cannot decide. A Checkpoint pairs a deterministic trigger with a question for the coding agent. It can stop the Gate until the agent records a conclusion, or serve the question as advice.
+Use this guide for a review question that becomes relevant when a narrow kind of change occurs and that a machine cannot decide. A Checkpoint pairs a deterministic trigger with a question for the coding agent. It can stop the gate until the agent records a conclusion, or serve the question as advice.
 
-The coding agent owns the declared conclusion. The person responsible owns policy placement and the decision to land a declared-unmet conclusion. discern records those roles separately from machine-verified Gate results.
+The coding agent owns the declared conclusion. The person responsible owns policy placement and the decision to land a declared-unmet conclusion. discern records those roles separately from machine-verified gate results.
 
 ## Starting state
 
-To place a Checkpoint, begin with a recurring review question, examples of the changes that should trigger it, and the person's agreement that it belongs in project policy. To answer one, begin in the worktree where `discern prepare`, `discern checkpoints`, or `discern done` served the question and its matched paths.
+To place a checkpoint, begin with a recurring review question, examples of the changes that should trigger it, and the person's agreement that it belongs in project policy. To answer one, begin in the worktree where `discern prepare`, `discern checkpoints`, or `discern done` served the question and its matched paths.
 
 ## Place a Checkpoint
 
 ### 1. Put the rule on the right rung
 
-**Coding agent:** Invoke the `discern-place-a-checkpoint` Skill. Use a Checkpoint only when a diff introduces the concern, a machine cannot settle it, and the question deserves attention on each matching change.
+**Coding agent:** Invoke the `discern-place-a-checkpoint` skill. Use a checkpoint only when a diff introduces the concern, a machine cannot settle it, and the question deserves attention on each matching change.
 
 Route other rules elsewhere:
 
 - a rule needed throughout most work belongs in project instructions;
-- a recurring method belongs in a Skill;
-- a numeric rule belongs in a Standard or Gate job;
+- a recurring method belongs in a skill;
+- a numeric rule belongs in a standard or gate job;
 - a decision only the person may make remains an authority decision.
 
 Use `mode = "stop"` when every matching change must record a conclusion. Use `mode = "advise"` for a heuristic that should inform without blocking.
@@ -55,9 +55,9 @@ Keep secrets out of `question`, `teach`, and `reference`; they can appear in ter
 
 ### 3. Land the policy before testing governance
 
-Checkpoint definitions come from the effort's merge base with the trunk. A branch that adds or edits a Checkpoint does not govern its own Gate.
+Checkpoint definitions come from the effort's merge base with the trunk. A branch that adds or edits a checkpoint does not govern its own gate.
 
-**Coding agent:** Commit the policy change, run the full Gate, and return it for owner review. **Person:** decide whether the question, trigger, and mode should govern future work, then authorize its landing.
+**Coding agent:** Commit the policy change, run the full gate, and return it for owner review. **Person:** decide whether the question, trigger, and mode should govern future work, then authorize its landing.
 
 After the policy lands, **coding agent or person:** confirm it from the trunk:
 
@@ -75,9 +75,9 @@ The result must list the id, mode, question, and trigger summary.
 discern done --dry-run
 ```
 
-For a `stop` Checkpoint, run bare `discern done` once and verify that it refuses before any Gate job, serves the question, names the matched evidence, and offers both declaration routes. For `advise`, verify that the question appears without preventing the Gate.
+For a `stop` checkpoint, run bare `discern done` once and verify that it refuses before any gate job, serves the question, names the matched evidence, and offers both declaration routes. For `advise`, verify that the question appears without preventing the gate.
 
-If the Checkpoint never fires, fires on most work, or matches the wrong paths, revise the trunk policy. Do not compensate by declaring a noisy question met on every branch.
+If the checkpoint never fires, fires on most work, or matches the wrong paths, revise the trunk policy. Do not compensate by declaring a noisy question met on every branch.
 
 ## Answer a fired Checkpoint
 
@@ -97,17 +97,17 @@ If it is not satisfied, either change the work and re-evaluate, or record the cu
 discern done --unmet checkpoint-id --why "Reason this change does not satisfy the question"
 ```
 
-The Gate records the declaration before it runs. A met declaration is still agent judgment; discern does not verify its truth. An unmet declaration lets the Gate run and carries its rationale into Proof.
+The Gate records the declaration before it runs. A met declaration is still agent judgment; discern does not verify its truth. An unmet declaration lets the gate run and carries its rationale into Proof.
 
 ### 2. Re-evaluate after relevant edits
 
 A declaration binds to the resolved definition and matched content. A relevant edit reopens the question. Changed declaration evidence also makes existing Proof stale, even when `HEAD` has not changed.
 
-**Coding agent:** Read the question again, record a fresh conclusion, and rerun the Gate. Do not reuse the earlier declaration or Proof for changed evidence.
+**Coding agent:** Read the question again, record a fresh conclusion, and rerun the gate. Do not reuse the earlier declaration or Proof for changed evidence.
 
 ### 3. Route an unmet conclusion to the person
 
-A green Gate with a declared-unmet Checkpoint remains unlanded.
+A green gate with a declared-unmet checkpoint remains unlanded.
 
 **Person:** Review the rationale. Require work that makes the conclusion met, or authorize a variance for this declaration and commit. A standing scope grant, one-worktree grant, or generic landing consent cannot authorize the variance.
 
@@ -121,10 +121,10 @@ The id set must match the current declared-unmet set. A later relevant edit crea
 
 ## Tune the Checkpoint after real use
 
-**Person and coding agent:** Review `discern checkpoints` and `discern patterns` after several efforts. Frequent firing, frequent variances, or no firing are evidence to narrow the trigger, rewrite the question, change `stop` to `advise`, move a mechanical rule into the Gate, or remove the policy. Those changes govern only after they land on the trunk.
+**Person and coding agent:** Review `discern checkpoints` and `discern patterns` after several efforts. Frequent firing, frequent variances, or no firing are evidence to narrow the trigger, rewrite the question, change `stop` to `advise`, move a mechanical rule into the gate, or remove the policy. Those changes govern only after they land on the trunk.
 
 ## Completion
 
-Placement is complete when the trunk lists the intended policy and a representative change demonstrates the expected fire or advise path. Answering is complete when the current subject has a declared conclusion, the Gate result preserves that qualification, and any unmet variance is either resolved in the work or explicitly authorized by the person before landing.
+Placement is complete when the trunk lists the intended policy and a representative change demonstrates the expected fire or advise path. Answering is complete when the current subject has a declared conclusion, the gate result preserves that qualification, and any unmet variance is either resolved in the work or explicitly authorized by the person before landing.
 
 Read [Checkpoints and judgment](../20-understand/checkpoints.md) for the model, [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) for states and protocols, and [Finish and land a change](finish-and-land-a-change.md) for the surrounding lifecycle.

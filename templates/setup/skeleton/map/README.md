@@ -35,15 +35,15 @@ The subsystems are numbered subtrees, in the order a newcomer should read them �
 | Path           | What's in it                                                                                                                                                                                                            |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [_adr/](_adr/) | Architecture Decision Records — significant design decisions and their rationale, under continuous numbering. [`_adr/README.md`](_adr/README.md) is the canonical format.                                               |
-| `_internal/`   | Seeded by `discern setup` — the Map-authoring brief and the template the `discern-document-subsystem` skill uses to create a scope manifest when it refreshes a subtree. Internal to the Map; kept for reproducibility. |
+| `_internal/`   | Seeded by `discern setup` — the map-authoring brief and the template the `discern-document-subsystem` skill uses to create a scope manifest when it refreshes a subtree. Internal to the map; kept for reproducibility. |
 
 ---
 
 ## How the map is produced and kept current
 
-The map is seeded once by `discern setup` — the `_internal/` Map-authoring brief included — then maintained with the `discern-document-subsystem` skill, which follows that brief at `_internal/documenter-agent-brief.md`. Setup establishes the shared terminology and shape and completes the primary-subsystem floor; later pages remain proportional to durable boundaries rather than repository size.
+The map is seeded once by `discern setup` — the `_internal/` map-authoring brief included — then maintained with the `discern-document-subsystem` skill, which follows that brief at `_internal/documenter-agent-brief.md`. Setup establishes the shared terminology and shape and completes the primary-subsystem floor; later pages remain proportional to durable boundaries rather than repository size.
 
-Because the map is the canonical account, it must not drift from code. When you change something a Map page describes — the architecture, the data model, a subsystem's documented behaviour, a public convention, or whether a feature exists — update the affected pages in the same change.
+Because the map is the canonical account, it must not drift from code. When you change something a map page describes — the architecture, the data model, a subsystem's documented behavior, a public convention, or whether a feature exists — update the affected pages in the same change.
 
 ---
 

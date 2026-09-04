@@ -84,10 +84,15 @@ export type GlossaryPlainRendering =
     keep: string;
   };
 
+/** How the term is cased when it names the product concept in running prose. */
+export type RunningProseCase = "lowercase" | "proof-family";
+
 /** One glossary entry: the canonical term and its display and matching data. */
 export interface GlossaryEntry {
   /** The canonical name, exactly as the entry's heading renders it. */
   term: string;
+  /** Required casing choice for prose outside headings and sentence starts. */
+  runningCase: RunningProseCase;
   /**
    * The one-sentence hover-card copy. When absent, the definition's first
    * sentence is the summary so short definitions are not authored twice.
@@ -114,6 +119,59 @@ export interface GlossaryEntry {
   definition: string;
   /** Synonyms retired in favour of this term, policed by the drift guard. */
   retired?: readonly RetiredSynonym[];
+}
+
+/** One registry-derived casing rule shared by Vale and source-string tests. */
+export interface RunningProseCaseRule {
+  readonly term: string;
+  readonly expected: string;
+  readonly pattern: string;
+}
+
+/** Escape a display term for a regular-expression source. */
+function regexLiteral(value: string): string {
+  return value.split(/\s+/).map((word) =>
+    word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  ).join(String.raw`\s+`);
+}
+
+/**
+ * Derive enforceable running-prose casing from every glossary entry. Headings
+ * and sentence starts retain title/sentence case. A preceding lowercase word
+ * or hyphenated modifier identifies ordinary prose without requiring either
+ * the source-string guard or Vale to guess at document ASTs.
+ */
+export function runningProseCaseRules(
+  glossary: readonly GlossaryEntry[] = GLOSSARY,
+): RunningProseCaseRule[] {
+  const context = String
+    .raw`\b(?:[a-z][\w-]*|[A-Z][a-z]+-[a-z][\w-]*)\s+`;
+  const rules: RunningProseCaseRule[] = [];
+  for (const entry of glossary) {
+    if (entry.runningCase === "proof-family") {
+      if (entry.term === "Proof") {
+        rules.push({
+          term: entry.term,
+          expected: "Proof, Proof line, or Proof note",
+          pattern: String.raw`\bproof(?:s|'s|\s+(?:line|note)(?:s|'s)?)?\b`,
+        });
+      }
+      continue;
+    }
+    const lower = entry.term.charAt(0).toLowerCase() + entry.term.slice(1);
+    const titled = entry.term.charAt(0).toUpperCase() + entry.term.slice(1);
+    if (lower.startsWith("discern")) continue;
+    if (lower === titled) continue;
+    const plural = /[A-Za-z]$/.test(titled) && !titled.endsWith("s")
+      ? "s?"
+      : "";
+    rules.push({
+      term: entry.term,
+      expected: lower,
+      pattern: `${context}${regexLiteral(titled)}${plural}\\b`,
+    });
+  }
+  return rules;
 }
 
 /** The authored summary, or the definition's first sentence by default. */
@@ -164,6 +222,7 @@ function codeList(names: readonly string[], conjunction: string): string {
 export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Accept",
+    runningCase: "lowercase",
     plain: { phrase: "move finished work onto the main shared version" },
     // "accept" is also an HTTP header and an ordinary verb in the manual.
     matches: ["discern accept"],
@@ -172,6 +231,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Advisory",
+    runningCase: "lowercase",
     plain: {
       phrase: "helpful advice that never blocks work",
       match: String.raw`\badvisor(?:y|ies)\b`,
@@ -181,6 +241,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "discern version",
+    runningCase: "lowercase",
     plain: { phrase: "the version of the Discern program itself" },
     definition:
       "The `discern` binary's semantic version, shown by `discern --version`. A newer binary arrives by re-running the installer; `discern upgrade` then brings the _project_ into line with the binary it runs from.",
@@ -193,6 +254,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Gate job",
+    runningCase: "lowercase",
     plain: {
       phrase: "a named piece of work in the final check",
       match: String.raw`\bgate\s+jobs?\b`,
@@ -206,6 +268,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Checkpoint",
+    runningCase: "lowercase",
     plain: {
       phrase: "a judgment stop",
       match: String.raw`\bcheckpoints?\b`,
@@ -215,6 +278,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Question",
+    runningCase: "lowercase",
     plain: {
       // The term is ordinary English; the register guard cannot police it
       // mechanically without banning the word everywhere. Review owns it.
@@ -236,12 +300,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Open question",
+    runningCase: "lowercase",
     plain: { phrase: "a record that a judgment stop fired" },
     definition:
       "The effort-scoped record that a `stop` [checkpoint](#checkpoint) fired: opened by `discern done`, stored in the worktree's Git administrative area, surviving session restarts, and removed with the worktree. An open question is the only state a [declaration](#declaration) can act on; `discern checkpoints` reports each open question's state read-only. Covered in [checkpoint state and declarations](../70-reference/checkpoint-state.md).",
   },
   {
     term: "Declaration",
+    runningCase: "lowercase",
     plain: {
       phrase: "the agent's recorded answer",
       match: false,
@@ -251,18 +317,21 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Declared met",
+    runningCase: "lowercase",
     plain: { phrase: "the agent's recorded yes" },
     definition:
       "The agent's recorded conclusion that a served [question](#question) holds for its current subject — the resolved definition and matched content. It is a [declaration](#declaration), and every surface reports it as declared rather than verified — machine results are verified, conclusions are declared, and a landing is authorized. It stands as evidence until a relevant change reopens it.",
   },
   {
     term: "Declared unmet",
+    runningCase: "lowercase",
     plain: { phrase: "the agent's recorded no, with the reason" },
     definition:
-      "The agent's recorded conclusion that a served [question](#question) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [Logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.",
+      "The agent's recorded conclusion that a served [question](#question) does not hold, carrying a required one-paragraph rationale written for the owner. The gate still runs, the [Proof](#proof) carries the rationale as durable evidence that never enters the [logbook](#logbook), and landing waits for an owner-authorized [variance](#variance) at `discern accept`.",
   },
   {
     term: "Variance",
+    runningCase: "lowercase",
     plain: {
       phrase: "the owner's recorded OK to land it anyway",
       match: String.raw`\bvariances?\b`,
@@ -272,6 +341,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Stop / advise",
+    runningCase: "lowercase",
     matches: [
       "stop checkpoint",
       "advise checkpoint",
@@ -287,6 +357,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Coupling",
+    runningCase: "lowercase",
     plain: { phrase: "files that usually change together" },
     definition:
       "What `discern coupling` reports: files that historically change together, pointing out a sibling the current change may be missing. It is [advisory](#advisory) only and self-calibrates to the repo's own commit history ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)). Covered in [coupling](../20-quality-gate/coupling.md).",
@@ -299,12 +370,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Shared file",
+    runningCase: "lowercase",
     plain: {
       keep:
         "'shared' says exactly what it means; the register keeps the phrase",
     },
     definition:
-      "A tracked file discern shares with the project: `discern.toml` and the marked block in `.gitignore`. Your values and comments stay yours; `discern upgrade` restores missing fixed scaffold and managed banners from the current template ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)).",
+      "A tracked path the ownership registry classifies as shared: discern manages a delimited region or fixed scaffold while preserving project-owned content around it. The [registered project paths](https://discern.sh/docs/reference/files-and-ownership#registered-project-paths) table is the complete live inventory.",
     retired: [
       {
         phrase: "co-managed seed",
@@ -314,6 +386,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Agent file",
+    runningCase: "lowercase",
     plain: {
       phrase: "a coding agent's instruction file",
       match: String.raw`\bagent\s+files?\b`,
@@ -329,6 +402,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Desk",
+    runningCase: "lowercase",
     plain: {
       keep:
         "an everyday word for the person-in-charge's one-screen view; kept as the product says it",
@@ -338,6 +412,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "discern",
+    runningCase: "lowercase",
     plain: {
       keep:
         "the product's name — a name, not jargon; the plain register capitalises it as Discern",
@@ -354,6 +429,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Engine",
+    runningCase: "lowercase",
     plain: {
       phrase: "the working core of the program",
       match: String.raw`\bengines?\b`,
@@ -363,6 +439,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "File ownership",
+    runningCase: "lowercase",
     plain: { keep: "ownership of files is everyday English" },
     definition:
       "The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.",
@@ -375,6 +452,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Fleet",
+    runningCase: "lowercase",
     plain: {
       phrase: "all the work in progress, viewed together",
       match: String.raw`\bfleets?\b`,
@@ -384,6 +462,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Gate",
+    runningCase: "lowercase",
     plain: { phrase: "the final quality check", match: String.raw`\bgates?\b` },
     definition:
       "The project's full quality check, run with `discern done`: its preconditions, the declared [jobs](#gate-job) by [stage](#stage), any [scope](#scope) gates that fired, and the [standards](#standard). Every job is labeled, so a failure names its exact command. Covered in [the quality gate](../20-quality-gate/).",
@@ -394,6 +473,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Generated file",
+    runningCase: "lowercase",
     plain: {
       phrase: "a file made automatically from a source the project owns",
       match: String.raw`\bgenerated\s+files?\b`,
@@ -409,6 +489,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Generated artifact",
+    runningCase: "lowercase",
     plain: {
       phrase:
         "a committed file a command rebuilds from the project's own sources",
@@ -419,6 +500,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Instruction source",
+    runningCase: "lowercase",
     plain: {
       phrase: "the project's own instruction text for coding agents",
       match: String.raw`\binstructions\s+sources?\b`,
@@ -443,27 +525,31 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Installer",
+    runningCase: "lowercase",
     plain: { keep: "an everyday computing word" },
     definition:
       "The verbs that install and maintain discern in a project: `setup`, `upgrade`, [doctor](https://discern.sh/docs/reference/cli-reference#discern-doctor), and `config`. Some inspect and some write; all run and exit, and discern is never a runtime dependency of the project. Covered in [Getting started](../10-getting-started/).",
   },
   {
     term: "Landing authority",
+    runningCase: "lowercase",
     plain: {
       phrase: "recorded permission to add work to the main shared version",
       match: String.raw`\blanding\s+authorit(?:y|ies)\b`,
     },
     definition:
-      "Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [proof](#proof) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).",
+      "Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [Proof](#proof) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).",
   },
   {
     term: "Logbook",
+    runningCase: "lowercase",
     plain: { phrase: "the activity record", match: String.raw`\blogbooks?\b` },
     definition:
       "The local record of discern's own use. With recording on and a readable `discern.toml`, it adds one metadata-only line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. The repository's worktrees share the lines under `.git` ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). The logbook never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).",
   },
   {
     term: "Map",
+    runningCase: "lowercase",
     plain: { phrase: "the project guide", match: String.raw`\bmaps?\b` },
     definition:
       `The documentation tree discern maintains at \`[map].dir\` (default \`${
@@ -472,6 +558,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Migration",
+    runningCase: "lowercase",
     plain: {
       phrase: "a numbered update step between settings versions",
       match: String.raw`\bmigrations?\b`,
@@ -481,6 +568,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Namespace",
+    runningCase: "lowercase",
     plain: {
       phrase: "a clearly separated naming area",
       match: String.raw`\bnamespaces?\b`,
@@ -490,6 +578,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Patterns",
+    runningCase: "lowercase",
     plain: { phrase: "the recurring-behaviour report" },
     summary:
       "Findings `discern patterns` mines from the [logbook](#logbook) about behavior loops, gate fit, funnel flow, and standard trajectories.",
@@ -500,6 +589,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Improvement review",
+    runningCase: "lowercase",
     plain: { phrase: "the project-wide quality review" },
     matches: ["improvement review", "improvement audit"],
     definition:
@@ -516,6 +606,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Placement is consent",
+    runningCase: "lowercase",
     plain: {
       phrase: "putting a file somewhere is permission to write there",
     },
@@ -524,6 +615,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Practice",
+    runningCase: "lowercase",
     plain: {
       keep:
         "an everyday word for a way of working; kept as the product says it",
@@ -532,10 +624,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // canonical sense is the definite form product surfaces use.
     matches: ["the practice"],
     definition:
-      "The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, a deterministic [gate](#gate) verdict, [standards](#standard) that only tighten, [proof](#proof) bound to the exact change, [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: whole delegated pieces, retained lessons, cured bug classes, one authority per fact. Its conduct holds too: every result names the next action, and every effect runs planned. The human owns the practice; agents operate it. Covered in [the practice](the-practice.md).",
+      "The connected way of working discern installs and the project carries, enumerated as tenets in the practice canon ([ADR 0284](../_adr/0284-the-practice-canon-enumerates-the-tenets.md)). The engine holds the loop: one [worktree](#worktree) per effort, a deterministic [gate](#gate) verdict, [standards](#standard) that only tighten, [Proof](#proof) bound to the exact change, [landing authority](#landing-authority) that stays human. The bundled [skills](#skill) teach the rest: whole delegated pieces, retained lessons, cured bug classes, one authority per fact. Its conduct holds too: every result names the next action, and every effect runs planned. The human owns the practice; agents operate it. Covered in [the practice](the-practice.md).",
   },
   {
     term: "Project script",
+    runningCase: "lowercase",
     plain: {
       phrase: "the project's own runnable instruction",
       match: String.raw`\bproject\s+scripts?\b`,
@@ -557,26 +650,29 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Proof",
+    runningCase: "proof-family",
     matches: ["proof line"],
     plain: {
-      phrase: "proof that the finished change passed the project's checks",
+      phrase: "Proof that the finished change passed the project's checks",
       match: false,
     },
     definition:
-      "The review claim `discern done` emits after a clean, committed worktree passes the full [gate](#gate). It includes the proof line the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The proof](../20-quality-gate/the-proof.md).",
+      "The review claim `discern done` emits after a clean, committed worktree passes the full [gate](#gate). It includes the Proof line the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The Proof](../20-quality-gate/the-proof.md).",
   },
   {
     term: "Proof note",
+    runningCase: "proof-family",
     plain: {
       phrase:
-        "a saved copy of the proof, attached to the project's shared history",
+        "a saved copy of the Proof, attached to the project's shared history",
       match: String.raw`\bproof\s+notes?\b`,
     },
     definition:
-      "The repository-resident JSON record of a landed [proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).",
+      "The repository-resident JSON record of a landed [Proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).",
   },
   {
     term: "Schema version",
+    runningCase: "lowercase",
     plain: {
       phrase: "the settings-format version number",
       match: String.raw`\bschema\s+versions?\b`,
@@ -586,6 +682,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Scope",
+    runningCase: "lowercase",
     plain: {
       phrase: "a named area of the project",
       match: String.raw`\bscopes?\b`,
@@ -602,15 +699,17 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Skill",
+    runningCase: "lowercase",
     plain: {
       phrase: "a reusable how-to guide",
       match: String.raw`\bskills?\b`,
     },
     definition:
-      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `discern skills list` shows it; `[skills].exclude` drops named ones. Covered in [Skills](../45-skills/).",
+      "A focused agent playbook shipped as a `SKILL.md`: discern's bundled built-ins (all prefixed `discern-`) plus any you author under `[skills].dir`, yours overriding a built-in of the same name. `discern refresh` materializes the set into each agent's skills directory; `discern skills list` shows it; `[skills].exclude` drops named ones. Covered in [skills](../45-skills/).",
   },
   {
     term: "Stage",
+    runningCase: "lowercase",
     plain: {
       phrase: "a group in the final check's run order",
       match: String.raw`\bstages?\b`,
@@ -621,6 +720,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Standard",
+    runningCase: "lowercase",
     plain: {
       phrase: "a quality rule",
       // The singular is ordinary English ("the standard example"), so only the
@@ -632,6 +732,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Trunk",
+    runningCase: "lowercase",
     plain: {
       phrase: "the main shared version",
       match: String.raw`\btrunks?\b`,
@@ -654,6 +755,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Tidy",
+    runningCase: "lowercase",
     plain: {
       keep:
         "discern's own plain-English verb name; the register uses tidy and tidying freely",
@@ -664,6 +766,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Tip",
+    runningCase: "lowercase",
     plain: {
       keep:
         "an everyday word for a short piece of practical advice; kept as the product says it",
@@ -675,6 +778,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Update",
+    runningCase: "lowercase",
     plain: {
       keep:
         "an everyday word; the concept is explained in place and `discern update` stays quoted",
@@ -686,6 +790,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Worktree",
+    runningCase: "lowercase",
     plain: {
       phrase: "a separate working copy",
       match: String.raw`\bworktrees?\b`,
@@ -695,6 +800,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Worktree resource",
+    runningCase: "lowercase",
     plain: {
       phrase: "a supporting service set up for one working copy",
       match: String.raw`\bworktree\s+resources?\b`,
@@ -704,6 +810,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     term: "Project-owned file",
+    runningCase: "lowercase",
     plain: {
       keep: "'project-owned' reads literally; the register uses it as-is",
     },
@@ -788,7 +895,7 @@ export function retiredPattern(synonym: RetiredSynonym): RegExp {
 
 /** The banner stamped atop the generated glossary page. */
 const DOCS_BANNER =
-  "<!-- GENERATED by `deno task codegen` from the term registry (scripts/glossary_registry.ts) — do NOT edit by hand. Change an entry there and regenerate. -->";
+  "<!-- This reference is generated from the product-term registry. -->";
 
 /** The sort key an entry alphabetizes under: lowercased, leading "The " dropped. */
 function sortKey(term: string): string {
@@ -860,7 +967,7 @@ function renderGlossaryDocument(
     "",
     manual
       ? "Search aliases include canonical terms and retired synonyms. Definitions retain the canonical spelling used by commands, configuration, results, and the rest of the manual."
-      : "These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)). For how they relate, read [concepts](concepts.md).",
+      : "These names are canonical — every page uses them identically, no synonyms ([ADR 0169](../_adr/0169-the-launch-glossary-canon.md)); running prose capitalizes Proof and its family only ([ADR 0373](../_adr/0373-proof-alone-carries-product-concept-capitals.md)). For how they relate, read [concepts](concepts.md).",
     "",
     sections.join("\n\n"),
     "",

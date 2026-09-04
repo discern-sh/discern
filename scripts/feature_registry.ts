@@ -3787,7 +3787,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
     id: "know-what-finished-means",
     title: "Know what finished means",
     promise:
-      "A coding agent can distinguish iteration from completion and return proof, judgment evidence, and retained quality limits for the exact tree it finished.",
+      "A coding agent can distinguish iteration from completion and return Proof, judgment evidence, and retained quality limits for the exact tree it finished.",
     benefits: [
       {
         id: "prove-the-exact-tree",
@@ -3846,7 +3846,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
     id: "act-inside-explicit-authority",
     title: "Act inside explicit authority",
     promise:
-      "A coding agent can preview effects, distinguish proof from permission, and stop at the exact owner decision an operation still needs.",
+      "A coding agent can preview effects, distinguish Proof from permission, and stop at the exact owner decision an operation still needs.",
     benefits: [
       {
         id: "preview-and-retry-effects-safely",

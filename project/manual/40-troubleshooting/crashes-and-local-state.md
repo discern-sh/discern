@@ -43,7 +43,7 @@ Nothing is uploaded anywhere. discern makes no network calls, so a crash report 
 
 ## Files named `discern-…` in the temp directory
 
-Selected command output is kept in your system temp directory for 24 hours so you can inspect it after a run. The most useful family is a Gate job's full output, which results reference as `output_path` so a long log survives the run that produced it. Each family carries a registered prefix:
+Selected command output is kept in your system temp directory for 24 hours so you can inspect it after a run. The most useful family is a gate job's full output, which results reference as `output_path` so a long log survives the run that produced it. Each family carries a registered prefix:
 
 | Prefix           | What it holds                                                           |
 | ---------------- | ----------------------------------------------------------------------- |
@@ -53,17 +53,17 @@ Selected command output is kept in your system temp directory for 24 hours so yo
 | `discern-self-`  | A fallback command shim for a run that had no repository root.          |
 | `discern-test-`  | Scaffolding from discern's own test suite — never from normal commands. |
 
-No action is needed: expired files are swept automatically, in small bounded pages so a burst of Gate runs doesn't stall on cleanup. Deleting them early costs you nothing but the ability to inspect the output they held; leave a `discern-job-` file alone while its Gate is still running, though.
+No action is needed: expired files are swept automatically, in small bounded pages so a burst of gate runs doesn't stall on cleanup. Deleting them early costs you nothing but the ability to inspect the output they held; leave a `discern-job-` file alone while its gate is still running, though.
 
 ## The `.git/discern` directory
 
-discern's runtime state lives inside the repository's Git directory, out of your working tree and out of your commits. It holds the [Logbook](../30-reference/logbook.md), current Gate Proof, wait continuations, the resource ledger, retired-worktree-path records, and the shim that lets commands the Gate spawns find the engine that started them.
+discern's runtime state lives inside the repository's Git directory, out of your working tree and out of your commits. It holds the [logbook](../30-reference/logbook.md), current gate Proof, wait continuations, the resource ledger, retired-worktree-path records, and the shim that lets commands the gate spawns find the engine that started them.
 
-Treat it as owned storage. Nothing in normal use requires touching it, and hand-deleting it destroys real evidence — Proof that acceptance would have reused, Logbook history, the records that make [reappeared-path cleanup](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back) safe. The supported removal is `discern uninstall`, which takes runtime state with it — and refuses while provisioned worktree resources remain, so nothing external is orphaned by the exit. [Files and ownership](../30-reference/files-and-ownership.md) lists every path discern writes and who owns its lifecycle.
+Treat it as owned storage. Nothing in normal use requires touching it, and hand-deleting it destroys real evidence — Proof that acceptance would have reused, logbook history, the records that make [reappeared-path cleanup](worktrees-and-resources.md#removal-failed-or-a-removed-path-came-back) safe. The supported removal is `discern uninstall`, which takes runtime state with it — and refuses while provisioned worktree resources remain, so nothing external is orphaned by the exit. [Files and ownership](../30-reference/files-and-ownership.md) lists every path discern writes and who owns its lifecycle.
 
 ## The Logbook looks empty or off
 
-The Logbook is discern's local record of runs and outcomes, and its quiet states are mostly healthy ones. An enabled Logbook with nothing in it hasn't seen events yet. A denied write warns and disables recording _for that process_ without blocking the work — recording is advisory and never blocks a command. Disabled-by-configuration, invalid, and missed-event states are reported distinctly, so a result telling you recording is off also tells you why. The [Logbook reference](../30-reference/logbook.md) covers storage, rotation, and the archive and reset lifecycle, each an explicit command there.
+The Logbook is discern's local record of runs and outcomes, and its quiet states are mostly healthy ones. An enabled logbook with nothing in it hasn't seen events yet. A denied write warns and disables recording _for that process_ without blocking the work — recording is advisory and never blocks a command. Disabled-by-configuration, invalid, and missed-event states are reported distinctly, so a result telling you recording is off also tells you why. The [Logbook reference](../30-reference/logbook.md) covers storage, rotation, and the archive and reset lifecycle, each an explicit command there.
 
 ## When to stop
 

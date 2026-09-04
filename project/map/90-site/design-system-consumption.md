@@ -42,13 +42,13 @@ Page-owned composition styles remain in [`site/page-src/clarity-first.css`](../.
 
 ## The trust composition
 
-[`site/page-src/trust.tsx`](../../../site/page-src/trust.tsx) is the concise evaluator gateway at `/trust`. It frames local control, inspectable Gate and Proof evidence, and the inspectable Map without becoming another product or security authority. Every material statement is selected from [`PUBLIC_CLAIMS`](../../../scripts/brand/claims.ts), and each evidence card links to the exact manual or public-Map destination that owns the detail.
+[`site/page-src/trust.tsx`](../../../site/page-src/trust.tsx) is the concise evaluator gateway at `/trust`. It frames local control, inspectable gate and Proof evidence, and the inspectable map without becoming another product or security authority. Every material statement is selected from [`PUBLIC_CLAIMS`](../../../scripts/brand/claims.ts), and each evidence card links to the exact manual or public-Map destination that owns the detail.
 
 [`site/page-src/trust.css`](../../../site/page-src/trust.css) owns only its `.trust-*` composition selectors. The page is static, has no page-specific JavaScript, and shares the compositions bundle, theme bootstrap, skip-link contract, metadata path, and generated branding with the other marketing pages.
 
 ## Public-site prose
 
-[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every public marketing composition in building, serving, route discovery, runtime checks, and public prose checks. Each member names its output, authored source, register, negotiation policy, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and the site prose Standards through that registration. The homepage and `/trust` use the brand register; `/agents` uses the public agent register.
+[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) enrolls every public marketing composition in building, serving, route discovery, runtime checks, and public prose checks. Each member names its output, authored source, register, negotiation policy, and prose policy. A guarded page joins [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts), the site scope, and the site prose standards through that registration. The homepage and `/trust` use the brand register; `/agents` uses the public agent register.
 
 The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artefact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 

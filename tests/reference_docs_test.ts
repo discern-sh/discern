@@ -3,6 +3,7 @@ import { z } from "@zod/zod";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import {
   beginEventSchema,
   LOGBOOK_OUTCOMES,
@@ -37,11 +38,30 @@ import {
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
 import {
+  MAX_SWEEP_INSPECTIONS,
+  MAX_SWEEP_REMOVALS,
   TEMP_ARTIFACT_DIR_KINDS,
   TEMP_ARTIFACT_KINDS,
   TEMP_ARTIFACT_SUFFIX,
   TEMP_ARTIFACT_TTL_MS,
 } from "../src/shared/temp_artifacts.ts";
+import {
+  CONTINUATION_MAX_ENTRIES,
+  CONTINUATION_TTL_MS,
+} from "../src/engine/continuations/store.ts";
+import {
+  RETIRED_WORKTREE_PATH_MAX_ENTRIES,
+  RETIRED_WORKTREE_PATH_TTL_MS,
+} from "../src/engine/worktree/retired_paths.ts";
+import { DROP_RECOVERY_REF_LIMIT } from "../src/engine/worktree/recovery_refs.ts";
+import { TEMP_ARTIFACT_SWEEP_INTERVAL_MS } from "../src/engine/gate/temp_artifact_sweep.ts";
+import { MAX_MONTH_FILES } from "../src/engine/logbook/store.ts";
+import { FLEET_ACTIVITY_EVENT_LIMIT } from "../src/engine/logbook/read.ts";
+import { PATTERNS_SERIES_MAX_POINTS } from "../src/shared/patterns_vocabulary.ts";
+import {
+  REQUIRED_RUNTIME_TOOLS,
+  runtimePrerequisitesPhrase,
+} from "../src/shared/runtime_prerequisites.ts";
 import { CRASH_EXIT_CODE, MAX_CRASH_FILES } from "../src/engine/crash.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_paths.ts";
 import { decodeWith } from "./decode_cli_result.ts";
@@ -71,6 +91,12 @@ const logbookReference = await Deno.readTextFile(
 );
 const fileReference = await Deno.readTextFile(
   `${REPO_AUTHORED_PATHS.manual}/30-reference/files-and-ownership.md`,
+);
+const localControl = await Deno.readTextFile(
+  `${REPO_AUTHORED_PATHS.manual}/20-understand/local-control.md`,
+);
+const quickstart = await Deno.readTextFile(
+  `${REPO_AUTHORED_PATHS.map}/10-getting-started/quickstart.md`,
 );
 
 /** Members absent from a Markdown contract's exact code vocabulary. */
@@ -322,4 +348,144 @@ Deno.test("temporary and crash record limits remain exact in the ownership page"
   );
   assertStringIncludes(fileReference, `newest ${MAX_CRASH_FILES}`);
   assertStringIncludes(fileReference, `exits \`${CRASH_EXIT_CODE}\``);
+});
+
+Deno.test("retention and bounded-reader prose derives from live limits", () => {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const claims: ReadonlyArray<[string, string, string]> = [
+    [
+      "continuation lifetime",
+      fileReference,
+      `${CONTINUATION_TTL_MS / dayMs}-day time limit`,
+    ],
+    [
+      "continuation cap",
+      fileReference,
+      `${CONTINUATION_MAX_ENTRIES}-record repository cap`,
+    ],
+    [
+      "removed-path lifetime",
+      fileReference,
+      `${RETIRED_WORKTREE_PATH_TTL_MS / dayMs}-day limit`,
+    ],
+    [
+      "removed-path cap",
+      fileReference,
+      `${RETIRED_WORKTREE_PATH_MAX_ENTRIES}-record cap`,
+    ],
+    [
+      "drop-recovery cap",
+      fileReference,
+      `newest ${DROP_RECOVERY_REF_LIMIT} refs`,
+    ],
+    [
+      "temporary inspection cap",
+      fileReference,
+      `at most ${MAX_SWEEP_INSPECTIONS} matching entries`,
+    ],
+    [
+      "temporary removal cap",
+      fileReference,
+      `at most ${MAX_SWEEP_REMOVALS} expired entries`,
+    ],
+    [
+      "temporary sweep interval",
+      fileReference,
+      TEMP_ARTIFACT_SWEEP_INTERVAL_MS === hourMs
+        ? "one page per hour"
+        : `one page per ${TEMP_ARTIFACT_SWEEP_INTERVAL_MS / hourMs} hours`,
+    ],
+    [
+      "fleet activity bound",
+      logbookReference,
+      `newest ${FLEET_ACTIVITY_EVENT_LIMIT} events`,
+    ],
+    [
+      "pattern series bound",
+      logbookReference,
+      `capped at ${PATTERNS_SERIES_MAX_POINTS} points`,
+    ],
+    [
+      "logbook retention",
+      logbookReference,
+      `newest ${MAX_MONTH_FILES} months`,
+    ],
+  ];
+  for (const [name, document, phrase] of claims) {
+    assertStringIncludes(document, phrase, name);
+  }
+});
+
+Deno.test("runtime prerequisite prose derives from one command set", () => {
+  assertEquals(REQUIRED_RUNTIME_TOOLS, ["git", "sh"]);
+  const phrase = runtimePrerequisitesPhrase();
+  assertStringIncludes(localControl, phrase);
+  assertStringIncludes(providerReference, phrase);
+});
+
+Deno.test("the Map quickstart enumerates every known job from the registry", () => {
+  const enumeration = quickstart.match(
+    /the gate runs the known jobs ([^.]+) when they are applicable/u,
+  )?.[1];
+  assert(
+    enumeration !== undefined,
+    "quickstart must carry one bounded known-job sentence",
+  );
+  const names = [...enumeration.matchAll(/`([^`]+)`/g)].map((match) =>
+    match[1] ?? ""
+  );
+  assertEquals(names, Object.keys(KNOWN_JOBS));
+});
+
+Deno.test("current ADR claims use the live gate-Proof path", async () => {
+  const decision = await Deno.readTextFile(
+    `${REPO_AUTHORED_PATHS.map}/_adr/0165-git-admin-state-namespaced-by-lifetime.md`,
+  );
+  assertStringIncludes(decision, `\`${GIT_ADMIN_STATE.gateProof.path}\``);
+  assertEquals(decision.includes("discern/gate-receipt"), false);
+});
+
+const HISTORICAL_IDENTITY_AMENDMENTS = new Map([
+  [
+    "0076-engine-commits-scaffolded-machinery.md",
+    "The amendment records the superseded identity so old history remains interpretable.",
+  ],
+  [
+    "0106-standards-pin-carries-the-gate-receipt.md",
+    "The amendment records the superseded identity so old history remains interpretable.",
+  ],
+  [
+    "0203-discern-co-authors-only-commits-it-composes.md",
+    "The identity amendment explains why old trailers carry a different verified address.",
+  ],
+]);
+
+Deno.test("superseded machine identities survive only in marked ADR amendments", async () => {
+  const offenders: string[] = [];
+  for (const [file, reason] of HISTORICAL_IDENTITY_AMENDMENTS) {
+    assert(reason.trim().length > 0);
+    const text = await Deno.readTextFile(
+      `${REPO_AUTHORED_PATHS.map}/_adr/${file}`,
+    );
+    const lines = text.split("\n").filter((line) =>
+      /discern-bot|bot@discern\.sh/u.test(line)
+    );
+    if (lines.length === 0 || lines.some((line) => !line.startsWith(">"))) {
+      offenders.push(`${file}: historical identity must stay in an amendment`);
+    }
+  }
+  for await (const entry of Deno.readDir(`${REPO_AUTHORED_PATHS.map}/_adr`)) {
+    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+    const text = await Deno.readTextFile(
+      `${REPO_AUTHORED_PATHS.map}/_adr/${entry.name}`,
+    );
+    if (
+      /discern-bot|bot@discern\.sh/u.test(text) &&
+      !HISTORICAL_IDENTITY_AMENDMENTS.has(entry.name)
+    ) {
+      offenders.push(`${entry.name}: superseded identity in current ADR prose`);
+    }
+  }
+  assertEquals(offenders, []);
 });

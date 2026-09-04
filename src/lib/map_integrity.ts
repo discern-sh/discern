@@ -220,7 +220,7 @@ async function linkFindings(
 }
 
 /** The fenced `discern …` example findings for one file. */
-function commandFindings(
+export function fencedCommandFindings(
   rel: string,
   text: string,
   cli: CliCommand,
@@ -310,7 +310,7 @@ export async function checkDocsIntegrity(
       findings.push(
         ...await linkFindings(rel, entry, text, tree.docsDir, anchors),
       );
-      findings.push(...commandFindings(rel, text, cli, extraVerbs));
+      findings.push(...fencedCommandFindings(rel, text, cli, extraVerbs));
       findings.push(...citationFindings(rel, text, knownSkills));
     }
   }
@@ -318,7 +318,7 @@ export async function checkDocsIntegrity(
   for (const sourceAbs of await resolveInstructionSources(root, config)) {
     const text = await Deno.readTextFile(sourceAbs);
     const rel = relative(root, sourceAbs);
-    findings.push(...commandFindings(rel, text, cli, extraVerbs));
+    findings.push(...fencedCommandFindings(rel, text, cli, extraVerbs));
     findings.push(...citationFindings(rel, text, knownSkills));
   }
 

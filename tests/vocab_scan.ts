@@ -145,6 +145,17 @@ export function visibleMarkdown(text: string): string {
   return text.replace(/\]\([^)]*\)/g, "]");
 }
 
+/** Running Markdown prose with code, comments, headings, and link targets removed. */
+export function runningMarkdownProse(text: string): string {
+  return visibleMarkdown(text)
+    .replace(/^---\s*\n[^]*?\n---\s*$/m, "")
+    .replace(/<!--[^]*?-->/g, "")
+    .replace(/^(?:```|~~~)[^\n]*\n[^]*?^(?:```|~~~)\s*$/gm, "")
+    .replace(/<https?:\/\/[^>\s]+>/g, "")
+    .replace(/`[^`\n]*`/g, "")
+    .replace(/^(?:\{\{[^}\n]+\}\})?#{1,6}\s+.*$/gm, "");
+}
+
 /**
  * Human-readable line findings for a banned pattern in a text artifact. Scans
  * the whole text, not line by line, so a phrase wrapped across a line break

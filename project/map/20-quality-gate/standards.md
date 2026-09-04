@@ -13,7 +13,7 @@ aliases:
 
 _Hold a quality measure at a floor or ceiling that later branches cannot weaken._
 
-A quality measure that can only improve (a Standard) is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that redefines the quality claim, weakens its bound, or deletes it ([ADR 0133](../_adr/0133-standards-join-the-gate.md), [ADR 0323](../_adr/0323-standards-hold-normalized-enforcement-definitions.md)).
+A quality measure that can only improve (a standard) is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that redefines the quality claim, weakens its bound, or deletes it ([ADR 0133](../_adr/0133-standards-join-the-gate.md), [ADR 0323](../_adr/0323-standards-hold-normalized-enforcement-definitions.md)).
 
 ## Add a Standard
 
@@ -31,11 +31,11 @@ The measurement command reports its value on stdout:
 DISCERN_METRIC coverage 91.4
 ```
 
-`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. The command's own exit status does not decide a Standard: a usable marker may hold after a nonzero exit, while a clean exit without the marker fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
+`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. The command's own exit status does not decide a standard: a usable marker may hold after a nonzero exit, while a clean exit without the marker fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
 ## Keep its meaning stable
 
-An existing Standard holds three field roles:
+An existing standard holds three field roles:
 
 | Role                 | Fields                                                            | Branch policy                                                          |
 | -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -57,27 +57,27 @@ Choose a coherent risk metric; leave broader inventories advisory. Then ask whet
 - A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
 - A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
-Report a breach the work itself caused instead of engineering the number back down. After the intended tree is committed, a targeted measured breach can become a Standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
+Report a breach the work itself caused instead of engineering the number back down. After the intended tree is committed, a targeted measured breach can become a standard limit proposal that reaches the owner through Proof and acceptance. Ordinary never-loosen enforcement remains in force without that proposal ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md), [ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
-discern's own [duplication census](../80-development/duplication-census.md) is a down-only Standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
+discern's own [duplication census](../80-development/duplication-census.md) is a down-only standard. It charges the non-overlapping normalized lines contributed by each additional source occurrence.
 
-Process-egress, ambient-read, clock, scheduler, jitter, and secure-entropy Standards use exact operation registries. Their structural commands bind each live primitive to one row before emitting falling counts, so new and stale entries fail even when totals remain level. Secure-entropy rows also record the required security property. The metric remains unavailable when parity or metadata validation fails ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md), [ADR 0347](../_adr/0347-clock-scheduler-and-jitter-are-explicit-capabilities.md), [ADR 0348](../_adr/0348-secure-entropy-is-a-webcrypto-capability.md)).
+Process-egress, ambient-read, clock, scheduler, jitter, and secure-entropy standards use exact operation registries. Their structural commands bind each live primitive to one row before emitting falling counts, so new and stale entries fail even when totals remain level. Secure-entropy rows also record the required security property. The metric remains unavailable when parity or metadata validation fails ([ADR 0344](../_adr/0344-process-egress-and-termination-have-exact-boundaries.md), [ADR 0347](../_adr/0347-clock-scheduler-and-jitter-are-explicit-capabilities.md), [ADR 0348](../_adr/0348-secure-entropy-is-a-webcrypto-capability.md)).
 
 The `detached_promise_boundaries` Standard follows the same validate-then-measure shape. Its task first type-checks every promise-like expression statement in the Git-derived production universe, then binds each registered `detachPromise` call to one row naming lifecycle, rejection, and shutdown ownership. Only a clean type scan and exact two-way registry parity emit the falling population ([ADR 0345](../_adr/0345-promise-effects-have-typed-owners.md)).
 
 ## What the Gate does
 
-The Gate checks normalized definitions and limits, then measures with checks and tests. Reusable evidence binds the measured value to the complete normalized Standard definition and to the original measured commit. It replays only when declared `inputs` and that definition fingerprint are unchanged. Replay preserves that original provenance and writes no fresh measurement record at the current `HEAD`. `measure = "on-demand"` stays with `discern standards`; definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.
+The Gate checks normalized definitions and limits, then measures with checks and tests. Reusable evidence binds the measured value to the complete normalized standard definition and to the original measured commit. It replays only when declared `inputs` and that definition fingerprint are unchanged. Replay preserves that original provenance and writes no fresh measurement record at the current `HEAD`. `measure = "on-demand"` stays with `discern standards`; definition and limit checks never defer. A Standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.
 
-Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the Gate still decides comparisons and pin eligibility.
+Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the gate still decides comparisons and pin eligibility.
 
-One pure Gate function decides mechanical pin eligibility from direction, measured value, configured `margin`, and current limit. A measured or replayed result carries `margin`, `pin_eligible`, and the exact `pin_target` when eligible. Gate pinning and advisory Patterns therefore consume the same answer. Eligibility means only that the target is strictly tighter and still holds the measurement; [Patterns decision evidence](patterns-decision-evidence.md#standard-trajectory-decisions) applies separate freshness, persistence, variance, failure, and retirement evidence before recommending a pin ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+One pure gate function decides mechanical pin eligibility from direction, measured value, configured `margin`, and current limit. A measured or replayed result carries `margin`, `pin_eligible`, and the exact `pin_target` when eligible. Gate pinning and advisory patterns therefore consume the same answer. Eligibility means only that the target is strictly tighter and still holds the measurement; [Patterns decision evidence](patterns-decision-evidence.md#standard-trajectory-decisions) applies separate freshness, persistence, variance, failure, and retirement evidence before recommending a pin ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
 
 ## Run standards directly
 
-`discern standards` freshly measures every Standard, including `measure = "on-demand"`. Positional names narrow an ordinary run and a pin to the validated named set; no names selects every Standard, and an unknown name refuses before measurement. `data.standards` contains the selected set. A partial run never creates the reusable full-project measurement cache. First the command still checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid selected measurements.
+`discern standards` freshly measures every standard, including `measure = "on-demand"`. Positional names narrow an ordinary run and a pin to the validated named set; no names selects every standard, and an unknown name refuses before measurement. `data.standards` contains the selected set. A partial run never creates the reusable full-project measurement cache. First the command still checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid selected measurements.
 
-Runnable measurements share one parallel group without fail-fast. Standards with the same command, checkout root, and timeout use one process, then select their metrics and receive independent verdicts and evidence. Replayed and deferred Standards stay outside the group. A missing metric fails only its consumer; a process failure fails every consumer.
+Runnable measurements share one parallel group without fail-fast. Standards with the same command, checkout root, and timeout use one process, then select their metrics and receive independent verdicts and evidence. Replayed and deferred standards stay outside the group. A missing metric fails only its consumer; a process failure fails every consumer.
 
 Coverage shares one run across its aggregate rate, zero-ceiling module failures, and ratcheted exception count. Diagnostics preserve the failed set that a minimum percentage would hide ([ADR 0342](../_adr/0342-git-elects-module-coverage-membership.md)).
 
@@ -85,26 +85,26 @@ The gate runner supplies timeouts, process-tree kill, durations, interruption, a
 
 ## Propose a new limit
 
-`discern standards propose <name> --reason "…"` records a Standard breach for an owner decision. The transaction requires:
+`discern standards propose <name> --reason "…"` records a standard breach for an owner decision. The transaction requires:
 
 - a clean worktree branch at a committed `HEAD`;
 - the unchanged trunk definition and limit;
 - configured `inputs`; and
 - at least one changed path that matches those inputs.
 
-Treat proposal creation as a finalization step. Finish the implementation, commit the intended tree, then run the proposal command once. It measures only the named Standard through the shared measurement planner. A prior process-backed value for the same clean `HEAD` can be reused. The command records the reason verbatim; it must contain 1–500 visible characters on one line and no obvious secret.
+Treat proposal creation as a finalization step. Finish the implementation, commit the intended tree, then run the proposal command once. It measures only the named standard through the shared measurement planner. A prior process-backed value for the same clean `HEAD` can be reused. The command records the reason verbatim; it must contain 1–500 visible characters on one line and no obvious secret.
 
 The initial transaction changes the limit to the measured value in one config-only commit. Its worktree-local record separates the immutable proposal origin from the renewable live binding: proposal commit and measured parent, current bound commit, definition fingerprint, trunk baseline, measurement, delta, reason, and responsible paths. `--dry-run` shows the targeted measurement and possible write without running the command or changing config, Git history, Proof, or proposal state.
 
-Repeating the same request on its bound commit changes nothing. A later descendant can renew the same proposal without another Git commit when the original proposal commit remains in its ancestry, the current trunk is contained, and the Standard definition, trunk limit, reason, proposed value, fresh targeted measurement, and responsible input attribution remain unchanged. Renewal updates only the worktree-local bound commit, current trunk commit, and responsible paths; it invalidates prior Proof so the Gate judges the descendant. A different tuple or measured value cannot renew. The refusal directs the agent to restore the trunk limit before creating a different proposal. A stale proposal authorizes nothing and restores ordinary enforcement.
+Repeating the same request on its bound commit changes nothing. A later descendant can renew the same proposal without another Git commit when the original proposal commit remains in its ancestry, the current trunk is contained, and the standard definition, trunk limit, reason, proposed value, fresh targeted measurement, and responsible input attribution remain unchanged. Renewal updates only the worktree-local bound commit, current trunk commit, and responsible paths; it invalidates prior Proof so the gate judges the descendant. A different tuple or measured value cannot renew. The refusal directs the agent to restore the trunk limit before creating a different proposal. A stale proposal authorizes nothing and restores ordinary enforcement.
 
-`discern done` remeasures a live proposal and records the Standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each Standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
+`discern done` remeasures a live proposal and records the standard limit proposal prominently in Proof. `discern accept` then refuses read-only and serves one approval token per proposal. The token is a 64-character lowercase hexadecimal digest of the exact standard, value, and reason. It makes a copied approval command stale when any of those facts changes; it is not a separate source of authority. Relay each standard, proposed value, delta, reason, and responsible path to the owner. After the owner approves those tuples in the current conversation, run the complete command returned by the refusal:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve Standard limit proposals. Acceptance lands the proposal commit that passed the Gate. It does not edit the limit or create a later commit.
+Repeat `--approve-standard` for every proposal. The supplied tokens must equal the current proposal set. Standing grants, effort grants, generic landing consent, checkpoint variances, and earlier tokens do not approve standard limit proposals. Acceptance lands the proposal commit that passed the gate. It does not edit the limit or create a later commit.
 
 If the owner declines, leave acceptance stopped, restore the trunk limit in the branch, commit that restoration, and run `discern done` under ordinary enforcement.
 
@@ -124,7 +124,7 @@ An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-met
 
 ## Capture an improvement
 
-`discern standards --pin coverage` uses `margin`, tightens `coverage`, and commits `discern.toml`. It reuses every available same-commit value and measures selected values that are still missing. A named pin narrows execution to its targets only when an honored Gate Proof already validates the complete clean tree. Without that Proof, every Standard still validates before discern changes only the named limit. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
+`discern standards --pin coverage` uses `margin`, tightens `coverage`, and commits `discern.toml`. It reuses every available same-commit value and measures selected values that are still missing. A named pin narrows execution to its targets only when an honored gate Proof already validates the complete clean tree. Without that Proof, every standard still validates before discern changes only the named limit. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md), [ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 

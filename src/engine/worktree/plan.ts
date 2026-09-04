@@ -99,7 +99,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     label: BUILT_IN_STEP_LABELS.trackedRefreshLandingBoundary,
     disposition: "gate",
     note:
-      "after proof or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
+      "after Proof or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
   }];
   // Land on the trunk FIRST: fast-forward it to the branch tip (always clean —
   // the gate guarantees the branch contains the trunk). Then converge and prove
@@ -117,14 +117,14 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     label: BUILT_IN_STEP_LABELS.reconcileProofNoteFetch,
     disposition: "run",
     note: plan.proofNotes === "fetch"
-      ? "add the proof-note fetch mapping for each remote"
-      : "remove only proof-note fetch mappings discern previously managed",
+      ? "add the Proof note fetch mapping for each remote"
+      : "remove only Proof note fetch mappings discern previously managed",
   });
   steps.push({
     kind: "git",
     label: BUILT_IN_STEP_LABELS.writeProofNote,
     disposition: "run",
-    note: `attach the landed proof under ${PROOF_NOTES_REF}`,
+    note: `attach the landed Proof under ${PROOF_NOTES_REF}`,
   });
   steps.push({
     kind: "refresh",
@@ -755,7 +755,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       plan.reclaimContained
         ? `Contained (reclaiming): ${n} checkout${n === 1 ? "" : "s"} — ` +
           `branch refs kept; each checkout and its per-worktree state ` +
-          `(gate proof included) destroyed`
+          `(gate Proof included) destroyed`
         : `Contained (kept): ${n} checkout${n === 1 ? "" : "s"} whose ` +
           `commits travel inside a live branch — reclaim with --contained; ` +
           `branch refs are always kept`,

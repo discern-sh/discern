@@ -20,7 +20,7 @@ Pass exactly one condition per call. Choose it from what your work actually need
 
 | Your task needs                                     | Condition                    | It holds when                                                                                   |
 | --------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| To build on the sibling's tree before it lands      | `green` (a worktree selector) | The selected branch holds a passing full-gate proof on its current clean commit, or its work lands |
+| To build on the sibling's tree before it lands      | `green` (a worktree selector) | The selected branch holds a passing full-gate Proof on its current clean commit, or its work lands |
 | The sibling's work present beneath yours, via trunk | `landed` (a worktree selector) | The selected branch's observed work is reachable from the trunk                                  |
 | To react to any trunk movement at all               | `trunk_moved` (no selector)   | The trunk ref differs from where it stood when the watch began                                   |
 

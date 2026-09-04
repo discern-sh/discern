@@ -4,7 +4,7 @@ Read [`project/map/_internal/documenter-agent-brief.md`](../documenter-agent-bri
 
 ## What this subtree documents
 
-The public reference tier for discern's commands, configuration, environment variables, Model Context Protocol (MCP) results, written files, supported platforms, prerequisites, and Worktree identity values. Neighboring guides explain workflows; this tier states the contracts readers use to verify them.
+The public reference tier for discern's commands, configuration, environment variables, Model Context Protocol (MCP) results, written files, supported platforms, prerequisites, and worktree identity values. Neighboring guides explain workflows; this tier states the contracts readers use to verify them.
 
 ## Files to produce
 

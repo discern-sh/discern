@@ -40,7 +40,7 @@ discern status
 
 Read Git state, branch drift, Proof state, resources, pending refresh, and the result's next action. A worktree survives the session that created it; its branch and local Git-admin state carry the effort forward.
 
-If the result says setup or environment readiness is incomplete, follow the named `discern worktree ensure` or setup recovery. If the branch is behind, use `discern_update`. If the tree is dirty, inspect and continue the work before running the Gate.
+If the result says setup or environment readiness is incomplete, follow the named `discern worktree ensure` or setup recovery. If the branch is behind, use `discern_update`. If the tree is dirty, inspect and continue the work before running the gate.
 
 A returned session should be able to state its branch, current commit, changed files, last completed discern action, and immediate next action without consulting the earlier chat.
 
@@ -92,7 +92,7 @@ If another acceptance owns the repository lock, the refusal says that this call 
 
 A result can be `ok: false` after `trunk_landed: true`. Later ensure, smoke, materialization, or deletion failures cannot undo the trunk move.
 
-**Person and coding agent:** Treat the commit as landed when the result says so. Continue only the named convergence or cleanup action. Do not ask for a second landing decision or rerun the Gate for a commit already on the trunk.
+**Person and coding agent:** Treat the commit as landed when the result says so. Continue only the named convergence or cleanup action. Do not ask for a second landing decision or rerun the gate for a commit already on the trunk.
 
 Recovery is complete when status shows the trunk at the accepted commit and the result accounts for any checkout or branch that remains.
 

@@ -22,7 +22,7 @@ The exact command, configuration, environment-variable, glossary, and license co
 
 This tier keeps the accounts that serve agents working on discern. MCP tools share the same prepared `DiscernResult` as CLI quiet modes: `structuredContent` uses the `--json` projection, while text `content` uses the `--markdown` presenter. Files and ownership separates project-owned, Shared, Generated, tracked, and ignored artifacts. Platforms and prerequisites records the release targets, required executables, identity selectors, and command-template tokens verified against the installer and runtime checks.
 
-For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality Gate](../20-quality-gate/) or [Worktrees](../30-worktrees/). Reference remains organized for lookup.
+For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality gate](../20-quality-gate/) or [worktrees](../30-worktrees/). Reference remains organized for lookup.
 
 | Reference                                                                 | Use it to                                                                                |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |

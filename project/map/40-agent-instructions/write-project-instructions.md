@@ -13,7 +13,7 @@ aliases:
 
 _A Instruction source holds the project instructions that discern supplies to every configured coding agent._
 
-The compiled file opens as your project's own document. Its heading names the project (`[project].name`, or the slug when it is unset), and its first line states that your instructions are the final authority ([ADR 0177](../_adr/0177-compiled-agent-file-opens-as-the-projects-own.md)). discern places its built-in operating instructions first, then adds your sources with project-specific facts. Your rules can therefore override the built-in instructions. Record how to run the project, which files discern generates, where decisions live, and which practices the Gate cannot infer from commands alone. The default source is `discern/instructions.md`.
+The compiled file opens as your project's own document. Its heading names the project (`[project].name`, or the slug when it is unset), and its first line states that your instructions are the final authority ([ADR 0177](../_adr/0177-compiled-agent-file-opens-as-the-projects-own.md)). discern places its built-in operating instructions first, then adds your sources with project-specific facts. Your rules can therefore override the built-in instructions. Record how to run the project, which files discern generates, where decisions live, and which practices the gate cannot infer from commands alone. The default source is `discern/instructions.md`.
 
 ## Configure the sources
 
@@ -35,7 +35,7 @@ Write for a new agent session with no memory of the conversation that produced t
 
 Keep each rule with the project source that owns the fact. Future edits then have one authoritative source.
 
-Keep instructions provider-neutral. Agent-specific setup, trust prompts, and file behavior belong in the [agent integration guides](../60-agent-integrations/). A standing rule belongs here only when every session needs it. A repeatable procedure belongs in an [authored Skill](../45-skills/author-a-skill.md), where it loads when relevant instead of occupying every session.
+Keep instructions provider-neutral. Agent-specific setup, trust prompts, and file behavior belong in the [agent integration guides](../60-agent-integrations/). A standing rule belongs here only when every session needs it. A repeatable procedure belongs in an [authored skill](../45-skills/author-a-skill.md), where it loads when relevant instead of occupying every session.
 
 ## Current state & gotchas
 

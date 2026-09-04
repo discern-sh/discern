@@ -14,13 +14,13 @@ aliases:
 
 _Finish the intended commit, report what changed, end with its Proof line, and wait for the owner to decide whether it lands._
 
-A green Gate starts review. Landing remains the owner's decision. Keep the worktree and branch in place until that decision arrives, because they hold the commit, Proof, and local resources under review.
+A green gate starts review. Landing remains the owner's decision. Keep the worktree and branch in place until that decision arrives, because they hold the commit, Proof, and local resources under review.
 
 ## Finish the branch
 
-Commit the intended tree and bring the latest trunk into the branch with [`discern update`](lifecycle.md#bring-the-trunk-into-the-branch) when the branch is behind. Review any incoming overlap before the final Gate run.
+Commit the intended tree and bring the latest trunk into the branch with [`discern update`](lifecycle.md#bring-the-trunk-into-the-branch) when the branch is behind. Review any incoming overlap before the final gate run.
 
-Run `discern done` on the clean final commit. A qualifying green run records a Proof for that `HEAD`: a one-line review claim and a full page listing the jobs, scopes, Standards, and diff command. If the Gate passes without a Proof, follow its hint, make the branch eligible for review, and rerun it.
+Run `discern done` on the clean final commit. A qualifying green run records a Proof for that `HEAD`: a one-line review claim and a full page listing the jobs, scopes, Standards, and diff command. If the gate passes without a Proof, follow its hint, make the branch eligible for review, and rerun it.
 
 ## Report and wait
 
@@ -39,11 +39,11 @@ Stop after the Proof line and wait. An uncommitted edit dirties the tree. A late
 
 Every landing needs [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from [the desk](the-desk.md). The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. A valid Proof lets acceptance reuse the earlier Gate result. A missing or stale Proof makes acceptance run the full Gate again for the commit it plans to land.
+Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. A valid Proof lets acceptance reuse the earlier gate result. A missing or stale Proof makes acceptance run the full gate again for the commit it plans to land.
 
-On success, the acceptance result, one-line Proof, and Logbook event name the consent source. discern then fast-forwards the trunk to the validated commit, converges the main checkout, and tears down the worktree. If another line of work moves the trunk first, acceptance keeps this worktree for `update → done → accept`. [Start, update, and accept](lifecycle.md) carries every landing precondition. [Interrupted landing recovery](acceptance-recovery.md) explains journals and `partial_acceptance` results.
+On success, the acceptance result, one-line Proof, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit, converges the main checkout, and tears down the worktree. If another line of work moves the trunk first, acceptance keeps this worktree for `update → done → accept`. [Start, update, and accept](lifecycle.md) carries every landing precondition. [Interrupted landing recovery](acceptance-recovery.md) explains journals and `partial_acceptance` results.
 
-You can also supervise a ready branch from [the Desk](the-desk.md). Its Accept action shows the plan, asks for confirmation, and calls the same acceptance core.
+You can also supervise a ready branch from [the desk](the-desk.md). Its Accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
 ## Spin out follow-on work
 

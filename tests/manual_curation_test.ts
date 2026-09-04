@@ -11,7 +11,10 @@ import {
   MANUAL_SECTION_REGISTRY,
   REPOSITORY_MANUAL_REL,
 } from "../src/shared/manual.ts";
-import { stageBundledManual } from "../scripts/build.ts";
+import {
+  stageBundledManual,
+  stripManualSourceComments,
+} from "../scripts/build.ts";
 import { loadDocsSite } from "../site/docs.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
@@ -145,8 +148,10 @@ Deno.test("binary staging is a fresh byte-identical manual projection with no Ma
     );
     for (const page of manual.pages) {
       assertEquals(
-        await Deno.readFile(join(destination, page.entry.relToDocs)),
-        await Deno.readFile(page.entry.absPath),
+        await Deno.readTextFile(join(destination, page.entry.relToDocs)),
+        stripManualSourceComments(
+          await Deno.readTextFile(page.entry.absPath),
+        ),
       );
     }
   });

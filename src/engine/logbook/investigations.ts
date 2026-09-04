@@ -271,7 +271,7 @@ const validationInstability: InvestigationRelationship = {
         sourceObservation(divergent, { value: 0, unit: "job-runs" }),
         sourceObservation(reruns, {
           value: reruns.evidence.confirmed_runs ?? 0,
-          unit: "explicit Gate reruns",
+          unit: "explicit gate reruns",
         }),
       ],
       evidence_boundary: evidenceBoundary(sources, {
@@ -284,10 +284,10 @@ const validationInstability: InvestigationRelationship = {
         ],
       }),
       summary:
-        "One validation job changed verdict under matched recorded conditions, alongside repeated explicit Gate reruns.",
+        "One validation job changed verdict under matched recorded conditions, alongside repeated explicit gate reruns.",
       observed: joinedObservation(sources),
       diagnostic_action:
-        "Reproduce the named job under the recorded envelope, then vary one unrecorded input at a time before changing the Gate or retry policy.",
+        "Reproduce the named job under the recorded envelope, then vary one unrecorded input at a time before changing the gate or retry policy.",
       falsifier:
         "The interpretation is weakened if controlled reproductions stay stable and explicit reruns stop without any validation change.",
     }];
@@ -359,14 +359,14 @@ const feedbackLoop: InvestigationRelationship = {
           validationVersion: null,
           completeValidationState: false,
           limitations: [
-            "The relationship joins one branch and recorded setup; it does not claim every red Gate in the conversation was preflight-preventable.",
+            "The relationship joins one branch and recorded setup; it does not claim every red gate in the conversation was preflight-preventable.",
           ],
         }),
         summary:
-          "This branch had repeated red Gates and separate evidence of work that preflight could perform.",
+          "This branch had repeated red gates and separate evidence of work that preflight could perform.",
         observed: joinedObservation(sources),
         diagnostic_action:
-          "On the next comparable change, run `discern prepare`, review its exact changes, then reserve `discern done` for the clean committed tree and compare the resulting Gate rounds.",
+          "On the next comparable change, run `discern prepare`, review its exact changes, then reserve `discern done` for the clean committed tree and compare the resulting gate rounds.",
         falsifier:
           "The interpretation is weakened if comparable changes still need the same full-Gate rounds after recorded preflight work is complete.",
       });
@@ -443,7 +443,7 @@ const validationScheduling: InvestigationRelationship = {
       observations: [
         sourceObservation(later, {
           value: later.evidence.additional_gate_rounds ?? 0,
-          unit: "adjacent red Gate pairs",
+          unit: "adjacent red gate pairs",
         }),
         sourceObservation(cost, {
           value: cost.evidence.runs ?? cost.evidence.capped_runs ?? 0,
@@ -491,7 +491,7 @@ const standardVariance: InvestigationRelationship = {
   setup: "source-established",
   suppressors: [
     "pin recommendation already supported",
-    "retired Standard",
+    "retired standard",
     "mixed recorded setup",
   ],
   cohortPolicy: "pooled-only",
@@ -522,7 +522,7 @@ const standardVariance: InvestigationRelationship = {
         validationVersion: null,
         completeValidationState: false,
         limitations: [
-          "Mechanical pin eligibility is a Gate fact; recent reversals or failures make variance the investigation and suppress pin advice.",
+          "Mechanical pin eligibility is a gate fact; recent reversals or failures make variance the investigation and suppress pin advice.",
         ],
       }),
       summary:

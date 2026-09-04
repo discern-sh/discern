@@ -16,7 +16,7 @@ import {
   TIPS,
 } from "./tips.ts";
 import { markdownBlockquote } from "./markdown_blockquote.ts";
-import { GENERATED_INVENTORY_POLICIES } from "./generated_inventory_policy.ts";
+import { GENERATED_INVENTORY_POLICIES } from "../../scripts/generated_inventory_policy.ts";
 
 /** Render one registry entry with its registered example parameters. */
 function renderEntry(tip: RegisteredTip): string {
@@ -63,7 +63,7 @@ function renderAbsenceLedger(): string {
   return [
     "## Coverage absences",
     "",
-    "The enrollment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the Gate.",
+    "The enrollment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the gate.",
     "",
     "| Member | Why it has no tip |",
     "| ------ | ----------------- |",

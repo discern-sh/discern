@@ -165,7 +165,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The editor status chip is advisory presentation and save operations still run their own Git-backed proof before claiming success.",
+      "The editor status chip is advisory presentation and save operations still run their own Git-backed Proof before claiming success.",
   },
   "canon-editor-saved-note-fallback": {
     path: "scripts/canon_editor/ui/app.js",
@@ -372,7 +372,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "Hints cannot decide the Gate and the coupling verb remains the explicit result surface for diagnosing an unavailable survey.",
+      "Hints cannot decide the gate and the coupling verb remains the explicit result surface for diagnosing an unavailable survey.",
   },
   "crash-error-field-fallback": {
     path: "src/engine/crash.ts",
@@ -509,7 +509,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The capped diagnostic remains complete enough to act on and an artifact failure cannot replace the underlying Gate diagnostic.",
+      "The capped diagnostic remains complete enough to act on and an artifact failure cannot replace the underlying gate diagnostic.",
   },
   "dispatch-command-suggestion-config-fallback": {
     path: "src/engine/dispatch.ts",
@@ -578,18 +578,18 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     path: "src/engine/gate/finish.ts",
     enclosingFunction: "activeStandardLimitProposalState",
     operation:
-      "omit advisory active Standard proposal decoration when inspection fails",
+      "omit advisory active standard proposal decoration when inspection fails",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "Proposal decoration cannot decide the Gate and later proposal application revalidates its own exact authority and evidence.",
+      "Proposal decoration cannot decide the gate and later proposal application revalidates its own exact authority and evidence.",
   },
   "gate-live-output-flush": {
     path: "src/engine/gate/execute.ts",
     enclosingFunction: "flush",
     operation:
-      "deliver buffered human-mode Gate output to its presentation sink",
+      "deliver buffered human-mode gate output to its presentation sink",
     kind: "capability",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -604,7 +604,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "sync",
     observability: { kind: "unobservable" },
     reason:
-      "Terminal presentation cleanup cannot alter the completed Gate result or leave an async failure behind.",
+      "Terminal presentation cleanup cannot alter the completed gate result or leave an async failure behind.",
   },
   "gate-tty-observer-open-fallback": {
     path: "src/engine/gate/gate_tty.ts",
@@ -626,17 +626,17 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "sync",
     observability: { kind: "unobservable" },
     reason:
-      "A presentation probe cannot decide the Gate result, and the last valid viewport remains safe for rendering.",
+      "A presentation probe cannot decide the gate result, and the last valid viewport remains safe for rendering.",
   },
   "gate-tty-write-outcome": {
     path: "src/engine/gate/gate_tty.ts",
     enclosingFunction: "safeWrite",
-    operation: "record a failed transient Gate terminal presentation write",
+    operation: "record a failed transient gate terminal presentation write",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
     reason:
-      "The progress adapter exposes the failed-write flag to Gate while job results and the final result envelope remain authoritative.",
+      "The progress adapter exposes the failed-write flag to gate while job results and the final result envelope remain authoritative.",
   },
   "git-orphan-identity-fallback": {
     path: "src/engine/worktree/git.ts",
@@ -902,7 +902,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "logbook-begin-append": {
     path: "src/engine/logbook/record.ts",
     enclosingFunction: "beginRecording",
-    operation: "append one advisory Logbook begin event",
+    operation: "append one advisory logbook begin event",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -953,7 +953,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "logbook-epoch-state-decode-fallback": {
     path: "src/engine/logbook/store.ts",
     enclosingFunction: "inspectEpochState",
-    operation: "treat malformed advisory Logbook epoch JSON as unavailable",
+    operation: "treat malformed advisory logbook epoch JSON as unavailable",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -963,7 +963,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "logbook-finish-append": {
     path: "src/engine/logbook/record.ts",
     enclosingFunction: "finish",
-    operation: "append advisory Logbook completion and Standard pin events",
+    operation: "append advisory logbook completion and standard pin events",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -973,7 +973,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "logbook-month-read-outcome": {
     path: "src/engine/logbook/read.ts",
     enclosingFunction: "readLogbookStream",
-    operation: "count one unreadable Logbook month as an unparsed unit",
+    operation: "count one unreadable logbook month as an unparsed unit",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -983,7 +983,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "logbook-recent-month-read-outcome": {
     path: "src/engine/logbook/read.ts",
     enclosingFunction: "readRecentLogbookStream",
-    operation: "count one unreadable recent Logbook month as an unparsed unit",
+    operation: "count one unreadable recent logbook month as an unparsed unit",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -994,7 +994,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     path: "src/engine/logbook/record.ts",
     enclosingFunction: "gatherContext",
     operation:
-      "disable Logbook recording when consent configuration is unreadable",
+      "disable logbook recording when consent configuration is unreadable",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -1016,7 +1016,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     path: "src/engine/logbook/store.ts",
     enclosingFunction: "archiveLogbook",
     operation:
-      "remove a partial temporary Logbook archive after publication fails",
+      "remove a partial temporary logbook archive after publication fails",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -1200,7 +1200,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "proof-fresh-standard-evidence-decode-fallback": {
     path: "src/engine/gate/proof.ts",
     enclosingFunction: "parseFreshStandardMeasurementEvidence",
-    operation: "reject malformed or foreign fresh Standard proposal evidence",
+    operation: "reject malformed or foreign fresh standard proposal evidence",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -1210,12 +1210,12 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "proof-fresh-standard-evidence-record": {
     path: "src/engine/gate/proof.ts",
     enclosingFunction: "recordFreshStandardMeasurementEvidence",
-    operation: "write optional fresh Standard proposal evidence",
+    operation: "write optional fresh standard proposal evidence",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "Proposal evidence is optional transaction input; a failed write leaves ordinary Standard enforcement in force and reports no success.",
+      "Proposal evidence is optional transaction input; a failed write leaves ordinary standard enforcement in force and reports no success.",
   },
   "proof-last-gate-run-record": {
     path: "src/engine/gate/proof.ts",
@@ -1225,23 +1225,23 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The marker only enables a rerun shortcut; its absence leaves the normal Gate precondition path authoritative.",
+      "The marker only enables a rerun shortcut; its absence leaves the normal gate precondition path authoritative.",
   },
   "proof-render-diff-fallback": {
     path: "src/engine/gate/proof_render.ts",
     enclosingFunction: "buildGateProof",
     operation:
-      "decline proof construction when changed-file facts cannot be measured",
+      "decline Proof construction when changed-file facts cannot be measured",
     kind: "direct",
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "A Gate proof is emitted only from complete measured facts, and the caller retains the ordinary non-reusable Gate result when evidence is unavailable.",
+      "A Gate Proof is emitted only from complete measured facts, and the caller retains the ordinary non-reusable gate result when evidence is unavailable.",
   },
   "proof-standard-measurements-clear": {
     path: "src/engine/gate/proof.ts",
     enclosingFunction: "clearStandardMeasurements",
-    operation: "remove cached Standard measurements after a failed check",
+    operation: "remove cached standard measurements after a failed check",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
@@ -1251,12 +1251,12 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "proof-standard-measurements-record": {
     path: "src/engine/gate/proof.ts",
     enclosingFunction: "recordStandardMeasurements",
-    operation: "write optional clean-HEAD Standard measurement replay data",
+    operation: "write optional clean-HEAD standard measurement replay data",
     kind: "capability",
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The replay record is a cache only; failing to write it cannot invalidate the completed Gate and the false return retains that outcome.",
+      "The replay record is a cache only; failing to write it cannot invalidate the completed gate and the false return retains that outcome.",
   },
   "providers-toml-decode-fallback": {
     path: "src/lib/providers.ts",
@@ -1442,7 +1442,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The committed HEAD and index proof cannot authorize a second commit even if deleting the advisory evidence fails.",
+      "The committed HEAD and index Proof cannot authorize a second commit even if deleting the advisory evidence fails.",
   },
   "setup-machinery-evidence-decode-fallback": {
     path: "src/shared/setup_machinery_evidence.ts",
@@ -1527,7 +1527,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "A broken config is rejected by the proof, while default authored paths keep the preliminary cleanliness account conservative.",
+      "A broken config is rejected by the Proof, while default authored paths keep the preliminary cleanliness account conservative.",
   },
   "setup-unmet-checks-config-fallback": {
     path: "src/commands/setup.ts",
@@ -1537,7 +1537,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The finish proof reports the config failure itself, so derived step checks must not restate it as incomplete work.",
+      "The finish Proof reports the config failure itself, so derived step checks must not restate it as incomplete work.",
   },
   "setup-verify-config-fallback": {
     path: "src/commands/setup_verify.ts",
@@ -1558,7 +1558,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The welcome only selects an Instruction source; strict commands remain responsible for reporting and repairing the config error.",
+      "The welcome only selects an instruction source; strict commands remain responsible for reporting and repairing the config error.",
   },
   "site-docs-scroll-read-fallback": {
     path: "site/pages/assets/docs.js",
@@ -1649,7 +1649,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "standard-proposal-store-decode-fallback": {
     path: "src/engine/gate/standard_proposal_state.ts",
     enclosingFunction: "parseProposalStore",
-    operation: "reject malformed Standard limit proposal authority state",
+    operation: "reject malformed standard limit proposal authority state",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -1659,7 +1659,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "standard-proposal-transaction-decode-fallback": {
     path: "src/engine/gate/standard_proposals.ts",
     enclosingFunction: "parseProposalTransaction",
-    operation: "reject a malformed Standard proposal recovery journal",
+    operation: "reject a malformed standard proposal recovery journal",
     kind: "direct",
     shape: "sync",
     observability: { kind: "unobservable" },
@@ -1767,7 +1767,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "Artifact retention is bounded housekeeping and a raced or unreadable entry cannot decide the Gate or verb that triggered the sweep.",
+      "Artifact retention is bounded housekeeping and a raced or unreadable entry cannot decide the gate or verb that triggered the sweep.",
   },
   "terminal-background-sense-fallback": {
     path: "src/lib/terminal.ts",

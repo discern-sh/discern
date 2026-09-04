@@ -64,6 +64,7 @@ const PROSE_TREE_RELS = [
   "tests/fixtures/templates",
   relative(REPO_ROOT, REPO_AUTHORED_PATHS.skills),
   relative(REPO_ROOT, REPO_AUTHORED_PATHS.scripts),
+  REPO_AUTHORED_PATHS.manualRel,
   REPO_AUTHORED_PATHS.mapRel,
 ];
 
@@ -126,10 +127,15 @@ const GLOSSARY_PAGE = join(
   "00-orientation",
   "glossary.md",
 );
+const MANUAL_GLOSSARY_PAGE = join(
+  REPO_AUTHORED_PATHS.manualRel,
+  "30-reference",
+  "glossary.md",
+);
 
 /** Exclude the glossary and historical or private map records from current-vocabulary enforcement. */
 function structurallyExempt(rel: string): boolean {
-  return rel === GLOSSARY_PAGE ||
+  return rel === GLOSSARY_PAGE || rel === MANUAL_GLOSSARY_PAGE ||
     isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private");
 }

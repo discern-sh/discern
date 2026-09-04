@@ -65,7 +65,7 @@ Tests passed.
 Waited 1m 10s for a test-run slot.
 ```
 
-`waited_ms` stays in the live result and Logbook, outside Proofs and durable Proof notes ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). End-to-end duration and execution-time priors remain separate ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
+`waited_ms` stays in the live result and logbook, outside Proofs and durable Proof notes ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). End-to-end duration and execution-time priors remain separate ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 ## Slot release after process exit
 

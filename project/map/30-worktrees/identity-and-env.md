@@ -50,7 +50,7 @@ Every derived value is deterministic local coordination, with no security or glo
 
 ## Keep task metadata separate from identity
 
-The worktree id, branch, path, resource handles, port, and environment values form stable lifecycle identity. A task's display title and optional brief are mutable human metadata. New starts store that metadata with the creation ref and resolved commit in the linked worktree's Git administrative directory at `discern/task-metadata.json` ([ADR 0356](../_adr/0356-task-metadata-follows-the-worktree-identity.md)). Git activity and the Logbook remain the timestamp authorities.
+The worktree id, branch, path, resource handles, port, and environment values form stable lifecycle identity. A task's display title and optional brief are mutable human metadata. New starts store that metadata with the creation ref and resolved commit in the linked worktree's Git administrative directory at `discern/task-metadata.json` ([ADR 0356](../_adr/0356-task-metadata-follows-the-worktree-identity.md)). Git activity and the logbook remain the timestamp authorities.
 
 Status joins the record to the derived id and branch. A missing record marks an older worktree and uses its id-derived label. An invalid or unreadable record reports unavailable metadata with the same bounded fallback. `discern worktree rename <title>` changes the display title through a plan and apply operation. It leaves stable identity and the stored brief and creation source intact.
 

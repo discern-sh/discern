@@ -62,7 +62,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -86,7 +86,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -149,7 +149,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -173,7 +173,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -237,7 +237,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -261,7 +261,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -325,7 +325,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -349,7 +349,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -579,7 +579,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -603,7 +603,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -667,7 +667,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -691,7 +691,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -767,7 +767,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -791,7 +791,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -866,7 +866,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -890,7 +890,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -989,7 +989,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1013,7 +1013,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1101,7 +1101,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1125,7 +1125,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1201,7 +1201,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1225,7 +1225,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1288,7 +1288,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1312,7 +1312,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1328,7 +1328,7 @@
       "path": [
         "map"
       ],
-      "description": "Browse the configured project Map that coding agents maintain, or read a named Map page.",
+      "description": "Browse the configured project map that coding agents maintain, or read a named map page.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -1381,7 +1381,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1405,7 +1405,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1580,7 +1580,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1604,7 +1604,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1777,7 +1777,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1801,7 +1801,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1864,7 +1864,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1888,7 +1888,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -1905,7 +1905,7 @@
         "config",
         "set-job"
       ],
-      "description": "Set a Gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.",
+      "description": "Set a gate job. Known names (format, build, lint, typecheck, test, smoke) derive their stage and accept a positional scalar or repeatable ordered --run. Custom names require --stage and --run. Known-job applicability uses --not-applicable or --applicable.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -1963,7 +1963,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -1987,7 +1987,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2154,7 +2154,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2178,7 +2178,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2232,7 +2232,7 @@
           "spellings": [
             "--timeout"
           ],
-          "description": "Per-scope Gate-command budget in seconds; 0 removes the bound.",
+          "description": "Per-scope gate-command budget in seconds; 0 removes the bound.",
           "type_definition": "<seconds:string>",
           "arity": 1,
           "value_types": [
@@ -2314,7 +2314,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2338,7 +2338,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2565,7 +2565,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2589,7 +2589,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2707,7 +2707,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2731,7 +2731,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2801,7 +2801,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2825,7 +2825,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2883,7 +2883,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -2907,7 +2907,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -2989,7 +2989,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3013,7 +3013,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3083,7 +3083,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3107,7 +3107,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3177,7 +3177,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3201,7 +3201,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3264,7 +3264,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3288,7 +3288,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3314,7 +3314,7 @@
           "spellings": [
             "--rerun"
           ],
-          "description": "Run the full Gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
+          "description": "Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3326,7 +3326,7 @@
           "spellings": [
             "--ci"
           ],
-          "description": "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+          "description": "Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3429,7 +3429,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3453,7 +3453,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3516,7 +3516,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3540,7 +3540,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3615,7 +3615,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3639,7 +3639,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3730,7 +3730,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3754,7 +3754,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3817,7 +3817,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3841,7 +3841,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3939,7 +3939,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -3963,7 +3963,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -3979,7 +3979,7 @@
       "path": [
         "standards"
       ],
-      "description": "Measure the named quality standards, or every configured Standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
+      "description": "Measure the named quality standards, or every configured standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -4032,7 +4032,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4056,7 +4056,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4094,7 +4094,7 @@
           "spellings": [
             "--pin"
           ],
-          "description": "Capture measured improvements for the named Standards, or every one with slack. Same-commit values are reused; named measurement narrows only when Gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
+          "description": "Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4109,7 +4109,7 @@
         "standards",
         "propose"
       ],
-      "description": "Finalize a proposed limit for a Standard breached by this change. On a clean final HEAD, measure the named Standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
+      "description": "Finalize a proposed limit for a standard breached by this change. On a clean final HEAD, measure the named standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -4162,7 +4162,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4186,7 +4186,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4200,7 +4200,7 @@
           "spellings": [
             "--reason"
           ],
-          "description": "The exact non-empty owner-facing reason for the Standard limit proposal (1-500 visible, secret-free characters).",
+          "description": "The exact non-empty owner-facing reason for the standard limit proposal (1-500 visible, secret-free characters).",
           "type_definition": "<reason:string>",
           "arity": 1,
           "value_types": [
@@ -4275,7 +4275,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4299,7 +4299,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4380,7 +4380,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4404,7 +4404,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4479,7 +4479,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4503,7 +4503,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4567,7 +4567,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4591,7 +4591,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4661,7 +4661,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4685,7 +4685,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4748,7 +4748,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4772,7 +4772,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4872,7 +4872,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4896,7 +4896,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4912,7 +4912,7 @@
       "path": [
         "await"
       ],
-      "description": "Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate proof), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.",
+      "description": "Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate Proof), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -4959,7 +4959,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -4983,7 +4983,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -4997,7 +4997,7 @@
           "spellings": [
             "--green"
           ],
-          "description": "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate proof (a landing also satisfies it).",
+          "description": "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate Proof (a landing also satisfies it).",
           "type_definition": "<worktree:string>",
           "arity": 1,
           "value_types": [
@@ -5067,7 +5067,7 @@
       "path": [
         "patterns"
       ],
-      "description": "Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behaviour, gate fit, the task funnel, and each standard's trajectory. A read-only advisory.",
+      "description": "Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behavior, gate fit, the task funnel, and each standard's trajectory. A read-only advisory.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -5114,7 +5114,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5138,7 +5138,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5176,7 +5176,7 @@
           "spellings": [
             "--logbook-file"
           ],
-          "description": "Read one sealed archive basename listed by `discern patterns archives` instead of the active Logbook.",
+          "description": "Read one sealed archive basename listed by `discern patterns archives` instead of the active logbook.",
           "type_definition": "<filename:string>",
           "arity": 1,
           "value_types": [
@@ -5193,7 +5193,7 @@
         "patterns",
         "archives"
       ],
-      "description": "List sealed Logbook archives with their event counts, date spans, and byte sizes.",
+      "description": "List sealed logbook archives with their event counts, date spans, and byte sizes.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -5240,7 +5240,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5264,7 +5264,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5281,7 +5281,7 @@
         "patterns",
         "reset"
       ],
-      "description": "Permanently remove the active Logbook after terminal confirmation. Sealed archives and other Git-admin state remain.",
+      "description": "Permanently remove the active logbook after terminal confirmation. Sealed archives and other Git-admin state remain.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -5316,7 +5316,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5340,7 +5340,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5381,7 +5381,7 @@
         "patterns",
         "seal"
       ],
-      "description": "Seal the active event history into a timestamped archive and begin a fresh active Logbook after terminal confirmation.",
+      "description": "Seal the active event history into a timestamped archive and begin a fresh active logbook after terminal confirmation.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
@@ -5416,7 +5416,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5440,7 +5440,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5515,7 +5515,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5539,7 +5539,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5638,7 +5638,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5662,7 +5662,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5725,7 +5725,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5749,7 +5749,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5824,7 +5824,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -5848,7 +5848,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -5979,7 +5979,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6003,7 +6003,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6055,7 +6055,7 @@
           "spellings": [
             "--approve-standard"
           ],
-          "description": "Record that the owner approved the exact Standard/value/reason tuple carried by the current Proof (repeatable; requires --confirmed). Use the proposal-bound token served by the read-only refusal; the token set must equal the current proposal set. Standing, effort, and generic landing grants never authorize a Standard limit proposal.",
+          "description": "Record that the owner approved the exact standard/value/reason tuple carried by the current Proof (repeatable; requires --confirmed). Use the proposal-bound token served by the read-only refusal; the token set must equal the current proposal set. Standing, effort, and generic landing grants never authorize a standard limit proposal.",
           "type_definition": "<token:string>",
           "arity": 1,
           "value_types": [
@@ -6118,7 +6118,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6142,7 +6142,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6237,7 +6237,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6261,7 +6261,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6434,7 +6434,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6458,7 +6458,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6522,7 +6522,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6546,7 +6546,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6662,7 +6662,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6686,7 +6686,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6756,7 +6756,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6780,7 +6780,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6856,7 +6856,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6880,7 +6880,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -6962,7 +6962,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -6986,7 +6986,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -7068,7 +7068,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -7092,7 +7092,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -7180,7 +7180,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -7204,7 +7204,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -7305,7 +7305,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -7329,7 +7329,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -7394,7 +7394,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -7418,7 +7418,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [
@@ -7483,7 +7483,7 @@
           "spellings": [
             "--no-color"
           ],
-          "description": "Disable colour (also honours NO_COLOR and non-TTY output).",
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
           "type_definition": "",
           "arity": 0,
           "value_types": [],
@@ -7507,7 +7507,7 @@
           "spellings": [
             "--theme"
           ],
-          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a coloured interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
           "type_definition": "<theme:string>",
           "arity": 1,
           "value_types": [

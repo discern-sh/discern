@@ -36,7 +36,7 @@ const StandardLimitProposalStoreSchema = z.strictObject({
   ({ proposals }) =>
     new Set(proposals.map((proposal) => proposal.standard)).size ===
       proposals.length,
-  "proposal Standards must be unique",
+  "proposal standards must be unique",
 );
 
 export type StandardLimitProposalStore = z.infer<
@@ -157,7 +157,7 @@ export async function readProposalStore(
   return store === undefined
     ? {
       status: "malformed",
-      reason: "the Standard proposal record is malformed",
+      reason: "the standard proposal record is malformed",
     }
     : { status: "ok", store };
 }
@@ -231,7 +231,7 @@ async function proposalStaleness(
     }, not current HEAD ${head.slice(0, 12)}`;
   }
   if (trunk.kind !== "parsed") {
-    return "the current trunk Standard definition cannot be read";
+    return "the current trunk standard definition cannot be read";
   }
   if (proposal.trunk !== mainBranch || proposal.trunk_commit !== trunk.commit) {
     return `the trunk moved or changed identity (recorded ${proposal.trunk}@${
@@ -240,7 +240,7 @@ async function proposalStaleness(
   }
   const standard = byName.get(proposal.standard);
   if (standard === undefined) {
-    return "the Standard was deleted or renamed";
+    return "the standard was deleted or renamed";
   }
   const trunkLimit = trunk.config.getNumber(standard.limitKey);
   if (trunkLimit === undefined || trunkLimit !== proposal.trunk_limit) {
@@ -258,7 +258,7 @@ async function proposalStaleness(
     await standardDefinitionFingerprint(standard.name, standard.spec) !==
       proposal.definition_fingerprint
   ) {
-    return "the Standard definition changed";
+    return "the standard definition changed";
   }
   const inputs = standard.inputs;
   if (

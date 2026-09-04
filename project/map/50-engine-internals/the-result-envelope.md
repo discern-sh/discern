@@ -31,7 +31,7 @@ Gate-family dashboards project scheduler facts, injected time, and viewport with
 
 ## Step-label ownership
 
-[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Terminal, JSON, Markdown, and MCP results, the Logbook, and the execution model consume those same values.
+[`BUILT_IN_STEP_LABELS`](../../../src/shared/result.ts) owns the stable labels for operations discern performs. Its values use kebab-case. Terminal, JSON, Markdown, and MCP results, the logbook, and the execution model consume those same values.
 
 Configured job, scope, standard, resource, command, and path identifiers stay outside the registry. `verbatimStepLabel` marks that boundary in TypeScript and preserves the configured spelling on every output surface.
 
@@ -68,7 +68,7 @@ The evaluator consumes typed fields and executed-step outcomes. It never parses 
 | Refusal              | `ok: false`; no earlier success can override the unmet precondition or owner decision.                   |
 | Cancellation         | Policy-selected; fail-fast cancellation fails, while elected user cancellation can be no-effect success. |
 
-Result capture evaluates before human presentation. Quiet emission, serialization, MCP adaptation, and the Logbook CLI wrapper evaluate at their own process boundaries as a defensive invariant. They all project the same core verdict; MCP `isError` is its inverse.
+Result capture evaluates before human presentation. Quiet emission, serialization, MCP adaptation, and the logbook CLI wrapper evaluate at their own process boundaries as a defensive invariant. They all project the same core verdict; MCP `isError` is its inverse.
 
 ## Error disposition
 

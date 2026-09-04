@@ -31,7 +31,7 @@ export const TASK_TITLE_SOURCES = [
 /** Control, format, and line-separator characters unsafe for terminal text. */
 const UNSAFE_SINGLE_LINE_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
-/** Keep a legacy identity label valid for the public task schema. */
+/** Keep an identity-fallback label valid for the public task schema. */
 function boundedFallbackTaskTitle(value: string): string {
   const safe = value.replace(
     new RegExp(UNSAFE_SINGLE_LINE_TEXT.source, "gu"),
@@ -151,7 +151,7 @@ export function recordedTaskMetadataData(
   };
 }
 
-/** Build the supported legacy or unreadable-record title projection. */
+/** Build the supported unrecorded or unreadable-record title projection. */
 export function fallbackTaskMetadataData(
   identity: { id: string; branch: string },
   title: string,

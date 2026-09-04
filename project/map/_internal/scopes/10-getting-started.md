@@ -4,7 +4,7 @@ Read [`project/map/_internal/documenter-agent-brief.md`](../documenter-agent-bri
 
 ## What this subtree documents
 
-The public path from installing discern through setup, a first Gate-checked change, troubleshooting, and later upgrades. Engine implementation details belong in `50-engine-internals`; lookup contracts belong in `70-reference`.
+The public path from installing discern through setup, a first gate-checked change, troubleshooting, and later upgrades. Engine implementation details belong in `50-engine-internals`; lookup contracts belong in `70-reference`.
 
 ## Files to produce
 

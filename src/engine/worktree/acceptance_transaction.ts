@@ -326,7 +326,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
       `the record needs version ${ON_DISK_FORMATS.acceptanceTransaction.version}, a transaction id, branch/trunk ` +
         "names, expected and target object IDs, an absolute main checkout, " +
         "an effort-claim flag, matching consent evidence, authorized variances, " +
-        "and exact Standard proposals; decisions bind to conversation consent",
+        "and exact standard proposals; decisions bind to conversation consent",
     );
   }
   const base: AcceptanceTransactionBase = {
@@ -354,7 +354,7 @@ async function readAcceptanceTransaction(
   const path = await gitAdminStatePath(cwd, "acceptanceTransaction");
   if (path === undefined) {
     throw new WorktreeGitError(
-      "Git could not resolve Discern's acceptance-transaction journal. " +
+      "Git could not resolve discern's acceptance-transaction journal. " +
         "Nothing was landed or claimed.",
     );
   }
@@ -424,7 +424,7 @@ async function writeAcceptanceTransaction(
       ? ` It is invalid: ${current.reason}.`
       : "";
     throw new WorktreeGitError(
-      `Discern found an existing acceptance-transaction journal at ${current.path}.` +
+      `discern found an existing acceptance-transaction journal at ${current.path}.` +
         `${detail} Re-run \`discern accept\` so recovery can reconcile it before ` +
         "starting another landing.",
     );
@@ -464,7 +464,7 @@ async function writeAcceptanceTransaction(
     await Deno.link(temp, current.path);
   } catch (error) {
     throw new WorktreeGitError(
-      `Discern could not record the acceptance transaction before its authority ` +
+      `discern could not record the acceptance transaction before its authority ` +
         `boundary. Nothing was claimed or landed. ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -625,7 +625,7 @@ export async function inspectInterruptedAcceptance(
   }
   if (read.status === "invalid") {
     throw new WorktreeGitError(
-      `Discern found an invalid interrupted-acceptance journal at ${read.path}: ` +
+      `discern found an invalid interrupted-acceptance journal at ${read.path}: ` +
         `${read.reason}. It preserved every ref, authority marker, and checkout ` +
         "file. Inspect that journal before retrying acceptance.",
     );
@@ -634,7 +634,7 @@ export async function inspectInterruptedAcceptance(
   const transaction = recorded.transaction;
   if (transaction.trunk !== configuredTrunk) {
     throw new WorktreeGitError(
-      `Discern found an interrupted acceptance for trunk ${transaction.trunk}, ` +
+      `discern found an interrupted acceptance for trunk ${transaction.trunk}, ` +
         `but this branch now configures ${configuredTrunk}. It preserved the ` +
         `journal at ${recorded.path}; restore the recorded trunk setting or ` +
         "inspect the journal before retrying.",
@@ -647,7 +647,7 @@ export async function inspectInterruptedAcceptance(
       await canonicalPath(actualMain)
   ) {
     throw new WorktreeGitError(
-      `Discern found an interrupted acceptance for main checkout ` +
+      `discern found an interrupted acceptance for main checkout ` +
         `${transaction.main_repo}, but this worktree now resolves a different ` +
         `repository. It preserved the journal at ${recorded.path}.`,
     );
@@ -672,7 +672,7 @@ async function clearRecoveredJournal(
 function journalCleanupFailure(
   recorded: RecordedAcceptanceTransaction,
 ): string {
-  return `Discern reconciled the interrupted acceptance but could not remove its ` +
+  return `discern reconciled the interrupted acceptance but could not remove its ` +
     `journal at ${recorded.path}. Re-run \`discern accept\` to retry that ` +
     "idempotent cleanup before starting another landing.";
 }
@@ -713,7 +713,7 @@ export async function recoverInterruptedAcceptance(
   );
   if (!ref.success) {
     throw new WorktreeGitError(
-      `Discern could not read the recorded trunk ${transaction.trunk} while ` +
+      `discern could not read the recorded trunk ${transaction.trunk} while ` +
         `recovering ${recorded.path}. It preserved the journal and checkout.`,
     );
   }
@@ -726,7 +726,7 @@ export async function recoverInterruptedAcceptance(
     marker.kind === "present" && marker.target !== transaction.target
   ) {
     throw new WorktreeGitError(
-      `Discern found an interrupted-acceptance marker for ${marker.target}, ` +
+      `discern found an interrupted-acceptance marker for ${marker.target}, ` +
         `but the journal records ${transaction.target}. It preserved the marker, ` +
         `journal, authority state, and checkout for inspection.`,
     );
@@ -736,7 +736,7 @@ export async function recoverInterruptedAcceptance(
   if (current === transaction.expected_trunk && provenPreCas) {
     if (!(await restoreRecordedClaim(cwd, transaction))) {
       return stoppedRecovery(
-        `Discern found the interrupted acceptance before its trunk transition, ` +
+        `discern found the interrupted acceptance before its trunk transition, ` +
           `but could not restore its effort claim. It preserved the journal at ` +
           `${recorded.path}; inspect the desk grant and claim before retrying.`,
         transaction.effort_claim,
@@ -768,7 +768,7 @@ export async function recoverInterruptedAcceptance(
     return stoppedRecovery(
       `The interrupted acceptance advanced ${transaction.trunk} to ` +
         `${transaction.target} and was later reset to its expected commit ` +
-        `${transaction.expected_trunk} without Discern's marker-clearing ` +
+        `${transaction.expected_trunk} without discern's marker-clearing ` +
         `rollback.` +
         (consumed ? effortConsumedClause(transaction) : "") +
         ` Inspect \`git reflog show ${transaction.trunk}\` in ` +
@@ -790,7 +790,7 @@ export async function recoverInterruptedAcceptance(
     );
     if (checkout.kind === "preserved") {
       return stoppedRecovery(
-        `Discern found that the interrupted landing already advanced ` +
+        `discern found that the interrupted landing already advanced ` +
           `${transaction.trunk} to ${transaction.target}, but preserved the ` +
           `trunk checkout because ${checkout.detail}. Run \`git diff\` in ` +
           `${transaction.main_repo} and preserve or move any local data; then ` +
@@ -812,7 +812,7 @@ export async function recoverInterruptedAcceptance(
       );
     }
     return stoppedRecovery(
-      `Discern reconciled the interrupted landing of ${transaction.target} ` +
+      `discern reconciled the interrupted landing of ${transaction.target} ` +
         `onto ${transaction.trunk}. No landing authority was replayed.` +
         effortConsumedClause(transaction) +
         ` Run \`discern worktree prune\` from ${transaction.main_repo} to finish ` +
@@ -828,7 +828,7 @@ export async function recoverInterruptedAcceptance(
       return stoppedRecovery(
         `Another process moved ${transaction.trunk} before this acceptance's ` +
           `trunk ref update, ` +
-          `and Discern could not restore its effort claim. The journal remains at ` +
+          `and discern could not restore its effort claim. The journal remains at ` +
           `${recorded.path}.`,
         transaction.effort_claim,
         false,
@@ -855,9 +855,9 @@ export async function recoverInterruptedAcceptance(
   }
   const evidenceDetail = marker.kind === "present"
     ? `its per-worktree marker proves it previously advanced to ${transaction.target}`
-    : `Git could not read the per-worktree marker (${marker.detail}), so Discern cannot prove that the trunk transition never happened`;
+    : `Git could not read the per-worktree marker (${marker.detail}), so discern cannot prove that the trunk transition never happened`;
   return stoppedRecovery(
-    `Discern found interrupted acceptance ${transaction.id} after ` +
+    `discern found interrupted acceptance ${transaction.id} after ` +
       `${transaction.trunk} moved to ${current}; ${evidenceDetail}. It preserved ` +
       `the checkout and will not replay one-shot authority.` +
       (consumed ? effortConsumedClause(transaction) : "") +

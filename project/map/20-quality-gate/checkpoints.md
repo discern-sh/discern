@@ -21,7 +21,7 @@ aliases:
 
 # Checkpoints
 
-_A checkpoint serves a judgment at the moment a change makes it relevant, and the Gate records the answer._
+_A checkpoint serves a judgment at the moment a change makes it relevant, and the gate records the answer._
 
 A [checkpoint](../00-orientation/glossary.md#checkpoint) is one configured rule under `[checkpoints]`: a deterministic trigger paired with a [question](../00-orientation/glossary.md#question), the judgment prose the agent evaluates against the matched change. Machine checks decide what a machine can decide; a checkpoint carries a question that still needs judgment — is this documentation worth its reading time, is this large cut proven safe, does a change in a risky region state what could break? discern verifies that the required conclusion exists and never verifies its truth. Every surface reports the answer as [declared met](../00-orientation/glossary.md#declared-met) or [declared unmet](../00-orientation/glossary.md#declared-unmet), kept apart from verified machine results and from owner authority. Terminal rows label either conclusion `Declared`; an unmet conclusion retains its separate attention and variance facts.
 
@@ -36,9 +36,9 @@ A declaring invocation records every valid conclusion first, then continues into
 
 ### CI reports review; it does not declare it
 
-`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine Gate job. Fired stop questions appear as awaiting review, separately from declarations and machine results. Machine jobs alone determine the exit status.
+`discern done --ci` is the explicit pull-request lane. It resolves the same governing policy and obligations, runs `when` during an actual run, and runs every machine gate job. Fired stop questions appear as awaiting review, separately from declarations and machine results. Machine jobs alone determine the exit status.
 
-The lane writes no open question, declaration, or checkpoint Logbook observation. It rejects `--met`, `--unmet`, and `--why`; workflow YAML cannot stand in for an agent's judgment. `discern done --dry-run --ci` previews report mode without running `when`. The resulting Proof records that checkpoint review was reported and was not enforced, and acceptance requires a later ordinary `discern done` in the stateful worktree ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
+The lane writes no open question, declaration, or checkpoint logbook observation. It rejects `--met`, `--unmet`, and `--why`; workflow YAML cannot stand in for an agent's judgment. `discern done --dry-run --ci` previews report mode without running `when`. The resulting Proof records that checkpoint review was reported and was not enforced, and acceptance requires a later ordinary `discern done` in the stateful worktree ([ADR 0307](../_adr/0307-ci-reports-checkpoint-review-and-proof-retains-drops.md)).
 
 ## Three kinds of evidence
 
@@ -48,7 +48,7 @@ The lane writes no open question, declaration, or checkpoint Logbook observation
 | Declarations            | Agent                   | The agent judged each question met or unmet.             |
 | Landing authority       | Owner or recorded grant | This work may land, with any named variances authorized. |
 
-The Proof renders declared conclusions separately from machine results, carries unmet rationales and the policy identity, and states when a decision is still open — a proof line carries `1 declared unmet — owner variance required to land`. Acceptance consumes the Proof and resolves the third row. The vocabulary stays disjoint: machine results are verified, conclusions are declared, and variances are authorized.
+The Proof renders declared conclusions separately from machine results, carries unmet rationales and the policy identity, and states when a decision is still open — a Proof line carries `1 declared unmet — owner variance required to land`. Acceptance consumes the Proof and resolves the third row. The vocabulary stays disjoint: machine results are verified, conclusions are declared, and variances are authorized.
 
 ## Subjects and reopening
 
@@ -107,13 +107,13 @@ The command may print `DISCERN_MATCH <path>` lines to narrow the subject to path
 
 ## Fail-open evidence
 
-When uncertainty prevents enforcement, the Gate may remain green, but the loss cannot disappear into transient copy. One typed checkpoint-drop registry covers policy-level uncertainty before an entry is knowable and entry-level uncertainty after resolution. Entry records carry checkpoint id, mode, governing policy commit, stable reason, and a bounded account. Policy records carry the policy commit when knowable and use `null` for unknowable id and mode.
+When uncertainty prevents enforcement, the gate may remain green, but the loss cannot disappear into transient copy. One typed checkpoint-drop registry covers policy-level uncertainty before an entry is knowable and entry-level uncertainty after resolution. Entry records carry checkpoint id, mode, governing policy commit, stable reason, and a bounded account. Policy records carry the policy commit when knowable and use `null` for unknowable id and mode.
 
 Gate JSON and Markdown, the Proof, `status`, acceptance preview and consent review, and the landed DSSE note retain the same records. Missing historical configuration is the ordinary absence of policy, while unreadable Git/configuration is a drop. Trigger vetoes are ordinary decisions and never drops. A Proof carrying an indeterminate stop cannot take the reuse path; acceptance requires current-conversation confirmation, and standing or effort grants cannot cover that degraded evaluation. An indeterminate advise checkpoint remains an advisory rather than a variance.
 
 ## Declared unmet, and the owner's variance
 
-Sometimes the truthful conclusion is that the question is not satisfied and satisfying it sits outside this effort. Record that with `discern done --unmet <id> --why "<rationale>"`. The rationale is required, one paragraph of 1–500 characters. Write it for the owner (the tradeoff that made the conclusion right) and put no secrets in it: it is durable Proof evidence, served at the landing review and never written into the metadata-only [Logbook](../70-reference/the-logbook.md).
+Sometimes the truthful conclusion is that the question is not satisfied and satisfying it sits outside this effort. Record that with `discern done --unmet <id> --why "<rationale>"`. The rationale is required, one paragraph of 1–500 characters. Write it for the owner (the tradeoff that made the conclusion right) and put no secrets in it: it is durable Proof evidence, served at the landing review and never written into the metadata-only [logbook](../70-reference/the-logbook.md).
 
 The gate still runs and can go green, and the work then waits for a decision. A current declared-unmet conclusion makes `discern accept` refuse with `error: "awaiting_variance"`, serving the question, the matched evidence, and the rationale. The owner authorizes each named [variance](../00-orientation/glossary.md#variance) in the current conversation with `discern accept --confirmed --variance <id>`; the id set must equal the declared-unmet set. Recorded standing and effort grants never authorize a variance. Each authorization binds to the exact declaration and the landed commit, and changes no future policy.
 

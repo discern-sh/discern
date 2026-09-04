@@ -34,7 +34,7 @@ The practice runs on a relationship between you, the coding agent, and the proje
 
 **The coding agent** operates discern. It starts tasks, makes the changes, runs the checks, answers judgment questions on the record, and reports back with evidence. discern's interaction design treats the agent as its principal day-to-day operator: its tools, results, and instructions are built for that reader.
 
-**The project** carries the practice. One root file, `discern.toml`, declares what the checks are; the instructions, Skills, and Map carry what the project knows; Git history and recorded evidence carry what has happened. The repository outlives every session that works on it.
+**The project** carries the practice. One root file, `discern.toml`, declares what the checks are; the instructions, skills, and map carry what the project knows; Git history and recorded evidence carry what has happened. The repository outlives every session that works on it.
 
 Operating and deciding stay separate. The agent drives the tools, and the authority stays with you: a passing check never becomes permission, and an agent's confidence never becomes evidence. discern itself contains no AI model and is not another agent — it's a deterministic local program. The agent supplies the intelligence; discern supplies the working conditions and the checks.
 
@@ -43,11 +43,11 @@ Operating and deciding stay separate. The agent drives the tools, and the author
 Each piece answers a question you would otherwise be answering by hand:
 
 - **The Gate** is the project's definition of done. `discern done` runs the jobs the project declares (format, build, lint, tests, and the rest), plus extra checks for the areas the change touched, and every quality measure the project keeps. Because the project declares the commands, the same practice serves any stack: discern ships none of your build tools and runs whatever `discern.toml` names.
-- **[Proof](proof.md)** is the evidence a passing Gate produces: a record that the declared checks passed for one exact commit, presented for your review and kept with the landed change.
+- **[Proof](proof.md)** is the evidence a passing gate produces: a record that the declared checks passed for one exact commit, presented for your review and kept with the landed change.
 - **[Worktrees](worktrees-and-trunk.md)** give each task its own checkout and branch, so parallel work stays separate and unfinished work stays off the shared branch until you accept it.
-- **[Checkpoints](checkpoints.md)** pause the Gate for questions that need judgment rather than a command's exit status, and record the agent's answer where your review can see it.
+- **[Checkpoints](checkpoints.md)** pause the gate for questions that need judgment rather than a command's exit status, and record the agent's answer where your review can see it.
 - **[Standards](standards.md)** hold the project's measured quality at limits that can only improve, so a gain earned once is kept.
-- **[Instructions, Skills, and the Map](instructions-skills-and-map.md)** are the knowledge homes: rules every session loads, playbooks loaded when a task matches, and a maintained account of what the agents understand about the project.
+- **[Instructions, skills, and the map](instructions-skills-and-map.md)** are the knowledge homes: rules every session loads, playbooks loaded when a task matches, and a maintained account of what the agents understand about the project.
 
 ## The working loop
 
@@ -55,15 +55,15 @@ A task moves through the practice in a repeating rhythm. The agent orients with 
 
 Now the work is yours: review the change and its evidence, exercise the behavior, and decide. With your authority, given in the conversation or recorded in advance, `discern accept` lands the reviewed branch on the shared branch and cleans up the worktree.
 
-Your part of the loop is concentrated at its ends: the brief at the start, any judgment questions that arise in the middle, and the review and landing decision at the end. From the main checkout, running `discern` with no arguments opens the Desk, your view over the tasks in flight; [Delegate work](../10-guides/delegate-work.md) covers directing several at once.
+Your part of the loop is concentrated at its ends: the brief at the start, any judgment questions that arise in the middle, and the review and landing decision at the end. From the main checkout, running `discern` with no arguments opens the desk, your view over the tasks in flight; [Delegate work](../10-guides/delegate-work.md) covers directing several at once.
 
 ## Why the project carries it
 
 Anything that lives in conversation has to be re-established: sessions end, context fills up, and providers change. What lives in the repository persists, and it's reviewed and versioned like the code it governs.
 
-That's also why switching coding agents doesn't reset the practice. The instructions are written once and compiled into each configured agent's own file, the Skills materialize for every agent, and the Gate reads the same `discern.toml` regardless of who invokes it. The project's way of working belongs to the project.
+That's also why switching coding agents doesn't reset the practice. The instructions are written once and compiled into each configured agent's own file, the skills materialize for every agent, and the gate reads the same `discern.toml` regardless of who invokes it. The project's way of working belongs to the project.
 
-Where a behavior matters, the practice prefers a check to a request. A rule written as prose can fall out of a crowded session; a rule written as a Gate job, a Standard, or a checkpoint holds regardless of what the session remembers.
+Where a behavior matters, the practice prefers a check to a request. A rule written as prose can fall out of a crowded session; a rule written as a gate job, a standard, or a checkpoint holds regardless of what the session remembers.
 
 ## What discern doesn't do
 

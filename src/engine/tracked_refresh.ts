@@ -459,7 +459,7 @@ export async function planRefresh(
       })));
     } catch (error) {
       errors.push({
-        message: `could not plan proof-note fetch transport: ${errText(error)}`,
+        message: `could not plan Proof note fetch transport: ${errText(error)}`,
         boundary: "proof-notes-fetch",
         tracked: false,
       });
@@ -547,7 +547,7 @@ export async function planRefresh(
     }
   } catch (error) {
     errors.push({
-      message: `could not compute the Agent files: ${errText(error)}`,
+      message: `could not compute the agent files: ${errText(error)}`,
       boundary: "agent-files",
       tracked: true,
     });

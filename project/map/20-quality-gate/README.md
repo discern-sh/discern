@@ -9,19 +9,19 @@ aliases:
 
 # The quality gate
 
-_Start with the current failure, then follow the Gate from fast feedback to final review evidence._
+_Start with the current failure, then follow the gate from fast feedback to final review evidence._
 
-If `discern done` failed, go to [When the Gate fails](when-the-gate-fails.md). Each precondition or job failure includes a specific next action, the command, and its captured output.
+If `discern done` failed, go to [When the gate fails](when-the-gate-fails.md). Each precondition or job failure includes a specific next action, the command, and its captured output.
 
-The Gate defines done. It requires the local configured trunk, non-weakened Standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent Map and instructions. Its integrity check rejects broken references, metadata, and Skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). A present generated agent file whose bytes differ from its source is stale and blocks before project jobs; an absent agent file is tolerated because a project may leave generated provider files untracked.
+The Gate defines done. It requires the local configured trunk, non-weakened standards, current [generated artifacts](../00-orientation/glossary.md#generated-artifact), and consistent map and instructions. Its integrity check rejects broken references, metadata, and skills ([ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)). A present generated agent file whose bytes differ from its source is stale and blocks before project jobs; an absent agent file is tolerated because a project may leave generated provider files untracked.
 
 The execution order is fixed: fail-fast repository and currency preconditions; serial `fix`; `build`; `check` and `test` (one combined group when uncapped, otherwise `check` before test-slot admission); Standard measurement in the test group; post-job scope classification; then changed-scope gates. A final tracked-dirty comparison makes output left by any successful stage fail as tree drift. If a required snapshot cannot be read, the result discloses that lost strand check and cannot become reusable Proof. Undeclared generated output fails separately ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
-Every configured Gate command runs from the project root through `sh -c`, with `CI=1`, `NO_COLOR=1`, and `TERM=dumb` forced so tools choose one-shot, plain output. It leads its own POSIX process group. Timeout, fail-fast, cancellation, and interruption terminate that group with `SIGTERM`, escalate to `SIGKILL`, and bound pipe draining, so a descendant cannot outlive the verdict ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)). Buffered result output retains a bounded head and tail; its temporary artifact retains the complete stream.
+Every configured gate command runs from the project root through `sh -c`, with `CI=1`, `NO_COLOR=1`, and `TERM=dumb` forced so tools choose one-shot, plain output. It leads its own POSIX process group. Timeout, fail-fast, cancellation, and interruption terminate that group with `SIGTERM`, escalate to `SIGKILL`, and bound pipe draining, so a descendant cannot outlive the verdict ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)). Buffered result output retains a bounded head and tail; its temporary artifact retains the complete stream.
 
-A scope with `preview = "<command>"` declares the read-only action an agent can run from its worktree. `impact`, `status`, Gate plans, and successful Gate results carry the same typed scope-and-command record and state that discern did not run it. The action remains advice outside the Gate. Changing the command once changes terminal, JSON, Markdown, and Model Context Protocol (MCP) projections together ([ADR 0346](../_adr/0346-machine-facts-are-typed-advisories.md)).
+A scope with `preview = "<command>"` declares the read-only action an agent can run from its worktree. `impact`, `status`, Gate plans, and successful gate results carry the same typed scope-and-command record and state that discern did not run it. The action remains advice outside the gate. Changing the command once changes terminal, JSON, Markdown, and Model Context Protocol (MCP) projections together ([ADR 0346](../_adr/0346-machine-facts-are-typed-advisories.md)).
 
-Use `discern prepare` before the final commit. It runs fix and generated jobs, then the complete refresh and checks. Green means tracked agent files are canonical; incomplete provider or Skill refresh is red.
+Use `discern prepare` before the final commit. It runs fix and generated jobs, then the complete refresh and checks. Green means tracked agent files are canonical; incomplete provider or skill refresh is red.
 
 `discern done` reruns the test stage. For a red test, use its diagnostic's reproduce command; use `discern test` only for standalone runs.
 
@@ -29,7 +29,7 @@ Use `discern done` on the intended final commit. A green run on a clean branch a
 
 ## Live terminal presentation
 
-On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite Gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
+On a cursor-controlled terminal, `done`, `prepare`, `test`, and human composite gate runs share the package activity frame: lifecycle facts stay pinned; complete and partial subprocess lines feed a bounded tail. `[gate].stream` never gates this frame.
 
 The package fits full, then compact, then append-only output. Resizes retain the same producer feed; interrupts restore the cursor. Success leaves stable facts without replaying the tail. Failure follows them with diagnostics and the full-output-artifact route.
 

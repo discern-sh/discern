@@ -3,7 +3,7 @@
  * digest-to-hex conversion the engine's identity computations share (engine
  * self-shim identities, checkpoint definition hashes and subject
  * fingerprints). Distinct from `crc.ts`: the POSIX cksum there is a pinned
- * LEGACY identity for worktree ports/names; new identities that must not
+ * PINNED identity for worktree ports/names; new identities that must not
  * collide use this digest.
  */
 

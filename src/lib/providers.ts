@@ -2138,7 +2138,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     humanSetupAdvice: {
       handoff:
-        "Turn off External File Protection under Cursor Settings → Agents → Auto-Run for uninterrupted edits from Local sessions into discern-created sibling worktrees. This user-wide setting lets Cursor's built-in file tools write outside the open workspace. To keep it enabled, start the session with Cursor's Worktree option.",
+        "Turn off External File Protection under Cursor Settings → Agents → Auto-Run for uninterrupted edits from Local sessions into discern-created sibling worktrees. This user-wide setting lets Cursor's built-in file tools write outside the open workspace. To keep it enabled, start the session with Cursor's worktree option.",
       humanOnlyTopics: [
         "External File Protection",
         "Cursor Settings",

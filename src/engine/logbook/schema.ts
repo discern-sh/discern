@@ -348,7 +348,7 @@ export const verbEventSchema = z.looseObject({
   head: z.string().nullable(),
   /** Whether the working tree was clean at invocation (null when unknown). */
   clean: z.boolean().nullable(),
-  /** Legacy fingerprint of `git diff HEAD`, present only on a dirty tree.
+  /** Earlier fingerprint of `git diff HEAD`, present only on a dirty tree.
    * It identifies one tracked start fingerprint beside `head`; it does not
    * distinguish index/worktree form or untracked inputs. Current validation
    * comparisons use the versioned `validation` evidence below. */

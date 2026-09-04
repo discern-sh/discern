@@ -602,7 +602,7 @@ const PROOF_FIELDS = {
 export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
   id: "DiscernProof",
   description:
-    "The structured proof a green gate emits over a clean committed tree: " +
+    "The structured Proof a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
     "whole-diff stats, and the two renderings derived from those facts.",
 });
@@ -612,7 +612,7 @@ export type Proof = z.infer<typeof ProofSchema>;
 export const ProofSummarySchema = z.strictObject(PROOF_SUMMARY_FIELDS).meta({
   id: "DiscernProofSummary",
   description: "The compact Proof claim: branch, trunk, validated " +
-    "commit, whole-diff statistics, and the one-line rendered proof.",
+    "commit, whole-diff statistics, and the one-line rendered Proof.",
 });
 /** Compatibility readers' view of an earlier or structurally wider proof.
  * Unknown fields remain readable but never enter the strict runtime proof. */
@@ -682,7 +682,7 @@ export const AcceptanceEvidenceSchema = z.strictObject({
   id: "DiscernAcceptanceEvidence",
   description: "How one landing was authorized: the consent evidence, each " +
     "owner-authorized variance for a declared-unmet checkpoint, and each exact " +
-    "owner-approved Standard limit. A reader can " +
+    "owner-approved standard limit. A reader can " +
     "therefore distinguish a conclusion awaiting a decision from one the " +
     "owner authorized to land.",
 });
@@ -717,7 +717,7 @@ const PROOF_ISSUER_FIELDS = {
  * agent, runner, or organization. */
 export const ProofIssuerSchema = z.strictObject(PROOF_ISSUER_FIELDS).meta({
   description:
-    "Identity details asserted by the proof payload. A verified Dead Simple " +
+    "Identity details asserted by the Proof payload. A verified Dead Simple " +
     "Signing Envelope (DSSE) signature protects these details from alteration " +
     "but does not establish who controls the signing key. Current writers leave them absent.",
 });
@@ -756,7 +756,7 @@ export const DurableProofClaimSchema = z.strictObject(
   description:
     "The durable structured gate claim: branch and trunk labels, the " +
     "validated commit abbreviation, and whole-diff statistics. The payload's " +
-    "full commit subject remains the proof identity.",
+    "full commit subject remains the Proof identity.",
 });
 export type DurableProofClaim = z.infer<typeof DurableProofClaimSchema>;
 
@@ -767,7 +767,7 @@ export const ProofPresentationSchema = z.strictObject(
 ).meta({
   id: "DiscernProofPresentation",
   description:
-    "The proof line and Markdown page derived from the gate result for human " +
+    "The Proof line and Markdown page derived from the gate result for human " +
     "inspection. Verification policy uses the structured claim, never these renderings.",
 });
 export type ProofPresentation = z.infer<typeof ProofPresentationSchema>;
@@ -793,7 +793,7 @@ export const ProofNotePayloadSchema = z.strictObject({
   }).optional(),
 }).meta({
   description:
-    "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
+    "The Proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
     "commit, structured gate facts, separate human presentation, optional " +
     "acceptance evidence (consent plus authorized variances), and optional " +
     "issuer assertion and intent reference.",
@@ -806,7 +806,7 @@ export type ProofNotePayload = z.infer<typeof ProofNotePayloadSchema>;
 export const ProofNoteSchema = z.strictObject({
   payloadType: z.literal(PROOF_NOTE_PAYLOAD_TYPE).meta({
     description:
-      "The proof payload's published type. DSSE authenticates this value " +
+      "The Proof payload's published type. DSSE authenticates this value " +
       "together with the decoded payload bytes.",
   }),
   payload: z.string().meta({
@@ -899,14 +899,14 @@ export const GateStandardSchema = z.strictObject({
     context.addIssue({
       code: "custom",
       path: ["pin_target"],
-      message: "an eligible Standard reading must name its pin target",
+      message: "an eligible standard reading must name its pin target",
     });
   }
   if (reading.pin_eligible !== true && reading.pin_target !== undefined) {
     context.addIssue({
       code: "custom",
       path: ["pin_target"],
-      message: "an ineligible or unevaluated Standard cannot name a pin target",
+      message: "an ineligible or unevaluated standard cannot name a pin target",
     });
   }
 });

@@ -11,11 +11,11 @@ aliases:
 
 # Run the Gate in GitHub Actions
 
-_Run the machine Gate and report checkpoint questions on pull requests, then make that check required on trunk._
+_Run the machine gate and report checkpoint questions on pull requests, then make that check required on trunk._
 
-CI runs the Gate for changes without a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the governing checkpoint policy and runs the ordinary machine jobs. Fired stop questions await review; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it for landing. A later ordinary `discern done` in a local worktree performs the strict review.
+CI runs the gate for changes without a stateful local discern worktree. The explicit `discern done --ci` lane evaluates the governing checkpoint policy and runs the ordinary machine jobs. Fired stop questions await review; the runner writes no open question or declaration. Its Proof says checkpoint review was reported and was not enforced, so `discern accept` cannot use it for landing. A later ordinary `discern done` in a local worktree performs the strict review.
 
-The workflow installs a pinned binary and the project's toolchain, fetches release tags plus the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Tags supply the last published public-schema baseline; the later shallow `git fetch --no-tags` updates trunk without deleting them. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It proves no agent review and transports no declarations.
+The workflow installs a pinned binary and the project's toolchain, fetches release tags plus the trunk ref used by merge and standard checks, runs the gate, and confirms that fixers left the committed tree unchanged. Tags supply the last published public-schema baseline; the later shallow `git fetch --no-tags` updates trunk without deleting them. Requiring the job makes machine success a merge condition and keeps checkpoint questions visible. It proves no agent review and transports no declarations.
 
 ## Add the workflow
 
@@ -89,7 +89,7 @@ Set `DISCERN_VERSION` to the release tag you approve. `RELEASE_ASSET` must match
 
 The full commit hashes pin remote action code to the reviewed commit. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
 
-The toolchain and dependency steps belong before the Gate because discern runs the commands in `discern.toml`; it does not install their toolchain or dependencies. Converge dependencies serially before `discern done`, since the Gate may start several configured jobs in parallel.
+The toolchain and dependency steps belong before the gate because discern runs the commands in `discern.toml`; it does not install their toolchain or dependencies. Converge dependencies serially before `discern done`, since the gate may start several configured jobs in parallel.
 
 ## Wrapped test tasks
 
@@ -101,11 +101,11 @@ In the repository's rule set or branch-protection settings, require pull request
 
 ## Standards in CI
 
-`discern done` verifies every Standard limit against trunk and measures Standards whose `measure` is `"gate"`. The fetch step supplies the trunk ref required for that comparison. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
+`discern done` verifies every standard limit against trunk and measures standards whose `measure` is `"gate"`. The fetch step supplies the trunk ref required for that comparison. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
 
 ## Cloud-agent changes
 
-A cloud coding agent may start from a clone without the discern binary or materialized Skills. Committed agent instructions still travels with the clone. The required CI job installs discern and runs the repository's Gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and Skills.
+A cloud coding agent may start from a clone without the discern binary or materialized skills. Committed agent instructions still travels with the clone. The required CI job installs discern and runs the repository's gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and skills.
 
 ## Where it lives in code
 

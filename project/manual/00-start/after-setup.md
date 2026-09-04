@@ -28,21 +28,21 @@ These are project sources. They carry your project's knowledge, they're yours to
 | Path                      | Ownership     | What it contains                                                      | How to change it                                         |
 | ------------------------- | ------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
 | `discern/instructions.md` | Project-owned | Instructions shared by every configured coding agent.                 | Edit the Markdown, then run `discern refresh`.           |
-| `discern/map/`            | Project-owned | The maintained project guide (the Map) agents keep current.           | Edit the authored Markdown. `[map].dir` can relocate it. |
+| `discern/map/`            | Project-owned | The maintained project guide (the map) agents keep current.           | Edit the authored Markdown. `[map].dir` can relocate it. |
 | `discern/TODO.md`         | Project-owned | Deferred work the agents keep visible.                                | Edit it like any tracked project file.                   |
 | `discern/brief.md`        | Project-owned | The project description recorded during setup, when one was captured. | Update it when the project's purpose materially moves.   |
-| `discern/skills/`         | Project-owned | Skills your project authors or overrides, once it has any.            | Add or edit each Skill at its source.                    |
+| `discern/skills/`         | Project-owned | Skills your project authors or overrides, once it has any.            | Add or edit each skill at its source.                    |
 | `discern/scripts/`        | Project-owned | Project-specific executables reached through `discern scripts`.       | Edit and test the executable itself.                     |
 
 <!-- /discern-workflow -->
 
-Setup writes the instruction source, the Map, and the deferred-work ledger for every project. The other paths appear when your project first uses them. The `discern/` folder holds authored material only; generated copies live elsewhere, which is what keeps this folder safe to edit.
+Setup writes the instruction source, the map, and the deferred-work ledger for every project. The other paths appear when your project first uses them. The `discern/` folder holds authored material only; generated copies live elsewhere, which is what keeps this folder safe to edit.
 
 ## Files discern shares with you
 
-`discern.toml` at the repository root is the configuration. The values are yours: the Gate's commands, the worktree location, every setting the [config reference](../30-reference/config-reference.md) lists. `discern upgrade` may restore missing sections or refresh the explanatory banners around them; it doesn't replace values you set.
+`discern.toml` at the repository root is the configuration. The values are yours: the gate's commands, the worktree location, every setting the [config reference](../30-reference/config-reference.md) lists. `discern upgrade` may restore missing sections or refresh the explanatory banners around them; it doesn't replace values you set.
 
-Your `.gitignore` gains one marked block, which discern rebuilds to cover materialized Skills and machine-local settings. Your `.gitattributes` gains a separate marked block for generated-file merging and Markdown diffs. Keep your own rules outside those blocks and both can evolve without collisions.
+Your `.gitignore` gains one marked block, which discern rebuilds to cover materialized skills and machine-local settings. Your `.gitattributes` gains a separate marked block for generated-file merging and Markdown diffs. Keep your own rules outside those blocks and both can evolve without collisions.
 
 Setup adds the files each selected coding tool needs to work with discern. Depending on the tool, those files connect the MCP server, run a command when a session starts, or grant a small set of permissions. Setup leaves unrelated settings alone.
 
@@ -50,9 +50,9 @@ Claude Code keeps every permission rule already in its shared settings file. Cod
 
 ## Files discern regenerates
 
-Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` combine discern's built-in operating instructions with your `discern/instructions.md`. They're committed, so a new clone starts with the same written instructions. The MCP server, session hooks, and generated Skill folders still need the discern binary on that machine. Install discern, run `discern refresh`, and open a new coding-agent session after cloning.
+Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` combine discern's built-in operating instructions with your `discern/instructions.md`. They're committed, so a new clone starts with the same written instructions. The MCP server, session hooks, and generated skill folders still need the discern binary on that machine. Install discern, run `discern refresh`, and open a new coding-agent session after cloning.
 
-Never edit a compiled file by hand. Change the source and run `discern refresh`; the Gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized Skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
+Never edit a compiled file by hand. Change the source and run `discern refresh`; the gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized Skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
 
 ## One repository, one installation
 
@@ -67,6 +67,6 @@ Parts of the practice never join the diff:
 
 ## The decision the diff supports
 
-`discern setup done` normally runs the full Gate and records [Proof](../20-understand/proof.md) for the setup branch. If setup was marked unproven, discern records that state and refuses to land the branch. The agent can finish the missing work and run `discern setup done` again.
+`discern setup done` normally runs the full gate and records [Proof](../20-understand/proof.md) for the setup branch. If setup was marked unproven, discern records that state and refuses to land the branch. The agent can finish the missing work and run `discern setup done` again.
 
-Once the branch has Proof, review whether its instructions, Map, and checks describe the project you want future sessions to inherit. If they do, follow the landing step in the [tutorial](first-success.md#5-review-and-land-setup). If they don't, ask the agent to revise the branch and prove the new version.
+Once the branch has Proof, review whether its instructions, map, and checks describe the project you want future sessions to inherit. If they do, follow the landing step in the [tutorial](first-success.md#5-review-and-land-setup). If they don't, ask the agent to revise the branch and prove the new version.

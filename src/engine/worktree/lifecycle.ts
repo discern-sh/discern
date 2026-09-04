@@ -1006,7 +1006,7 @@ export async function worktreeSetup(
   }
 
   // A ready sentinel predating the journal is migration evidence that every
-  // legacy one-shot step completed. The preflight materializes those identities
+  // earlier one-shot step completed. The preflight materializes those identities
   // as completed, so a later missing sentinel cannot make an upgrade replay them.
   const configured = await worktreeSetupComplete(ctx.cwd);
 
@@ -1085,7 +1085,7 @@ export async function worktreeSetup(
     await recordResourceEnv(ctx, identity, settings);
   } else if (readResourceSpecs(ctx.config).length > 0) {
     throw new WorktreeGitError(
-      "Discern could not identify this worktree in Git, so it could not set up its " +
+      "discern could not identify this worktree in Git, so it could not set up its " +
         "resources. Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
@@ -1858,7 +1858,7 @@ async function buildAcceptPlan(
   const mainRepo = await mainRepoPath(ctx.cwd);
   if (mainRepo === undefined) {
     throw new WorktreeGitError(
-      "Discern could not find the main checkout from Git's worktree records. Run " +
+      "discern could not find the main checkout from Git's worktree records. Run " +
         "`git worktree repair`, then re-run `discern accept`.",
     );
   }
@@ -1905,7 +1905,7 @@ async function buildAcceptPlan(
   const worktreeStatus = await run(["status", "--porcelain", "-z"]);
   if (!worktreeStatus.success) {
     throw new WorktreeGitError(
-      `Discern could not read the worktree status at ${worktreePath}. ` +
+      `discern could not read the worktree status at ${worktreePath}. ` +
         `Nothing was landed. Repair the Git checkout, then re-run \`discern accept\`. ` +
         `Git said: ${gitFailureDetail(worktreeStatus)}`,
     );
@@ -1935,7 +1935,7 @@ async function buildAcceptPlan(
   );
   if (!mainStatus.success) {
     throw new WorktreeGitError(
-      `Discern could not read tracked status in the main checkout at ${mainRepo}. ` +
+      `discern could not read tracked status in the main checkout at ${mainRepo}. ` +
         `Nothing was landed and the worktree is intact. Repair that checkout, ` +
         `then re-run \`discern accept\`. Git said: ${
           gitFailureDetail(mainStatus)
@@ -1946,7 +1946,7 @@ async function buildAcceptPlan(
   const operation = await inspectGitOperation(mainRepo);
   if (operation.kind === "unavailable") {
     throw new WorktreeGitError(
-      `Discern could not inspect in-progress Git operations in the main checkout ` +
+      `discern could not inspect in-progress Git operations in the main checkout ` +
         `at ${mainRepo}. Nothing was landed and the worktree is intact. ` +
         `Repair that checkout, then re-run \`discern accept\`. Git said: ${operation.detail}`,
     );
@@ -1959,7 +1959,7 @@ async function buildAcceptPlan(
   const mainBranchRun = await run(["branch", "--show-current"], mainRepo);
   if (!mainBranchRun.success) {
     throw new WorktreeGitError(
-      `Discern could not read the current branch in the main checkout at ${mainRepo}. ` +
+      `discern could not read the current branch in the main checkout at ${mainRepo}. ` +
         `Nothing was landed and the worktree is intact. Repair that checkout, ` +
         `then re-run \`discern accept\`. Git said: ${
           gitFailureDetail(mainBranchRun)
@@ -2065,7 +2065,7 @@ function inProgressMainCheckoutRefusal(
  * git runs, so the worktree, its branch, and the trunk are genuinely untouched. */
 const ACCEPT_AWAITING_CONSENT_BASE =
   "Landing is the owner's decision, so `discern accept` needs their explicit " +
-  "acceptance before it lands. Relay the proof to your owner and wait for " +
+  "acceptance before it lands. Relay the Proof to your owner and wait for " +
   "their go-ahead, then re-run `discern accept --confirmed`. The flag attests " +
   "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
   "or at the desk are checked automatically.";
@@ -2296,7 +2296,7 @@ function acceptAwaitingStandardApprovalResult(
     ? `The owner approval set is incomplete; missing: ${
       missing.map(({ proposal }) => proposal.standard).join(", ")
     }.`
-    : "This Proof contains a Standard limit proposal that requires a separate, exact owner decision.";
+    : "This Proof contains a standard limit proposal that requires a separate, exact owner decision.";
   return {
     ok: false,
     verb: "accept",
@@ -2307,7 +2307,7 @@ function acceptAwaitingStandardApprovalResult(
       `If they decline, leave acceptance stopped, restore the trunk limit in ` +
       `this branch, and run \`discern done\` under ordinary enforcement. ` +
       `Standing grants, effort grants, generic landing consent, prior variances, ` +
-      `and earlier Standard approvals never cover this decision. ${ACCEPT_NOTHING_LANDED}`,
+      `and earlier standard approvals never cover this decision. ${ACCEPT_NOTHING_LANDED}`,
     hints: hintTexts([fire(HINTS["accept-review-via-status"])]),
     data: {
       standard_approvals_required: approvals.map(({ proposal, token }) => ({
@@ -2736,7 +2736,7 @@ async function executeAcceptPlan(
   });
   if (!branchOwnership.owned) {
     throw new WorktreeGitError(
-      `Discern can land branch '${worktreeBranch}', but it cannot automatically ` +
+      `discern can land branch '${worktreeBranch}', but it cannot automatically ` +
         `delete it because ${branchOwnership.reason}. Rename it to ` +
         `'${identity.branch}' or land it outside discern; nothing was changed.`,
     );
@@ -2839,20 +2839,20 @@ async function executeAcceptPlan(
     !sameStandardLimitProposalSet(proofStandardProposals, standardProposals)
   ) {
     throw new WorktreeResultError(
-      "The validated Proof does not carry exactly the Standard limit proposals approved for this landing.",
+      "The validated Proof does not carry exactly the standard limit proposals approved for this landing.",
       {
         ok: false,
         verb: "accept",
         error: "proposal_stale",
         message:
-          `The validated Proof does not carry exactly the Standard/value/reason tuples approved for this landing. Run \`discern done\`, relay the current proposal-bearing Proof, and obtain exact approval again. ${ACCEPT_NOTHING_LANDED}`,
+          `The validated Proof does not carry exactly the standard/value/reason tuples approved for this landing. Run \`discern done\`, relay the current proposal-bearing Proof, and obtain exact approval again. ${ACCEPT_NOTHING_LANDED}`,
       },
     );
   }
 
   // A proof proves the gate implementation that issued it, not a newer
   // engine's added preconditions. Re-run the cheap current tracked-refresh plan
-  // on BOTH paths so a legacy proof cannot bypass convergence, and do it before
+  // on BOTH paths so an earlier Proof cannot bypass convergence, and do it before
   // the fast-forward so refusal is fully non-destructive.
   const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
   if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
@@ -3038,7 +3038,7 @@ async function executeAcceptPlan(
   const mainOperation = await inspectGitOperation(mainRepo);
   if (mainOperation.kind === "unavailable") {
     throw new WorktreeGitError(
-      `Discern could not recheck in-progress Git operations in the main checkout ` +
+      `discern could not recheck in-progress Git operations in the main checkout ` +
         `at ${mainRepo}. Nothing was landed and the worktree is intact. ` +
         `Git said: ${mainOperation.detail}`,
     );
@@ -3051,7 +3051,7 @@ async function executeAcceptPlan(
   const mainNowRun = await run(["branch", "--show-current"], mainRepo);
   if (!mainNowRun.success) {
     throw new WorktreeGitError(
-      `Discern could not recheck the current branch in the main checkout at ` +
+      `discern could not recheck the current branch in the main checkout at ` +
         `${mainRepo}. Nothing was landed and the worktree is intact. Git said: ` +
         gitFailureDetail(mainNowRun),
     );
@@ -3091,7 +3091,7 @@ async function executeAcceptPlan(
     (currentTrunk?.success ? currentTrunk.stdout.trim() : "");
   if (expectedTrunk === "") {
     throw new WorktreeGitError(
-      `Discern could not resolve the current ${trunk} commit at the landing boundary. ` +
+      `discern could not resolve the current ${trunk} commit at the landing boundary. ` +
         `Nothing was landed and the worktree is intact. Re-run \`discern accept\`.`,
     );
   }
@@ -3125,8 +3125,8 @@ async function executeAcceptPlan(
   const effortSettlement = transition.effortSettlement;
   const effortSettlementWarning = effortSettlement?.settled === false
     ? effortSettlement.disposition === "consume"
-      ? "Discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
-      : "Discern could not restore the effort grant cleanly. Inspect the grant in the desk and re-authorize this worktree before retrying."
+      ? "discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
+      : "discern could not restore the effort grant cleanly. Inspect the grant in the desk and re-authorize this worktree before retrying."
     : undefined;
   if (effortSettlementWarning !== undefined) {
     ctx.log.warn(effortSettlementWarning);
@@ -3155,7 +3155,7 @@ async function executeAcceptPlan(
     if (ff.kind === "checkout-failed" && !ff.rolledBack) {
       progress.landing.trunk_landed = true;
       throw new WorktreeGitError(
-        `Discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
+        `discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
           `converge the checked-out files and could not restore the old ref. Stop ` +
           `and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}` +
           (effortSettlementWarning === undefined
@@ -3786,7 +3786,7 @@ async function executeAcceptResult(
         );
         if (availableLandingConsent(authority, confirmed) === undefined) {
           const message =
-            "Discern reconciled the interrupted acceptance before its trunk " +
+            "discern reconciled the interrupted acceptance before its trunk " +
             "transition. Its journal-bound consent covered only that interrupted " +
             "transaction and was not replayed into a new landing. Re-run " +
             "`discern accept --confirmed`, or record a standing or effort grant, " +
@@ -4386,12 +4386,12 @@ function updateConflictMessage(
       ? "Git did not complete the generated-only resolution"
       : resolutionFailure.trim();
     if (!aborted) {
-      return `Updating ${plan.source} conflicts${where}. Discern took the ` +
+      return `Updating ${plan.source} conflicts${where}. discern took the ` +
         `incoming side of every generated path, but could not complete the ` +
         `merge: ${failure}. The merge is still in progress. Resolve it and ` +
         `commit, or run \`git merge --abort\`; then re-run \`${rerun}\`.`;
     }
-    return `Updating ${plan.source} conflicts${where}. Discern took the ` +
+    return `Updating ${plan.source} conflicts${where}. discern took the ` +
       `incoming side of every generated path, but could not complete the ` +
       `merge: ${failure}. The merge was aborted — your tree is untouched. ` +
       `Fix the reported Git failure, then re-run \`${rerun}\`.`;

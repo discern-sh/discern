@@ -53,14 +53,14 @@ export const DISCERN_GIT_CONFIG_FOOTPRINT = [
     id: "proof-note-fetch-owner",
     key: PROOF_NOTES_FETCH_MARKER_KEY,
     scope: "clone-local",
-    writer: "proof-note fetch reconciliation",
+    writer: "Proof note fetch reconciliation",
     uninstall: "remove each recorded ownership marker",
   },
   {
     id: "proof-note-fetch-mapping",
-    key: "remote.<name>.fetch with one exact discern proof-note mapping",
+    key: "remote.<name>.fetch with one exact discern Proof note mapping",
     scope: "remote-fetch",
-    writer: "proof-note fetch reconciliation",
+    writer: "Proof note fetch reconciliation",
     uninstall: "remove only mappings paired with discern's ownership marker",
   },
 ] as const satisfies readonly GitConfigFootprintEntry[];

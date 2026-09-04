@@ -99,7 +99,7 @@ Evidence is about one thing. Evidence that survives an edit is reassurance.
 
 > Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
-A green gate over a clean, committed tree mints proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
+A green gate over a clean, committed tree mints Proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
 
 - **Arc:** loop
 - **Upheld:** enforced via `done` · automated via `[repository]`

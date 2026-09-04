@@ -79,7 +79,7 @@ export async function trackedRefreshDiagnostic(
   const outputFields = await diagnosticOutputFields(
     root,
     "Tracked refresh artifacts are not converged. Running `discern refresh` " +
-      "would change the tree, so this commit cannot earn a gate proof.\n\n" +
+      "would change the tree, so this commit cannot earn a gate Proof.\n\n" +
       (details.length > 0 ? `Planned changes:\n${details.join("\n")}\n` : "") +
       (failures.length > 0
         ? `\nPlanning errors:\n${failures.join("\n")}\n`

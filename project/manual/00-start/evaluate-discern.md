@@ -21,10 +21,10 @@ More of your project's implementation arrives from coding agents, and you're the
 
 discern installs an engineering practice into a repository. After setup, every coding session in that project inherits the same working conditions:
 
-- **A definition of done the project owns.** The final quality check (the Gate) runs the checks the project declares: its own format, build, lint, typecheck, test, and smoke commands. An agent's confidence doesn't decide when work is finished; the project's checks do.
+- **A definition of done the project owns.** The final quality check (the gate) runs the checks the project declares: its own format, build, lint, typecheck, test, and smoke commands. An agent's confidence doesn't decide when work is finished; the project's checks do.
 - **A workspace per task.** Each task runs in an isolated Git worktree, so unfinished work never sits on your shared branch and parallel tasks don't collide in one checkout.
 - **Evidence instead of assertions.** A finished change comes back with [Proof](../20-understand/proof.md): a record that this exact commit passed the declared checks. Passing produces evidence; it never grants permission. Landing on the shared branch waits for authority you supply, once per change or as a recorded standing grant.
-- **Context that survives the session.** Project instructions, reusable Skills, and a maintained project guide (the Map) are ordinary files in the repository. A new session, or a different coding agent, starts already knowing the project.
+- **Context that survives the session.** Project instructions, reusable skills, and a maintained project guide (the map) are ordinary files in the repository. A new session, or a different coding agent, starts already knowing the project.
 
 The practice is stack-neutral: discern ships none of your toolchain and runs the commands your project declares. It works with Claude Code, Codex, Gemini, Cursor, and GitHub Copilot, and switching among them keeps the instructions and checks you've invested in.
 
@@ -36,7 +36,7 @@ If nobody on the project works through a coding agent, discern has no operator, 
 
 ## Where its boundary sits
 
-discern is one self-contained local binary with no model inside. It makes no network calls of its own, requires no API key or account, and runs no service. Install it once at the root of each Git repository. Setup adds the root `discern.toml`, the visible `discern/` folder, marked sections in `.gitignore` and `.gitattributes`, agent instruction files, and configuration for the coding tools you selected. Its activity record (the Logbook) stays on your machine and holds metadata about discern's use; it doesn't record your code.
+discern is one self-contained local binary with no model inside. It makes no network calls of its own, requires no API key or account, and runs no service. Install it once at the root of each Git repository. Setup adds the root `discern.toml`, the visible `discern/` folder, marked sections in `.gitignore` and `.gitattributes`, agent instruction files, and configuration for the coding tools you selected. Its activity record (the logbook) stays on your machine and holds metadata about discern's use; it doesn't record your code.
 
 One installation serves an entire monorepo. Its root configuration can give different packages or services their own checks. A folder that is itself a separate Git repository can have its own discern installation. Adding another `discern.toml` to an ordinary nested folder has no effect.
 
@@ -44,7 +44,7 @@ The boundary also limits what it can promise. discern verifies what your declare
 
 ## How it leaves
 
-Trying discern doesn't take your work hostage. `discern uninstall` removes discern's wiring and generated integration files and leaves the authored instructions, Map, and deferred-work ledger in place as ordinary Markdown, still useful without discern. The binary never updates itself; [upgrades run when you choose](../10-guides/maintain-or-remove-discern.md).
+Trying discern doesn't take your work hostage. `discern uninstall` removes discern's wiring and generated integration files and leaves the authored instructions, map, and deferred-work ledger in place as ordinary Markdown, still useful without discern. The binary never updates itself; [upgrades run when you choose](../10-guides/maintain-or-remove-discern.md).
 
 ## Decide
 

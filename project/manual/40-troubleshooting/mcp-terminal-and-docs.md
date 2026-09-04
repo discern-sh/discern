@@ -67,7 +67,7 @@ Rendering degrades in layers, and each layer has a switch:
 
 ## A browser didn't open
 
-Commands that hand off to a browser (opening the hosted docs, a Desk link) report when the handoff fails or the platform has no launcher, and the URL stays printed in the result. Open it yourself in any browser; nothing else about the command's work depended on the handoff.
+Commands that hand off to a browser (opening the hosted docs, a desk link) report when the handoff fails or the platform has no launcher, and the URL stays printed in the result. Open it yourself in any browser; nothing else about the command's work depended on the handoff.
 
 ## When to stop
 

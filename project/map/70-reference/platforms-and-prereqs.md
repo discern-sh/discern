@@ -35,7 +35,7 @@ _The release targets and local tools discern requires, followed by identity sele
 
 <!-- END GENERATED BUILD TARGETS -->
 
-There is no native Windows release. On Windows, run the Linux binary inside Windows Subsystem for Linux 2 (WSL 2). The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies this path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](../_adr/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)).
+There is no native Windows release. On Windows, run the Linux binary inside WSL 2. The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies this path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](../_adr/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane.md)).
 
 ## Required tools
 
@@ -131,7 +131,7 @@ Linked identity checks the [id override](https://discern.sh/docs/reference/envir
 
 ## Worktree env files
 
-`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [Worktree environment](https://discern.sh/docs/reference/environment-variables#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
+`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [worktree environment](https://discern.sh/docs/reference/environment-variables#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
 
 ## Worktree command tokens
 

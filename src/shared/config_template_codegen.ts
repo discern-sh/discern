@@ -314,7 +314,7 @@ function builtInCheckpointLines(indent: number): string[] {
     ),
     "",
     ...commentLines(
-      "Shipped advisory checkpoints read the shape of the change and never block; each question arrives with the Gate's advisories when its pattern appears.",
+      "Shipped advisory checkpoints read the shape of the change and never block; each question arrives with the gate's advisories when its pattern appears.",
       indent,
     ),
     ...group(byMode("advise")),

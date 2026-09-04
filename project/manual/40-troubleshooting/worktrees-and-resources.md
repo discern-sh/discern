@@ -70,9 +70,9 @@ Close the program that's writing into the path, then confirm the prune. It remov
 
 ## A finished stage's checkout is taking space
 
-When work composes in stages (a later worktree started from an earlier one's branch), the earlier checkouts remain after their content flows forward. discern calls such a worktree **contained** once its branch is fully part of a live later branch, its tree is clean, and it's idle. `discern worktree prune` and `discern status` point them out, and the [Desk](../10-guides/delegate-work.md) offers the reclaim.
+When work composes in stages (a later worktree started from an earlier one's branch), the earlier checkouts remain after their content flows forward. discern calls such a worktree **contained** once its branch is fully part of a live later branch, its tree is clean, and it's idle. `discern worktree prune` and `discern status` point them out, and the [desk](../10-guides/delegate-work.md) offers the reclaim.
 
-Reclaiming is confirmation-only: no configuration, grant, or hint reclaims a checkout unattended, because the reclaim destroys the checkout and its worktree-local state — including its Gate Proof. After a reclaim, a `discern await --green` watch on that stage refuses and points at the containing branch instead, which is where the work now lives. The branch ref itself survives as the recovery path (`discern start --from <branch>`), and ordinary pruning offers to remove it only after the composed work lands.
+Reclaiming is confirmation-only: no configuration, grant, or hint reclaims a checkout unattended, because the reclaim destroys the checkout and its worktree-local state — including its gate Proof. After a reclaim, a `discern await --green` watch on that stage refuses and points at the containing branch instead, which is where the work now lives. The branch ref itself survives as the recovery path (`discern start --from <branch>`), and ordinary pruning offers to remove it only after the composed work lands.
 
 If disk pressure is the actual symptom: land finished work with `discern accept` (which removes its worktree), then review `discern worktree prune --dry-run` for the rest.
 
@@ -87,7 +87,7 @@ discern worktree park <target>
 
 The preview names the kept branch and commit, retained task wording, resources destroyed, checkout removed, and worktree-local Proof and landing grant consumed. Park refuses a dirty, unreadable, setup-incomplete, trunk, detached, or branch-mismatched checkout. It has no force option because the retained branch cannot preserve uncommitted files.
 
-After success, open the branch under **Work without a worktree** in the Desk, or resume it directly:
+After success, open the branch under **Work without a worktree** in the desk, or resume it directly:
 
 ```sh
 discern start --from <parked-branch>
@@ -136,7 +136,7 @@ Git can't see edits to ignored files, so discern records a baseline when it prep
 
 If main has local changes or unreadable Git state, choose **Inspect main checkout**. Its detail can show status and diff or open a shell or editor at main. It also names the landing and cleanup operations that remain blocked. Main stays outside the task list, and agent work remains in linked worktrees.
 
-After a refused repair or cleanup, the Desk surveys again. `Task changed; refreshed` means the selected row changed or disappeared. A parked task opens its resumable branch. A task found in local landing evidence reports `Task landed; refreshed` and remains available under **Recent completed tasks**.
+After a refused repair or cleanup, the desk surveys again. `Task changed; refreshed` means the selected row changed or disappeared. A parked task opens its resumable branch. A task found in local landing evidence reports `Task landed; refreshed` and remains available under **Recent completed tasks**.
 
 Never adopt another effort's worktree because it looks idle or clean. Do not repair a confusing row by deleting a path or Git registration by hand. Follow its diagnosis first. Park, Reclaim, Drop, and prune each apply their own ownership and final-state checks.
 

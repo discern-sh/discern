@@ -14,7 +14,7 @@ _The Logbook is a local activity record containing metadata rather than code or 
 
 With recording on and `discern.toml` readable, each command-line interface (CLI) verb run and each Model Context Protocol (MCP) invocation resolved to that project adds an event. Effectful verbs add paired start and completion events with one invocation id and the operation registry's resolved exclusion boundary. All worktrees share plain-text files under `.git`.
 
-An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. No project Logbook or readable consent setting applies to that path.
+An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. No project logbook or readable consent setting applies to that path.
 
 - **Read active history:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)). `cat .git/discern/logbook/*.jsonl` shows the raw active lines.
 - **List and read sealed history:** `discern patterns archives`, then `discern patterns --logbook-file <filename>`. Add `--stats`, `--all`, or `--json` as needed.
@@ -48,7 +48,7 @@ Each detector declares a scope and a tier. Scope selects the reader. Tier contro
 | `discern improvement` | Complete inline project findings in the advisory `data.history.findings` group.                                                                                            |
 | `discern patterns`    | Every finding: plain summary followed by concrete observed evidence, up to 3 attention pointers, family blocks, Standard sparklines, and insufficient-evidence accounting. |
 
-The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed Gate stage, score, Proof identity, or acceptance decision.
+The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed gate stage, score, Proof identity, or acceptance decision.
 
 The shared result contract keeps one meaning across these routes. A finding's `summary` states the condition in plain language; `observed` carries its count, denominator, named subject and conditions, and any material limitation. Investigations use the same two layers. Shorter routes project the canonical summary instead of maintaining separate claims.
 
@@ -97,11 +97,11 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions  |
 | `epoch`         | a fingerprint of your config                                            |
 
-`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the Desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
+`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity and the invocation facts that selected its boundary. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 
-For `done`, `gate_ran: false` marks current-Proof reuse. `--rerun` records `rerun`. Readers still recognize historical `confirmed` flags as evidence from older local Logbooks; they do not expose that spelling as current input.
+For `done`, `gate_ran: false` marks current-Proof reuse. `--rerun` records `rerun`. Readers still recognize historical `confirmed` flags as evidence from older local logbooks; they do not expose that spelling as current input.
 
 ### Validation evidence
 
@@ -131,9 +131,9 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 
 ## Local storage only
 
-discern writes the Logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own Gate. A write failure does not change the verb outcome; the verb continues without recording the event.
+discern writes the logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own gate. A write failure does not change the verb outcome; the verb continues without recording the event.
 
-Doctor treats an enabled empty Logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
+Doctor treats an enabled empty logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 
 ## Rotation and config epochs
 
@@ -141,9 +141,9 @@ Events use month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 
 
 ## Archive and reset lifecycle
 
-[Logbook lifecycle](logbook-lifecycle.md) specifies the terminal confirmation, atomic archive boundary, recovery state, and historical source selector. Historical selection is advisory: Patterns and Stats may read a sealed file, but fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active Logbook.
+[Logbook lifecycle](logbook-lifecycle.md) specifies the terminal confirmation, atomic archive boundary, recovery state, and historical source selector. Historical selection is advisory: Patterns and Stats may read a sealed file, but fleet activity, `status`, Proof hints, queue estimates, and work-in-flight checks always use the active logbook.
 
-The `epoch` fingerprint hashes behavior-relevant configuration section by section, with a Standard's `limit` masked out. A pin leaves the fingerprint unchanged. An edit to a command, scope, input list, or other behavior-relevant setting changes it and adds a `config-change` line naming the section.
+The `epoch` fingerprint hashes behavior-relevant configuration section by section, with a standard's `limit` masked out. A pin leaves the fingerprint unchanged. An edit to a command, scope, input list, or other behavior-relevant setting changes it and adds a `config-change` line naming the section.
 
 Tip-adoption episodes compare events only when the config epoch, discern writer release, and dominant MCP-client release match. A run on any branch, session, or surface can count. Another setup cannot resolve the episode. Missing setup evidence and the end of history stay censored ([ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)).
 

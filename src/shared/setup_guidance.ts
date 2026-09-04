@@ -296,7 +296,7 @@ export const SETUP_REPORTER_EXAMPLES: ReadonlyArray<{
       failureOnlyAvailable: false,
     },
     guidance:
-      "Keep concise terminal output for the Gate. On failure, expose or inspect the report artifact without replacing the tool's exit status.",
+      "Keep concise terminal output for the gate. On failure, expose or inspect the report artifact without replacing the tool's exit status.",
   },
   {
     family: "Bounded JSON stream on stdout or stderr",

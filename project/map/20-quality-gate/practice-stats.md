@@ -13,7 +13,7 @@ aliases:
 
 # Practice stats
 
-_`discern patterns --stats` reads the [Logbook](../70-reference/the-logbook.md) for what went well and renders a card of plain counts, each with its denominator beside it._
+_`discern patterns --stats` reads the [logbook](../70-reference/the-logbook.md) for what went well and renders a card of plain counts, each with its denominator beside it._
 
 ```sh
 discern patterns --stats
@@ -32,19 +32,19 @@ discern patterns --stats
 | Agents               | Attributed agent identities with their runs, usage series, and green-`done` shares.                                                                                                                                               |
 | Breadth              | Branches driven, active days out of the span, the day the most branches were active, and the most changes in flight at one instant.                                                                                               |
 
-An accepted change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them. A cycle therefore needs both ends on record: an accept whose start predates the Logbook counts as accepted without adding a cycle.
+An accepted change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them. A cycle therefore needs both ends on record: an accept whose start predates the logbook counts as accepted without adding a cycle.
 
-For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The Standards trend normalizes each Standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
+For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The Standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
 
 ## Validation workflow cycles
 
 A validation workflow run is an analyzed `prepare`, `test`, or `done`; recorded `clean` is its entry state. Complete, incomplete, and unattributed evidence share one run denominator. Current `test` and `done` writers always attach validation evidence. Older readable lines without it remain unattributed and cannot support a validation finding. At the standalone-test boundary, complete dirty validation counts tracked-only, untracked-only, mixed, or unclassified state without filenames. Full-Gate evidence follows mutating pre-groups, so a dirty entry remains unclassified instead of mixing moments.
 
-A validation workflow cycle links recorded events on one branch under one config epoch ([ADR 0275](../_adr/0275-validation-workflows-use-stream-bounded-change-cycles.md)). A successful `start` for a reused branch, a successful `accept`, or an epoch change closes it. After a clean green Gate, a later dirty entry or different recorded HEAD begins another cycle. A run without an epoch stands alone.
+A validation workflow cycle links recorded events on one branch under one config epoch ([ADR 0275](../_adr/0275-validation-workflows-use-stream-bounded-change-cycles.md)). A successful `start` for a reused branch, a successful `accept`, or an epoch change closes it. After a clean green gate, a later dirty entry or different recorded HEAD begins another cycle. A run without an epoch stands alone.
 
 A commit does not automatically end a cycle. Dirty pre-commit validation at one HEAD and the later clean `done` at its new committed HEAD stay in the same cycle. The test-first route begins dirty, the commit-first route begins clean, and an unknown first entry remains unattributed. The narrower pre-commit-to-clean-Gate count requires a dirty run, a later distinct recorded HEAD, and a clean green `done` on that later HEAD. Cycle construction uses the recorded stream only, so archived reports have the same result without consulting the current Git graph.
 
-Each route reports cycles, branches, runs, successful and failed runs, cycles that reached a clean Gate, cycles with a failure, and retries. A retry is every validation run after the first inside the same stream-defined cycle. The counts describe route shape; they do not prescribe an order or treat pre-commit testing as a defect.
+Each route reports cycles, branches, runs, successful and failed runs, cycles that reached a clean gate, cycles with a failure, and retries. A retry is every validation run after the first inside the same stream-defined cycle. The counts describe route shape; they do not prescribe an order or treat pre-commit testing as a defect.
 
 Workflow cohort rows appear only when at least two identity cohorts clear the shared `COHORT_MINIMUMS`. Every speaking cohort carries cycle and run denominators, and the section retains below-minimum and unattributed cycle/run remainders. These task-confounded counts do not rank agents or imply capability.
 
@@ -58,7 +58,7 @@ Every number is a count or duration from the same analysis population the detect
 
 Stats is a separate counted projection of the same local evidence. It does not rewrite Pattern summaries or turn cohort counts into a comparison. Use the default `discern patterns` report when a finding's condition, evidence, limitation, and next action are the question.
 
-A single accepted change keeps `biggest` and `best day` off the card, since either would restate the change itself, and streaks of one stay quiet. An empty Logbook says there are no stats yet and suggests checking back.
+A single accepted change keeps `biggest` and `best day` off the card, since either would restate the change itself, and streaks of one stay quiet. An empty logbook says there are no stats yet and suggests checking back.
 
 ## Where it lives in code
 

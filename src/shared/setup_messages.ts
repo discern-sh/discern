@@ -395,7 +395,7 @@ export function consentRelayItems(
     {
       key: "footprint",
       message:
-        `Footprint: discern writes the root \`discern.toml\`; the authored Map at \`${SOURCE_PATHS.map.defaultPath}\`, instructions at \`${SOURCE_PATHS.instructions.defaultPath}\`, and TODO ledger at \`${SOURCE_PATHS.todo.defaultPath}\`; managed blocks in \`.gitignore\` and \`.gitattributes\`; Agent files ${
+        `Footprint: discern writes the root \`discern.toml\`; the authored map at \`${SOURCE_PATHS.map.defaultPath}\`, instructions at \`${SOURCE_PATHS.instructions.defaultPath}\`, and TODO ledger at \`${SOURCE_PATHS.todo.defaultPath}\`; managed blocks in \`.gitignore\` and \`.gitattributes\`; agent files ${
           inlineSet(instructionFiles)
         }; and selected-provider integration files ${
           inlineSet(integrationFiles)
@@ -406,7 +406,7 @@ export function consentRelayItems(
     {
       key: "repository-boundary",
       message:
-        "Repository boundary: one Git repository has one root `discern.toml` and one discern installation. A monorepo uses that root install with Scopes and custom jobs; an independent nested Git repository is a separate project and may have its own install.",
+        "Repository boundary: one Git repository has one root `discern.toml` and one discern installation. A monorepo uses that root install with scopes and custom jobs; an independent nested Git repository is a separate project and may have its own install.",
     },
     ...ctx.agents.wired.flatMap((agent) =>
       agent.disclosures.map((disclosure, index) => ({
@@ -650,7 +650,7 @@ export function completionMessage(ctx: CompletionContext): string {
     ctx;
   const readyForActivation = !landing.inRepo || landing.onTarget;
   const headline = unproven
-    ? "discern setup was recorded without a Gate Proof. Review the unproved setup before treating it as ready."
+    ? "discern setup was recorded without a gate Proof. Review the unproved setup before treating it as ready."
     : readyForActivation
     ? `discern setup is proved and available on \`${landing.target}\`.`
     : `discern setup is proved on \`${

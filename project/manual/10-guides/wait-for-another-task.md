@@ -19,7 +19,7 @@ When one task depends on work another coding agent is still finishing, you shoul
 
 `discern_await` gives the waiting agent a repository condition to wait for: a sibling becomes green, its work lands, or the trunk moves. The call returns when that condition holds and names the next step. If the reliable call window ends first, it provides a continuation for the same watch rather than leaving the agent to invent a polling loop.
 
-This means you can start a dependent task without arranging the precise moment when your agent should return. And although the wait is one long blocking call, it doesn't make your agent unresponsive: agent harnesses generally deliver your messages mid-watch, so you can still redirect them early when plans change. Waiting is appropriate when repository state controls the next action; [some dependencies still need a person](#when-waiting-is-the-wrong-tool).
+This means you can start a dependent task without arranging the precise moment when your agent should return. And although the wait is one long blocking call, it doesn't make your agent unresponsive: coding-agent CLIs generally deliver your messages mid-watch, so you can still redirect them early when plans change. Waiting is appropriate when repository state controls the next action; [some dependencies still need a person](#when-waiting-is-the-wrong-tool).
 
 ## Before starting
 
@@ -39,12 +39,12 @@ Pass one condition per call, chosen from what the agent's task needs:
 
 Green and landed answer different questions:
 
-- `--green` says the target's exact commit passed its Gate. Its agent may still be working in that worktree, so the successful result identifies the commit to build on.
+- `--green` says the target's exact commit passed its gate. Its agent may still be working in that worktree, so the successful result identifies the commit to build on.
 - `--landed` says the target's work has reached the trunk through the separate acceptance step.
 
 A landing observed mid-watch satisfies `--green` too, so a dependency that finishes and lands while the agent watches isn't missed.
 
-`--landed` watches for arrival. It follows the branch's tip, so start the watch while the dependency is in flight. The watch survives branch deletion (acceptance removes a landed branch), and a fresh call can still recover a finished landing from its durable proof note.
+`--landed` watches for arrival. It follows the branch's tip, so start the watch while the dependency is in flight. The watch survives branch deletion (acceptance removes a landed branch), and a fresh call can still recover a finished landing from its durable Proof note.
 
 `--trunk-moved` is satisfied by any landing or by a direct commit to the trunk. Use it when the agent needs to respond to whatever arrives next rather than to one named dependency.
 
@@ -79,7 +79,7 @@ Continue with the newest handle until `data.met` is `true` or the dependency no 
 An `ok: false` result means the watch as posed can't be answered. It has no continuation, so follow its recovery instead of resuming it. Common cases include:
 
 - **A green watch whose worktree is gone.** Current Proof lives with the worktree, so a [reclaimed](../40-troubleshooting/worktrees-and-resources.md) branch can't later become green there. The refusal points to a branch that now contains the work, when one exists, or suggests a landed watch for the arrival question.
-- **A worktree selector that doesn't resolve.** The task may never have started, the selector may be a display title rather than stable identity, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; an exact branch can recover a completed landing from its proof note.
+- **A worktree selector that doesn't resolve.** The task may never have started, the selector may be a display title rather than stable identity, or it may have landed and been cleaned up before this watch began. The refusal explains the observed state; an exact branch can recover a completed landing from its Proof note.
 
 ## Compose what arrived
 
@@ -94,9 +94,9 @@ The wait is complete when the dependency is present in the agent's tree, meaning
 
 ## When waiting is the wrong tool
 
-- **The agent's own branch.** The agent should run the Gate or do the work. Awaiting themselves will never return.
+- **The agent's own branch.** The agent should run the gate or do the work. Awaiting themselves will never return.
 - **A helper or sub-task inside the same session.** `discern_await` watches other worktrees and the trunk. The session already tracks its own work.
 - **A decision only a person can make,** such as review or approval. Report the needed decision and stop. A held call can't hurry a human.
 - **A dependency cut mid-wait.** The plan changed, so say so and move on. Ending the watch there is valid.
 
-Coding agents receive this procedure as the bundled `discern-await-the-fleet` [Skill](delegate-work.md#bundled-skills), so a task brief can name the Skill instead of restating these instructions. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists every flag. [MCP and results](../30-reference/mcp-and-results.md) holds the result fields, the transport timeout bounds, and the exit-code contract. [Proof](../20-understand/proof.md) explains why green and landed stay separate states.
+Coding agents receive this procedure as the bundled `discern-await-the-fleet` [Skill](delegate-work.md#bundled-skills), so a task brief can name the skill instead of restating these instructions. The [CLI reference](../30-reference/cli-reference.md#discern-await) lists every flag. [MCP and results](../30-reference/mcp-and-results.md) holds the result fields, the transport timeout bounds, and the exit-code contract. [Proof](../20-understand/proof.md) explains why green and landed stay separate states.

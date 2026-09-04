@@ -13,9 +13,9 @@ aliases:
 
 _discern verifies landing authority before moving the trunk._
 
-A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-A Proof that contains a Standard limit proposal also needs separate owner approval for each current Standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
+A Proof that contains a standard limit proposal also needs separate owner approval for each current standard/value/reason tuple. Landing authority does not cover that narrower decision ([ADR 0339](../_adr/0339-proposed-standard-limits-and-shared-measurements.md)).
 
 ## Authority sources
 
@@ -27,7 +27,7 @@ A Proof that contains a Standard limit proposal also needs separate owner approv
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
-Fresh setup's standing-grant example names `docs`, whose seed contains the Map and deferred-work ledger. The separate `instructions` seed contains the project brief, instruction sources, authored Skills, and materialized Skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
+Fresh setup's standing-grant example names `docs`, whose seed contains the map and deferred-work ledger. The separate `instructions` seed contains the project brief, instruction sources, authored skills, and materialized skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
 
 ## How discern resolves coverage
 
@@ -46,21 +46,21 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-When `accept` has no landing authority, it changes nothing. Every supported result says what would have landed, confirms that the worktree, branch, and trunk remain untouched, and routes the change to review. After the owner approves the change in the current conversation, run `discern accept --confirmed`. On success, `data.consent`, the proof line, and the Logbook name the permission source: current conversation, standing grant, or effort grant.
+When `accept` has no landing authority, it changes nothing. Every supported result says what would have landed, confirms that the worktree, branch, and trunk remain untouched, and routes the change to review. After the owner approves the change in the current conversation, run `discern accept --confirmed`. On success, `data.consent`, the Proof line, and the logbook name the permission source: current conversation, standing grant, or effort grant.
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
 ## Approve a Standard limit proposal
 
-`discern accept` checks Standard limit proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
+`discern accept` checks standard limit proposals before applying landing authority. The live worktree proposal record must equal the proposal set in the honored Proof. A mismatch, stale record, reason change, or revocation refuses without moving the trunk.
 
-The read-only refusal names each Standard, old and proposed limits, measurement, delta, reason, responsible paths, and an approval token. The token is a 64-character lowercase hexadecimal digest of the exact Standard, value, and reason. It prevents an approval command copied for one tuple from approving a changed tuple; it grants no authority by itself. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
+The read-only refusal names each standard, old and proposed limits, measurement, delta, reason, responsible paths, and an approval token. The token is a 64-character lowercase hexadecimal digest of the exact standard, value, and reason. It prevents an approval command copied for one tuple from approving a changed tuple; it grants no authority by itself. Relay those facts to the owner. After the owner approves the current tuples in this conversation, run the complete command returned by discern:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Repeat the flag for every proposal. The token set must equal the current proposal set. `--confirmed` records current conversation consent. Each token identifies the approved Standard/value/reason tuple. Standing grants, effort grants, generic conversation consent, checkpoint variances, and earlier tokens do not supply this approval.
+Repeat the flag for every proposal. The token set must equal the current proposal set. `--confirmed` records current conversation consent. Each token identifies the approved standard/value/reason tuple. Standing grants, effort grants, generic conversation consent, checkpoint variances, and earlier tokens do not supply this approval.
 
 If the owner declines, leave acceptance stopped. Restore the trunk limit in the branch, commit the restoration, and run `discern done` under ordinary enforcement. Acceptance never changes the proposed limit after Proof.
 

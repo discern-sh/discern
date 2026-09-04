@@ -44,7 +44,7 @@ From anywhere inside the repository, run:
 discern upgrade --dry-run
 ```
 
-The preview lists pending schema migrations and any managed config or `.gitignore` reconciliation. It also states that instructions and Skills would refresh. It writes nothing.
+The preview lists pending schema migrations and any managed config or `.gitignore` reconciliation. It also states that instructions and skills would refresh. It writes nothing.
 
 Review the plan and the clean git status. `--allow-dirty` bypasses the clean-tree guard, but use it only when another snapshot already makes the working changes recoverable.
 
@@ -65,9 +65,9 @@ The command performs these actions in order:
 
 Migrations are idempotent: a step can run again against its own output without compounding the change. The command validates the migrated config before stamping the new schema ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)).
 
-Every config mutation leaves `discern.toml` in the same canonical form as `discern tidy toml`, preserving its comments and ruled banners. An upgrade does not add a new command to an existing project's format job. To opt into automatic formatting for the Map, instructions, TODO, and root config, add `discern tidy` after any project formatter. [The tidy guide](../20-quality-gate/tidy.md) gives the exact scope.
+Every config mutation leaves `discern.toml` in the same canonical form as `discern tidy toml`, preserving its comments and ruled banners. An upgrade does not add a new command to an existing project's format job. To opt into automatic formatting for the map, instructions, TODO, and root config, add `discern tidy` after any project formatter. [The tidy guide](../20-quality-gate/tidy.md) gives the exact scope.
 
-Your configured values, ordinary comments, instruction sources, authored Skills, project scripts, and Map content remain project-owned. Review the resulting diff before committing it.
+Your configured values, ordinary comments, instruction sources, authored skills, project scripts, and map content remain project-owned. Review the resulting diff before committing it.
 
 ## 4. Restart coding-agent sessions
 

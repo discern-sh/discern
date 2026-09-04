@@ -526,7 +526,7 @@ interface StripResult {
   insertionIndex?: number;
 }
 
-/** Remove current and legacy discern fragments while retaining their insertion point. */
+/** Remove current and earlier discern fragments while retaining their insertion point. */
 function stripDiscernOwnedLines(
   lines: string[],
   canonical: string,
@@ -585,7 +585,7 @@ function findClosingMarker(lines: string[], start: number): number {
   return -1;
 }
 
-/** Decide whether legacy cleanup can absorb a line without crossing user content. */
+/** Decide whether earlier-block cleanup can absorb a line without crossing user content. */
 function isLegacyBlockOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
@@ -613,7 +613,7 @@ function isStandaloneDiscernOwnedLine(
     canonicalOwned.has(trimmed);
 }
 
-/** Recognize another delimited section so legacy cleanup stops at its boundary. */
+/** Recognize another delimited section so earlier-block cleanup stops at its boundary. */
 function isSectionMarker(line: string): boolean {
   return /^# --- .+ ---$/.test(line) &&
     line !== DISCERN_GITIGNORE_BEGIN &&
@@ -636,7 +636,7 @@ function isDiscernOwnedRule(
     return parsed.path === ".claude/settings.json" ||
       parsed.path === ".claude/settings.local.json";
   }
-  // A marked legacy block may carry the current registry's tracked or
+  // A marked earlier block may carry the current registry's tracked or
   // materialized artifacts. Retired private paths are deliberately absent.
   const ownedPaths = new Set<string>(
     discernOwnedArtifactIgnorePaths(artifacts),
@@ -644,7 +644,7 @@ function isDiscernOwnedRule(
   return ownedPaths.has(parsed.path);
 }
 
-/** Registry-derived paths a marked legacy block may identify as discern-owned. */
+/** Registry-derived paths a marked earlier block may identify as discern-owned. */
 export function discernOwnedArtifactIgnorePaths(
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
 ): string[] {

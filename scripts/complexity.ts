@@ -224,7 +224,7 @@ if (hotspotFindings.length > 0) {
   );
 }
 console.error(
-  `${COMPLEXITY_HOTSPOT_BUDGETS.length} reviewed legacy files remain above the extreme-tail thresholds.`,
+  `${COMPLEXITY_HOTSPOT_BUDGETS.length} reviewed files remain above the extreme-tail thresholds.`,
 );
 console.log(
   `DISCERN_METRIC complexity_hotspots ${COMPLEXITY_HOTSPOT_BUDGETS.length}`,

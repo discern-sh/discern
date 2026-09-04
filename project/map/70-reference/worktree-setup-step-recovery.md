@@ -28,6 +28,6 @@ If it did not complete, or another run is appropriate, authorize a retry:
 discern worktree setup --retry-step <id> --confirmed
 ```
 
-Both choices are idempotent. `--confirmed` records the owner's decision for that observed step. The shell command's outcome remains an observation rather than machine proof. A running state blocks automatic replay until the owner chooses retry ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
+Both choices are idempotent. `--confirmed` records the owner's decision for that observed step. The shell command's outcome remains an observation rather than machine Proof. A running state blocks automatic replay until the owner chooses retry ([ADR 0332](../_adr/0332-worktree-setup-steps-preserve-interruption-ambiguity.md)).
 
 Top-level `setup begin`, `setup done`, and `setup accept` retain their plan-derived write checks and resumable phase state; [Setup command boundaries](setup-command-boundaries.md) defines that separate contract.

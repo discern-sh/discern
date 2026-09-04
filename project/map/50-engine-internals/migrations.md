@@ -14,7 +14,7 @@ _The versioned steps that bring an installed project up to the current config._
 
 The first public install is [schema version](../00-orientation/glossary.md#schema-version) 1, with an empty production migration registry. The runner is already in place for the first public `1 → 2` change ([ADR 0219](../_adr/0219-public-install-schema-starts-at-one.md)).
 
-A versioned step that brings an install from schema `N` to `N+1` is a [Migration](../00-orientation/glossary.md#migration). `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). `discern upgrade` refuses a config stamped by a newer binary and preserves its recorded version.
+A versioned step that brings an install from schema `N` to `N+1` is a [migration](../00-orientation/glossary.md#migration). `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). `discern upgrade` refuses a config stamped by a newer binary and preserves its recorded version.
 
 The package version follows releases. The install schema changes only when an installed project needs a migration, so most releases leave it at its current number.
 

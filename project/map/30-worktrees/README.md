@@ -17,7 +17,7 @@ Every checkout has a stable identity, development port, and test-order seed. Lin
 
 The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation. Automatic cleanup requires recorded fleet ownership; merge status alone never authorizes deletion.
 
-Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the Desk) to inspect, update, land, or drop tasks across the fleet.
+Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the desk) to inspect, update, land, or drop tasks across the fleet.
 
 | Order | Read next                                                           | What's in it                                                                    |
 | ----: | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |

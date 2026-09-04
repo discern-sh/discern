@@ -322,14 +322,14 @@ Deno.test("mcp surface: map and docs expose the same search funnel", () => {
       "complete published product manual",
       "full match count",
       "reader-visible Markdown",
-      "protected Map tiers",
+      "protected map tiers",
     ]
   ) {
     assertStringIncludes(docs.description, phrase);
   }
   for (
     const phrase of [
-      "configured project Map",
+      "configured project map",
       "full index",
       "distinct from discern_docs",
     ]

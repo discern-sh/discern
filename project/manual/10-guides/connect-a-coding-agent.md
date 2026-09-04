@@ -22,7 +22,7 @@ Repository wiring and live activation are separate. `discern refresh` can prove 
 
 - The discern binary is available on `PATH` and the project has completed setup.
 - The coding agent works in an owned worktree for the config change.
-- The person has installed the provider and chosen whether it should receive this project's instructions, Skills, hooks, and MCP connection.
+- The person has installed the provider and chosen whether it should receive this project's instructions, skills, hooks, and MCP connection.
 - The person can complete provider trust or approval prompts. discern cannot grant vendor authority.
 
 ## 1. Select the provider once
@@ -56,7 +56,7 @@ Apply the plan:
 discern refresh
 ```
 
-Inspect the result, run `discern doctor`, and review the Git diff. A complete result reports current compiled instructions, Skills, hooks, MCP registration, and any provider-specific worktree support. A partial refresh preserves completed writes and gives a retry; follow it until top-level `ok` is true.
+Inspect the result, run `discern doctor`, and review the Git diff. A complete result reports current compiled instructions, skills, hooks, MCP registration, and any provider-specific worktree support. A partial refresh preserves completed writes and gives a retry; follow it until top-level `ok` is true.
 
 Run `discern prepare`, commit the config and every tracked integration change, then run `discern done`. The provider will not load project-local changes from this branch until it opens that worktree or the change lands.
 
@@ -69,7 +69,7 @@ After the wiring is present in the checkout the provider will open, **person:** 
 | Claude Code        | No separate project trust prompt is expected; discern pre-approves its MCP server in the generated settings.                                                                                                              | Close and reopen Claude Code in the project, inspect registered tools, then invoke `mcp__discern__discern_status`.                                          |
 | Codex              | Trust the project directory and approve each committed hook hash before it runs.                                                                                                                                          | Open a new Codex task for this project, inspect registered tools, then invoke `mcp__discern__discern_status`. Restart the app if a new task still lacks it. |
 | Gemini CLI         | Trust the workspace so project settings load. Confirm hooks are enabled in the committed settings.                                                                                                                        | Start a new Gemini CLI session in the trusted workspace, inspect tools, then invoke `discern_status`.                                                       |
-| Cursor             | Trust the workspace and approve the discern MCP tools on first use. For Local sessions editing sibling worktrees, either allow external file edits in Cursor settings or start the session with Cursor's Worktree option. | Reload the Cursor window, start a new agent conversation in that workspace, inspect tools, then invoke `discern_status`.                                    |
+| Cursor             | Trust the workspace and approve the discern MCP tools on first use. For Local sessions editing sibling worktrees, either allow external file edits in Cursor settings or start the session with Cursor's worktree option. | Reload the Cursor window, start a new agent conversation in that workspace, inspect tools, then invoke `discern_status`.                                    |
 | GitHub Copilot CLI | Add the project to the provider's trusted folders.                                                                                                                                                                        | Start a new Copilot CLI session in the trusted folder, inspect tools, then invoke `discern_status`.                                                         |
 
 Use the exact action named by the refresh or setup handoff when it differs from a generic host display. MCP hosts may add their namespace to the callable name.
@@ -92,10 +92,10 @@ If the provider cannot find `discern`, open a new shell and verify `which discer
 
 **Person:** approve the new complete provider list. **Coding agent:** remove the id from `[project].agents`, preview `discern refresh`, apply it, and review the planned integration removals. Refresh removes discern-owned entries while preserving shared file content owned by the project or another provider.
 
-Commit the config and tracked output together and run the full Gate. This removes project wiring; uninstalling the provider application remains outside discern.
+Commit the config and tracked output together and run the full gate. This removes project wiring; uninstalling the provider application remains outside discern.
 
 ## Completion
 
-Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full Gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete when that callable returns successfully; current files alone do not establish activation.
+Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete when that callable returns successfully; current files alone do not establish activation.
 
 Use [Platforms and providers](../30-reference/platforms-and-providers.md) for exact files, trust facts, timeouts, and platform support. Use [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) when activation or ownership fails, and [Write project instructions](write-project-instructions.md) for the shared instruction source.

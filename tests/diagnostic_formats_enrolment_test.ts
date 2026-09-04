@@ -1,8 +1,7 @@
 /**
  * Enrolment guard for the diagnostic-format registry. Runtime setup and
- * improvement instructions derive their format list from the registry; the public
- * quickstart remains authored prose, so this guard makes a new parser fail until
- * that page teaches it too.
+ * improvement instructions derive their format list from the registry. Reporter
+ * internals stay out of the beginner-facing quickstart.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -15,7 +14,7 @@ import { CATEGORIES } from "../src/engine/improve/rules.ts";
 
 const ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
-Deno.test("diagnostic formats enrol setup, improvement, and public instructions", async () => {
+Deno.test("diagnostic formats enrol setup and improvement instructions", async () => {
   const ids = DIAGNOSTIC_FORMATS.map((format) => format.id);
   const labels = DIAGNOSTIC_FORMATS.map((format) => format.label);
   assertEquals(
@@ -51,16 +50,4 @@ Deno.test("diagnostic formats enrol setup, improvement, and public instructions"
     diagnosticFormatList(),
     "the improvement review must derive its format list from DIAGNOSTIC_FORMATS",
   );
-
-  const quickstart = await Deno.readTextFile(
-    join(ROOT, "project/map/10-getting-started/quickstart.md"),
-  );
-  assertStringIncludes(
-    quickstart,
-    diagnosticFormatList(),
-    "public setup instructions must list every supported diagnostic format",
-  );
-  assertStringIncludes(quickstart, "routine green output concise");
-  assertStringIncludes(quickstart, "preserve exit status");
-  assertStringIncludes(quickstart, "File-only and inherently verbose formats");
 });

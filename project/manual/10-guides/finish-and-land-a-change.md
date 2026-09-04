@@ -25,7 +25,7 @@ aliases:
 
 Use this guide when a coding agent has one owned task to carry from an isolated worktree to the shared trunk. It covers the full handoff: get current, run the relevant checks, produce Proof, return the decision to the person responsible, and land only under verified authority.
 
-A green Gate and a landed change are separate outcomes. Green means one clean commit passed the project's checks. Landed means an authorized acceptance later moved that commit onto the trunk.
+A green gate and a landed change are separate outcomes. Green means one clean commit passed the project's checks. Landed means an authorized acceptance later moved that commit onto the trunk.
 
 ## Starting state
 
@@ -55,11 +55,11 @@ The start result must name a new branch and worktree path. A refusal names the e
 discern prepare
 ```
 
-Read the complete result. It can rewrite configured files, report a missing related file through coupling, serve a coming checkpoint question, or name a focused reproduction. Review any rewrite before committing it. [Fix a red Gate](fix-a-red-gate.md) covers failure recovery.
+Read the complete result. It can rewrite configured files, report a missing related file through coupling, serve a coming checkpoint question, or name a focused reproduction. Review any rewrite before committing it. [Fix a red gate](fix-a-red-gate.md) covers failure recovery.
 
 ## Bring the trunk into the branch
 
-**Coding agent:** If status or a Gate precondition says the branch is behind, call `discern_update`. It brings the trunk into this branch, refreshes generated agent surfaces, and names overlapping incoming files.
+**Coding agent:** If status or a gate precondition says the branch is behind, call `discern_update`. It brings the trunk into this branch, refreshes generated agent surfaces, and names overlapping incoming files.
 
 ```sh
 discern update
@@ -77,13 +77,13 @@ After the final edit, run `discern_prepare` again and commit every intended byte
 discern done
 ```
 
-A successful run produces Proof tied to the branch's current commit. It records the changed files, checks, Standards, and any declared checkpoint conclusions. A dirty run can provide Gate feedback, but it cannot produce landing Proof.
+A successful run produces Proof tied to the branch's current commit. It records the changed files, checks, standards, and any declared checkpoint conclusions. A dirty run can provide gate feedback, but it cannot produce landing Proof.
 
 At a decision point:
 
-- If a `stop` checkpoint fires, inspect its matched paths and question. Record `--met <id>` only when the question is satisfied. Record `--unmet <id> --why "…"` when it is not; the Gate may run, while landing waits for the person's variance decision.
-- If a job, Standard, generated file, or precondition fails, use the returned diagnostic and next action. Do not treat canceled or skipped jobs as passing.
-- If the Gate passes but asks for a real-artifact check, exercise the result along the changed route before handing it back.
+- If a `stop` checkpoint fires, inspect its matched paths and question. Record `--met <id>` only when the question is satisfied. Record `--unmet <id> --why "…"` when it is not; the gate may run, while landing waits for the person's variance decision.
+- If a job, standard, generated file, or precondition fails, use the returned diagnostic and next action. Do not treat canceled or skipped jobs as passing.
+- If the gate passes but asks for a real-artifact check, exercise the result along the changed route before handing it back.
 
 ## 5. Hand the decision back
 
@@ -110,7 +110,7 @@ The replacement Proof must name the commit the person is now considering.
 
 ## 7. Land under verified authority
 
-**Person:** Authorize this landing in the current conversation, or rely on an applicable grant already recorded by the project. A standing grant may cover named scopes, and the Desk can grant one worktree. Both remain bounded by the final changed paths.
+**Person:** Authorize this landing in the current conversation, or rely on an applicable grant already recorded by the project. A standing grant may cover named scopes, and the desk can grant one worktree. Both remain bounded by the final changed paths.
 
 **Coding agent:** Follow the authority-aware hint and call `discern_accept`.
 
@@ -118,7 +118,7 @@ The replacement Proof must name the commit the person is now considering.
 discern accept
 ```
 
-Acceptance rechecks the current Proof, branch, trunk, changed paths, checkpoint declarations, and any Standard proposals. It refuses read-only when authority is absent or incomplete. A standing or one-worktree grant never authorizes an unmet checkpoint variance or a Standard limit proposal; those require the person's explicit approval for the served ids or tokens.
+Acceptance rechecks the current Proof, branch, trunk, changed paths, checkpoint declarations, and any standard proposals. It refuses read-only when authority is absent or incomplete. A standing or one-worktree grant never authorizes an unmet checkpoint variance or a standard limit proposal; those require the person's explicit approval for the served ids or tokens.
 
 When acceptance succeeds, discern fast-forwards the trunk, records durable landing evidence, converges the main checkout, tears down the worktree resources, removes the checkout, and deletes the merged branch. A later setup or cleanup failure cannot reverse a trunk move, so read `data.landing` before choosing a recovery.
 

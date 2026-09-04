@@ -18,7 +18,7 @@ The root `deno.json` exposes one stable alias:
 "discern-design-system": "jsr:@discern-sh/design-system@0.29.0"
 ```
 
-Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
+Site imports use only that package root and its documented `./runtime` and `./react` exports. The CLI and its consumer Proof additionally use the documented `./cli`, `./cli/interactive`, `./cli/interactive/testing`, and `./cli/projection` exports. The docs site's fenced-code renderer uses the same projection export. `deno.lock` records the release. Those public exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
 When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
@@ -40,7 +40,7 @@ Use a one-shot build when another process already serves the generated site:
 discern scripts site-design-system -- --build-only
 ```
 
-Pass an absolute checkout path after the script name, or set `DISCERN_DESIGN_SYSTEM_PATH`, to override the sibling checkout. The local link provides visual and integration evidence only. The full Gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
+Pass an absolute checkout path after the script name, or set `DISCERN_DESIGN_SYSTEM_PATH`, to override the sibling checkout. The local link provides visual and integration evidence only. The full gate, release workflow, and production build continue to resolve the exact JSR version. After a release reaches JSR, update the committed pin and return to the ordinary production build.
 
 ## CLI-owned integration
 
@@ -96,7 +96,7 @@ Release 0.17.0 first bound box and the then triangle-named spinner, section-rule
 
 ## Release 0.16.0 choice contracts
 
-Release 0.16.0 makes scrolling Select, Checkbox, and Radio frames consume the available terminal width unless a caller requests a narrower frame. Wrapped choice labels retain one pointer-and-marker prefix as the highlight moves. Every semantic group heading has one framed blank row above it, and a fitted window states its hidden choices in the lower border, such as `↑ 2 more · ↓ 7 more`. The product adapter supplies only values, semantic groups, visible-row ceilings, and caller reservations, so Desk, map and documentation browsers, improve, and setup inherit the same geometry without command-specific width or overflow code.
+Release 0.16.0 makes scrolling Select, Checkbox, and Radio frames consume the available terminal width unless a caller requests a narrower frame. Wrapped choice labels retain one pointer-and-marker prefix as the highlight moves. Every semantic group heading has one framed blank row above it, and a fitted window states its hidden choices in the lower border, such as `↑ 2 more · ↓ 7 more`. The product adapter supplies only values, semantic groups, visible-row ceilings, and caller reservations, so desk, map and documentation browsers, improve, and setup inherit the same geometry without command-specific width or overflow code.
 
 ## Release 0.15.0 review contracts
 

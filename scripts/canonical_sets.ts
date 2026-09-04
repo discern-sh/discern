@@ -35,7 +35,7 @@ import {
   GENERATED_INVENTORY_POLICIES,
   type GeneratedInventoryPolicy,
   type GeneratedInventoryPolicyId,
-} from "../src/shared/generated_inventory_policy.ts";
+} from "./generated_inventory_policy.ts";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -274,7 +274,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "mcp-core-lifecycle",
     title: "MCP core lifecycle",
     what:
-      "The lifecycle sequence that leads schema-deferred clients through status, Worktree entry, iteration, the final Gate, synchronization, and authorized landing.",
+      "The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.",
     source: {
       kind: "module",
       module: "src/engine/mcp/server.ts",
@@ -453,7 +453,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "map-tier-publication-postures",
     title: "Map tier publication rules",
     what:
-      "Every top-level Map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.",
+      "Every top-level map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.",
     source: {
       kind: "module",
       module: "src/lib/paths.ts",
@@ -641,7 +641,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "landing-consent-sources",
     title: "Landing consent sources",
     what:
-      "The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a Desk-recorded effort grant.",
+      "The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.",
     source: {
       kind: "module",
       module: "src/shared/consent.ts",
@@ -720,7 +720,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "accept-landing-state-fields",
     title: "Acceptance landing-state fields",
     what:
-      "The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and Logbook events.",
+      "The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and logbook events.",
     source: {
       kind: "module",
       module: "src/shared/accept_landing_state.ts",
@@ -882,7 +882,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "jobs",
     title: "Gate jobs",
-    what: "The known Gate jobs: the command table's fixed vocabulary.",
+    what: "The known gate jobs: the command table's fixed vocabulary.",
     source: {
       kind: "module",
       module: "src/shared/capabilities.ts",
@@ -1108,7 +1108,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "operational-agent-surfaces",
     title: "Operational agent surfaces",
     what:
-      "The effective Skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.",
+      "The effective skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.",
     source: {
       kind: "module",
       module: "scripts/agent_surface_contracts.ts",
@@ -1453,7 +1453,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "brand-foundation-reading-steps",
     title: "Brand writing foundations",
     what:
-      "The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.",
+      "The shared strategic-document sequence that the brand voice skill and the homepage-or-campaign reading path both require before public copy is written.",
     source: {
       kind: "module",
       module: "scripts/brand/voice.ts",
@@ -1699,7 +1699,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "worktree-tokens",
     title: "Worktree adapter tokens",
     what:
-      "The `@…@` runtime tokens substituted into a Worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, Worktree, and resource.",
+      "The `@…@` runtime tokens substituted into a worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, worktree, and resource.",
     source: {
       kind: "module",
       module: "src/engine/worktree/tokens.ts",
@@ -1758,7 +1758,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "tips",
     title: "Tips",
     what:
-      "The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.",
+      "The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.",
     source: {
       kind: "module",
       module: "src/shared/tips.ts",
@@ -1994,7 +1994,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-events",
     title: "Logbook events",
     what:
-      "The event kinds written to the local Logbook and interpreted by its advisory readers.",
+      "The event kinds written to the local logbook and interpreted by its advisory readers.",
     source: {
       kind: "module",
       module: "src/engine/logbook/schema.ts",
@@ -2044,7 +2044,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-lifecycle-actions",
     title: "Logbook lifecycle actions",
     what:
-      "Every CLI-only action allowed to detach or remove active Logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.",
+      "Every CLI-only action allowed to detach or remove active logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.",
     source: {
       kind: "module",
       module: "src/shared/logbook_lifecycle.ts",
@@ -2072,7 +2072,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "detector-families",
     title: "Patterns detector families",
     what:
-      "The categories that group every Patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.",
+      "The categories that group every patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.",
     source: {
       kind: "module",
       module: "src/shared/patterns_vocabulary.ts",
@@ -2099,7 +2099,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "pattern-finding-tones",
     title: "Patterns finding tones",
     what:
-      "The presentation-only vocabulary a Patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.",
+      "The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.",
     source: {
       kind: "module",
       module: "src/shared/patterns_vocabulary.ts",
@@ -2126,7 +2126,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "patterns-detectors",
     title: "Patterns detectors",
     what:
-      "Every detector the Patterns verb runs over the Logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.",
+      "Every detector the patterns verb runs over the logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.",
     source: {
       kind: "module",
       module: "src/engine/logbook/detectors.ts",
@@ -3015,7 +3015,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "adrs",
     title: "Architecture Decision Records",
     what:
-      "The numbered decision records in the Map, including records later superseded.",
+      "The numbered decision records in the map, including records later superseded.",
     source: {
       kind: "module",
       module: "src/lib/docs.ts",
@@ -3132,7 +3132,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "voice-banned-moves",
     title: "Voice banned moves",
     what:
-      "The voice registry's banned-word and banned-move canon behind the generated voice Skills. The Vale style must see every banned phrase the canon declares.",
+      "The voice registry's banned-word and banned-move canon behind the generated voice skills. The Vale style must see every banned phrase the canon declares.",
     source: {
       kind: "module",
       module: "scripts/brand/voice.ts",
@@ -3161,7 +3161,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "brand-vale-styles",
     title: "Register Vale styles",
     what:
-      "The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by Map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.",
+      "The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.",
     source: {
       kind: "module",
       module: "scripts/brand/vale.ts",
@@ -3206,6 +3206,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       {
         path: ".vale/DiscernProduct/ProductName.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernProduct/CanonicalTermCase.yml",
         kind: "generated-file",
         banner: true,
       },
@@ -3277,7 +3282,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "seeded-gotchas-traps",
     title: "Seeded Gate traps",
     what:
-      "The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.",
+      "The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.",
     source: {
       kind: "file",
       path: "templates/setup/skeleton/map/80-development/done-gate-gotchas.md",
@@ -3400,7 +3405,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "spawn-surfaces",
     title: "Subprocess spawn boundaries",
     what:
-      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt proof or exemption.",
+      "Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",
@@ -3948,7 +3953,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "The named framing, member-wording authority, renderer, documentation exposure, and tests for every generated inventory.",
     source: {
       kind: "module",
-      module: "src/shared/generated_inventory_policy.ts",
+      module: "scripts/generated_inventory_policy.ts",
       exportName: "GENERATED_INVENTORY_POLICIES",
     },
     guards: ["tests/canonical_sets_enrolment_test.ts"],
@@ -3965,7 +3970,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () =>
       Object.keys(
-        (await import("../src/shared/generated_inventory_policy.ts"))
+        (await import("./generated_inventory_policy.ts"))
           .GENERATED_INVENTORY_POLICIES,
       ),
   },

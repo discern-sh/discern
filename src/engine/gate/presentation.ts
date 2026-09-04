@@ -237,7 +237,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   skipped_head_moved: {
     checkState: "skip",
     stateLabel: "not recorded",
-    summary: "The Gate passed, but HEAD moved while the Gate was running.",
+    summary: "The Gate passed, but HEAD moved while the gate was running.",
   },
   unavailable: {
     checkState: "fail",
@@ -252,7 +252,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   cleared: {
     checkState: "skip",
     stateLabel: "cleared",
-    summary: "A prior Proof was cleared after the Gate failed.",
+    summary: "A prior Proof was cleared after the gate failed.",
   },
   clear_failed: {
     checkState: "fail",
@@ -362,11 +362,11 @@ function jobKindLabel(kind: string): string {
     case "scope-gate":
       return "Configured scope gate";
     case "standard":
-      return "discern Standard measurement";
+      return "discern standard measurement";
     case "job":
       return "Configured project job";
     default:
-      return "discern Gate step";
+      return "discern gate step";
   }
 }
 
@@ -582,7 +582,7 @@ export function completedGateJobs(
 function planKindLabel(kind: StepKind): string {
   if (kind === "job") return "Configured project job";
   if (kind === "scope-gate") return "Configured scope gate";
-  if (kind === "standard") return "discern Standard measurement";
+  if (kind === "standard") return "discern standard measurement";
   return "discern prerequisite";
 }
 
@@ -731,15 +731,15 @@ function standardSummaryState(
 function standardEvidence(standard: GateStandard): string {
   switch (standard.measurement) {
     case "measured":
-      return "The Standard command measured this value in the current Gate run.";
+      return "The Standard command measured this value in the current gate run.";
     case "replayed":
       return standard.replayed_from === undefined
-        ? "A recorded value was replayed because the Standard inputs did not change."
-        : `The value was replayed from ${standard.replayed_from} because the Standard inputs did not change.`;
+        ? "A recorded value was replayed because the standard inputs did not change."
+        : `The value was replayed from ${standard.replayed_from} because the standard inputs did not change.`;
     case "deferred":
       return 'Measurement is deferred by measure = "on-demand".';
     case "skipped":
-      return "The Gate stopped before this Standard measurement ran.";
+      return "The Gate stopped before this standard measurement ran.";
   }
 }
 
@@ -975,7 +975,7 @@ export function renderGateProof(
       uncovered === 1 ? " is" : "s are"
     } uncovered.`;
   const proofPanel = options.terminal.presenter.present(renderProofCli, {
-    title: "Gate proof",
+    title: "Gate Proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
       { label: "Branch", value: safeLine(proof.branch) },
@@ -1016,7 +1016,7 @@ export function renderGateProof(
       }]),
     ],
     summary: safeMultiline(`${proofSummary}${landingSummary}`),
-    footer: "Full proof: discern status --verbose",
+    footer: "Full Proof: discern status --verbose",
     maxWidth: width,
   });
   return `${proofPanel}\n\n${
@@ -1036,7 +1036,7 @@ export function renderGateProofCheck(
     ? state.summary
     : `${state.summary} ${safeMultiline(check.reason)}`;
   const proofPanel = options.terminal.presenter.present(renderProofCli, {
-    title: "Gate proof",
+    title: "Gate Proof",
     ...(state.stamp === undefined ? {} : { stamp: state.stamp }),
     meta: [
       ...(check.recorded === undefined
@@ -1056,8 +1056,8 @@ export function renderGateProofCheck(
     }],
     summary: safeMultiline(summary),
     footer: check.status === "honored"
-      ? "The recorded Gate result is authoritative for this tree."
-      : "Refresh proof: discern done",
+      ? "The recorded gate result is authoritative for this tree."
+      : "Refresh Proof: discern done",
     maxWidth: width,
   });
   return check.proof_line === undefined

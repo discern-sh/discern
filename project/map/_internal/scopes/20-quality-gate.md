@@ -4,7 +4,7 @@ Read [`documenter-agent-brief.md`](../documenter-agent-brief.md) first.
 
 ## What this subtree documents
 
-This subtree documents the public Gate workflow: fixing a failed run, the work `discern done` coordinates, Standards, Proof, continuous improvement, and co-change advice. Engine contract implementation belongs in `50-engine-internals`; public command and Model Context Protocol (MCP) contracts belong in `70-reference`.
+This subtree documents the public gate workflow: fixing a failed run, the work `discern done` coordinates, Standards, Proof, continuous improvement, and co-change advice. Engine contract implementation belongs in `50-engine-internals`; public command and Model Context Protocol (MCP) contracts belong in `70-reference`.
 
 ## Files to produce
 

@@ -39,7 +39,7 @@ export type GateProofFileRead =
  * migration path: it is a cache miss and a fresh strict `done` must replace it. */
 export function parseGateProofFile(content: string): GateProofFileRead {
   if (content.trim() === "") {
-    return { status: "missing", reason: "proof file was empty" };
+    return { status: "missing", reason: "Proof file was empty" };
   }
   let decoded: unknown;
   try {
@@ -48,7 +48,7 @@ export function parseGateProofFile(content: string): GateProofFileRead {
     if (!(error instanceof SyntaxError)) throw error;
     return {
       status: "missing",
-      reason: "unversioned Gate Proof requires a fresh `discern done`",
+      reason: "unversioned gate Proof requires a fresh `discern done`",
     };
   }
   const version = inspectOnDiskRecordVersion("gateProof", decoded);

@@ -768,7 +768,7 @@ function hasConfigPath(obj: unknown, path: string): boolean {
  * Owner-decided template sections: scaffold parity never fills them, and the
  * repo carries each only as the exact value the owner recorded. Changing one is
  * a consent change — amend the record here, deliberately, in its own commit.
- * (Jack, 2026-07-28: green docs-scope changes land without a conversation.)
+ * The pre-authorized map scope is the project policy recorded in discern.toml.
  */
 const ROOT_CONFIG_OWNER_DECISIONS: Record<string, unknown> = {
   acceptance: { pre_authorized: ["map"] },

@@ -686,7 +686,7 @@ async function metadataIdFromGit(path: string): Promise<string> {
   }
 
   throw new IdentityError(
-    `Discern could not resolve Git worktree metadata for ${path}. Run ` +
+    `discern could not resolve Git worktree metadata for ${path}. Run ` +
       `\`git worktree repair\`, then re-run \`discern identity\`.`,
   );
 }

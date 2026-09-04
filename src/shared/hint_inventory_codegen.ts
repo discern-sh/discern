@@ -6,7 +6,7 @@
 import { type HintDef, HINTS } from "./hints.ts";
 import { renderCommandRefsCli } from "./command_reference.ts";
 import { markdownBlockquote } from "./markdown_blockquote.ts";
-import { GENERATED_INVENTORY_POLICIES } from "./generated_inventory_policy.ts";
+import { GENERATED_INVENTORY_POLICIES } from "../../scripts/generated_inventory_policy.ts";
 
 /** Render one registry entry with its registered example parameters. */
 function renderEntry(def: HintDef<unknown>): string {

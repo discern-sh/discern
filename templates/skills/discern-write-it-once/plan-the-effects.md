@@ -44,4 +44,4 @@ When the workflow established or consumed a shared authority along the way, reco
 - previews, machine output, and reports render from the plan and observed outcomes;
 - mutations pass through one boundary that writes only on difference, atomically or recoverably;
 - a green second run is a proven no-op, and representative partial states converge;
-- proof exercised the real entry point across success and failure.
+- Proof exercised the real entry point across success and failure.

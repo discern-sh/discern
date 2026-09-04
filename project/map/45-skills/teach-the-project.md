@@ -12,7 +12,7 @@ aliases:
 
 _Record a durable correction, procedure, or decision in a project source that future agent sessions inherit._
 
-The bundled `discern-teach-the-project` Skill provides the procedure for recording a lesson from a conversation in the repository. Ask your agent to “remember this,” “add this to the instructions,” or “capture this,” and the Skill selects the smallest durable source for that lesson.
+The bundled `discern-teach-the-project` Skill provides the procedure for recording a lesson from a conversation in the repository. Ask your agent to “remember this,” “add this to the instructions,” or “capture this,” and the skill selects the smallest durable source for that lesson.
 
 discern's built-in instructions also tell agents to offer this capture at a natural pause after a user correction, a durable procedure, or an unrecorded decision. The user remains the editor of what the project records. The instruction postpones the offer until active work reaches a natural pause.
 

@@ -611,7 +611,7 @@ export async function collectEffortDiff(
     ...(history === undefined ? {} : { history }),
   };
   const facts = factCollectionPaths(definitions, draft);
-  // Direct collector callers without definitions retain the legacy complete
+  // Direct collector callers without definitions retain the unscoped complete
   // untracked stats contract. Production always supplies governing definitions
   // and therefore opens only paths an admitted predicate can consume.
   if (definitions.length === 0) {

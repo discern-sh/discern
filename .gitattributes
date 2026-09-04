@@ -47,6 +47,7 @@
 /.vale/DiscernBrand/RepeatedContrast.yml merge=discern-generated linguist-generated
 /.vale/DiscernBrand/StackedSlogans.yml merge=discern-generated linguist-generated
 /.vale/DiscernProduct/ProductName.yml merge=discern-generated linguist-generated
+/.vale/DiscernProduct/CanonicalTermCase.yml merge=discern-generated linguist-generated
 /.vale/DiscernProduct/AgentBlame.yml merge=discern-generated linguist-generated
 /.vale/DiscernAgent/BestJudgment.yml merge=discern-generated linguist-generated
 /.vale/DiscernAgent/PositionalReference.yml merge=discern-generated linguist-generated

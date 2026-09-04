@@ -104,6 +104,7 @@ Deno.test("a future glossary term auto-enrols in the manual heading and search a
     ...GLOSSARY,
     {
       term: "Future contract",
+      runningCase: "lowercase",
       plain: { keep: "a synthetic reference term" },
       definition: "A synthetic term proving future glossary enrollment.",
     },

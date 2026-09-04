@@ -783,7 +783,7 @@ async function runGate(
   ) {
     presentation.checkpoints.drops.push(policyCheckpointDrop(
       "strand_check_unavailable",
-      "the Gate could not read every working-tree snapshot needed to prove that its stages left no tracked output behind",
+      "the gate could not read every working-tree snapshot needed to prove that its stages left no tracked output behind",
       presentation.checkpoints.policyCommit,
     ));
   }
@@ -1768,7 +1768,7 @@ async function unchangedTreeRerunRefusal(
     error: UNCHANGED_TREE_RERUN_SLUG,
     message: `\`discern done\` already judged this exact tree ${verdict} at ` +
       `${now.head.slice(0, 8)}, and nothing has changed since. Pass ` +
-      `\`--rerun\` to run the Gate on it anyway; the rerun is ` +
+      `\`--rerun\` to run the gate on it anyway; the rerun is ` +
       `recorded. Nothing has run — the tree is untouched.`,
     hints: hintTexts([fire(hint)]),
   };
@@ -1828,7 +1828,7 @@ async function gateRunEvidenceIdentity(
  * Reuse the canonical Proof only when it completely proves this exact clean
  * HEAD. This check runs before checkpoint reconciliation, so the optimization
  * cannot mutate conclusions, run fixers, measure Standards, or invoke a
- * configured job. An incomplete legacy marker is a cache miss, never success.
+ * configured job. An incomplete marker is a cache miss, never success.
  */
 async function reusableGreenProof(
   root: string,
@@ -1864,7 +1864,7 @@ async function reusableGreenProof(
   return {
     ok: true,
     verb: "done",
-    message: "Current green Proof covers this exact tree; no Gate job ran.",
+    message: "Current green Proof covers this exact tree; no gate job ran.",
     data: {
       gate_ran: false,
       failed_stage: null,
@@ -2066,7 +2066,7 @@ export async function runFinish(
     } else {
       makeOut(colorEnabled()).ok(
         preamble.result.message ??
-          "Current green Proof reused; no Gate job ran.",
+          "Current green Proof reused; no gate job ran.",
       );
     }
     return 0;

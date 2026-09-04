@@ -8,7 +8,7 @@ aliases:
 
 # The public site — discern.sh
 
-The public pages for discern live in this repository, so the Gate checks the site and the Engine together ([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)). This subtree is for contributors. The product manual lives under `project/manual/`; the public Map is a separately framed projection of this configured Map.
+The public pages for discern live in this repository, so the gate checks the site and the engine together ([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)). This subtree is for contributors. The product manual lives under `project/manual/`; the public map is a separately framed projection of this configured map.
 
 ## Shape
 
@@ -68,6 +68,6 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Current state
 
-The homepage, For Agents page, and trust gateway are static build output from typed sources. The manual and Map use the same server-rendered reading shell but remain different corpora with different navigation, search endpoints, framing, raw policies, and machine reach. The Map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage, For Agents page, and trust gateway are static build output from typed sources. The manual and map use the same server-rendered reading shell but remain different corpora with different navigation, search endpoints, framing, raw policies, and machine reach. The Map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
 `deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.

@@ -833,7 +833,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       label: BUILT_IN_STEP_LABELS.trackedRefreshProofBoundary,
       disposition: "gate",
       note:
-        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and proof",
+        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and Proof",
     });
   }
   const changed = plan.scopesChanged.length > 0
@@ -845,7 +845,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       ...(plan.mode === "report" ? [`mode: ${plan.mode}`] : []),
       `scopes changed: ${changed}`,
       ...plan.previewActions.map((action) =>
-        `preview ${action.scope}: run ${action.command} from this worktree (not executed by the Gate)`
+        `preview ${action.scope}: run ${action.command} from this worktree (not executed by the gate)`
       ),
     ],
     steps,

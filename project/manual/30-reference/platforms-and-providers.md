@@ -64,7 +64,7 @@ Prerequisite: the target platform or coding-agent provider. Provider files are p
 | Cursor         | `cursor-agent` | canonical `AGENTS.md` | `.agents/skills/` | `.cursor/mcp.json`      | `.cursor/hooks.json`         | Workspace and first-use tool approval           | 60s shortest surface / 45s |
 | GitHub Copilot | `copilot`      | canonical `AGENTS.md` | `.agents/skills/` | `.mcp.json`             | `.github/hooks/discern.json` | Folder trust                                    | 3,600s / 3,300s            |
 
-Every provider's activation check calls `discern_status` (Claude Code and Codex expose it as `mcp__discern__discern_status`). Removing a provider from the machine does not change who owns its files. Coding tools outside this table have no supported discern configuration, Skill location, trust instructions, or MCP timeout.
+Every provider's activation check calls `discern_status` (Claude Code and Codex expose it as `mcp__discern__discern_status`). Removing a provider from the machine does not change who owns its files. Coding tools outside this table have no supported discern configuration, skill location, trust instructions, or MCP timeout.
 
 The final column gives each provider's MCP call limit and the longest `discern_await` request. Most providers allow an MCP call to run for 3,600 seconds. `discern_await` uses at most 3,300 seconds, leaving 5 minutes for the provider to deliver the result. Cursor has the shorter limits shown in the table.
 
@@ -72,7 +72,7 @@ Session hooks have a separate 600-second limit. Gemini records that value as 600
 
 ## Clones without discern
 
-Git keeps the agent instruction files and provider configuration. It does not keep the generated Skill folders: Claude Code uses `.claude/skills/`, while Codex, Gemini, Cursor, and GitHub Copilot use `.agents/skills/`. After cloning onto a machine without discern, install the binary, run `discern refresh`, and open a new coding-agent session. The refresh recreates the Skill folders and updates discern's provider settings before the new session reads them.
+Git keeps the agent instruction files and provider configuration. It does not keep the generated skill folders: Claude Code uses `.claude/skills/`, while Codex, Gemini, Cursor, and GitHub Copilot use `.agents/skills/`. After cloning onto a machine without discern, install the binary, run `discern refresh`, and open a new coding-agent session. The refresh recreates the skill folders and updates discern's provider settings before the new session reads them.
 
 ## Secure entropy
 
@@ -92,11 +92,11 @@ Centralizing the source leaves identifier formats, nonce lengths, collision retr
 
 [`SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`](https://github.com/jackwh/discern/blob/main/src/shared/entropy.ts) records each direct WebCrypto operation with its path, function, operation, required security property, and reason. The structural guard binds calls and rows in both directions. An unenrolled call, wrapper, stale row, missing security property, or `Math.random` downgrade fails.
 
-The `secure_entropy_primitive_boundaries` Standard holds this registry at a down-only limit of 2. Secure entropy and scheduling jitter remain separate ([ADR 0348](https://discern.sh/docs/decisions/0348-secure-entropy-is-a-webcrypto-capability)).
+The `secure_entropy_primitive_boundaries` standard holds this registry at a down-only limit of 2. Secure entropy and scheduling jitter remain separate ([ADR 0348](https://discern.sh/docs/decisions/0348-secure-entropy-is-a-webcrypto-capability)).
 
 ## Claude Code integration
 
-_The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and worktree hooks without adding permission rules._
+_The Claude Code integration supplies shared instructions and skills, a Model Context Protocol (MCP) server entry, and worktree hooks without adding permission rules._
 
 When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
@@ -119,7 +119,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 
 `AGENTS.md` remains canonical. discern compiles its built-in instructions and `[instructions].sources` there. Edit the sources, then run `discern refresh`.
 
-Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective Skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
+Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 
 ### `.mcp.json`
 
@@ -210,12 +210,12 @@ discern does not emit Claude Code sandbox settings. In discern's recorded provid
 ### See also
 
 - Why the worktree-hook payloads are parsed in the binary ([ADR 0040](https://discern.sh/docs/decisions/0040-worktree-hooks-in-the-binary)).
-- Why the provider registry is the single source for agent files, Skills, settings, and ignores ([ADR 0043](https://discern.sh/docs/decisions/0043-registry-derived-agent-parity)).
+- Why the provider registry is the single source for agent files, skills, settings, and ignores ([ADR 0043](https://discern.sh/docs/decisions/0043-registry-derived-agent-parity)).
 - Why Claude Code and GitHub Copilot co-own `.mcp.json` ([ADR 0074](https://discern.sh/docs/decisions/0074-co-owned-mcp-json)).
 
 ## Codex integration
 
-_The Codex integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, hooks, app worktree scripts, and narrow Git rules._
+_The Codex integration supplies canonical instructions, shared skills, a Model Context Protocol (MCP) server entry, hooks, app worktree scripts, and narrow Git rules._
 
 discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[project].agents`:
 
@@ -232,7 +232,7 @@ discern's Codex integration is project-local and registry-driven. It writes or c
 
 Codex reads `AGENTS.md` directly, so discern makes it the canonical agent file. Claude Code and Gemini point back to that file rather than duplicating it. discern generates the file from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Codex also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`.
+Codex also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`.
 
 ### `.codex/config.toml`
 
@@ -337,7 +337,7 @@ Codex ignores project `.codex/` settings until its user-level configuration mark
 
 `discern_start` points the running discern MCP server at the new worktree, but it cannot move Codex's shell there. The writable-root setting lets Codex work inside the configured worktree folder. The separate rules allow only commands beginning with `git add` or `git commit`, wherever the trusted session runs them.
 
-Because Codex's shell stays at its original root, drive the worktree explicitly. Prefix every shell command with `cd <path> &&`, and pass `path` to every discern tool. Edits and the Gate then use the same worktree root.
+Because Codex's shell stays at its original root, drive the worktree explicitly. Prefix every shell command with `cd <path> &&`, and pass `path` to every discern tool. Edits and the gate then use the same worktree root.
 
 If a Codex session starts inside a worktree and that worktree is later removed, Codex can block the next user message with "Current working directory missing". This Codex runtime limitation remains after `discern_accept` successfully tears down the worktree and re-aims the long-lived MCP server at the main checkout: the Codex chat process can still remember the deleted directory it originally opened. There is no in-chat recovery once Codex blocks the conversation; start a new Codex session from the main checkout instead.
 
@@ -349,7 +349,7 @@ The default writable-root path includes the main checkout directory name. If a d
 
 ## Gemini integration
 
-_The Gemini integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Gemini integration supplies shared instructions and skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
@@ -371,7 +371,7 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 
 `AGENTS.md` remains the canonical agent file. discern generates it from built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
+Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
 
 ### `.gemini/settings.json`
 
@@ -429,7 +429,7 @@ Run `discern refresh` after changing the configured agent set or upgrading the p
 
 ## Cursor integration
 
-_The Cursor integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The Cursor integration supplies canonical instructions, shared skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 When `[project].agents` includes Cursor, discern uses these project-local files:
 
@@ -463,7 +463,7 @@ To let a Local session write into a sibling discern worktree, turn off External 
 
 #### Cursor's Worktree option
 
-To keep External File Protection enabled, select Cursor's native [**Worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor launches the agent inside its checkout. The `sessionStart` hook readies it for discern's normal workflow.
+To keep External File Protection enabled, select Cursor's native [**worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor launches the agent inside its checkout. The `sessionStart` hook readies it for discern's normal workflow.
 
 Acceptance removes that checkout. Cursor shows the landing response, then the session ends. Its transcript accepts no follow-up, so start a new session.
 
@@ -476,7 +476,7 @@ You can instead set `[worktree].root` to keep discern-created worktrees inside t
 root = ".worktrees"
 ```
 
-Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full Gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
+Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
 ### Instructions and Skills
 
@@ -484,7 +484,7 @@ Cursor reads the root `AGENTS.md` natively, so discern reuses the canonical file
 
 discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Cursor also reads `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
+Cursor also reads `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
 
 ### Model Context Protocol configuration
 
@@ -510,7 +510,7 @@ Cursor declares `cursor-vscode`. The catalog recognizes that exact name and has 
 
 Readers also classify retained raw metadata, so `discern patterns` attributes old `cursor-vscode` events without rewriting them. Unknown names stay in the identity-gap finding.
 
-Setup detection remains separate: it checks `cursor-agent`, the editor command, and known application paths. MCP identity is advisory and selects no setup, timeout, Gate path, or landing authority.
+Setup detection remains separate: it checks `cursor-agent`, the editor command, and known application paths. MCP identity is advisory and selects no setup, timeout, gate path, or landing authority.
 
 #### Model Context Protocol call duration
 
@@ -548,7 +548,7 @@ discern does not set Cursor sandbox options, static command permission lists, mo
 
 Cursor workspace trust gates committed `.cursor/` config. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
 
-Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing Skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
+Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 
 ### See also
 
@@ -557,7 +557,7 @@ Skill-loading behavior varies across Cursor CLI versions. When diagnosing a miss
 
 ## GitHub Copilot integration
 
-_The GitHub Copilot integration supplies canonical instructions, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+_The GitHub Copilot integration supplies canonical instructions, shared skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
 
 discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[project].agents`:
 
@@ -587,7 +587,7 @@ The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so d
 
 discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
+Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
 
 ### `.mcp.json`
 
@@ -643,7 +643,7 @@ Copilot can move a running session with `/cwd` and can create and enter a native
 
 Copilot's `sessionStart` hook can fire per prompt in interactive mode. `discern worktree ensure` is idempotent, so repeated hook calls preserve the resulting state.
 
-Copilot's local sandbox and pre-tool hooks are separate vendor features. discern does not configure them today. The provider integration is limited to instructions, Skills, MCP, and the session-start setup hook.
+Copilot's local sandbox and pre-tool hooks are separate vendor features. discern does not configure them today. The provider integration is limited to instructions, skills, MCP, and the session-start setup hook.
 
 ### See also
 
@@ -667,7 +667,7 @@ _The release targets and local tools discern requires, followed by identity sele
 
 <!-- END GENERATED BUILD TARGETS -->
 
-There is no native Windows release. On Windows, run the Linux binary inside Windows Subsystem for Linux 2 (WSL 2). The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies this path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](https://discern.sh/docs/decisions/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane)).
+There is no native Windows release. On Windows, run the Linux binary inside WSL 2. The installer rejects other operating systems and architectures before downloading an asset. Release CI verifies this path: a release-blocking job runs the full repository gate inside WSL 2 Ubuntu on a hosted Windows runner before every publication ([ADR 0278](https://discern.sh/docs/decisions/0278-wsl-support-is-proven-by-a-hosted-wsl2-gate-lane)).
 
 ### Required tools
 
@@ -675,7 +675,7 @@ There is no native Windows release. On Windows, run the Linux binary inside Wind
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, `sha256sum` or `shasum`, and `curl` or `wget`.                         |
 | Install destination        | A writable directory. On macOS, the installer uses `DISCERN_BIN_DIR`, writable existing `/usr/local/bin`, then `~/.local/bin`. |
-| discern runtime            | `sh` and `git` on `PATH`. Configured Gate and resource commands run through `sh -c`.                                           |
+| discern runtime            | `git` and a POSIX `sh` on `PATH`. Configured gate and resource commands run through `sh -c`.                                   |
 | Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.                             |
 | Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.                             |
 
@@ -687,7 +687,7 @@ Run the live prerequisite and install checks from any directory inside the proje
 discern doctor
 ```
 
-`doctor` checks root discovery, configuration, schema, tools, repository shape, jobs, resources, Instructions, Skills, integrations, and the managed `.gitattributes` block. It asks Git for every canonical tracked generated path's effective merge attribute through the NUL-delimited protocol and, in linked worktrees, verifies the driver is worktree-local. It reports overrides, scope, and origin but never repairs rules or configuration. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
+`doctor` checks root discovery, configuration, schema, tools, repository shape, jobs, resources, Instructions, skills, integrations, and the managed `.gitattributes` block. It asks Git for every canonical tracked generated path's effective merge attribute through the NUL-delimited protocol and, in linked worktrees, verifies the driver is worktree-local. It reports overrides, scope, and origin but never repairs rules or configuration. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
 
 ### Installer behavior
 
@@ -704,7 +704,7 @@ After installation, discern itself makes no network calls. Project commands rema
 Choose `TAG` and the `ASSET` for your system from the generated target table above. Download the binary and its checksum sidecar from the release:
 
 ```sh
-TAG=v1.0.0
+TAG=vX.Y.Z
 ASSET=discern-aarch64-apple-darwin
 gh release download "$TAG" --repo jackwh/discern \
   --pattern "$ASSET" --pattern "$ASSET.sha256"
@@ -763,7 +763,7 @@ Linked identity checks the [id override](environment-variables.md#worktree-ident
 
 ### Worktree env files
 
-`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [Worktree environment](environment-variables.md#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
+`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [worktree environment](environment-variables.md#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
 
 ### Worktree command tokens
 

@@ -361,7 +361,7 @@ const GATE: Category = {
       },
     }),
     subjective("gate.test-depth", {
-      title: "Tests protect behaviour, boundaries, and failure paths",
+      title: "Tests protect behavior, boundaries, and failure paths",
       against: (ctx): ReviewEvidence | undefined => {
         const cmd = toCommandList(ctx.config.jobs.test).join(" && ");
         return cmd.trim().length > 0
@@ -391,7 +391,7 @@ const SETUP: Category = {
       weight: 2,
       fix: "discern setup begin",
       teach:
-        "Setup seeds the Map skeleton and prompts the agent to author your instructions " +
+        "Setup seeds the map skeleton and prompts the agent to author your instructions " +
         "and design principles from the repo and your answers. Until it runs, the " +
         "project has only a bare gate. Run `discern setup begin`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>

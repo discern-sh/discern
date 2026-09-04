@@ -1,6 +1,6 @@
 # Documenter agent brief
 
-Every documenter agent that produces or refreshes a subtree under the configured Map directory follows this brief. Each agent also receives a **scope manifest** at `_internal/scopes/{subtree}.md`. Copy [`scopes/_template.md`](scopes/_template.md) to create one. The manifest names the files to read, the assigned area, and known overlaps.
+Every documenter agent that produces or refreshes a subtree under the configured map directory follows this brief. Each agent also receives a **scope manifest** at `_internal/scopes/{subtree}.md`. Copy [`scopes/_template.md`](scopes/_template.md) to create one. The manifest names the files to read, the assigned area, and known overlaps.
 
 Use this brief for shared requirements. Use the scope manifest for assignment-specific requirements.
 
@@ -24,9 +24,9 @@ Treat documentation as part of the change. Every page describes the current code
 
 ## Who owns what
 
-For **structure**, follow this brief: page inventory, page purpose, section shape, required facts, and length budgets. For **register**, follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md): voice behavior, terminology, and banned moves. Apply both authorities to every page.
+For **structure**, follow this brief: page inventory, page purpose, section shape, required facts, and length budgets. For **register**, follow the [product voice skill](../../skills/discern-product-voice/SKILL.md): voice behavior, terminology, and banned moves. Apply both authorities to every page.
 
-The maintained Map includes orientation, contributor, and operational `_internal` pages. `_private` is the only prose-free geography. `discern map` browses this configured knowledge tree; the docs site, `discern docs`, and the Model Context Protocol (MCP) serve the separate product manual. The Map prose job and Standard govern every maintained non-private Map page. Compare every finished page with the [Map landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
+The maintained map includes orientation, contributor, and operational `_internal` pages. `_private` is the only prose-free geography. `discern map` browses this configured knowledge tree; the docs site, `discern docs`, and the Model Context Protocol (MCP) serve the separate product manual. The map prose job and standard govern every maintained non-private map page. Compare every finished page with the [map landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
 
 ---
 
@@ -167,4 +167,4 @@ If any of those break, the doc is too thin or too thick.
    - **Subtree-overlap observations** — code you noticed that belongs in another subtree.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or redundant.
 
-Stop after the scoped files and summary are ready. Leave the changes uncommitted, do not run the full Gate, and leave every path outside the assigned Map subtree unchanged.
+Stop after the scoped files and summary are ready. Leave the changes uncommitted, do not run the full gate, and leave every path outside the assigned map subtree unchanged.

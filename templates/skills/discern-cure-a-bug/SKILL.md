@@ -52,7 +52,7 @@ Author an executable check that fails on every current member of the class, and 
 - a **structural-search or lint rule** (e.g. `semgrep`, `ast-grep`, a custom linter) that matches the offending shape;
 - an **architectural / fitness test** that iterates a canonical set and asserts the property on each member.
 
-Run it. The number of failures is the detector's **current population**, not proof of the class size. Recall is trustworthy only after the detector passes the fresh-name test and its search universe has been justified. If the detector fails on only the one instance you already knew about, treat that as a reason to challenge the predicate and search boundary — not as evidence by itself that the class is a singleton.
+Run it. The number of failures is the detector's **current population**, not Proof of the class size. Recall is trustworthy only after the detector passes the fresh-name test and its search universe has been justified. If the detector fails on only the one instance you already knew about, treat that as a reason to challenge the predicate and search boundary — not as evidence by itself that the class is a singleton.
 
 ---
 
@@ -75,7 +75,7 @@ A detector that guarantees only the first property is a container-level guard, n
 
 Find instances by their shape, not their spelling. A textual `grep` matches tokens, so it silently misses members that share no literal substring — a renamed variable, an alias, a wrapper. Use structural / AST-aware search to locate every instance regardless of identifiers, and treat a text search as a starting hint, never the enumeration itself.
 
-Validate the detector with at least one **adversarial future-sibling fixture**: reproduce the unsafe mechanism using unrelated names and, where practical, a different enclosing context. The detector must reject it without adding those names to a case table, allowlist, or special rule. Use a synthetic fixture, mutation test, temporary controlled violation, or equivalent mechanism appropriate to the project; keep the proof repeatable in the detector's own tests where practical.
+Validate the detector with at least one **adversarial future-sibling fixture**: reproduce the unsafe mechanism using unrelated names and, where practical, a different enclosing context. The detector must reject it without adding those names to a case table, allowlist, or special rule. Use a synthetic fixture, mutation test, temporary controlled violation, or equivalent mechanism appropriate to the project; keep the Proof repeatable in the detector's own tests where practical.
 
 A table driven from one affected container proves completeness only within that container. It cannot establish a codebase-wide cure when the same mechanism can be recreated by declaring another container.
 
@@ -100,7 +100,7 @@ Then make the completeness claim falsifiable. In your summary, state:
 - the **class predicate** — what defect, precisely;
 - **how you enumerated** it — what query or check, over what scope contract;
 - the **current population** found by the detector, kept distinct from the class itself;
-- the **future-sibling proof** — the unrelated synthetic or controlled instance the detector rejects;
+- the **future-sibling Proof** — the unrelated synthetic or controlled instance the detector rejects;
 - what lies **outside** that scope — what the detector does _not_ cover.
 
 "Fixed every case the detector iterates over _the canonical set_; cases reached only through _X_ are out of scope" is a claim a reviewer can check. "Fixed at the root cause" is not.
@@ -118,4 +118,4 @@ Use this ready-to-relay summary when the exact class evidence must survive:
 - an **executable detector** failed on every current member and on an adversarial future sibling, then passed after the cure;
 - new members and new containers capable of reproducing the mechanism both auto-enroll;
 - that detector is **wired into the gate** over the full scope contract;
-- the summary reports the **predicate, current population, enumeration method, future-sibling proof, and residual scope** — a falsifiable completeness claim, not "fixed at the root cause."
+- the summary reports the **predicate, current population, enumeration method, future-sibling Proof, and residual scope** — a falsifiable completeness claim, not "fixed at the root cause."

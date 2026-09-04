@@ -44,7 +44,7 @@ export async function actOnMainCheckout(
             value: "inspect",
           }, {
             name: "Open a shell at main",
-            description: "Exit the shell to return to the Desk.",
+            description: "Exit the shell to return to the desk.",
             value: "shell",
           }, {
             name: "Open an editor at main",
@@ -77,7 +77,7 @@ export async function actOnMainCheckout(
         out.warn(
           `${command} failed in ${root}: ${
             failed.stderr.trim() || "Git returned no diagnostic."
-          } Repair the reported Git state, then refresh the Desk.`,
+          } Repair the reported Git state, then refresh the desk.`,
         );
         await runtime.pause(out);
         continue;
@@ -103,7 +103,7 @@ export async function actOnMainCheckout(
     if (action === "shell") {
       const shell = userShell();
       echoDeskCommand(out, `${shell}  (cwd: ${root})`);
-      out.info("Exit the shell to return to the Desk.");
+      out.info("Exit the shell to return to the desk.");
       const code = await runtime.interactive(
         shell,
         [],

@@ -1,5 +1,5 @@
 /**
- * Repository-resident landing proofs.
+ * Repository-resident landing Proofs.
  *
  * The gate proof marker is a worktree-local validation cache. Acceptance
  * publishes the same structured proof after the trunk fast-forward as a Git
@@ -191,7 +191,7 @@ async function planManagedRemoteRemoval(
     key: PROOF_NOTES_FETCH_MARKER_KEY,
     value: remote,
     remote,
-    failurePrefix: `could not clear discern's proof-note marker for ${remote}`,
+    failurePrefix: `could not clear discern's Proof note marker for ${remote}`,
   }));
   return { operations, errors: [] };
 }
@@ -216,7 +216,7 @@ export async function planProofNotesFetch(
       remotes: [],
       boundaries: [],
       errors: [
-        `could not read discern's proof-note markers: ${managedRead.error}`,
+        `could not read discern's Proof note markers: ${managedRead.error}`,
       ],
     };
   }
@@ -275,7 +275,7 @@ export async function planProofNotesFetch(
           remote,
           addedKeys: [key],
           failurePrefix:
-            `could not normalize discern's proof-note mapping in ${key}`,
+            `could not normalize discern's Proof note mapping in ${key}`,
         }));
       }
       if (mappingCount > 0) {
@@ -713,7 +713,7 @@ export async function writeProofNote(
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: [],
-      reason: "the validated gate marker carried no structured proof",
+      reason: "the validated gate marker carried no structured Proof",
     };
   }
   if (proof.mode === "report") {
@@ -735,7 +735,7 @@ export async function writeProofNote(
       commit,
       merged_refs: [],
       reason:
-        `the proof names ${proof.head}, which does not match the landed commit ${commit}`,
+        `the Proof names ${proof.head}, which does not match the landed commit ${commit}`,
     };
   }
 
@@ -779,13 +779,13 @@ export async function writeProofNote(
         commit,
         merged_refs: mergedRefs,
         reason:
-          `the landed commit already carries a proof note in a format this discern does not know (${parsed.format})`,
+          `the landed commit already carries a Proof note in a format this discern does not know (${parsed.format})`,
       };
     }
     // Note identity is the annotated subject plus the stable proof claim. A
     // retry may render different Markdown, line text, or timing telemetry, but
     // notes are records and must never be rewritten merely for presentation.
-    // Legacy bare notes imply the commit they annotate as their subject.
+    // Bare note records imply the commit they annotate as their subject.
     const comparableClaim = (value: Proof): string =>
       JSON.stringify(canonicalProofClaim(value));
     if (
@@ -805,7 +805,7 @@ export async function writeProofNote(
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: mergedRefs,
-      reason: "the landed commit already has a different proof note",
+      reason: "the landed commit already has a different Proof note",
     };
   }
   if (existing.code !== 1) {
@@ -814,7 +814,7 @@ export async function writeProofNote(
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: mergedRefs,
-      reason: `could not inspect the landed proof note: ${gitReason(existing)}`,
+      reason: `could not inspect the landed Proof note: ${gitReason(existing)}`,
     };
   }
 

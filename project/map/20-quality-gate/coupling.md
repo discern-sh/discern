@@ -54,13 +54,13 @@ Fresh configs append the diff-aware advisory to green `discern prepare` and `dis
 in_gate = true
 ```
 
-Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and add only `hints[]`. Set `in_gate = false` to keep the standalone command without the Gate advisory ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
+Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and add only `hints[]`. Set `in_gate = false` to keep the standalone command without the gate advisory ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
 
 ## Decide what to enforce
 
 A repeated relationship asks you to inspect the pair. When the files express an essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
-The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the Gate pays its cost ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in the manual's [`[coupling]` table](https://discern.sh/docs/reference/config-reference#coupling).
+The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the gate pays its cost ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in the manual's [`[coupling]` table](https://discern.sh/docs/reference/config-reference#coupling).
 
 The result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

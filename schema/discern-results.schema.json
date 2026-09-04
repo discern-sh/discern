@@ -22511,7 +22511,7 @@
                           "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
                         }
                       },
-                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
+                      "description": "Identity details asserted by the Proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
                     },
                     "brief": {
                       "type": "string"
@@ -30668,7 +30668,7 @@
         "line",
         "markdown"
       ],
-      "description": "The structured proof a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+      "description": "The structured Proof a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
     },
     "DiscernProofCheckpoints": {
       "title": "DiscernProofCheckpoints",
@@ -31334,7 +31334,7 @@
         "deletions",
         "line"
       ],
-      "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered proof."
+      "description": "The compact Proof claim: branch, trunk, validated commit, whole-diff statistics, and the one-line rendered Proof."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",

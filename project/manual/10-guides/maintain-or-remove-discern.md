@@ -35,7 +35,7 @@ Start here when a command, configured job, provider integration, Git safety sett
 discern doctor
 ```
 
-Doctor is read-only. It checks config and schema validity, configured commands on `PATH`, Git recovery and identity, generated files, Skills, integrations, resource commands, and Logbook storage. A failure names the observed fact and recovery; apply that action and rerun doctor.
+Doctor is read-only. It checks config and schema validity, configured commands on `PATH`, Git recovery and identity, generated files, skills, integrations, resource commands, and logbook storage. A failure names the observed fact and recovery; apply that action and rerun doctor.
 
 For a bug report or machine consumer, capture the structured result:
 
@@ -47,7 +47,7 @@ Diagnosis is complete when doctor passes or the result identifies an external de
 
 ## Format discern-owned surfaces
 
-Use this path when configured instruction sources, the Map, the TODO ledger, or root `discern.toml` need canonical formatting.
+Use this path when configured instruction sources, the map, the TODO ledger, or root `discern.toml` need canonical formatting.
 
 **Coding agent:** Work in the task's owned worktree. Preview first:
 
@@ -63,9 +63,9 @@ discern tidy
 
 Use `discern tidy md` or `discern tidy toml` only when the task intentionally covers one type. The planner parses every target before the first write; a malformed file refuses the run and leaves all targets unchanged.
 
-Review the diff. Tidy does not format application source, authored Skills, generated agent files, or files outside the configured owned surfaces. When the project has its own formatter, keep that formatter first and discern tidy last in the serial fix-stage job.
+Review the diff. Tidy does not format application source, authored skills, generated agent files, or files outside the configured owned surfaces. When the project has its own formatter, keep that formatter first and discern tidy last in the serial fix-stage job.
 
-Run `discern prepare`, commit the formatting, and run the full Gate. Formatting is complete when a second `discern tidy --dry-run` reports no changes and the Gate stays green.
+Run `discern prepare`, commit the formatting, and run the full gate. Formatting is complete when a second `discern tidy --dry-run` reports no changes and the gate stays green.
 
 ## Upgrade the project
 
@@ -93,7 +93,7 @@ discern upgrade --check
 discern upgrade --dry-run
 ```
 
-`--check` exits nonzero when project migrations are pending. The dry run lists migrations, fixed scaffold reconciliation, managed Git-ignore and attribute fragments, and instruction or Skill refresh without writing.
+`--check` exits nonzero when project migrations are pending. The dry run lists migrations, fixed scaffold reconciliation, managed Git-ignore and attribute fragments, and instruction or skill refresh without writing.
 
 Review the plan. `--allow-dirty` bypasses the clean-tree guard and makes the resulting diff harder to attribute; use it only when the person has supplied another recoverable snapshot and accepts that tradeoff.
 
@@ -103,7 +103,7 @@ Review the plan. `--allow-dirty` bypasses the clean-tree guard and makes the res
 discern upgrade
 ```
 
-The command runs pending migrations in order, validates before stamping the schema version, reconciles discern-owned shared entries, and refreshes generated instructions, Skills, and integrations. Project-owned instruction sources, authored Skills, scripts, Map pages, and configured values remain owned by the project.
+The command runs pending migrations in order, validates before stamping the schema version, reconciles discern-owned shared entries, and refreshes generated instructions, skills, and integrations. Project-owned instruction sources, authored skills, scripts, map pages, and configured values remain owned by the project.
 
 Review every changed file. Follow a partial refresh recovery until top-level `ok` is true. Run `discern prepare`, commit the complete upgrade diff, then run `discern done`.
 
@@ -132,7 +132,7 @@ Uninstall refuses while a discern worktree is in flight or the resource ledger s
 discern uninstall --dry-run
 ```
 
-Read the complete plan. It should remove generated files, discern-owned entries in shared integration files, managed ignore and attribute blocks, and discern's Git-admin runtime state. It keeps `discern.toml`, project-owned instructions, authored Skills, Map content, and drop recovery refs that may be the only names for user commits.
+Read the complete plan. It should remove generated files, discern-owned entries in shared integration files, managed ignore and attribute blocks, and discern's Git-admin runtime state. It keeps `discern.toml`, project-owned instructions, authored skills, map content, and drop recovery refs that may be the only names for user commits.
 
 If the plan names a shared setting it cannot remove safely, handle that exact setting after reviewing its owner. Do not delete the surrounding shared file.
 
@@ -158,4 +158,4 @@ Removal is complete when the repository no longer carries discern's generated or
 
 ## Reference and recovery
 
-[Files and ownership](../30-reference/files-and-ownership.md) lists the full footprint and uninstall boundary. [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers partial refresh and activation, while [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers resources or cleanup that block removal.
+[Files and ownership](../30-reference/files-and-ownership.md) lists the full footprint and uninstall boundary. [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers partial refresh and activation, while [worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers resources or cleanup that block removal.

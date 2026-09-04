@@ -101,7 +101,7 @@ Resource and setup commands receive `@worktree@`, `@db@`, `@site@`, `@port@`, `@
 
 ## Status and session hints
 
-_`discern status` reports what is true now and what deserves attention next. It runs no Gate job, test, Standard measurement, or setup action._
+_`discern status` reports what is true now and what deserves attention next. It runs no gate job, test, standard measurement, or setup action._
 
 Run it when a session starts or the next move is unclear. Terminal, JSON, Markdown, and Model Context Protocol (MCP) forms share one result ([ADR 0255](https://discern.sh/docs/decisions/0255-status-is-a-measured-responsive-dashboard), [ADR 0281](https://discern.sh/docs/decisions/0281-main-fleet-status-is-a-decision-brief)).
 
@@ -121,14 +121,14 @@ The other fields explain that status:
 
 - **Git** says `clean` or `6 files changed`; **DRIFT** keeps `↑8`, `↓3`, or both. Color reinforces the complete arrow-and-count text.
 - **Proof** is honored, report-only, missing, stale, dirty worktree, unavailable, or unreadable. Report-only means the commit is current but CI reported checkpoint review without enforcing it; ordinary `discern done` is still required before landing. A clean branch with an honored strict Proof can be ready.
-- **Activity** combines the winning clock and completed action. A live Gate reads `Gate running · 2m`; `usually 4m` is historical context.
+- **Activity** combines the winning clock and completed action. A live gate reads `Gate running · 2m`; `usually 4m` is historical context.
 - **Landing** is granted, needs approval, or scope-limited on ready rows; detail wraps below it.
 
 Text and glyphs carry every state; `--no-color` changes no facts.
 
 **Owner attention** holds lifecycle and landing decisions; **Landing risks** holds file, trunk, and ADR conflicts; **Next action** holds the executable continuation. `--verbose` adds evidence.
 
-In the expanded view, **Checks** shows configured changed scopes, each changed scope's configured preview command, planned Gate jobs, and a Standards count. It labels preview commands as not run. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
+In the expanded view, **Checks** shows configured changed scopes, each changed scope's configured preview command, planned gate jobs, and a standards count. It labels preview commands as not run. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. **Landing** shows pass, branch, files changed, diff size, commit, and age. **Proofs** contains stored Proof Markdown.
 
 ```sh
 discern status
@@ -149,7 +149,7 @@ During setup, this read-only result reports the recorded phase, dedicated branch
 
 Every default result includes the route to full structured detail. Run `discern status --verbose --json`, or call `discern_status` with `verbose: true`. The resulting `data.projection.mode` is `full`; repeated collections and landing history are complete. The shared wire projection still removes rendered Proof pages and the fleet row's earlier compatibility copies. One serialization policy serves CLI JSON, MCP, and the live resource.
 
-`discern status --markdown` and MCP `content` return the authored Markdown presentation. It leads with local state and bounded evidence, states authority, separates decisions that need **Owner attention**, lists secondary work under **Other actions**, and closes with the immediate **Next action**. Cross-effort lifecycle decisions never become the reading agent's next action. `data.project`, `location`, `root`, `worktree`, and `git` locate the structured result; local results can add scopes, jobs, currency, resources, Standards, Proof, and [landing authority](../20-understand/proof.md).
+`discern status --markdown` and MCP `content` return the authored Markdown presentation. It leads with local state and bounded evidence, states authority, separates decisions that need **Owner attention**, lists secondary work under **Other actions**, and closes with the immediate **Next action**. Cross-effort lifecycle decisions never become the reading agent's next action. `data.project`, `location`, `root`, `worktree`, and `git` locate the structured result; local results can add scopes, jobs, currency, resources, standards, Proof, and [landing authority](../20-understand/proof.md).
 
 `data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. Drift in ignored generated files remains visible through the corresponding registered hint.
 
@@ -157,7 +157,7 @@ Fleet retains the main row. Each sampled row carries independent recovery facts:
 
 Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](https://discern.sh/docs/decisions/0328-absence-and-unknown-observations-stay-distinct)).
 
-`last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](https://discern.sh/docs/decisions/0210-effectful-verb-starts-are-paired-logbook-events)).
+`last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or logbook time. Disabling the logbook removes the action fields; Git activity remains available ([ADR 0210](https://discern.sh/docs/decisions/0210-effectful-verb-starts-are-paired-logbook-events)).
 
 `fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of structured results. Terminal `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through terminal `--verbose`; structured modes carry the compact Proof claim ([ADR 0188](https://discern.sh/docs/decisions/0188-the-receipt-relays-as-one-line)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
 
@@ -167,7 +167,7 @@ Ahead and behind are non-negative integers, `"unknown"` after a failed or malfor
 
 ### Session findings
 
-After setup, detectors can add recent Logbook observations to `hints[]`. They inspect at most 200 events and exclude CI, previews, human activity, and other branches. Findings change no Git fact, Gate result, Proof, exit code, or `ok`; setup in progress and a disabled Logbook suppress them. Run `discern patterns` for retained evidence ([ADR 0160](https://discern.sh/docs/decisions/0160-local-logbook-advisory-readers)).
+After setup, detectors can add recent logbook observations to `hints[]`. They inspect at most 200 events and exclude CI, previews, human activity, and other branches. Findings change no Git fact, gate result, Proof, exit code, or `ok`; setup in progress and a disabled logbook suppress them. Run `discern patterns` for retained evidence ([ADR 0160](https://discern.sh/docs/decisions/0160-local-logbook-advisory-readers)).
 
 ### Where it lives in code
 
@@ -184,7 +184,7 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 
 ### Current state and gotchas
 
-- `status` never runs the Gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
+- `status` never runs the gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it; its maintenance state appears under Owner attention.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.

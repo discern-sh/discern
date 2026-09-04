@@ -18,7 +18,7 @@ The repository also contains material with different publication roles. Numbered
 - The `_internal` Map tier is deliberately tracked and publishes with the repository as inspectable maintainer guidance, while remaining outside the public documentation site and product contract. The `_private` tier is removed from the public history and restored locally from its separate access-controlled repository. The complete `art/` tree remains tracked: terminal art is product source and browser art is a loopback-only development gallery.
 - `project/TODO.md` remains a public, evidence-backed account of outstanding work, including marketing and positioning work. Its entries are not a promised roadmap; personal heading taxonomy and stale completed work do not belong there, while private research stays in the `_private` overlay.
 - Repository visibility does not activate contributor intake. Issues, the code of conduct, and security reporting are available at launch, while pull requests, hosted individual agreements, and private corporate-agreement intake remain inactive. A post-launch procedure activates those paths together before any external Contribution is accepted.
-- The owner-operated history rewrite removes only lines beginning exactly `Claude-Session:` from commit messages, preserves the total `Co-Authored-By:` population, and performs the already-decided discern-bot identity normalization. No repository Git hook enforces this policy.
+- The owner-operated history rewrite removes only lines beginning exactly `Claude-Session:` from commit messages, preserves the total `Co-Authored-By:` population, and performs the already-decided machine-identity normalization. No repository Git hook enforces this policy.
 
 ## Consequences
 

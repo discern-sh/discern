@@ -20,7 +20,7 @@ The policy boundary distinguishes refusal from observation:
 - `refuse` protects authority and effect-replay evidence. A reader that finds version N newer than its registered version stops the consuming or replacing operation, retains the bytes, and tells the operator to update discern.
 - `observe` protects advisory caches and histories. The caller may continue without the record's contents, but the inspecting surface names the skew and no writer, expiry pass, pruning pass, or cleanup replaces the bytes.
 
-Absence is not version 1. A record must carry its registered in-band version before its remaining schema is trusted. Compatibility for an older version exists only where a reader explicitly declares it. The Gate Proof has no reader for text without a version: a fresh strict Gate replaces that cache, while a newer JSON marker remains untouched.
+Absence is not version 1. A record must carry its registered in-band version before its remaining schema is trusted. Compatibility for an older version exists only where a reader explicitly declares it. The Gate Proof has no reader for text without a version: a fresh strict gate replaces that cache, while a newer JSON marker remains untouched.
 
 [`GIT_ADMIN_STATE`](../../../src/shared/git_admin_state.ts) remains the authority for path, sharing scope, kind, lifetime, bounds, and validation writes. The format registry covers every coordinate that contains a document. `UNVERSIONED_GIT_ADMIN_STATE` explains the remaining operating-system locks, secret capability key, live-process leases, generated command directory, and presence-only setup sentinel. Adding a coordinate without choosing one side fails [`on_disk_formats_test.ts`](../../../tests/on_disk_formats_test.ts).
 

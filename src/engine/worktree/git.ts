@@ -143,7 +143,7 @@ export async function writeWorktreeEnvVar(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new WorktreeGitError(
-      `Discern couldn't update the configured worktree env file: ${reason}`,
+      `discern couldn't update the configured worktree env file: ${reason}`,
       { cause: error },
     );
   }
@@ -512,7 +512,7 @@ export type CheckedOutFastForwardRecovery =
   | { readonly kind: "preserved"; readonly detail: string };
 
 export interface CheckedOutFastForwardOptions {
-  /** Tags the CAS and any Discern rollback in the branch reflog for recovery. */
+  /** Tags the CAS and any discern rollback in the branch reflog for recovery. */
   readonly transactionId?: string;
   /** Worktree whose per-worktree marker ref joins the trunk ref transaction. */
   readonly transactionCwd?: string;
@@ -1744,7 +1744,7 @@ export async function ensureWorktreeBranch(
   const valid = await git(["check-ref-format", "--branch", candidate], cwd);
   if (!valid.success) {
     throw new WorktreeGitError(
-      `Discern generated the invalid branch name '${candidate}'. Set ` +
+      `discern generated the invalid branch name '${candidate}'. Set ` +
         `[repository].branch_prefix to a Git-safe prefix, then re-run.`,
     );
   }
@@ -2495,7 +2495,7 @@ export async function removeWorktreeSafely(
   const requestedObservation = await observePath(requested);
   if (requestedObservation.kind === "unavailable") {
     throw new WorktreeGitError(
-      `Discern could not inspect the worktree target '${requested}': ` +
+      `discern could not inspect the worktree target '${requested}': ` +
         `${requestedObservation.reason}. Fix its permissions, then re-run.`,
     );
   }
@@ -2522,7 +2522,7 @@ export async function removeWorktreeSafely(
   const registration = await observeWorktreeRegistration(canonical, cwd);
   if (registration.kind === "unavailable") {
     throw new WorktreeGitError(
-      `Discern could not verify Git's worktree registration for '${canonical}': ` +
+      `discern could not verify Git's worktree registration for '${canonical}': ` +
         `${registration.reason}. Nothing was removed; fix Git, then re-run.`,
     );
   }
@@ -2543,7 +2543,7 @@ export async function removeWorktreeSafely(
   const initialPath = await observePath(canonical);
   if (initialPath.kind === "unavailable") {
     throw new WorktreeGitError(
-      `Discern could not inspect '${canonical}': ${initialPath.reason}. Nothing ` +
+      `discern could not inspect '${canonical}': ${initialPath.reason}. Nothing ` +
         "was removed; fix its permissions, then re-run.",
     );
   }
@@ -2665,7 +2665,7 @@ export async function removeWorktreeSafely(
   if (afterPath.kind === "present") {
     throw new WorktreeGitError(
       `Git no longer registers '${canonical}', but the retired path exists again. ` +
-        "Discern left the replacement untouched and retained the branch. Stop the " +
+        "discern left the replacement untouched and retained the branch. Stop the " +
         "program writing there, inspect the path, then re-run `discern worktree prune --dry-run`.",
     );
   }
@@ -4046,7 +4046,7 @@ export async function inheritMainEnvVars(
   const mainRepo = await mainRepoPath();
   if (mainRepo === undefined) {
     throw new WorktreeGitError(
-      "Discern could not find the main checkout while copying environment values. " +
+      "discern could not find the main checkout while copying environment values. " +
         "Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }

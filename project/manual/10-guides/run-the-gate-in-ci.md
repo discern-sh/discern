@@ -1,13 +1,13 @@
 ---
 id: guide-run-the-gate-in-ci
-title: "Run the Gate in CI"
-description: "Run report-only Gate evidence in CI and require the result without implying landing authority."
+title: "Run the gate in CI"
+description: "Run report-only gate evidence in CI and require the result without implying landing authority."
 order: 130
 publish: true
 kind: guide
 aliases:
   - "guide-run-the-gate-in-ci"
-  - "Run the Gate in GitHub Actions"
+  - "Run the gate in GitHub Actions"
   - "ci"
   - "GitHub Actions"
   - "branch protection"
@@ -16,22 +16,22 @@ aliases:
 
 # Run the Gate in CI
 
-Use this guide to make the project's declared Gate a required continuous-integration check. CI should evaluate the checked-out commit, retain useful failure output, and report checkpoint review needs without claiming that the commit is ready to land.
+Use this guide to make the project's declared gate a required continuous-integration check. CI should evaluate the checked-out commit, retain useful failure output, and report checkpoint review needs without claiming that the commit is ready to land.
 
 `discern done --ci` produces report-only evidence. It does not record checkpoint declarations, grant authority, or create Proof that `discern accept` can use.
 
 ## Starting state
 
-- `discern.toml` already declares the project's Gate jobs and Standards.
+- `discern.toml` already declares the project's gate jobs and standards.
 - The CI runner checks out the candidate commit with enough Git history and a local branch at the configured trunk name. A remote-tracking ref alone is not enough.
 - The workflow installs a pinned discern binary and every runtime named by `[jobs]`.
 - Branch protection can require the workflow's result before merging.
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI Gate runs fail closed if that local trunk or its Standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the Gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the Gate may start several jobs in parallel, so dependency downloads that race inside the first Gate run belong in a serial step ahead of it.
+**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI Gate runs fail closed if that local trunk or its standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the gate may start several jobs in parallel, so dependency downloads that race inside the first gate run belong in a serial step ahead of it.
 
-Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and Standards remain the authority, so local agents and CI run the same declaration.
+Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and standards remain the authority, so local agents and CI run the same declaration.
 
 ## 2. Run the report-only Gate
 
@@ -43,11 +43,11 @@ discern done --ci --markdown
 
 Keep the Markdown result in the job log or summary. Use `--json` when another step consumes exact fields.
 
-The result must show every scheduled job, measured Gate Standard, failed or skipped work, and any checkpoint questions the change would require in a strict local run. CI reports those checkpoint obligations; it cannot make the agent's declaration on behalf of the task.
+The result must show every scheduled job, measured gate standard, failed or skipped work, and any checkpoint questions the change would require in a strict local run. CI reports those checkpoint obligations; it cannot make the agent's declaration on behalf of the task.
 
 ## 3. Reject uncommitted rewrites
 
-**CI runner:** After the Gate, verify that fixers, generators, and refresh actions left no uncommitted tracked change:
+**CI runner:** After the gate, verify that fixers, generators, and refresh actions left no uncommitted tracked change:
 
 ```sh
 git diff --exit-code
@@ -57,7 +57,7 @@ A diff means the candidate did not commit the tree its configured commands produ
 
 ## 4. Schedule deferred Standards
 
-`measure = "on-demand"` keeps a slow measurement out of every Gate run. If CI is the chosen schedule for that metric, add a separate named job:
+`measure = "on-demand"` keeps a slow measurement out of every gate run. If CI is the chosen schedule for that metric, add a separate named job:
 
 ```sh
 discern standards standard-name --markdown
@@ -83,4 +83,4 @@ Before discern acceptance, the task's coding agent must still run ordinary `disc
 
 The CI path is complete when a known failing candidate makes the required job red with a usable diagnostic, a clean passing candidate makes it green without a diff, and the result is labeled report-only. The next task-side destination is [Finish and land a change](finish-and-land-a-change.md).
 
-Use the [CLI reference](../30-reference/cli-reference.md) for flags and exit codes, [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) for report-only state, and [Fix a red Gate](fix-a-red-gate.md) for local recovery.
+Use the [CLI reference](../30-reference/cli-reference.md) for flags and exit codes, [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) for report-only state, and [Fix a red gate](fix-a-red-gate.md) for local recovery.

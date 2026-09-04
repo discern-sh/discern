@@ -250,7 +250,7 @@ function proofFromEntry(entry: StatusFleetEntry): GateProofCheckData {
   if (entry.clean === false) return { status: "dirty" };
   return {
     status: "unavailable",
-    reason: "proof state was not inspected",
+    reason: "Proof state was not inspected",
   };
 }
 
@@ -519,8 +519,8 @@ function attentionFor(
       return authority?.label === "granted"
         ? undefined
         : authority?.label === "scope-limited"
-        ? "The clean branch has a valid proof. Its recorded grant does not cover every changed path."
-        : "The clean branch has a valid proof and is ready for owner review; landing needs approval.";
+        ? "The clean branch has a valid Proof. Its recorded grant does not cover every changed path."
+        : "The clean branch has a valid Proof and is ready for owner review; landing needs approval.";
     case "running":
       return undefined;
     case "stale": {
@@ -532,17 +532,17 @@ function attentionFor(
     case "in-progress":
       return undefined;
     case "proof-unreadable":
-      return `The clean branch's proof is unreadable${
+      return `The clean branch's Proof is unreadable${
         proof.detail === undefined ? "" : `: ${proof.detail}`
-      }. Repair the proof state or run \`discern done\` again.`;
+      }. Repair the Proof state or run \`discern done\` again.`;
     case "proof-unavailable":
-      return `The clean branch's proof is unavailable${
+      return `The clean branch's Proof is unavailable${
         proof.detail === undefined ? "" : `: ${proof.detail}`
       }. Run \`discern done\` before review.`;
     case "proof-stale":
-      return "The recorded proof names another commit. Run `discern done` on the current clean HEAD before review.";
+      return "The recorded Proof names another commit. Run `discern done` on the current clean HEAD before review.";
     case "needs-gate":
-      return "This clean branch has committed work and no valid proof. Run `discern done` before review.";
+      return "This clean branch has committed work and no valid Proof. Run `discern done` before review.";
     case "idle":
       return undefined;
   }
@@ -1369,7 +1369,7 @@ function renderLastLanding(
     return [c.presenter.present(renderResultSummaryCli, {
       state: "blocked",
       fact: terminalLine(
-        `proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
+        `Proof unavailable in this discern version (${data.landed_proof_unsupported.format}). Commit: ${
           data.landed_proof_unsupported.commit.slice(0, 12)
         }.`,
       ),
@@ -1397,8 +1397,8 @@ function renderVerboseProofs(
       }),
     );
   };
-  add("Last landed proof", data.landed_proof?.proof.markdown);
-  add("Current worktree proof", data.gate_proof?.proof);
+  add("Last landed Proof", data.landed_proof?.proof.markdown);
+  add("Current worktree Proof", data.gate_proof?.proof);
   for (const row of rows) {
     add(`Proof · ${row.identity.primary}`, row.entry.proof);
   }

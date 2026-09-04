@@ -29,6 +29,7 @@ import {
 } from "./model.ts";
 import { BANNED_MOVES, BANNED_WORDS, VOICES } from "./voice.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "./mechanical_checks.ts";
+import { runningProseCaseRules } from "../glossary_registry.ts";
 
 /** Severity policy: `error` only for a rule with no legitimate exception;
  * `warning` and `suggestion` where judgment is real. */
@@ -329,11 +330,6 @@ export const VALE_STYLE_RULES = [
     level: "warning",
     sources: [
       {
-        kind: "proposed-check",
-        register: "product",
-        check: "canonical-glossary-terms",
-      },
-      {
         kind: "voice-rule",
         register: "agent",
         section: "language-rules",
@@ -347,6 +343,34 @@ export const VALE_STYLE_RULES = [
         "Coverage is product-name casing only; context-sensitive glossary term choice remains editorial.",
     },
     check: { extends: "existence", tokens: ["Discern"] },
+  },
+  {
+    id: "CanonicalTermCase",
+    register: "product",
+    comment:
+      "Running prose capitalizes Proof and its family only. Every glossary entry declares its case; headings, sentence starts, exact identifiers, and external proper names retain their own casing.",
+    message:
+      "Canonical product-term casing ('%s'): capitalize Proof and its family only; lowercase other glossary concepts in running prose.",
+    level: "warning",
+    sources: [
+      {
+        kind: "proposed-check",
+        register: "product",
+        check: "canonical-glossary-terms",
+      },
+    ],
+    contract: {
+      bad: "Run the Gate, then read the proof line.",
+      safe: "Run the gate, then read the Proof line.",
+      residual:
+        "Registry-derived running-prose positions are enforced; headings, sentence starts, exact identifiers, and external names remain editorial.",
+    },
+    check: {
+      extends: "existence",
+      tokens: runningProseCaseRules().map((rule) => rule.pattern),
+      nonword: true,
+      scope: "paragraph",
+    },
   },
   {
     id: "AgentBlame",

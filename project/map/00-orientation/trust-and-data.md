@@ -25,9 +25,9 @@ One thing is measured, and it stays on your machine. The Logbook records discern
 
 ## The logbook: local history, one switch
 
-With recording on and the project's `discern.toml` readable, discern records one line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. A call outside every discern project records nothing. Each line holds names and numbers: the verb, branch, outcome, duration, change size, and each Standard's measured value. Validation runs add opaque keyed digests and counts for the repository state and job setup they saw. The key stays under `.git`; lines contain no manifests, content, commands, config or environment values, or reusable plain hashes. Possible coding-agent identity signals may also appear, including environment marker names with their values removed and the MCP client's declared name, title, and version. Those clues do not establish which agent drove a run. No code, prompts, command output, or file contents enter the Logbook. Read active history with `discern patterns`; seal it for later reports with `discern patterns seal`; remove it with `discern patterns reset`; or turn recording off with `logbook = false` under `[project]`. Archive and reset apply only after a terminal operator reviews the scope and answers Yes. Turning recording off also disables the features listed under [what it powers](../70-reference/the-logbook.md#what-it-powers).
+With recording on and the project's `discern.toml` readable, discern records one line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. A call outside every discern project records nothing. Each line holds names and numbers: the verb, branch, outcome, duration, change size, and each standard's measured value. Validation runs add opaque keyed digests and counts for the repository state and job setup they saw. The key stays under `.git`; lines contain no manifests, content, commands, config or environment values, or reusable plain hashes. Possible coding-agent identity signals may also appear, including environment marker names with their values removed and the MCP client's declared name, title, and version. Those clues do not establish which agent drove a run. No code, prompts, command output, or file contents enter the logbook. Read active history with `discern patterns`; seal it for later reports with `discern patterns seal`; remove it with `discern patterns reset`; or turn recording off with `logbook = false` under `[project]`. Archive and reset apply only after a terminal operator reviews the scope and answers Yes. Turning recording off also disables the features listed under [what it powers](../70-reference/the-logbook.md#what-it-powers).
 
-The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own Gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
+The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
 ## Secure random values come from WebCrypto
 
@@ -45,17 +45,17 @@ There is no push mapping. Configuring one would change plain `git push`, so publ
 
 ## Gate verbs run your configured commands
 
-Like a `Makefile` or an npm `scripts` block, discern runs the commands you wrote in `discern.toml`. The Gate runs your `format`, `lint`, and `test` commands. A scope gate or Standard runs the command you supplied. discern adds no project command beyond its built-in Git and file operations.
+Like a `Makefile` or an npm `scripts` block, discern runs the commands you wrote in `discern.toml`. The Gate runs your `format`, `lint`, and `test` commands. A scope gate or standard runs the command you supplied. discern adds no project command beyond its built-in Git and file operations.
 
-The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, `discern checkpoints`, the docs browser, and CLI help) run none of your commands and change none of your files. A checkpoint's configured `when` command runs only at the Gate. Unless recording is off, each run appends a line to the local Logbook. Commands from your config run when you invoke a Gate verb: `discern done`, `prepare`, `test`, or `standards`. Reading project status executes none of those commands. `discern.toml` lists everything the Gate will run.
+The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, `discern checkpoints`, the docs browser, and CLI help) run none of your commands and change none of your files. A checkpoint's configured `when` command runs only at the gate. Unless recording is off, each run appends a line to the local logbook. Commands from your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. Reading project status executes none of those commands. `discern.toml` lists everything the gate will run.
 
 ## A small, checkable footprint
 
-An architectural test enforces the list of paths discern writes. [Files & ownership](../70-reference/artifact-ownership.md) is the complete inventory. In brief, the footprint includes a committed `discern.toml`, a visible `discern/` folder of project-owned content, marked blocks in agent config files and `.gitignore`, and generated files. Agent files are committed so every agent can read them; materialized Skills are ignored. Git administration state holds validation caches and the local records described earlier. `discern uninstall` removes the wiring and keeps project-owned content.
+An architectural test enforces the list of paths discern writes. [Files & ownership](../70-reference/artifact-ownership.md) is the complete inventory. In brief, the footprint includes a committed `discern.toml`, a visible `discern/` folder of project-owned content, marked blocks in agent config files and `.gitignore`, and generated files. Agent files are committed so every agent can read them; materialized skills are ignored. Git administration state holds validation caches and the local records described earlier. `discern uninstall` removes the wiring and keeps project-owned content.
 
 ## The binary is one self-contained file
 
-discern is a single file on your `PATH`. It is larger than 100 MB because it carries its own JavaScript runtime. An installed project therefore needs no Node or Deno to run the Gate. What lands in the project is configuration and text.
+discern is a single file on your `PATH`. It is larger than 100 MB because it carries its own JavaScript runtime. An installed project therefore needs no Node or Deno to run the gate. What lands in the project is configuration and text.
 
 ## Release downloads are verifiable
 
@@ -65,7 +65,7 @@ macOS binaries are signed with Developer ID and accepted by Apple's notary servi
 
 ## What discern does not do: restrict your agent
 
-discern does not limit what your coding agent can read, run, or change. The agent's permission system controls that boundary. Configure permissions there; discern supplies the Gate and its surrounding workflow.
+discern does not limit what your coding agent can read, run, or change. The agent's permission system controls that boundary. Configure permissions there; discern supplies the gate and its surrounding workflow.
 
 ## See also
 

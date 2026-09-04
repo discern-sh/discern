@@ -32,7 +32,7 @@ The agent attests that consent happened when it begins ([ADR 0086](../_adr/0086-
 
 `discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent records the project's real format, lint, build, typecheck, test, and smoke commands and any known lifecycle that does not apply in `discern.toml`. It then fills the project instructions and initial map pages while those checks are live, including the seeded record of the adoption decision.
 
-discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [Gate Proof](../20-quality-gate/the-proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
+discern commits its scaffolded wiring before the handoff. Final completion commits the marker before producing [gate Proof](../20-quality-gate/the-proof.md). Those commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. Agent-authored commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
 
@@ -44,7 +44,7 @@ After interruption, run `discern setup` or `discern status`; the recorded phase,
 
 ## Setup verifies the checkout can reproduce
 
-After the authored files are committed, `discern setup done` refreshes, commits `[meta].bootstrapped = true`, and diagnoses and probes that same commit in a temporary worktree. The main-checkout Gate runs last and records its canonical Proof ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
+After the authored files are committed, `discern setup done` refreshes, commits `[meta].bootstrapped = true`, and diagnoses and probes that same commit in a temporary worktree. The main-checkout gate runs last and records its canonical Proof ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
 Success records `setup_completion = "proven"`, returns structured Proof and its relay line, and replays unchanged state read-only. A failed leg removes only its still-owned marker tip, retaining changed state with recovery. `discern setup done --unproven` records the completion event as unproven, returns no Proof, cannot use setup acceptance, and can later converge through ordinary `discern setup done` ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
 
@@ -58,7 +58,7 @@ An unlanded result stops at the landing choice. After `discern setup accept`, st
 
 In the fresh session, ask for a small change. After `discern status`, the agent runs `discern start` from the main checkout and re-roots at its returned worktree path on an `agent/…` branch.
 
-The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. For the intended final commit, it runs `discern done`. The full Gate runs the repository's configured commands and any triggered scope gates or Standards.
+The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. For the intended final commit, it runs `discern done`. The full gate runs the repository's configured commands and any triggered scope gates or standards.
 
 On green, discern records a Proof for the clean commit. The agent reports the change in its own words, ends with the one-line Proof, and waits. Read the full Proof with `discern status --verbose`, then review the branch. If you request another commit, the Proof becomes stale and the agent must run `discern done` again.
 

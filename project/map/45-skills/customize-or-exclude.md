@@ -10,7 +10,7 @@ aliases:
 
 # Customize or exclude a Skill
 
-_Copy a built-in Skill into project ownership when its procedure needs editing, or exclude a Skill the project does not use._
+_Copy a built-in skill into project ownership when its procedure needs editing, or exclude a skill the project does not use._
 
 ## Eject a bundled Skill
 
@@ -24,7 +24,7 @@ discern skills list
 
 `--dry-run` lists the authored tree, optional config edit, and each configured agent's target. It validates the bundled template and writes nothing.
 
-The listing now reports `discern-write-adr` as `yours (overrides built-in)`. Skill resolution uses the directory name as its key, so the authored directory becomes effective. Edit that source as you would any [project Skill](author-a-skill.md).
+The listing now reports `discern-write-adr` as `yours (overrides built-in)`. Skill resolution uses the directory name as its key, so the authored directory becomes effective. Edit that source as you would any [project skill](author-a-skill.md).
 
 Eject does not overwrite an authored directory. If the destination already exists, the command refuses and names the path. It also refuses a name that is absent from the bundled set and lists the available names.
 
@@ -46,7 +46,7 @@ discern refresh
 discern skills list
 ```
 
-Resolution first chooses an authored override when one exists, then applies the exclusion list. The named Skill disappears from every discern-managed agent directory. The listing keeps the row and marks it excluded, so you can distinguish a configured exclusion from a missing source.
+Resolution first chooses an authored override when one exists, then applies the exclusion list. The named skill disappears from every discern-managed agent directory. The listing keeps the row and marks it excluded, so you can distinguish a configured exclusion from a missing source.
 
 An unknown exclusion warns during materialization and excludes nothing. The warning does not fail `refresh`; use the listing to check the spelling.
 

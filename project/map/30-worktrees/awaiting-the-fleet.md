@@ -29,9 +29,9 @@ Verdicts come from the state named in the table. The Logbook wakes the wait but 
 
 Select a live sibling by its exact worktree id, path, local branch, or full local ref. These forms resolve to the same registered line of work; an ambiguous token refuses and asks for an absolute path or full ref. Display titles are not identity. Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work when given the exact branch recorded in its trunk Proof note. Without one, it refuses ([ADR 0359](../_adr/0359-worktree-targets-share-one-resolution-contract.md)).
 
-Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as Gate evidence. If that branch commits and lands between evaluations, its durable Proof note identifies the validated work after cleanup.
+Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as gate evidence. If that branch commits and lands between evaluations, its durable Proof note identifies the validated work after cleanup.
 
-`--green` refuses when no checkout holds the branch at call start. Its per-worktree Gate Proof disappears with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
+`--green` refuses when no checkout holds the branch at call start. Its per-worktree gate Proof disappears with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
 
 ## Use the longest reliable call
 
@@ -83,7 +83,7 @@ discern await --green agent/upload-retry-a1b2c3
 
 Follow the returned met hint. A live green Proof uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews files changed by both branches.
 
-The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact worktree selection, an uninterrupted wait, and the composition step. A staged brief names the Skill instead of restating the contract.
+The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact worktree selection, an uninterrupted wait, and the composition step. A staged brief names the skill instead of restating the contract.
 
 ## Where it lives in code
 

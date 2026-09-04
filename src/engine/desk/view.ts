@@ -324,7 +324,7 @@ function renderActionPlan(
       recovery: terminalMultiline(
         offer.consequence.recoverable.join("; ") || "No automatic recovery.",
       ),
-      authority: terminalLine("Human confirmation in the Desk"),
+      authority: terminalLine("Human confirmation in the desk"),
       tone: offer.group === "danger" ? "danger" : "warning",
       maxWidth: width,
     });
@@ -796,7 +796,7 @@ export function deskRootSelectionGroups(
       description: "Committed branches available to resume in a new worktree.",
       items: unlandedBranches.map((branch) => ({
         name: branch,
-        description: "Resume, inspect, or return to the Desk.",
+        description: "Resume, inspect, or return to the desk.",
         value: deskUnlandedRoute(branch),
       })),
     });
@@ -914,7 +914,7 @@ export function renderDeskMainCheckoutDetail(
       title: terminalLine("Main Git state is unavailable"),
       impact: terminalMultiline(main.git_failure.reason),
       correction: terminalMultiline(
-        "Run the failed command at main, repair its Git state, then refresh the Desk.",
+        "Run the failed command at main, repair its Git state, then refresh the desk.",
       ),
       reproductionCommand: terminalLine(main.git_failure.command),
       workingDirectory: terminalLine(main.path),
@@ -946,7 +946,7 @@ export function renderDeskRecentCompleted(
         } found in local landing evidence.`
         : "No recent completed task evidence is available.",
     ),
-    nextAction: terminalLine("Return to the Desk"),
+    nextAction: terminalLine("Return to the desk"),
     maxWidth: width,
   });
   const table = recent.length === 0 ? [] : [presenter.present(renderTableCli, {
@@ -983,8 +983,8 @@ export function renderDeskRecentCompleted(
 /** Root prompt that names both kinds of selectable entry. */
 export function deskRootPrompt(taskTotal: number): string {
   return taskTotal === 0
-    ? "Choose a Desk command"
-    : "Choose a task or Desk command";
+    ? "Choose a desk command"
+    : "Choose a task or desk command";
 }
 
 /** Whether the root picker benefits from type-to-filter. */
@@ -1310,8 +1310,8 @@ export function renderDeskStartPreview(
     })),
     completion: terminalMultiline(
       launch === undefined
-        ? "The created task returns to its Desk detail."
-        : `${launch.label} exits back to the created task's Desk detail.`,
+        ? "The created task returns to its desk detail."
+        : `${launch.label} exits back to the created task's desk detail.`,
     ),
     completionLabel: terminalLine("Complete when"),
     register: "brand",
@@ -1382,7 +1382,7 @@ export function renderDeskCreatedTask(
     retrySafety: "check-first",
     expectedState: terminalMultiline(
       launch === undefined
-        ? "The task is ready in the Desk"
+        ? "The task is ready in the desk"
         : `${launch.label} opens in the task worktree`,
     ),
     maxWidth: width,

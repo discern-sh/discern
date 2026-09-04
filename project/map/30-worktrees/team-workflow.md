@@ -55,7 +55,7 @@ Each repository keeps its own config, worktree root, resource ledger, and trunk.
 
 A clone works without the discern binary. `discern.toml`, the `discern/` namespace, provider settings, and agent files travel in Git. The application still builds and tests through its ordinary commands, and coding agents read the committed instructions.
 
-Without the binary, the clone lacks materialized Skills and the `discern_*` MCP tools. To add them:
+Without the binary, the clone lacks materialized skills and the `discern_*` MCP tools. To add them:
 
 1. Install discern.
 2. Run `discern refresh` in the clone.

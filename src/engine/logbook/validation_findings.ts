@@ -629,7 +629,7 @@ export function validationContextLabel(
   const first = context.observations[0];
   if (first === undefined) return "recorded context";
   const mode = first.event.validation?.execution.mode === "full-gate"
-    ? "full Gate"
+    ? "full gate"
     : "standalone test";
   const concurrency = first.projection.readings.concurrency?.label;
   const siblings = first.projection.readings["sibling-context"]?.label;

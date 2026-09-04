@@ -27,7 +27,7 @@ aliases:
 
 You're installing discern, connecting a coding agent, or returning to a setup that stopped partway — and something won't begin, resume, or take effect. Setup is built for this moment: every effect is consent-gated, every phase is resumable, and an interrupted run picks up where it stopped rather than replaying writes. The recovery is almost never to start over, and never to delete what a previous attempt created.
 
-If setup completed long ago and the problem is a failing Gate or a worktree, this page isn't the match — start from the [troubleshooting index](README.md) instead.
+If setup completed long ago and the problem is a failing gate or a worktree, this page isn't the match — start from the [troubleshooting index](README.md) instead.
 
 ## `discern: command not found`
 
@@ -48,7 +48,7 @@ An interrupted `discern setup begin`, `done`, or `accept` leaves durable phase s
 
 A couple of interruption shapes deserve their own recognition:
 
-- **The result was cut off but the work finished.** If a `setup done` result was truncated — a dropped session, a closed terminal — repeat `discern setup done` on the unchanged commit. It returns the same Proof and completion facts, explicitly marked as replayed, without rerunning effects or the Gate. Never rerun an effectful command merely to re-read output you lost; the replay path exists so you don't have to.
+- **The result was cut off but the work finished.** If a `setup done` result was truncated — a dropped session, a closed terminal — repeat `discern setup done` on the unchanged commit. It returns the same Proof and completion facts, explicitly marked as replayed, without rerunning effects or the gate. Never rerun an effectful command merely to re-read output you lost; the replay path exists so you don't have to.
 - **A project-authored worktree setup step is stuck.** Projects can declare their own per-worktree setup commands, and each records `running` before it starts and `completed` after it succeeds. A step still marked `running` means the process stopped between the two — and discern refuses to guess whether the command's external effect happened. Observe that effect yourself (did the database appear? the seed load?), then record your observation:
 
   ```sh
@@ -65,7 +65,7 @@ A couple of interruption shapes deserve their own recognition:
 
 ## Setup can't prove or land
 
-`discern setup done` validates the committed setup and produces [Proof](../20-understand/proof.md) — so it inherits the Gate's own preconditions. A dirty tree, or a tree that moved mid-run, means committing the final state and rerunning; the [Gate and Proof page](gate-and-proof.md) covers those classes. Off the trunk, `setup done` stops at Proof: landing setup into the project is the owner's decision, as it is for any other change, and the result names the acceptance step that follows. `discern setup accept` is safe to repeat — where no landing applies (no Git repository, or already on the trunk), it reports a typed no-op rather than failing.
+`discern setup done` validates the committed setup and produces [Proof](../20-understand/proof.md) — so it inherits the gate's own preconditions. A dirty tree, or a tree that moved mid-run, means committing the final state and rerunning; the [gate and Proof page](gate-and-proof.md) covers those classes. Off the trunk, `setup done` stops at Proof: landing setup into the project is the owner's decision, as it is for any other change, and the result names the acceptance step that follows. `discern setup accept` is safe to repeat — where no landing applies (no Git repository, or already on the trunk), it reports a typed no-op rather than failing.
 
 ## `discern doctor` reports a failed check
 
@@ -78,13 +78,13 @@ Doctor distinguishes advice from failure. A warning (low reflog retention, say) 
 
 ## An agent's integration files are missing or stale
 
-Setup and upgrade generate each selected provider's integration (instruction files, MCP registration, settings entries), and `discern status` or the Gate reports when those artifacts drift from their sources. The recovery is one command:
+Setup and upgrade generate each selected provider's integration (instruction files, MCP registration, settings entries), and `discern status` or the gate reports when those artifacts drift from their sources. The recovery is one command:
 
 ```sh
 discern refresh
 ```
 
-Review and commit what it rewrites. The direction is the part that prevents repeats: to change instructions or Skills, edit the authored sources (`[instructions].sources`, `[skills].dir`). Refresh overwrites generated copies by design, so a hand-edit to a generated file is undone at the next refresh. Variants to recognize:
+Review and commit what it rewrites. The direction is the part that prevents repeats: to change instructions or skills, edit the authored sources (`[instructions].sources`, `[skills].dir`). Refresh overwrites generated copies by design, so a hand-edit to a generated file is undone at the next refresh. Variants to recognize:
 
 - **Refresh reports a malformed provider settings file.** Something else edited the file into a state discern won't rewrite blindly. Repair the named file, then run `discern refresh` again.
 - **A setup or upgrade finished with a partial instruction refresh.** The result says so explicitly, keeps every completed effect, and marks the retry safe. Run `discern refresh` and confirm the failures cleared. Don't infer completion from the absence of a warning; the result's own status is the fact.

@@ -10,7 +10,7 @@ aliases:
 
 # Quickstart: from install to a passing final check
 
-_Install the binary, let your agent set the project up, and take one change through the project's final quality check, called the Gate._
+_Install the binary, let your agent set the project up, and take one change through the project's final quality check, called the gate._
 
 You need a Git repository and a coding agent. discern supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot. An installed project does not need Deno or Node to run discern because the product is one self-contained binary. Once installed, discern makes zero network calls.
 
@@ -36,11 +36,9 @@ The agent runs `discern`, which starts a staged setup ([ADR 0075](../_adr/0075-s
 
 Setup stays on `discern-setup` until landing. After proving existing workflows together, the agent explains where later agents start, that area's responsibility, one important rule, and any other distinct area. Correct a substantive misunderstanding, or say “use your recommendation.”
 
-Keep routine green output concise; use SARIF and JUnit XML only when they preserve exit status and improve failures. File-only and inherently verbose formats stay off that path.
-
 ## 3. Verify setup in an isolated checkout
 
-`discern setup done` commits, diagnoses, and proves completion in a separate working copy. Repeating it unchanged returns the same [Proof](../20-quality-gate/the-proof.md) without another Gate. A failed transaction removes only its still-owned marker tip; otherwise the retained state names recovery ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
+`discern setup done` commits, diagnoses, and proves completion in a separate working copy. Repeating it unchanged returns the same [Proof](../20-quality-gate/the-proof.md) without another gate. A failed transaction removes only its still-owned marker tip; otherwise the retained state names recovery ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
 
 The result explains where later agents start, which other areas have distinct responsibilities, one important rule setup found, which checks now run, and what remains open. It also carries the precise branch, check, guide, and instruction inventories for technical review. Then it's your turn:
 
@@ -50,7 +48,7 @@ The result explains where later agents start, which other areas have distinct re
 
 <!-- discern-workflow:procedure -->
 
-## 4. Take a change through the Gate
+## 4. Take a change through the gate
 
 In the fresh session, ask for a small, real change. The agent takes it through the same isolated lifecycle every time.
 
@@ -63,7 +61,7 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 
 1. **Start the worktree.** The agent runs `discern start`, then re-roots at its returned isolated checkout path on an `agent/…` branch.
 2. **Make the change.** It edits and checks the requested work inside that worktree.
-3. **Run the full Gate.** It runs `discern done`. The Gate runs the format, build, lint, and test commands declared in `discern.toml`. A failure gives the agent the failing command and its output.
+3. **Run the full gate.** It runs `discern done`. Depending on the project, the gate runs the known jobs `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` when they are applicable and configured in `discern.toml`. A failure gives the agent the failing command and its output.
 4. **Report the result.** On green, the agent ends its report with the one-line Proof and waits. Read the full Proof with `discern status --verbose`.
 
 **You are done when:** The reviewed branch and its Proof have been authorized, and `discern accept` has fast-forwarded the trunk.
@@ -72,9 +70,9 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 
 Review the branch. When you authorize landing, the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance reuses the Proof while the branch remains unchanged. A later commit invalidates the Proof, so the agent must run `discern done` again.
 
-To drive the handoff yourself, run bare `discern` from the main checkout. The human view over work in progress ([the Desk](../30-worktrees/the-desk.md)) can start the task, open a configured coding-agent CLI found on `PATH` in its new worktree, and present the valid actions through review and landing.
+To drive the handoff yourself, run bare `discern` from the main checkout. The human view over work in progress ([the desk](../30-worktrees/the-desk.md)) can start the task, open a configured coding-agent CLI found on `PATH` in its new worktree, and present the valid actions through review and landing.
 
-The change stays in its worktree until the Gate passes and recorded authority permits landing.
+The change stays in its worktree until the gate passes and recorded authority permits landing.
 
 <!-- discern-workflow:branch-choice -->
 

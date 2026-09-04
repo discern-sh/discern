@@ -3,7 +3,7 @@
   "$id": "https://discern.sh/schema/v1/discern-proof-note.schema.json",
   "x-discern-compatibility-policy": "result-output",
   "title": "DiscernProofNoteEnvelope",
-  "description": "The discern proof envelope follows the Dead Simple Signing Envelope (DSSE) field and payload boundary. Discern attaches it to a landed commit as a Git note under refs/notes/discern. The note body is this object as one line of JSON plus a newline. Decode payload from Base64 and keep those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), payload bytes). No other envelope field enters that signature input. payloadType points to the payload definition in this schema. Standard signed DSSE envelopes carry at least one signature; discern's unsigned extension carries an empty signatures array. keyid is an unauthenticated lookup hint; a signing profile and trust policy decide the algorithm, verification key, and identity.",
+  "description": "The discern Proof envelope follows the Dead Simple Signing Envelope (DSSE) field and payload boundary. discern attaches it to a landed commit as a Git note under refs/notes/discern. The note body is this object as one line of JSON plus a newline. Decode payload from Base64 and keep those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), payload bytes). No other envelope field enters that signature input. payloadType points to the payload definition in this schema. Standard signed DSSE envelopes carry at least one signature; discern's unsigned extension carries an empty signatures array. keyid is an unauthenticated lookup hint; a signing profile and trust policy decide the algorithm, verification key, and identity.",
   "x-discern-payload-type": "https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernProofNotePayload",
   "x-discern-dsse-envelope": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md",
   "x-discern-dsse-protocol": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md",
@@ -12,7 +12,7 @@
     "payloadType": {
       "type": "string",
       "const": "https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernProofNotePayload",
-      "description": "The proof payload's published type. DSSE authenticates this value together with the decoded payload bytes."
+      "description": "The Proof payload's published type. DSSE authenticates this value together with the decoded payload bytes."
     },
     "payload": {
       "type": "string",
@@ -274,7 +274,7 @@
         "insertions",
         "deletions"
       ],
-      "description": "The durable structured gate claim: branch and trunk labels, the validated commit abbreviation, and whole-diff statistics. The payload's full commit subject remains the proof identity."
+      "description": "The durable structured gate claim: branch and trunk labels, the validated commit abbreviation, and whole-diff statistics. The payload's full commit subject remains the Proof identity."
     },
     "DiscernProofPresentation": {
       "title": "DiscernProofPresentation",
@@ -291,7 +291,7 @@
         "line",
         "markdown"
       ],
-      "description": "The proof line and Markdown page derived from the gate result for human inspection. Verification policy uses the structured claim, never these renderings."
+      "description": "The Proof line and Markdown page derived from the gate result for human inspection. Verification policy uses the structured claim, never these renderings."
     },
     "DiscernAcceptanceEvidence": {
       "title": "DiscernAcceptanceEvidence",
@@ -406,7 +406,7 @@
         "variances",
         "standard_proposals"
       ],
-      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved Standard limit. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
+      "description": "How one landing was authorized: the consent evidence, each owner-authorized variance for a declared-unmet checkpoint, and each exact owner-approved standard limit. A reader can therefore distinguish a conclusion awaiting a decision from one the owner authorized to land."
     },
     "DiscernAuthorizedVariance": {
       "title": "DiscernAuthorizedVariance",
@@ -474,7 +474,7 @@
               "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
             }
           },
-          "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
+          "description": "Identity details asserted by the Proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Current writers leave them absent."
         },
         "brief": {
           "type": "string",
@@ -486,7 +486,7 @@
         "proof",
         "presentation"
       ],
-      "description": "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, optional acceptance evidence (consent plus authorized variances), and optional issuer assertion and intent reference."
+      "description": "The Proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, optional acceptance evidence (consent plus authorized variances), and optional issuer assertion and intent reference."
     }
   }
 }

@@ -691,7 +691,7 @@ const doneThrash: Detector = {
   // keeps a brand-new branch's first stumbles out of the report.
   threshold: 4,
   next_step:
-    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` skill's diagnose procedure to prove its cause. Use `discern prepare` when the Gate identifies fix or regeneration work it can prevent.",
+    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` skill's diagnose procedure to prove its cause. Use `discern prepare` when the gate identifies fix or regeneration work it can prevent.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -706,7 +706,7 @@ const doneThrash: Detector = {
           };
           findings.push({
             subject: branch,
-            summary: "This branch had repeated red Gates in one conversation.",
+            summary: "This branch had repeated red gates in one conversation.",
             observed: `\`done\` failed ${
               formatHumanNumber(streak)
             } consecutive runs on \`${branch}\` (${
@@ -1481,7 +1481,7 @@ const skippedPrepare: Detector = {
   // runs on one HEAD as evidence of a project-wide workflow pattern.
   threshold: 2,
   next_step:
-    "Run `discern prepare` before the next commit when the same recorded fix or regeneration work keeps stopping the full Gate. Review and commit its changes, then run `discern done`; `done` remains a supported first command and dirty runs retain full feedback.",
+    "Run `discern prepare` before the next commit when the same recorded fix or regeneration work keeps stopping the full gate. Review and commit its changes, then run `discern done`; `done` remains a supported first command and dirty runs retain full feedback.",
   detect(facts): DetectorOutcome {
     const workflow = facts.agentish.filter((event) =>
       event.verb === "done" || event.verb === "prepare"
@@ -1531,7 +1531,7 @@ const skippedPrepare: Detector = {
         findings.push({
           subject: branch,
           summary:
-            "Repeated clean Gate runs stopped on work that `discern prepare` also performs.",
+            "Repeated clean gate runs stopped on work that `discern prepare` also performs.",
           observed: `\`${branch}\` had ${formatHumanNumber(byHead.size)} of ${
             formatHumanNumber(dones.length)
           } \`done\` runs stop on ${
@@ -1577,7 +1577,7 @@ const dirtyDoneChurn: Detector = {
   // for enough of them to call the pattern a habit rather than a moment.
   threshold: 5,
   next_step:
-    "Use `done` whenever full Gate feedback is needed. For a final Proof, commit the finished tree and run `done` on that clean HEAD; use `prepare` only for recorded fix or regeneration work and `test` for targeted iteration.",
+    "Use `done` whenever full gate feedback is needed. For a final Proof, commit the finished tree and run `done` on that clean HEAD; use `prepare` only for recorded fix or regeneration work and `test` for targeted iteration.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -1673,7 +1673,7 @@ const forceHabit: Detector = {
 
 const confirmedRerun: Detector = {
   id: "confirmed-rerun",
-  title: "Recurring explicit Gate reruns",
+  title: "Recurring explicit gate reruns",
   family: "behavior",
   scope: "project",
   tier: "batch",
@@ -1698,7 +1698,7 @@ const confirmedRerun: Detector = {
       ? [{
         summary: "The Gate was repeatedly rerun on already-judged trees.",
         observed:
-          `an explicit \`done\` rerun re-executed the Gate on an already-judged tree ${
+          `an explicit \`done\` rerun re-executed the gate on an already-judged tree ${
             formatHumanNumber(reruns.length)
           } times across ${
             formatHumanNumber(doneRuns)
@@ -1759,7 +1759,7 @@ export function dormantWatchedVerbs(): Set<string> {
  */
 const dormantVerbs: Detector = {
   id: "dormant-verbs",
-  title: "Operator verbs absent from the Logbook",
+  title: "Operator verbs absent from the logbook",
   family: "behavior",
   scope: "project",
   tier: "batch",
@@ -1781,7 +1781,7 @@ const dormantVerbs: Detector = {
     const findings: DetectorFinding[] = dormant.length > 0
       ? [{
         summary:
-          "Some operator commands have not appeared in this repository's Logbook.",
+          "Some operator commands have not appeared in this repository's logbook.",
         observed: `${formatHumanNumber(dormant.length)} of the ${
           formatHumanNumber(watched.length)
         } operator verbs ${
@@ -2108,7 +2108,7 @@ const docsGap: Detector = {
 
 const abandonedWorktrees: Detector = {
   id: "abandoned-worktrees",
-  title: "Inactive branches without a recorded green Gate",
+  title: "Inactive branches without a recorded green gate",
   family: "behavior",
   scope: "project",
   tier: "batch",
@@ -2141,7 +2141,7 @@ const abandonedWorktrees: Detector = {
     const named = abandoned.slice(0, 5);
     const findings: DetectorFinding[] = abandoned.length > 0
       ? [{
-        summary: "Some inactive branches have no recorded green Gate.",
+        summary: "Some inactive branches have no recorded green gate.",
         observed: `${formatHumanNumber(abandoned.length)} of ${
           formatHumanNumber(branches.size)
         } branches never went green and have been idle a week or more: ${
@@ -2171,7 +2171,7 @@ const sequenceAnomaly: Detector = {
   // 2 qualifying events before judging orderings at all.
   threshold: 2,
   next_step:
-    "A clean green `done` produces the Proof that `accept` verifies. Run `prepare` only when fix or regeneration work is relevant; acceptance cannot replace the Gate.",
+    "A clean green `done` produces the Proof that `accept` verifies. Run `prepare` only when fix or regeneration work is relevant; acceptance cannot replace the gate.",
   detect(facts): DetectorOutcome {
     const findings: DetectorFinding[] = [];
     const accepts = facts.agentish.filter((e) => e.verb === "accept");
@@ -2187,7 +2187,7 @@ const sequenceAnomaly: Detector = {
     if (premature.length >= 1) {
       findings.push({
         summary:
-          "`accept` was attempted on branches without a recorded green Gate.",
+          "`accept` was attempted on branches without a recorded green gate.",
         observed: `\`accept\` was attempted ${
           formatHumanNumber(premature.length)
         } time${premature.length === 1 ? "" : "s"} across ${
@@ -2230,11 +2230,11 @@ const sequenceAnomaly: Detector = {
           "The Gate was rerun on unchanged trees that already had a valid Proof.",
         observed: `${formatHumanNumber(redundant)} of ${
           formatHumanNumber(dones.length)
-        } recorded \`done\` runs repeated the full Gate on an identical tree that already had a valid Proof.`,
+        } recorded \`done\` runs repeated the full gate on an identical tree that already had a valid Proof.`,
         evidence: { redundant_reruns: redundant, done_runs: dones.length },
         strength: redundant,
         next_step:
-          "A green `done` on an unchanged tree is already honored — `discern status` shows the proof's standing without re-running anything.",
+          "A green `done` on an unchanged tree is already honored — `discern status` shows the Proof's standing without re-running anything.",
       });
     }
     return { considered: accepts.length + dones.length, findings };
@@ -2613,7 +2613,7 @@ function slotContentionEvidence(
 
 const dominantStage: Detector = {
   id: "dominant-stage",
-  title: "One job dominating Gate time",
+  title: "One job dominating gate time",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
@@ -2697,18 +2697,18 @@ const dominantStage: Detector = {
         const avoidableObservation = scopeMismatchRuns > 0
           ? `${formatHumanNumber(scopeMismatchRuns)} of ${
             formatHumanNumber(series.length)
-          } comparable Gates ran outside the job's named scope.`
+          } comparable gates ran outside the job's named scope.`
           : contention !== undefined
           ? `${formatHumanNumber(contention.runs)} recent capped runs had a ${
             formatHumanNumber(contention.medianWaitS)
           }s median queue wait.`
           : `${formatHumanNumber(unchangedReruns)} of ${
             formatHumanNumber(series.length)
-          } comparable Gates repeated one complete validation state.`;
+          } comparable gates repeated one complete validation state.`;
         const nextStep = scopeMismatchRuns > 0
           ? `\`${label}\` ran outside its named scope on ${
             formatHumanNumber(scopeMismatchRuns)
-          } recorded Gates. Correct the scope mapping so unrelated changes skip it; the percentage alone is not the reason.`
+          } recorded gates. Correct the scope mapping so unrelated changes skip it; the percentage alone is not the reason.`
           : contention !== undefined
           ? "Recorded queue contention is the avoidable delay. Review `[gate].concurrent_test_runs` against machine capacity before changing the job itself."
           : `\`${label}\` repeated on an unchanged recorded validation state ${
@@ -2716,12 +2716,12 @@ const dominantStage: Detector = {
           } times. Investigate a project-local cache or a narrower scope while preserving the job's coverage.`;
         findings.push({
           subject: label,
-          summary: "One job used most Gate time with avoidable-cost evidence.",
+          summary: "One job used most gate time with avoidable-cost evidence.",
           observed: `\`${label}\` averages ${
             formatHumanNumber(round1(meanS))
           }s per \`done\` — ${
             formatHumanNumber(Math.round(share * 100))
-          }% of all recorded Gate time across ${
+          }% of all recorded gate time across ${
             formatHumanNumber(series.length)
           } of ${
             formatHumanNumber(considered)
@@ -2760,7 +2760,7 @@ const dominantStage: Detector = {
  */
 const generatorGateShare: Detector = {
   id: "generator-gate-share",
-  title: "Generator share of Gate time",
+  title: "Generator share of gate time",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
@@ -2768,7 +2768,7 @@ const generatorGateShare: Detector = {
   windowed: true,
   threshold: GATE_DOMINANCE_MIN_RUNS,
   next_step:
-    "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full Gate.",
+    "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full gate.",
   detect(facts): DetectorOutcome {
     const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
@@ -2835,12 +2835,12 @@ const generatorGateShare: Detector = {
         return {
           subject: label,
           summary:
-            "Generated-artifact checks account for most Gate time and repeated on an unchanged validation state.",
+            "Generated-artifact checks account for most gate time and repeated on an unchanged validation state.",
           observed: `\`${label}\` averaged ${
             formatHumanNumber(round1(groupMeanS))
           }s per \`done\` and ${
             formatHumanNumber(groupSharePct)
-          }% of recorded Gate time across ${
+          }% of recorded gate time across ${
             formatHumanNumber(series.length)
           } runs, while all generated groups averaged ${
             formatHumanNumber(round1(generatedMeanS))
@@ -2848,7 +2848,7 @@ const generatorGateShare: Detector = {
             formatHumanNumber(unchangedReruns)
           } of ${
             formatHumanNumber(series.length)
-          } comparable Gates repeated one complete validation state.${
+          } comparable gates repeated one complete validation state.${
             excludedSetupSentence(excluded)
           }`,
           evidence,
@@ -3138,7 +3138,7 @@ const maskedFailures: Detector = {
       considered,
       findings: [{
         summary:
-          "Fail-fast avoided estimated tail time while later Gate rounds exposed other failures.",
+          "Fail-fast avoided estimated tail time while later gate rounds exposed other failures.",
         tone: recommendationSupported
           ? "attention"
           : savingsFavoured
@@ -3150,7 +3150,7 @@ const maskedFailures: Detector = {
           formatHumanNumber(comparablePairs)
         } comparable of ${
           formatHumanNumber(considered)
-        } adjacent red Gate pairs recorded ${
+        } adjacent red gate pairs recorded ${
           formatHumanNumber(cancelledJobs)
         } cancelled jobs, ${
           formatHumanNumber(neverStartedJobs)
@@ -3167,7 +3167,7 @@ const maskedFailures: Detector = {
         basis: decisionEvidenceBasis("fail-fast-ledger", evidence, {
           comparable: comparablePairs,
           denominator: considered,
-          unit: "adjacent red Gate pairs",
+          unit: "adjacent red gate pairs",
           events: relationshipEvents,
           facts,
           estimated: new Set([
@@ -3274,7 +3274,7 @@ const fixStageIdle: Detector = {
   // idle is the highest in the registry.
   threshold: 10,
   next_step:
-    "Verify whether the configured fix stage still provides project-local benefit. If it does not, adjust where that job runs while preserving the full Gate's coverage.",
+    "Verify whether the configured fix stage still provides project-local benefit. If it does not, adjust where that job runs while preserving the full gate's coverage.",
   detect(facts): DetectorOutcome {
     const { series, excluded } = comparableFactsSeries(
       facts.verbs.filter((e) =>
@@ -3662,7 +3662,7 @@ const loopsToGreen: Detector = {
   // 2 branches that reached green — one branch has nothing to stand out from.
   threshold: 2,
   next_step:
-    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` diagnose procedure to test one cause at a time before another full Gate.",
+    "Start with the first repeated diagnostic and use the `discern-cure-a-bug` diagnose procedure to test one cause at a time before another full gate.",
   detect(facts): DetectorOutcome {
     const loop = facts.agentish.filter((e) =>
       e.verb === "done" || e.verb === "prepare" || e.verb === "test"
@@ -3690,7 +3690,7 @@ const loopsToGreen: Detector = {
           subject: branch,
           summary: `This branch had ${
             formatHumanNumber(reds)
-          } red runs before its first green Gate.`,
+          } red runs before its first green gate.`,
           observed: `\`${branch}\` took ${
             formatHumanNumber(reds)
           } red runs to reach its first green \`done\`, on a ${
@@ -3866,7 +3866,7 @@ const giantCommitLanding: Detector = {
       if (change.commits === 1 && lines >= 400) {
         findings.push({
           subject: e.branch,
-          summary: "This branch reached a green Gate with one large commit.",
+          summary: "This branch reached a green gate with one large commit.",
           observed:
             `\`${e.branch}\` reached green as a single commit carrying ${
               formatHumanNumber(lines)
@@ -4043,7 +4043,7 @@ const standardTrajectory: Detector = {
   // 5 readings of one standard before drawing its line.
   threshold: 5,
   next_step:
-    "Read each metric's line against its limit's own history. Mechanical pin eligibility comes from the Gate; Patterns recommends a pin only when current comparable evidence is persistent and stable.",
+    "Read each metric's line against its limit's own history. Mechanical pin eligibility comes from the gate; patterns recommends a pin only when current comparable evidence is persistent and stable.",
   detect(facts): DetectorOutcome {
     interface Reading {
       event: VerbEvent;
@@ -4246,7 +4246,7 @@ const standardTrajectory: Detector = {
           : {}),
       };
       const nextStep = retired
-        ? `\`${name}\` is absent from the newest recorded Standard inventory. Keep this trajectory as historical evidence; there is no live limit to pin.`
+        ? `\`${name}\` is absent from the newest recorded standard inventory. Keep this trajectory as historical evidence; there is no live limit to pin.`
         : latestCurrent?.measurement === "deferred"
         ? `\`${name}\` is on-demand and its latest Gate entry deferred measurement. Run \`discern standards\` for current evidence before considering a pin.`
         : currentMeasurement === 0
@@ -4286,10 +4286,10 @@ const standardTrajectory: Detector = {
           facts,
           excludedEvents: readings.length - comparableReadings.length,
           limitations: [
-            "Mechanical eligibility is recorded from the Gate's pin authority; recommendation additionally requires current comparable persistence, no recent reversals, and no recent failures.",
+            "Mechanical eligibility is recorded from the gate's pin authority; recommendation additionally requires current comparable persistence, no recent reversals, and no recent failures.",
             ...(retired
               ? [
-                "Retired status is inferred only when a newer recorded Standard inventory names other active Standards.",
+                "Retired status is inferred only when a newer recorded standard inventory names other active standards.",
               ]
               : []),
           ],

@@ -8,7 +8,10 @@ import {
 } from "@std/assert";
 import { copy } from "@std/fs";
 import { join } from "@std/path";
-import { stageBundledManual } from "../scripts/build.ts";
+import {
+  stageBundledManual,
+  stripManualSourceComments,
+} from "../scripts/build.ts";
 import {
   type DocsLanding,
   docsLlmsSection,
@@ -273,6 +276,20 @@ This published fixture must join every complete delivery projection while the au
     assert(stagedTree !== undefined);
     const stagedProjection = await buildManualProjection(stagedTree.entries);
     assert(stagedProjection.byId.has(fresh.id));
+    for (const page of stagedProjection.pages) {
+      const stagedText = await Deno.readTextFile(page.entry.absPath);
+      const sourceText = await Deno.readTextFile(
+        join(manualDir, page.entry.relToDocs),
+      );
+      assertEquals(stagedText, stripManualSourceComments(sourceText));
+      const comments = stagedText.match(/<!--[\s\S]*?-->/gu) ?? [];
+      assert(
+        comments.every((comment) =>
+          !/\b(?:generated|regenerate|deno task)\b/iu.test(comment)
+        ),
+        `${page.entry.relToDocs}: staged manual retains a source-generation comment`,
+      );
+    }
 
     // Terminal delivery: `docs --json` indexes the fresh page without any
     // registration. The CLI renders the same `docsResult`/`treeResult` core

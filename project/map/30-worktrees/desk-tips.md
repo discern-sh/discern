@@ -26,7 +26,7 @@ A tip whose predicate does not hold is not applicable, rotation included.
 
 ## Where the state and the record live
 
-Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the Logbook. Every linked worktree shares the rotation, nothing lands in a commit, and a missing or damaged file resets to fresh instead of blocking the session. Each shown tip's id is also recorded on the Desk session's Logbook event, so a later reader can measure whether the teaching was acted on.
+Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logbook. Every linked worktree shares the rotation, nothing lands in a commit, and a missing or damaged file resets to fresh instead of blocking the session. Each shown tip's id is also recorded on the desk session's logbook event, so a later reader can measure whether the teaching was acted on.
 
 ## What a tip may say
 

@@ -525,10 +525,10 @@ export const TOOLS: McpTool[] = orderTools([
         "Preview the gate plan and touch nothing (default false).",
       ),
       ci: z.boolean().optional().describe(
-        "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+        "Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
       ),
       rerun: z.boolean().optional().describe(
-        "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
+        "Run the full gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
       ),
       met: z.array(z.string()).optional().describe(
         "Checkpoint ids whose served question your change satisfies — your " +
@@ -586,8 +586,8 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: MUTATING,
     description:
       "discern_test runs the project's complete test stage on demand, " +
-      "outside the full Gate, and returns the result envelope. discern_done already " +
-      "includes the same test stage, so a final Gate run needs no standalone test " +
+      "outside the full gate, and returns the result envelope. discern_done already " +
+      "includes the same test stage, so a final gate run needs no standalone test " +
       "preflight. While iterating, use each diagnostic's reproduce_cmd or a targeted " +
       "project command. When no test command is configured, discern_test returns a " +
       "trivial pass with a hint that says so.",
@@ -619,7 +619,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
-        "Capture measured improvements, commit the limit change alone, and carry Gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
+        "Capture measured improvements, commit the limit change alone, and carry gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
       ),
       names: z.array(z.string()).optional().describe(
         "Measure only these standards. With pin, only these standards are pin candidates too (default: every standard).",
@@ -641,18 +641,18 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StandardsProposeOutputSchema,
     annotations: PROPOSAL,
     description:
-      "Finalize a proposed limit for a Standard breached by this change. Run " +
+      "Finalize a proposed limit for a standard breached by this change. Run " +
       "after the intended tree is committed and clean. The tool measures only " +
-      "the named Standard, then commits only the proposed limit and records its " +
+      "the named standard, then commits only the proposed limit and records its " +
       "value, delta, reason, definition, trunk baseline, and responsible input " +
       "paths. Repeating an unchanged proposal on an eligible descendant renews " +
       "its measured binding without another commit. A changed tuple or value " +
-      "refuses. The resulting Gate Proof cannot land until the owner approves " +
+      "refuses. The resulting gate Proof cannot land until the owner approves " +
       "the current proposal; generic landing authority never covers it.",
     inputSchema: {
-      name: z.string().min(1).describe("The exact configured Standard name."),
+      name: z.string().min(1).describe("The exact configured standard name."),
       reason: z.string().min(1).max(500).describe(
-        "The verbatim, one-paragraph, secret-free engineering reason for the Standard limit proposal.",
+        "The verbatim, one-paragraph, secret-free engineering reason for the standard limit proposal.",
       ),
       dry_run: z.boolean().optional().describe(
         "Return the pure proposal plan without committing or recording anything (default false).",
@@ -759,13 +759,13 @@ export const TOOLS: McpTool[] = orderTools([
       "Block until a fleet condition holds, then return the observed state and " +
       "the next step — one call instead of guessed polling while a sibling " +
       "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
-      "waits until that branch's worktree holds an honored gate proof — a " +
+      "waits until that branch's worktree holds an honored gate Proof — a " +
       "green `discern_done` on its current clean HEAD (the work landing on " +
       "the selected project's configured trunk also satisfies it, since only a validated tree " +
       "lands); `landed` (a branch name) waits until that branch's work — its " +
       "latest observed tip after it has work — is reachable from the selected " +
       "project's configured trunk; `trunk_moved` waits until that trunk moves. Conditions ground in git " +
-      "ancestry, gate proofs, and landed proof notes, never in recorded " +
+      "ancestry, gate Proofs, and landed Proof notes, never in recorded " +
       "activity. If the bound expires, the result stays ok with data.met false. " +
       "Pass data.resume by itself on the next call: it preserves the original " +
       "branch transition or trunk baseline, so a condition crossed between calls is " +
@@ -781,7 +781,7 @@ export const TOOLS: McpTool[] = orderTools([
     inputSchema: {
       green: z.string().optional().describe(
         "Sibling selected by worktree id, path, local branch, or full local " +
-          "ref. Its checkout must hold an honored gate proof; its landing also " +
+          "ref. Its checkout must hold an honored gate Proof; its landing also " +
           "satisfies the wait.",
       ),
       landed: z.string().optional().describe(
@@ -828,7 +828,7 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: PatternsOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Read the project's local, metadata-only Logbook and return advisory " +
+      "Read the project's local, metadata-only logbook and return advisory " +
       "workflow findings without changing files, configuration, authority, " +
       "or retry policy. Each data.findings member carries a plain summary, " +
       "concrete observed evidence with the relevant counts and denominator, " +
@@ -846,13 +846,13 @@ export const TOOLS: McpTool[] = orderTools([
       "runs sharing recorded setup conditions and name excluded runs in their " +
       "evidence. Active history is the default; logbook_file selects one " +
       "sealed archive basename from `discern patterns archives` without " +
-      "changing the active recorder. stats: true adds Practice Stats from the " +
-      "same local evidence. Findings never block the Gate. Retry only after " +
+      "changing the active recorder. stats: true adds practice Stats from the " +
+      "same local evidence. Findings never block the gate. Retry only after " +
       "the named evidence or precondition changes.",
     inputSchema: {
       stats: z.boolean().optional().describe(
         "Also compute data.stats — practice stats: changes accepted and " +
-          "their scale, green Gate streaks, start-to-accept cycle times, " +
+          "their scale, green gate streaks, start-to-accept cycle times, " +
           "standards trends, agent cohorts, and breadth, as plain counts. " +
           "For the owner's own use; nothing is compared to anyone else's " +
           "numbers.",
@@ -863,9 +863,9 @@ export const TOOLS: McpTool[] = orderTools([
           "default bound unless the elided findings are the question.",
       ),
       logbook_file: z.string().optional().describe(
-        "A sealed Logbook archive basename from `discern patterns archives`. " +
+        "A sealed logbook archive basename from `discern patterns archives`. " +
           "Paths, active month files, and nonarchive names are rejected. " +
-          "Omit to read the active Logbook.",
+          "Omit to read the active logbook.",
       ),
       ...PATH_PARAM,
     },
@@ -935,14 +935,14 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: MapOutputSchema,
     annotations: READ_ONLY,
     description:
-      "Read or search the configured project Map, the agent-maintained source for " +
+      "Read or search the configured project map, the agent-maintained source for " +
       "documented project behavior. With no input, return its full index and " +
       "top-level regions digest with file-linked freshness facts. Pass `target` to " +
       "read one page or list one region. Pass `search` to get the full match count " +
       "and up to five highest-ranked results with context and canonical targets; " +
       "combine it with `target` to scope the search. This local project surface is " +
       "distinct from discern_docs, which reads discern's product manual. `path` " +
-      "selects the project or worktree to inspect; it never selects a Map subtree.",
+      "selects the project or worktree to inspect; it never selects a map subtree.",
     inputSchema: {
       target: z.string().optional().describe(
         "An exact document or top-level region target. Without `search`, a document " +
@@ -980,7 +980,7 @@ export const TOOLS: McpTool[] = orderTools([
       "or list one region. Pass `search` to get the full match count and up to five " +
       "highest-ranked results with context and canonical targets; combine it with " +
       "`target` to scope the search. This manual is distinct from discern_map, which " +
-      "reads the current project's Map. Decision records and protected Map tiers " +
+      "reads the current project's map. Decision records and protected map tiers " +
       "are excluded.",
     inputSchema: {
       target: z.string().optional().describe(
@@ -1017,7 +1017,7 @@ export const TOOLS: McpTool[] = orderTools([
       "branch. Tracked instructions and provider integrations must already be committed; " +
       "after landing only checkout-local agent artifacts are materialized. Landing " +
       "authority comes from confirmed current consent or a machine-verified grant. " +
-      "Recorded grants never cover a checkpoint variance or Standard proposal. Without " +
+      "Recorded grants never cover a checkpoint variance or standard proposal. Without " +
       "authority the call is read-only and re-serves the review moment. Use discern_update " +
       "when the branch is behind. Set dry_run to preview without changing anything. " +
       "After success, report the result in your own words and end with data.proof_line " +
@@ -1039,9 +1039,9 @@ export const TOOLS: McpTool[] = orderTools([
           "rationale — and recorded grants never authorize a variance.",
       ),
       approve_standard: z.array(z.string()).optional().describe(
-        "The owner's exact approval tokens for the Standard limit proposals " +
+        "The owner's exact approval tokens for the standard limit proposals " +
           "carried by the current Proof (requires confirmed). Use the tokens " +
-          "served by the read-only refusal; they bind each Standard, value, and " +
+          "served by the read-only refusal; they bind each standard, value, and " +
           "reason. Generic or recorded landing grants never authorize them.",
       ),
       ...PATH_PARAM,
@@ -1134,7 +1134,7 @@ export const TOOLS: McpTool[] = orderTools([
           "this title also seeds the worktree id.",
       ),
       brief: z.string().optional().describe(
-        "Optional one-line task brief. The new worktree stores it for status, Desk " +
+        "Optional one-line task brief. The new worktree stores it for status, desk " +
           "detail, and visible agent handoff.",
       ),
       from: z.string().optional().describe(
@@ -2151,7 +2151,7 @@ function registerProjectResources(
   registerDocTree(
     server,
     "map",
-    "the configured project Map and its agent-maintained project knowledge",
+    "the configured project map and its agent-maintained project knowledge",
     async () => {
       const root = currentRoot();
       await assertResourceSetUp(root);

@@ -18,7 +18,7 @@ Acceptance moves the trunk ref and then converges its checkout. A process can en
 
 The common-repository lock and this checkout's lock cover applied acceptance from evidence validation through recovery, compare-and-swap, checkout convergence, cleanup, Proof-note handling, and reporting. discern acquires common before checkout. A concurrent common-repository mutation refuses immediately, states that the call made no change, and tells the caller to retry after the active operation finishes. It cannot read an active journal as abandoned state ([ADR 0331](../_adr/0331-common-repository-locks-precede-checkout-locks.md), [ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md)).
 
-Before authority or refs move, the complete v1 Git-admin journal records the transition. It includes the worktree branch, once-resolved trunk, expected and target commits, receiving checkout, effort-claim participation, verified consent, authorized variances, and approved Standard limit proposals. Current-conversation consent is represented only by its source; the command's one boolean attestation does not acquire an attester identity or free-form reason. Both decision arrays are present even when empty. The journal binds consent and proposal approval to this transition. The trunk update and a per-worktree marker ref then move in one Git transaction. Rollback restores the trunk and removes the marker together.
+Before authority or refs move, the complete v1 Git-admin journal records the transition. It includes the worktree branch, once-resolved trunk, expected and target commits, receiving checkout, effort-claim participation, verified consent, authorized variances, and approved standard limit proposals. Current-conversation consent is represented only by its source; the command's one boolean attestation does not acquire an attester identity or free-form reason. Both decision arrays are present even when empty. The journal binds consent and proposal approval to this transition. The trunk update and a per-worktree marker ref then move in one Git transaction. Rollback restores the trunk and removes the marker together.
 
 The marker is durable evidence that the transition happened. It keeps one-shot authority spent even if another actor later returns the trunk to its expected commit or its reflog expires. A missing marker shows that discern's transaction did not commit.
 
@@ -30,7 +30,7 @@ A retry inspects the journal and current authority without changing the journal,
 - a currently verified standing or effort grant;
 - `--confirmed` consent from the current conversation.
 
-A journal with Standard limit proposals always requires conversation consent bound to that transaction. A standing or effort grant cannot recover the narrower approval. Recovery validates the recorded proposal set before using it. Malformed, duplicate, or mismatched records leave the journal and refs unchanged.
+A journal with standard limit proposals always requires conversation consent bound to that transaction. A standing or effort grant cannot recover the narrower approval. Recovery validates the recorded proposal set before using it. Malformed, duplicate, or mismatched records leave the journal and refs unchanged.
 
 A malformed or non-canonical journal proves no authority and remains untouched for inspection. Recovery never fills missing consent or decision fields from another source.
 

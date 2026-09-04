@@ -16,7 +16,7 @@ Moving every artifact to the common directory would produce the tidiest-looking 
 
 - One `GIT_ADMIN_STATE` registry records each artifact's relative path, scope, kind, and whether slow validation writes it.
 - Shared state remains beneath the common Git directory: `discern/resources/` and `discern/logbook/`.
-- Worktree-local state resolves through `git rev-parse --git-path`: `discern/gate-receipt`, `discern/standard-measurements`, `discern/ignored-baseline`, and `discern/worktree-ready`. In the main checkout these appear under `.git/discern/`; in a linked worktree they appear under `.git/worktrees/<key>/discern/` and vanish when Git removes that worktree.
+- Worktree-local state resolves through `git rev-parse --git-path`: `discern/gate-proof`, `discern/standard-measurements`, `discern/ignored-baseline`, and `discern/worktree-ready`. In the main checkout these appear under `.git/discern/`; in a linked worktree they appear under `.git/worktrees/<key>/discern/` and vanish when Git removes that worktree.
 - Production code may resolve `--git-path` only through the registry helper. Validation preflight derives its members from the registry's validation flag, and `patterns reset` tests preserve every registered non-logbook artifact. A new entry therefore joins the containment, routing, and reset guards from the same source.
 - Writers create the nested namespace before use. Validation creates it during the early write-authority preflight, so the extra directory does not reintroduce a late failure after slow work.
 - There are no legacy reads, migrations, fallback paths, or cleanup effects. This is a prelaunch path correction across four local installations; their old artifacts are handled manually rather than becoming permanent compatibility code.

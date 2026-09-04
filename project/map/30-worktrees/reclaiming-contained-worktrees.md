@@ -17,11 +17,11 @@ Composition below the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)) leav
 
 ## The offer
 
-`discern worktree prune` reports contained worktrees as their own plan section, the `status` fleet survey marks the rows, and the Desk offers a reclaim action. Each report names the nearest containing branch with tip hashes and its lead. Idleness follows the Logbook's paired begin/finish events when the Logbook is on. An install with recording off falls back to a 1-hour inactivity period. The Logbook narrows the offer. Human confirmation decides whether reclaim runs.
+`discern worktree prune` reports contained worktrees as their own plan section, the `status` fleet survey marks the rows, and the desk offers a reclaim action. Each report names the nearest containing branch with tip hashes and its lead. Idleness follows the logbook's paired begin/finish events when the logbook is on. An install with recording off falls back to a 1-hour inactivity period. The Logbook narrows the offer. Human confirmation decides whether reclaim runs.
 
 ## The reclaim
 
-Reclaiming requires a fresh, explicit confirmation through `discern worktree prune --contained` and its terminal interaction, or through the Desk action. A reclaim destroys the checkout and its per-worktree state, including the Gate Proof, so `discern await --green <stage>` then refuses and points at the containing branch. The reclaim tears resources down through the same lifecycle path acceptance uses. The branch ref survives the reclaim as its recovery path (`discern start --from <branch>`). Ordinary prune removes that ref after the composed branch lands. Until then, `status` and the Desk list the kept ref beside its container; refs with no container warn as abandoned.
+Reclaiming requires a fresh, explicit confirmation through `discern worktree prune --contained` and its terminal interaction, or through the desk action. A reclaim destroys the checkout and its per-worktree state, including the gate Proof, so `discern await --green <stage>` then refuses and points at the containing branch. The reclaim tears resources down through the same lifecycle path acceptance uses. The branch ref survives the reclaim as its recovery path (`discern start --from <branch>`). Ordinary prune removes that ref after the composed branch lands. Until then, `status` and the desk list the kept ref beside its container; refs with no container warn as abandoned.
 
 ## Where it lives in code
 

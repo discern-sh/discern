@@ -376,7 +376,7 @@ function reportPreferenceWrite(
   if (result.status === "saved") return;
   out.warn(
     `Desk preferences were not saved: ${result.reason} ` +
-      "The current task is unchanged; the next Desk session may ask you to choose again.",
+      "The current task is unchanged; the next desk session may ask you to choose again.",
   );
 }
 
@@ -619,7 +619,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     if (command === undefined || command === "") {
       return {
         reason:
-          "No editor command is configured. Set $VISUAL or $EDITOR and refresh the Desk.",
+          "No editor command is configured. Set $VISUAL or $EDITOR and refresh the desk.",
       };
     }
     const argv = simpleCommandArgv(command);
@@ -682,7 +682,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
         directory: root,
         scripts: [],
         unavailableReason:
-          `Project Scripts could not be inspected (${detail}). Repair the configured scripts directory and refresh the Desk.`,
+          `Project Scripts could not be inspected (${detail}). Repair the configured scripts directory and refresh the desk.`,
       };
     }
   },
@@ -925,7 +925,7 @@ interface GatheredDeskCapabilities {
   readonly capabilityError?: string;
 }
 
-/** Normalize legacy scripted-runtime arrays into the complete discovery shape. */
+/** Normalize array-shaped script discovery into the complete discovery shape. */
 function scriptInventory(
   root: string,
   discovery: DeskScriptDiscovery,
@@ -956,7 +956,7 @@ async function loadWorktreeConfig(
     const detail = error instanceof Error ? error.message : String(error);
     return {
       error:
-        `Task configuration at ${path}/discern.toml could not be read (${detail}). Repair the file and refresh the Desk.`,
+        `Task configuration at ${path}/discern.toml could not be read (${detail}). Repair the file and refresh the desk.`,
     };
   }
 }
@@ -1367,7 +1367,7 @@ async function requestTaskTitle(
   return await requests.text({
     message: "Task title",
     placeholder: "Describe the change in one line",
-    hint: "Ctrl+U returns to the previous question. Esc returns to the Desk.",
+    hint: "Ctrl+U returns to the previous question. Esc returns to the desk.",
     required: "Enter a task title or return to choose a generated codename.",
     validate: (value) => taskTextValidationError(value, "title") ?? true,
     ...(typeof previous === "string" ? { default: previous } : {}),
@@ -1405,7 +1405,7 @@ async function pickCreationPath(
     default: previous === "compact" || previous === "expanded"
       ? previous
       : preferred,
-    hint: "Ctrl+U returns to the previous question. Esc returns to the Desk.",
+    hint: "Ctrl+U returns to the previous question. Esc returns to the desk.",
   });
   if (selected === BACK) throw new InteractionCancelled();
   return selected === "expanded" ? "expanded" : "compact";
@@ -1640,7 +1640,7 @@ async function startTask(
   try {
     answers = await runtime.sequence({
       message: "Create a task",
-      hint: "Ctrl+U returns to the previous question. Esc returns to the Desk.",
+      hint: "Ctrl+U returns to the previous question. Esc returns to the desk.",
       steps: [{
         id: "title_route",
         label: "Task title",
@@ -2145,7 +2145,7 @@ async function dispatchAction(
           action,
           `Reclaim ${target}? Branch ${row.entry.branch} is KEPT (its commits ` +
             `are contained in ${containedIn}); the checkout and its ` +
-            `per-worktree state — gate proof included — are destroyed.`,
+            `per-worktree state — gate Proof included — are destroyed.`,
           runtime,
         ))
       ) {

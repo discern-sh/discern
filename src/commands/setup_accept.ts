@@ -288,10 +288,10 @@ function emitProofRefusal(
     ? undefined
     : "the setup branch does not record [meta].bootstrapped = true";
   const proofReason = proof.status === "honored"
-    ? "the current Gate Proof does not contain its structured Proof and relay line"
+    ? "the current gate Proof does not contain its structured Proof and relay line"
     : proof.reason === undefined
-    ? `the current Gate Proof is ${proof.status}`
-    : `the current Gate Proof is ${proof.status}: ${proof.reason}`;
+    ? `the current gate Proof is ${proof.status}`
+    : `the current gate Proof is ${proof.status}: ${proof.reason}`;
   const reason = markerReason ?? proofReason;
   return emitAccept(opts, log, {
     ok: false,
@@ -627,7 +627,7 @@ export async function runSetupAccept(
         ok: false,
         error: "gate_failed",
         message:
-          `The merged setup commit did not pass the Gate. ${target} is unchanged. ${PROOF_RECOVERY}`,
+          `The merged setup commit did not pass the gate. ${target} is unchanged. ${PROOF_RECOVERY}`,
         data: setupAcceptData(branch, target, false, failedProof, {
           next_action: "discern setup done",
         }),
@@ -916,7 +916,7 @@ export async function runSetupAccept(
   }
   if (!proofNotesFetchSucceeded(proofFetch)) {
     log.warn(
-      `Proof-note fetch configuration did not converge: ${
+      `Proof note fetch configuration did not converge: ${
         proofFetch.errors.join("; ")
       }`,
     );
@@ -933,7 +933,7 @@ export async function runSetupAccept(
   }
   if (!proofCleared) {
     log.warn(
-      `The setup checkout's Gate Proof cache could not be cleared: ${
+      `The setup checkout's gate Proof cache could not be cleared: ${
         cleared.reason ?? cleared.status
       }`,
     );

@@ -40,7 +40,7 @@ A failed result carries a message, a next-step instruction, and diagnostics with
 | What you're seeing                                                  | Where to go                                                                 |
 | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Setup or an agent connection won't begin, resume, or take effect.   | [Setup and integrations](setup-and-integrations.md).                        |
-| A configured check failed: build, lint, tests, a scope's gate.      | [Fix a red Gate](../10-guides/fix-a-red-gate.md), the working procedure.    |
+| A configured check failed: build, lint, tests, a scope's gate.      | [Fix a red gate](../10-guides/fix-a-red-gate.md), the working procedure.    |
 | The Gate refused, rewrote files, or withheld Proof.                 | [Gate and Proof](gate-and-proof.md).                                        |
 | A Standard or checkpoint stopped the change.                        | [Gate and Proof](gate-and-proof.md).                                        |
 | A worktree command refused, or cleanup failed or left something.    | [Worktrees and resources](worktrees-and-resources.md).                      |
@@ -58,9 +58,9 @@ The symptom pages share a few rules. They're the difference between a bounded re
 - **Repeat the named command, don't improvise around it.** discern's effectful commands re-check their preconditions and converge from whatever state they observe. The safe retry is the _same_ command after its named blocker is fixed; a hand-rolled equivalent in raw Git skips those checks.
 - **Edit sources.** A generated file's owner rewrites it, so a hand-edit to the generated copy is overwritten by design. The result names the source, or the regeneration command, that owns the change.
 - **Let lifecycle commands own deletion.** Worktree paths, branches, and discern's runtime state under `.git` all have verified-ownership cleanup. A recursive delete or a hand-removed Git entry bypasses every check that made cleanup safe.
-- **Never clear a symptom by weakening protection.** Loosening a Standard, deleting a check, or forcing past a refusal makes the number green by removing what it measured. If a limit genuinely must move, that's an owner decision, made on the trunk.
+- **Never clear a symptom by weakening protection.** Loosening a standard, deleting a check, or forcing past a refusal makes the number green by removing what it measured. If a limit genuinely must move, that's an owner decision, made on the trunk.
 - **Don't poll.** A wait that runs out returns a continuation to resume. A queued test run starts when a slot frees. Loops with sleeps recreate machinery that already exists.
 
 ## When to stop
 
-Some next steps belong to a person, and no amount of retrying substitutes. Authorizing a landing or a checkpoint variance, approving a Standard limit move, confirming a reclaim or prune, and any consent a provider's own interface asks for are all decisions. A green Gate doesn't land work, and evidence doesn't grant authority; [Proof](../20-understand/proof.md) explains who decides what. And when a failure recurs identically after its named recovery, or arrives with no next step at all, stop routing around it. Capture the result and [report it](crashes-and-local-state.md#discern-crashed).
+Some next steps belong to a person, and no amount of retrying substitutes. Authorizing a landing or a checkpoint variance, approving a standard limit move, confirming a reclaim or prune, and any consent a provider's own interface asks for are all decisions. A green gate doesn't land work, and evidence doesn't grant authority; [Proof](../20-understand/proof.md) explains who decides what. And when a failure recurs identically after its named recovery, or arrives with no next step at all, stop routing around it. Capture the result and [report it](crashes-and-local-state.md#discern-crashed).

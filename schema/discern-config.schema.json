@@ -22,7 +22,7 @@
         },
         "gotchas_doc": {
           "default": "",
-          "description": "The doc the Gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
+          "description": "The doc the gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
           "type": "string"
         },
         "todo": {
@@ -60,7 +60,7 @@
       "properties": {
         "trunk": {
           "default": "main",
-          "description": "The shared branch the Gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.",
+          "description": "The shared branch the gate compares against and completed work lands on. Detected at setup; DISCERN_TRUNK overrides it per invocation.",
           "type": "string"
         },
         "branch_prefix": {
@@ -144,7 +144,7 @@
       "additionalProperties": false
     },
     "jobs": {
-      "description": "The commands the Gate runs, in one namespace.",
+      "description": "The commands the gate runs, in one namespace.",
       "default": {},
       "allOf": [
         {
@@ -503,7 +503,7 @@
           },
           "neutral": {
             "default": false,
-            "description": "true: changes here need no Gate, as for documentation and agent instructions.",
+            "description": "true: changes here need no gate, as for documentation and agent instructions.",
             "type": "boolean"
           },
           "preview": {
@@ -853,7 +853,7 @@
           },
           "measure": {
             "default": "gate",
-            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
+            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.",
             "type": "string",
             "enum": [
               "gate",
@@ -861,7 +861,7 @@
             ]
           },
           "inputs": {
-            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
+            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
             "type": "array",
             "items": {
               "type": "string"
@@ -1029,17 +1029,17 @@
       "properties": {
         "stream": {
           "default": false,
-          "description": "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the Gate frame's bounded tail; CI, pipes, and --plain are static.",
+          "description": "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.",
           "type": "boolean"
         },
         "fail_fast": {
           "default": true,
-          "description": "Cancel the in-flight sibling commands the moment one fails; an agent-driven Gate wants a fast abort. false runs every job and shows all failures in one pass.",
+          "description": "Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all failures in one pass.",
           "type": "boolean"
         },
         "timeout": {
           "default": 600,
-          "description": "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
+          "description": "Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
@@ -1082,7 +1082,7 @@
       "additionalProperties": false
     },
     "meta": {
-      "description": "Installer bookkeeping.",
+      "description": "installer bookkeeping.",
       "default": {},
       "type": "object",
       "properties": {
@@ -1100,7 +1100,7 @@
           "type": "boolean"
         },
         "setup_completion": {
-          "description": "Evidence recorded for the setup completion event: proven by the Gate, or explicitly completed unproven.",
+          "description": "Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven.",
           "readOnly": true,
           "type": "string",
           "enum": [

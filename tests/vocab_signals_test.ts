@@ -18,19 +18,27 @@ import {
 import { withTempDir } from "./helpers.ts";
 
 const FIXTURE: GlossaryEntry[] = [
-  { term: "Gate", definition: "The full check.", plain: { keep: "fixture" } },
+  {
+    term: "Gate",
+    runningCase: "lowercase",
+    definition: "The full check.",
+    plain: { keep: "fixture" },
+  },
   {
     term: "Trunk",
+    runningCase: "lowercase",
     definition: "The shared branch.",
     plain: { keep: "fixture" },
   },
   {
     term: "Gate job",
+    runningCase: "lowercase",
     definition: "One kind of gate work.",
     plain: { keep: "fixture" },
   },
   {
     term: "Widget",
+    runningCase: "lowercase",
     definition: "A term no page uses.",
     plain: { keep: "fixture" },
   },
@@ -107,12 +115,14 @@ Deno.test("vocab signals ignore hover matching controls", async () => {
   const glossary: GlossaryEntry[] = [
     {
       term: "Update",
+      runningCase: "lowercase",
       definition: "The update concept.",
       matches: [],
       plain: { keep: "fixture" },
     },
     {
       term: "Accept",
+      runningCase: "lowercase",
       definition: "The accept concept.",
       matches: [],
       plain: { keep: "fixture" },

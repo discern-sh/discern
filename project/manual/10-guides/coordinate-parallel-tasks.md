@@ -46,7 +46,7 @@ Parallelism is safe only when ownership is clear. Split work on real seams, name
 
 ## Start one worktree per task
 
-**Coding agent or person operating the Desk:** Call `discern_start` once for each approved task. Use a literal, predictable name and keep the returned branch and absolute path.
+**Coding agent or person operating the desk:** Call `discern_start` once for each approved task. Use a literal, predictable name and keep the returned branch and absolute path.
 
 ```sh
 discern start --name programme-1a
@@ -73,7 +73,7 @@ The [Config reference](../30-reference/config-reference.md) owns resource fields
 
 ## Inspect and open the fleet
 
-**Person:** From the main checkout, run bare `discern` to open the Desk, or use:
+**Person:** From the main checkout, run bare `discern` to open the desk, or use:
 
 ```sh
 discern status
@@ -92,7 +92,7 @@ In an interactive terminal, `discern enter` opens a child shell in the selected 
 concurrent_test_runs = 2
 ```
 
-Every `discern done`, `discern test`, and Standard measurement waits for a slot when needed. Agents should route direct test commands through:
+Every `discern done`, `discern test`, and standard measurement waits for a slot when needed. Agents should route direct test commands through:
 
 ```sh
 discern queue -- <test-command>
@@ -108,11 +108,11 @@ For streams that will land separately, **person:** choose the within-wave landin
 discern update
 ```
 
-The update result names incoming overlap. Re-read those files, resolve combined assumptions, then run the stream's Gate again. Each branch needs its own current Proof and landing authority.
+The update result names incoming overlap. Re-read those files, resolve combined assumptions, then run the stream's gate again. Each branch needs its own current Proof and landing authority.
 
 ## Respect the common repository boundary
 
-A non-dry-run acceptance holds one common-repository lock from its first Gate and authority reads through the trunk compare-and-swap, cleanup, and final result. While that transaction is active, another `accept`, `start`, `setup begin`, `setup accept`, `setup done`, `patterns seal`, `patterns reset`, `uninstall`, `worktree drop`, `worktree park`, or `worktree prune` in the same repository refuses immediately without running its body or changing state. Checkout-only work in another worktree and read-only inspection can continue.
+A non-dry-run acceptance holds one common-repository lock from its first gate and authority reads through the trunk compare-and-swap, cleanup, and final result. While that transaction is active, another `accept`, `start`, `setup begin`, `setup accept`, `setup done`, `patterns seal`, `patterns reset`, `uninstall`, `worktree drop`, `worktree park`, or `worktree prune` in the same repository refuses immediately without running its body or changing state. Checkout-only work in another worktree and read-only inspection can continue.
 
 Follow the refusal instead of polling: let the named operation finish, inspect its result or `discern status`, then retry the refused command. The common lock is an operating-system lease. A stopped process releases it.
 
@@ -121,16 +121,16 @@ Follow the refusal instead of polling: let the named operation finish, inspect i
 Use this path when a later stage should include an earlier stage before either reaches the trunk.
 
 1. **Earlier coding agent:** commit the complete stage, run `discern_done`, report its Proof, keep the branch, and do not accept it.
-2. **Later coding agent:** use the `discern-await-the-fleet` Skill to wait for the exact earlier branch to become green.
+2. **Later coding agent:** use the `discern-await-the-fleet` skill to wait for the exact earlier branch to become green.
 3. Follow the successful wait's hint. Start from or update from the immutable observed commit.
 4. Verify that the expected files or behavior are present, then build the next stage on that combined tree.
-5. Run the full Gate on the final composed branch. Only that final branch crosses the trunk and needs landing authority.
+5. Run the full gate on the final composed branch. Only that final branch crosses the trunk and needs landing authority.
 
-An earlier worktree whose committed tip is fully contained in a later live branch may be offered for reclaim. **Person:** review the bounded plan and confirm it through the Desk or `discern worktree prune --contained`. Reclaim removes the checkout and its Proof but keeps the branch ref as the recovery route.
+An earlier worktree whose committed tip is fully contained in a later live branch may be offered for reclaim. **Person:** review the bounded plan and confirm it through the desk or `discern worktree prune --contained`. Reclaim removes the checkout and its Proof but keeps the branch ref as the recovery route.
 
 ## Coordinate several repositories
 
-Treat each repository as a separate delivery boundary. Start and prove work in each repository's own fleet. A commit, package version, or declared dependency carries integration between them; there is no cross-repository worktree, Gate Proof, or landing grant.
+Treat each repository as a separate delivery boundary. Start and prove work in each repository's own fleet. A commit, package version, or declared dependency carries integration between them; there is no cross-repository worktree, gate Proof, or landing grant.
 
 When repository B depends on repository A, state the required A commit or release in B's task. Verify both repository results before the person makes their separate landing decisions.
 
@@ -158,4 +158,4 @@ Park requires a clean checkout on a named task branch and refuses otherwise, nam
 
 Parallel coordination is working when every live task has one returned branch and path, declared resources are distinct, fleet status shows the expected ownership, direct tests respect the configured cap, and each dependency is either independently landed or present in the composed branch's tree. The final next step for each landing branch is [Finish and land a change](finish-and-land-a-change.md).
 
-Read [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md) for the model, [Worktrees and status](../30-reference/worktrees-and-status.md) for fields and identity selectors, and [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) for refused cleanup or resource recovery.
+Read [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md) for the model, [worktrees and status](../30-reference/worktrees-and-status.md) for fields and identity selectors, and [worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) for refused cleanup or resource recovery.

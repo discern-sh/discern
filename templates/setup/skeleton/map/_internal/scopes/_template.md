@@ -37,13 +37,13 @@ paths exist before handing the manifest to an agent. -->
 ## Area owned
 
 <!-- The part of the codebase / config this subtree is authoritative for, so the
-agent documents only knobs and behaviour in its lane. -->
+agent documents only knobs and behavior in its lane. -->
 
 -
 
 ## Existing Map content to preserve
 
-<!-- Any current Map pages whose wording or structure must survive a refresh, or
+<!-- Any current map pages whose wording or structure must survive a refresh, or
 "None". Prevents a rewrite from discarding something the project values. -->
 
 None.

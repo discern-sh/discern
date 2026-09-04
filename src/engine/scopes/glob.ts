@@ -1,6 +1,6 @@
 /**
  * The scope-glob matcher: does a changed path match one `[scopes.<name>].paths`
- * entry? Four legacy pattern kinds are tested first, in a fixed branch order: a
+ * entry? Four compatibility pattern kinds are tested first, in a fixed branch order: a
  * segment pattern (`/ui/`) both starts and ends with a slash, so it must be
  * tested BEFORE the trailing-slash prefix kind (`src/`), which would otherwise
  * swallow it. Any other pattern carrying a glob metacharacter is a STANDARD

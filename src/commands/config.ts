@@ -101,7 +101,7 @@ async function applyEditPlan(
   const log = new Logger(opts);
   const root = opts.cwd ?? Deno.cwd();
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
-  // Report the install-relative config path (discern.toml, or a legacy location).
+  // Report the install-relative config path (discern.toml, or an earlier location).
   const fileRel = relative(root, path);
 
   let text: string;

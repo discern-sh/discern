@@ -244,7 +244,7 @@ export function compareValueToLimit(
           `Raise it within the scope of your task; never lower the floor. ` +
           `If the work itself shrank what this measures, commit the final clean ` +
           `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
-          `the proposal command measures this Standard. ` +
+          `the proposal command measures this standard. ` +
           `propping the number up with unrelated changes is worse than the breach.`,
       };
     }
@@ -269,7 +269,7 @@ export function compareValueToLimit(
         `Bring it down within the scope of your task; never raise the ceiling. ` +
         `If the work itself grew what this measures, commit the final clean ` +
         `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
-        `the proposal command measures this Standard. ` +
+        `the proposal command measures this standard. ` +
         `offsetting the number with unrelated changes is worse than the breach.${growHint}`,
     };
   }
@@ -653,7 +653,7 @@ export function buildStandardJobs(
           status: "failed",
           code: result.code === 0 ? 1 : result.code,
           failureMessage:
-            "one or more Standards failed against the shared measurement",
+            "one or more standards failed against the shared measurement",
         };
       } else {
         aggregate = { ...result, status: "ok", code: 0 };
@@ -1491,7 +1491,7 @@ async function pinStandardsResult(
           ? `would measure ${r.metric}, then tighten the ${
             r.direction === "up" ? "floor" : "ceiling"
           } past ${r.limit} by any slack beyond margin ${r.margin}`
-          : `would measure ${r.metric} to verify the complete Standard set before changing only the named limit`,
+          : `would measure ${r.metric} to verify the complete standard set before changing only the named limit`,
       }));
     return standardsBuild(
       previewResult("standards", {

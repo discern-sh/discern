@@ -109,11 +109,11 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 362     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 363     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
-| [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
+| [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 12      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored)     | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
@@ -138,10 +138,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
-| [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
+| [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 128     | —                | node `canonical-sets`       |
 
-128 sets · 181 guard tests · 70 committed artifacts.
+128 sets · 181 guard tests · 71 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -348,6 +348,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `.vale/DiscernBrand/StackedSlogans.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `.vale/DiscernBrand/TemplateOpener.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `.vale/DiscernProduct/AgentBlame.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
+| `.vale/DiscernProduct/CanonicalTermCase.yml`               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   | —                                             |
 | `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          | —                                             |
 | `project/manual/30-reference/cli-reference.md`             | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                | —                                             |
@@ -626,7 +627,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
 
 ## `mcp-core-lifecycle` — MCP core lifecycle
 
-The lifecycle sequence that leads schema-deferred clients through status, Worktree entry, iteration, the final Gate, synchronization, and authorized landing.
+The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.
 
 - Source: `src/engine/mcp/server.ts` — `MCP_CORE_LIFECYCLE`
 - Members: 7
@@ -799,7 +800,7 @@ Every root community contract and every GitHub configuration file, including rec
 
 ## `map-tier-publication-postures` — Map tier publication rules
 
-Every top-level Map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.
+Every top-level map tier declares whether it publishes to the site, only with the repository, or remains private through the owner transition.
 
 - Source: `src/lib/paths.ts` — `MAP_TIER_PUBLICATION_POSTURES`
 - Members: 4
@@ -923,7 +924,7 @@ The verbs with a `--confirmed` conversation-attestation boundary and the public 
 
 ## `landing-consent-sources` — Landing consent sources
 
-The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a Desk-recorded effort grant.
+The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.
 
 - Source: `src/shared/consent.ts` — `LANDING_CONSENT_SOURCES`
 - Members: 3
@@ -961,7 +962,7 @@ The durable authority/ref facts acceptance journals before a later process or ch
 
 ## `accept-landing-state-fields` — Acceptance landing-state fields
 
-The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and Logbook events.
+The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and logbook events.
 
 - Source: `src/shared/accept_landing_state.ts` — `ACCEPT_LANDING_STATE_FIELDS`
 - Members: 4
@@ -1097,7 +1098,7 @@ Every Git configuration key and ref namespace discern may create, including its 
   - `config:merge.discern-generated.driver`
   - `config:extensions.worktreeConfig`
   - `config:discern.proofNotesFetchRemote`
-  - `config:remote.<name>.fetch with one exact discern proof-note mapping`
+  - `config:remote.<name>.fetch with one exact discern Proof note mapping`
   - `ref:refs/heads/discern-setup`
   - `ref:refs/heads/<repository.branch_prefix><worktree-id>`
   - `ref:refs/notes/discern`
@@ -1110,7 +1111,7 @@ Every Git configuration key and ref namespace discern may create, including its 
 
 ## `jobs` — Gate jobs
 
-The known Gate jobs: the command table's fixed vocabulary.
+The known gate jobs: the command table's fixed vocabulary.
 
 - Source: `src/shared/capabilities.ts` — `KNOWN_JOBS`
 - Members: 6
@@ -1290,7 +1291,7 @@ The Skills the binary ships and materializes into a project.
 
 ## `operational-agent-surfaces` — Operational agent surfaces
 
-The effective Skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
+The effective skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
 - Members: 14
@@ -1576,7 +1577,7 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
 
 ## `brand-foundation-reading-steps` — Brand writing foundations
 
-The shared strategic-document sequence that the brand voice Skill and the homepage-or-campaign reading path both require before public copy is written.
+The shared strategic-document sequence that the brand voice skill and the homepage-or-campaign reading path both require before public copy is written.
 
 - Source: `scripts/brand/voice.ts` — `BRAND_FOUNDATION_READING_STEPS`
 - Members: 5
@@ -1808,7 +1809,7 @@ The machine-checkable predicates behind setup's observable progress. Each mirror
 
 ## `worktree-tokens` — Worktree adapter tokens
 
-The `@…@` runtime tokens substituted into a Worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, Worktree, and resource.
+The `@…@` runtime tokens substituted into a worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, worktree, and resource.
 
 - Source: `src/engine/worktree/tokens.ts` — `WORKTREE_TOKENS`
 - Members: 7
@@ -2027,7 +2028,7 @@ The advisory hint registry: every hint string enters results through it.
 
 ## `tips` — Tips
 
-The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.
+The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
 - Members: 44
@@ -2270,7 +2271,7 @@ How one verb invocation ended: cleanly, red after running, partial after an irre
 
 ## `logbook-events` — Logbook events
 
-The event kinds written to the local Logbook and interpreted by its advisory readers.
+The event kinds written to the local logbook and interpreted by its advisory readers.
 
 - Source: `src/engine/logbook/schema.ts` — `logbookEventSchema`
 - Members: 5
@@ -2304,7 +2305,7 @@ The advisory capabilities that switch off with `[project].logbook = false`. Ever
 
 ## `logbook-lifecycle-actions` — Logbook lifecycle actions
 
-Every CLI-only action allowed to detach or remove active Logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.
+Every CLI-only action allowed to detach or remove active logbook history. Dispatch, recording exclusion, terminal-confirmation policy, and safety tests derive from this set.
 
 - Source: `src/shared/logbook_lifecycle.ts` — `LOGBOOK_LIFECYCLE_ACTIONS`
 - Members: 2
@@ -2316,7 +2317,7 @@ Every CLI-only action allowed to detach or remove active Logbook history. Dispat
 
 ## `detector-families` — Patterns detector families
 
-The categories that group every Patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.
+The categories that group every patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.
 
 - Source: `src/shared/patterns_vocabulary.ts` — `DETECTOR_FAMILIES`
 - Members: 4
@@ -2330,7 +2331,7 @@ The categories that group every Patterns detector and finding. Schemas, registry
 
 ## `pattern-finding-tones` — Patterns finding tones
 
-The presentation-only vocabulary a Patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.
+The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.
 
 - Source: `src/shared/patterns_vocabulary.ts` — `PATTERN_FINDING_TONES`
 - Members: 3
@@ -2343,7 +2344,7 @@ The presentation-only vocabulary a Patterns finding uses to distinguish favorabl
 
 ## `patterns-detectors` — Patterns detectors
 
-Every detector the Patterns verb runs over the Logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.
+Every detector the patterns verb runs over the logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
 - Members: 38
@@ -3336,10 +3337,10 @@ The source Markdown markers the browser manual projects through the design syste
 
 ## `adrs` — Architecture Decision Records
 
-The numbered decision records in the Map, including records later superseded.
+The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 362
+- Members: 363
   - `0003`
   - `0005`
   - `0006`
@@ -3678,6 +3679,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0370`
   - `0371`
   - `0372`
+  - `0373`
   - `0001`
   - `0002`
   - `0004`
@@ -3779,7 +3781,7 @@ Retired commands, retired config keys, dead config positions, and synonym redire
 
 ## `voice-banned-moves` — Voice banned moves
 
-The voice registry's banned-word and banned-move canon behind the generated voice Skills. The Vale style must see every banned phrase the canon declares.
+The voice registry's banned-word and banned-move canon behind the generated voice skills. The Vale style must see every banned phrase the canon declares.
 
 - Source: `scripts/brand/voice.ts` — `BANNED_WORDS`
 - Members: 26
@@ -3815,10 +3817,10 @@ The voice registry's banned-word and banned-move canon behind the generated voic
 
 ## `brand-vale-styles` — Register Vale styles
 
-The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by Map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.
+The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.
 
 - Source: `scripts/brand/vale.ts` — `VALE_STYLE_RULES`
-- Members: 11
+- Members: 12
   - `brand/ProductName`
   - `brand/GenericVerbs`
   - `brand/GenericAdjectives`
@@ -3827,11 +3829,12 @@ The per-register Vale styles compiled from voice-registry rules. Each generated 
   - `brand/RepeatedContrast`
   - `brand/StackedSlogans`
   - `product/ProductName`
+  - `product/CanonicalTermCase`
   - `product/AgentBlame`
   - `agent/BestJudgment`
   - `agent/PositionalReference`
 - Guards: `tests/brand_vale_codegen_test.ts`
-- Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/ProductName.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
+- Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/ProductName.yml`, `.vale/DiscernProduct/CanonicalTermCase.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
 - Glossary: not enrolled — the internal voice canon owns this Vale-rule vocabulary
 - Feature canon: not enrolled — the internal voice canon owns this repository's editorial enforcement
 
@@ -3871,7 +3874,7 @@ Every proposed mechanical voice check has one generated Vale rule, Map projectio
 
 ## `seeded-gotchas-traps` — Seeded Gate traps
 
-The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.
+The stack-independent gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the engine's live failure evidence.
 
 - Source: `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored table)
 - Members: — (the authored source keeps member names outside codegen)
@@ -3922,7 +3925,7 @@ The generated third-party notice artifacts and their license cache.
 
 ## `spawn-surfaces` — Subprocess spawn boundaries
 
-Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt proof or exemption.
+Every direct production-and-tooling subprocess constructor, with its exact path, enclosing function, operation, reason, capability role, and binary class; engine homes separately declare an interrupt Proof or exemption.
 
 - Source: `tests/spawn_surfaces.ts` — `SUBPROCESS_SPAWN_BOUNDARIES`
 - Members: 31
@@ -4501,7 +4504,7 @@ Every supported lifetime for a temporary directory created by tests or executabl
 
 The named framing, member-wording authority, renderer, documentation exposure, and tests for every generated inventory.
 
-- Source: `src/shared/generated_inventory_policy.ts` — `GENERATED_INVENTORY_POLICIES`
+- Source: `scripts/generated_inventory_policy.ts` — `GENERATED_INVENTORY_POLICIES`
 - Members: 3
   - `hints`
   - `tips`

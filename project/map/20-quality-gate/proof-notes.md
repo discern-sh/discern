@@ -39,7 +39,7 @@ Readers accept additive fields inside the current split v1 envelope. Unknown pay
 
 ## Replay keeps the first presentation
 
-The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
+The write identity is the explicit subject commit plus the stable machine-readable Proof claim. Repeating a note write with changed Proof-line wording, Markdown, or runtime timing returns `already_present` and leaves the existing note bytes unchanged. A different stable claim for the same commit remains a conflict and returns `record_failed` ([ADR 0333](../_adr/0333-proof-note-replay-uses-stable-claim-identity.md)).
 
 ## Authorship and failure
 

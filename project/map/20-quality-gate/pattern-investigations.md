@@ -17,7 +17,7 @@ _An investigation connects already-visible findings that clear one registered ev
 
 `data.investigations` is always present beside `data.findings`. Each entry has a stable id, source finding ids, each source observation and denominator, shared setup and evidence limitations, one bounded interpretation, one preferred diagnostic action, and a falsifier. Numerical values retain their `observed` or `estimated` labels. An investigation has no strength, score, rank, or automatic setup change.
 
-The terminal report presents investigation paths before the unchanged raw finding blocks. JSON and Model Context Protocol (MCP) return the same structured entries. Active and sealed Logbook sources use the same arithmetic. Inline command surfaces continue to show their routed raw findings.
+The terminal report presents investigation paths before the unchanged raw finding blocks. JSON and Model Context Protocol (MCP) return the same structured entries. Active and sealed logbook sources use the same arithmetic. Inline command surfaces continue to show their routed raw findings.
 
 ## Registered relationships
 

@@ -15,7 +15,7 @@ aliases:
 
 # The discern manual
 
-discern installs an engineering practice into a Git repository: a final quality check the project defines (the Gate), an isolated workspace for each task, and shared instructions every coding agent inherits. The outcome is practical. You can hand more of the work to coding agents and still know what's ready, because each change returns with evidence for its exact commit and lands only with your authority.
+discern installs an engineering practice into a Git repository: a final quality check the project defines (the gate), an isolated workspace for each task, and shared instructions every coding agent inherits. The outcome is practical. You can hand more of the work to coding agents and still know what's ready, because each change returns with evidence for its exact commit and lands only with your authority.
 
 This manual serves two readers. If you're deciding whether discern belongs in your project, [Evaluate discern](00-start/evaluate-discern.md) answers that without installing anything. If discern is already running in your project, start from what you're trying to do:
 
@@ -49,4 +49,4 @@ These pages are one manual with several deliveries. The website at [discern.sh/d
 
 ## The manual and the Map
 
-This manual teaches the product. discern's own development also keeps a Map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that Map [at discern.sh/map](https://discern.sh/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does; product guidance stays here in the manual.
+This manual is where the product is taught. discern's own development also keeps a map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that map [at discern.sh/map](https://discern.sh/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does.

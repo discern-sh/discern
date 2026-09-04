@@ -27,6 +27,7 @@ import {
 } from "./repo_authored_paths.ts";
 import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { stringLiterals } from "./vocab_scan.ts";
 
 /** The retired Deno-task alias names that should no longer exist anywhere. */
 const RETIRED_TOKENS = ["selfsync", "selfcheck"];
@@ -68,7 +69,7 @@ Deno.test("the retired self-host aliases appear nowhere under src/", async () =>
   );
 });
 
-Deno.test("shipped templates/ never name engine-developer commands", async () => {
+Deno.test("shipped templates and manual never name engine-developer commands", async () => {
   const banned = ["deno task", ...RETIRED_TOKENS];
   const offenders: string[] = [];
   const files = await structuralGuardScope({
@@ -76,8 +77,9 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
     universe: "authored-text",
     narrow: {
       reason:
-        "This invariant protects the templates distribution surface that every installed project receives verbatim.",
-      include: (rel) => rel.startsWith("templates/"),
+        "This invariant protects the templates and bundled manual that every installed project can read.",
+      include: (rel) =>
+        rel.startsWith("templates/") || rel.startsWith("project/manual/"),
     },
   });
   for (const [rel, text] of await textFiles(files)) {
@@ -89,6 +91,219 @@ Deno.test("shipped templates/ never name engine-developer commands", async () =>
     offenders,
     [],
     `engine-developer vocabulary leaked into the shipped surface:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+interface ScopedLiteralException {
+  readonly path: string;
+  readonly token: string;
+  readonly count: number;
+  readonly reason: string;
+}
+
+/** Repository-only implementation strings that production source must retain. */
+const INTERNAL_LITERAL_EXCEPTIONS: readonly ScopedLiteralException[] = [
+  {
+    path: "src/shared/first_party_license_codegen.ts",
+    token: "deno task",
+    count: 1,
+    reason:
+      "This generator writes a repository-internal TypeScript bundle and its banner never enters product copy.",
+  },
+  {
+    path: "src/commands/doctor.ts",
+    token: "deno task",
+    count: 1,
+    reason:
+      "Doctor recognizes discern's own source-development wrapper so self-hosting does not report a false provider error.",
+  },
+  {
+    path: "src/commands/docs.ts",
+    token: `${REPO_AUTHORED_PATHS.mapRel}/`,
+    count: 1,
+    reason:
+      "The installed decision-record redirect links to discern's source repository when those records are not bundled.",
+  },
+];
+
+/** Count non-overlapping occurrences without relying on regex escaping. */
+function occurrenceCount(text: string, token: string): number {
+  return text.split(token).length - 1;
+}
+
+Deno.test("production string literals do not leak repository build metadata", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#source-build-metadata",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Only production source string literals can compile repository implementation vocabulary into the binary.",
+      include: (rel) => rel.startsWith("src/"),
+    },
+  });
+  const exceptionCounts = new Map<string, number>();
+  const offenders: string[] = [];
+  const banned = [
+    "deno task",
+    `${REPO_AUTHORED_PATHS.mapRel}/`,
+    `${REPO_AUTHORED_PATHS.scriptsRel}/`,
+  ];
+  for (const [rel, source] of await textFiles(files)) {
+    for (const literal of stringLiterals(source)) {
+      for (const token of banned) {
+        const count = occurrenceCount(literal.text, token);
+        if (count === 0) continue;
+        const exception = INTERNAL_LITERAL_EXCEPTIONS.find((candidate) =>
+          candidate.path === rel && candidate.token === token
+        );
+        if (exception === undefined) {
+          offenders.push(
+            `${rel}:${literal.line} contains ${JSON.stringify(token)}`,
+          );
+          continue;
+        }
+        const key = `${exception.path}\0${exception.token}`;
+        exceptionCounts.set(key, (exceptionCounts.get(key) ?? 0) + count);
+      }
+    }
+  }
+  for (const exception of INTERNAL_LITERAL_EXCEPTIONS) {
+    const key = `${exception.path}\0${exception.token}`;
+    const actual = exceptionCounts.get(key) ?? 0;
+    if (exception.reason.trim() === "" || actual !== exception.count) {
+      offenders.push(
+        `${exception.path}: exception for ${JSON.stringify(exception.token)} ` +
+          `expected ${exception.count}, found ${actual}; reason=${
+            JSON.stringify(exception.reason)
+          }`,
+      );
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `repository build metadata entered production copy:\n  ${
+      offenders.join("\n  ")
+    }`,
+  );
+});
+
+const PRIVATE_CONTEXT_ATTRIBUTION = /\([A-Z][a-z]+,\s+20\d{2}-\d{2}-\d{2}:/u;
+
+Deno.test("authored code and tests carry no private conversation attributions", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#private-context-attribution",
+    universe: "authored-ts",
+  });
+  const offenders: string[] = [];
+  for (const [rel, text] of await textFiles(files)) {
+    const hit = text.match(PRIVATE_CONTEXT_ATTRIBUTION);
+    if (hit !== null) {
+      offenders.push(`${rel} contains ${JSON.stringify(hit[0])}`);
+    }
+  }
+  assertEquals(offenders, []);
+});
+
+Deno.test("the private-context detector rejects a named dated aside", () => {
+  const fixture = "(Someone, " + "2026-09-04: decided this.)";
+  assertEquals(
+    PRIVATE_CONTEXT_ATTRIBUTION.test(fixture),
+    true,
+  );
+});
+
+const DEBT_REGISTRY_FILES = [
+  "scripts/module_coverage_exceptions.ts",
+  "scripts/complexity_hotspots.ts",
+  "scripts/complexity.ts",
+] as const;
+
+Deno.test("current debt registries describe present structure without legacy framing", async () => {
+  const offenders: string[] = [];
+  for (const [rel, text] of await textFiles(DEBT_REGISTRY_FILES)) {
+    if (/legacy/iu.test(text)) offenders.push(rel);
+  }
+  assertEquals(offenders, []);
+});
+
+/** Compatibility identifiers that retain the term as precise implementation data. */
+const LEGACY_IDENTIFIER_EXCEPTIONS: readonly ScopedLiteralException[] = [
+  {
+    path: "src/engine/gate/standard_limits.ts",
+    token: "legacy-table",
+    count: 2,
+    reason:
+      "The private normalization sentinel distinguishes an older unrecognized denominator table from current metric and extent shapes.",
+  },
+  {
+    path: "src/engine/gate/standard_limits.ts",
+    token: "legacyValue",
+    count: 1,
+    reason:
+      "The private comparison sentinel preserves an unrecognized older scalar shape without changing a public contract.",
+  },
+  {
+    path: "src/engine/gate/standard_limits.ts",
+    token: "legacyFields",
+    count: 3,
+    reason:
+      "The local variable names fields recovered from the same older denominator-table shape.",
+  },
+  {
+    path: "src/lib/config_reconcile.ts",
+    token: "LEGACY_CONFIG_PROVENANCE_MARKER",
+    count: 2,
+    reason:
+      "Upgrade must recognize the exact earlier provenance banner before replacing it with the current marker.",
+  },
+  {
+    path: "src/lib/agent_gitignore.ts",
+    token: "isLegacyBlockOwnedLine",
+    count: 2,
+    reason:
+      "Upgrade uses this private predicate only to bound cleanup of an earlier marked gitignore block.",
+  },
+];
+
+Deno.test("legacy vocabulary is confined to counted compatibility identifiers", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/dev_vocab_guard_test.ts#legacy-implementation-identifiers",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "The launch cleanup applies to production implementation vocabulary; tests and scripts may name the guard itself.",
+      include: (rel) => rel.startsWith("src/"),
+    },
+  });
+  const offenders: string[] = [];
+  for (const [rel, original] of await textFiles(files)) {
+    let remaining = original;
+    for (
+      const exception of LEGACY_IDENTIFIER_EXCEPTIONS.filter((candidate) =>
+        candidate.path === rel
+      )
+    ) {
+      const count = occurrenceCount(remaining, exception.token);
+      if (exception.reason.trim() === "" || count !== exception.count) {
+        offenders.push(
+          `${rel}: ${
+            JSON.stringify(exception.token)
+          } expected ${exception.count}, found ${count}`,
+        );
+      }
+      remaining = remaining.split(exception.token).join("");
+    }
+    if (/legacy/iu.test(remaining)) {
+      offenders.push(`${rel}: unregistered legacy term`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    `replace stale framing or register an exact compatibility identifier and reason:\n  ${
       offenders.join("\n  ")
     }`,
   );

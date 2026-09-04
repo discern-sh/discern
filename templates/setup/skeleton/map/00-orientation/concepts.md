@@ -4,7 +4,7 @@ A short narrative that connects the dots — the mental model of {{project_name}
 
 > This doc is a skeleton. The `discern setup` command fills it from the repo and a few questions it asks you. The headings below are a suggested shape — keep, drop, or reorder them to fit the system.
 
-> **Naming contract.** The canonical capitalised nouns defined in the [glossary](glossary.md) are used verbatim throughout this tree. Introduce them here, then use them — and only them — everywhere else. Do not invent synonyms.
+> **Naming contract.** The canonical terms defined in the [glossary](glossary.md) use their declared running-prose casing throughout this tree. Introduce them here, then use them — and only them — everywhere else. Do not invent synonyms.
 
 ---
 
@@ -28,7 +28,7 @@ _(Walk the main flow once, in order, in plain language. What comes in, what happ
 
 <!-- setup fills this -->
 
-_(A table mapping "I want to understand X" to the subsystem subtree that covers it — the same numbered subtrees listed on the Map front page. `discern setup` proposes those names; fill this in once they exist.)_
+_(A table mapping "I want to understand X" to the subsystem subtree that covers it — the same numbered subtrees listed on the map front page. `discern setup` proposes those names; fill this in once they exist.)_
 
 | Want to understand... | Go to              |
 | --------------------- | ------------------ |

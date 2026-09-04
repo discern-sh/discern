@@ -30,7 +30,7 @@ Refs with a `discern` name are reserved for machinery discern writes. `refs/note
 
 After the trunk fast-forward succeeds, acceptance writes the landed gate receipt to the landed commit under `refs/notes/discern`. The note body is the canonical JSON encoding of `data.receipt`, followed by one newline. It is not a Markdown-only rendering. A second landing adds another note without replacing earlier notes.
 
-The notes commit uses `discern-bot <bot@discern.sh>` as author and committer. `DISCERN_NO_ATTRIBUTION` keeps its existing process-wide meaning: when set to a non-empty value, acceptance still writes the receipt note, using Git's configured identity instead. Receipts are records, so suppressing bot attribution does not suppress the record. If Git has no usable identity in that mode, the note write reports the failure.
+The notes commit uses `discern <done@discern.sh>` as author and committer. `DISCERN_NO_ATTRIBUTION` keeps its existing process-wide meaning: when set to a non-empty value, acceptance still writes the Proof note, using Git's configured identity instead. Proof notes are records, so suppressing attribution does not suppress the record. If Git has no usable identity in that mode, the note write reports the failure.
 
 Receipt-note recording is default-on and has no network effect. It is inspectable with `git log --notes=discern`, removable by deleting the notes ref or individual notes, and never changes trunk history. The write is fail-open because the trunk has already moved. A failed merge or note write leaves acceptance successful and carries its cause in the acceptance result; it never rolls the trunk back.
 

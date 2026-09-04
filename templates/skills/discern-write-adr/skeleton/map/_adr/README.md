@@ -19,12 +19,12 @@ The list above maintains itself: `discern refresh` rewrites everything between t
 
 ## Location and naming
 
-- ADRs live in **`_adr/` under the configured Map** (this directory). That is the single, settled location within the Map.
+- ADRs live in **`_adr/` under the configured map** (this directory). That is the single, settled location within the map.
 - Files are named `NNNN-short-slug.md`: a four-digit, zero-padded number, then a dash, then a short kebab-case slug, e.g. `0007-event-sourced-write-model.md`.
 
 ## Numbering
 
-Scan this directory for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other Map pages and commit messages can cite.
+Scan this directory for the highest existing number and add one. Numbers are **continuous and never reused** — even a superseded ADR keeps its number and stays in the directory (it is marked superseded, not deleted). The number is a stable identifier other map pages and commit messages can cite.
 
 `0000-template.md` is the copy-paste template and is not itself a decision. discern seeds `0001` with the decision to adopt the practice, and the agent configuring the project completes its project-specific sections.
 
@@ -84,5 +84,5 @@ There is one decision you should _always_ consider an ADR for: **overriding a [d
 
 ## After writing one
 
-- Link the ADR from whatever it touches: the [design principle](../00-orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behaviour it explains. An ADR nobody can find from the code it governs is half-wasted.
-- If the decision changes something the Map describes, update those pages too — the Map says what _is_, the ADR says _why_.
+- Link the ADR from whatever it touches: the [design principle](../00-orientation/design-principles.md) it overrides or grounds, and the subsystem doc whose behavior it explains. An ADR nobody can find from the code it governs is half-wasted.
+- If the decision changes something the map describes, update those pages too — the map says what _is_, the ADR says _why_.

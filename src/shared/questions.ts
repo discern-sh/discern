@@ -122,7 +122,7 @@ export const QUESTIONS: readonly Question[] = [
     violations: "accrued",
     question:
       "Inspect representative tests behind the configured command. Do they protect " +
-      "observable behaviour at important boundaries — including failure paths and " +
+      "observable behavior at important boundaries — including failure paths and " +
       "edge cases — or mostly mirror implementation details and prove that happy-path " +
       "code runs? Would a plausible regression fail for a useful reason?",
     teach:
@@ -179,7 +179,7 @@ export const QUESTIONS: readonly Question[] = [
     question:
       "This change touches the always-loaded agent instructions — prose every " +
       "future session pays for before its first decision. Does each added or " +
-      "reworded line shape most sessions' behaviour, or does it belong on a " +
+      "reworded line shape most sessions' behavior, or does it belong on a " +
       "cheaper rung: a skill invoked on demand, a documentation page found " +
       "when relevant, a checkpoint served on a matching change, or a machine " +
       "check?",
@@ -202,7 +202,7 @@ export const QUESTIONS: readonly Question[] = [
       "or does a page describe a previous design? A stale doc is a bug.",
     teach:
       "Docs are only worth trusting if they track the code. When a change alters " +
-      "documented behaviour, update the page in the same change. The discern-document-subsystem " +
+      "documented behavior, update the page in the same change. The discern-document-subsystem " +
       "skill refreshes a subtree; `discern map --list` shows the tree.",
   },
   {
@@ -225,7 +225,7 @@ export const QUESTIONS: readonly Question[] = [
     question:
       "Read the changed documentation as its future reader. Does each changed " +
       "entry reduce the repository reading needed to make a correct decision — " +
-      "behaviour, boundaries, intent, where to start — or does it restate what " +
+      "behavior, boundaries, intent, where to start — or does it restate what " +
       "the code already says: symbol inventories, file-by-file summaries, " +
       "change history?",
     teach:
@@ -313,7 +313,7 @@ export const QUESTIONS: readonly Question[] = [
     teach:
       "A good skill packages judgement, not just reminders. Give it a sharp trigger, " +
       "progressively disclose only the needed references, make effects and stop " +
-      "conditions explicit, and end with observable proof that the task succeeded.",
+      "conditions explicit, and end with observable Proof that the task succeeded.",
   },
   {
     id: "change.binary-asset",
@@ -341,7 +341,7 @@ export const QUESTIONS: readonly Question[] = [
       "A substantial cut is often right — unused code is a liability — but " +
       "'unused' must be proved, not assumed: check dynamic references, " +
       "configuration-driven call sites, and external consumers before " +
-      "trusting a quiet search. Put the proof in the commit body so the " +
+      "trusting a quiet search. Put the Proof in the commit body so the " +
       "review reads as evidence.",
   },
   {

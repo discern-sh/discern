@@ -39,4 +39,4 @@ discern patterns --logbook-file logbook-20260811T143015Z.jsonl
 discern patterns --stats --logbook-file logbook-20260811T143015Z.jsonl
 ```
 
-The selector accepts one listed regular-file basename inside `logbook-archives/`. It rejects paths, traversal, symbolic links, directories, active month files, and names outside the archive format. Historical reports never modify the archive; their own event goes to the active Logbook when recording is enabled. `discern_patterns` accepts the same optional selector. Operational readers always use active history.
+The selector accepts one listed regular-file basename inside `logbook-archives/`. It rejects paths, traversal, symbolic links, directories, active month files, and names outside the archive format. Historical reports never modify the archive; their own event goes to the active logbook when recording is enabled. `discern_patterns` accepts the same optional selector. Operational readers always use active history.

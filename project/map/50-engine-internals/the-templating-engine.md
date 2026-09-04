@@ -9,11 +9,11 @@ aliases:
 
 # The instructions templating engine
 
-_How discern renders its built-in instruction sections and bundled Skills against a project's config before compilation or materialization._
+_How discern renders its built-in instruction sections and bundled skills against a project's config before compilation or materialization._
 
 discern's built-in sections ([`templates/instructions/*.md`](../../../templates/instructions/)) are the distribution source carried by every binary. `discern refresh` renders each built-in section through a small, strict template engine ([`src/engine/instruction_template.ts`](../../../src/engine/instruction_template.ts)) before concatenating them. Rendering lets the generic prose name a project's configured paths and branches and omit content that is inert until configured. The decision and its rationale are recorded in [ADR 0035](../_adr/0035-guidance-templating-engine.md). This page is the working reference.
 
-The same engine renders bundled Skill Markdown at materialization and at `skills eject`. It uses the same context, so a shipped Skill's prose names the project's configured paths through `{{map_dir}}` and `{{todo_path}}` instead of discern's defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A sentinel-render test and a source-literal ban make any hard-coded default a Gate failure.
+The same engine renders bundled skill Markdown at materialization and at `skills eject`. It uses the same context, so a shipped skill's prose names the project's configured paths through `{{map_dir}}` and `{{todo_path}}` instead of discern's defaults ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). A sentinel-render test and a source-literal ban make any hard-coded default a gate failure.
 
 ## Syntax
 
@@ -57,7 +57,7 @@ The context is a closed set. An unknown `{{var}}` or `{{#if pred}}` throws `Inst
 
 ## Boundary: discern's own shipped content
 
-discern applies templates only to content it ships: the built-in sections and bundled Skill Markdown. It appends the user's `[instructions].sources` verbatim and symlinks authored Skills without changing them. A project's own Markdown may contain `{{…}}`; the renderer leaves it uninterpreted.
+discern applies templates only to content it ships: the built-in sections and bundled skill Markdown. It appends the user's `[instructions].sources` verbatim and symlinks authored skills without changing them. A project's own Markdown may contain `{{…}}`; the renderer leaves it uninterpreted.
 
 The scaffold templater ([`src/lib/template.ts`](../../../src/lib/template.ts)) has a separate token set and behavior. At `setup` time, it substitutes `{{token}}` in `.tmpl` seed files and leaves an unknown token verbatim. It reports drift without failing. The scaffold skips `templates/instructions/`, so the engines process disjoint file sets and can share the `{{}}` delimiter.
 

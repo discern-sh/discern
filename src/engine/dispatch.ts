@@ -255,11 +255,11 @@ export function attachEngineCommands(
     )
     .option(
       "--rerun",
-      "Run the full Gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
+      "Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
     )
     .option(
       "--ci",
-      "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+      "Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
     )
     .option(
       "--met <id:string>",
@@ -467,7 +467,7 @@ export function attachEngineCommands(
 
   const standardsCommand = new Command()
     .description(
-      "Measure the named quality standards, or every configured Standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
+      "Measure the named quality standards, or every configured standard when no names are given: numbers that can never get worse. `discern done` already verifies and measures them on every run. Authoring one? Hold a rate (`per`) for a number that rises as the project grows, and give a drifting total a `margin` — a ceiling pinned at today's value fails the next legitimate change.",
     )
     .arguments("[names...:string]")
     .option(
@@ -480,7 +480,7 @@ export function attachEngineCommands(
     )
     .option(
       "--pin",
-      "Capture measured improvements for the named Standards, or every one with slack. Same-commit values are reused; named measurement narrows only when Gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
+      "Capture measured improvements for the named standards, or every one with slack. Same-commit values are reused; named measurement narrows only when gate Proof already validates the clean tree. Commit the limit change alone and carry Proof forward. Requires a clean worktree.",
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
@@ -502,12 +502,12 @@ export function attachEngineCommands(
     "propose",
     new Command()
       .description(
-        "Finalize a proposed limit for a Standard breached by this change. On a clean final HEAD, measure the named Standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
+        "Finalize a proposed limit for a standard breached by this change. On a clean final HEAD, measure the named standard, then create its config-only proposal commit or renew an unchanged descendant binding. Acceptance still requires explicit approval for the value and reason.",
       )
       .arguments("<name:string>")
       .option(
         "--reason <reason:string>",
-        "The exact non-empty owner-facing reason for the Standard limit proposal (1-500 visible, secret-free characters).",
+        "The exact non-empty owner-facing reason for the standard limit proposal (1-500 visible, secret-free characters).",
       )
       .option("--dry-run", "Show the proposal plan; touch nothing.")
       .action(recordedExit(
@@ -629,7 +629,7 @@ export function attachEngineCommands(
     .command("await")
     .description(
       "Block until a fleet condition holds: a sibling branch is green (its " +
-        "worktree holds an honored gate proof), a branch's work has landed " +
+        "worktree holds an honored gate Proof), a branch's work has landed " +
         "on the trunk, or the trunk has moved. Timing out is not an error; " +
         "the result carries a short continuation handle that preserves the " +
         "original condition across calls. To wrap a command behind the " +
@@ -637,7 +637,7 @@ export function attachEngineCommands(
     )
     .option(
       "--green <worktree:string>",
-      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate proof (a landing also satisfies it).",
+      "Select a sibling by worktree id, path, local branch, or full local ref; wait until its checkout holds an honored gate Proof (a landing also satisfies it).",
     )
     .option(
       "--landed <worktree:string>",
@@ -670,7 +670,7 @@ export function attachEngineCommands(
   const patterns = new Command()
     .description(
       "Report the patterns in this project's discern use, read from the local " +
-        "logbook of verb runs: agent behaviour, gate fit, the task funnel, and " +
+        "logbook of verb runs: agent behavior, gate fit, the task funnel, and " +
         "each standard's trajectory. A read-only advisory.",
     )
     .option(
@@ -685,7 +685,7 @@ export function attachEngineCommands(
     )
     .option(
       "--logbook-file <filename:string>",
-      "Read one sealed archive basename listed by `discern patterns archives` instead of the active Logbook.",
+      "Read one sealed archive basename listed by `discern patterns archives` instead of the active logbook.",
     )
     .action(
       recordedExit("patterns", async (o) => {
@@ -707,7 +707,7 @@ export function attachEngineCommands(
       "archives",
       new Command()
         .description(
-          "List sealed Logbook archives with their event counts, date spans, and byte sizes.",
+          "List sealed logbook archives with their event counts, date spans, and byte sizes.",
         )
         .action(
           recordedExit("patterns archives", async (o) => {
@@ -898,11 +898,11 @@ export function attachEngineCommands(
     )
     .option(
       "--approve-standard <token:string>",
-      "Record that the owner approved the exact Standard/value/reason tuple " +
+      "Record that the owner approved the exact standard/value/reason tuple " +
         "carried by the current Proof (repeatable; requires --confirmed). " +
         "Use the proposal-bound token served by the read-only refusal; the token " +
         "set must equal the current proposal set. Standing, effort, and " +
-        "generic landing grants never authorize a Standard limit proposal.",
+        "generic landing grants never authorize a standard limit proposal.",
       { collect: true },
     )
     .action(recordedExit("accept", async (o) => {

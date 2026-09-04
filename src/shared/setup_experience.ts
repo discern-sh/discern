@@ -364,7 +364,7 @@ export const SETUP_HUMAN_MOMENTS = [
     owner_outcome:
       "Later coding sessions inherit project-specific quality checks, isolated task workspaces, navigation, and operating instructions.",
     why:
-      "Setup studies this repository and turns what it learns into the Gate, worktree behavior, Map, and project instructions. Those choices recur in future sessions, so the quality of this first pass affects the long-term experience.",
+      "Setup studies this repository and turns what it learns into the gate, worktree behavior, map, and project instructions. Those choices recur in future sessions, so the quality of this first pass affects the long-term experience.",
     current_action:
       "Choose the model for setup, then ask that coding agent to run `discern setup` in this project.",
     authority:
@@ -397,7 +397,7 @@ export const SETUP_HUMAN_MOMENTS = [
     applicability: { kind: "always" },
     purpose: "Choose the reasoning model for the one-time setup.",
     owner_outcome:
-      "The Gate, worktree policy, Map, and project instructions inherited by later sessions are grounded in the best repository study the owner chooses to provide now.",
+      "The Gate, worktree policy, map, and project instructions inherited by later sessions are grounded in the best repository study the owner chooses to provide now.",
     why:
       "A stronger reasoning model is more likely to notice hidden boundaries, preserve existing workflows, challenge false assumptions, and write useful project context. Better analysis during setup reduces repeated correction and repository reading in later sessions.",
     current_action:
@@ -439,7 +439,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Everything I set up here is inherited by future sessions, so it is worth using your strongest suitable reasoning model. I will record the current provider and model as self-reported context, not as proof of capability. Would you like to switch models first, or shall I carry on here? Nothing has been written yet.",
+        "Everything I set up here is inherited by future sessions, so it is worth using your strongest suitable reasoning model. I will record the current provider and model as self-reported context, not as Proof of capability. Would you like to switch models first, or shall I carry on here? Nothing has been written yet.",
       experienced:
         "Setup authors persistent project context. I recommend the strongest suitable reasoning model available. Switch through the provider's model selector and restart with `Run discern setup`, or explicitly continue here; I will record self-declared provenance either way.",
     },
@@ -473,7 +473,7 @@ export const SETUP_HUMAN_MOMENTS = [
       message:
         "Setup is under way on a separate, reviewable branch. I am studying how this project already works before I change what future coding sessions inherit. I will handle routine reversible authoring and come back only when the code cannot answer an important question or a consequential choice needs you.",
       experienced:
-        "The isolated setup branch is ready. I am gathering repository evidence before configuring the Gate, worktrees, project guide, or instructions; routine reversible authoring continues without approval, and consequential choices return to you.",
+        "The isolated setup branch is ready. I am gathering repository evidence before configuring the gate, worktrees, project guide, or instructions; routine reversible authoring continues without approval, and consequential choices return to you.",
     },
   },
   {
@@ -673,7 +673,7 @@ export const SETUP_HUMAN_MOMENTS = [
         "A useful protection is missing and adding it requires a new dependency, access, cost, or independent command choice.",
     },
     purpose:
-      "Choose whether setup may add tooling or a consequential Gate action.",
+      "Choose whether setup may add tooling or a consequential gate action.",
     owner_outcome:
       "Later agents receive useful automatic feedback without setup rewriting project workflows or adding unapproved cost, access, or dependencies.",
     why:
@@ -698,7 +698,7 @@ export const SETUP_HUMAN_MOMENTS = [
         id: "approve-protection",
         label: "Approve the proposed protection",
         consequence:
-          "Setup adds the stated dependency or command effect and wires it into the Gate in a separate commit.",
+          "Setup adds the stated dependency or command effect and wires it into the gate in a separate commit.",
         owner_action:
           "Authorize the named effect and its stated cost or maintenance consequence.",
         agent_action: "Apply, prove, and commit only that approved change.",
@@ -800,7 +800,7 @@ export const SETUP_HUMAN_MOMENTS = [
     current_action:
       "Author only verified, durable context and show the owner the proposed primary-subsystem understanding before final synthesis.",
     authority:
-      "Code and configuration own behavior; the owner owns product intent; the Map records durable context those authorities do not express by themselves.",
+      "Code and configuration own behavior; the owner owns product intent; the map records durable context those authorities do not express by themselves.",
     reversibility:
       "The authored pages are ordinary reviewable files on the setup branch.",
     recovery:
@@ -817,7 +817,7 @@ export const SETUP_HUMAN_MOMENTS = [
       message:
         "I am turning what the repository shows into a maintained project guide and one set of instructions for future coding sessions. Later agents can start in the right place and follow the project's important rules without asking you to explain them again.",
       experienced:
-        "Repository evidence is becoming the project-owned Map and instruction source: durable navigation and operating constraints future agents inherit across providers.",
+        "Repository evidence is becoming the project-owned map and instruction source: durable navigation and operating constraints future agents inherit across providers.",
     },
   },
   {
@@ -885,14 +885,14 @@ export const SETUP_HUMAN_MOMENTS = [
     id: "first-green-gate",
     surfaces: ["step-2", "step-7"],
     kind: "progress",
-    phase: "Gate proof",
+    phase: "Gate Proof",
     applicability: {
       kind: "when",
       evidence_id: "first-green-gate",
       condition:
         "The configured project checks first pass together through discern.",
     },
-    purpose: "Mark the first green Gate as an owner-visible setup milestone.",
+    purpose: "Mark the first green gate as an owner-visible setup milestone.",
     owner_outcome:
       "The owner knows which protections now run automatically and which expected protections remain absent or do not apply.",
     why:
@@ -913,9 +913,9 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The project's checks now pass together through discern's final quality check, the Gate. It runs <enforced protections>; <absent protections> are still missing, and <inapplicable protections> do not apply. This proves the configured feedback loop, not permission to land. I am continuing with the separate-workspace proof and final context review.",
+        "The project's checks now pass together through discern's final quality check, the gate. It runs <enforced protections>; <absent protections> are still missing, and <inapplicable protections> do not apply. This proves the configured feedback loop, not permission to land. I am continuing with the separate-workspace Proof and final context review.",
       experienced:
-        "The configured Gate is green with <enforced protections>; <absent protections> remain absent and <inapplicable protections> are excluded. This is scoped evidence, not landing authority. Worktree proof and the final context recheck remain.",
+        "The configured gate is green with <enforced protections>; <absent protections> remain absent and <inapplicable protections> are excluded. This is scoped evidence, not landing authority. Worktree Proof and the final context recheck remain.",
     },
   },
   {
@@ -944,14 +944,14 @@ export const SETUP_HUMAN_MOMENTS = [
     agent_behavior: {
       before_owner_action: "wait",
       after_owner_action:
-        "Incorporate the correction, then continue to smoke proof before final documentation synthesis.",
+        "Incorporate the correction, then continue to smoke Proof before final documentation synthesis.",
     },
     options: [
       {
         id: "confirm-mental-model",
         label: "Confirm the project understanding",
         consequence:
-          "The bounded page plan proceeds to smoke proof and final synthesis.",
+          "The bounded page plan proceeds to smoke Proof and final synthesis.",
         owner_action:
           "Confirm the proposed start point, boundary, and invariant.",
         agent_action: "Retain the plan and continue.",
@@ -1055,7 +1055,7 @@ export const SETUP_HUMAN_MOMENTS = [
     owner_outcome:
       "Future sessions do not inherit a confident statement that current code and configuration cannot support.",
     why:
-      "A false Map claim can steer later work more strongly than no claim because agents treat committed project context as an authority.",
+      "A false map claim can steer later work more strongly than no claim because agents treat committed project context as an authority.",
     current_action:
       "Show the proposed claim, evidence checked, missing authority, and the concrete open-item wording.",
     authority:
@@ -1133,7 +1133,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Setup is ready for review. Later agents will begin in <plain primary area> at <start point>. The other lasting areas are <durable areas>. One important rule setup found is <concrete rule>. The final quality check now runs <protections>, with <gaps> still open. <open items>. The proof that the finished change passed the project's checks (Proof), <Proof line>, belongs to this exact commit and does not give permission to land. The setup remains on <branch> until you decide what reaches <trunk>.",
+        "Setup is ready for review. Later agents will begin in <plain primary area> at <start point>. The other lasting areas are <durable areas>. One important rule setup found is <concrete rule>. The final quality check now runs <protections>, with <gaps> still open. <open items>. The Proof that the finished change passed the project's checks (Proof), <Proof line>, belongs to this exact commit and does not give permission to land. The setup remains on <branch> until you decide what reaches <trunk>.",
       experienced:
         "Completion covers primary area <name> at <start>, durable regions <areas>, invariant <rule>, enforced and absent checks, open items, canonical inventory, and <Proof>. Proof binds to the current commit and grants no landing authority; <branch> remains unlanded pending the owner's choice.",
     },
@@ -1205,7 +1205,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The proved setup is still on <branch>, so future sessions on <trunk> do not use it yet. The proof that the finished change passed the project's checks (Proof) belongs to this exact branch; it is not permission to merge. I recommend landing only if the project account above looks right. Would you like to land it now, leave it for review, or decline it? I will wait; nothing else will change before your choice.",
+        "The proved setup is still on <branch>, so future sessions on <trunk> do not use it yet. The Proof that the finished change passed the project's checks (Proof) belongs to this exact branch; it is not permission to merge. I recommend landing only if the project account above looks right. Would you like to land it now, leave it for review, or decline it? I will wait; nothing else will change before your choice.",
       experienced:
         "<branch> is proved and absent from <trunk>. Proof verifies the commit and grants no landing authority. Authorize landing, leave the branch for review, or decline it; I will wait, and no restart, activation, or post-Proof mutation occurs first.",
     },

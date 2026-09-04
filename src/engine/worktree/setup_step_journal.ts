@@ -104,7 +104,7 @@ async function journalPath(cwd: string): Promise<string> {
   const path = await gitAdminStatePath(cwd, "worktreeSetupSteps");
   if (path === undefined) {
     throw new SetupStepJournalError(
-      "Git could not resolve Discern's worktree setup-step journal. No setup step ran. Retry inside the intended linked worktree.",
+      "Git could not resolve discern's worktree setup-step journal. No setup step ran. Retry inside the intended linked worktree.",
     );
   }
   return path;
@@ -116,7 +116,7 @@ function validateUniqueIds(journal: SetupStepJournal, path: string): void {
   for (const step of journal.steps) {
     if (ids.has(step.id)) {
       throw new SetupStepJournalError(
-        `Discern found duplicate setup-step identity ${step.id} in ${path}. ` +
+        `discern found duplicate setup-step identity ${step.id} in ${path}. ` +
           "No setup step ran. Repair or remove the invalid journal only after inspecting it, then retry.",
       );
     }
@@ -140,7 +140,7 @@ async function writeJournal(
     });
   } catch (error) {
     throw new SetupStepJournalError(
-      `Discern could not atomically replace the worktree setup-step journal at ${path}. ` +
+      `discern could not atomically replace the worktree setup-step journal at ${path}. ` +
         `No later setup step ran. ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -171,7 +171,7 @@ function decodeJournal(
     );
   } catch (error) {
     throw new SetupStepJournalError(
-      `Discern rejected the worktree setup-step journal at ${path}: ${
+      `discern rejected the worktree setup-step journal at ${path}: ${
         error instanceof Error ? error.message : String(error)
       }. No setup step ran. Inspect the invalid record before deciding whether to repair or remove it.`,
       { cause: error },
@@ -225,7 +225,7 @@ export async function readSetupStepJournal(
     text = await readTextIfExists(path);
   } catch (error) {
     throw new SetupStepJournalError(
-      `Discern could not read the worktree setup-step journal at ${path}. ` +
+      `discern could not read the worktree setup-step journal at ${path}. ` +
         `No setup step ran. Retry after the file is readable. ${
           error instanceof Error ? error.message : String(error)
         }`,
@@ -266,7 +266,7 @@ function reconcileConfiguredJournal(
   );
   if (removedRunning !== undefined) {
     throw new SetupStepJournalError(
-      `Discern found running setup step ${removedRunning.id}, but that identity is no longer present in [worktree.setup].steps. ` +
+      `discern found running setup step ${removedRunning.id}, but that identity is no longer present in [worktree.setup].steps. ` +
         "No setup step ran. Restore the matching configuration and make an explicit recovery decision before changing the step list.",
     );
   }
@@ -283,7 +283,7 @@ function reconcileConfiguredJournal(
         prior.command !== step.command || prior.occurrence !== step.occurrence
       ) {
         throw new SetupStepJournalError(
-          `Discern found setup-step identity ${step.id} attached to different command evidence in ${path}. ` +
+          `discern found setup-step identity ${step.id} attached to different command evidence in ${path}. ` +
             "No setup step ran. Inspect the journal before deciding whether to repair or remove it.",
         );
       }
@@ -339,7 +339,7 @@ async function replaceStepState(
   };
   if (changed === undefined) {
     throw new SetupStepJournalError(
-      `Discern could not find setup step ${id} in ${path}. No setup step ran. Re-run \`discern worktree setup\` to see the current recovery identity.`,
+      `discern could not find setup step ${id} in ${path}. No setup step ran. Re-run \`discern worktree setup\` to see the current recovery identity.`,
     );
   }
   await writeJournal(path, next);
@@ -348,7 +348,7 @@ async function replaceStepState(
 
 /** The two bounded owner decisions served for an ambiguous running command. */
 function ambiguousStepMessage(step: SetupStepJournalEntry): string {
-  return `Discern found setup step ${step.id} recorded as running and cannot prove whether its arbitrary shell command completed. ` +
+  return `discern found setup step ${step.id} recorded as running and cannot prove whether its arbitrary shell command completed. ` +
     "This call did not replay it. After observing the command's external state, choose exactly one owner-confirmed recovery: " +
     `\`discern worktree setup --mark-step-complete ${step.id} --confirmed\` to preserve the observed effect, or ` +
     `\`discern worktree setup --retry-step ${step.id} --confirmed\` to run it again.`;

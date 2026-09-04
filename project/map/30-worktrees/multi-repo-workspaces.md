@@ -24,7 +24,7 @@ Point those links at the library's main checkout with an absolute path. The main
 
 Absolute paths hold on one machine only. A team keeps the committed manifest shared with one level of indirection: agree on a stable path such as `/opt/acme/shared-lib`, point the manifest there, and each developer symlinks that path to their own checkout. The symlink lives outside the repository, so every worktree resolves it with nothing to recreate. Otherwise, publish to a registry, or use relative links plus the placement below.
 
-A relative link such as `file:../shared-lib` assumes the consumer's checkout sits beside the library. By default a worktree does not: `discern start` places it at `<parent>/<repo>.worktrees/<id>`, so `../shared-lib` may resolve to nothing even when the main checkout's Gate passes. Place worktrees in the workspace parent instead:
+A relative link such as `file:../shared-lib` assumes the consumer's checkout sits beside the library. By default a worktree does not: `discern start` places it at `<parent>/<repo>.worktrees/<id>`, so `../shared-lib` may resolve to nothing even when the main checkout's gate passes. Place worktrees in the workspace parent instead:
 
 ```toml
 [worktree]
@@ -35,9 +35,9 @@ Worktrees then sit beside the repositories, and `../shared-lib` resolves from a 
 
 ## Depend through a registry
 
-Repositories that consume each other's published releases (npm, JSR, PyPI, Maven, an internal registry) need no discern configuration. Each repository is self-contained, and its Gate builds against the declared versions.
+Repositories that consume each other's published releases (npm, JSR, PyPI, Maven, an internal registry) need no discern configuration. Each repository is self-contained, and its gate builds against the declared versions.
 
-A change that spans library and consumer lands in order. Land the library first, publish the release, then bump the consumer's dependency and land that. Each landing passes its own repository's Gate.
+A change that spans library and consumer lands in order. Land the library first, publish the release, then bump the consumer's dependency and land that. Each landing passes its own repository's gate.
 
 ## Umbrella repositories
 

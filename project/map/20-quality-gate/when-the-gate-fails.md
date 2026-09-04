@@ -11,7 +11,7 @@ aliases:
 
 # When the Gate fails
 
-_Read the first diagnostic, use its reproduce command, and rerun the Gate after the fix._
+_Read the first diagnostic, use its reproduce command, and rerun the gate after the fix._
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
@@ -21,13 +21,13 @@ Verdicts and failed stages remain authoritative. Streamed child bytes are not re
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A stage or precondition stopped the Gate before it could issue a review Proof.
+**Failed:** A stage or precondition stopped the gate before it could issue a review Proof.
 
 **Next action:** Run `reproduce_cmd` from the first diagnostic, fix the reported problem, then return to `discern done`.
 
 <!-- /discern-workflow -->
 
-Give the diagnostic to your agent, or work from that focused result yourself. Rerun the full Gate after the reported problem is fixed.
+Give the diagnostic to your agent, or work from that focused result yourself. Rerun the full gate after the reported problem is fixed.
 
 ## Match the failure to the fix
 

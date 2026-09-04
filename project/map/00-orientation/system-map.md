@@ -12,7 +12,7 @@ aliases:
 
 _The architecture in one picture: the binary, an install on disk, and what happens when a verb runs._
 
-One self-contained binary, `discern`, runs from `PATH`. Its installer verbs write a project's seed files. Its engine verbs, compiled into the same binary, run the project's final quality check (the Gate) and the worktree workflow. The files it writes require no discern runtime.
+One self-contained binary, `discern`, runs from `PATH`. Its installer verbs write a project's seed files. Its engine verbs, compiled into the same binary, run the project's final quality check (the gate) and the worktree workflow. The files it writes require no discern runtime.
 
 ## How an install comes to exist
 

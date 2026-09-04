@@ -35,17 +35,17 @@ If discern is not installed and set up yet, begin with the [quickstart](../00-st
 | Current situation                                                                | Outcome and guide                                               |
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | One worktree change must be prepared, reviewed, authorized, and landed.          | [Finish and land a change](finish-and-land-a-change.md)         |
-| `discern prepare` or `discern done` returned a failure.                          | [Fix a red Gate](fix-a-red-gate.md)                             |
-| A deterministic quality number must stop regressing, or an existing limit fired. | [Set and raise Standards](set-and-raise-standards.md)           |
-| A narrow change needs a recurring judgment, or a fired question needs an answer. | [Place and answer Checkpoints](place-and-answer-checkpoints.md) |
+| `discern prepare` or `discern done` returned a failure.                          | [Fix a red gate](fix-a-red-gate.md)                             |
+| A deterministic quality number must stop regressing, or an existing limit fired. | [Set and raise standards](set-and-raise-standards.md)           |
+| A narrow change needs a recurring judgment, or a fired question needs an answer. | [Place and answer checkpoints](place-and-answer-checkpoints.md) |
 | Several worktrees must run, update, share capacity, or compose safely.           | [Coordinate parallel tasks](coordinate-parallel-tasks.md)       |
 | One task must pause for a sibling branch or the trunk.                           | [Wait for another task](wait-for-another-task.md)               |
 | A session, acceptance, setup step, or dropped branch needs recovery.             | [Recover an interrupted task](recover-an-interrupted-task.md)   |
 | A substantial objective needs one or more self-contained agent briefs.           | [Delegate substantial work](delegate-work.md)                   |
 | Every future coding-agent session must inherit a project rule.                   | [Write project instructions](write-project-instructions.md)     |
-| A recurring method should become a reusable agent playbook.                      | [Create and manage Skills](create-and-manage-skills.md)         |
+| A recurring method should become a reusable agent playbook.                      | [Create and manage skills](create-and-manage-skills.md)         |
 | A supported coding agent must be wired or its local action is missing.           | [Connect a coding agent](connect-a-coding-agent.md)             |
-| The project's declared Gate should run as a required remote check.               | [Run the Gate in CI](run-the-gate-in-ci.md)                     |
+| The project's declared gate should run as a required remote check.               | [Run the gate in CI](run-the-gate-in-ci.md)                     |
 | Local evidence should identify the next bounded practice improvement.            | [Improve the practice](improve-the-practice.md)                 |
 | The install needs diagnosis, formatting, upgrade, or removal.                    | [Maintain or remove discern](maintain-or-remove-discern.md)     |
 
@@ -63,10 +63,10 @@ When a discern command returns a next-action hint, follow that result. The guide
 
 ## Shared boundaries
 
-- A green Gate is evidence about one clean commit. It does not move the trunk or grant authority.
-- Any later edit or commit makes that Proof stale. Run the full Gate again on the new final tree.
+- A green gate is evidence about one clean commit. It does not move the trunk or grant authority.
+- Any later edit or commit makes that Proof stale. Run the full gate again on the new final tree.
 - A checkpoint conclusion is the coding agent's declared judgment. Only the person can authorize a variance for a declared-unmet conclusion.
-- Standing and one-worktree grants remain bounded by final changed paths. They do not cover checkpoint variances or Standard limit proposals.
+- Standing and one-worktree grants remain bounded by final changed paths. They do not cover checkpoint variances or standard limit proposals.
 - Generated files are outputs. Change their authored source and run the owning refresh or generator.
 - Another task's worktree remains occupied even when it is clean.
 

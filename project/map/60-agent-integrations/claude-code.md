@@ -10,7 +10,7 @@ aliases:
 
 # Claude Code integration
 
-_The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and worktree hooks without adding permission rules._
+_The Claude Code integration supplies shared instructions and skills, a Model Context Protocol (MCP) server entry, and worktree hooks without adding permission rules._
 
 When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
@@ -33,7 +33,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 
 `AGENTS.md` remains canonical. discern compiles its built-in instructions and `[instructions].sources` there. Edit the sources, then run `discern refresh`.
 
-Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective Skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
+Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 
 ## `.mcp.json`
 

@@ -21,7 +21,7 @@ The detector is conservative. Public modules, declaration files, re-exports, nam
 
 ## Read a clone diagnostic
 
-Run `deno task duplication-census` for the complete advisory report. Each `DuplicateCloneGroup` diagnostic contains one semantic fingerprint, a normalized token and line size, its duplicate-line contribution, and two or more exact one-based path/range occurrences. The final stdout lines expose `duplicate_clone_groups` for the group census and `duplicated_lines` for the blocking Standard.
+Run `deno task duplication-census` for the complete advisory report. Each `DuplicateCloneGroup` diagnostic contains one semantic fingerprint, a normalized token and line size, its duplicate-line contribution, and two or more exact one-based path/range occurrences. The final stdout lines expose `duplicate_clone_groups` for the group census and `duplicated_lines` for the blocking standard.
 
 Candidate token windows do not appear in this output. [`duplication_census_lib.ts`](../../../scripts/duplication_census_lib.ts) collapses them into maximal exact or small-edit groups, then selects occurrences globally so one source range contributes to at most one finding. Fingerprints derive from the normalized semantic skeleton rather than paths, traversal order, machine state, or physical formatting. Repeated runs over the same source produce the same groups, order, fingerprints, and scalar.
 
@@ -29,7 +29,7 @@ Candidate token windows do not appear in this output. [`duplication_census_lib.t
 
 Treat a group as incidental duplication when its occurrences represent one behavior with one reason to change. Elect one authority, route every caller to it, delete the copies, and keep a regression test at the shared boundary. If occurrences have independent reasons to evolve, keep them separate and make that boundary legible in their owning modules; do not distort the implementation merely to move the number.
 
-The detector ignores comments, whitespace, local identifier spelling, literal values, imports and re-exports, type-only declarations, syntax-declared top-level registry tables, and declared generated artifacts. These categories remove syntax and ownership noise rather than excusing named files. The census remains conservative: a reported clone is actionable evidence, not a proof that two routines have identical product intent.
+The detector ignores comments, whitespace, local identifier spelling, literal values, imports and re-exports, type-only declarations, syntax-declared top-level registry tables, and declared generated artifacts. These categories remove syntax and ownership noise rather than excusing named files. The census remains conservative: a reported clone is actionable evidence, not a Proof that two routines have identical product intent.
 
 ## Capture each reduction
 
@@ -43,4 +43,4 @@ Run `deno task complexity` for the pinned FTA report. The wrapper projects the e
 
 Read the production, tooling, and test lanes separately. Each lane ranks FTA score, `cyclo` count, physical lines, and full-history Git touches independently. These are file-level advisory signals. Function-level cognitive complexity remains outside the measurement. In particular, a large declarative catalogue can have a high score without hiding a tangled algorithm. There is no repository-wide average and no cap tied to today's single worst file.
 
-Only the extreme tail blocks: a non-generated file whose score exceeds 100 or whose `cyclo` count exceeds 200. Every existing member has an exact, reviewed score and `cyclo` ceiling in [`complexity_hotspots.ts`](../../../scripts/complexity_hotspots.ts). A new member, a regression beyond either file budget, or a registry row whose file has improved below both thresholds fails the census. When a behavior-preserving decomposition clears both thresholds, remove that row and pin `complexity_hotspots`; the falling Standard holds the legacy-tail population so it can only shrink.
+Only the extreme tail blocks: a non-generated file whose score exceeds 100 or whose `cyclo` count exceeds 200. Every existing member has an exact, reviewed score and `cyclo` ceiling in [`complexity_hotspots.ts`](../../../scripts/complexity_hotspots.ts). A new member, a regression beyond either file budget, or a registry row whose file has improved below both thresholds fails the census. When a behavior-preserving decomposition clears both thresholds, remove that row and pin `complexity_hotspots`; the falling standard holds the legacy-tail population so it can only shrink.

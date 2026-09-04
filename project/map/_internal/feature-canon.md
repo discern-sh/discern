@@ -26,8 +26,8 @@ _The [Agent Benefit Canon](feature-canon-agent-benefits.md) composes these outco
 - **Know the state and next move** — A coding agent can orient from one bounded result and continue from an evidence-backed next action instead of reconstructing workflow state.
 - **Keep one effort mine** — A coding agent can keep one durable, isolated effort across sessions and compose with other work without taking ownership of it.
 - **Spend context on the change** — A coding agent can spend its attention on the changed behavior while discern schedules, bounds, and explains the routine validation work.
-- **Know what finished means** — A coding agent can distinguish iteration from completion and return proof, judgment evidence, and retained quality limits for the exact tree it finished.
-- **Act inside explicit authority** — A coding agent can preview effects, distinguish proof from permission, and stop at the exact owner decision an operation still needs.
+- **Know what finished means** — A coding agent can distinguish iteration from completion and return Proof, judgment evidence, and retained quality limits for the exact tree it finished.
+- **Act inside explicit authority** — A coding agent can preview effects, distinguish Proof from permission, and stop at the exact owner decision an operation still needs.
 - **Carry project context across sessions** — A coding agent can recover the project's current instructions, map, vocabulary, and decision boundaries without depending on the memory of a previous session.
 - **Use proven procedures** — A coding agent can invoke focused project procedures that carry quality disciplines into the work instead of rediscovering them in each prompt.
 - **Improve practice from evidence** — A coding agent can use local workflow evidence to investigate recurring friction and improve the practice without turning advisories into enforcement or surveillance.

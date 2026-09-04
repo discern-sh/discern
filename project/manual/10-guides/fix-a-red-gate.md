@@ -1,13 +1,13 @@
 ---
 id: guide-fix-a-red-gate
-title: "Fix a red Gate"
-description: "Use a failed Gate result to select a bounded fix and return to evidence-bearing state."
+title: "Fix a red gate"
+description: "Use a failed gate result to select a bounded fix and return to evidence-bearing state."
 order: 30
 publish: true
 kind: guide
 aliases:
   - "guide-fix-a-red-gate"
-  - "When the Gate fails"
+  - "When the gate fails"
   - "gate failure"
   - "red gate"
   - "check failed"
@@ -18,12 +18,12 @@ aliases:
 
 Use this guide after `discern done`, `discern prepare`, or a focused test returns a failure. The aim is to turn the result into one bounded investigation, correct the underlying cause, and return to a clean full-Gate run that can produce Proof.
 
-When the Gate fails, the failed result is the starting evidence. Preserve it until you have used its diagnostic, captured output, and reproduction command.
+When the gate fails, the failed result is the starting evidence. Preserve it until you have used its diagnostic, captured output, and reproduction command.
 
 ## Starting state
 
 - The coding agent is in the task's assigned worktree.
-- A discern result has `ok: false`, or a Gate job is visibly red.
+- A discern result has `ok: false`, or a gate job is visibly red.
 - No one has changed the project merely to silence the check.
 
 ## 1. Identify the first actionable failure
@@ -32,11 +32,11 @@ When the Gate fails, the failed result is the starting evidence. Preserve it unt
 
 If the result is truncated, use its structured or stored output route. Do not rerun an effectful command only to recover text that the first run already recorded.
 
-With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A canceled or skipped job has no verdict. Work on the reported failure first, then rerun the full Gate.
+With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A canceled or skipped job has no verdict. Work on the reported failure first, then rerun the full gate.
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A job or precondition stopped the Gate before current Proof could be recorded.
+**Failed:** A job or precondition stopped the gate before current Proof could be recorded.
 
 **Next action:** Run the first diagnostic's `reproduce_cmd`, correct the reported cause, then return to `discern done`.
 
@@ -46,7 +46,7 @@ With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A can
 
 | Observed failure                                       | Coding agent's next action                                                                                                  | Evidence that the route worked                                   |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dirty tree, missing commit, or branch behind the trunk | Inspect `discern status`, commit intended work, or follow the `discern_update` hint.                                        | The precondition clears on the next dry run or Gate call.        |
+| Dirty tree, missing commit, or branch behind the trunk | Inspect `discern status`, commit intended work, or follow the `discern_update` hint.                                        | The precondition clears on the next dry run or gate call.        |
 | One declared job failed                                | Run its `reproduce_cmd`, diagnose the cause, and use the smallest focused check while editing.                              | The reproducing command passes for the same inputs.              |
 | `generated_drift`                                      | Change the owning source and run the named generator. Never hand-edit the derived file.                                     | Regeneration leaves the artifact current.                        |
 | `tree_drift` or stranded output                        | Review the diagnostic diff. Commit intended output, or make the job verify without rewriting.                               | `git status` remains clean after the producing stage.            |
@@ -82,7 +82,7 @@ If `[gate].concurrent_test_runs` is positive, send direct test commands through 
 discern queue -- <focused-test-command>
 ```
 
-This respects the fleet-wide test cap. It does not replace the final Gate.
+This respects the fleet-wide test cap. It does not replace the final gate.
 
 ## 4. Prove the recovered state
 
@@ -96,7 +96,7 @@ Read all remaining diagnostics. A pass is complete only when the full run is gre
 
 ## When to stop for a person
 
-Stop and report the measured facts when recovery requires a decision outside the task's authority: weakening a Standard, changing required project checks, accepting an unmet checkpoint, widening a scope, supplying credentials, or deciding that a failing behavior is now intended. Name the value or check, why the current work cannot satisfy it, and the next valid choices.
+Stop and report the measured facts when recovery requires a decision outside the task's authority: weakening a standard, changing required project checks, accepting an unmet checkpoint, widening a scope, supplying credentials, or deciding that a failing behavior is now intended. Name the value or check, why the current work cannot satisfy it, and the next valid choices.
 
 ## Completion
 

@@ -38,7 +38,7 @@ export async function taskMetadataPath(
   return await gitAdminStatePath(cwd, "taskMetadata");
 }
 
-/** Read and validate the record; a missing record is the supported legacy case. */
+/** Read and validate the record; an unrecorded task remains supported. */
 export async function readStoredTaskMetadata(
   cwd: string,
 ): Promise<StoredTaskMetadata | undefined> {

@@ -18,7 +18,7 @@ export function renderSetupStatus(
     return [context.presenter.present(renderDiagnosticCli, {
       title: terminalLine("Setup completion is unproven"),
       impact: terminalLine(
-        "The completion event was recorded without Gate Proof and cannot be accepted or activated.",
+        "The completion event was recorded without gate Proof and cannot be accepted or activated.",
       ),
       correction: terminalMultiline(
         "Resolve the incomplete or red setup, commit the correction, then run `discern setup done`.",

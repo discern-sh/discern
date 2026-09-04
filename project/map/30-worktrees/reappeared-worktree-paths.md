@@ -23,7 +23,7 @@ The evidence store retains at most 256 paths. Readers ignore records 90 days aft
 
 ## Observe the reappearance
 
-`discern status` and the Desk report a recorded path when it exists again without a live worktree registration. Structured status includes the removal time, path kind, entry count, and up to 20 relative content names. There is no background watcher or program-specific filename matching.
+`discern status` and the desk report a recorded path when it exists again without a live worktree registration. Structured status includes the removal time, path kind, entry count, and up to 20 relative content names. There is no background watcher or program-specific filename matching.
 
 Review the removal plan:
 

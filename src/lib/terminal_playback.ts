@@ -44,7 +44,7 @@ export interface TerminalPlaybackPort {
   readonly write: (value: string) => void;
   readonly wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   readonly terminalSize: () => TerminalSize;
-  /** Explicit control facts; omission preserves the legacy capable test seam. */
+  /** Explicit control facts; omission preserves the capable test seam. */
   readonly terminalCapabilities?: () => TerminalCapabilities;
 }
 

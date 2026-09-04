@@ -115,7 +115,7 @@ export async function recordLandingProofNote(input: {
       label: BUILT_IN_STEP_LABELS.reconcileProofNoteFetch,
       disposition: "run",
       note: proofFetchOk
-        ? `proof-note transport is ${proofFetch.status}`
+        ? `Proof note transport is ${proofFetch.status}`
         : proofFetch.errors.join("; "),
     },
     outcome: proofFetchOk ? "ok" : "failed",
@@ -123,7 +123,7 @@ export async function recordLandingProofNote(input: {
       advisory: {
         kind: "proof-recording-unavailable" as const,
         evidence: proofFetch.errors.length === 0
-          ? [`Proof-note fetch transport status: ${proofFetch.status}.`]
+          ? [`Proof note fetch transport status: ${proofFetch.status}.`]
           : [...proofFetch.errors],
         next_action:
           "Repair the reported Git-notes fetch configuration; the landing itself does not need to be repeated.",
@@ -132,7 +132,7 @@ export async function recordLandingProofNote(input: {
   };
   if (!proofFetchOk) {
     input.log.warn(
-      "Proof-note fetch transport could not converge — the landing is kept.",
+      "Proof note fetch transport could not converge — the landing is kept.",
     );
   }
 
@@ -168,18 +168,18 @@ export async function recordLandingProofNote(input: {
       advisory: {
         kind: "proof-recording-unavailable" as const,
         evidence: [
-          proofWrite.reason ?? `Proof-note write status: ${proofWrite.status}.`,
+          proofWrite.reason ?? `Proof note write status: ${proofWrite.status}.`,
         ],
         next_action:
-          "Repair the reported Git-notes storage problem and use the documented Proof-note recovery without repeating the landing.",
+          "Repair the reported Git-notes storage problem and use the documented Proof note recovery without repeating the landing.",
       },
     }),
   };
   if (proofWritten) {
-    input.log.ok(`Recorded the landing proof under ${proofWrite.ref}.`);
+    input.log.ok(`Recorded the landing Proof under ${proofWrite.ref}.`);
   } else {
     input.log.warn(
-      `The landing proof note was not recorded — the landing is kept. ${
+      `The landing Proof note was not recorded — the landing is kept. ${
         proofWrite.reason ?? proofWrite.status
       }`,
     );

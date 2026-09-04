@@ -388,7 +388,7 @@ function validationWorkflowEvidence(
 /** Classify a complete current dirty standalone-test state without exposing
  * paths. That capture shares the invocation-start boundary; a full Gate's
  * post-pre-group capture does not and remains unclassified. The validation
- * counts identify worktree and untracked changes, while the legacy tracked-
+ * counts identify worktree and untracked changes, while the earlier tracked-
  * diff fingerprint closes the staged-only gap when it was readable. */
 function validationDirtyState(
   event: VerbEvent,

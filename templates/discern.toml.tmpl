@@ -37,7 +37,7 @@
   # branch names.
   slug = "{{project_slug}}"
 
-  # The doc the Gate points an agent at when a stage fails in a non-obvious
+  # The doc the gate points an agent at when a stage fails in a non-obvious
   # way. Keep it current with your stack's traps; empty disables the pointer.
   gotchas_doc = "{{gotchas_doc}}"
 
@@ -53,7 +53,7 @@
   #   - the practice report (`discern patterns`)
   #   - each worktree's last action and work in flight
   #   - fleet activity times that include verb runs
-  #   - configuration-change attribution and each Standard's limit history
+  #   - configuration-change attribution and each standard's limit history
   #   - advisory findings on `status`, the `done` Proof, and `improvement`
   #   - wait estimates when concurrent test runs queue
   #   - the in-flight check on the contained-worktree offer
@@ -74,7 +74,7 @@
 # [repository]
 #
 # What:    Policy every checkout of this repository shares.
-# Why:     The trunk is where accepted work lands and where the Gate compares
+# Why:     The trunk is where accepted work lands and where the gate compares
 #          from. Branch naming and convergence commands keep the main checkout
 #          and every linked worktree usable after their tracked tree changes.
 #
@@ -82,7 +82,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 [repository]
-  # The shared branch the Gate compares against and completed work lands on.
+  # The shared branch the gate compares against and completed work lands on.
   # Detected at setup; DISCERN_TRUNK overrides it per invocation.
   trunk = "main"
 
@@ -166,7 +166,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [jobs]
 #
-# What:    The commands the Gate runs, in one namespace.
+# What:    The commands the gate runs, in one namespace.
 # Why:     A known name derives its stage; a custom `[jobs.<name>]` table
 #          declares one. `discern done` runs the fix stage, then build, then
 #          check and test in parallel, and reports what each command returned,
@@ -219,7 +219,7 @@
 # What:    Known jobs that do not apply to this project.
 # Why:     Setup measures how many applicable known jobs are wired. A lifecycle
 #          the project does not have is declared here, so the measure counts
-#          what exists; the Gate's schedule still comes from [jobs].
+#          what exists; the gate's schedule still comes from [jobs].
 #
 #   discern config set-job build --not-applicable   declare one
 #   discern config set-job build --applicable       restore it
@@ -237,7 +237,7 @@
 # [scopes.<name>]
 #
 # What:    Named regions of the repository.
-# Why:     A change inside a scope can skip the Gate, run its own gate, or
+# Why:     A change inside a scope can skip the gate, run its own gate, or
 #          offer a preview. A path that matches no scope counts as code and
 #          runs every stage.
 #
@@ -422,7 +422,7 @@
 #          relevant; the agent answers the question and the answer travels with
 #          the Proof. The configuration at an effort's merge-base governs, so
 #          editing these tables on a branch never changes that branch's own
-#          Gate.
+#          gate.
 #
 # Naming a shipped checkpoint enables it with its built-in trigger, mode,
 # and question; a field set beneath it overrides the built-in. Delete or
@@ -445,7 +445,7 @@
 # gotchas-playbook stays quiet until [project].gotchas_doc names a doc.
 
 # Shipped advisory checkpoints read the shape of the change and never block;
-# each question arrives with the Gate's advisories when its pattern appears.
+# each question arrives with the gate's advisories when its pattern appears.
 [checkpoints.deletion-heavy-change]   # a big cut: proven dead, recoverable?
 [checkpoints.parallel-implementation] # a name-similar sibling file appeared
 [checkpoints.new-binary-asset]        # a new binary needs clear provenance
@@ -468,7 +468,7 @@
 #
 # What:    How `discern done` runs its parallel stages.
 # Why:     Fail-fast, a per-command time budget, and a cap on concurrent test
-#          runs keep the Gate fast for one agent and fair across a fleet of
+#          runs keep the gate fast for one agent and fair across a fleet of
 #          worktrees sharing one machine.
 #
 # Help:    `discern config explain gate`
@@ -476,18 +476,18 @@
 
 [gate]
   # false groups each job's complete output in a static transcript; true
-  # streams prefixed lines. Live terminals always show the Gate frame's bounded
+  # streams prefixed lines. Live terminals always show the gate frame's bounded
   # tail; CI, pipes, and --plain are static.
   stream = false
 
   # Cancel the in-flight sibling commands the moment one fails; an agent-driven
-  # Gate wants a fast abort. false runs every job and shows all failures in one
+  # gate wants a fast abort. false runs every job and shows all failures in one
   # pass.
   fail_fast = true
 
-  # Time budget in seconds for every command the Gate runs. A command that
+  # Time budget in seconds for every command the gate runs. A command that
   # overruns is tree-killed and the stage fails with a timeout diagnostic, so a
-  # watch-mode runner cannot hang the Gate. 0 removes the bound.
+  # watch-mode runner cannot hang the gate. 0 removes the bound.
   timeout = 600
 
   # Repository-wide cap on concurrent test-stage runs; excess runs wait. Fresh
@@ -535,7 +535,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [meta]
 #
-# What:    Installer bookkeeping.
+# What:    installer bookkeeping.
 # Why:     discern writes these keys while setting up or upgrading the project.
 #          They record schema and setup evidence; nothing here needs
 #          hand-editing.

@@ -124,7 +124,7 @@ export const TEMP_ARTIFACT_TTL_MS = 24 * 60 * 60 * 1000;
  * of thousands of files were observed in the wild): each sweep reaps at most
  * this many and lets subsequent runs drain the rest, while steady-state
  * production (tens of files per run) is always fully covered. */
-const MAX_SWEEP_REMOVALS = 500;
+export const MAX_SWEEP_REMOVALS = 500;
 
 /** The matching-entry inspection budget. Unlike the removal budget, this also
  * bounds a population that is entirely fresh: at most this many filesystem
@@ -134,7 +134,7 @@ const MAX_SWEEP_REMOVALS = 500;
  * mid-stream, and fair rotation must consider every name) — which is why the
  * coordinator throttles pages to one per repository per hour. A persisted
  * cursor rotates later passes through the rest. */
-const MAX_SWEEP_INSPECTIONS = 500;
+export const MAX_SWEEP_INSPECTIONS = 500;
 
 interface SweepCandidate {
   readonly name: string;

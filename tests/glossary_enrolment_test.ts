@@ -124,6 +124,21 @@ Deno.test("every deliberate-absence record points at a live closed-set member, w
   }
 });
 
+Deno.test("Shared file is property-defined and delegates its inventory", () => {
+  const shared = GLOSSARY.find((entry) => entry.term === "Shared file");
+  assert(shared !== undefined);
+  assert(
+    shared.definition.includes("ownership registry classifies as shared"),
+    "the definition states the ownership property instead of sampling paths",
+  );
+  assert(
+    shared.definition.includes(
+      "/files-and-ownership#registered-project-paths",
+    ),
+    "the definition delegates the complete inventory to its generated table",
+  );
+});
+
 // Positive controls: prove the predicate discriminates, so the guard can't
 // rot into a test that passes because everything looks named.
 

@@ -70,7 +70,7 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 `discern_standards` accepts `names` to narrow both measurement and the candidates considered for `pin: true`. `discern_standards_propose` remains the separate one-standard proposal tool.
 
-`discern_refresh` accepts `dry_run: true`. Its plan covers agent files, materialized Skills, integrations, proof-note Git config, removals, and planning errors; preview has no `steps`. A normal call applies only those targets and reports `steps` ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
+`discern_refresh` accepts `dry_run: true`. Its plan covers agent files, materialized skills, integrations, Proof-note Git config, removals, and planning errors; preview has no `steps`. A normal call applies only those targets and reports `steps` ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
 
 ### Startup discovery
 
@@ -78,7 +78,7 @@ MCP `tools/list` returns full definitions. Clients choose the startup context. d
 
 ### Find a map or manual page
 
-`discern_map` and `discern_docs` expose the same discovery funnel over different authorities ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). `discern_map` reads the configured project's agent-maintained Map, including agent-visible pages withheld from publication. `discern_docs` is project-independent and reads discern's complete bundled public manual; it never admits the current project's Map, decision records, or protected Map tiers.
+`discern_map` and `discern_docs` expose the same discovery funnel over different authorities ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)). `discern_map` reads the configured project's agent-maintained map, including agent-visible pages withheld from publication. `discern_docs` is project-independent and reads discern's complete bundled public manual; it never admits the current project's map, decision records, or protected map tiers.
 
 | Inputs                 | Result                                                                                                                                           |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -91,7 +91,7 @@ A manual search result additionally carries `page_id` and `manual_kind`, so a ca
 
 Lexical matches with `match: "complete"` rank first. When fewer than five qualify, strong partial matches can fill the unused slots. Each must clear a query-length-scaled term-coverage floor. The ranker favors partials that add terms earlier results missed. Exact technical text and phrases in titles, aliases, headings, or code fields return phrase matches only. A longer lexical miss can fall back to a close title or alias. Queries shorter than four characters do not use edit-distance suggestions ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
-Map search includes `publish: false`. Docs search covers the public manual. Both are local, make no model call, and omit queries from the Logbook. Source-only HTML comments do not enter document content, headings, snippets, or ranking fields; comment syntax inside inline or fenced code remains literal content. Use `discern map --search <query>` or `discern docs --search <query>`, optionally after a target.
+Map search includes `publish: false`. Docs search covers the public manual. Both are local, make no model call, and omit queries from the logbook. Source-only HTML comments do not enter document content, headings, snippets, or ranking fields; comment syntax inside inline or fenced code remains literal content. Use `discern map --search <query>` or `discern docs --search <query>`, optionally after a target.
 
 `path` and `target` answer different location questions. `path` chooses which project or worktree a project-operating MCP call uses. `target` chooses a region or document inside that project's map.
 
@@ -113,7 +113,7 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 `ok: true` means every required outcome in the producing verb's completion policy holds. Required writes, validation, compilation, cleanup, and final checks cannot fail under a successful envelope. An explicitly optional degradation remains successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints do not waive required work ([ADR 0349](../_adr/0349-top-level-success-follows-completion-policies.md)).
 
-`ok` and the execution state form independent discriminated contracts. A failed Gate run can carry diagnostics and completed steps beside its classified error. A required late failure can carry typed partial-effect data and recovery because `ok: false` does not imply rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization omits undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md)).
+`ok` and the execution state form independent discriminated contracts. A failed gate run can carry diagnostics and completed steps beside its classified error. A required late failure can carry typed partial-effect data and recovery because `ok: false` does not imply rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization omits undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](../_adr/0334-result-envelopes-encode-valid-structural-states.md)).
 
 A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. Owner decisions occupy a separate Owner attention section before caller actions. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
 
@@ -127,7 +127,7 @@ Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments
 
 `status` identifies the project in `data.project`. Its default structured projection retains the main fleet row and at most six non-main rows, selected by attention, current-checkout, recent-activity, and lexical priority. Every repeated collection is capped at six. `fleet_total` and positive `projection.omitted` counts preserve exact omissions under dotted paths with zero-based array indexes. Config refusals carry `projection`. Every sampled readable row carries one `gate_proof`, whose status is `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. `report_only` is current for its commit but cannot authorize landing because checkpoint review was not enforced. An honored marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. Rendered Proof pages and earlier compatibility fields do not cross the structured-result boundary. Collision rows retain identities and shared-path counts. `discern status --verbose --json` and MCP `verbose: true` restore complete repeated collections and landing history with `projection: { mode: "full" }` and no omission map; terminal `--verbose` also holds collision paths and full Proof pages. See [Status and session hints](../30-worktrees/status.md) for the dashboard and projections.
 
-A green `done` result uses compact `data.proof`; `data.gate_ran` says whether Gate work ran or current Proof was reused. `data.mode = "report"` and checkpoint `review` are present only for the explicit CI lane; `checkpoint_drops` retains classified fail-open evidence. A successful `accept` carries only its consent-qualified `data.proof_line` plus any retained drops; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
+A green `done` result uses compact `data.proof`; `data.gate_ran` says whether gate work ran or current Proof was reused. `data.mode = "report"` and checkpoint `review` are present only for the explicit CI lane; `checkpoint_drops` retains classified fail-open evidence. A successful `accept` carries only its consent-qualified `data.proof_line` plus any retained drops; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
 
 An unlanded successful `setup done` carries Proof, canonical completion inventory, qualitative `inventory.project_context`, and landing state. It carries no reactivation or improvement advice. Project context includes the derived primary-subsystem handoff, project principles, and instruction sources. After successful `setup accept`, registry-derived `data.reactivation` carries each provider's exact check, local recovery, and command-line fallback. `data.activation_context` explains why a fresh session is necessary. `data.optional_improvement` remains conditional on activation verification. An in-place completion already on the trunk projects the same ordered activation contract.
 
@@ -135,7 +135,7 @@ An unlanded successful `setup done` carries Proof, canonical completion inventor
 
 Applied `setup` and `upgrade` results carry `data.instruction_refresh`. `status: "complete"` means the required instruction refresh completed, even when `compiled` is empty because every artifact was current. `status: "partial"` makes top-level `ok` false and carries the completed artifacts, non-empty failure evidence, `effects_preserved: true`, and `recovery: { command: "discern refresh", safe_to_retry: true }`. The partial result reports prior scaffold or migration effects rather than pretending they rolled back.
 
-A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
+A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal Proof line and `data.proof_line` repeat that evidence.
 
 ### Plans and executed steps
 
@@ -152,9 +152,9 @@ A successful `accept` reports the permission it used in `data.consent`: `source`
 | `output_lines`     | Number of captured output lines.                                                        |
 | `error_like_lines` | Number of lines shaped like compiler or linter diagnostics.                             |
 
-Output metadata is advisory. A configured command's exit status decides the job verdict, except for Standards. Their `DISCERN_METRIC` value is the measurement contract.
+Output metadata is advisory. A configured command's exit status decides the job verdict, except for standards. Their `DISCERN_METRIC` value is the measurement contract.
 
-Gate and standalone Standards results carry each Standard's `direction`, `limit`, optional `margin`, `measurement`, value, and verdict. A measured or replayed value also carries the Gate-owned `pin_eligible` decision and, when true, its exact `pin_target`. Those fields describe mechanical eligibility. Patterns applies the project-history decision rule ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
+Gate and standalone standards results carry each standard's `direction`, `limit`, optional `margin`, `measurement`, value, and verdict. A measured or replayed value also carries the gate-owned `pin_eligible` decision and, when true, its exact `pin_target`. Those fields describe mechanical eligibility. Patterns applies the project-history decision rule ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)).
 
 Patterns results always carry `data.investigations`. Each entry cites source ids that remain present in `data.findings`, repeats their observations and denominators with numerical provenance, and states the shared evidence boundary, bounded interpretation, diagnostic action, and falsifier. An empty array means no registered relationship cleared its evidence requirements. Terminal, JSON, Model Context Protocol, and sealed-archive reads use the same synthesis arithmetic ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 

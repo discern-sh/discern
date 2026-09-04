@@ -22,12 +22,12 @@ Reach the exact public contract by command, configuration, state, file, provider
 - [CLI reference](cli-reference.md): Look up every live command, subcommand, argument, flag, alias, and help owner.
 - [Config reference](config-reference.md): Look up every public discern.toml table, key, type, default, placeholder, and named-table rule.
 - [MCP and results](mcp-and-results.md): Look up MCP tools/resources, DiscernResult, JSON/Markdown delivery, schemas, versions, exits, and continuation/duration policy.
-- [Proof and checkpoint formats](proof-and-checkpoint-formats.md): Look up Proof-note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
+- [Proof and checkpoint formats](proof-and-checkpoint-formats.md): Look up Proof note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
 - [Environment variables](environment-variables.md): Look up every public input/exported environment variable, source, scope, and consumer.
 - [Files and ownership](files-and-ownership.md): Look up authored/shared/generated/runtime files, write ownership, setup/uninstall boundaries, temporary retention, and registered paths.
 - [Platforms and providers](platforms-and-providers.md): Look up supported platforms, prerequisites, provider-specific files/hooks, reload needs, identity limits, and secure-random boundary.
 - [Worktrees and status](worktrees-and-status.md): Look up worktree identity, environment/resources, status fields, session findings, and shell-opening contracts.
-- [Logbook](logbook.md): Look up local Logbook fields, storage, epochs, rotation, archive/reset lifecycle, and practice-stat definitions.
+- [Logbook](logbook.md): Look up local logbook fields, storage, epochs, rotation, archive/reset lifecycle, and practice-stat definitions.
 - [Licenses](licenses.md): Look up the license and provenance contract for discern-emitted project payloads.
 - [Glossary](glossary.md): Look up every canonical product term and its exact definition.
 

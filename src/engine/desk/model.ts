@@ -929,7 +929,7 @@ export const DESK_ACTION_REGISTRY = {
         ["Desk session and task state"],
         ["The selected agent may change files in this task"],
         [],
-        ["Exit the agent to return to the Desk"],
+        ["Exit the agent to return to the desk"],
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined => {
@@ -1022,7 +1022,7 @@ export const DESK_ACTION_REGISTRY = {
         ["Desk session and task state"],
         ["Shell commands may change this task"],
         [],
-        ["Exit the shell to return to the Desk"],
+        ["Exit the shell to return to the desk"],
       ),
     confirmation: NO_CONFIRMATION,
     availability: (facts: DeskActionFacts): string | undefined =>
@@ -1135,7 +1135,7 @@ export const DESK_ACTION_REGISTRY = {
         ["Task and branch"],
         ["Remove this task's landing authority"],
         ["Task landing grant"],
-        ["A later Desk session can grant authority again"],
+        ["A later desk session can grant authority again"],
       ),
     confirmation: {
       kind: "confirm",

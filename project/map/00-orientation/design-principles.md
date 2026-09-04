@@ -13,7 +13,7 @@ aliases:
 
 _Why discern works this way: the rules the system enforces and what each one means in your repository._
 
-Tests in discern's own Gate enforce each principle. An exception requires a written Architecture Decision Record (ADR), published in the [decision archive](../_adr/). These principles explain behavior that may otherwise be surprising.
+Tests in discern's own gate enforce each principle. An exception requires a written Architecture Decision Record (ADR), published in the [decision archive](../_adr/). These principles explain behavior that may otherwise be surprising.
 
 ### 1. The engine stays stack-neutral
 
@@ -21,7 +21,7 @@ discern never hardcodes a language, test runner, or framework. The engine runs t
 
 ### 2. Every fact has one home
 
-A fact has one authored source. Agent instructions compile from one source set, and the config reference generates from the config schema. When a closed vocabulary such as verbs, known jobs, or agent providers must appear in several places, a parity test ties each copy back to that source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the Gate.
+A fact has one authored source. Agent instructions compile from one source set, and the config reference generates from the config schema. When a closed vocabulary such as verbs, known jobs, or agent providers must appear in several places, a parity test ties each copy back to that source ([ADR 0051](../_adr/0051-canonical-set-parity.md)). A new member enrolls everywhere or fails the gate.
 
 ### 3. Re-running respects file ownership
 
@@ -33,11 +33,11 @@ The binary is self-contained (V8 baked in), so a project needs `discern` on `PAT
 
 ### 5. Unknown paths receive the full Gate
 
-A path that matches no scope counts as a code change and runs the full Gate ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)). An incorrect classification can therefore add checks. During a stage, the first failing job cancels its running siblings, and the result names the exact command ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
+A path that matches no scope counts as a code change and runs the full gate ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)). An incorrect classification can therefore add checks. During a stage, the first failing job cancels its running siblings, and the result names the exact command ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
 ### 6. discern runs on itself
 
-This repository's Gate runs the engine it ships directly from source. An engine regression therefore breaks discern's own build before that tree can pass its Gate. The engine has one source inside the binary, so no second copy can drift ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)).
+This repository's gate runs the engine it ships directly from source. An engine regression therefore breaks discern's own build before that tree can pass its gate. The engine has one source inside the binary, so no second copy can drift ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)).
 
 ### 7. discern writes only within declared paths
 
@@ -49,15 +49,15 @@ A file at its `discern/` default carries an implicit write license, so agents ma
 
 ### 9. Unused subsystems remain inert
 
-Worktrees you never start and Standards you never define do no work, so they have no toggle; each subsystem is core ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A toggle creates another state the product must test. `[skills].exclude` remains because a materialized Skill occupies agent context even when unused.
+Worktrees you never start and standards you never define do no work, so they have no toggle; each subsystem is core ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). A toggle creates another state the product must test. `[skills].exclude` remains because a materialized skill occupies agent context even when unused.
 
 ### 10. Required behavior belongs in checks
 
-When a behavior matters, discern encodes it as a check, a Standard, a parity test, or a refusal with a recovery action ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)). Checks remain visible when an agent session runs short of context; prose instructions may not.
+When a behavior matters, discern encodes it as a check, a standard, a parity test, or a refusal with a recovery action ([ADR 0077](../_adr/0077-setup-agent-is-the-configuration-engine.md)). Checks remain visible when an agent session runs short of context; prose instructions may not.
 
 ### 11. The map serves two readers
 
-The documentation tree discern maintains is the agents' Map of the codebase. Agents infer, write, and keep it current under the same Gate as the code. For people, the tree serves as an audit surface. The Markdown is browsable with `discern map` and over the Model Context Protocol (MCP), and discern's own Map is published as a trust exhibit at [discern.sh/map](https://discern.sh/map); the product manual is a separate corpus ([ADR 0314](../_adr/0314-separate-public-manual-and-project-map.md), amending [ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). An inaccurate page reveals a gap in the recorded project understanding. discern does not touch documentation outside the paths the project supplies (principle 8).
+The documentation tree discern maintains is the agents' Map of the codebase. Agents infer, write, and keep it current under the same gate as the code. For people, the tree serves as an audit surface. The Markdown is browsable with `discern map` and over the Model Context Protocol (MCP), and discern's own map is published as a trust exhibit at [discern.sh/map](https://discern.sh/map); the product manual is a separate corpus ([ADR 0314](../_adr/0314-separate-public-manual-and-project-map.md), amending [ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). An inaccurate page reveals a gap in the recorded project understanding. discern does not touch documentation outside the paths the project supplies (principle 8).
 
 ### 12. Uninstall retains project content
 

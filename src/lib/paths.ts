@@ -233,7 +233,7 @@ export const MAP_TIER_PUBLICATION_POSTURES = [
     tier: "numbered",
     posture: "public",
     boundary:
-      "numbered Map sources are tracked and selected pages may publish as public documentation or exhibits",
+      "numbered map sources are tracked and selected pages may publish as public documentation or exhibits",
   },
   {
     tier: "_adr",

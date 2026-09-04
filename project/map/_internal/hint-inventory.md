@@ -219,7 +219,7 @@ Rendered example:
 
 Rendered example:
 
-> Checkpoint 'deletion-heavy-change' (advisory — nothing blocks): Is the cut proven dead, and recovery bounded? Changed: `src/legacy_module.ext`.
+> Checkpoint 'deletion-heavy-change' (advisory — nothing blocks): Is the cut proven dead, and recovery bounded? Changed: `src/deprecated_module.ext`.
 
 ## `checkpoint-advisory`
 
@@ -830,7 +830,7 @@ Rendered example:
 
 Rendered example:
 
-> Preview the changed `site` scope by running `deno task site` from this worktree. The Gate reports this configured read-only action; it did not run it.
+> Preview the changed `site` scope by running `./scripts/preview-site.sh` from this worktree. The Gate reports this configured read-only action; it did not run it.
 
 ## `gate-proof-clear-failed`
 
@@ -1351,7 +1351,7 @@ Rendered example:
 
 Rendered example:
 
-> Complete every listed file and unmet check, then re-run `discern setup done`; use `--unproven` only to record completion without that proof.
+> Complete every listed file and unmet check, then re-run `discern setup done`; use `--unproven` only to record completion without that Proof.
 
 ## `setup-improvement-after-activation`
 
@@ -1446,7 +1446,7 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `setup-done-next`
-- Emitting context: Setup records an unproven completion event and therefore has no Gate Proof.
+- Emitting context: Setup records an unproven completion event and therefore has no gate Proof.
 
 Rendered example:
 
@@ -1483,7 +1483,7 @@ Rendered example:
 
 Rendered example:
 
-> Fix every reported materialization error, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
+> Fix every reported materialization error, then run `discern refresh` to materialize the ejected skill in every configured agent directory.
 
 ## `standards-limits-unverified`
 
@@ -1814,11 +1814,11 @@ Rendered example:
 
 Rendered example:
 
-> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). In the Desk, select each task and choose Show recovery steps before cleanup.
+> 5 worktrees have incomplete setup: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Show recovery steps before cleanup.
 
 Interactive example:
 
-> Diagnose 5 worktrees whose setup did not complete: incomplete, crashed, half-built, … (+2 more). In the Desk, select each task and choose Show recovery steps.
+> Diagnose 5 worktrees whose setup did not complete: incomplete, crashed, half-built, … (+2 more). In the desk, select each task and choose Show recovery steps.
 
 ## `status-fleet-member-ready`
 
@@ -1859,11 +1859,11 @@ Interactive example:
 
 Rendered example:
 
-> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Unsaved work is unverifiable. In the Desk, select each task and choose Show recovery steps.
+> 5 worktrees have unreadable Git state: damaged, missing, unreadable, … (+2 more). Unsaved work is unverifiable. In the desk, select each task and choose Show recovery steps.
 
 Interactive example:
 
-> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). In the Desk, select each task and choose Show recovery steps.
+> Investigate 5 worktrees whose Git state cannot be read: damaged, missing, unreadable, … (+2 more). In the desk, select each task and choose Show recovery steps.
 
 ## `status-full-structured-detail`
 

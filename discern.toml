@@ -455,6 +455,7 @@
     ".vale/DiscernBrand/RepeatedContrast.yml",
     ".vale/DiscernBrand/StackedSlogans.yml",
     ".vale/DiscernProduct/ProductName.yml",
+    ".vale/DiscernProduct/CanonicalTermCase.yml",
     ".vale/DiscernProduct/AgentBlame.yml",
     ".vale/DiscernAgent/BestJudgment.yml",
     ".vale/DiscernAgent/PositionalReference.yml",

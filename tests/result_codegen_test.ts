@@ -1,4 +1,9 @@
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { Ajv2020 } from "ajv-2020";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
@@ -382,20 +387,24 @@ Deno.test("the triangle publication keeps its established contract names", () =>
   assert(declarations.includes('verb: "triangle";'));
 });
 
-Deno.test("the manual links generated result declarations to a release tag", async () => {
+Deno.test("the manual routes generated declarations through release archives", async () => {
   const manual = await Deno.readTextFile(
     new URL(
       "../project/manual/30-reference/mcp-and-results.md",
       import.meta.url,
     ),
   );
-  assert(
-    manual.includes("/blob/v1.0.0/types/discern-json.d.ts"),
-    "the public declaration link must identify a published release",
+  assertStringIncludes(
+    manual,
+    "`types/discern-json.d.ts` in the matching release source archive",
   );
   assert(
     !manual.includes("/blob/main/types/discern-json.d.ts"),
     "a mutable trunk link cannot identify the published declaration contract",
+  );
+  assert(
+    !/\/blob\/v\d+\.\d+\.\d+\/types\/discern-json\.d\.ts/u.test(manual),
+    "the maintained manual must not freeze a package-version literal",
   );
 });
 

@@ -299,7 +299,7 @@ const scopeValue = z.strictObject({
     `The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/*.ext, src/*), a *.ext suffix at any depth, a /seg/ segment, or an exact path. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   neutral: z.boolean().default(false).describe(
-    "true: changes here need no Gate, as for documentation and agent instructions.",
+    "true: changes here need no gate, as for documentation and agent instructions.",
   ),
   preview: commandOrList.refine(
     (preview) => toCommandList(preview).length > 0,
@@ -366,11 +366,11 @@ const standardValue = z.strictObject({
   measure: z.enum(["gate", "on-demand"]).default("gate").describe(
     '"gate" measures inside every `discern done`, beside the tests. ' +
       '"on-demand" defers only the measurement to `discern standards`, for a metric too slow for every run; ' +
-      "the never-loosen check still runs on every Gate. Prefer `inputs` or a longer `timeout` first.",
+      "the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.",
   ),
   inputs: z.array(z.string()).optional().describe(
     "The paths this metric reads, as scope globs. When nothing under them changed since the last " +
-      "recorded measurement, the Gate replays that value instead of re-measuring and names the source commit. " +
+      "recorded measurement, the gate replays that value instead of re-measuring and names the source commit. " +
       "Omit to measure every time. " +
       LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
   ),
@@ -561,7 +561,7 @@ const metaSection = z.strictObject({
   setup_completion: discernWritten(
     "setup_completion",
     z.enum(["proven", "unproven"]).optional().describe(
-      "Evidence recorded for the setup completion event: proven by the Gate, or explicitly completed unproven.",
+      "Evidence recorded for the setup completion event: proven by the gate, or explicitly completed unproven.",
     ),
   ),
   setup_model: discernWritten(
@@ -589,7 +589,7 @@ const projectSection = z.strictObject({
     "Short, lowercase, dash-separated identity, used in worktree, site, and branch names.",
   ),
   gotchas_doc: z.string().default("").describe(
-    "The doc the Gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
+    "The doc the gate points an agent at when a stage fails in a non-obvious way. Keep it current with your stack's traps; empty disables the pointer.",
   ),
   todo: projectFilePath.default(SOURCE_PATHS.todo.defaultPath).describe(
     "The deferred-work ledger: the running TODO list agents read and maintain, relative to the project root.",
@@ -608,7 +608,7 @@ const projectSection = z.strictObject({
 
 const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
-    `The shared branch the Gate compares against and completed work lands on. Detected at setup; ${DISCERN_ENVIRONMENT_VARIABLES.trunk} overrides it per invocation.`,
+    `The shared branch the gate compares against and completed work lands on. Detected at setup; ${DISCERN_ENVIRONMENT_VARIABLES.trunk} overrides it per invocation.`,
   ),
   branch_prefix: z.string().default(DEFAULT_WORKTREE_BRANCH_PREFIX).describe(
     `Branch prefix for worktrees created by discern, e.g. "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature".`,
@@ -794,13 +794,13 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
 
 const gateSection = z.strictObject({
   stream: z.boolean().default(false).describe(
-    "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the Gate frame's bounded tail; CI, pipes, and --plain are static.",
+    "false groups each job's complete output in a static transcript; true streams prefixed lines. Live terminals always show the gate frame's bounded tail; CI, pipes, and --plain are static.",
   ),
   fail_fast: z.boolean().default(true).describe(
-    "Cancel the in-flight sibling commands the moment one fails; an agent-driven Gate wants a fast abort. false runs every job and shows all failures in one pass.",
+    "Cancel the in-flight sibling commands the moment one fails; an agent-driven gate wants a fast abort. false runs every job and shows all failures in one pass.",
   ),
   timeout: z.number().int().min(0).default(600).describe(
-    "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
+    "Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(1).describe(
     "Repository-wide cap on concurrent test-stage runs; excess runs wait. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.",

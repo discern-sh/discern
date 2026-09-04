@@ -1,6 +1,6 @@
 # Page-type templates
 
-These page shapes cover the Map's published tiers: overview, quickstart, guide, reference, and troubleshooting. Follow the [documenter brief](documenter-agent-brief.md) for each page's purpose and structure. Follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md) for register. Select the shape by the page's primary job; split a page that serves two jobs.
+These page shapes cover the map's published tiers: overview, quickstart, guide, reference, and troubleshooting. Follow the [documenter brief](documenter-agent-brief.md) for each page's purpose and structure. Follow the [product voice skill](../../skills/discern-product-voice/SKILL.md) for register. Select the shape by the page's primary job; split a page that serves two jobs.
 
 Each skeleton shows the full frontmatter that its page shape typically carries. Keep only keys permitted by the brief's frontmatter table. Word budgets count body prose and exclude frontmatter and code fences.
 

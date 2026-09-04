@@ -34,7 +34,7 @@ export interface GeneratedInventoryPolicy {
   readonly tests: readonly string[];
 }
 
-/** Every generated inventory framing policy, keyed by its canonical-set id. */
+/** Every repository inventory framing policy, keyed by its canonical-set id. */
 export const GENERATED_INVENTORY_POLICIES = {
   hints: {
     artifactPath: "project/map/_internal/hint-inventory.md",
@@ -65,8 +65,8 @@ export const GENERATED_INVENTORY_POLICIES = {
     title: "Tip inventory",
     subtitle: "Every Desk tip, generated from the live registry.",
     framing: [
-      "Entries follow the authored order, which defines the onboarding sequence. The sequence starts with the Desk, orientation, an isolated working copy, and the daily loop. It then covers human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons may appear earlier when live state makes them relevant. Place each new tip at its intended learning point.",
-      "Every rendered line is one or two short sentences and no more than {{TIP_RENDERED_LENGTH_LIMIT}} characters, a two-to-three-line wrap at ordinary Desk widths. Commands come from typed references. The register guard applies the plain-language jargon scan and permits only terms listed with a reason in its Desk allowlist.",
+      "Entries follow the authored order, which defines the onboarding sequence. The sequence starts with the desk, orientation, an isolated working copy, and the daily loop. It then covers human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons may appear earlier when live state makes them relevant. Place each new tip at its intended learning point.",
+      "Every rendered line is one or two short sentences and no more than {{TIP_RENDERED_LENGTH_LIMIT}} characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard applies the plain-language jargon scan and permits only terms listed with a reason in its desk allowlist.",
       "The guard omits a reading-grade ceiling because command names and placeholders distort scores on samples this short, while aggregates can hide a dense line. Per-tip jargon, sentence-count, and length checks enforce the register directly.",
     ],
     memberWording: {
