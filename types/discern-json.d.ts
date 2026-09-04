@@ -398,6 +398,9 @@ export type __schema0 = {
     flags: Array<string>;
     description: string;
     type_definition: string;
+    arity: number;
+    value_types: Array<string>;
+    default_value: unknown;
     hidden: boolean;
     global: boolean;
   }>;

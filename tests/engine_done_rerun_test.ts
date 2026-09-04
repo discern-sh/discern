@@ -158,16 +158,16 @@ Deno.test("done: current green Proof is reused on JSON, Markdown, human, and in-
     assertEquals(env.data.gate_ran, false);
     assertEquals(env.data.proof, firstEnv.data.proof);
     assert(typeof env.message === "string");
-    assertStringIncludes(env.message, "no Gate job ran");
+    assertStringIncludes(env.message, "no gate job ran");
 
     const markdown = await runAgent(wt, ["done", "--markdown"]);
     assertEquals(markdown.code, 0, markdown.output);
-    assertTerminalTextIncludes(markdown.output, "no Gate job ran");
+    assertTerminalTextIncludes(markdown.output, "no gate job ran");
     assertStringIncludes(markdown.output, "Proof");
 
     const human = await runAgent(wt, ["done"]);
     assertEquals(human.code, 0, human.output);
-    assertTerminalTextIncludes(human.output, "no Gate job ran");
+    assertTerminalTextIncludes(human.output, "no gate job ran");
 
     const inProcess = await finishResult(wt, {
       surface: { kind: "quiet" },

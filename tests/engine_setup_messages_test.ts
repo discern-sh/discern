@@ -112,7 +112,7 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, relay fa
     msg,
     "managed blocks in `.gitignore` and `.gitattributes`",
   );
-  assertStringIncludes(msg, "Agent files `CLAUDE.md`, `AGENTS.md`");
+  assertStringIncludes(msg, "agent files `CLAUDE.md`, `AGENTS.md`");
   assertStringIncludes(
     msg,
     "Generated, Git-ignored provider skill directories",

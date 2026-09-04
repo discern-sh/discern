@@ -2199,11 +2199,11 @@ export function buildInstructions(): string {
     OPERATING_POLICIES.find((policy) => policy.id === id)?.statement ?? "";
   const firstParagraph = [
     "Start with discern_status.",
-    "On trunk, discern_start opens and selects an isolated worktree.",
+    "On trunk, discern_start opens an isolated worktree.",
     statement("iterate-fast-loop"),
     statement("done-is-the-bar"),
     statement("update-behind"),
-    "Use discern_await for a sibling or trunk dependency.",
+    "Use discern_await for dependencies.",
     statement("accept-on-handoff"),
   ].join(" ");
   const remainingPolicies = OPERATING_POLICIES

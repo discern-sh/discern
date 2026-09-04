@@ -93,7 +93,7 @@ realPtyTest({
         input: "\x1b[F\r",
       });
       assertEquals(r.code, 0, r.output);
-      assertTerminalTextIncludes(r.output, "Choose a Desk command");
+      assertTerminalTextIncludes(r.output, "Choose a desk command");
       assertStringIncludes(r.output, "DESK");
       assertStringIncludes(r.output, "SESSION");
       assertTerminalTextIncludes(r.output, "› [●] Quit");

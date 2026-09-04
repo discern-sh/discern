@@ -517,7 +517,7 @@ Where your executable project scripts live. `discern scripts <name>` resolves th
 
 ## `[meta]`
 
-installer bookkeeping. discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.
+Installer bookkeeping. discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.
 
 | Key                | Type                   | Default | Description                                                                                                                                               |
 | ------------------ | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -26,18 +26,17 @@ export interface OperatingPolicy {
 
 /** How an agent communicates while one resumable fleet watch is in progress. */
 export const AWAIT_WATCH_POLICY =
-  "Do not surface progress until it returns. On `data.met: false`, resume " +
-  "with `data.resume` without an update; repeat without a fixed limit until " +
+  "Do not surface progress updates until it returns. On `data.met: false`, continue " +
+  "with `data.resume` without surfacing an update; repeat without a fixed limit until " +
   "met, stopped, or unnecessary. Never resume " +
   "`ok: false`; follow its recovery hint. Report only when the condition holds, the watch is " +
-  "unnecessary, or an error needs action. Always respond to new user input.";
+  "unnecessary, or errors need action. Always respond to new user input.";
 
 /** The effort boundary that decides whether `start` creates a worktree. */
 export const WORKTREE_CONTINUITY_CORE =
-  "One worktree lasts for an effort, across review feedback and " +
-  "resumed sessions. If this effort already has one, continue at its recorded " +
-  "path; pass `path` to every discern tool. If that path " +
-  "is unavailable, ask for it instead of creating another.";
+  "Keep one worktree for an effort across review feedback and resumed " +
+  "sessions. If this effort already has one, continue at its recorded path; " +
+  "pass `path` to every discern tool. If unavailable, ask for its path instead of creating another.";
 
 /** Render the continuity rule with the command name appropriate to its surface. */
 export function worktreeContinuityPolicy(startCommand: string): string {
@@ -54,8 +53,8 @@ export const OPERATING_POLICIES = [
       /one worktree[^.\n]{0,80}(?:an|the whole|the entire) (?:effort|line of work)/i,
       /review feedback/i,
       /resumed? (?:session|turn)s?/i,
-      /effort already has one[^.\n]{0,100}(?:continue|resume|return)[^.\n]{0,80}recorded path/i,
-      /path is unavailable[^.\n]{0,80}ask[^.\n]{0,100}creating another/i,
+      /effort already has (?:one|a worktree)[^.\n]{0,100}(?:continue|resume|return)[^.\n]{0,80}recorded path/i,
+      /(?:path is|If) unavailable[^.\n]{0,80}ask[^.\n]{0,100}creating another/i,
       /do not call `?discern(?:_| )start`? again/i,
     ],
   },
@@ -63,8 +62,8 @@ export const OPERATING_POLICIES = [
     id: "worktree-first",
     statement:
       "On trunk, discern_start opens an isolated worktree and re-aims tools. Move " +
-      "your own file operations too; otherwise edits hit trunk while the gate runs " +
-      "in the worktree, so use `cd <path> &&` and pass `path` to every discern tool.",
+      "own file operations there; otherwise edits hit trunk while the gate runs " +
+      "in the worktree. Use `cd <path> &&` and pass `path` to every discern tool.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],
   },
@@ -107,11 +106,11 @@ export const OPERATING_POLICIES = [
     probes: [
       /discern_await/,
       /longest[ -]safe/i,
-      /do not surface progress until it returns/i,
+      /do not surface progress updates until it returns/i,
       /data\.met: false/,
-      /data\.resume.*without an update/i,
+      /data\.resume.*without surfacing an update/i,
       /Report only when the condition holds/,
-      /respond to new user input/i,
+      /(?:respond to|Answer) new user input/i,
     ],
   },
   {
@@ -135,7 +134,7 @@ export const OPERATING_POLICIES = [
       "set; grants never cover it.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /^On discern_done,/,
+      /On `?discern_done`?,/,
       /served question/i,
       /\bmet\b[^.\n]{0,80}satisfied[^.\n]{0,80}question/i,
       /\bunmet\b[^.\n]{0,80}secret-free/i,
@@ -147,13 +146,13 @@ export const OPERATING_POLICIES = [
   {
     id: "standalone-test-on-demand",
     statement:
-      "discern_test runs complete tests on demand. discern_done includes them, " +
-      "so the final gate needs no standalone preflight.",
+      "discern_test runs the complete test stage on demand; discern_done includes " +
+      "that test stage, so a final gate needs no standalone test preflight.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /discern_test[^.\n]{0,100}complete tests[^.\n]{0,60}on demand/i,
-      /discern_done[^.\n]{0,100}includes them/i,
-      /final gate[^.\n]{0,80}no standalone preflight/i,
+      /discern_test[^.\n]{0,100}complete test stage[^.\n]{0,60}on demand/i,
+      /discern_done[^.\n]{0,100}includes(?:[^.\n]{0,60}test stage| it)/i,
+      /final gate[^.\n]{0,80}no standalone (?:test )?preflight/i,
     ],
   },
 ] as const satisfies readonly OperatingPolicy[];

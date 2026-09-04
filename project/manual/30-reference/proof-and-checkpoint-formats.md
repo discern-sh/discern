@@ -160,7 +160,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 _A Proof note is the durable claim that `discern accept` attaches to a landed commit._
 
-A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/discern`. Its schema is <https://discern.sh/schema/v1/discern-Proof note.schema.json>:
+A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/discern`. Its schema is <https://discern.sh/schema/v1/discern-proof-note.schema.json>:
 
 ```json
 {

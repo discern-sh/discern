@@ -1082,7 +1082,7 @@
       "additionalProperties": false
     },
     "meta": {
-      "description": "installer bookkeeping.",
+      "description": "Installer bookkeeping.",
       "default": {},
       "type": "object",
       "properties": {

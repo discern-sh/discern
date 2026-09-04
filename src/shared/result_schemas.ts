@@ -2247,6 +2247,9 @@ export interface HelpCommandData {
     flags: string[];
     description: string;
     type_definition: string;
+    arity: number;
+    value_types: string[];
+    default_value: unknown;
     hidden: boolean;
     global: boolean;
   }>;
@@ -2269,6 +2272,9 @@ export const HelpCommandDataSchema: z.ZodType<HelpCommandData> = z.lazy(() =>
       flags: z.array(z.string()),
       description: z.string(),
       type_definition: z.string(),
+      arity: z.number().int().nonnegative(),
+      value_types: z.array(z.string()),
+      default_value: z.unknown(),
       hidden: z.boolean(),
       global: z.boolean(),
     })),

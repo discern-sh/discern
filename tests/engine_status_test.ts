@@ -35,6 +35,7 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { WORKTREE_CONTINUITY_CORE } from "../src/shared/operating_policies.ts";
 import { KNOWN_JOBS, type KnownJob } from "../src/shared/capabilities.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
@@ -613,10 +614,7 @@ Deno.test("status: a main-rooted follow-up leads with its existing effort before
     );
     const continuity = assertHasHint(obj, HINTS["status-start-on-trunk"]);
     const ownership = assertHasHint(obj, HINTS["fleet-ownership"]);
-    assertStringIncludes(
-      continuity,
-      "If this effort already has a worktree, continue there using its recorded path",
-    );
+    assertStringIncludes(continuity, WORKTREE_CONTINUITY_CORE);
     assertStringIncludes(continuity, "Do not call `discern start` again");
     assertStringIncludes(
       ownership,

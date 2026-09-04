@@ -554,7 +554,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
         target(
           "path",
           "{{map_dir}}_adr/",
-          "The project's ADRs live in the configured Map, at `{{map_dir}}_adr/`.",
+          "The project's ADRs live in the configured map, at `{{map_dir}}_adr/`.",
         ),
         target(
           "stable",

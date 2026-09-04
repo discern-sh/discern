@@ -439,7 +439,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Everything I set up here is inherited by future sessions, so it is worth using your strongest suitable reasoning model. I will record the current provider and model as self-reported context, not as Proof of capability. Would you like to switch models first, or shall I carry on here? Nothing has been written yet.",
+        "Everything I set up here is inherited by future sessions, so it is worth using your strongest suitable reasoning model. I will record the current provider and model as self-reported context, not as proof of capability. Would you like to switch models first, or shall I carry on here? Nothing has been written yet.",
       experienced:
         "Setup authors persistent project context. I recommend the strongest suitable reasoning model available. Switch through the provider's model selector and restart with `Run discern setup`, or explicitly continue here; I will record self-declared provenance either way.",
     },
@@ -913,7 +913,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "adaptive",
       message:
-        "The project's checks now pass together through discern's final quality check, the gate. It runs <enforced protections>; <absent protections> are still missing, and <inapplicable protections> do not apply. This proves the configured feedback loop, not permission to land. I am continuing with the separate-workspace Proof and final context review.",
+        "The project's checks now pass together through discern's final quality check, the gate. It runs <enforced protections>; <absent protections> are still missing, and <inapplicable protections> do not apply. This proves the configured feedback loop, not permission to land. I am continuing with the separate-workspace check and final context review.",
       experienced:
         "The configured gate is green with <enforced protections>; <absent protections> remain absent and <inapplicable protections> are excluded. This is scoped evidence, not landing authority. Worktree Proof and the final context recheck remain.",
     },
@@ -944,14 +944,14 @@ export const SETUP_HUMAN_MOMENTS = [
     agent_behavior: {
       before_owner_action: "wait",
       after_owner_action:
-        "Incorporate the correction, then continue to smoke Proof before final documentation synthesis.",
+        "Incorporate the correction, then continue to the smoke check before final documentation synthesis.",
     },
     options: [
       {
         id: "confirm-mental-model",
         label: "Confirm the project understanding",
         consequence:
-          "The bounded page plan proceeds to smoke Proof and final synthesis.",
+          "The bounded page plan proceeds to the smoke check and final synthesis.",
         owner_action:
           "Confirm the proposed start point, boundary, and invariant.",
         agent_action: "Retain the plan and continue.",
@@ -1133,7 +1133,7 @@ export const SETUP_HUMAN_MOMENTS = [
     relay: {
       protection: "verbatim-list",
       message:
-        "Setup is ready for review. Later agents will begin in <plain primary area> at <start point>. The other lasting areas are <durable areas>. One important rule setup found is <concrete rule>. The final quality check now runs <protections>, with <gaps> still open. <open items>. The Proof that the finished change passed the project's checks (Proof), <Proof line>, belongs to this exact commit and does not give permission to land. The setup remains on <branch> until you decide what reaches <trunk>.",
+        "Setup is ready for review. Later agents will begin in <plain primary area> at <start point>. The other lasting areas are <durable areas>. One important rule setup found is <concrete rule>. The final quality check now runs <protections>, with <gaps> still open. <open items>. This is proof that the finished change passed the project's checks (Proof): <Proof line>. That evidence belongs to this exact commit and does not give permission to land. The setup remains on <branch> until you decide what reaches <trunk>.",
       experienced:
         "Completion covers primary area <name> at <start>, durable regions <areas>, invariant <rule>, enforced and absent checks, open items, canonical inventory, and <Proof>. Proof binds to the current commit and grants no landing authority; <branch> remains unlanded pending the owner's choice.",
     },

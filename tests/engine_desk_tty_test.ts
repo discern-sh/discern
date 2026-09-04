@@ -32,10 +32,10 @@ import { realPtyTest } from "./real_pty.ts";
 
 const PTY_UNAVAILABLE = Deno.build.os === "windows";
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9:;]*m`, "u");
-const EMPTY_ROOT_READY = ["Choose a Desk command", "Quit"] as const;
-const TASK_ROOT_READY = ["Choose a task or Desk command", "Quit"] as const;
+const EMPTY_ROOT_READY = ["Choose a desk command", "Quit"] as const;
+const TASK_ROOT_READY = ["Choose a task or desk command", "Quit"] as const;
 const TASK_START_SELECTED = [
-  "Choose a task or Desk command",
+  "Choose a task or desk command",
   "› [●] Start a task",
 ] as const;
 const TASK_ACTION_READY = ["Choose an action"] as const;
@@ -178,7 +178,7 @@ realPtyTest({
         geometry: { columns: 40, rows: 16 },
         colorMode: "no-color-env",
         input: [{
-          waitFor: ["Choose a Desk command", "Start a task"],
+          waitFor: ["Choose a desk command", "Start a task"],
           capture: focusedCapture("root", "Start a task", "3 more"),
           chunks: [{ keys: ["end", "enter"] }],
         }],
@@ -559,7 +559,7 @@ realPtyTest({
             waitFor: TASK_ROOT_READY,
             capture: focusedCapture(
               `${key}-at-root`,
-              "Choose a task or Desk command",
+              "Choose a task or desk command",
             ),
             chunks: [{
               keys: [key],
@@ -609,7 +609,7 @@ realPtyTest({
           assert(dismissedAt >= 0, action.message);
           assert(
             action.message.indexOf(
-              "Choose a task or Desk command",
+              "Choose a task or desk command",
               dismissedAt,
             ) >
               dismissedAt,
@@ -693,7 +693,7 @@ realPtyTest({
             waitFor: TASK_ROOT_READY,
             capture: focusedCapture(
               "narrow",
-              "Choose a task or Desk command",
+              "Choose a task or desk command",
             ),
             chunks: [{ resize: { columns: 120, rows: 50 } }, {
               keys: ["down"],

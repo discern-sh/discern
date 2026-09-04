@@ -2070,7 +2070,7 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     const proofContent = proof.result.structuredContent.data.doc.content;
     assertStringIncludes(
       proofContent,
-      "A green Gate also leaves the code where it is",
+      "A green gate also leaves the code where it is",
     );
     assertStringIncludes(
       proofContent,
@@ -3908,11 +3908,11 @@ Deno.test("discern mcp: await bounds follow the server's configured transport pr
     assert(tool !== undefined);
     assertStringIncludes(
       tool.description,
-      "Do not surface progress until it returns",
+      "Do not surface progress updates until it returns",
     );
     assertStringIncludes(
       tool.description,
-      "resume with `data.resume` without an update",
+      "continue with `data.resume` without surfacing an update",
     );
     assertStringIncludes(tool.description, AWAIT_WATCH_POLICY);
 
@@ -4604,7 +4604,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
     );
     assertStringIncludes(
       mapResource?.description ?? "",
-      "configured project Map",
+      "configured project map",
     );
 
     // resources/templates/list → the {+target} doc templates. The `+` is RFC 6570

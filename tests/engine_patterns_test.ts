@@ -1150,7 +1150,7 @@ Deno.test("patterns: a seeded logbook yields two-layer findings that validate", 
     assertEquals(thrash.evidence.consecutive_failures, 3);
     assertStringIncludes(thrash.observed, "3 consecutive runs");
     assertEquals(thrash.tone, "attention");
-    assertStringIncludes(thrash.summary, "repeated red Gates");
+    assertStringIncludes(thrash.summary, "repeated red gates");
     assertEquals("brief" in thrash, false);
     assertStringIncludes(thrash.next_step, "discern-cure-a-bug");
     assertEquals(thrash.scope, "branch");
@@ -1654,7 +1654,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
-    assertStringIncludes(card, "1 red run stopped at the Gate");
+    assertStringIncludes(card, "1 red run stopped at the gate");
     assertStringIncludes(
       card,
       "`api-review` fired on 1 of 2 efforts (1 serving); declared 1 " +
@@ -1666,7 +1666,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 failed runs · 2 reached a clean Gate / 1 had a failure · 1 retried cycle / 1 retry run",
+      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 failed runs · 2 reached a clean gate / 1 had a failure · 1 retried cycle / 1 retry run",
     );
     assertStringIncludes(
       card,
@@ -1693,7 +1693,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "1 limit tightened across 1 standard. Loosening fails the Gate.",
+      "1 limit tightened across 1 standard. Loosening fails the gate.",
     );
     assertStringIncludes(
       card,
@@ -1882,7 +1882,7 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertTerminalTextIncludes(normalized(r.output), "Claude Code 1");
     assertTerminalTextIncludes(
       normalized(r.output),
-      "The report is advisory and does not change the Gate.",
+      "The report is advisory and does not change the gate.",
     );
     assertTerminalTextIncludes(normalized(r.output), "Next action:");
     assertStringIncludes(
@@ -2535,7 +2535,7 @@ realPtyTest({
       assertEquals(apply.code, 0, apply.output);
       assertTerminalTextIncludes(
         normalized(apply.output),
-        "Removed the active Logbook",
+        "Removed the active logbook",
       );
       let logbookGone = false;
       try {

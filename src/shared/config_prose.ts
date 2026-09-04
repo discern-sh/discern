@@ -391,7 +391,7 @@ revisit.
       "`discern scripts <name>` resolves the name literally, runs it from the project root with `DISCERN_ROOT`, `DISCERN_TOML`, `DISCERN_SCRIPTS_DIR`, and `DISCERN_TRUNK`, and forwards every argument. Other config stays available through `discern config get`.",
   },
   meta: {
-    what: "installer bookkeeping.",
+    what: "Installer bookkeeping.",
     why:
       "discern writes these keys while setting up or upgrading the project. They record schema and setup evidence; nothing here needs hand-editing.",
     keys: Object.fromEntries(

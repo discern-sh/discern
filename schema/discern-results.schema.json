@@ -31073,6 +31073,18 @@
               "type_definition": {
                 "type": "string"
               },
+              "arity": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "value_types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "default_value": {},
               "hidden": {
                 "type": "boolean"
               },
@@ -31084,6 +31096,9 @@
               "flags",
               "description",
               "type_definition",
+              "arity",
+              "value_types",
+              "default_value",
               "hidden",
               "global"
             ]

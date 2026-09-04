@@ -120,7 +120,7 @@ These are the only Git configuration entries discern writes. discern stores all 
 | `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the common value and obsolete worktree-local copies.                     |
 | `extensions.worktreeConfig`                                     | Clone-local  | Pre-v1 generated-merge setup     | Removes it only when no surviving checkout-specific configuration depends on it. |
 | `discern.proofNotesFetchRemote`                                 | Clone-local  | Proof note fetch reconciliation  | Removes each recorded ownership marker.                                          |
-| `remote.<name>.fetch with one exact discern proof-note mapping` | Remote entry | Proof note fetch reconciliation  | Removes only the exact mappings paired with discern's ownership marker.          |
+| `remote.<name>.fetch with one exact discern Proof note mapping` | Remote entry | Proof note fetch reconciliation  | Removes only the exact mappings paired with discern's ownership marker.          |
 
 The generated merge driver has one definition in the common clone config and is effective from the main checkout and every linked worktree. Reconciliation migrates redundant `config.worktree` copies. A fresh clone has the tracked attributes but not clone-local configuration; its first setup or `discern refresh` installs the shared driver. An identical unmarked remote fetch mapping is project-owned and remains unchanged.
 

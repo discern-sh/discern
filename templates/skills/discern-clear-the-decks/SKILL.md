@@ -51,7 +51,7 @@ Close with what you did **not** cut, and why: couldn't prove it dead, genuinely 
 
 Use this report shape so the evidence and residual survive the handoff:
 
-> I removed <cuts> with <evidence>. <standard> holds the improved metric. I left <residual>. <Proof>
+> I removed <cuts> with <evidence>. <standard> holds the improved metric. I left <residual>. <proof>
 
 One escalation to watch for: if the sweep keeps surfacing the same _living_ pattern — not dead, but everywhere and wrong — that is not clean-up, it is a migration. Hand it to `discern-set-the-standard`'s outlaw procedure, which makes a pattern illegal and standards it to zero.
 

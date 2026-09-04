@@ -109,7 +109,7 @@ Deno.test("the Gate contract documents its registry order, fixed child environme
     new URL("../project/map/20-quality-gate/standards.md", import.meta.url),
   );
   assertStringIncludes(standards, "the last matching marker wins");
-  assertStringIncludes(standards, "exit status does not decide a Standard");
+  assertStringIncludes(standards, "exit status does not decide a standard");
 });
 
 Deno.test("CLI, MCP, and composite done paths share one preamble implementation", async () => {

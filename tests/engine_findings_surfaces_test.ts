@@ -31,7 +31,7 @@ import {
 } from "./decode_cli_result.ts";
 
 const BRANCH_SUMMARY =
-  "This branch had repeated red Gates in one conversation.";
+  "This branch had repeated red gates in one conversation.";
 const SESSION_SUMMARY = "The same command refusal recurred on this branch.";
 const SESSION_NEXT =
   "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.";

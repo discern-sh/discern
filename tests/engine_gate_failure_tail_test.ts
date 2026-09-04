@@ -244,7 +244,7 @@ Deno.test("done: a failing gate ends on the actionable recap, surviving `2>&1 | 
     );
     const help = await runPrintedCommand(dir, helpCommand);
     assertEquals(help.code, 0, help.stderr);
-    assertTerminalTextIncludes(help.stdout, "When the Gate fails");
+    assertTerminalTextIncludes(help.stdout, "When the gate fails");
   });
 });
 

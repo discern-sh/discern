@@ -1673,7 +1673,7 @@ Deno.test("command help keeps the product manual and project Map distinct", asyn
       manual.stdout,
       "complete bundled product manual",
     );
-    assertTerminalTextIncludes(map.stdout, "configured project Map");
+    assertTerminalTextIncludes(map.stdout, "configured project map");
     assert(!manual.stdout.includes("agent-maintained Map"));
   });
 });

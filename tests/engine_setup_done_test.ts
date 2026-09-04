@@ -751,7 +751,7 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --unprove
     // --unproven is the explicit bypass: it skips the proof and records anyway.
     const forced = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(forced.code, 0, forced.output);
-    assertTerminalTextIncludes(forced.stdout, "the Gate did not prove it");
+    assertTerminalTextIncludes(forced.stdout, "the gate did not prove it");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",

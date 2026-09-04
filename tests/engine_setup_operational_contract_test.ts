@@ -767,7 +767,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       "--markdown",
     ]);
     assertEquals(markdown.code, 0, markdown.output);
-    assert(markdown.stdout.includes("without Gate Proof"));
+    assert(markdown.stdout.includes("without gate Proof"));
     assert(markdown.stdout.includes("project-guide areas"));
     assert(!markdown.stdout.includes("discern setup accept"));
     assert(!markdown.stdout.includes("discern improvement"));

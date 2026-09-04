@@ -426,7 +426,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
   assert(
     reclaimingPlan.details.some(
       (d) =>
-        d.includes("branch refs kept") && d.includes("gate proof included"),
+        d.includes("branch refs kept") && d.includes("gate Proof included"),
     ),
     "the reclaim confirmation must name what is kept and what is destroyed",
   );

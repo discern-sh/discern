@@ -2189,7 +2189,7 @@ Deno.test("validation findings: cross-context divergence names every changed con
     excluded_outcomes: 0,
   });
   assertStringIncludes(finding?.observed ?? "", "standalone test 2 red");
-  assertStringIncludes(finding?.observed ?? "", "full Gate 2 green");
+  assertStringIncludes(finding?.observed ?? "", "full gate 2 green");
   assertEquals(differingDimensions(findingBasis(finding)), [
     "capture-boundary",
     "execution-mode",

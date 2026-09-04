@@ -739,7 +739,7 @@ function standardEvidence(standard: GateStandard): string {
     case "deferred":
       return 'Measurement is deferred by measure = "on-demand".';
     case "skipped":
-      return "The Gate stopped before this standard measurement ran.";
+      return "The gate stopped before this standard measurement ran.";
   }
 }
 

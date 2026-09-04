@@ -664,7 +664,7 @@ Deno.test("setup done serves the completion message at parity across the human r
     for (
       const needle of [
         "Relay the message below to your human",
-        "discern setup was recorded without a Gate Proof",
+        "discern setup was recorded without a gate Proof",
         "No quality checks are wired yet",
         "project-guide areas",
       ]

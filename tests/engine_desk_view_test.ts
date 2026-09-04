@@ -676,7 +676,7 @@ Deno.test("action plans use package command, procedure, consequence, and warning
   assertStringIncludes(scriptText, "Publish the current checkout");
   assertStringIncludes(scriptText, "Confirmation policy: required");
   assertStringIncludes(scriptText, "Destructive policy: undeclared");
-  assertStringIncludes(scriptText, "Human confirmation in the Desk");
+  assertStringIncludes(scriptText, "Human confirmation in the desk");
 });
 
 Deno.test("recovery, main, and completion views use package workflow evidence", () => {

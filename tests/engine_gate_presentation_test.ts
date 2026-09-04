@@ -676,7 +676,7 @@ Deno.test("Gate Standards render every measurement and verdict without invented 
       "replayed from abc1234",
       "Measurement is deferred",
       "Run discern standards.",
-      "The Gate stopped before this Standard measurement ran.",
+      "The gate stopped before this standard measurement ran.",
     ]
   ) {
     assertStringIncludes(rendered.replaceAll(/\s+/gu, " "), fact);
@@ -748,7 +748,7 @@ Deno.test("Gate Proof presents every recording and currency state truthfully", (
       { width: 76, terminal: PLAIN },
     );
     const state = GATE_PROOF_RECORD_PRESENTATION[status];
-    assertStringIncludes(rendered, "Gate proof");
+    assertStringIncludes(rendered, "**Proof:**");
     assertStringIncludes(rendered, state.stateLabel);
     assertStringIncludes(rendered, state.summary);
     assertStringIncludes(rendered, "1 passed, 1 skipped");

@@ -67,7 +67,9 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
       );
       for (const topic of provider.humanSetupAdvice.humanOnlyTopics) {
         assert(
-          provider.humanSetupAdvice.handoff.includes(topic),
+          provider.humanSetupAdvice.handoff.toLocaleLowerCase("en-US").includes(
+            topic.toLocaleLowerCase("en-US"),
+          ),
           `"${name}" marks "${topic}" as human-only, but its setup handoff does ` +
             "not contain that topic",
         );

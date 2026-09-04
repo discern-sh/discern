@@ -163,9 +163,10 @@ Deno.test("the programme closeout accounts for every finding and decision", asyn
   );
   assert(accountingStart >= 0 && accountingEnd > accountingStart);
   const accounting = programme.slice(accountingStart, accountingEnd);
-  const decisionRows = accounting.split("\n").filter((line) =>
-    /^\| [1-6]A \|/.test(line)
-  );
+  const decisionRows = accounting.split("\n").filter((line) => {
+    const carrier = line.split("|")[1]?.trim();
+    return carrier !== undefined && /^[1-6]A$/.test(carrier);
+  });
   const accounted = decisionRows.flatMap(decisionIds);
   const declared = [...source.matchAll(/^\d+\. \[x\] \*\*(D-\d{2}) /gm)]
     .map((match) => match[1] ?? "");

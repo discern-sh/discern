@@ -321,7 +321,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
     assertEquals(unreadHuman.code, 0, unreadHuman.output);
     assertTerminalTextIncludes(
       unreadHuman.stdout.replaceAll(/\s+/gu, ""),
-      `proof unavailable in this discern version (${newerFormat})`.replaceAll(
+      `Proof unavailable in this discern version (${newerFormat})`.replaceAll(
         /\s+/gu,
         "",
       ),
@@ -733,7 +733,7 @@ Deno.test("proof-note replay keys identity to subject and stable claim", async (
       insertions: proof.insertions + 1,
     });
     assertEquals(conflicting.status, "record_failed");
-    assertStringIncludes(conflicting.reason ?? "", "different proof note");
+    assertStringIncludes(conflicting.reason ?? "", "different Proof note");
   });
 });
 

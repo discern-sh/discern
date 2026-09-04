@@ -1003,7 +1003,7 @@ Deno.test("desk bootstrap and refresh failures remain actionable", async () => {
         select: (options) => {
           assertStringIncludes(
             String(options.message),
-            "Choose a Desk command",
+            "Choose a desk command",
           );
           return REFRESH;
         },
@@ -1246,7 +1246,7 @@ Deno.test("desk starts a named task and focuses its ready worktree immediately",
   assertStringIncludes(menus[0]?.options ?? "", "Start a task");
   assertStringIncludes(
     menus[0]?.message ?? "",
-    "Choose a Desk command",
+    "Choose a desk command",
   );
   assert(
     menus.some((menu) => menu.message === "Choose an action"),
@@ -2081,7 +2081,7 @@ Deno.test("desk explains missing configured agents and launches available argv i
     menu.message.startsWith("Choose an agent for Agents")
   );
   const boardMenu = menus.find((menu) =>
-    menu.message === "Choose a task or Desk command"
+    menu.message === "Choose a task or desk command"
   );
   assert(actionMenu !== undefined);
   assert(agentMenu !== undefined);
@@ -3041,7 +3041,7 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertStringIncludes(message, "agent/stage-a");
   assertStringIncludes(message, "KEPT");
   assertStringIncludes(message, "agent/stage-b");
-  assertStringIncludes(message, "gate proof included");
+  assertStringIncludes(message, "gate Proof included");
   assertEquals(confirmOptions, [{
     defaultTo: false,
     noLabel: "Keep",
