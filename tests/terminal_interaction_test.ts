@@ -64,6 +64,7 @@ import {
 import { DEFAULTS } from "../src/lib/config.ts";
 import { Logger } from "../src/lib/log.ts";
 import {
+  DISCERN_TERMINAL_APPEARANCE,
   resolveTerminalContext,
   type TerminalContext,
 } from "../src/lib/terminal.ts";
@@ -393,6 +394,39 @@ Deno.test("interaction defaults stay semantic across text, confirmation, and sel
     }, scriptedRuntime(selection)),
     "beta",
   );
+});
+
+Deno.test("default interactions retain the branded terminal Appearance", async () => {
+  const capabilities = {
+    ansiControl: true,
+    colorDepth: "ansi256",
+    columns: 60,
+    unicode: true,
+  } as const satisfies TerminalCapabilities;
+  const actual = new ScriptedTerminal(["\r"], capabilities);
+  const expected = new ScriptedTerminal(["\r"], capabilities);
+  const options = {
+    defaultTo: true,
+    noLabel: "No",
+    yesLabel: "Yes",
+  } as const;
+
+  assertEquals(
+    await requestConfirmation("Confirm", options, scriptedRuntime(actual)),
+    true,
+  );
+  assertEquals(
+    await requestConfirmation("Confirm", options, {
+      io: expected,
+      interactive: () => true,
+      packageRuntime: {
+        io: expected,
+        appearance: DISCERN_TERMINAL_APPEARANCE,
+      },
+    }),
+    true,
+  );
+  assertEquals(actual.writes, expected.writes);
 });
 
 Deno.test("sequential forms compose product requests through one package session", async () => {

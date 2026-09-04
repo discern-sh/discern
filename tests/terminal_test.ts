@@ -8,6 +8,7 @@ import type {
 } from "discern-design-system/cli/interactive";
 import {
   createProductionTerminalContextResolver,
+  DISCERN_TERMINAL_APPEARANCE,
   productionTerminalContext,
   resolveTerminalContext,
   TERMINAL_BACKGROUND_TIMEOUT_MS,
@@ -57,6 +58,9 @@ Deno.test("terminal context snapshots process facts and observes dimensions once
   });
   assertEquals(context.presenter.capabilities, context.capabilities);
   assertEquals(context.presenter.theme, "dark");
+  assertEquals(context.appearance, DISCERN_TERMINAL_APPEARANCE);
+  assertEquals(context.presenter.appearance, DISCERN_TERMINAL_APPEARANCE);
+  assertEquals(context.theme.appearance, DISCERN_TERMINAL_APPEARANCE);
   assertEquals(
     stripAnsi(context.presenter.present(renderBadgeCli, {
       label: "Bound",
@@ -123,6 +127,7 @@ Deno.test("terminal viewport rebinding preserves the resolved presentation ident
   assertEquals(rebound.size, { columns: 40, rows: 12 });
   assertEquals(rebound.capabilities, { ...context.capabilities, columns: 40 });
   assertEquals(rebound.presenter.capabilities, rebound.capabilities);
+  assertEquals(rebound.appearance, context.appearance);
   assertEquals(rebound.themeVariant, context.themeVariant);
   assertEquals(rebound.color, context.color);
   assertEquals(rebound.environment, context.environment);

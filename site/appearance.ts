@@ -1,8 +1,10 @@
 /** Discern's site-wide browser Appearance and the roots that activate it. */
 
+import { DISCERN_ACCENT_HUE } from "../src/shared/brand.ts";
+
 export const SITE_APPEARANCE = {
   appearanceScopes: true,
-  accentHue: 255,
+  accentHue: DISCERN_ACCENT_HUE,
   accentHueProperty: "--discern-accent-hue",
   rootAttributes: {
     "data-discern-root": "",

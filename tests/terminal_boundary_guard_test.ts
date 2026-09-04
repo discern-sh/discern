@@ -403,9 +403,12 @@ const PROCESS_CAPABILITY_RULES = [
 ] as const;
 
 const TERMINAL_ONLY_IMPORTS = new Set([
+  "createCliPresenter",
   "deriveTerminalTheme",
   "detectTerminalCapabilities",
+  "resolveTerminalTheme",
   "styleText",
+  "TerminalAppearance",
   "terminalThemeColor",
   "terminalThemes",
   "terminalToneColor",
@@ -1164,8 +1167,9 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
                   if (entry.type !== "ImportSpecifier") continue;
                   const imported = propertyName(entry.imported);
                   if (
-                    imported === "terminalLine" ||
-                    imported === "terminalMultiline"
+                    ["terminalLine", "terminalMultiline"].includes(
+                      String(imported),
+                    )
                   ) sanitizers.add(entry.local.name);
                   if (imported === "terminalMultiline") {
                     multilineSanitizers.add(entry.local.name);
@@ -1233,12 +1237,13 @@ function structuralTerminalFindings(rel: string, source: string): Finding[] {
               }
             },
             Property(node): void {
+              const name = propertyName(node.key);
               if (
                 rel !== TERMINAL_AUTHORITY &&
                 terminalPlumbingLawApplies(rel) &&
-                propertyName(node.key) === "theme"
+                ["appearance", "theme"].includes(String(name))
               ) {
-                add("direct-theme-threading", node);
+                add(`direct-${name}-threading`, node);
               }
             },
             Literal(node): void {
@@ -1678,6 +1683,14 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "The effectful package request graph accepts a theme but cannot use the pure CLI presenter.",
   },
   {
+    file: INTERACTION_AUTHORITY,
+    rule: "direct-appearance-threading",
+    authority: "packageInteractionRuntime",
+    count: 1,
+    reason:
+      "The effectful package request graph receives the product Appearance from the terminal authority.",
+  },
+  {
     file: "scripts/terminal_capture.ts",
     rule: "direct-theme-threading",
     authority: "parseOptions",
@@ -1945,7 +1958,7 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
     authorityFindings(
       "src/engine/orbit/view.ts",
       [
-        'import { detectTerminalCapabilities, measureText } from "discern-design-system/cli";',
+        'import { createCliPresenter, detectTerminalCapabilities, measureText, resolveTerminalTheme } from "discern-design-system/cli";',
         'const term = Deno.env.get("TERM");',
         "const size = Deno.consoleSize();",
         "const live = context.observeViewport();",
@@ -1956,7 +1969,9 @@ Deno.test("terminal boundary detectors reject unrelated future source", () => {
       "feature-local-viewport-observer",
       "package-capability-detector",
       "terminal-environment-read",
+      "terminal-import:createCliPresenter",
       "terminal-import:detectTerminalCapabilities",
+      "terminal-import:resolveTerminalTheme",
       "text-import:measureText",
     ],
   );
@@ -2251,7 +2266,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     "future({ body: row.body, explanation: row.explanation, checks: [{ stateLabel: row.stateLabel }], subtitle: row.subtitle, details: row.details, rationale: row.rationale }, {});",
     "draw({ fact: safe(row.path) }, {});",
     "const boundFacts = terminal.capabilities;",
-    "draw({ fact: safe(row.path), theme: terminal.themeVariant }, { ...boundFacts, columns: 44 });",
+    "draw({ fact: safe(row.path), theme: terminal.themeVariant, appearance: { accent: 42 } }, { ...boundFacts, columns: 44 });",
   ].join("\n");
   const rules = [
     ...cliffyImportFindings("src/engine/orbit/view.ts", source),
@@ -2297,6 +2312,7 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
       "unsafe-component-text:rationale",
       "unsafe-terminal-safe-multiline-error",
       "capability-respread",
+      "direct-appearance-threading",
       "direct-theme-threading",
     ]
   ) assert(rules.includes(expected), `missing synthetic ${expected}`);
@@ -2338,6 +2354,11 @@ Deno.test("terminal outlaw rejects future package, painter, palette, glyph, and 
     rules.filter((rule) => rule === "direct-theme-threading").length,
     1,
     "a package renderer cannot receive a feature-local theme",
+  );
+  assertEquals(
+    rules.filter((rule) => rule === "direct-appearance-threading").length,
+    1,
+    "a package renderer cannot receive a feature-local Appearance",
   );
 
   const motifAdapterRules = structuralTerminalFindings(

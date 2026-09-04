@@ -1,10 +1,11 @@
 /**
  * Discern's process-to-terminal boundary.
  *
- * The design-system CLI graph is pure: callers supply capabilities, theme, and
- * text. This module is the single place that turns process facts into those
- * inputs. Feature renderers consume a {@link TerminalContext}; they do not read
- * environment variables, terminal attachment, or console dimensions directly.
+ * The design-system CLI graph is pure: callers supply capabilities, theme,
+ * Appearance, and text. This module is the single place that turns process
+ * facts and product identity into those inputs. Feature renderers consume a
+ * {@link TerminalContext}; they do not read environment variables, terminal
+ * attachment, or console dimensions directly.
  */
 
 import {
@@ -12,7 +13,9 @@ import {
   createCliPresenter,
   detectTerminalCapabilities,
   DISCERN_TERMINAL_MOTIF,
+  resolveTerminalTheme,
   styleText,
+  type TerminalAppearance,
   type TerminalCapabilities,
   type TerminalColor,
   type TerminalColorTokenName,
@@ -22,7 +25,6 @@ import {
   type TerminalTextStyle,
   type TerminalTheme,
   terminalThemeColor,
-  terminalThemes,
   type TerminalThemeVariant,
   terminalToneColor,
 } from "discern-design-system/cli";
@@ -33,6 +35,7 @@ import {
   type TerminalBackgroundReading,
 } from "discern-design-system/cli/interactive";
 import type { EnvReader } from "../shared/env.ts";
+import { DISCERN_ACCENT_HUE } from "../shared/brand.ts";
 
 const DEFAULT_TERMINAL_COLUMNS = 80;
 const DEFAULT_TERMINAL_ROWS = 24;
@@ -42,6 +45,10 @@ export const TERMINAL_BACKGROUND_TIMEOUT_MS = 100;
 export const TERMINAL_THEME_MODES = ["auto", "light", "dark"] as const;
 export type TerminalThemeMode = typeof TERMINAL_THEME_MODES[number];
 export const DEFAULT_TERMINAL_THEME_MODE: TerminalThemeMode = "auto";
+/** Product Appearance bound independently from the light/dark terminal ground. */
+export const DISCERN_TERMINAL_APPEARANCE = {
+  accent: DISCERN_ACCENT_HUE,
+} as const satisfies TerminalAppearance;
 const CAPABILITY_ENVIRONMENT_KEYS = [
   "TERM",
   "COLORTERM",
@@ -159,6 +166,8 @@ export interface TerminalContext {
   readonly ciRequestsStaticOutput: boolean;
   readonly environment: Readonly<Record<string, string | undefined>>;
   readonly size: TerminalSize;
+  /** Product colour identity independent from the light/dark ground. */
+  readonly appearance: TerminalAppearance;
   readonly theme: TerminalTheme;
   readonly themeVariant: TerminalThemeVariant;
   /** Product motif passed unchanged to effectful package interactions. */
@@ -317,8 +326,10 @@ function contextFromFacts(
   observeViewport: () => TerminalViewportObservation,
   interactionIo?: () => TerminalIo,
 ): TerminalContext {
-  const theme = terminalThemes[themeVariant];
+  const appearance = DISCERN_TERMINAL_APPEARANCE;
+  const theme = resolveTerminalTheme({ theme: themeVariant, appearance });
   const presenter = createCliPresenter(capabilities, {
+    appearance,
     motif: DISCERN_TERMINAL_MOTIF,
     theme: themeVariant,
     width: size.columns,
@@ -335,6 +346,7 @@ function contextFromFacts(
     ciRequestsStaticOutput: enabledEnvironmentMarker(environment.CI),
     environment,
     size,
+    appearance,
     theme,
     themeVariant,
     motif: DISCERN_TERMINAL_MOTIF,

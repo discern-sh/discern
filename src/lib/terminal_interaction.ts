@@ -56,6 +56,7 @@ import {
 } from "../shared/result.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import {
+  DISCERN_TERMINAL_APPEARANCE,
   type TerminalContext,
   terminalContext,
   terminalInteractionIo,
@@ -962,10 +963,12 @@ function packageInteractionRuntime(
     terminateUnexpectedFrame: true,
   },
 ): PackageInteractionSession {
+  const inherited = runtime.packageRuntime;
   let target: TerminalIO;
   let theme: PackageInteractionRuntime["theme"];
+  let appearance: PackageInteractionRuntime["appearance"] =
+    inherited?.appearance ?? DISCERN_TERMINAL_APPEARANCE;
   let motif: PackageInteractionRuntime["motif"];
-  const inherited = runtime.packageRuntime;
   if (runtime.io !== undefined) {
     target = runtime.io;
     theme = inherited?.theme;
@@ -973,11 +976,13 @@ function packageInteractionRuntime(
   } else if (inherited?.io !== undefined) {
     target = inherited.io;
     theme = inherited.theme;
+    appearance = inherited.appearance ?? DISCERN_TERMINAL_APPEARANCE;
     motif = inherited.motif;
   } else {
     const terminal = terminalContext();
     target = terminalInteractionIo(terminal);
     theme = terminal.themeVariant;
+    appearance = terminal.appearance;
     motif = terminal.motif;
   }
 
@@ -1009,6 +1014,7 @@ function packageInteractionRuntime(
     ...(inherited ?? {}),
     io: trace?.io ?? io,
     ...(theme === undefined ? {} : { theme }),
+    appearance,
     ...(motif === undefined ? {} : { motif }),
   } satisfies PackageInteractionRuntime & { readonly io: TerminalIO };
   return {

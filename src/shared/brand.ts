@@ -24,6 +24,9 @@ export {
 /** The canonical project mark: U+25EE, UP-POINTING TRIANGLE WITH RIGHT HALF BLACK. */
 export const DISCERN_MARK = "◮";
 
+/** The canonical blue hue shared by Discern's browser and terminal Appearance. */
+export const DISCERN_ACCENT_HUE = 255;
+
 /** The text wordmark used by decorative human-facing headings. */
 export const DISCERN_WORDMARK = `${DISCERN_MARK} ${DISCERN_NAME}`;
 
