@@ -17,8 +17,7 @@ import type { EnvReader } from "../shared/env.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
 import type { AgentName } from "./config.ts";
-import { providerFor } from "./providers.ts";
-import { mergeJsonSettingsText } from "./settings_merge.ts";
+import { providerFor, providerHookSeedMerge } from "./providers.ts";
 import { writeDiscernToml } from "./tidy_format.ts";
 import { TomlEditor } from "./toml_edit.ts";
 
@@ -187,7 +186,7 @@ export function createMigrationContext(
         );
       }
     }
-    const strategy = hooks.mergeSeed ?? mergeJsonSettingsText;
+    const strategy = providerHookSeedMerge(hooks);
     const merged = strategy(existing, JSON.stringify(incoming));
     await ensureDir(dirname(abs(rel)));
     await Deno.writeTextFile(abs(rel), merged);

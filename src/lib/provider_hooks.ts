@@ -17,9 +17,9 @@ import {
 import {
   type Provider,
   providerFor,
+  providerHookSeedMerge,
   renderProviderHookSeed,
 } from "./providers.ts";
-import { mergeJsonSettingsText } from "./settings_merge.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
 import {
   LIVE_REFRESH_FILE_OPS,
@@ -97,7 +97,7 @@ async function desiredHookText(
     join(root, rel),
     (path) => files.readTextFile(path),
   );
-  const merge = hooks.mergeSeed ?? mergeJsonSettingsText;
+  const merge = providerHookSeedMerge(hooks);
   return { rel, existing, desired: merge(existing, template) };
 }
 

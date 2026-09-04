@@ -307,9 +307,8 @@ const AGENT_FACT_ROWS: readonly AgentFactRow[] = [
     value: (p) => {
       const hooks = p.hooks;
       if (hooks === undefined) return "—";
-      const merge = hooks.mergeSeed === undefined
-        ? "JSON deep-merge"
-        : "group-dedup merge";
+      const merge =
+        `${hooks.format.commandPlacement}-${hooks.format.commandKey} reconcile`;
       return `${hooksPhrase(p, false).replace(/^wired: /, "")} in ${
         code(hooks.settingsFile)
       } (seed strategy: ${merge})`;

@@ -162,9 +162,8 @@ function parseJsonSettingsText(text: string, label: string): unknown {
 /**
  * The default seed-merge strategy: the JSON deep-merge ({@link mergeSettings})
  * lifted to text. Parses both sides as JSON, merges, and re-serializes to 2-space
- * JSON with a trailing newline — the exact bytes the Claude settings seed writes.
- * The strategy every JSON-settings hooks provider uses (an absent `mergeSeed` on its
- * `HooksIntegration` ⇒ this).
+ * JSON with a trailing newline. This remains the generic settings merge; provider
+ * hook seeds use {@link mergeJsonHookSettingsText} to reconcile owned commands too.
  */
 export function mergeJsonSettingsText(
   existingText: string | undefined,
@@ -177,45 +176,146 @@ export function mergeJsonSettingsText(
   return `${JSON.stringify(mergeSettings(existing, incoming), null, 2)}\n`;
 }
 
-/**
- * Like {@link mergeJsonSettingsText}, but additionally collapses hook-event groups
- * that are equal by canonical JSON — the strategy for a provider whose hook groups
- * carry the command at the GROUP level rather than nested under `hooks[].command`
- * (Cursor's `{ command }`, Copilot's `{ bash }`). The default
- * {@link mergeHookEvent} dedups only on a nested command string ({@link commandsInGroup}),
- * which such a group has none of — so a plain re-merge under `discern setup begin --reseed`
- * would append it again every time. Deferring to {@link mergeSettings} for the deep-merge
- * (so user keys, permission unions, and nested-command dedup all behave identically) and
- * then dropping any structurally-duplicate group makes the re-seed a stable no-op. The
- * dedup is shape-agnostic — it matches whole groups, so it bakes in no vendor key name
- * and only ever removes an EXACT repeat (the harmless case).
- */
-export function mergeJsonSettingsDedupingGroups(
+/** The registry facts needed to reconcile discern-owned hook commands without
+ * teaching the generic merger any one vendor's complete payload. */
+export interface JsonHookSeedMergePolicy {
+  readonly commandPlacement: "nested" | "group";
+  readonly commandKey: "command" | "bash";
+  /** Root values once seeded by discern but absent from the current vendor
+   * contract. Exact matches are removed; changed or extended user values stay. */
+  readonly retiredRootValues?: Readonly<Record<string, unknown>>;
+}
+
+/** Canonicalize a JSON value so object key order does not affect equality. */
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalJson);
+  }
+  if (isObject(value)) {
+    const canonical: JsonObject = {};
+    for (const key of Object.keys(value).sort()) {
+      canonical[key] = canonicalJson(value[key]);
+    }
+    return canonical;
+  }
+  return value;
+}
+
+/** Compare two JSON-compatible values independent of object key order. */
+function jsonEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(canonicalJson(left)) ===
+    JSON.stringify(canonicalJson(right));
+}
+
+/** Read the command strings a group carries at the registry-declared level. */
+function seedGroupCommands(
+  group: unknown,
+  policy: JsonHookSeedMergePolicy,
+): string[] {
+  if (!isObject(group)) return [];
+  if (policy.commandPlacement === "group") {
+    const command = group[policy.commandKey];
+    return typeof command === "string" ? [command] : [];
+  }
+  if (!Array.isArray(group.hooks)) return [];
+  return group.hooks.flatMap((hook) => {
+    if (!isObject(hook)) return [];
+    const command = hook[policy.commandKey];
+    return typeof command === "string" ? [command] : [];
+  });
+}
+
+/** Remove registry-owned commands from one existing group. A mixed nested group
+ * keeps its foreign hooks; a wholly owned group is removed before canonical
+ * seed data is appended. */
+function withoutSeedCommands(
+  group: unknown,
+  commands: ReadonlySet<string>,
+  policy: JsonHookSeedMergePolicy,
+): unknown | undefined {
+  if (!isObject(group)) return group;
+  if (policy.commandPlacement === "group") {
+    const command = group[policy.commandKey];
+    return typeof command === "string" && commands.has(command)
+      ? undefined
+      : group;
+  }
+  if (!Array.isArray(group.hooks)) return group;
+  const kept = group.hooks.filter((hook) => {
+    if (!isObject(hook)) return true;
+    const command = hook[policy.commandKey];
+    return typeof command !== "string" || !commands.has(command);
+  });
+  if (kept.length === group.hooks.length) return group;
+  return kept.length === 0 ? undefined : { ...group, hooks: kept };
+}
+
+/** Replace every existing occurrence of an incoming owned command with the
+ * current seed group, even when its matcher, timeout, or event changed. */
+function reconcileHookGroups(
+  merged: JsonObject,
+  incoming: unknown,
+  policy: JsonHookSeedMergePolicy,
+): void {
+  if (!isObject(incoming) || !isObject(incoming.hooks)) return;
+  const hooks = merged[HOOK_EVENTS_KEY];
+  if (!isObject(hooks)) return;
+
+  const canonicalByEvent = new Map<string, unknown[]>();
+  const commands = new Set<string>();
+  for (const [event, groups] of Object.entries(incoming.hooks)) {
+    if (!Array.isArray(groups)) continue;
+    const canonical = groups.filter((group) => {
+      const found = seedGroupCommands(group, policy);
+      for (const command of found) commands.add(command);
+      return found.length > 0;
+    });
+    if (canonical.length > 0) canonicalByEvent.set(event, canonical);
+  }
+  if (commands.size === 0) return;
+
+  for (const [event, groups] of Object.entries(hooks)) {
+    if (!Array.isArray(groups)) continue;
+    const kept = groups.flatMap((group) => {
+      const candidate = withoutSeedCommands(group, commands, policy);
+      return candidate === undefined ? [] : [candidate];
+    });
+    if (kept.length === 0) {
+      delete hooks[event];
+    } else {
+      hooks[event] = kept;
+    }
+  }
+  for (const [event, canonical] of canonicalByEvent) {
+    const existing = hooks[event];
+    hooks[event] = [
+      ...(Array.isArray(existing) ? existing : []),
+      ...canonical,
+    ];
+  }
+}
+
+/** Merge one registry-rendered provider hook seed. Foreign settings and hooks
+ * survive, while discern-owned commands converge to the current vendor shape. */
+export function mergeJsonHookSettingsText(
   existingText: string | undefined,
   incomingText: string,
+  policy: JsonHookSeedMergePolicy,
 ): string {
   const existing: unknown = existingText === undefined
     ? {}
     : parseJsonSettingsText(existingText, "existing");
   const incoming: unknown = parseJsonSettingsText(incomingText, "incoming");
-  const merged = mergeSettings(existing, incoming);
-  const hooks = merged[HOOK_EVENTS_KEY];
-  if (isObject(hooks)) {
-    for (const [event, groups] of Object.entries(hooks)) {
-      if (!Array.isArray(groups)) {
-        continue;
+  const prepared = isObject(existing) ? { ...existing } : existing;
+  if (isObject(prepared) && policy.retiredRootValues !== undefined) {
+    for (const [key, value] of Object.entries(policy.retiredRootValues)) {
+      if (Object.hasOwn(prepared, key) && jsonEqual(prepared[key], value)) {
+        delete prepared[key];
       }
-      const seen = new Set<string>();
-      hooks[event] = groups.filter((group) => {
-        const key = JSON.stringify(group);
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
     }
   }
+  const merged = mergeSettings(prepared, incoming);
+  reconcileHookGroups(merged, incoming, policy);
   return `${JSON.stringify(merged, null, 2)}\n`;
 }
 

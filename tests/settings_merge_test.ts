@@ -11,7 +11,8 @@
 import { assertEquals, assertExists, assertNotStrictEquals } from "@std/assert";
 import { z } from "@zod/zod";
 import {
-  mergeJsonSettingsDedupingGroups,
+  type JsonHookSeedMergePolicy,
+  mergeJsonHookSettingsText,
   mergeSettings,
 } from "../src/lib/settings_merge.ts";
 import { decodeWith } from "./decode_cli_result.ts";
@@ -23,6 +24,7 @@ const FlatHookSettingsSchema = z.object({
         command: z.string().optional(),
         type: z.string().optional(),
         bash: z.string().optional(),
+        timeout: z.number().optional(),
         timeoutSec: z.number().optional(),
       }).refine((entry) =>
         entry.command !== undefined || entry.bash !== undefined
@@ -190,27 +192,34 @@ Deno.test("a non-array permissions value falls through to set-if-absent merge", 
   assertEquals(result.permissions.additionalDirectories, ["/tmp"]);
 });
 
-Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks re-seed idempotently", () => {
-  // Cursor's `{ command }` and Copilot's `{ type, bash }` carry the command at the
-  // GROUP level, which the default nested-command dedup (commandsInGroup) can't see —
-  // so a plain re-merge under `setup begin --reseed` would append the group again. This
-  // strategy collapses structurally-equal groups, so re-seeding is byte-stable.
-  const cursor = JSON.stringify({
+Deno.test("provider hook merge replaces stale flat command payloads and stays idempotent", () => {
+  const cursorPolicy: JsonHookSeedMergePolicy = {
+    commandPlacement: "group",
+    commandKey: "command",
+  };
+  const staleCursor = JSON.stringify({
     version: 1,
     hooks: { sessionStart: [{ command: "discern worktree ensure" }] },
   });
-  const once = mergeJsonSettingsDedupingGroups(undefined, cursor);
-  const twice = mergeJsonSettingsDedupingGroups(once, cursor);
+  const cursor = JSON.stringify({
+    version: 1,
+    hooks: {
+      sessionStart: [{ command: "discern worktree ensure", timeout: 600 }],
+    },
+  });
+  const once = mergeJsonHookSettingsText(staleCursor, cursor, cursorPolicy);
+  const twice = mergeJsonHookSettingsText(once, cursor, cursorPolicy);
   assertEquals(twice, once); // byte-stable across a re-seed
-  assertEquals(
-    decodeWith(FlatHookSettingsSchema, twice).hooks
-      .sessionStart
-      .length,
-    1,
-  );
+  const cursorHooks = decodeWith(FlatHookSettingsSchema, twice).hooks
+    .sessionStart;
+  assertEquals(cursorHooks.length, 1);
+  assertEquals(cursorHooks[0]?.timeout, 600);
 
-  // Copilot's `bash`-keyed group dedups the same way (shape-agnostic, no baked-in key).
-  const copilot = JSON.stringify({
+  const copilotPolicy: JsonHookSeedMergePolicy = {
+    commandPlacement: "group",
+    commandKey: "bash",
+  };
+  const staleCopilot = JSON.stringify({
     version: 1,
     hooks: {
       sessionStart: [{
@@ -220,17 +229,30 @@ Deno.test("mergeJsonSettingsDedupingGroups: flat group-level command/bash hooks 
       }],
     },
   });
-  const c1 = mergeJsonSettingsDedupingGroups(undefined, copilot);
-  const c2 = mergeJsonSettingsDedupingGroups(c1, copilot);
-  assertEquals(c2, c1);
-  assertEquals(
-    decodeWith(FlatHookSettingsSchema, c2).hooks
-      .sessionStart.length,
-    1,
+  const copilot = JSON.stringify({
+    version: 1,
+    hooks: {
+      sessionStart: [{
+        type: "command",
+        bash: "discern worktree ensure",
+        timeoutSec: 600,
+      }],
+    },
+  });
+  const c1 = mergeJsonHookSettingsText(
+    staleCopilot,
+    copilot,
+    copilotPolicy,
   );
+  const c2 = mergeJsonHookSettingsText(c1, copilot, copilotPolicy);
+  assertEquals(c2, c1);
+  const copilotHooks = decodeWith(FlatHookSettingsSchema, c2).hooks
+    .sessionStart;
+  assertEquals(copilotHooks.length, 1);
+  assertEquals(copilotHooks[0]?.timeoutSec, 600);
 });
 
-Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is preserved (only exact repeats collapse)", () => {
+Deno.test("provider hook merge preserves a user's distinct flat hook group", () => {
   const existing = JSON.stringify({
     hooks: { sessionStart: [{ command: "my-own-hook" }] },
   });
@@ -240,15 +262,86 @@ Deno.test("mergeJsonSettingsDedupingGroups: a user's distinct hook group is pres
   });
   const merged = decodeWith(
     FlatHookSettingsSchema,
-    mergeJsonSettingsDedupingGroups(existing, incoming),
+    mergeJsonHookSettingsText(existing, incoming, {
+      commandPlacement: "group",
+      commandKey: "command",
+    }),
   );
-  // Both kept — dedup only collapses an EXACT structural repeat, never a distinct group.
+  // Both remain because only the registry-owned command is replaced.
   assertEquals(merged.hooks.sessionStart.length, 2);
   assertEquals(merged.hooks.sessionStart[0]?.command, "my-own-hook");
   assertEquals(
     merged.hooks.sessionStart[1]?.command,
     "discern worktree ensure",
   );
+});
+
+Deno.test("provider hook merge updates nested matcher and timeout while preserving a mixed group's foreign hook", () => {
+  const existing = JSON.stringify({
+    hooksConfig: { enabled: true },
+    hooks: {
+      SessionStart: [{
+        matcher: "startup",
+        hooks: [
+          { type: "command", command: "discern worktree ensure" },
+          { type: "command", command: "user-own-hook", user: true },
+        ],
+      }],
+    },
+    userSetting: true,
+  });
+  const incoming = JSON.stringify({
+    hooks: {
+      SessionStart: [{
+        matcher: "startup|resume",
+        hooks: [{
+          type: "command",
+          command: "discern worktree ensure",
+          timeout: 600000,
+        }],
+      }],
+    },
+  });
+  const schema = z.object({
+    hooksConfig: z.object({ enabled: z.boolean() }).optional(),
+    userSetting: z.boolean(),
+    hooks: z.object({
+      SessionStart: z.array(
+        z.object({
+          matcher: z.string(),
+          hooks: z.array(
+            z.object({
+              command: z.string(),
+              timeout: z.number().optional(),
+              user: z.boolean().optional(),
+            }).passthrough(),
+          ),
+        }).passthrough(),
+      ),
+    }),
+  }).passthrough();
+  const policy: JsonHookSeedMergePolicy = {
+    commandPlacement: "nested",
+    commandKey: "command",
+    retiredRootValues: { hooksConfig: { enabled: true } },
+  };
+  const merged = decodeWith(
+    schema,
+    mergeJsonHookSettingsText(existing, incoming, policy),
+  );
+  assertEquals(merged.userSetting, true);
+  assertEquals(merged.hooksConfig, undefined);
+  assertEquals(merged.hooks.SessionStart, [{
+    matcher: "startup",
+    hooks: [{ type: "command", command: "user-own-hook", user: true }],
+  }, {
+    matcher: "startup|resume",
+    hooks: [{
+      type: "command",
+      command: "discern worktree ensure",
+      timeout: 600000,
+    }],
+  }]);
 });
 
 Deno.test("permissions.allow unions and a non-permission key recurses as an object", () => {

@@ -20,6 +20,7 @@ import { z } from "@zod/zod";
 import { applyPlan, buildPlan } from "../src/lib/fs_plan.ts";
 import {
   type HooksIntegration,
+  providerHookSeedMerge,
   type SettingsSeed,
   settingsSeeds,
 } from "../src/lib/providers.ts";
@@ -48,16 +49,18 @@ const SyntheticSettingsSchema = z.object({
   }).passthrough(),
 }).passthrough();
 
-Deno.test("settingsSeeds(): the registry yields Claude's settings file with the default JSON strategy", () => {
+Deno.test("settingsSeeds(): the registry yields Claude's settings file with its format-derived strategy", () => {
   const seeds = settingsSeeds();
   const claude = seeds.find((s) => s.targetRel === ".claude/settings.json");
   assert(
     claude !== undefined,
     "Claude's settings seed must come from the registry",
   );
-  // Claude declares no custom mergeSeed, so it gets the default JSON deep-merge —
-  // the strategy that keeps its seeded output byte-identical.
-  assertEquals(claude.merge, mergeJsonSettingsText);
+  assertEquals(
+    claude.merge(undefined, claude.templateText),
+    claude.templateText,
+    "a fresh registry rendering must survive its derived merge byte-for-byte",
+  );
 });
 
 Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts", () => {
@@ -105,23 +108,25 @@ const ACME_HOOKS: HooksIntegration = {
  * agent. Injecting it into buildPlan models "the registry now has this provider". */
 const ACME_SEED: SettingsSeed = {
   targetRel: ACME_HOOKS.settingsFile,
-  merge: ACME_HOOKS.mergeSeed ?? mergeJsonSettingsText,
-  templateText: JSON.stringify(
-    {
-      hooks: {
-        SessionStart: [{
-          hooks: [{
-            type: "command",
-            command: "discern worktree ensure",
-            timeout: 600,
+  merge: providerHookSeedMerge(ACME_HOOKS),
+  templateText: `${
+    JSON.stringify(
+      {
+        hooks: {
+          SessionStart: [{
+            hooks: [{
+              type: "command",
+              command: "discern worktree ensure",
+              timeout: 600,
+            }],
           }],
-        }],
+        },
+        permissions: { deny: ["Read(./.env)"] },
       },
-      permissions: { deny: ["Read(./.env)"] },
-    },
-    null,
-    2,
-  ),
+      null,
+      2,
+    )
+  }\n`,
 };
 
 /** Lay a one-file templates tree holding the synthetic provider's settings seed. */

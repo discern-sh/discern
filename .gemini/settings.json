@@ -2,11 +2,12 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree ensure"
+            "command": "discern worktree ensure",
+            "timeout": 600000
           }
         ]
       }
@@ -21,8 +22,5 @@
       ],
       "timeout": 3600000
     }
-  },
-  "hooksConfig": {
-    "enabled": true
   }
 }

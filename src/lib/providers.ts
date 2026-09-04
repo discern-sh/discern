@@ -23,8 +23,8 @@ import {
 import { runGit } from "../shared/subprocess.ts";
 import { resolveWorktreeRoot } from "./worktree_root.ts";
 import {
-  mergeJsonSettingsDedupingGroups,
-  mergeJsonSettingsText,
+  type JsonHookSeedMergePolicy,
+  mergeJsonHookSettingsText,
   type SettingsSeedMerge,
 } from "./settings_merge.ts";
 import { TomlEditor } from "./toml_edit.ts";
@@ -467,14 +467,9 @@ export interface HooksIntegration {
   /** Every discern command carried by this provider's committed hook file. */
   readonly commands: readonly ProviderHookCommand[];
   readonly format: ProviderHookFormat;
-  /**
-   * How this provider's seed template merges into an existing settings file. Absent
-   * ⇒ the default JSON deep-merge ({@link mergeJsonSettingsText}), which every
-   * JSON-settings agent uses. A provider whose settings file is another format (e.g.
-   * Codex's TOML, a later plan) supplies its own strategy here — so the seed/merge
-   * plumbing never bakes in "JSON, at `.claude/settings.json`" as the only shape.
-   */
-  readonly mergeSeed?: SettingsSeedMerge;
+  /** Discern-seeded root settings retired from the current vendor contract.
+   * Refresh removes an exact match only, preserving changed or extended values. */
+  readonly retiredRootValues?: Readonly<Record<string, unknown>>;
 }
 
 /** Render the vendor hook seed from the provider registry. The 600-second hook
@@ -507,6 +502,22 @@ export function renderProviderHookSeed(hooks: HooksIntegration): string {
   }
   root.hooks = groups;
   return `${JSON.stringify(root, null, 2)}\n`;
+}
+
+/** Derive this provider's hook merge from the same format facts that render its
+ * seed, so refresh cannot apply a shape-specific policy from a second list. */
+export function providerHookSeedMerge(
+  hooks: HooksIntegration,
+): SettingsSeedMerge {
+  const policy: JsonHookSeedMergePolicy = {
+    commandPlacement: hooks.format.commandPlacement,
+    commandKey: hooks.format.commandKey,
+    ...(hooks.retiredRootValues === undefined
+      ? {}
+      : { retiredRootValues: hooks.retiredRootValues }),
+  };
+  return (existing, incoming) =>
+    mergeJsonHookSettingsText(existing, incoming, policy);
 }
 
 /** Vendor event keys that create or remove worktrees. */
@@ -1932,6 +1943,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         timeoutKey: "timeout",
         timeoutUnit: "milliseconds",
       },
+      retiredRootValues: { hooksConfig: { enabled: true } },
     },
     // Committed .gemini/settings.json is inert in safe mode until the folder is
     // trusted. Current Gemini CLI enables hooks by default.
@@ -2060,9 +2072,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // SessionStart-only hooks surface in the committable `.cursor/hooks.json`: the
     // per-session `discern worktree ensure` re-ready step. No worktree create/remove
     // event exists, so discern's own worktrees stay CLI/MCP-driven.
-    // Cursor's hook groups carry the command at the group level (`{ command }`), which
-    // the default merge can't dedup — so it uses the group-dedup seed strategy to stay
-    // idempotent across re-seeds.
+    // Cursor's hook groups carry the command at the group level (`{ command }`);
+    // the registry-derived merge uses that declared placement when re-seeding.
     hooks: {
       settingsFile: CURSOR_HOOKS_FILE,
       ownership: { shared: true },
@@ -2073,7 +2084,6 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         command: "discern worktree ensure",
       }],
       format: GROUP_SECONDS_HOOK_FORMAT,
-      mergeSeed: mergeJsonSettingsDedupingGroups,
     },
     // Committed .cursor/ MCP is inert until the workspace is trusted, and tool use is
     // approval-gated by default.
@@ -2184,8 +2194,8 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // (Copilot loads every `.github/hooks/*.json`). sessionStart fires per-prompt in
     // interactive mode, so the seeded `discern worktree ensure` must stay idempotent —
     // it is. No worktree create/remove event exists. Copilot's hook
-    // groups carry the command at the group level (`{ bash }`), so this uses the
-    // group-dedup seed strategy to re-seed idempotently.
+    // groups carry the command at the group level (`{ bash }`), which the
+    // registry-derived merge reads from the declared format.
     hooks: {
       settingsFile: COPILOT_HOOKS_FILE,
       ownership: { shared: true },
@@ -2203,7 +2213,6 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         timeoutUnit: "seconds",
         version: 1,
       },
-      mergeSeed: mergeJsonSettingsDedupingGroups,
     },
     // Committed .mcp.json / .github/hooks config is inert until the folder is trusted.
     trust: {
@@ -2247,8 +2256,8 @@ export function providersWithHooks(): Provider[] {
 
 /**
  * The settings SEED for every hooks provider — its settings file plus the merge
- * strategy (the provider's own `mergeSeed`, or the default JSON deep-merge). The
- * single registry-derived source the scaffolder routes settings templates by
+ * strategy derived from its vendor format. The single registry-derived source
+ * the scaffolder routes settings templates by
  * ({@link import("./fs_plan.ts").buildPlan}), so a new hooks provider seeds purely
  * from its registry declaration: declare a `HooksIntegration` and drop a
  * `${settingsFile}.tmpl` template — no edit to the seed/merge plumbing.
@@ -2258,7 +2267,7 @@ export function settingsSeeds(): SettingsSeed[] {
     p.hooks !== undefined
       ? [{
         targetRel: p.hooks.settingsFile,
-        merge: p.hooks.mergeSeed ?? mergeJsonSettingsText,
+        merge: providerHookSeedMerge(p.hooks),
         templateText: renderProviderHookSeed(p.hooks),
       }]
       : []
