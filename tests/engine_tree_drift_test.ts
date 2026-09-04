@@ -671,7 +671,7 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
       ),
       true,
     );
-    assertTerminalTextIncludes(first.stdout, "restore Git status access");
+    assertTerminalTextIncludes(first.stdout, "Restore Git status access");
     assertEquals(envelope.data.gate_proof?.status, "recorded");
 
     const second = await runAgent(dir, ["done", "--json"], {

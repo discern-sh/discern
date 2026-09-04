@@ -35,6 +35,7 @@ import {
   tipStatePath,
   writeTipSeenState,
 } from "../src/engine/desk/tip_state.ts";
+import { writeNewerOnDiskJsonFixture } from "./on_disk_format_fixtures.ts";
 
 const CONFIG = configSchema.parse({
   project: { slug: "demo" },
@@ -471,13 +472,13 @@ Deno.test("tip seen-state: torn, newer, or malformed files fall back gracefully"
       "a torn write resets",
     );
 
-    await Deno.writeTextFile(
+    const newerBytes = await writeNewerOnDiskJsonFixture(
       path,
-      JSON.stringify({
-        schema_version: 99,
+      "deskTipState",
+      {
         baseline_version: "0.1.0",
         tips: {},
-      }),
+      },
     );
     const newer = await inspectTipSeenState(dir);
     assert(newer.status === "newer");
@@ -487,7 +488,6 @@ Deno.test("tip seen-state: torn, newer, or malformed files fall back gracefully"
       freshTipSeenState("3.0.0"),
       "a newer schema contributes no defaults",
     );
-    const newerBytes = await Deno.readTextFile(path);
     await writeTipSeenState(dir, freshTipSeenState("3.0.0"));
     assertEquals(
       await Deno.readTextFile(path),

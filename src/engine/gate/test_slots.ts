@@ -85,7 +85,7 @@ export function groupNeedsTestSlot(group: JobGroup): boolean {
 
 /**
  * Build the run's slot surface from the typed config, or undefined when
- * `[gate].concurrent_test_runs` is 0 (the default): uncapped installs build no
+ * `[gate].concurrent_test_runs` is explicitly 0: uncapped installs build no
  * slots object, touch no file, and create no directory.
  */
 export function buildTestRunSlots(

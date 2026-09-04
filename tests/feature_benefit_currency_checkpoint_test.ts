@@ -190,7 +190,7 @@ Deno.test("currency command emits exact matches until all three regions move", a
       registrySource("feature-v2", "human-v2", "agent-v2"),
     );
     const complete = await runMatcher(dir, inputPath);
-    assertEquals(complete, { code: 1, stdout: "", stderr: "" });
+    assertEquals(complete, { code: 10, stdout: "", stderr: "" });
 
     await Deno.writeTextFile(
       inputPath,

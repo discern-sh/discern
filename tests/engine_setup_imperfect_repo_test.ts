@@ -16,7 +16,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import { dirname, join } from "@std/path";
+import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
   convergeSetupBranchForAcceptance,
@@ -47,7 +47,10 @@ import {
   type CliResultForCommand,
   decodeCliResult,
 } from "./decode_cli_result.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import {
+  initializeGitAdminRecordFixture,
+  writeNewerOnDiskJsonFixture,
+} from "./on_disk_format_fixtures.ts";
 
 type SetupData = Exclude<
   NonNullable<CliResultForCommand<"setup">["data"]>,
@@ -864,21 +867,17 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
 
 Deno.test("newer setup machinery evidence is explicit and survives cleanup", async () => {
   await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
-    await gitInit(dir);
-    const path = await gitAdminStatePath(
+    const path = await initializeGitAdminRecordFixture(
       dir,
       "setupMachineryCommitEvidence",
     );
-    assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
-    const future = `${
-      JSON.stringify({
-        version: ON_DISK_FORMATS.setupMachineryCommitEvidence.version + 1,
+    const future = await writeNewerOnDiskJsonFixture(
+      path,
+      "setupMachineryCommitEvidence",
+      {
         future_evidence: true,
-      })
-    }\n`;
-    await Deno.writeTextFile(path, future);
+      },
+    );
     const read = await readSetupMachineryCommitEvidence(dir);
     assert(read.status === "newer");
     assertStringIncludes(read.reason, "written by a newer discern");

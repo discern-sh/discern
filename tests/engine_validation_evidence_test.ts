@@ -101,6 +101,9 @@ format = "printf 'fixed\\n' > subject.txt"
 build = "printf 'built\\n' > subject.txt"
 lint = "true"
 test = "true"
+
+[gate]
+concurrent_test_runs = 0
 `,
     );
     await gitInit(dir);
@@ -149,7 +152,7 @@ Deno.test("failing done records the failed test job and cancelled sibling", asyn
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[jobs]\nlint = "sleep 2"\ntest = "false"\n`,
+      `[jobs]\nlint = "sleep 2"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
     );
     await gitInit(dir);
 
@@ -229,7 +232,7 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
       validationCaptureOptions,
     });
     assertEquals(result.ok, false);
-    assertEquals(result.data?.failed_stage, "check/test");
+    assertEquals(result.data?.failed_stage, "test");
     const validation = validationEvidence(result);
     assert(validation !== undefined);
     assertEquals(validation.state.complete, false);

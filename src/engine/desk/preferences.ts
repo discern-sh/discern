@@ -18,6 +18,7 @@ import {
   newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 
 /** Current repository-local preference record format. */
 export const DESK_PREFERENCES_SCHEMA_VERSION =
@@ -67,25 +68,13 @@ export async function deskPreferencesPath(
 export async function inspectDeskPreferences(
   root: string,
 ): Promise<DeskPreferencesRead> {
-  try {
-    const path = await deskPreferencesPath(root);
-    if (path === undefined) return { status: "unavailable" };
-    const text = await readTextIfExists(path);
-    if (text === undefined) return { status: "missing" };
-    const version = inspectOnDiskJsonVersion("deskPreferences", text);
-    if (version.status === "newer") {
-      return {
-        status: "newer",
-        reason: newerOnDiskFormatMessage("deskPreferences", version.found),
-      };
-    }
-    const parsed = DeskPreferencesSchema.safeParse(
-      JSON.parse(text),
-    );
-    return parsed.success
-      ? {
-        status: "recorded",
-        preferences: {
+  const read = await inspectOnDiskJsonFile(
+    "deskPreferences",
+    await deskPreferencesPath(root),
+    (text) => {
+      const parsed = DeskPreferencesSchema.safeParse(JSON.parse(text));
+      return parsed.success
+        ? {
           schema_version: parsed.data.schema_version,
           ...(parsed.data.last_agent === undefined
             ? {}
@@ -93,12 +82,14 @@ export async function inspectDeskPreferences(
           ...(parsed.data.creation_path === undefined
             ? {}
             : { creation_path: parsed.data.creation_path }),
-        },
-      }
-      : { status: "malformed" };
-  } catch {
-    return { status: "unavailable" };
+        }
+        : undefined;
+    },
+  );
+  if (read.status === "recorded") {
+    return { status: "recorded", preferences: read.value };
   }
+  return read;
 }
 
 /** Read preferences; non-current state contributes no defaults. */

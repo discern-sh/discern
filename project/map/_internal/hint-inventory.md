@@ -940,7 +940,7 @@ Rendered example:
 
 Rendered example:
 
-> Restore Git status; re-run for strand evidence.
+> Restore Git status access; re-run for strand evidence.
 
 ## `gate-test-run-queued`
 

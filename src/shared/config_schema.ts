@@ -752,13 +752,13 @@ const worktreeSection = z.strictObject({
     'Where per-worktree checkouts are created. Empty means a sibling of the repository, "<repo>.worktrees", outside the checkout. A relative path resolves against the repo root; absolute is used as-is.',
   ),
   inherit_env: z.array(z.string()).default([]).describe(
-    "Environment values copied from the main checkout's configured env files into a new worktree. A value replaces an empty value or the first configured file's `<file>.example` default. The first env file is created at mode 0600 when absent; existing modes are unchanged.",
+    "Names copied from the main checkout's declared env files. A value fills an empty entry or the first file's `<file>.example` default. A missing first file is created at mode 0600; existing modes stay unchanged.",
   ),
   env_files: z.array(projectFilePath).refine(projectPathsAreUnique, {
     message:
       "each env-file path may appear only once, including aliases on a case-insensitive filesystem",
   }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
-    "The env files the worktree lifecycle reads and writes, in precedence order: the last definition wins and a new value lands in the first existing file. Only declared inheritance may create the first file. Managed worktree values share one scoped marker.",
+    "Env files read and written in order: the last definition wins; new values use the first existing file. Inheritance alone may create the first file. Managed values share one scoped marker.",
   ),
   port: z.boolean().default(false).describe(
     "Record each worktree's deterministic dev-server port in its env files, for tooling that reads DISCERN_WORKTREE_PORT. `discern identity --port` reports it either way.",
@@ -802,7 +802,7 @@ const gateSection = z.strictObject({
     "Time budget in seconds for every command the Gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the Gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(1).describe(
-    "Cap on test-stage runs in flight at once across every checkout of this repository; a run past it waits for a slot. Fresh projects default to 1; explicit 0 means no cap. Wrap the project's test task in `discern queue -- <command>` to share it.",
+    "Repository-wide cap on concurrent test-stage runs; excess runs wait. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 

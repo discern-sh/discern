@@ -118,19 +118,33 @@ Deno.test("CLI, MCP, and composite done paths share one preamble implementation"
     universe: "authored-ts",
     narrow: {
       reason:
-        "The shared done preamble and its three ordered boundaries live in the gate integration module.",
-      include: (path) => path === "src/engine/gate/finish.ts",
+        "The shared protocol lives in its gate module; finish owns the strict and report integrations.",
+      include: (path) =>
+        path === "src/engine/gate/done_preamble.ts" ||
+        path === "src/engine/gate/finish.ts",
     },
   });
-  assertEquals(files, ["src/engine/gate/finish.ts"]);
-  const [path] = files;
-  assert(path !== undefined);
-  const source = await Deno.readTextFile(path);
-  const calls = (pattern: RegExp): number => source.match(pattern)?.length ?? 0;
-  assertEquals(calls(/await reusableGreenProof\(/gu), 1);
-  assertEquals(calls(/await resolveCheckpointGate\(/gu), 1);
-  assertEquals(calls(/await unchangedTreeRerunRefusal\(/gu), 1);
-  assertEquals(calls(/await resolveDonePreamble\(/gu), 2);
+  assertEquals(files, [
+    "src/engine/gate/done_preamble.ts",
+    "src/engine/gate/finish.ts",
+  ]);
+  const sources = new Map<string, string>();
+  for (const path of files) {
+    sources.set(path, await Deno.readTextFile(path));
+  }
+  const calls = (path: string, pattern: RegExp): number =>
+    sources.get(path)?.match(pattern)?.length ?? 0;
+  const shared = "src/engine/gate/done_preamble.ts";
+  assertEquals(calls(shared, /await operations\.reusableGreenProof\(/gu), 1);
+  assertEquals(calls(shared, /await operations\.resolveCheckpointGate\(/gu), 1);
+  assertEquals(
+    calls(shared, /await operations\.unchangedTreeRerunRefusal\(/gu),
+    1,
+  );
+  assertEquals(
+    calls("src/engine/gate/finish.ts", /await resolveDonePreamble\(/gu),
+    2,
+  );
 });
 
 Deno.test("gate job labels are unique across the whole plan (results are keyed by label)", () => {

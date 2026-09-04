@@ -75,9 +75,12 @@ import {
 import {
   inspectOnDiskJsonVersion,
   inspectOnDiskRecordVersion,
-  newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import {
+  inspectOnDiskJsonFile,
+  type OnDiskJsonRead,
+} from "../../shared/on_disk_json.ts";
 import {
   type GateProofFile,
   type LastGateRun,
@@ -562,19 +565,16 @@ export async function recordLastGateRun(
 export async function inspectLastGateRunRecord(
   cwd: string,
 ): Promise<LastGateRunRead> {
-  const path = await gitAdminStatePath(cwd, "lastGateRun");
-  if (path === undefined) {
-    return { status: "unavailable", reason: "could not resolve last-gate-run" };
-  }
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound
-      ? { status: "missing" }
-      : { status: "unavailable", reason: failureReason(error) };
-  }
-  return parseLastGateRun(raw);
+  const read = await inspectOnDiskJsonFile(
+    "lastGateRun",
+    await gitAdminStatePath(cwd, "lastGateRun"),
+    parseLastGateRun,
+  );
+  return read.status === "recorded"
+    ? read.value
+    : read.status === "malformed"
+    ? { status: "malformed", reason: "last-gate-run could not be decoded" }
+    : read;
 }
 
 /**
@@ -1101,47 +1101,42 @@ function parseFreshStandardMeasurementEvidence(
   }
 }
 
+type ExactHeadRecordRead<T> =
+  | Exclude<OnDiskJsonRead<T>, { readonly status: "recorded" }>
+  | { readonly status: "honored"; readonly value: T }
+  | { readonly status: "stale" | "dirty" };
+
+/** Apply the one exact-HEAD, clean-tree reuse rule to a registered document. */
+async function inspectExactHeadRecord<T extends { readonly head: string }>(
+  cwd: string,
+  format: "freshStandardMeasurementEvidence" | "standardMeasurements",
+  path: string | undefined,
+  decode: (raw: string) => T | undefined,
+): Promise<ExactHeadRecordRead<T>> {
+  const read = await inspectOnDiskJsonFile(format, path, decode);
+  if (read.status !== "recorded") return read;
+  const head = await headSha(cwd);
+  if (head === undefined) {
+    return { status: "unavailable", reason: "could not read current HEAD" };
+  }
+  if (head !== read.value.head) return { status: "stale" };
+  if (!(await isWorktreeFullyClean(cwd))) return { status: "dirty" };
+  return { status: "honored", value: read.value };
+}
+
 /** Honor evidence only for the exact current clean commit. */
 export async function inspectFreshStandardMeasurementEvidence(
   cwd: string,
 ): Promise<FreshStandardMeasurementEvidenceCheck> {
-  const path = await gitAdminStatePath(cwd, "standardMeasurementEvidence");
-  if (path === undefined) {
-    return { status: "unavailable" };
-  }
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound
-      ? { status: "missing" }
-      : { status: "unavailable" };
-  }
-  const evidence = parseFreshStandardMeasurementEvidence(raw);
-  if (evidence === undefined) {
-    const format = inspectOnDiskJsonVersion(
-      "freshStandardMeasurementEvidence",
-      raw,
-    );
-    if (format.status === "newer") {
-      return {
-        status: "newer",
-        reason: newerOnDiskFormatMessage(
-          "freshStandardMeasurementEvidence",
-          format.found,
-        ),
-      };
-    }
-    return { status: "malformed" };
-  }
-  const currentHead = await headSha(cwd);
-  if (currentHead === undefined || currentHead !== evidence.head) {
-    return { status: "stale" };
-  }
-  if (!(await isWorktreeFullyClean(cwd))) {
-    return { status: "dirty" };
-  }
-  return { status: "honored", evidence };
+  const read = await inspectExactHeadRecord(
+    cwd,
+    "freshStandardMeasurementEvidence",
+    await gitAdminStatePath(cwd, "standardMeasurementEvidence"),
+    parseFreshStandardMeasurementEvidence,
+  );
+  return read.status === "honored"
+    ? { status: "honored", evidence: read.value }
+    : read;
 }
 
 /**
@@ -1154,48 +1149,20 @@ export async function inspectFreshStandardMeasurementEvidence(
 export async function inspectStandardMeasurements(
   cwd: string,
 ): Promise<StandardMeasurementsCheck> {
-  const path = await gitAdminStatePath(cwd, "standardMeasurements");
-  if (path === undefined) {
-    return { status: "unavailable" };
-  }
-  let raw: string;
-  try {
-    raw = await Deno.readTextFile(path);
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound
-      ? { status: "missing" }
-      : { status: "unavailable" };
-  }
-  const parsed = parseMeasurements(raw);
-  if (parsed === undefined) {
-    const format = inspectOnDiskJsonVersion("standardMeasurements", raw);
-    if (format.status === "newer") {
-      return {
-        status: "newer",
-        reason: newerOnDiskFormatMessage(
-          "standardMeasurements",
-          format.found,
-        ),
-      };
+  const read = await inspectExactHeadRecord(
+    cwd,
+    "standardMeasurements",
+    await gitAdminStatePath(cwd, "standardMeasurements"),
+    parseMeasurements,
+  );
+  return read.status === "honored"
+    ? {
+      status: "honored",
+      values: read.value.values,
+      definitions: read.value.definitions,
+      provenance: read.value.provenance,
     }
-    return { status: "malformed" };
-  }
-  const head = await headSha(cwd);
-  if (head === undefined) {
-    return { status: "unavailable" };
-  }
-  if (head !== parsed.head) {
-    return { status: "stale" };
-  }
-  if (!(await isWorktreeFullyClean(cwd))) {
-    return { status: "dirty" };
-  }
-  return {
-    status: "honored",
-    values: parsed.values,
-    definitions: parsed.definitions,
-    provenance: parsed.provenance,
-  };
+    : read;
 }
 
 /** A parsed measurement proof: the commit its values describe, the values,

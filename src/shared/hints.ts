@@ -2028,7 +2028,8 @@ export const HINTS = {
     audience: "all",
     when: "A Gate run cannot read every strand-detection snapshot.",
     example: {},
-    template: (): string => "Restore Git status; re-run for strand evidence.",
+    template: (): string =>
+      "Restore Git status access; re-run for strand evidence.",
   }),
 
   "gate-proof-skipped-dirty": defineHint<{

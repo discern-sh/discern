@@ -12,7 +12,7 @@
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { basename, dirname, join } from "@std/path";
+import { basename, join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -39,8 +39,10 @@ import {
 } from "./engine_helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
-import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import {
+  initializeGitAdminRecordFixture,
+  writeNewerOnDiskJsonFixture,
+} from "./on_disk_format_fixtures.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -340,19 +342,18 @@ Deno.test("temp artifacts: independent callers share one repository-wide sweep i
 
 Deno.test("temp artifacts: a newer sweep cursor is reported and never replaced", async () => {
   await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
-    await gitInit(dir);
-    const path = await gitAdminStatePath(dir, "tempArtifactSweep");
-    assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
-    const future = `${
-      JSON.stringify({
-        version: ON_DISK_FORMATS.tempArtifactSweep.version + 1,
+    const path = await initializeGitAdminRecordFixture(
+      dir,
+      "tempArtifactSweep",
+    );
+    const future = await writeNewerOnDiskJsonFixture(
+      path,
+      "tempArtifactSweep",
+      {
         last_sweep_at: 0,
         cursor: null,
-      })
-    }\n`;
-    await Deno.writeTextFile(path, future);
+      },
+    );
     const outcome = await sweepDueTempArtifacts(dir, { now: HOUR_MS });
     assert(outcome.kind === "newer");
     assertStringIncludes(outcome.reason, "written by a newer discern");

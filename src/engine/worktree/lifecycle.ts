@@ -3493,7 +3493,7 @@ async function executeAcceptPlan(
     ]);
     throw new WorktreeGitError(
       `The branch landed on the trunk (${trunk}), but Git could not delete the merged ` +
-        `owned branch ${worktreeBranch}: ${branchDeletion.reason}. From the main ` +
+        `owned branch ${worktreeBranch}: ${branchDeletion.reason}. From the trunk ` +
         `checkout, run \`${verifyBranch}\`; only if it still prints ` +
         `${validatedSha}, clean the already-merged branch with ` +
         `\`${deleteBranch}\`. Do not rerun acceptance or replay consent.`,

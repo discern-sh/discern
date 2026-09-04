@@ -34,19 +34,14 @@ import {
 } from "./engine_helpers.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
+import { parseGateProofFile } from "../src/engine/gate/proof_records.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { z } from "@zod/zod";
 import {
   assertResultDataKey,
   type CliResultForCommand,
   decodeCliResult,
-  decodeWith,
 } from "./decode_cli_result.ts";
-
-const GATE_PROOF_EVENT_SCHEMA = z.object({
-  head: z.string(),
-}).passthrough();
 
 /** Scaffold a bootstrapped project, commit setup work, and record current Proof. */
 async function setupBranchRepo(
@@ -345,24 +340,22 @@ Deno.test("setup accept refuses missing, unreadable, mismatched, and declaration
   await withTempDir(async (dir) => {
     await setupBranchRepo(dir);
     const path = await proofPath(dir);
-    const lines = (await Deno.readTextFile(path)).split("\n");
+    const parsed = parseGateProofFile(await Deno.readTextFile(path));
+    assert(parsed.status === "recorded");
+    assert(parsed.record.proof !== undefined);
     const mainHead = await gitOut(dir, "rev-parse", "main");
-    const rewritten = lines.map((line) => {
-      if (!line.startsWith("data: ")) {
-        return line;
-      }
-      const parsed = decodeWith(
-        GATE_PROOF_EVENT_SCHEMA,
-        line.slice("data: ".length),
-      );
-      return `data: ${
+    await Deno.writeTextFile(
+      path,
+      `${
         JSON.stringify({
-          ...parsed,
-          head: mainHead.slice(0, 12),
+          ...parsed.record,
+          proof: {
+            ...parsed.record.proof,
+            head: mainHead.slice(0, 12),
+          },
         })
-      }`;
-    });
-    await Deno.writeTextFile(path, rewritten.join("\n"));
+      }\n`,
+    );
     const result = await readOnlySetupRefusal(dir);
     assertEquals(result.error, "precondition_failed");
     assertStringIncludes(String(result.message), "does not identify");

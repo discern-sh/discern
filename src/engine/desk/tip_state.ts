@@ -21,9 +21,9 @@ import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import {
   inspectOnDiskJsonVersion,
-  newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 import {
   freshTipSeenState,
   TIP_STATE_SCHEMA_VERSION,
@@ -93,26 +93,15 @@ export type TipSeenStateRead =
 export async function inspectTipSeenState(
   root: string,
 ): Promise<TipSeenStateRead> {
-  try {
-    const path = await tipStatePath(root);
-    if (path === undefined) return { status: "unavailable" };
-    const text = await Deno.readTextFile(path);
-    const version = inspectOnDiskJsonVersion("deskTipState", text);
-    if (version.status === "newer") {
-      return {
-        status: "newer",
-        reason: newerOnDiskFormatMessage("deskTipState", version.found),
-      };
-    }
-    const state = parseState(text);
-    return state === undefined
-      ? { status: "malformed" }
-      : { status: "recorded", state };
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound
-      ? { status: "missing" }
-      : { status: "unavailable" };
+  const read = await inspectOnDiskJsonFile(
+    "deskTipState",
+    await tipStatePath(root),
+    parseState,
+  );
+  if (read.status === "recorded") {
+    return { status: "recorded", state: read.value };
   }
+  return read;
 }
 
 /**

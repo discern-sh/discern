@@ -296,7 +296,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     const obj = decodeCliResult(r.stdout, "done");
     assertResultDataKey(obj, "failed_stage");
     assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, "check/test");
+    assertEquals(obj.data.failed_stage, "test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "test");
     assert(diag !== undefined, `expected a diagnostic for test: ${r.stdout}`);
     // The message is bounded, plain, names the likely cause + the way out, and

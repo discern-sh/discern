@@ -14,6 +14,7 @@ import {
   newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 
 export interface EffortGrant {
   readonly version: typeof ON_DISK_FORMATS.effortGrant.version;
@@ -82,19 +83,14 @@ export function parseEffortGrant(raw: string): EffortGrantRead {
 
 /** Read this worktree's effort grant. Unreadable or malformed state fails closed. */
 export async function readEffortGrant(cwd: string): Promise<EffortGrantRead> {
-  const path = await gitAdminStatePath(cwd, "effortGrant");
-  if (path === undefined) {
-    return {
-      status: "unavailable",
-      reason: "Git could not resolve the effort-grant path",
-    };
-  }
-  try {
-    return parseEffortGrant(await Deno.readTextFile(path));
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return { status: "missing" };
-    }
-    return { status: "unavailable", reason: effortGrantFailureReason(error) };
-  }
+  const read = await inspectOnDiskJsonFile(
+    "effortGrant",
+    await gitAdminStatePath(cwd, "effortGrant"),
+    parseEffortGrant,
+  );
+  return read.status === "recorded"
+    ? read.value
+    : read.status === "malformed"
+    ? { status: "invalid", reason: "the effort-grant record is malformed" }
+    : read;
 }

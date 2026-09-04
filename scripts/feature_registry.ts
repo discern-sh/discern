@@ -1927,7 +1927,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "Any runnable file placed under `[scripts].dir` becomes `discern scripts <name>`: its direct filename is taken literally, it runs from the project's root with four named project facts, and extra choices pass through unchanged. An optional `# desc:` line supplies its listing text. These names live in their own clearly marked area, so built-in instruction names stay legal.",
           why:
-            "The project's own tooling gets the project location, active settings file, scripts directory, and trunk without repeated setup code or hidden capabilities in every file.",
+            "The project's own tooling gets the project location, active settings file, scripts directory, and main shared version without repeated setup code or hidden capabilities in every file.",
         },
         surfaces: ["verb:scripts"],
       },

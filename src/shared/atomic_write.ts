@@ -37,6 +37,17 @@ export interface AtomicReplaceJsonOptions extends AtomicReplaceOptions {
   readonly trailingNewline: boolean;
 }
 
+/** Remove one exact target when present, mapping only `NotFound` to false. */
+export async function removeIfExists(path: string): Promise<boolean> {
+  try {
+    await Deno.remove(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return false;
+    throw error;
+  }
+}
+
 /** Advance through partial operating-system writes until every byte is staged. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;

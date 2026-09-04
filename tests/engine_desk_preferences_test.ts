@@ -11,6 +11,10 @@ import {
 } from "../src/engine/desk/preferences.ts";
 import { withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
+import {
+  initializeGitAdminRecordFixture,
+  writeNewerOnDiskJsonFixture,
+} from "./on_disk_format_fixtures.ts";
 
 Deno.test("Desk preferences: a missing record has no remembered defaults", async () => {
   await withTempDir(async (dir) => {
@@ -72,17 +76,18 @@ Deno.test("Desk preferences: torn and authority-shaped records reset", async () 
 
 Deno.test("Desk preferences: a newer record is diagnosed and never replaced", async () => {
   await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
-    await gitInit(dir);
-    const path = await deskPreferencesPath(dir);
-    assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
-    const future = JSON.stringify({
-      schema_version: 99,
-      last_agent: "codex",
-      future_field: true,
-    });
-    await Deno.writeTextFile(path, future);
+    const path = await initializeGitAdminRecordFixture(
+      dir,
+      "deskPreferences",
+    );
+    const future = await writeNewerOnDiskJsonFixture(
+      path,
+      "deskPreferences",
+      {
+        last_agent: "codex",
+        future_field: true,
+      },
+    );
 
     const inspected = await inspectDeskPreferences(dir);
     assert(inspected.status === "newer");

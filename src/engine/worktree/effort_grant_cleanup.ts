@@ -7,6 +7,7 @@
 
 import { join } from "@std/path";
 import { lstatIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
+import { removeIfExists } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
@@ -131,18 +132,7 @@ export async function clearEffortGrant(cwd: string): Promise<boolean> {
     throw new Error(current.reason);
   }
   const path = await gitAdminStatePath(cwd, "effortGrant");
-  if (path === undefined) {
-    return false;
-  }
-  try {
-    await Deno.remove(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
+  return path !== undefined && await removeIfExists(path);
 }
 
 /**
@@ -262,12 +252,13 @@ export async function restoreEffortGrantClaim(
 export async function consumeEffortGrantClaim(
   claim: EffortGrantClaim,
 ): Promise<boolean> {
+  let settled = true;
   try {
-    await Deno.remove(claim.path);
-    return true;
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound;
+    await removeIfExists(claim.path);
+  } catch {
+    settled = false;
   }
+  return settled;
 }
 
 /** Consume a transaction-owned claim even when its current-format payload is

@@ -145,7 +145,7 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "done");
-    assertEquals(obj.data.failed_stage, "check/test");
+    assertEquals(obj.data.failed_stage, "check");
     // The failure is attributed to the precise job step.
     const lint = stepFor(obj, "lint");
     assertEquals(lint.outcome, "failed");
@@ -274,7 +274,7 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
 
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, "check/test");
+    assertEquals(obj.data.failed_stage, "check");
     const diag = diagFor(obj, "lint");
     assert(diag, `expected a diagnostic for lint, got ${r.stdout}`);
     assert(diag.output !== undefined, "expected captured streamed output");

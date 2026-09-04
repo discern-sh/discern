@@ -436,7 +436,7 @@ Deno.test("landing authority has one runtime derivation boundary", async () => {
   const directPolicyReaders: string[] = [];
   for (const path of sourceFiles) {
     const text = await Deno.readTextFile(join(REPO_ROOT, path));
-    if (/\breadEffortGrant\b/.test(text)) {
+    if (/\breadEffortGrant\s*\(/.test(text)) {
       readers.push(path);
     }
     if (
@@ -449,6 +449,7 @@ Deno.test("landing authority has one runtime derivation boundary", async () => {
   }
   assertEquals(readers.sort(), [
     "src/engine/worktree/effort_grant.ts",
+    "src/engine/worktree/effort_grant_cleanup.ts",
     "src/engine/worktree/effort_grant_writer.ts",
     "src/engine/worktree/landing_authority.ts",
   ]);

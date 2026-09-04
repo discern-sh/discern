@@ -97,6 +97,15 @@ export interface LastGateRun {
   readonly mode?: GateMode;
 }
 
+const LastGateRunSchema = z.strictObject({
+  version: z.literal(ON_DISK_FORMATS.lastGateRun.version),
+  head: z.string().min(1),
+  tree: z.string().optional(),
+  passed: z.boolean(),
+  evidence: z.string().optional(),
+  mode: z.enum(["strict", "report"]).optional(),
+});
+
 export type LastGateRunRead =
   | { readonly status: "recorded"; readonly run: LastGateRun }
   | { readonly status: "missing" }
@@ -119,46 +128,30 @@ export function parseLastGateRun(raw: string): LastGateRunRead {
       reason: newerOnDiskFormatMessage("lastGateRun", version.found),
     };
   }
-  if (
-    version.status !== "current" || parsed === null ||
-    typeof parsed !== "object" || Array.isArray(parsed)
-  ) {
+  if (version.status !== "current") {
     return {
       status: "malformed",
       reason: "last-gate-run does not carry the registered format version",
     };
   }
-  const record = parsed as Record<string, unknown>;
-  if (typeof record.head !== "string" || typeof record.passed !== "boolean") {
+  const record = LastGateRunSchema.safeParse(parsed);
+  if (!record.success) {
     return {
       status: "malformed",
       reason: "last-gate-run fields are malformed",
     };
   }
-  if (record.tree !== undefined && typeof record.tree !== "string") {
-    return { status: "malformed", reason: "last-gate-run tree is malformed" };
-  }
-  if (record.evidence !== undefined && typeof record.evidence !== "string") {
-    return {
-      status: "malformed",
-      reason: "last-gate-run evidence is malformed",
-    };
-  }
-  if (
-    record.mode !== undefined && record.mode !== "strict" &&
-    record.mode !== "report"
-  ) {
-    return { status: "malformed", reason: "last-gate-run mode is malformed" };
-  }
   return {
     status: "recorded",
     run: {
       version: ON_DISK_FORMATS.lastGateRun.version,
-      head: record.head,
-      passed: record.passed,
-      ...(record.tree !== undefined ? { tree: record.tree } : {}),
-      ...(record.evidence !== undefined ? { evidence: record.evidence } : {}),
-      ...(record.mode !== undefined ? { mode: record.mode } : {}),
+      head: record.data.head,
+      passed: record.data.passed,
+      ...(record.data.tree !== undefined ? { tree: record.data.tree } : {}),
+      ...(record.data.evidence !== undefined
+        ? { evidence: record.data.evidence }
+        : {}),
+      ...(record.data.mode !== undefined ? { mode: record.data.mode } : {}),
     },
   };
 }

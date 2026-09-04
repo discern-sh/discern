@@ -9,7 +9,7 @@
  */
 
 import { dirname } from "@std/path";
-import { atomicReplaceJson } from "./atomic_write.ts";
+import { atomicReplaceJson, removeIfExists } from "./atomic_write.ts";
 import { gitAdminStatePath } from "./git_admin_state.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import { runGit } from "./subprocess.ts";
@@ -18,6 +18,7 @@ import {
   newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "./on_disk_formats.ts";
+import { inspectOnDiskJsonFile } from "./on_disk_json.ts";
 import { readTextIfExists } from "./fs_presence.ts";
 
 const SETUP_MACHINERY_EVIDENCE_VERSION =
@@ -337,34 +338,15 @@ export async function recordSetupMachineryCommitEvidence(
 export async function readSetupMachineryCommitEvidence(
   root: string,
 ): Promise<SetupMachineryEvidenceRead> {
-  const path = await gitAdminStatePath(root, "setupMachineryCommitEvidence");
-  if (path === undefined) {
-    return { status: "unavailable" };
+  const read = await inspectOnDiskJsonFile(
+    "setupMachineryCommitEvidence",
+    await gitAdminStatePath(root, "setupMachineryCommitEvidence"),
+    parseEvidence,
+  );
+  if (read.status === "recorded") {
+    return { status: "found", evidence: read.value };
   }
-  try {
-    const raw = await Deno.readTextFile(path);
-    const version = inspectOnDiskJsonVersion(
-      "setupMachineryCommitEvidence",
-      raw,
-    );
-    if (version.status === "newer") {
-      return {
-        status: "newer",
-        reason: newerOnDiskFormatMessage(
-          "setupMachineryCommitEvidence",
-          version.found,
-        ),
-      };
-    }
-    const evidence = parseEvidence(raw);
-    return evidence === undefined
-      ? { status: "invalid" }
-      : { status: "found", evidence };
-  } catch (error) {
-    return error instanceof Deno.errors.NotFound
-      ? { status: "missing" }
-      : { status: "unavailable" };
-  }
+  return read.status === "malformed" ? { status: "invalid" } : read;
 }
 
 /**
@@ -410,13 +392,5 @@ export async function clearSetupMachineryCommitEvidence(
     );
     if (version.status === "newer") return false;
   }
-  try {
-    await Deno.remove(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
-  }
+  return await removeIfExists(path);
 }

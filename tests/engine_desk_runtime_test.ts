@@ -447,7 +447,7 @@ Deno.test("desk-owned terminal children receive the desk-session marker", async 
   );
 });
 
-Deno.test("desk-owned Project Scripts receive the desk-session marker", async () => {
+Deno.test("desk-owned Project Scripts receive no private desk-session marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -468,7 +468,7 @@ Deno.test("desk-owned Project Scripts receive the desk-session marker", async ()
       ),
       0,
     );
-    assertEquals(await Deno.readTextFile(`${dir}/desk-session.txt`), "1");
+    assertEquals(await Deno.readTextFile(`${dir}/desk-session.txt`), "");
   });
 });
 

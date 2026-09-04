@@ -255,7 +255,7 @@ export function checkTestGroup(
 
 /**
  * The check/test portion of the `done` plan, shaped by the fleet test-run cap.
- * Uncapped (`[gate].concurrent_test_runs = 0`, the default): the one combined
+ * Explicitly uncapped (`[gate].concurrent_test_runs = 0`): the one combined
  * check∥test group ({@link checkTestGroup}) — byte-identical to the plan before
  * the cap existed. Capped: the check stage runs first as its own group, then
  * the tests and standard measurements follow as one group, which is the unit

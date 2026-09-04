@@ -16,6 +16,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { DiagnosticSchema } from "../src/shared/result_schemas.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { renderMcpResult } from "../src/engine/mcp/server.ts";
+import { parseGateProofFile } from "../src/engine/gate/proof_records.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { gitOut, runAgent } from "./engine_helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
@@ -150,11 +151,12 @@ Deno.test("a marker-bearing clean HEAD with stale Proof validates that HEAD with
     const proofPath = await gitAdminStatePath(dir, "gateProof");
     assertExists(proofPath);
     const currentProof = await Deno.readTextFile(proofPath);
+    const parsedProof = parseGateProofFile(currentProof);
+    assert(parsedProof.status === "recorded");
     const predecessor = await gitOut(dir, "rev-parse", "HEAD^");
-    const newline = currentProof.indexOf("\n");
     await Deno.writeTextFile(
       proofPath,
-      `${predecessor}${newline < 0 ? "" : currentProof.slice(newline)}`,
+      `${JSON.stringify({ ...parsedProof.record, head: predecessor })}\n`,
     );
     const beforeValidation = await setupCompletionSnapshot(dir);
 
@@ -172,7 +174,9 @@ Deno.test("a marker-bearing clean HEAD with stale Proof validates that HEAD with
     assertEquals(afterValidation.status, beforeValidation.status);
     assertEquals(afterValidation.gateInvocations, 4);
     assertExists(afterValidation.proof);
-    assert(afterValidation.proof.startsWith(`${afterValidation.head}\n`));
+    const refreshedProof = parseGateProofFile(afterValidation.proof);
+    assert(refreshedProof.status === "recorded");
+    assertEquals(refreshedProof.record.head, afterValidation.head);
   });
 });
 

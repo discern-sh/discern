@@ -72,13 +72,6 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
   },
   {
     path: "src/engine/gate/proof.ts",
-    enclosingFunction: "inspectLastGateRun",
-    rule: "asserted-json-boundary",
-    reason:
-      "The record assertion enables per-field checks; the function constructs LastGateRun only after validating every consumed field.",
-  },
-  {
-    path: "src/engine/gate/proof.ts",
     enclosingFunction: "parseMeasurements",
     rule: "asserted-json-boundary",
     reason:
