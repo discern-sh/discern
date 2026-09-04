@@ -58,7 +58,7 @@ An account of the work is not evidence of it, whoever gives it.
 
 **Upheld:** enforced via `done`, `[jobs]`, `[gate]` · automated via `prepare`.
 
-### 5. Only better
+### 5. Keep every gain
 
 A gain nothing holds is on loan, and the next change will spend it.
 
@@ -122,7 +122,7 @@ A refusal that names no next step leaves the operator guessing.
 
 **Upheld:** automated via `mcp`.
 
-### 12. Plan, then apply
+### 12. No unplanned effects
 
 An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.
 

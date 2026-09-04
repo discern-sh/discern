@@ -317,7 +317,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   },
   {
     id: "only-better",
-    title: "Only better",
+    title: "Keep every gain",
     why: "A gain nothing holds is on loan, and the next change will spend it.",
     obligation:
       "Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.",
@@ -503,7 +503,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   },
   {
     id: "plan-then-apply",
-    title: "Plan, then apply",
+    title: "No unplanned effects",
     why:
       "An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.",
     obligation:

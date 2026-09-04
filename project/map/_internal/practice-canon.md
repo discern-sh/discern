@@ -78,7 +78,7 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 - **Agent outcomes:** See the change discern sees · Run the relevant Gate efficiently · Use a fast inner loop · Carry judgment as judgment.
 - **Maintains:** its checks.
 
-### 5. Only better
+### 5. Keep every gain
 
 A gain nothing holds is on loan, and the next change will spend it.
 
@@ -182,7 +182,7 @@ Every verb returns one structured result: the state, the diagnostics with the co
 - **Human value:** Spend more time on the product.
 - **Agent outcomes:** Orient from one bounded result · Recover from a truthful refusal · Load only the context needed · Operate as the primary user.
 
-### 12. Plan, then apply
+### 12. No unplanned effects
 
 An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.
 
@@ -250,8 +250,8 @@ The project holds its instructions, its working conditions, its checks, its evid
 
 - **its instructions** — 1. Arrive knowing · 8. The project remembers
 - **its working conditions** — 2. One task, one place · 3. Hand over whole pieces
-- **its checks** — 4. Done is deterministic · 5. Only better · 9. Cure the class · 10. Write it once
-- **its evidence** — 5. Only better · 6. Proof binds to the change
+- **its checks** — 4. Done is deterministic · 5. Keep every gain · 9. Cure the class · 10. Write it once
+- **its evidence** — 5. Keep every gain · 6. Proof binds to the change
 - **its decisions** — 7. You decide what lands · 8. The project remembers
 
 ## Coding-agent outcome index
@@ -263,21 +263,21 @@ Each Agent Benefit Canon outcome points back to the tenets or properties that pr
 - **See the change discern sees** — 4. Done is deterministic
 - **Own one isolated effort** — 2. One task, one place
 - **Compose without adopting sibling work** — 3. Hand over whole pieces
-- **Resume after interruption** — 12. Plan, then apply
+- **Resume after interruption** — 12. No unplanned effects
 - **Run the relevant Gate efficiently** — 4. Done is deterministic
 - **Use a fast inner loop** — 4. Done is deterministic
 - **Load only the context needed** — 11. No dead ends
 - **Prove the exact tree** — 6. Proof binds to the change
 - **Carry judgment as judgment** — 4. Done is deterministic
-- **Retain earned quality** — 5. Only better
-- **Preview and retry effects safely** — 12. Plan, then apply
+- **Retain earned quality** — 5. Keep every gain
+- **Preview and retry effects safely** — 12. No unplanned effects
 - **Land only with release authority** — 7. You decide what lands
 - **Manage the installation lifecycle** — Property: Reversible
 - **Inherit current agent instructions** — 1. Arrive knowing
 - **Recover the project mental model** — 1. Arrive knowing · 8. The project remembers · Property: Ordinary files, yours
 - **Invoke curated project procedures** — 1. Arrive knowing · 8. The project remembers · 9. Cure the class
 - **Let new members enrol themselves** — 9. Cure the class · 10. Write it once
-- **Diagnose workflow friction locally** — 5. Only better · Property: Local
+- **Diagnose workflow friction locally** — 5. Keep every gain · Property: Local
 - **Operate without a hidden model** — Property: No model inside
 - **Operate as the primary user** — 11. No dead ends
 - **Switch supported agent hosts** — Property: Provider-neutral
