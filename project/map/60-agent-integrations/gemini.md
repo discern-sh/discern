@@ -43,7 +43,17 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume",
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "discern worktree ensure",
+            "timeout": 600000
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
         "hooks": [
           {
             "type": "command",
@@ -57,7 +67,7 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 }
 ```
 
-Gemini enables hooks by default, so discern writes no `hooksConfig` override. The matcher covers both a new session and a resumed one. MCP registration separately adds `mcpServers.discern` with `"command": "discern"`, `"args": ["mcp", "--long-tool-calls"]`, and `"timeout": 3600000`, preserving the hook and every user-owned setting. Gemini infers stdio from `command`, so the server has no `type` field.
+Gemini enables hooks by default, so discern writes no `hooksConfig` override. Gemini's lifecycle matchers are exact strings, so separate groups cover a new session and a resumed one. MCP registration separately adds `mcpServers.discern` with `"command": "discern"`, `"args": ["mcp", "--long-tool-calls"]`, and `"timeout": 3600000`, preserving the hook and every user-owned setting. Gemini infers stdio from `command`, so the server has no `type` field.
 
 Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds. A longer watch continues from the returned 15-character resume handle.
 

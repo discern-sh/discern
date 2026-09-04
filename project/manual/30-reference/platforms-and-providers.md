@@ -64,15 +64,15 @@ Prerequisite: the target platform or coding-agent provider. Provider files are p
 | Cursor         | `cursor-agent` | canonical `AGENTS.md` | `.agents/skills/` | `.cursor/mcp.json`      | `.cursor/hooks.json`         | Workspace and first-use tool approval           | 60s shortest surface / 45s |
 | GitHub Copilot | `copilot`      | canonical `AGENTS.md` | `.agents/skills/` | `.mcp.json`             | `.github/hooks/discern.json` | Folder trust                                    | 3,600s / 3,300s            |
 
-Every provider's activation check calls `discern_status` (Claude Code and Codex expose it as `mcp__discern__discern_status`). A missing provider executable does not change the files' ownership contract. Providers outside this registry have no supported integration files, Skills destination, trust recipe, or MCP timeout profile.
+Every provider's activation check calls `discern_status` (Claude Code and Codex expose it as `mcp__discern__discern_status`). Removing a provider from the machine does not change who owns its files. Coding tools outside this table have no supported discern configuration, Skill location, trust instructions, or MCP timeout.
 
-The table's tool and await values are MCP request budgets: configurable clients receive 3,600 seconds, while a long `discern_await` call uses at most 3,300 seconds so delivery has headroom. Hook execution is a separate vendor timeout domain. Every discern-authored provider hook carries an explicit 600-second budget, rendered as seconds or milliseconds to match that vendor's schema.
+The final column gives each provider's MCP call limit and the longest `discern_await` request. Most providers allow an MCP call to run for 3,600 seconds. `discern_await` uses at most 3,300 seconds, leaving 5 minutes for the provider to deliver the result. Cursor has the shorter limits shown in the table.
 
-Provider file locations and discern's ownership of each whole file or merged entry are stable discern contracts. Seed contents follow each vendor's current format: `discern refresh` re-renders and re-seeds discern's entries from the provider registry while preserving user-owned Shared content. Vendor-format evidence belongs with the implementation and its decisions, not in a second per-seed version or verification-date field.
+Session hooks have a separate 600-second limit. Gemini records that value as 600,000 milliseconds; the other providers use seconds. `discern refresh` updates the settings discern owns to the current format for each coding tool and keeps unrelated settings unchanged. The file locations and ownership rules do not change when those formats change.
 
 ## Clones without discern
 
-Compiled agent files and provider configuration are tracked, so a bare clone retains them. Materialized Skill directories are generated and ignored: Claude Code uses `.claude/skills/`; Codex, Gemini, Cursor, and GitHub Copilot share `.agents/skills/`. On a machine where those directories or the local binary are absent, install discern, run `discern refresh`, then start a fresh provider session. Refresh rebuilds every configured provider Skill directory and re-seeds the registry-owned integration entries before the new session loads them.
+Git keeps the agent instruction files and provider configuration. It does not keep the generated Skill folders: Claude Code uses `.claude/skills/`, while Codex, Gemini, Cursor, and GitHub Copilot use `.agents/skills/`. After cloning onto a machine without discern, install the binary, run `discern refresh`, and open a new coding-agent session. The refresh recreates the Skill folders and updates discern's provider settings before the new session reads them.
 
 ## Secure entropy
 
@@ -193,13 +193,13 @@ The Claude Code settings seed includes the worktree hooks and no permission rule
 }
 ```
 
-`discern refresh` deep-merges this file. Hook groups append with de-duplication and every existing Shared permission rule remains unchanged. MCP registration separately adds `enabledMcpjsonServers = ["discern"]`. After workspace trust, that named local-server pre-approval suppresses the additional project-server prompt; normal MCP tool permissions remain in force.
+`discern refresh` adds or updates discern's hooks without changing other hooks or permission rules. It also adds `discern` to `enabledMcpjsonServers`. Once the workspace is trusted, Claude Code can start that named local server without another server-approval prompt. Claude Code still applies its normal permissions when the server calls a tool.
 
 ### Runtime behavior and gotchas
 
 Among the supported providers, Claude Code exposes the worktree lifecycle hook contract. `WorktreeCreate` and `WorktreeRemove` run `discern worktree hook`; `SessionStart` runs `discern worktree ensure`.
 
-Claude Code's current hook payloads have no version field. Create requires string `name` and `cwd` fields, ignores harmless unknown fields, and refuses malformed input clearly. Remove reads the string `worktree_path`, ignores unknown fields, and remains best effort because teardown must not strand Claude's own removal. discern adds no private payload-version flag or speculative aliases.
+Claude Code sends `name` and `cwd` when it asks discern to create a worktree, and sends `worktree_path` when it removes one. Extra fields are ignored. If the create request omits a required value or supplies the wrong type, discern refuses it with an error. Removal remains best effort so a cleanup problem cannot strand Claude Code's own removal.
 
 `EnterWorktree` re-roots Claude Code's shell and instruction context, but a stdio MCP process keeps its launch cwd. `discern_start` re-aims discern's live MCP root to its new worktree; a native cwd move does not move a generic server.
 
@@ -253,7 +253,7 @@ tool_timeout_sec = 3600
 
 `project_doc_max_bytes` is set only when the project has not chosen its own value. The 65,536-byte value raises Codex's default instruction-file limit for discern-generated instructions.
 
-`sandbox_workspace_write.writable_roots` is merged with any existing list. discern adds the configured worktree root: for `[worktree].root = ""` it is relative to `.codex/` and looks like `../../<repo>.worktrees`; another relative value is rewritten relative to `.codex/`; an absolute configured value stays absolute. discern never broadens that grant to `../..`. Because Codex has no machine-local project layer for this setting, differently named clones can produce tracked-value churn; run `discern refresh` in the active clone and review the added root.
+`sandbox_workspace_write.writable_roots` keeps its existing values and gains the folder where discern creates worktrees. With the default `[worktree].root = ""`, the path is relative to `.codex/` and looks like `../../<repo>.worktrees`. Another relative value is adjusted from the same starting point, while an absolute value stays absolute. discern never replaces it with the broader `../..` path. Different clone directory names can make `discern refresh` update the tracked path; review that change before committing it.
 
 When `discern refresh` runs from inside an existing linked worktree, discern asks Git for the main checkout and computes the writable root from that main checkout instead of from the transient worktree directory. This keeps a worktree-local refresh from rewriting the tracked config to `../../<worktree-id>.worktrees`.
 
@@ -301,13 +301,13 @@ script = "discern worktree ensure"
 script = "discern worktree teardown"
 ```
 
-`version` and `name` are written only when absent; a new file takes `name` from `[project].name` (with the normal project display-name fallback), while an app-created file keeps its values. Missing or still-default discern scripts are re-emitted on refresh because the Codex app can regenerate this file; user-customized script values are preserved. Uninstall recognizes a discern-created shell by its generated marker rather than a hard-coded environment name.
+discern adds `version` and `name` only when they're missing. A new file uses the project's configured name, or the name discern already displays for the project. An existing Codex file keeps its values. `discern refresh` restores missing setup and cleanup scripts, but keeps scripts the project has customized. A marker in a discern-created file lets uninstall recognize it without relying on the environment name.
 
 This file is for Codex-app-managed worktrees. discern's own sibling worktrees still come from `discern start` / `discern_start` and the worktree lifecycle verbs.
 
 ### `.codex/rules/discern.rules`
 
-Codex loads this project rules file after the project is trusted. The rules are command-prefix grants with no working-directory boundary. discern writes its own file rather than mutating user-owned files such as `.codex/rules/default.rules`.
+Codex loads this rules file after the project is trusted. Each rule allows a command that begins with the listed words, wherever Codex runs it. discern writes a separate file and leaves project files such as `.codex/rules/default.rules` unchanged.
 
 The generated rules file allows only these prefixes:
 
@@ -333,9 +333,9 @@ The exact prefixes include trailing arguments such as `git add -A`, `git commit 
 
 ### Runtime behavior and gotchas
 
-Project `.codex/` config is inert until user-level `~/.codex/config.toml` records `projects."<absolute-project-path>".trust_level = "trusted"`. That absolute-path trust is outside the repository; discern can write project files but cannot self-trust the project. Start a fresh session or restart Codex when needed so it loads newly written config and rules.
+Codex ignores project `.codex/` settings until its user-level configuration marks the project's absolute path as trusted. That decision stays outside the repository, and discern cannot make it for you. Start a new session or restart Codex after changing the project settings or trust state.
 
-`discern_start` can re-aim the long-lived discern MCP server at the new worktree, but it cannot move Codex's shell workspace. The writable-root entry grants the configured worktree directory; the rules separately grant only the `git add` and `git commit` command prefixes, wherever that trusted session invokes them.
+`discern_start` points the running discern MCP server at the new worktree, but it cannot move Codex's shell there. The writable-root setting lets Codex work inside the configured worktree folder. The separate rules allow only commands beginning with `git add` or `git commit`, wherever the trusted session runs them.
 
 Because Codex's shell stays at its original root, drive the worktree explicitly. Prefix every shell command with `cd <path> &&`, and pass `path` to every discern tool. Edits and the Gate then use the same worktree root.
 
@@ -375,14 +375,24 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 
 ### `.gemini/settings.json`
 
-`discern refresh` deep-merges `.gemini/settings.json`. The registry-rendered hook seed is:
+`discern refresh` adds or updates discern's hook in `.gemini/settings.json` and leaves other settings unchanged:
 
 ```json
 {
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume",
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "discern worktree ensure",
+            "timeout": 600000
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
         "hooks": [
           {
             "type": "command",
@@ -396,7 +406,7 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 }
 ```
 
-Gemini enables hooks by default, so discern writes no `hooksConfig` override. The matcher covers both a new session and a resumed one. MCP registration separately adds `mcpServers.discern` with `"command": "discern"`, `"args": ["mcp", "--long-tool-calls"]`, and `"timeout": 3600000`, preserving the hook and every user-owned setting. Gemini infers stdio from `command`, so the server has no `type` field.
+Gemini enables hooks by default, so discern does not override `hooksConfig`. Gemini requires separate exact matches for a new session and a resumed session, so the example uses one group for each event. MCP setup also adds the `discern` entry under `mcpServers` and keeps every other server and setting. Gemini recognizes it as a local stdio server from its `command`, so the entry needs no `type` field.
 
 Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds. A longer watch continues from the returned 15-character resume handle.
 
@@ -598,7 +608,7 @@ Copilot and Claude Code co-own this file. Both providers write the same byte-ide
 
 Copilot's [MCP server configuration](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#mcp-server-configuration) accepts a tool-call timeout in milliseconds but publishes no default or maximum. discern sets one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned 15-character resume handle.
 
-Copilot supports both root `.mcp.json` and `.github/mcp.json`. discern uses root `.mcp.json` so Claude Code and Copilot can co-own one byte-identical local-server entry through the same writer. It does not write Claude Code's `enabledMcpjsonServers` key for Copilot; Copilot uses folder trust instead.
+Copilot supports both `.mcp.json` at the repository root and `.github/mcp.json`. discern uses the root file because Claude Code reads the same server entry there. Both tools can share that local server entry. The Claude Code approval setting is not written for Copilot; Copilot relies on folder trust.
 
 ### `.github/hooks/discern.json`
 

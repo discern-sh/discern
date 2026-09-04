@@ -44,17 +44,19 @@ Setup writes the instruction source, the Map, and the deferred-work ledger for e
 
 Your `.gitignore` gains one marked block, which discern rebuilds to cover materialized Skills and machine-local settings. Your `.gitattributes` gains a separate marked block for generated-file merging and Markdown diffs. Keep your own rules outside those blocks and both can evolve without collisions.
 
-Each coding tool you selected also gains its registry-declared integration entries: discern's MCP server and supported session hooks, plus only the security policy that provider contract names. Claude Code gains no permission rules and keeps existing Shared-file rules. Codex gains only the non-working-directory-scoped `git add` and `git commit` prefixes—not push, reset, broader Git, or general shell access. Unrelated entries in Shared files stay untouched. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) lists the paths per provider.
+Setup adds the files each selected coding tool needs to work with discern. Depending on the tool, those files connect the MCP server, run a command when a session starts, or grant a small set of permissions. Setup leaves unrelated settings alone.
+
+Claude Code keeps every permission rule already in its shared settings file. Codex allows `git add` and `git commit` so an agent can save its work. Those Codex rules apply wherever the commands run, but they don't allow `git push`, `git reset`, other Git commands, or general shell access. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) lists the files added for each tool.
 
 ## Files discern regenerates
 
-Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are compiled: discern's built-in operating instructions plus your `discern/instructions.md`, rendered per provider. They're committed, so a bare clone retains the instructions. Without the discern binary, however, its MCP server and hooks cannot run and its ignored materialized Skill directories are absent. Install discern, run `discern refresh`, and open a fresh provider session to restore the complete integration.
+Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` combine discern's built-in operating instructions with your `discern/instructions.md`. They're committed, so a new clone starts with the same written instructions. The MCP server, session hooks, and generated Skill folders still need the discern binary on that machine. Install discern, run `discern refresh`, and open a new coding-agent session after cloning.
 
 Never edit a compiled file by hand. Change the source and run `discern refresh`; the Gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized Skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
 
 ## One repository, one installation
 
-Setup resolves the Git top level and writes one root `discern.toml`. A monorepo models its packages or services with that installation's Scopes and custom jobs. A nested folder in the same repository cannot gain independent ownership by adding another config. A nested independent Git repository is a separate project and may run its own setup.
+Install discern once at the root of each Git repository. In a monorepo, the root `discern.toml` can give different parts of the repository their own checks. A folder that is itself a separate Git repository can have its own discern installation. Adding another `discern.toml` to an ordinary nested folder has no effect.
 
 ## What stays outside the repository
 
@@ -65,4 +67,6 @@ Parts of the practice never join the diff:
 
 ## The decision the diff supports
 
-A proven setup completion ran the full Gate over this branch and recorded [Proof](../20-understand/proof.md) for its exact tip, so the question in front of you isn't whether the checks passed. An explicitly unproven completion is recorded as such, cannot be accepted, and returns to `discern setup done` to converge. For a proven branch, decide whether this account of your project, its instructions, its Map, and its declared checks is what future sessions should inherit. When it is, landing is one command away in the [tutorial](first-success.md#5-review-and-land-setup); when something's off, say so and the agent revises the branch and proves it again.
+`discern setup done` normally runs the full Gate and records [Proof](../20-understand/proof.md) for the setup branch. If setup was marked unproven, discern records that state and refuses to land the branch. The agent can finish the missing work and run `discern setup done` again.
+
+Once the branch has Proof, review whether its instructions, Map, and checks describe the project you want future sessions to inherit. If they do, follow the landing step in the [tutorial](first-success.md#5-review-and-land-setup). If they don't, ask the agent to revise the branch and prove the new version.

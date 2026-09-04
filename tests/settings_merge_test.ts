@@ -313,14 +313,14 @@ Deno.test("provider hook merge updates nested matcher and timeout while preservi
   });
   const incoming = JSON.stringify({
     hooks: {
-      SessionStart: [{
-        matcher: "startup|resume",
+      SessionStart: ["startup", "resume"].map((matcher) => ({
+        matcher,
         hooks: [{
           type: "command",
           command: "discern worktree ensure",
           timeout: 600000,
         }],
-      }],
+      })),
     },
   });
   const schema = z.object({
@@ -353,7 +353,14 @@ Deno.test("provider hook merge updates nested matcher and timeout while preservi
   assertEquals(merged.userSetting, true);
   assertEquals(merged.hooksConfig, undefined);
   assertEquals(merged.hooks.SessionStart, [{
-    matcher: "startup|resume",
+    matcher: "startup",
+    hooks: [{
+      type: "command",
+      command: "discern worktree ensure",
+      timeout: 600000,
+    }],
+  }, {
+    matcher: "resume",
     hooks: [{
       type: "command",
       command: "discern worktree ensure",

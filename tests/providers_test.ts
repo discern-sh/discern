@@ -352,6 +352,23 @@ Deno.test("the discern MCP server spec is `discern mcp`", () => {
   });
 });
 
+Deno.test("exact lifecycle matchers render one vendor group per event value", () => {
+  const gemini = providerFor("gemini")?.hooks;
+  assertExists(gemini);
+  const rendered = decodeWith(
+    z.object({
+      hooks: z.object({
+        SessionStart: z.array(z.object({ matcher: z.string().optional() })),
+      }),
+    }),
+    renderProviderHookSeed(gemini),
+  );
+  assertEquals(
+    rendered.hooks.SessionStart.map((group) => group.matcher),
+    ["startup", "resume"],
+  );
+});
+
 Deno.test("MCP status is typed and explicit: all five agents wired to their own config file", () => {
   // The typed McpStatus (ADR 0051) tightens as plans flip pending → wired: Phase B
   // wired Codex (.codex/config.toml, TOML) and Gemini (.gemini/settings.json, JSON)

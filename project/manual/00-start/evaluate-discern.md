@@ -36,9 +36,9 @@ If nobody on the project works through a coding agent, discern has no operator, 
 
 ## Where its boundary sits
 
-discern is one self-contained local binary with no model inside. It makes no network calls of its own, requires no API key or account, and runs no service. One installation belongs to one Git repository and resolves at that repository's top level. Its tracked footprint is the root `discern.toml`, the visible `discern/` folder, managed blocks in `.gitignore` and `.gitattributes`, compiled agent files, and the selected coding tools' integration files. Its activity record (the Logbook) stays on your machine and holds metadata about discern's use; it doesn't record your code.
+discern is one self-contained local binary with no model inside. It makes no network calls of its own, requires no API key or account, and runs no service. Install it once at the root of each Git repository. Setup adds the root `discern.toml`, the visible `discern/` folder, marked sections in `.gitignore` and `.gitattributes`, agent instruction files, and configuration for the coding tools you selected. Its activity record (the Logbook) stays on your machine and holds metadata about discern's use; it doesn't record your code.
 
-A monorepo uses that one root installation, with Scopes and custom jobs for its parts. A nested independent Git repository is a separate project and may have its own installation; a nested `discern.toml` inside the same repository does not own a subdirectory.
+One installation serves an entire monorepo. Its root configuration can give different packages or services their own checks. A folder that is itself a separate Git repository can have its own discern installation. Adding another `discern.toml` to an ordinary nested folder has no effect.
 
 The boundary also limits what it can promise. discern verifies what your declared checks verify: it doesn't review design, find every defect, or secure the project. It also places no boundary around your coding agent, whose own provider and network behavior stay governed by that tool. [Local control](../20-understand/local-control.md) draws these lines precisely.
 

@@ -38,7 +38,7 @@ The coding agent creates and maintains provider-local files. discern only ignore
 
 ## Repository boundary
 
-One Git repository has one discern installation and one root `discern.toml`. Setup resolves the repository top level; another config in an ordinary nested directory cannot own only that subtree. A monorepo represents its packages or services with root-owned Scopes and custom jobs. A nested independent Git repository is a separate project and may have its own installation.
+Each Git repository has one discern installation and one `discern.toml` at its root. In a monorepo, that file can assign different checks to different paths. A folder that is itself a separate Git repository can have its own installation. A second `discern.toml` in an ordinary nested folder has no effect.
 
 ## License for discern-authored portions
 

@@ -21,6 +21,7 @@ import { applyPlan, buildPlan } from "../src/lib/fs_plan.ts";
 import {
   type HooksIntegration,
   providerHookSeedMerge,
+  renderProviderHookSeed,
   type SettingsSeed,
   settingsSeeds,
 } from "../src/lib/providers.ts";
@@ -100,8 +101,34 @@ const ACME_HOOKS: HooksIntegration = {
     commandType: true,
     timeoutKey: "timeout",
     timeoutUnit: "seconds",
+    matcherSyntax: "none",
   },
 };
+
+Deno.test("an exact-matcher vendor expands literal lifecycle values into separate groups", () => {
+  const hooks: HooksIntegration = {
+    ...ACME_HOOKS,
+    commands: [{
+      kind: "session-start",
+      event: "WorkspaceOpened",
+      command: "discern worktree ensure",
+      matchers: ["open", "restore"],
+    }],
+    format: { ...ACME_HOOKS.format, matcherSyntax: "exact" },
+  };
+  const rendered = decodeWith(
+    z.object({
+      hooks: z.object({
+        WorkspaceOpened: z.array(z.object({ matcher: z.string() })),
+      }),
+    }),
+    renderProviderHookSeed(hooks),
+  );
+  assertEquals(
+    rendered.hooks.WorkspaceOpened.map((group) => group.matcher),
+    ["open", "restore"],
+  );
+});
 
 /** The SettingsSeed `settingsSeeds()` would derive for ACME — the exact registry
  * declaration, replicated here since the closed AGENT_NAMES can't take a synthetic

@@ -46,6 +46,7 @@ const GeminiSettingsSchema = z.object({
   hooks: z.object({
     enabled: z.boolean().optional(),
     SessionStart: z.array(z.object({
+      matcher: z.string(),
       hooks: z.array(CommandHookSchema).nonempty(),
     })).nonempty(),
   }),
@@ -126,6 +127,10 @@ Deno.test("Gemini: the registry-rendered SessionStart seed and MCP registration 
     );
     assertEquals(seeded.hooksConfig, undefined);
     assertEquals(seeded.hooks.enabled, undefined); // never a boolean under hooks
+    assertEquals(
+      seeded.hooks.SessionStart.map((group) => group.matcher),
+      ["startup", "resume"],
+    );
     const seededSessionStart = seeded.hooks.SessionStart[0];
     assertExists(seededSessionStart);
     const seededHook = seededSessionStart.hooks[0];
@@ -161,6 +166,10 @@ Deno.test("Gemini: the registry-rendered SessionStart seed and MCP registration 
     assert(merged.mcpServers !== undefined);
     // All three coexist: the seeded hooks, the MCP server, and the user key.
     assertEquals(merged.hooksConfig, undefined);
+    assertEquals(
+      merged.hooks.SessionStart.map((group) => group.matcher),
+      ["startup", "resume"],
+    );
     const mergedSessionStart = merged.hooks.SessionStart[0];
     assertExists(mergedSessionStart);
     const mergedHook = mergedSessionStart.hooks[0];

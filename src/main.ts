@@ -504,7 +504,7 @@ export function buildCli(
     .option("--dry-run", "Print the plan and write nothing.")
     .option(
       "--reseed",
-      "Re-run even if already set up (re-scaffold + re-seed).",
+      "Run setup again and refresh discern's files and settings.",
     )
     .option(
       "--allow-dirty",
@@ -549,7 +549,7 @@ export function buildCli(
     )
     .option(
       "--unproven",
-      "Record an explicitly unproved completion; setup acceptance will refuse it.",
+      "Record completion without Proof; setup acceptance will refuse it.",
     )
     .action(recordedExit("setup done", async (options) => {
       const { runSetupDone } = await import("./commands/setup.ts");

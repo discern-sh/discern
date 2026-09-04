@@ -302,12 +302,13 @@ function reconcileHookGroups(
   for (const [event, canonical] of canonicalByEvent) {
     const existing = hooks[event];
     const target = Array.isArray(existing) ? [...existing] : [];
-    for (const entry of canonical) {
-      const index = entry.preferredIndex === undefined
-        ? target.length
-        : Math.min(entry.preferredIndex, target.length);
-      target.splice(index, 0, entry.group);
-    }
+    const preferred = canonical.flatMap((entry) =>
+      entry.preferredIndex === undefined ? [] : [entry.preferredIndex]
+    );
+    const index = preferred.length === 0
+      ? target.length
+      : Math.min(Math.min(...preferred), target.length);
+    target.splice(index, 0, ...canonical.map((entry) => entry.group));
     hooks[event] = target;
   }
 }

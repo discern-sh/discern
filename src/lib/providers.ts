@@ -443,7 +443,9 @@ export interface ProviderHookCommand {
   readonly kind: ProviderHookKind;
   readonly event: string;
   readonly command: `discern ${string}`;
-  readonly matcher?: string;
+  /** Literal lifecycle values this command should match. The vendor format owns
+   * whether those values become one regex or separate exact-match groups. */
+  readonly matchers?: readonly string[];
 }
 
 /** The vendor-controlled JSON shape for rendering a provider's hook groups. */
@@ -453,8 +455,14 @@ export interface ProviderHookFormat {
   readonly commandType: boolean;
   readonly timeoutKey: "timeout" | "timeoutSec";
   readonly timeoutUnit: "seconds" | "milliseconds";
+  readonly matcherSyntax: "none" | "regex-alternation" | "exact";
   readonly schema?: string;
   readonly version?: 1;
+}
+
+/** Escape one literal value before joining a vendor regex alternation. */
+function escapeRegexLiteral(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|]/gu, "\\$&");
 }
 
 export interface HooksIntegration {
@@ -492,13 +500,29 @@ export function renderProviderHookSeed(hooks: HooksIntegration): string {
       [hooks.format.commandKey]: spec.command,
       [hooks.format.timeoutKey]: timeout,
     };
-    const group: Record<string, unknown> = {
-      ...(spec.matcher !== undefined ? { matcher: spec.matcher } : {}),
-      ...(hooks.format.commandPlacement === "nested"
-        ? { hooks: [hook] }
-        : hook),
-    };
-    (groups[spec.event] ??= []).push(group);
+    const body = hooks.format.commandPlacement === "nested"
+      ? { hooks: [hook] }
+      : hook;
+    const matchers = spec.matchers ?? [];
+    if (matchers.length === 0) {
+      (groups[spec.event] ??= []).push(body);
+      continue;
+    }
+    if (hooks.format.matcherSyntax === "none") {
+      throw new Error(
+        `${spec.event} declares matchers for a matcher-free format`,
+      );
+    }
+    if (hooks.format.matcherSyntax === "exact") {
+      for (const matcher of matchers) {
+        (groups[spec.event] ??= []).push({ matcher, ...body });
+      }
+      continue;
+    }
+    (groups[spec.event] ??= []).push({
+      matcher: matchers.map(escapeRegexLiteral).join("|"),
+      ...body,
+    });
   }
   root.hooks = groups;
   return `${JSON.stringify(root, null, 2)}\n`;
@@ -1063,6 +1087,7 @@ const NESTED_SECONDS_HOOK_FORMAT: ProviderHookFormat = {
   commandType: true,
   timeoutKey: "timeout",
   timeoutUnit: "seconds",
+  matcherSyntax: "none",
 };
 
 const GROUP_SECONDS_HOOK_FORMAT: ProviderHookFormat = {
@@ -1071,6 +1096,7 @@ const GROUP_SECONDS_HOOK_FORMAT: ProviderHookFormat = {
   commandType: false,
   timeoutKey: "timeout",
   timeoutUnit: "seconds",
+  matcherSyntax: "none",
   version: 1,
 };
 
@@ -1795,10 +1821,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       commands: [{
         kind: "session-start",
         event: "SessionStart",
-        matcher: "startup|resume",
+        matchers: ["startup", "resume"],
         command: "discern worktree ensure",
       }],
-      format: NESTED_SECONDS_HOOK_FORMAT,
+      format: {
+        ...NESTED_SECONDS_HOOK_FORMAT,
+        matcherSyntax: "regex-alternation",
+      },
     },
     // The Codex *app* runs `environment.toml` [setup]/[cleanup] when IT creates/tears
     // down one of its own worktrees — a create/teardown analogue discern co-manages
@@ -1933,7 +1962,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       commands: [{
         kind: "session-start",
         event: "SessionStart",
-        matcher: "startup|resume",
+        matchers: ["startup", "resume"],
         command: "discern worktree ensure",
       }],
       format: {
@@ -1942,6 +1971,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         commandType: true,
         timeoutKey: "timeout",
         timeoutUnit: "milliseconds",
+        matcherSyntax: "exact",
       },
       retiredRootValues: { hooksConfig: { enabled: true } },
     },
@@ -2211,6 +2241,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         commandType: true,
         timeoutKey: "timeoutSec",
         timeoutUnit: "seconds",
+        matcherSyntax: "none",
         version: 1,
       },
     },

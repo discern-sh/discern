@@ -2,7 +2,17 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume",
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "discern worktree ensure",
+            "timeout": 600000
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
         "hooks": [
           {
             "type": "command",

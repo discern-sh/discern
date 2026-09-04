@@ -660,22 +660,27 @@ Deno.test("every tracked provider hook seed is the registry rendering with the e
       ? PROVIDER_HOOK_TIMEOUT_SECONDS * 1000
       : PROVIDER_HOOK_TIMEOUT_SECONDS;
     for (const command of integ.commands) {
-      const group = (hooks[command.event] ?? []).find((candidate) =>
+      const groups = (hooks[command.event] ?? []).filter((candidate) =>
         hookGroupCommands(candidate).includes(command.command)
-      ) as Record<string, unknown> | undefined;
+      ) as Record<string, unknown>[];
       assert(
-        group !== undefined,
+        groups.length > 0,
         `${provider.name}: ${command.event} must carry ${command.command}`,
       );
-      const timed = integ.format.commandPlacement === "nested"
-        ? (group.hooks as Record<string, unknown>[])[0]
-        : group;
-      assert(timed !== undefined, `${provider.name}: missing timed hook body`);
-      assertEquals(
-        timed[integ.format.timeoutKey],
-        expectedTimeout,
-        `${provider.name}: every hook must carry the 600-second budget in ${integ.format.timeoutUnit}`,
-      );
+      for (const group of groups) {
+        const timed = integ.format.commandPlacement === "nested"
+          ? (group.hooks as Record<string, unknown>[])[0]
+          : group;
+        assert(
+          timed !== undefined,
+          `${provider.name}: missing timed hook body`,
+        );
+        assertEquals(
+          timed[integ.format.timeoutKey],
+          expectedTimeout,
+          `${provider.name}: every hook must carry the 600-second budget in ${integ.format.timeoutUnit}`,
+        );
+      }
     }
   }
 });
