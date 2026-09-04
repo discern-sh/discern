@@ -1241,7 +1241,7 @@
       "path": [
         "triangle"
       ],
-      "description": "Draw discern's mark as a triangle of triangles.",
+      "description": "A small mystery for those who find it.",
       "aliases": [],
       "hidden": true,
       "hidden_when": "always",

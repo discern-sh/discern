@@ -1,10 +1,6 @@
 /**
- * `discern triangle` — the surprise behind the project mark: draw discern's
- * triangle as a triangle of triangles. The verb needs no project, config, or
- * network; the hidden-verb registry records why it stays out of the help
- * listing. On a capable interactive terminal the woven pyramid rises from its
- * apex and opens into the recursive figure before settling; everywhere else
- * it prints once, complete.
+ * The hidden `discern triangle` verb needs no project, config, or network.
+ * The hidden-verb registry owns its help visibility.
  */
 
 import { Logger } from "../lib/log.ts";

@@ -677,7 +677,7 @@ export function buildCli(
   // returns it to the listing.
   root
     .command("triangle")
-    .description("Draw discern's mark as a triangle of triangles.")
+    .description("A small mystery for those who find it.")
     .action(recordedExit("triangle", async (options) => {
       const { runTriangle } = await import("./commands/triangle.ts");
       return await runTriangle({

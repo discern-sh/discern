@@ -3006,7 +3006,7 @@ export const LicensesDataSchema = z.strictObject({
 });
 export type LicensesData = z.infer<typeof LicensesDataSchema>;
 
-/** `triangle` — the project mark and the composed terminal art. */
+/** Data carried by the hidden `triangle` verb. */
 export const TriangleDataSchema = z.strictObject({
   mark: z.string(),
   art: z.string(),
@@ -3382,7 +3382,7 @@ export const LicensesOutputSchema = resultOutputSchema(
   LicensesDataSchema,
 );
 
-/** `triangle` output: envelope + the mark and its composed terminal art. */
+/** Output contract for the hidden `triangle` verb. */
 export const TriangleOutputSchema = resultOutputSchema(
   "triangle",
   TriangleDataSchema,

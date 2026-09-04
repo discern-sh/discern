@@ -852,7 +852,7 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:test":
     "runs the configured test stage on its own; the Gate job and Stage entries carry the concepts, and the CLI reference documents the verb",
   "verb:triangle":
-    "draws the project mark as terminal art; a deliberate surprise with no concept behind it, hidden from the CLI reference on purpose",
+    "intentionally enigmatic and omitted from the glossary; its name is enough for those who find it",
   "verb:uninstall":
     "removes what setup laid down; the Installer entry carries the concept, the CLI reference the verb",
 };

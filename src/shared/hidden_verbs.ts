@@ -40,13 +40,13 @@ export const HIDDEN_VERBS: Readonly<Record<string, HiddenVerbEntry>> = {
     revival: "listed automatically whenever the install is not yet " +
       "bootstrapped; explicit re-seeding stays callable with `setup begin --reseed` while hidden.",
   },
-  // The mark on the box, drawable. Surprises are passed along, not listed.
+  // A mystery that stays out of the listing.
   triangle: {
     when: "always",
-    reason: "it draws the project mark and nothing else, and a help " +
-      "listing that announces a surprise has already spent it.",
-    revival: "none planned; it stays dispatchable for anyone who heard " +
-      "about it or read the source.",
+    reason: "its purpose is intentionally enigmatic, and listing it would " +
+      "spend the mystery.",
+    revival: "none planned; it stays dispatchable for anyone who already " +
+      "knows its name.",
   },
 };
 
