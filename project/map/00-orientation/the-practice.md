@@ -22,11 +22,15 @@ The tenets operate inside one relationship:
 
 ### 1. Arrive knowing
 
+Orientation is a cost every session pays, and the project can pay it once for all of them.
+
 > Every session starts with the project's instructions, understanding, and methods already in hand.
 
 One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
 
 ### 2. One task, one place
+
+Efforts that share a checkout share a failure. Isolation is what makes running several at once safe.
 
 > Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.
 
@@ -34,11 +38,15 @@ Each effort forks from the trunk into a linked worktree with its own branch, por
 
 ### 3. Hand over whole pieces
 
+A half-brief makes the person the courier. A complete one lets the work go without them.
+
 > Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.
 
 The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk, so nobody relays readiness between sessions.
 
 ### 4. Done is deterministic
+
+An account of the work is not evidence of it, whoever gives it.
 
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
@@ -46,11 +54,15 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 
 ### 5. Only better
 
+A gain nothing holds is on loan, and the next change will spend it.
+
 > Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.
 
 Standards hold each measured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures a gain as the new limit; the advisory readers mine the local logbook for the next one.
 
 ### 6. Proof binds to the change
+
+Evidence is about one thing. Evidence that survives an edit is reassurance.
 
 > Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
@@ -58,11 +70,15 @@ A green gate over a clean, committed tree mints proof: the pinned commit, the ch
 
 ### 7. You decide what lands
 
+Ready and permitted are different questions, and only one of them belongs to a machine.
+
 > A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.
 
 Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.
 
 ### 8. The project remembers
+
+A lesson kept in a conversation is a lesson the next session learns again.
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
@@ -70,11 +86,15 @@ A correction becomes instructions, a decision becomes a record with its reasons,
 
 ### 9. Cure the class
 
+A bug is one member of a pattern, and fixing the member leaves the pattern alive.
+
 > A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.
 
 The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.
 
 ### 10. Write it once
+
+A fact kept in two places will disagree with itself, and the only question is when.
 
 > Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
@@ -82,11 +102,15 @@ The write-it-once skill carries the discipline discern builds itself with: one a
 
 ### 11. No dead ends
 
+A refusal that names no next step leaves the operator guessing.
+
 > Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.
 
 Every verb returns one structured result: the state, the diagnostics with the command that reproduces each failure, and the hints that apply at that moment. A refusal names its recovery instead of leaving a dead end, and advisory surfaces inform without changing a verdict.
 
 ### 12. Plan, then apply
+
+An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.
 
 > Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.
 

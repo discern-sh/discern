@@ -97,6 +97,47 @@ Deno.test("every tenet, property, and deferred-consumer id is unique and kebab-c
   }
 });
 
+/** Every carrier member the canon cites, in every tier, deduplicated. */
+function everyCarrierMember(): readonly string[] {
+  return [
+    ...new Set(
+      PRACTICE_CANON.flatMap((tenet) => allUpheldKeys(tenet))
+        .map((key) => parseCarrier(key).member),
+    ),
+  ];
+}
+
+Deno.test("every tenet carries a belief that names no carrier and no identifier", () => {
+  const members = everyCarrierMember();
+  for (const tenet of PRACTICE_CANON) {
+    const why = tenet.why.trim();
+    assert(why.length > 0, `tenet ${tenet.id} has no belief`);
+    assert(
+      !why.includes("`"),
+      `tenet ${tenet.id}: the belief names an identifier`,
+    );
+    assert(
+      why !== tenet.obligation.trim(),
+      `tenet ${tenet.id}: the belief restates the obligation`,
+    );
+    const sentences = why.split(/[.!?](?:\s+|$)/).filter((s) => s.length > 0);
+    assert(
+      sentences.length <= 2,
+      `tenet ${tenet.id}: the belief runs to ${sentences.length} sentences; keep it to one or two`,
+    );
+    for (const member of members) {
+      const pattern = new RegExp(
+        `\\b${member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        "i",
+      );
+      assert(
+        !pattern.test(why),
+        `tenet ${tenet.id}: the belief names the carrier "${member}"; state the reason without product vocabulary`,
+      );
+    }
+  }
+});
+
 Deno.test("every upheld key names a live member, on the right tier", () => {
   for (const tenet of PRACTICE_CANON) {
     const entries = upheldEntries(tenet);

@@ -136,6 +136,13 @@ export interface PracticeTenet {
   id: string;
   /** The display headline — short enough to cite, plain enough to defend. */
   title: string;
+  /**
+   * The belief the obligation follows from: one or two plain sentences that
+   * name no carrier and no identifier. It reads at body altitude, so it must
+   * survive a hostile literal reading, and it is the line that transfers to
+   * the case no rule covers.
+   */
+  why: string;
   /** The obligation in one sentence. */
   obligation: string;
   /** A short mechanism story in the product register: how the obligation is kept. */
@@ -168,6 +175,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "arrive-knowing",
     title: "Arrive knowing",
+    why:
+      "Orientation is a cost every session pays, and the project can pay it once for all of them.",
     obligation:
       "Every session starts with the project's instructions, understanding, and methods already in hand.",
     body:
@@ -196,6 +205,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "one-task-one-place",
     title: "One task, one place",
+    why:
+      "Efforts that share a checkout share a failure. Isolation is what makes running several at once safe.",
     obligation:
       "Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.",
     body:
@@ -218,6 +229,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "hand-over-whole-pieces",
     title: "Hand over whole pieces",
+    why:
+      "A half-brief makes the person the courier. A complete one lets the work go without them.",
     obligation:
       "Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.",
     body:
@@ -240,6 +253,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "done-is-deterministic",
     title: "Done is deterministic",
+    why: "An account of the work is not evidence of it, whoever gives it.",
     obligation:
       "The project's declared checks decide when work is done; an agent's confidence stays advisory.",
     body:
@@ -270,6 +284,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "only-better",
     title: "Only better",
+    why: "A gain nothing holds is on loan, and the next change will spend it.",
     obligation:
       "Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.",
     body:
@@ -303,6 +318,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "proof-binds-to-the-change",
     title: "Proof binds to the change",
+    why:
+      "Evidence is about one thing. Evidence that survives an edit is reassurance.",
     obligation:
       "Finished work returns with evidence naming the exact committed tree; any later edit expires it.",
     body:
@@ -320,6 +337,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "you-decide-what-lands",
     title: "You decide what lands",
+    why:
+      "Ready and permitted are different questions, and only one of them belongs to a machine.",
     obligation:
       "A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.",
     body:
@@ -336,6 +355,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "the-project-remembers",
     title: "The project remembers",
+    why:
+      "A lesson kept in a conversation is a lesson the next session learns again.",
     obligation:
       "Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.",
     body:
@@ -371,6 +392,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "cure-the-class",
     title: "Cure the class",
+    why:
+      "A bug is one member of a pattern, and fixing the member leaves the pattern alive.",
     obligation:
       "A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.",
     body:
@@ -390,6 +413,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "write-it-once",
     title: "Write it once",
+    why:
+      "A fact kept in two places will disagree with itself, and the only question is when.",
     obligation:
       "Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.",
     body:
@@ -411,6 +436,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "no-dead-ends",
     title: "No dead ends",
+    why: "A refusal that names no next step leaves the operator guessing.",
     obligation:
       "Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.",
     body:
@@ -444,6 +470,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "plan-then-apply",
     title: "Plan, then apply",
+    why:
+      "An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.",
     obligation:
       "Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.",
     body:
@@ -800,6 +828,8 @@ export function renderPracticeCanonDoc(): string {
     lines.push(
       `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
       "",
+      tenetProse(tenet, "why", tenet.why),
+      "",
       `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
       "",
       tenetProse(tenet, "body", tenet.body),
@@ -992,6 +1022,8 @@ export function renderPracticePublicDoc(): string {
   PRACTICE_CANON.forEach((tenet, index) => {
     lines.push(
       `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
+      "",
+      tenetProse(tenet, "why", tenet.why),
       "",
       `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
       "",
