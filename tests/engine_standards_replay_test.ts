@@ -14,6 +14,8 @@
  *
  * Conservative by default: omitted `inputs` always measures, and the
  * standalone `standards` verb never replays (pinning and CI stay full-fat).
+ *
+ * Guards: boundary:measured-standards
  */
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";

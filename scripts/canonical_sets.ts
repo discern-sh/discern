@@ -1391,6 +1391,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/boundary_canon_test.ts",
       "tests/brand_registry_codegen_test.ts",
+      "tests/evidence_basis_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
@@ -1426,6 +1427,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/brand_registry_codegen_test.ts",
       "tests/canon_editor_parity_test.ts",
+      "tests/evidence_basis_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {

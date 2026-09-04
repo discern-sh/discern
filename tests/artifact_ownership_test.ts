@@ -2,6 +2,8 @@
  * File ownership forcing function. The canonical project artifact enumeration
  * derives from the source-path and provider registries, and every entry must
  * carry one bucket or an explained provider-local outside category.
+ *
+ * Guards: boundary:artifact-ownership, boundary:non-authoring-system
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";

@@ -7,6 +7,8 @@
  * envelopes, never reaches a single Logbook byte. Recording is observation,
  * never a gate: every assertion here rides runs whose outcomes the interlock
  * already decided.
+ *
+ * Guards: boundary:local-private-evidence, claim:local-logbook
  */
 
 import { assert, assertEquals } from "@std/assert";

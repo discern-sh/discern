@@ -10,6 +10,8 @@
  * The composition tests pin the shipped contract deliberately (double-entry
  * against the registry): changing an id, a mode, or a threshold must fail
  * here so it happens as a conscious decision, never as drift.
+ *
+ * Guards: boundary:project-owned-quality
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";

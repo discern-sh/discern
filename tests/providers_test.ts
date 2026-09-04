@@ -3,6 +3,8 @@
  * native integration surface, over the identity-catalogue subset (ADR 0166).
  * These guard that the registry stays total and that
  * the Claude Code MCP wiring is correct and idempotent.
+ *
+ * Guards: claim:switch-without-reteaching
  */
 
 import {

@@ -107,7 +107,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 358     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 359     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -139,7 +139,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `src/shared/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`           | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 126     | —                | node `canonical-sets`       |
 
-126 sets · 177 guard tests · 66 committed artifacts.
+126 sets · 178 guard tests · 66 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -238,6 +238,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/environment_variables_codegen_test.ts`      | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/evidence_basis_guard_test.ts`               | [`brand-boundaries`](#brand-boundaries--boundary-canon), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/exit_status_registry_test.ts`               | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -1529,7 +1530,7 @@ discern's conceptual product boundaries and their three generated projections: b
   - `no-privilege-escalation`
   - `no-provider-sdk`
   - `no-credential-store`
-- Guards: `tests/boundary_canon_test.ts`, `tests/brand_registry_codegen_test.ts`
+- Guards: `tests/boundary_canon_test.ts`, `tests/brand_registry_codegen_test.ts`, `tests/evidence_basis_guard_test.ts`
 - Glossary: not enrolled — the internal Boundary Canon defines this product-boundary vocabulary
 - Feature canon: not enrolled — the Feature Canon owns what the product does; this set owns the complementary noes and category distinctions
 
@@ -1559,7 +1560,7 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
   - `map-mechanically-checked`
   - `agent-as-operator`
   - `runs-on-itself`
-- Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`
+- Guards: `tests/brand_registry_codegen_test.ts`, `tests/canon_editor_parity_test.ts`, `tests/evidence_basis_guard_test.ts`
 - Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
 - Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
 
@@ -3264,7 +3265,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 358
+- Members: 359
   - `0003`
   - `0005`
   - `0006`
@@ -3597,6 +3598,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0364`
   - `0365`
   - `0366`
+  - `0367`
   - `0367`
   - `0368`
   - `0001`

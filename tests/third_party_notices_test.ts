@@ -23,6 +23,8 @@
  *
  * When a tie fails, the fix is `deno task codegen` (and committing the result)
  * — never weakening the assertion.
+ *
+ * Guards: boundary:production-dependency-closure
  */
 
 import {

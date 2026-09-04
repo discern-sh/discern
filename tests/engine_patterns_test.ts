@@ -6,6 +6,8 @@
  * first-class state, a seeded logbook produces ranked plain-count findings,
  * the human rendering carries the advisory boundary, and the reset removes
  * exactly the logbook — nothing beside it — with a faithful dry-run.
+ *
+ * Guards: boundary:worker-neutral-measurement, claim:patterns-compare-cohorts
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

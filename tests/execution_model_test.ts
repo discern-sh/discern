@@ -13,6 +13,8 @@
  *
  * These call {@link buildExecutionModel} directly against a parsed config (pure, no
  * subprocess); the real-binary surface is covered in `doctor_test.ts`.
+ *
+ * Guards: boundary:planned-owned-effects
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

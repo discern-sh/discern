@@ -11,6 +11,8 @@
  * update is refused), the proof FAST PATH (a fresh `done` lets accept skip the
  * re-run — the perf property that makes running the gate at the boundary affordable), and
  * the airtight SLOW PATH (no/stale proof → accept runs the gate itself).
+ *
+ * Guards: boundary:local-git-landing
  */
 
 import {

@@ -7,6 +7,8 @@
  * `instructions` hid on exactly this path — the worktree-create hook runs it.)
  * Each test drives a REAL linked worktree in a hermetic git repo and shells out
  * to the dispatcher, so the bytes under test are what an install runs.
+ *
+ * Guards: claim:isolated-worktrees, claim:no-checkout-collisions
  */
 
 import { renderCommandRefsCli } from "../src/shared/command_reference.ts";

@@ -15,6 +15,8 @@
  * The scanners' extraction semantics are proven separately in
  * tests/docs_integrity_test.ts; the repo-only strict frontmatter schema in
  * tests/map_frontmatter_test.ts.
+ *
+ * Guards: boundary:map-understanding, claim:map-mechanically-checked
  */
 
 import { dirname, join } from "@std/path";

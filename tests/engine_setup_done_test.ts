@@ -5,6 +5,8 @@
  * the setup brief's teaching. Split from `engine_setup_test.ts` so
  * `deno test --parallel` (which distributes per FILE) can spread these serial
  * setup runs across workers.
+ *
+ * Guards: claim:installs-a-practice, claim:setup-proves-worktree
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

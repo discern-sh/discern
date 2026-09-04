@@ -1,4 +1,8 @@
-/** The release may publish only native-executed, smoke-tested build targets. */
+/**
+ * The release may publish only native-executed, smoke-tested build targets.
+ *
+ * Guards: boundary:application-independent-binary
+ */
 
 import {
   assert,

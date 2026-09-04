@@ -10,6 +10,8 @@
  * The "should be gone" set is DERIVED from the provider registry (not a hand
  * list), so a new provider file auto-enrols: teach discern to write it and this
  * test fails until uninstall learns to remove it too (the ADR 0051 discipline).
+ *
+ * Guards: boundary:repository-native-state
  */
 
 import { assert, assertEquals } from "@std/assert";

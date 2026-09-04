@@ -2,6 +2,8 @@
  * Binary distribution inputs come from Git's authored-file projection, not the
  * physical directory tree. Ignored machine state must stay out of release
  * binaries, while an uncommitted but non-ignored source file remains buildable.
+ *
+ * Guards: boundary:offline-owned-engine, boundary:production-dependency-closure
  */
 
 import { assertEquals } from "@std/assert";

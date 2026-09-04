@@ -8,6 +8,8 @@
  * authorized landing binds the variances into the acceptance journal and the
  * landed Proof note's DSSE payload; and declared-met conclusions land through
  * ordinary acceptance untouched.
+ *
+ * Guards: boundary:landing-authority, claim:gate-grants-no-authority
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

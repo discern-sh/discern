@@ -6,6 +6,8 @@
  * the `--all`/`--local` overrides, the not-initialized degradation, the advisory
  * hints, and — load-bearing — that `status` never mutates anything (pure
  * observation).
+ *
+ * Guards: claim:no-checkout-collisions
  */
 
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";

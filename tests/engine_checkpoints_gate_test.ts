@@ -8,6 +8,8 @@
  * Proof; the governing policy comes from the merge-base, never the branch's
  * own config edits; and every uncertainty (a corrupt open question store) fails
  * open into a clean re-ask rather than a wedge.
+ *
+ * Guards: boundary:evidence-kind-separation, claim:no-model-inside
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

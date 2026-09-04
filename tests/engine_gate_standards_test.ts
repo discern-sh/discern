@@ -15,6 +15,8 @@
  *
  * The zero-cost contract is pinned structurally: with `[standards]` empty, the
  * gate plan is byte-identical to a standards-free gate.
+ *
+ * Guards: boundary:non-loosening-standards, claim:standards-cannot-loosen
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
