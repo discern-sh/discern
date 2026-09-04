@@ -274,6 +274,27 @@ Deno.test("provider hook merge preserves a user's distinct flat hook group", () 
     merged.hooks.sessionStart[1]?.command,
     "discern worktree ensure",
   );
+
+  const canonicalThenForeign = JSON.stringify({
+    version: 1,
+    hooks: {
+      sessionStart: [
+        { command: "discern worktree ensure" },
+        { command: "my-own-hook" },
+      ],
+    },
+  });
+  const stable = decodeWith(
+    FlatHookSettingsSchema,
+    mergeJsonHookSettingsText(canonicalThenForeign, incoming, {
+      commandPlacement: "group",
+      commandKey: "command",
+    }),
+  );
+  assertEquals(stable.hooks.sessionStart.map((group) => group.command), [
+    "discern worktree ensure",
+    "my-own-hook",
+  ]);
 });
 
 Deno.test("provider hook merge updates nested matcher and timeout while preserving a mixed group's foreign hook", () => {
@@ -332,15 +353,15 @@ Deno.test("provider hook merge updates nested matcher and timeout while preservi
   assertEquals(merged.userSetting, true);
   assertEquals(merged.hooksConfig, undefined);
   assertEquals(merged.hooks.SessionStart, [{
-    matcher: "startup",
-    hooks: [{ type: "command", command: "user-own-hook", user: true }],
-  }, {
     matcher: "startup|resume",
     hooks: [{
       type: "command",
       command: "discern worktree ensure",
       timeout: 600000,
     }],
+  }, {
+    matcher: "startup",
+    hooks: [{ type: "command", command: "user-own-hook", user: true }],
   }]);
 });
 

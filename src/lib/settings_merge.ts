@@ -261,14 +261,27 @@ function reconcileHookGroups(
   const hooks = merged[HOOK_EVENTS_KEY];
   if (!isObject(hooks)) return;
 
-  const canonicalByEvent = new Map<string, unknown[]>();
+  const canonicalByEvent = new Map<
+    string,
+    Array<{ group: unknown; preferredIndex: number | undefined }>
+  >();
   const commands = new Set<string>();
   for (const [event, groups] of Object.entries(incoming.hooks)) {
     if (!Array.isArray(groups)) continue;
-    const canonical = groups.filter((group) => {
+    const existingGroups = Array.isArray(hooks[event]) ? hooks[event] : [];
+    const canonical = groups.flatMap((group) => {
       const found = seedGroupCommands(group, policy);
       for (const command of found) commands.add(command);
-      return found.length > 0;
+      if (found.length === 0) return [];
+      const index = existingGroups.findIndex((candidate) =>
+        seedGroupCommands(candidate, policy).some((command) =>
+          found.includes(command)
+        )
+      );
+      return [{
+        group,
+        preferredIndex: index === -1 ? undefined : index,
+      }];
     });
     if (canonical.length > 0) canonicalByEvent.set(event, canonical);
   }
@@ -288,10 +301,14 @@ function reconcileHookGroups(
   }
   for (const [event, canonical] of canonicalByEvent) {
     const existing = hooks[event];
-    hooks[event] = [
-      ...(Array.isArray(existing) ? existing : []),
-      ...canonical,
-    ];
+    const target = Array.isArray(existing) ? [...existing] : [];
+    for (const entry of canonical) {
+      const index = entry.preferredIndex === undefined
+        ? target.length
+        : Math.min(entry.preferredIndex, target.length);
+      target.splice(index, 0, entry.group);
+    }
+    hooks[event] = target;
   }
 }
 
