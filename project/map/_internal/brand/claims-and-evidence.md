@@ -295,12 +295,13 @@ The product glossary defines each product term once and prohibits synonyms in pr
 ### `runs-on-itself` — discern runs on itself
 
 - **Audience:** shared
-- **Evidence:** demonstrated / observational
+- **Evidence:** structural / demonstrated / observational
 - **Strongest supported public form:** “discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.”
 - **Conditions:** dogfooding provides product evidence from internal use. Independent external validation remains separate.
 - **Forbidden inference:** self-use proves absence of defects or market fit.
 - **Primary source:** feature canon and repository practice.
 - **Inspectable basis:**
+  - Guard: `tests/dogfood_gate_test.ts` — reads this repository's own Gate, Standards, Map, worktree, and Logbook declarations, and the hosted lane that runs the same Gate.
   - Guard: `tests/dogfood_refresh_test.ts` — holds this repository's own provider integrations to what refresh expects.
   - Source: `discern.toml` — declares this repository's own Gate, Standards, Map, and worktree practice.
 

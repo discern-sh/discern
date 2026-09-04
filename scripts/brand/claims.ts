@@ -635,7 +635,7 @@ export const CLAIMS = {
   "runs-on-itself": {
     audience: "shared",
     title: "discern runs on itself",
-    evidence: ["demonstrated", "observational"],
+    evidence: ["structural", "demonstrated", "observational"],
     strongestPublicForm:
       "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.",
     conditions:
@@ -643,6 +643,12 @@ export const CLAIMS = {
     forbiddenInference: "self-use proves absence of defects or market fit.",
     primarySource: "feature canon and repository practice.",
     basis: [
+      {
+        kind: "guard",
+        path: "tests/dogfood_gate_test.ts",
+        summary:
+          "reads this repository's own Gate, Standards, Map, worktree, and Logbook declarations, and the hosted lane that runs the same Gate",
+      },
       {
         kind: "guard",
         path: "tests/dogfood_refresh_test.ts",
