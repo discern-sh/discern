@@ -1428,6 +1428,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/brand_registry_codegen_test.ts",
       "tests/canon_editor_parity_test.ts",
       "tests/evidence_basis_guard_test.ts",
+      "tests/do_not_claim_guard_test.ts",
     ],
     artifacts: [],
     enrolledIn: {
