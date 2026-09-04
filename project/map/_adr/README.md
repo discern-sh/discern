@@ -352,6 +352,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0366 — Landing is one exact repository transaction](0366-landing-is-one-exact-repository-transaction.md)
 - [0367 — Worktree local state records intent before effects](0367-worktree-local-state-records-intent-before-effects.md)
 - [0368 — Local durable formats declare forward skew](0368-local-durable-formats-declare-forward-skew.md)
+- [0369 — Public claims and refusals bind to cited guards](0369-public-claims-and-refusals-bind-to-cited-guards.md)
 
 <!-- END GENERATED: current ADR records -->
 

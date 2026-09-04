@@ -3600,8 +3600,8 @@ The numbered decision records in the Map, including records later superseded.
   - `0365`
   - `0366`
   - `0367`
-  - `0367`
   - `0368`
+  - `0369`
   - `0001`
   - `0002`
   - `0004`
