@@ -51,6 +51,40 @@ import { annotateProse } from "./canon_editor/annotation.ts";
  */
 export type PracticeArc = "loop" | "craft" | "conduct";
 
+/** One rendering lens: the heading and introduction a grouped page gives its stratum. */
+export interface PracticeArcLens {
+  id: PracticeArc;
+  /** The heading a grouped rendering gives the stratum. */
+  title: string;
+  /** One sentence introducing the stratum. */
+  line: string;
+}
+
+/**
+ * The lenses in canonical order — the order the flat canon numbers its
+ * tenets in. A grouped rendering takes its headings and introductions here,
+ * and the enrolment guard holds the canon's numbering to this order.
+ */
+export const PRACTICE_ARCS: readonly PracticeArcLens[] = [
+  {
+    id: "loop",
+    title: "How work moves",
+    line: "The obligations one change meets, in the order it meets them.",
+  },
+  {
+    id: "craft",
+    title: "What the work honors",
+    line:
+      "The disciplines the bundled skills teach, which discern also builds itself with.",
+  },
+  {
+    id: "conduct",
+    title: "How the practice behaves toward its operators",
+    line:
+      "The obligations discern holds for itself as a tool. They oblige no change, so they maintain no inventory item.",
+  },
+];
+
 /** The ways a tenet is upheld, in canonical rendering order. */
 export const UPHELD_TIERS = ["enforced", "automated", "taught"] as const;
 export type UpheldTier = (typeof UPHELD_TIERS)[number];
@@ -761,6 +795,28 @@ function tenetNumber(id: string): number {
   return index + 1;
 }
 
+/** How the upheld tiers read on a rendered page, shared by both practice pages. */
+const UPHELD_TIERS_SENTENCE =
+  "A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.";
+
+/** The lenses as one sentence: "`loop` tenets govern how work moves, …". */
+function arcsSentence(): string {
+  const clauses = PRACTICE_ARCS.map((arc) =>
+    `\`${arc.id}\` tenets govern ${arc.title.charAt(0).toLowerCase()}${
+      arc.title.slice(1)
+    }`
+  );
+  return `${clauses.slice(0, -1).join(", ")}, and ${clauses.at(-1)}.`;
+}
+
+/** The tenets one lens groups, each with its canonical 1-based number. */
+function tenetsOfArc(
+  arc: PracticeArc,
+): readonly { tenet: PracticeTenet; number: number }[] {
+  return PRACTICE_CANON.map((tenet, index) => ({ tenet, number: index + 1 }))
+    .filter(({ tenet }) => tenet.arc === arc);
+}
+
 /**
  * Render the practice-canon page: the frame, the numbered tenets with their
  * upheld tiers, mechanisms, value, and inventory, the properties, the
@@ -814,7 +870,7 @@ export function renderPracticeCanonDoc(): string {
     "",
     "## The tenets",
     "",
-    "Numbered by position. `loop` tenets govern how work moves, `craft` tenets govern what the work honors, and `conduct` tenets govern how the practice behaves toward its operators. A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.",
+    `Numbered by position. ${arcsSentence()} ${UPHELD_TIERS_SENTENCE}`,
     "",
   );
   PRACTICE_CANON.forEach((tenet, index) => {
@@ -998,7 +1054,7 @@ export function renderPracticePublicDoc(): string {
   const lines: string[] = [
     "---",
     "title: The practice",
-    "description: The tenets discern holds for every change, numbered and citable.",
+    "description: The tenets discern holds, each with the belief behind it, the obligation, and how it is upheld.",
     "order: 50",
     "aliases:",
     "  - the practice",
@@ -1010,7 +1066,7 @@ export function renderPracticePublicDoc(): string {
     "",
     "# The practice",
     "",
-    "_The [practice](glossary.md#practice) discern installs, as numbered tenets: the obligations that hold for every change, and for the practice's own conduct. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._",
+    "_The [practice](glossary.md#practice) discern installs, as numbered tenets. Each states the belief it follows from, the obligation that holds, and how the project upholds it. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._",
     "",
     "The tenets operate inside one relationship:",
     "",
@@ -1018,19 +1074,22 @@ export function renderPracticePublicDoc(): string {
   for (const role of PRACTICE_FRAME) {
     lines.push(`- **${role.title}** — ${role.line}`);
   }
-  lines.push("");
-  PRACTICE_CANON.forEach((tenet, index) => {
-    lines.push(
-      `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
-      "",
-      tenetProse(tenet, "why", tenet.why),
-      "",
-      `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
-      "",
-      tenetProse(tenet, "body", tenet.body),
-      "",
-    );
-  });
+  lines.push("", UPHELD_TIERS_SENTENCE, "");
+  for (const arc of PRACTICE_ARCS) {
+    lines.push(`## ${arc.title}`, "", arc.line, "");
+    for (const { tenet, number } of tenetsOfArc(arc.id)) {
+      lines.push(
+        `### ${number}. ${tenetProse(tenet, "title", tenet.title)}`,
+        "",
+        tenetProse(tenet, "why", tenet.why),
+        "",
+        `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
+        "",
+        `**Upheld:** ${upheldLine(tenet)}.`,
+        "",
+      );
+    }
+  }
   lines.push(
     `The tenets maintain what the project holds: ${inventoryPhrase()}.`,
     "",

@@ -1,6 +1,6 @@
 ---
 title: The practice
-description: The tenets discern holds for every change, numbered and citable.
+description: The tenets discern holds, each with the belief behind it, the obligation, and how it is upheld.
 order: 50
 aliases:
   - the practice
@@ -12,7 +12,7 @@ aliases:
 
 # The practice
 
-_The [practice](glossary.md#practice) discern installs, as numbered tenets: the obligations that hold for every change, and for the practice's own conduct. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._
+_The [practice](glossary.md#practice) discern installs, as numbered tenets. Each states the belief it follows from, the obligation that holds, and how the project upholds it. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._
 
 The tenets operate inside one relationship:
 
@@ -20,13 +20,19 @@ The tenets operate inside one relationship:
 - **The agents** — Coding agents operate the practice: they inherit the project's instructions, carry the work, and answer to its checks.
 - **The project** — The repository carries the practice — its instructions, its working conditions, its checks, its evidence, and its decisions — across sessions, agents, and providers.
 
+A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.
+
+## How work moves
+
+The obligations one change meets, in the order it meets them.
+
 ### 1. Arrive knowing
 
 Orientation is a cost every session pays, and the project can pay it once for all of them.
 
 > Every session starts with the project's instructions, understanding, and methods already in hand.
 
-One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
+**Upheld:** automated via `refresh`, `[instructions]`.
 
 ### 2. One task, one place
 
@@ -34,7 +40,7 @@ Efforts that share a checkout share a failure. Isolation is what makes running s
 
 > Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.
 
-Each effort forks from the trunk into a linked worktree with its own branch, port, environment values, and resources. Parallel agents cannot overwrite one another's tree, and the fleet view names file collisions before either change lands.
+**Upheld:** automated via `start`, `worktree`, `[worktree]`.
 
 ### 3. Hand over whole pieces
 
@@ -42,7 +48,7 @@ A half-brief makes the person the courier. A complete one lets the work go witho
 
 > Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.
 
-The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk, so nobody relays readiness between sessions.
+**Upheld:** automated via `await` · taught by `discern-delegate-work`, `discern-await-the-fleet`.
 
 ### 4. Done is deterministic
 
@@ -50,7 +56,7 @@ An account of the work is not evidence of it, whoever gives it.
 
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
-The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Agent conclusions remain separate from verified results. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
+**Upheld:** enforced via `done`, `[jobs]`, `[gate]` · automated via `prepare`.
 
 ### 5. Only better
 
@@ -58,7 +64,7 @@ A gain nothing holds is on loan, and the next change will spend it.
 
 > Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.
 
-Standards hold each measured number at a limit compared against the trunk: a floor may only rise, a ceiling may only fall, and a branch that loosens either fails the gate. A pin captures a gain as the new limit; the advisory readers mine the local logbook for the next one.
+**Upheld:** enforced via `[standards]` · automated via `standards` · taught by `discern-set-the-standard`, `discern-clear-the-decks`.
 
 ### 6. Proof binds to the change
 
@@ -66,7 +72,7 @@ Evidence is about one thing. Evidence that survives an edit is reassurance.
 
 > Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
-A green gate over a clean, committed tree mints proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
+**Upheld:** enforced via `done` · automated via `[repository]`.
 
 ### 7. You decide what lands
 
@@ -74,7 +80,7 @@ Ready and permitted are different questions, and only one of them belongs to a m
 
 > A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.
 
-Acceptance resolves its authority per invocation (a conversation attestation, a standing scope grant, or a one-shot effort grant) and refuses without one. What lands is the tree the gate validated, fast-forwarded onto the trunk.
+**Upheld:** enforced via `accept`, `[acceptance]`.
 
 ### 8. The project remembers
 
@@ -82,7 +88,11 @@ A lesson kept in a conversation is a lesson the next session learns again.
 
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
-A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
+**Upheld:** enforced via `[map]` · taught by `discern-teach-the-project`, `discern-write-adr`, `discern-document-subsystem`, `discern-place-a-checkpoint`.
+
+## What the work honors
+
+The disciplines the bundled skills teach, which discern also builds itself with.
 
 ### 9. Cure the class
 
@@ -90,7 +100,7 @@ A bug is one member of a pattern, and fixing the member leaves the pattern alive
 
 > A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.
 
-The cure-a-bug skill requires the cause proven, the fix applied to every member of the class, and a guard driven from the class's single source left in the gate, so a future member enrols the moment it exists.
+**Upheld:** taught by `discern-cure-a-bug`.
 
 ### 10. Write it once
 
@@ -98,7 +108,11 @@ A fact kept in two places will disagree with itself, and the only question is wh
 
 > Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
-The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
+**Upheld:** enforced via `[generated]` · taught by `discern-write-it-once`.
+
+## How the practice behaves toward its operators
+
+The obligations discern holds for itself as a tool. They oblige no change, so they maintain no inventory item.
 
 ### 11. No dead ends
 
@@ -106,7 +120,7 @@ A refusal that names no next step leaves the operator guessing.
 
 > Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.
 
-Every verb returns one structured result: the state, the diagnostics with the command that reproduces each failure, and the hints that apply at that moment. A refusal names its recovery instead of leaving a dead end, and advisory surfaces inform without changing a verdict.
+**Upheld:** automated via `mcp`.
 
 ### 12. Plan, then apply
 
@@ -114,6 +128,6 @@ An effect the operator cannot preview is one they cannot trust, and an interrupt
 
 > Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.
 
-Every effectful verb computes a plan a thin executor applies, so a dry run is a faithful preview. Writes land only where placement licenses them, provisioning records its intent before acting, and a crash or kill leaves a machine you would still want to work on.
+**Upheld:** enforced via `done` · automated via `worktree`.
 
 The tenets maintain what the project holds: its instructions, its working conditions, its checks, its evidence, and its decisions.

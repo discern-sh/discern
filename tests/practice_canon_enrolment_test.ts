@@ -30,6 +30,7 @@ import {
   inventoryPhrase,
   parseCarrier,
   PRACTICE_AGENT_BENEFIT_ABSENCES,
+  PRACTICE_ARCS,
   PRACTICE_CANON,
   PRACTICE_CANON_PAGE_REL,
   PRACTICE_CLUSTER_ABSENCES,
@@ -135,6 +136,31 @@ Deno.test("every tenet carries a belief that names no carrier and no identifier"
         `tenet ${tenet.id}: the belief names the carrier "${member}"; state the reason without product vocabulary`,
       );
     }
+  }
+});
+
+Deno.test("the canon numbers its tenets in lens order, and no lens is empty", () => {
+  const order = PRACTICE_ARCS.map((arc) => arc.id);
+  assertEquals(new Set(order).size, order.length, "a lens is listed twice");
+  const seen = PRACTICE_CANON.map((tenet) => order.indexOf(tenet.arc));
+  for (const [index, rank] of seen.entries()) {
+    assert(
+      rank !== -1,
+      `tenet ${
+        PRACTICE_CANON[index]?.id
+      } has a lens PRACTICE_ARCS does not list`,
+    );
+    const previous = seen[index - 1] ?? -1;
+    assert(
+      rank >= previous,
+      `tenet ${PRACTICE_CANON[index]?.id} is numbered out of lens order`,
+    );
+  }
+  for (const arc of order) {
+    assert(
+      PRACTICE_CANON.some((tenet) => tenet.arc === arc),
+      `no tenet belongs to the lens: ${arc}`,
+    );
   }
 });
 
