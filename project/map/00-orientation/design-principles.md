@@ -70,3 +70,9 @@ The footprint consists of one committed root file, one visible folder, the agent
 ## When a principle bends
 
 An exception requires an [ADR](../_adr/) that states which principle it overrides and why. The [decision archive](../_adr/) publishes that reasoning with the rules.
+
+## Accepted execution-model direction
+
+ADRs [0374](../_adr/0374-complete-proof-is-independent-of-measurement-scheduling.md), [0375](../_adr/0375-source-authority-survives-declared-composition.md), and [0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) record complete candidate evidence, source authority, and active-command coordination. [ADR 0377](../_adr/0377-execution-environments-declare-reuse-and-recovery.md) defines project-owned environment reuse. [ADR 0378](../_adr/0378-landing-completion-survives-checkout-retirement.md) separates landing from retirement, and [ADR 0379](../_adr/0379-emergency-landings-record-an-explicit-proof-exception.md) defines explicit emergency exceptions.
+
+Implementation is pending. The runtime sections above remain current. The accepted design keeps the no-daemon and agent checkout boundaries, while giving discern executors recorded authority to use released environments and advance approved work. Mechanical completion must retain the facts needed by a replacement session.

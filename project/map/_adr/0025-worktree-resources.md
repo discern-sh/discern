@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `accept` (formerly `graduate`) and `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`); the decisions below are unchanged.
+> - **Accepted completion-model direction (2026-09-05):** [ADR 0377](0377-execution-environments-declare-reuse-and-recovery.md) adds declared execution-environment reuse, exclusive release/claim, and restoration or reset. This accepted direction has implementation pending.
 
 **Status**: accepted
 

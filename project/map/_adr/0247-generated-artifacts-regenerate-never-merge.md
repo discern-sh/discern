@@ -3,6 +3,8 @@
 > **Review-metadata amendment ([ADR 0259](0259-generated-groups-opt-in-to-review-metadata.md)):** `[generated.<name>]` now also accepts an optional, default-off `linguist_generated` presentation flag. The regeneration and merge contract below is unchanged.
 >
 > **Clone-local driver amendment (2026-09-03):** setup and every normal refresh reconciliation install one `merge.discern-generated.driver=true` value in the common clone config. Reconciliation removes redundant worktree-local copies and disables `extensions.worktreeConfig` only when no other checkout-specific setting needs it. A fresh clone gains the driver after setup or `discern refresh`; tracked attributes alone do not transport local Git configuration.
+>
+> - **Accepted completion-model direction (2026-09-05):** [ADR 0375](0375-source-authority-survives-declared-composition.md) applies declared regeneration to queued candidates while preserving the separate composition and convergence commits. This accepted extension has implementation pending.
 
 **Status**: accepted
 

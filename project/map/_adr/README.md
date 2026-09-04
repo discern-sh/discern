@@ -357,6 +357,12 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0371 — Practice tenets carry the belief they follow from](0371-practice-tenets-carry-the-belief-they-follow-from.md)
 - [0372 — V1 registries publish append-only generated manifests](0372-v1-registries-publish-append-only-manifests.md)
 - [0373 — Proof alone carries product-concept capitals](0373-proof-alone-carries-product-concept-capitals.md)
+- [0374 — Complete Proof is independent of measurement scheduling](0374-complete-proof-is-independent-of-measurement-scheduling.md)
+- [0375 — Source authority survives declared composition](0375-source-authority-survives-declared-composition.md)
+- [0376 — Active commands advance an authorized landing queue](0376-active-commands-advance-an-authorized-landing-queue.md)
+- [0377 — Execution environments declare reuse and recovery](0377-execution-environments-declare-reuse-and-recovery.md)
+- [0378 — Landing completion survives checkout retirement](0378-landing-completion-survives-checkout-retirement.md)
+- [0379 — Emergency landings record an explicit Proof exception](0379-emergency-landings-record-an-explicit-proof-exception.md)
 
 <!-- END GENERATED: current ADR records -->
 

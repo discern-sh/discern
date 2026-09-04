@@ -1,6 +1,8 @@
 # ADR 0319: Current green Proof composes and red reruns stay explicit
 
 > **Amendment (2026-09-03).** Before v1, the project confirmed that no public caller depends on the provisional `done --confirmed` spelling. Gate reruns now accept only `--rerun`; `--confirmed` remains reserved for consent-bearing operations. Historical Logbook events with a `confirmed` flag remain readable evidence. This reverses the compatibility-alias bullet, its consequences, and the corresponding rejected alternative below; the exact-state reuse and retry-resistance decision is unchanged.
+>
+> - **Accepted completion-model direction (2026-09-05):** [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) binds aggregate Proof to a complete candidate requirement set while allowing valid component reuse. This accepted extension has implementation pending.
 
 **Status**: accepted; supersedes [ADR 0185](_superseded/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md).
 
