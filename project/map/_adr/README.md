@@ -353,6 +353,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0367 — Worktree local state records intent before effects](0367-worktree-local-state-records-intent-before-effects.md)
 - [0368 — Local durable formats declare forward skew](0368-local-durable-formats-declare-forward-skew.md)
 - [0369 — Public claims and refusals bind to cited guards](0369-public-claims-and-refusals-bind-to-cited-guards.md)
+- [0370 — The consequence canon records second-order effects above the benefit canons](0370-the-consequence-canon-records-second-order-effects.md)
 
 <!-- END GENERATED: current ADR records -->
 
