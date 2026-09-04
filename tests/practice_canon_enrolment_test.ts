@@ -30,6 +30,7 @@ import {
   inventoryPhrase,
   parseCarrier,
   PRACTICE_AGENT_BENEFIT_ABSENCES,
+  PRACTICE_ARCS,
   PRACTICE_CANON,
   PRACTICE_CANON_PAGE_REL,
   PRACTICE_CLUSTER_ABSENCES,
@@ -93,6 +94,72 @@ Deno.test("every tenet, property, and deferred-consumer id is unique and kebab-c
     assert(
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id),
       `practice id is not kebab-case: ${id}`,
+    );
+  }
+});
+
+/** Every carrier member the canon cites, in every tier, deduplicated. */
+function everyCarrierMember(): readonly string[] {
+  return [
+    ...new Set(
+      PRACTICE_CANON.flatMap((tenet) => allUpheldKeys(tenet))
+        .map((key) => parseCarrier(key).member),
+    ),
+  ];
+}
+
+Deno.test("every tenet carries a belief that names no carrier and no identifier", () => {
+  const members = everyCarrierMember();
+  for (const tenet of PRACTICE_CANON) {
+    const why = tenet.why.trim();
+    assert(why.length > 0, `tenet ${tenet.id} has no belief`);
+    assert(
+      !why.includes("`"),
+      `tenet ${tenet.id}: the belief names an identifier`,
+    );
+    assert(
+      why !== tenet.obligation.trim(),
+      `tenet ${tenet.id}: the belief restates the obligation`,
+    );
+    const sentences = why.split(/[.!?](?:\s+|$)/).filter((s) => s.length > 0);
+    assert(
+      sentences.length <= 2,
+      `tenet ${tenet.id}: the belief runs to ${sentences.length} sentences; keep it to one or two`,
+    );
+    for (const member of members) {
+      const pattern = new RegExp(
+        `\\b${member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+        "i",
+      );
+      assert(
+        !pattern.test(why),
+        `tenet ${tenet.id}: the belief names the carrier "${member}"; state the reason without product vocabulary`,
+      );
+    }
+  }
+});
+
+Deno.test("the canon numbers its tenets in lens order, and no lens is empty", () => {
+  const order = PRACTICE_ARCS.map((arc) => arc.id);
+  assertEquals(new Set(order).size, order.length, "a lens is listed twice");
+  const seen = PRACTICE_CANON.map((tenet) => order.indexOf(tenet.arc));
+  for (const [index, rank] of seen.entries()) {
+    assert(
+      rank !== -1,
+      `tenet ${
+        PRACTICE_CANON[index]?.id
+      } has a lens PRACTICE_ARCS does not list`,
+    );
+    const previous = seen[index - 1] ?? -1;
+    assert(
+      rank >= previous,
+      `tenet ${PRACTICE_CANON[index]?.id} is numbered out of lens order`,
+    );
+  }
+  for (const arc of order) {
+    assert(
+      PRACTICE_CANON.some((tenet) => tenet.arc === arc),
+      `no tenet belongs to the lens: ${arc}`,
     );
   }
 });

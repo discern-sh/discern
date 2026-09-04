@@ -20,6 +20,8 @@ Numbered by position. `loop` tenets govern how work moves, `craft` tenets govern
 
 ### 1. Arrive knowing
 
+Orientation is a cost every session pays, and the project can pay it once for all of them.
+
 > Every session starts with the project's instructions, understanding, and methods already in hand.
 
 One authored instruction body compiles into every configured agent's instruction file, the map carries the project account, and skills hold the proven procedures. A fresh agent orients with one read-only call.
@@ -32,6 +34,8 @@ One authored instruction body compiles into every configured agent's instruction
 - **Maintains:** its instructions.
 
 ### 2. One task, one place
+
+Efforts that share a checkout share a failure. Isolation is what makes running several at once safe.
 
 > Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.
 
@@ -46,6 +50,8 @@ Each effort forks from the trunk into a linked worktree with its own branch, por
 
 ### 3. Hand over whole pieces
 
+A half-brief makes the person the courier. A complete one lets the work go without them.
+
 > Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.
 
 The delegate-work skill turns discussed work into self-contained briefs (a purpose, a boundary, a definition of ready), each dispatched to its own worktree. A dependent task blocks on the repository's own state and composes below the trunk, so nobody relays readiness between sessions.
@@ -59,6 +65,8 @@ The delegate-work skill turns discussed work into self-contained briefs (a purpo
 
 ### 4. Done is deterministic
 
+An account of the work is not evidence of it, whoever gives it.
+
 > The project's declared checks decide when work is done; an agent's confidence stays advisory.
 
 The gate runs the project's full declared check: the jobs by stage, the scope gates the change woke, and the standards. Agent conclusions remain separate from verified results. Every verdict is recomputed, and a failure carries the command that produced it, so the fix starts at the cause.
@@ -70,7 +78,9 @@ The gate runs the project's full declared check: the jobs by stage, the scope ga
 - **Agent outcomes:** See the change discern sees · Run the relevant Gate efficiently · Use a fast inner loop · Carry judgment as judgment.
 - **Maintains:** its checks.
 
-### 5. Only better
+### 5. Keep every gain
+
+A gain nothing holds is on loan, and the next change will spend it.
 
 > Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.
 
@@ -85,6 +95,8 @@ Standards hold each measured number at a limit compared against the trunk: a flo
 
 ### 6. Proof binds to the change
 
+Evidence is about one thing. Evidence that survives an edit is reassurance.
+
 > Finished work returns with evidence naming the exact committed tree; any later edit expires it.
 
 A green gate over a clean, committed tree mints proof: the pinned commit, the changed files, the check results, the held standards. Acceptance writes it to the landed commit as a durable note, so the evidence outlives the worktree.
@@ -97,6 +109,8 @@ A green gate over a clean, committed tree mints proof: the pinned commit, the ch
 - **Maintains:** its evidence.
 
 ### 7. You decide what lands
+
+Ready and permitted are different questions, and only one of them belongs to a machine.
 
 > A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.
 
@@ -111,6 +125,8 @@ Acceptance resolves its authority per invocation (a conversation attestation, a 
 
 ### 8. The project remembers
 
+A lesson kept in a conversation is a lesson the next session learns again.
+
 > Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.
 
 A correction becomes instructions, a decision becomes a record with its reasons, a procedure becomes a skill, and the map keeps the account agents work from, checked by every gate run. What one task teaches, the next inherits: the loop closes where it began.
@@ -123,6 +139,8 @@ A correction becomes instructions, a decision becomes a record with its reasons,
 - **Maintains:** its instructions, its decisions.
 
 ### 9. Cure the class
+
+A bug is one member of a pattern, and fixing the member leaves the pattern alive.
 
 > A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.
 
@@ -137,6 +155,8 @@ The cure-a-bug skill requires the cause proven, the fix applied to every member 
 
 ### 10. Write it once
 
+A fact kept in two places will disagree with itself, and the only question is when.
+
 > Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.
 
 The write-it-once skill carries the discipline discern builds itself with: one authority per fact with bound consumers, guards that enrol future members, effects planned before they run. Generated artifacts regenerate from their sources, and the gate fails a copy that drifted.
@@ -150,6 +170,8 @@ The write-it-once skill carries the discipline discern builds itself with: one a
 
 ### 11. No dead ends
 
+A refusal that names no next step leaves the operator guessing.
+
 > Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.
 
 Every verb returns one structured result: the state, the diagnostics with the command that reproduces each failure, and the hints that apply at that moment. A refusal names its recovery instead of leaving a dead end, and advisory surfaces inform without changing a verdict.
@@ -160,7 +182,9 @@ Every verb returns one structured result: the state, the diagnostics with the co
 - **Human value:** Spend more time on the product.
 - **Agent outcomes:** Orient from one bounded result · Recover from a truthful refusal · Load only the context needed · Operate as the primary user.
 
-### 12. Plan, then apply
+### 12. No unplanned effects
+
+An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.
 
 > Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.
 
@@ -226,8 +250,8 @@ The project holds its instructions, its working conditions, its checks, its evid
 
 - **its instructions** — 1. Arrive knowing · 8. The project remembers
 - **its working conditions** — 2. One task, one place · 3. Hand over whole pieces
-- **its checks** — 4. Done is deterministic · 5. Only better · 9. Cure the class · 10. Write it once
-- **its evidence** — 5. Only better · 6. Proof binds to the change
+- **its checks** — 4. Done is deterministic · 5. Keep every gain · 9. Cure the class · 10. Write it once
+- **its evidence** — 5. Keep every gain · 6. Proof binds to the change
 - **its decisions** — 7. You decide what lands · 8. The project remembers
 
 ## Coding-agent outcome index
@@ -239,21 +263,21 @@ Each Agent Benefit Canon outcome points back to the tenets or properties that pr
 - **See the change discern sees** — 4. Done is deterministic
 - **Own one isolated effort** — 2. One task, one place
 - **Compose without adopting sibling work** — 3. Hand over whole pieces
-- **Resume after interruption** — 12. Plan, then apply
+- **Resume after interruption** — 12. No unplanned effects
 - **Run the relevant Gate efficiently** — 4. Done is deterministic
 - **Use a fast inner loop** — 4. Done is deterministic
 - **Load only the context needed** — 11. No dead ends
 - **Prove the exact tree** — 6. Proof binds to the change
 - **Carry judgment as judgment** — 4. Done is deterministic
-- **Retain earned quality** — 5. Only better
-- **Preview and retry effects safely** — 12. Plan, then apply
+- **Retain earned quality** — 5. Keep every gain
+- **Preview and retry effects safely** — 12. No unplanned effects
 - **Land only with release authority** — 7. You decide what lands
 - **Manage the installation lifecycle** — Property: Reversible
 - **Inherit current agent instructions** — 1. Arrive knowing
 - **Recover the project mental model** — 1. Arrive knowing · 8. The project remembers · Property: Ordinary files, yours
 - **Invoke curated project procedures** — 1. Arrive knowing · 8. The project remembers · 9. Cure the class
 - **Let new members enrol themselves** — 9. Cure the class · 10. Write it once
-- **Diagnose workflow friction locally** — 5. Only better · Property: Local
+- **Diagnose workflow friction locally** — 5. Keep every gain · Property: Local
 - **Operate without a hidden model** — Property: No model inside
 - **Operate as the primary user** — 11. No dead ends
 - **Switch supported agent hosts** — Property: Provider-neutral

@@ -19,7 +19,7 @@ Commands:
                  Serves only from a worktree. Write-back never lands on
                  the main checkout through this command.
   open <entry>   Resolve a canon entry (id, slug, or title, such as proof,
-                 file-ownership, "Only better") and open its registry source
+                 file-ownership, "Keep every gain") and open its registry source
                  in the IDE at the exact line. --print writes the position
                  instead of launching the IDE; --json emits it structured.
 `;

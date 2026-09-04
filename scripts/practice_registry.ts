@@ -51,6 +51,40 @@ import { annotateProse } from "./canon_editor/annotation.ts";
  */
 export type PracticeArc = "loop" | "craft" | "conduct";
 
+/** One rendering lens: the heading and introduction a grouped page gives its stratum. */
+export interface PracticeArcLens {
+  id: PracticeArc;
+  /** The heading a grouped rendering gives the stratum. */
+  title: string;
+  /** One sentence introducing the stratum. */
+  line: string;
+}
+
+/**
+ * The lenses in canonical order — the order the flat canon numbers its
+ * tenets in. A grouped rendering takes its headings and introductions here,
+ * and the enrolment guard holds the canon's numbering to this order.
+ */
+export const PRACTICE_ARCS: readonly PracticeArcLens[] = [
+  {
+    id: "loop",
+    title: "How work moves",
+    line: "The obligations one change meets, in the order it meets them.",
+  },
+  {
+    id: "craft",
+    title: "What the work honors",
+    line:
+      "The disciplines the bundled skills teach, which discern also builds itself with.",
+  },
+  {
+    id: "conduct",
+    title: "How the practice behaves toward its operators",
+    line:
+      "The obligations discern holds for itself as a tool. They oblige no change, so they maintain no inventory item.",
+  },
+];
+
 /** The ways a tenet is upheld, in canonical rendering order. */
 export const UPHELD_TIERS = ["enforced", "automated", "taught"] as const;
 export type UpheldTier = (typeof UPHELD_TIERS)[number];
@@ -136,6 +170,13 @@ export interface PracticeTenet {
   id: string;
   /** The display headline — short enough to cite, plain enough to defend. */
   title: string;
+  /**
+   * The belief the obligation follows from: one or two plain sentences that
+   * name no carrier and no identifier. It reads at body altitude, so it must
+   * survive a hostile literal reading, and it is the line that transfers to
+   * the case no rule covers.
+   */
+  why: string;
   /** The obligation in one sentence. */
   obligation: string;
   /** A short mechanism story in the product register: how the obligation is kept. */
@@ -168,6 +209,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "arrive-knowing",
     title: "Arrive knowing",
+    why:
+      "Orientation is a cost every session pays, and the project can pay it once for all of them.",
     obligation:
       "Every session starts with the project's instructions, understanding, and methods already in hand.",
     body:
@@ -196,6 +239,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "one-task-one-place",
     title: "One task, one place",
+    why:
+      "Efforts that share a checkout share a failure. Isolation is what makes running several at once safe.",
     obligation:
       "Every effort works in its own place: a separate checkout with its own identity, environment, and declared resources.",
     body:
@@ -218,6 +263,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "hand-over-whole-pieces",
     title: "Hand over whole pieces",
+    why:
+      "A half-brief makes the person the courier. A complete one lets the work go without them.",
     obligation:
       "Work is delegated as complete, bounded briefs with declared dependencies, and the project carries status between tasks.",
     body:
@@ -240,6 +287,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "done-is-deterministic",
     title: "Done is deterministic",
+    why: "An account of the work is not evidence of it, whoever gives it.",
     obligation:
       "The project's declared checks decide when work is done; an agent's confidence stays advisory.",
     body:
@@ -269,7 +317,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   },
   {
     id: "only-better",
-    title: "Only better",
+    title: "Keep every gain",
+    why: "A gain nothing holds is on loan, and the next change will spend it.",
     obligation:
       "Measured limits never loosen, captured gains become the new baseline, and the local record shows the next improvement.",
     body:
@@ -303,6 +352,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "proof-binds-to-the-change",
     title: "Proof binds to the change",
+    why:
+      "Evidence is about one thing. Evidence that survives an edit is reassurance.",
     obligation:
       "Finished work returns with evidence naming the exact committed tree; any later edit expires it.",
     body:
@@ -320,6 +371,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "you-decide-what-lands",
     title: "You decide what lands",
+    why:
+      "Ready and permitted are different questions, and only one of them belongs to a machine.",
     obligation:
       "A green gate makes a change eligible; landing takes fresh consent or a recorded grant, checked against the changed paths.",
     body:
@@ -336,6 +389,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "the-project-remembers",
     title: "The project remembers",
+    why:
+      "A lesson kept in a conversation is a lesson the next session learns again.",
     obligation:
       "Lessons, decisions, and methods are written into the project, where the next session starts; staleness is a defect.",
     body:
@@ -371,6 +426,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "cure-the-class",
     title: "Cure the class",
+    why:
+      "A bug is one member of a pattern, and fixing the member leaves the pattern alive.",
     obligation:
       "A bug is fixed at its class, with a proven cause and a permanent guard, so it cannot return unnoticed.",
     body:
@@ -390,6 +447,8 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "write-it-once",
     title: "Write it once",
+    why:
+      "A fact kept in two places will disagree with itself, and the only question is when.",
     obligation:
       "Every shared fact has one authority; copies are generated from it, and a declared copy that drifts fails the gate.",
     body:
@@ -411,6 +470,7 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   {
     id: "no-dead-ends",
     title: "No dead ends",
+    why: "A refusal that names no next step leaves the operator guessing.",
     obligation:
       "Every result is structured and bounded, every refusal names the next valid action, and advice never blocks.",
     body:
@@ -443,7 +503,9 @@ export const PRACTICE_CANON: readonly PracticeTenet[] = [
   },
   {
     id: "plan-then-apply",
-    title: "Plan, then apply",
+    title: "No unplanned effects",
+    why:
+      "An effect the operator cannot preview is one they cannot trust, and an interruption must leave a state they can return to.",
     obligation:
       "Nothing mutates without a plan; writes land only where placement licenses them, and an interruption leaves a recoverable state.",
     body:
@@ -733,6 +795,28 @@ function tenetNumber(id: string): number {
   return index + 1;
 }
 
+/** How the upheld tiers read on a rendered page, shared by both practice pages. */
+const UPHELD_TIERS_SENTENCE =
+  "A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.";
+
+/** The lenses as one sentence: "`loop` tenets govern how work moves, …". */
+function arcsSentence(): string {
+  const clauses = PRACTICE_ARCS.map((arc) =>
+    `\`${arc.id}\` tenets govern ${arc.title.charAt(0).toLowerCase()}${
+      arc.title.slice(1)
+    }`
+  );
+  return `${clauses.slice(0, -1).join(", ")}, and ${clauses.at(-1)}.`;
+}
+
+/** The tenets one lens groups, each with its canonical 1-based number. */
+function tenetsOfArc(
+  arc: PracticeArc,
+): readonly { tenet: PracticeTenet; number: number }[] {
+  return PRACTICE_CANON.map((tenet, index) => ({ tenet, number: index + 1 }))
+    .filter(({ tenet }) => tenet.arc === arc);
+}
+
 /**
  * Render the practice-canon page: the frame, the numbered tenets with their
  * upheld tiers, mechanisms, value, and inventory, the properties, the
@@ -786,7 +870,7 @@ export function renderPracticeCanonDoc(): string {
     "",
     "## The tenets",
     "",
-    "Numbered by position. `loop` tenets govern how work moves, `craft` tenets govern what the work honors, and `conduct` tenets govern how the practice behaves toward its operators. A tenet is **enforced** (a boundary refuses the violation), **automated** (the machinery performs it without being asked), **taught** (a bundled skill carries it), or a combination.",
+    `Numbered by position. ${arcsSentence()} ${UPHELD_TIERS_SENTENCE}`,
     "",
   );
   PRACTICE_CANON.forEach((tenet, index) => {
@@ -799,6 +883,8 @@ export function renderPracticeCanonDoc(): string {
       .join(" · ");
     lines.push(
       `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
+      "",
+      tenetProse(tenet, "why", tenet.why),
       "",
       `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
       "",
@@ -968,7 +1054,7 @@ export function renderPracticePublicDoc(): string {
   const lines: string[] = [
     "---",
     "title: The practice",
-    "description: The tenets discern holds for every change, numbered and citable.",
+    "description: The tenets discern holds, each with the belief behind it, the obligation, and how it is upheld.",
     "order: 50",
     "aliases:",
     "  - the practice",
@@ -980,7 +1066,7 @@ export function renderPracticePublicDoc(): string {
     "",
     "# The practice",
     "",
-    "_The [practice](glossary.md#practice) discern installs, as numbered tenets: the obligations that hold for every change, and for the practice's own conduct. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._",
+    "_The [practice](glossary.md#practice) discern installs, as numbered tenets. Each states the belief it follows from, the obligation that holds, and how the project upholds it. The [concepts page](concepts.md) tours the mechanisms; this page states what they add up to._",
     "",
     "The tenets operate inside one relationship:",
     "",
@@ -988,17 +1074,22 @@ export function renderPracticePublicDoc(): string {
   for (const role of PRACTICE_FRAME) {
     lines.push(`- **${role.title}** — ${role.line}`);
   }
-  lines.push("");
-  PRACTICE_CANON.forEach((tenet, index) => {
-    lines.push(
-      `### ${index + 1}. ${tenetProse(tenet, "title", tenet.title)}`,
-      "",
-      `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
-      "",
-      tenetProse(tenet, "body", tenet.body),
-      "",
-    );
-  });
+  lines.push("", UPHELD_TIERS_SENTENCE, "");
+  for (const arc of PRACTICE_ARCS) {
+    lines.push(`## ${arc.title}`, "", arc.line, "");
+    for (const { tenet, number } of tenetsOfArc(arc.id)) {
+      lines.push(
+        `### ${number}. ${tenetProse(tenet, "title", tenet.title)}`,
+        "",
+        tenetProse(tenet, "why", tenet.why),
+        "",
+        `> ${tenetProse(tenet, "obligation", tenet.obligation)}`,
+        "",
+        `**Upheld:** ${upheldLine(tenet)}.`,
+        "",
+      );
+    }
+  }
   lines.push(
     `The tenets maintain what the project holds: ${inventoryPhrase()}.`,
     "",

@@ -195,6 +195,7 @@ export const DEMAND_ANSWER_FIELDS = {
 export const PRACTICE_TENET_FIELDS = {
   id: IDENTITY_LOCK,
   title: { edit: "prose", register: "public" },
+  why: { edit: "prose", register: "public" },
   obligation: { edit: "prose", register: "public" },
   body: { edit: "prose", register: "public" },
   arc: { edit: "locked", reason: "the rendering lenses are a closed set" },
