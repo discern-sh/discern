@@ -1680,7 +1680,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
       card,
       "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
     );
-    assertStringIncludes(card, "Green Gate runs");
+    assertStringIncludes(card, "Green gate runs");
     assertStringIncludes(
       card,
       "[ 66%]",

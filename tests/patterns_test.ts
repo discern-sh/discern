@@ -4816,7 +4816,7 @@ Deno.test("patterns trajectory: the summary compares today's value with today's 
   assert(finding !== undefined);
   assertEquals(
     finding.summary,
-    "This Standard has less headroom: 825 → 900 vs ceiling 837.",
+    "This standard has less headroom: 825 → 900 vs ceiling 837.",
   );
   assertEquals(finding.tone, "attention");
   assertEquals(finding.evidence.limit_first, 900);

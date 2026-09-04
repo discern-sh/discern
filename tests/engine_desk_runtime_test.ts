@@ -3104,7 +3104,7 @@ Deno.test("desk shows one tip below status, stable across redraws, marked once",
     "the same tip renders below status on both board passes",
   );
   assertEquals(
-    countOccurrences(plainTranscript, "A Standard is a quality measure"),
+    countOccurrences(plainTranscript, "A standard is a quality measure"),
     2,
   );
   assertEquals(

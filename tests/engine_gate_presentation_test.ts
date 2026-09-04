@@ -806,7 +806,7 @@ Deno.test("Gate completed workflow renders all result outcomes and Standards", (
     );
   }
   assertStringIncludes(rendered, "coverage · flat");
-  assertStringIncludes(rendered, "A Gate job failed.");
+  assertStringIncludes(rendered, "A gate job failed.");
 });
 
 Deno.test("Gate cancellation never earns the completed lifecycle", () => {
@@ -821,7 +821,7 @@ Deno.test("Gate cancellation never earns the completed lifecycle", () => {
     outcome: "cancelled",
     durationS: 1,
   }], { width: 60, terminal: PLAIN });
-  assertStringIncludes(rendered, "The Gate run was cancelled.");
+  assertStringIncludes(rendered, "The gate run was cancelled.");
   assertStringIncludes(rendered, "test [cancelled]");
   assertEquals(rendered.includes("✓ Complete"), false);
 });

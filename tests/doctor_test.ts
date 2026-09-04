@@ -62,7 +62,8 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const DOCTOR_DIAGNOSTIC_ROUND_TRIP_SCHEMA = z.object({
   name: z.string(),
@@ -1740,11 +1741,22 @@ Deno.test("doctor: this repository's Project Scripts satisfy the public environm
     await setupInstall(dir);
     const scriptsDir = join(dir, "discern/scripts");
     await Deno.mkdir(scriptsDir, { recursive: true });
-    for await (const entry of Deno.readDir(REPO_AUTHORED_PATHS.scripts)) {
-      if (!entry.isFile || entry.name === "README.md") continue;
+    const prefix = `${REPO_AUTHORED_PATHS.scriptsRel}/`;
+    const projectScripts = await structuralGuardScope({
+      guard: "tests/doctor_test.ts#repository-project-scripts",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "The public environment contract applies to configured top-level Project Scripts.",
+        include: (rel) =>
+          rel.startsWith(prefix) && rel !== `${prefix}README.md` &&
+          !rel.slice(prefix.length).includes("/"),
+      },
+    });
+    for (const rel of projectScripts) {
       await Deno.copyFile(
-        join(REPO_AUTHORED_PATHS.scripts, entry.name),
-        join(scriptsDir, entry.name),
+        join(REPO_ROOT, rel),
+        join(scriptsDir, rel.slice(prefix.length)),
       );
     }
     const { code, payload } = await runDoctorJson(dir);
