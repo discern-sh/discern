@@ -16,9 +16,12 @@ import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 /** Fresh install in `dir`. */
 async function setup(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Upgrade fixture\n");
+  await gitInit(dir);
   assertEquals(
     (await runCli(
       ["setup", "begin", "--confirmed", "--slug", "demo"],

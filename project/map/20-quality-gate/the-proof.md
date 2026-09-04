@@ -27,7 +27,7 @@ Proof also carries every structured checkpoint drop from the run. The same bound
 
 On exact, complete, current green Proof, ordinary `done` returns that Proof without Gate work. `data.gate_ran` distinguishes measurement (`true`) from reuse (`false`).
 
-`accept` and both setup verbs reuse it. Non-forced setup returns `data.proof` and `data.proof_line`; force returns neither. Clean completed setup re-serves its evidence and inventory with `data.completion = "replayed"`, `data.effects_performed = false`, and `data.gate_ran = false`. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
+`accept` and both setup verbs reuse it. Ordinary setup completion records `setup_completion = "proven"` and returns `data.proof` and `data.proof_line`. `discern setup done --unproven` records the completion event as unproven and returns neither; setup acceptance refuses it until a later ordinary completion converges the state to proven. Clean proven setup re-serves its evidence and inventory with `data.completion = "replayed"`, `data.effects_performed = false`, and `data.gate_ran = false`. Streaming stays raw. CI, `--plain`, oversized, or cursor-ineligible terminals stay static; pipes receive Proof; JSON and MCP omit Components. UTF-8 retains Unicode under `TERM=dumb` and no colour; exact `C` or `POSIX` uses ASCII.
 
 `waited_ms` reports capped-run waits; durable Proof omits them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 

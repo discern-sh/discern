@@ -12,7 +12,7 @@
  *  2. `--json` carries an explicit incomplete signal (complete:false), so a
  *     JSON-consuming agent can't read ok:true / exit 0 as complete;
  *  3. `status` surfaces unfinished setup loudly in EVERY location (not the old
- *     main-only buried nudge) and goes silent once `[meta].bootstrapped` is set;
+ *     main-only buried nudge) and goes silent once completion is recorded;
  *  4. the SessionStart `worktree ensure` reminder fires while setup is unfinished;
  *  5. the printed brief frames its close as stop-conditions, not a report.
  */
@@ -46,6 +46,12 @@ import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 /** The H1 of the printed brief — the boundary the footer must come AFTER. */
 const INSTRUCTIONS_H1 = "# Set up discern";
 
+/** One committed incomplete installation, ready for an effectful setup verb. */
+async function unfinishedSetupRepo(dir: string): Promise<void> {
+  await scaffoldEngine(dir, { bootstrapped: false });
+  await gitInit(dir);
+}
+
 /** Find one package section rule without pinning its Unicode/ASCII ornaments. */
 function sectionRuleLine(output: string, label: string): string | undefined {
   const marker = ` ${label.toLocaleLowerCase()} `;
@@ -60,7 +66,7 @@ function sectionRuleLine(output: string, label: string): string | undefined {
 
 Deno.test("setup output can't be mistaken for completion: banner leads, footer survives truncation", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
@@ -97,7 +103,7 @@ Deno.test("setup output can't be mistaken for completion: banner leads, footer s
 
 Deno.test("setup begin --json carries an explicit incomplete signal", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = decodeCliResult(r.stdout, "setup begin");
@@ -110,7 +116,7 @@ Deno.test("setup begin --json carries an explicit incomplete signal", async () =
     assertEquals(obj.data.complete, false);
     assertEquals(obj.data.bootstrapped, false);
     assertEquals(typeof obj.data.next_action, "string");
-    assert(obj.data.next_action.includes("discern setup done"));
+    assertEquals(obj.data.next_action, "discern setup step 1");
     assertStringIncludes(
       obj.data.human_relay,
       "studying how this project already works",
@@ -194,7 +200,7 @@ async function begunSetup(dir: string): Promise<void> {
 const OFF_RAMP_DRIVERS: Record<string, OffRampDriver> = {
   "setup": { fixture: freshRepo, argv: ["setup"], code: 0 },
   "setup begin": {
-    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
+    fixture: unfinishedSetupRepo,
     argv: ["setup", "begin", "--confirmed"],
     code: 0,
   },
@@ -205,8 +211,8 @@ const OFF_RAMP_DRIVERS: Record<string, OffRampDriver> = {
     code: 0,
   },
   "setup done": {
-    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
-    argv: ["setup", "done", "--force"],
+    fixture: unfinishedSetupRepo,
+    argv: ["setup", "done", "--unproven"],
     code: 0,
   },
   "setup accept": { fixture: begunSetup, argv: ["setup", "accept"], code: 0 },
@@ -252,7 +258,7 @@ for (const [path, audience] of Object.entries(SETUP_HUMAN_AUDIENCES)) {
 
 Deno.test("status flags unfinished setup loudly, with evidence, then goes silent once recorded", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the marker-carrying skeletons
 
     // Human view: the main checkout stays first, then setup gets a semantic
@@ -287,7 +293,7 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     });
 
     // Once setup is recorded, the signal is gone — and the marker walk is skipped.
-    await runAgent(dir, ["setup", "done", "--force"]);
+    await runAgent(dir, ["setup", "done", "--unproven"]);
     const done = decodeCliResult(
       (await runAgent(dir, ["status", "--json"])).stdout,
       "status",
@@ -331,14 +337,14 @@ Deno.test("status surfaces unfinished setup from a worktree too, not just the ma
 
 Deno.test("worktree ensure reminds on session start while setup is unfinished, then stops", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     await runAgent(dir, ["setup", "begin", "--confirmed"]);
 
     const before = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(before.code, 0, before.output);
     assertTerminalTextIncludes(before.stdout, "Setup is incomplete");
 
-    await runAgent(dir, ["setup", "done", "--force"]);
+    await runAgent(dir, ["setup", "done", "--unproven"]);
     const after = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(after.code, 0, after.output);
     assertEquals(

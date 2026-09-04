@@ -4,7 +4,7 @@
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `done` (formerly `finish`), `[jobs]` / `[jobs.<name>]` (formerly `[capabilities]` / `[checks.<name>]`), known/custom `job` (formerly gate `capability` / custom `check`), and `config set-job` (formerly `config set-capability` / `config set-check`); the decision and reasoning are unchanged.
 > - **[ADR 0152](0152-slow-workflows-prove-write-authority-first.md) — readiness clarification:** `smoke` also covers the essential shared config/runtime dependencies needed for that fast boot, and remains the project's configurable readiness check; discern-owned predictable writes are probed internally rather than adding a second `[preflight]` concept, and prerequisites unique to one custom command stay with that command.
-> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — probe identity and order:** the structural probe now starts from the committed completion-marker `HEAD`, retains Proof for that commit, and precedes the final main-checkout Gate. An uncreatable probe blocks non-forced completion; only the explicit forced path skips it.
+> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — probe identity and order:** the structural probe now starts from the committed completion-marker `HEAD`, retains Proof for that commit, and precedes the final main-checkout Gate. An uncreatable probe blocks proven completion; only the explicit `--unproven` path skips it and persists that distinction.
 > - **[ADR 0317](0317-gate-commands-and-setup-applicability-are-separate-facts.md) — applicable denominator:** a new known job still auto-enrols in setup assurance as applicable and absent. A project may explicitly declare an absent lifecycle not applicable; that declaration changes setup coverage only and never skips the job when configured.
 > - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md), one probe:** the normal brief no longer creates a manual worktree. Readiness is configured and smoke-tested in the setup checkout; `setup done` remains the sole structural current-HEAD probe and owns teardown. The current readiness page is Step 7; Step 8 references below describe the former brief.
 
@@ -34,7 +34,7 @@ The load-bearing design choices, and the explicit *no*s:
 
 - **The probe branches from the CURRENT HEAD, never `main`.** During setup the work sits on the unlanded `discern-setup` branch; a probe from `main` would see a repo without discern at all. Branching from HEAD (the default of `git worktree add`) captures the agent's own just-authored config.
 
-- **Honest skips, never false failures.** Worktrees-off skips the probe (nothing to prove); an _uncreatable_ probe (an unborn branch — no commit to branch from) is a skip, not a red; `--force` skips the whole proof, the probe included. `worktree_proven` is reported `true` only when the probe actually ran green, so the completion output never over-claims coverage it did not earn.
+- **Honest skips, never false claims.** Worktrees-off skips the probe because there is no enabled worktree contract to prove. An uncreatable probe blocks ordinary completion. `--unproven` skips the proof legs and records `setup_completion = "unproven"`; `worktree_proven` is true only when the probe actually ran green.
 
 - **Per-vendor provisioning stays out of discern's ethos.** No Herd, vhost, or DNS integrations. A project's worktree needs are `[worktree.resources.<name>]` the agent authors per-project, or a TODO for the user. Anything with cost or data implications (a database, a paid service) is a genuine decision left with the user, never wired silently — the two-lane rule (ADR 0078) applied to provisioning.
 
@@ -48,7 +48,7 @@ The load-bearing design choices, and the explicit *no*s:
 
 - **More surface, held by existing disciplines.** A new lifecycle core, a fourth proof leg, a sixth known job, and a new brief step are new moving parts — kept coherent by the forcing functions (which auto-enrol `smoke`), the probe reusing the create/remove cores, and the parser-validated brief spine.
 
-- **`setup done` now creates and destroys a worktree** (a refresh + gate inside it). Bounded: one throwaway worktree at the end of a one-time setup, skipped entirely when worktrees are off or `--force` is used.
+- **`setup done` creates and destroys one probe worktree.** The bounded probe is skipped when worktrees are off or completion is explicitly `--unproven`.
 
 ## Alternatives considered
 

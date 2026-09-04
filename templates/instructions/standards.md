@@ -8,4 +8,4 @@ After owner agreement, create a proposed limit only from the committed final tre
 
 When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.{{else}}## Quality standards
 
-No quality standards yet. When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.{{/if}}
+No quality standards yet.{{#if has_skill_discern_set_the_standard}} When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.{{/if}}{{/if}}

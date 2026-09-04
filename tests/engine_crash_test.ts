@@ -192,7 +192,7 @@ Deno.test("renderCrashFrame: names the version and verb, and points at the saved
   assertStringIncludes(withoutFile, ISSUES_URL);
 });
 
-Deno.test("internalErrorResult: the uniform machine envelope, no data payload", () => {
+Deno.test("internalErrorResult: setup crashes retain one runnable recovery action", () => {
   const report = captureTestCrashReport("status", new TypeError("boom"));
   const result = internalErrorResult("status", report, "/tmp/report.txt");
   assertEquals(result.ok, false);
@@ -206,6 +206,13 @@ Deno.test("internalErrorResult: the uniform machine envelope, no data payload", 
     result.message,
     `This is a bug in discern. Report it at ${ISSUES_URL}.`,
   );
+
+  const setupReport = captureTestCrashReport(
+    "setup done",
+    new TypeError("setup boom"),
+  );
+  const setupResult = internalErrorResult("setup done", setupReport);
+  assertEquals(setupResult.data, { next_action: "discern doctor" });
 });
 
 // ── the artifact writer ──────────────────────────────────────────────────────

@@ -53,7 +53,6 @@ import { integrationBranch } from "../worktree/git.ts";
 import {
   buildStandardLimitProposalPlan,
   buildStandardLimitProposalRebindPlan,
-  type PlannedStandardLimitProposal,
   type StandardLimitProposalPlan,
   type StandardLimitProposalRefusal,
 } from "./standard_proposal_plan.ts";
@@ -338,22 +337,6 @@ async function recoverProposalTransaction(
   return proposal;
 }
 
-/** Author the config-only proposal commit from its exact planned evidence. */
-function proposalCommitMessage(
-  proposal: PlannedStandardLimitProposal,
-): { subject: string; body: string } {
-  const bound = proposal.direction === "up" ? "floor" : "ceiling";
-  return {
-    subject: `Propose Standard limit: ${proposal.standard}`,
-    body:
-      `Move the ${bound} from ${proposal.trunk_limit} to ${proposal.proposed_limit} after measuring ${proposal.measurement}.\n\n` +
-      `Reason: ${proposal.reason}\n\n` +
-      `Responsible paths:\n${
-        proposal.evidence_paths.map((path) => `- ${path}`).join("\n")
-      }`,
-  };
-}
-
 /** Restore the scoped config after a proposal apply fails before commit. */
 async function restoreProposalEdit(
   root: string,
@@ -410,8 +393,16 @@ async function applyProposalPlan(
     }
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.standardsLimitProposal,
+      values: {
+        standard: plan.proposal.standard,
+        direction: plan.proposal.direction,
+        trunkLimit: plan.proposal.trunk_limit,
+        proposedLimit: plan.proposal.proposed_limit,
+        measurement: plan.proposal.measurement,
+        reason: plan.proposal.reason,
+        evidencePaths: plan.proposal.evidence_paths,
+      },
       cwd: root,
-      ...proposalCommitMessage(plan.proposal),
       pathspecs: [authority.configRel],
     });
     if (!commit.success) {

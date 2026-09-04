@@ -16,7 +16,9 @@ import { dirname, join } from "@std/path";
 import type { EnvReader } from "../shared/env.ts";
 import { CONFIG_REL } from "../shared/env.ts";
 import { pathExists, readTextIfExists } from "../shared/fs_presence.ts";
-import { mergeSettings } from "./settings_merge.ts";
+import type { AgentName } from "./config.ts";
+import { providerFor } from "./providers.ts";
+import { mergeJsonSettingsText } from "./settings_merge.ts";
 import { writeDiscernToml } from "./tidy_format.ts";
 import { TomlEditor } from "./toml_edit.ts";
 
@@ -50,8 +52,11 @@ export interface MigrationContext {
   readConfig(): Promise<string | undefined>;
   /** Edit `discern.toml` while preserving comments; a no-op if absent. */
   editToml(fn: (editor: TomlEditor) => void): Promise<void>;
-  /** Deep-merge `incoming` into `.claude/settings.json`. */
-  mergeSettings(incoming: Record<string, unknown>): Promise<void>;
+  /** Merge `incoming` into the named provider's registry-owned settings file. */
+  mergeSettings(
+    provider: AgentName,
+    incoming: Record<string, unknown>,
+  ): Promise<void>;
   /** Record a human-readable note about what this step changed. */
   note(message: string): void;
 }
@@ -159,21 +164,33 @@ export function createMigrationContext(
     await writeDiscernToml(abs(CONFIG_REL), editor.toString());
   }
 
-  /** Merge migrated values into Claude settings while preserving unrelated keys. */
+  /** Merge migrated values into one provider's settings while preserving user data. */
   async function mergeSettingsInto(
+    providerName: AgentName,
     incoming: Record<string, unknown>,
   ): Promise<void> {
-    const rel = ".claude/settings.json";
-    const existing = await readText(rel);
-    const base: unknown = existing === undefined ? {} : JSON.parse(existing);
-    if (typeof base !== "object" || base === null || Array.isArray(base)) {
+    const hooks = providerFor(providerName)?.hooks;
+    if (hooks === undefined) {
       throw new TypeError(
-        `${rel} must contain a JSON object at the root before a migration can merge settings`,
+        `${providerName} has no registry-declared settings merge target`,
       );
     }
-    const merged = mergeSettings(base, incoming);
+    const rel = hooks.settingsFile;
+    const existing = await readText(rel);
+    if (existing !== undefined) {
+      const parsed: unknown = JSON.parse(existing);
+      if (
+        typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
+      ) {
+        throw new TypeError(
+          `${rel} must contain a JSON object at the root before a migration can merge settings`,
+        );
+      }
+    }
+    const strategy = hooks.mergeSeed ?? mergeJsonSettingsText;
+    const merged = strategy(existing, JSON.stringify(incoming));
     await ensureDir(dirname(abs(rel)));
-    await Deno.writeTextFile(abs(rel), `${JSON.stringify(merged, null, 2)}\n`);
+    await Deno.writeTextFile(abs(rel), merged);
   }
 
   return {

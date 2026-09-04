@@ -19,8 +19,8 @@
  *  - **envelope** — {@link internalErrorResult} is the uniform structured result
  *    (`error: "internal_error"`) CLI `--json`, CLI `--markdown`, and MCP all
  *    project, so a caller receives a complete result instead of a broken
- *    stream. It carries no `data`: typed per-verb payload schemas
- *    stay intact, and a written report's path travels in `message`.
+ *    stream. Setup crashes carry the journey's runnable diagnostic action;
+ *    other verbs carry no `data`. A written report's path travels in `message`.
  *  - **signature** — {@link crashSignature} is the logbook-safe reduction
  *    (error class name and one code location, never the message), within the
  *    logbook's metadata-only bar.
@@ -43,6 +43,10 @@ import { tempArtifactScopeFor } from "./temp_artifact_scope.ts";
 import { wallTimeIso } from "../shared/clock.ts";
 import { EXIT_INTERNAL_ERROR } from "../shared/exit_codes.ts";
 import { ON_DISK_FORMATS } from "../shared/on_disk_formats.ts";
+import {
+  SETUP_CRASH_NEXT_ACTION,
+  withSetupResultNextAction,
+} from "../shared/setup_next_action.ts";
 import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
@@ -403,18 +407,19 @@ export function renderCrashFrame(
  * The uniform structured result for a crash — the one envelope every surface
  * emits when a verb throws unexpectedly, so `--json` consumers and MCP
  * clients read a crash as a structured `internal_error` instead of a broken
- * stream. Carries no `data` (typed per-verb payload schemas stay intact);
- * the report path, when one was written, travels in the message.
+ * stream. Setup results retain their required runnable recovery command;
+ * other verbs carry no `data`. The report path, when one was written, travels
+ * in the message.
  */
 export function internalErrorResult(
   verb: string,
   report: CrashReport,
   artifactPath?: string | undefined,
-): DiscernResult<never> {
+): DiscernResult {
   const saved = artifactPath !== undefined
     ? ` Crash report saved at ${artifactPath}.`
     : "";
-  return {
+  return withSetupResultNextAction({
     ok: false,
     verb,
     error: "internal_error",
@@ -422,5 +427,5 @@ export function internalErrorResult(
       `discern ${report.version} crashed while running \`${report.verb}\`: ` +
       `${report.name}: ${report.message}${saved} ` +
       `This is a bug in discern. Report it at ${ISSUES_URL}.`,
-  };
+  }, SETUP_CRASH_NEXT_ACTION);
 }

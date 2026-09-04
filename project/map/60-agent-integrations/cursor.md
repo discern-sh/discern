@@ -114,7 +114,8 @@ The discern-owned Cursor hook seed is:
   "hooks": {
     "sessionStart": [
       {
-        "command": "discern worktree ensure"
+        "command": "discern worktree ensure",
+        "timeout": 600
       }
     ]
   }

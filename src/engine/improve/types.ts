@@ -51,7 +51,7 @@ export interface ImprovementContext {
   gotchasDocExists: boolean;
   /** Whether the configured map tree has a `README.md`. */
   mapTree: boolean;
-  /** Configured project-relative documentation root. */
+  /** Configured project-relative Map root. */
   mapDir: string;
   /** Count of real ADRs under the configured map root's `_adr`. */
   adrCount: number;

@@ -174,7 +174,7 @@ Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an ap
   const discernShell = [
     marker,
     "version = 1",
-    'name = "Discern"',
+    'name = "Any Project Name"',
     "",
     "[setup]",
     'script = "discern worktree ensure"',

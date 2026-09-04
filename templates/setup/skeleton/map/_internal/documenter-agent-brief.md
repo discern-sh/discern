@@ -1,6 +1,6 @@
 # Documenter agent brief
 
-This file is read by every documenter agent that produces or refreshes a subtree under the configured documentation root. The `discern-document-subsystem` skill creates or refreshes that subtree's **scope manifest** at `_internal/scopes/{subtree}.md` from [`scopes/_template.md`](scopes/_template.md). The manifest complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
+This file is read by every agent that produces or refreshes a subtree in the configured Map. The `discern-document-subsystem` skill creates or refreshes that subtree's **scope manifest** at `_internal/scopes/{subtree}.md` from [`scopes/_template.md`](scopes/_template.md). The manifest complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
 
 This brief is the constant; the scope manifest is the variable.
 
@@ -10,7 +10,7 @@ The `discern-document-subsystem` skill dispatches this brief — invoke it to do
 
 ## Your role
 
-You are documenting one subtree of the documentation tree. The tree shape, the orientation tier, the glossary, and the canonical terminology are already in place — your job is to fill in the leaves of your assigned subtree, plus its `README.md`.
+You are documenting one subtree of the Map. Its shape, orientation tier, glossary, and canonical terminology are already in place — your job is to fill in the leaves of your assigned subtree, plus its `README.md`.
 
 You may not be the only documenter agent working in parallel. Do not stretch your scope to cover things another agent owns. If you discover overlap, flag it in your summary rather than absorbing it.
 
@@ -18,7 +18,7 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 
 ## Read first (mandatory, in this order)
 
-1. **`README.md` at the documentation root** — the tree's table of contents. Confirms your subtree's position and its neighbours.
+1. **`README.md` at the Map root** — the Map's table of contents. Confirms your subtree's position and its neighbours.
 2. **`00-orientation/concepts.md`** — the canonical naming source. Use its capitalised nouns verbatim. Do not introduce synonyms.
 3. **`00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves.
 4. **Your scope manifest** at `_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
@@ -31,7 +31,7 @@ You may not be the only documenter agent working in parallel. Do not stretch you
 Your subtree serves a layered audience:
 
 - **`README.md` in your subtree** — newcomers and visitors. 200–350 words, plain language, no internal jargon. The canonical capitalised nouns from `concepts.md` are fine. End with a table of the leaves, one line each.
-- **Child docs (leaves)** — future-you (a memory aid) and AI agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
+- **Child Map pages (leaves)** — future-you (a memory aid) and coding agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
 
 If your subtree's audience contract differs (e.g. an existing plain-English deep-dive the project values), your scope manifest will say so.
 
@@ -90,14 +90,11 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 Frontmatter is metadata the documentation tooling reads; it is not content, and rendered surfaces strip the block. Only flat `key: value` scalars and `- item` lists parse. The keys:
 
-| Key             | Rule                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| `title`         | Short label for navigation and listings — max 48 chars. Only when the H1 runs long.         |
-| `description`   | 50–160 chars. Fronts search results and section tables; say what the page does, no padding. |
-| `order`         | Non-negative integer; unique among published siblings; leave gaps of 10.                    |
-| `publish`       | `false` withholds the page from every published surface. The sole page-level withhold.      |
-| `redirect_from` | Absolute historical routes this page answers for, where a published site serves the tree.   |
-| `aliases`       | Search synonyms: renamed terms, CLI spellings.                                              |
+| Key           | Rule                                                                                |
+| ------------- | ----------------------------------------------------------------------------------- |
+| `title`       | Short label for Map navigation — max 48 chars. Only when the H1 runs long.          |
+| `description` | 50–160 chars. Fronts Map search results and section tables; say what the page does. |
+| `order`       | Non-negative integer; unique among sibling pages; leave gaps of 10.                 |
 
 The H1 stays the long-form canonical title on the page; the first substantive paragraph stays the canonical summary unless `description` overrides it.
 
@@ -112,10 +109,10 @@ Cite the decision records under `_adr/` as liberally as reasoning requires — c
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
 2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
 3. **No modal verbs about the system.** Banned: "should", "would", "could", "will eventually", "is intended to". Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Never repeat the project-relative documentation root — you are already inside it.
-5. **Cross-link within your subtree liberally; do not link across subtrees.** Inter-subtree links are added in a later polish pass by the orchestrator.
+4. **Cross-link with relative paths.** Never repeat the project-relative Map root — you are already inside it.
+5. **Cross-link within your subtree liberally; do not link across subtrees.** Add inter-subtree links only when the Map maintainer has verified both pages.
 6. **Glossary additions go in your summary, not your leaves.** If you find a term that ought to be glossary-defined, list it in your summary; do not append a glossary section to a leaf.
-7. **Document scope overlap; do not silently expand.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
+7. **Document scope overlap; do not silently expand.** If you find code that clearly belongs to another subtree, describe the overlap in your summary for the Map maintainer to resolve.
 8. **Length budget.**
    - 200–350 words per README.
    - 400–800 words per leaf — a **hard ceiling**, not a target.
@@ -138,7 +135,7 @@ If any of those break, the doc is too thin or too thick.
 ## Deliverable
 
 1. Write every `.md` file listed in your scope manifest. Each replaces its existing stub.
-2. Give every page frontmatter that follows the table above (at minimum `description`, and `order` for published siblings).
+2. Give every page frontmatter that follows the table above (at minimum `description`, and `order` for siblings).
 3. Return a short summary covering:
    - **What you covered** — one bullet per leaf, with its headline claim.
    - **TODO/FIXME notes** — quote any in-code comments you preserved under "Current state & gotchas".
@@ -146,4 +143,4 @@ If any of those break, the doc is too thin or too thick.
    - **Subtree-overlap observations** — code you noticed that belongs in another subtree.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or redundant.
 
-Do not commit. Do not run the full gate. Do not edit anything outside your assigned subtree under the configured documentation root.
+Do not commit. Do not run the full gate. Do not edit anything outside your assigned subtree in the configured Map.

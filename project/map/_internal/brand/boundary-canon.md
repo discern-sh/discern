@@ -190,12 +190,12 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 **Stability:** enduring\
 **Scope:** The permissions and containment applied to a coding-agent process.
 
-**Qualification:** Provider integrations may add narrow protective or operational rules, including Claude environment-file denial and Codex Git allowances. Those rules do not make discern a general permission system.
+**Qualification:** Provider integrations may add narrow operational rules, such as Codex's git add and git commit command prefixes. They do not make discern a general permission system or extend a provider's own sandbox.
 
 **Evidence:**
 
 - Decision: `project/map/_adr/0193-discern-does-not-enforce-the-vendor-security-boundary.md` — places the security boundary with the coding-agent provider.
-- Guard: `tests/fs_plan_test.ts` — holds the narrow Claude environment-file protection.
+- Guard: `tests/engine_env_plumbing_test.ts` — holds the environment boundary at explicit project and worktree contracts.
 - Source: `src/lib/providers.ts` — owns provider-specific integration rules.
 
 ### evidence-kind-separation
@@ -377,6 +377,7 @@ The records below own scope, stability, qualifications, horizons, claims, and ev
 
 - Decision: `project/map/_adr/0271-destructive-drops-retain-bounded-recovery-refs.md` — requires bounded recovery refs.
 - Source: `src/engine/worktree/recovery_refs.ts` — creates and expires recovery refs.
+- Guard: `tests/engine_worktree_drop_test.ts` — proves destructive worktree drops retain the bounded recovery ref.
 
 ### invoked-process-lifecycle
 

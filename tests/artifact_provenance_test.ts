@@ -181,7 +181,12 @@ for (const attributionCase of ATTRIBUTION_CASES) {
         ALL_AGENT_CONFIG,
         attributionCase.env,
       );
-      await wireProviderWorktreeApp(root, ["codex"], attributionCase.env);
+      await wireProviderWorktreeApp(
+        root,
+        ["codex"],
+        ALL_AGENT_CONFIG,
+        attributionCase.env,
+      );
       await wireProviderProjectRules(root, ["codex"], attributionCase.env);
 
       const entries = projectArtifactPaths(ALL_AGENT_CONFIG).filter((entry) =>

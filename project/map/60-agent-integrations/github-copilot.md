@@ -63,7 +63,7 @@ Copilot and Claude Code co-own this file. Both providers write the same byte-ide
 
 Copilot's [MCP server configuration](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#mcp-server-configuration) accepts a tool-call timeout in milliseconds but publishes no default or maximum. discern sets one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned 15-character resume handle.
 
-discern does not write `.github/mcp.json` for Copilot because the Copilot CLI does not use that file for this project's MCP server. It also does not write Claude Code's `enabledMcpjsonServers` pre-approval key for Copilot. Copilot uses folder trust instead.
+Copilot supports both root `.mcp.json` and `.github/mcp.json`. discern uses root `.mcp.json` so Claude Code and Copilot can co-own one byte-identical local-server entry through the same writer. It does not write Claude Code's `enabledMcpjsonServers` key for Copilot; Copilot uses folder trust instead.
 
 ## `.github/hooks/discern.json`
 
@@ -77,7 +77,7 @@ The discern-owned Copilot hook seed is:
       {
         "type": "command",
         "bash": "discern worktree ensure",
-        "timeoutSec": 30
+        "timeoutSec": 600
       }
     ]
   }

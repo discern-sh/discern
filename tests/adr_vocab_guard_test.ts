@@ -267,7 +267,7 @@ Deno.test("adr guard: sanctioned forms stay legal", () => {
 });
 
 Deno.test("adr guard: the seeded record may cite its own number, nothing else, nowhere else", () => {
-  const seeded = "templates/setup/skeleton/docs/_adr/0001-adopt-discern.md";
+  const seeded = "templates/setup/skeleton/map/_adr/0001-adopt-discern.md";
   assertEquals(
     shippedOffendersIn(seeded, "# ADR 0001: Adopt discern as the practice"),
     [],

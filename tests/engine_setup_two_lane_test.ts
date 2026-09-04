@@ -50,6 +50,12 @@ async function freshRepo(dir: string): Promise<void> {
   await gitInit(dir);
 }
 
+/** One committed incomplete installation, ready for setup completion. */
+async function unfinishedSetupRepo(dir: string): Promise<void> {
+  await scaffoldEngine(dir, { bootstrapped: false });
+  await gitInit(dir);
+}
+
 /** How to drive one instructions-carrying contract to a run whose data carries a
  * non-empty `instructions` — the same argv is run with and without `--json`. */
 interface TwoLaneDriver {
@@ -70,8 +76,8 @@ const DRIVERS: Record<string, TwoLaneDriver> = {
     code: 0,
   },
   setupDone: {
-    fixture: (dir) => scaffoldEngine(dir, { bootstrapped: false }),
-    argv: ["setup", "done", "--force"],
+    fixture: unfinishedSetupRepo,
+    argv: ["setup", "done", "--unproven"],
     code: 0,
   },
 };

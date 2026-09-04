@@ -309,18 +309,18 @@ console.log("Copying the authored ADR skeleton into the write-adr skill:");
 // file-set equality flags a new source file until it is copied here too.
 const adrSkeletonFile = (name: string): Promise<string> =>
   Deno.readTextFile(
-    join(repoRoot, "templates/setup/skeleton/docs/_adr", name),
+    join(repoRoot, "templates/setup/skeleton/map/_adr", name),
   );
 await write(
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
+  "templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md",
   await adrSkeletonFile("0000-template.md"),
 );
 await write(
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md",
+  "templates/skills/discern-write-adr/skeleton/map/_adr/0001-adopt-discern.md",
   await adrSkeletonFile("0001-adopt-discern.md"),
 );
 await write(
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md",
+  "templates/skills/discern-write-adr/skeleton/map/_adr/README.md",
   await adrSkeletonFile("README.md"),
 );
 console.log("Regenerating the hint inventory from HINTS:");

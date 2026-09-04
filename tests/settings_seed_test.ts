@@ -80,14 +80,24 @@ Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts
   );
 });
 
-/** A SYNTHETIC second hooks provider: SessionStart-only (empty worktreeEventKeys),
+/** A SYNTHETIC second hooks provider: SessionStart-only,
  * its settings file at `.acme/settings.json`. Stands in for a future vendor. */
 const ACME_HOOKS: HooksIntegration = {
   settingsFile: ".acme/settings.json",
   ownership: { shared: true },
   writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-  worktreeEventKeys: [], // SessionStart-only — no worktree create/remove events
-  sessionHookNeedle: "discern worktree ensure",
+  commands: [{
+    kind: "session-start",
+    event: "SessionStart",
+    command: "discern worktree ensure",
+  }],
+  format: {
+    commandPlacement: "nested",
+    commandKey: "command",
+    commandType: true,
+    timeoutKey: "timeout",
+    timeoutUnit: "seconds",
+  },
 };
 
 /** The SettingsSeed `settingsSeeds()` would derive for ACME — the exact registry
@@ -96,6 +106,22 @@ const ACME_HOOKS: HooksIntegration = {
 const ACME_SEED: SettingsSeed = {
   targetRel: ACME_HOOKS.settingsFile,
   merge: ACME_HOOKS.mergeSeed ?? mergeJsonSettingsText,
+  templateText: JSON.stringify(
+    {
+      hooks: {
+        SessionStart: [{
+          hooks: [{
+            type: "command",
+            command: "discern worktree ensure",
+            timeout: 600,
+          }],
+        }],
+      },
+      permissions: { deny: ["Read(./.env)"] },
+    },
+    null,
+    2,
+  ),
 };
 
 /** Lay a one-file templates tree holding the synthetic provider's settings seed. */

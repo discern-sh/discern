@@ -249,11 +249,18 @@ function cliReproduceCommand(): string {
 async function routeOperationLockRefusal(
   error: import("../operation_lock.ts").OperationLockError,
 ): Promise<number> {
+  const { withSetupResultNextAction } = await import(
+    "../../shared/setup_next_action.ts"
+  );
+  const result = withSetupResultNextAction(
+    error.result,
+    cliReproduceCommand(),
+  );
   if (serializedResultRequested()) {
     const { emitResult } = await import("../../shared/emit.ts");
-    emitResult(error.result);
+    emitResult(result);
   } else {
-    observeResult(error.result);
+    observeResult(result);
     const { Logger } = await import("../../lib/log.ts");
     new Logger({ json: false, noColor: false }).errorBlock(error.message);
   }
@@ -262,14 +269,21 @@ async function routeOperationLockRefusal(
 
 /** Project one expected lower-layer refusal at the CLI dispatcher boundary. */
 async function routeCliRefusal(error: CliRefusal): Promise<number> {
+  const { withSetupResultNextAction } = await import(
+    "../../shared/setup_next_action.ts"
+  );
+  const result = withSetupResultNextAction(
+    error.result,
+    cliReproduceCommand(),
+  );
   if (serializedResultRequested()) {
     const { emitResult } = await import("../../shared/emit.ts");
-    emitResult(error.result);
+    emitResult(result);
   } else {
-    observeResult(error.result);
+    observeResult(result);
     const { Logger } = await import("../../lib/log.ts");
     new Logger({ json: false, noColor: false }).error(
-      error.result.message ?? error.message,
+      result.message ?? error.message,
     );
   }
   return error.exitCode;

@@ -1,6 +1,6 @@
 # Glossary
 
-Every {{project_name}}-specific term, defined precisely. This is the canonical dictionary: the names defined here are used verbatim across the whole documentation tree, and synonyms are not introduced. The few nouns the whole system is built on come first, because they show up everywhere else.
+Every {{project_name}}-specific term, defined precisely. This is the canonical dictionary: the names defined here are used verbatim across the whole Map, and synonyms are not introduced. The few nouns the whole system is built on come first, because they show up everywhere else.
 
 For a narrative tour of how these terms relate, read [concepts.md](concepts.md). For the architectural shape, see [system-map.md](system-map.md).
 
@@ -24,7 +24,7 @@ _(One-paragraph definition. Replace with the project's real core nouns.)_
 
 <!-- setup fills this -->
 
-_(Add a section per area of the system — typically aligned with the subsystem subtrees. Under each, define the terms that area introduces. A term is defined in exactly one place; other docs cross-link here rather than redefining it.)_
+_(Add a section per area of the system — typically aligned with the subsystem subtrees. Under each, define the terms that area introduces. A term is defined in exactly one place; other Map pages cross-link here rather than redefining it.)_
 
 ### ExampleTerm
 

@@ -23,6 +23,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 const McpConfigSchema = z.object({
   mcpServers: z.object({
@@ -45,6 +46,8 @@ Deno.test("--version prints the discern version", async () => {
 
 Deno.test("setup begin --json scaffolds and reports JSON", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
+    await gitInit(dir);
     const { code, stdout } = await runCli(
       [
         "setup",
@@ -107,6 +110,8 @@ Deno.test("setup begin --json scaffolds and reports JSON", async () => {
 
 Deno.test("setup begin --dry-run --json writes nothing", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
+    await gitInit(dir);
     const { code, stdout } = await runCli(
       [
         "setup",
@@ -125,20 +130,27 @@ Deno.test("setup begin --dry-run --json writes nothing", async () => {
     assertResultDataKey(result, "plan");
     assertExists(result.data.plan);
     assert(Array.isArray(result.data.plan));
-    // Nothing was written.
-    let entries = 0;
-    for await (const _ of Deno.readDir(dir)) {
-      entries++;
-    }
-    assertEquals(entries, 0);
+    // The repository baseline remains, but setup wrote no footprint.
+    await assertNotExists(join(dir, "discern.toml"));
   });
 });
 
 Deno.test("setup re-run over a set-up install reports already_set_up (idempotent)", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
+    await gitInit(dir);
     await runCli(["setup", "begin", "--confirmed", "--slug", "first"], dir);
-    // Mark setup complete (--force: the laid skeletons still carry markers).
-    await runCli(["setup", "done", "--force"], dir);
+    // Commit the authored skeleton fixture, then record its explicit unproven state.
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "author setup fixture",
+      "--no-gpg-sign",
+    );
+    await runCli(["setup", "done", "--unproven"], dir);
     // `begin` on a recorded install is idempotent — it reports already_set_up rather
     // than re-scaffolding (the welcome's `phase: done` is the parent's equivalent).
     const { code, stdout } = await runCli(["setup", "begin", "--json"], dir);
@@ -150,14 +162,24 @@ Deno.test("setup re-run over a set-up install reports already_set_up (idempotent
   });
 });
 
-Deno.test("setup begin --force re-scaffolds an existing install without erroring", async () => {
+Deno.test("setup begin --reseed re-scaffolds an existing install without erroring", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
+    await gitInit(dir);
     await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "first"],
       dir,
     );
     const { code, stdout } = await runCli(
-      ["setup", "begin", "--confirmed", "--force", "--json", "--slug", "first"],
+      [
+        "setup",
+        "begin",
+        "--confirmed",
+        "--reseed",
+        "--json",
+        "--slug",
+        "first",
+      ],
       dir,
     );
     assertEquals(code, 0);
@@ -176,15 +198,16 @@ Deno.test("setup begin --force re-scaffolds an existing install without erroring
   });
 });
 
-Deno.test("setup begin --force preserves a pre-existing seed while stamping its schema version", async () => {
+Deno.test("setup begin --reseed preserves a pre-existing seed while stamping its schema version", async () => {
   await withTempDir(async (dir) => {
     // A repo already carrying the config seed the kit would scaffold; the present
     // seed is left as the user's (skipped), not overwritten.
     const userBody = "# the user's own config — must survive setup\n";
     await Deno.writeTextFile(join(dir, "discern.toml"), userBody);
+    await gitInit(dir);
 
     const { code } = await runCli(
-      ["setup", "begin", "--confirmed", "--force", "--json", "--slug", "demo"],
+      ["setup", "begin", "--confirmed", "--reseed", "--json", "--slug", "demo"],
       dir,
     );
     assertEquals(code, 0);
@@ -199,6 +222,8 @@ Deno.test("setup begin --force preserves a pre-existing seed while stamping its 
 
 Deno.test("setup rejects an invalid --slug", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Test\n");
+    await gitInit(dir);
     const { code, stderr } = await runCli(
       ["setup", "begin", "--confirmed", "--slug", "Bad Slug"],
       dir,
@@ -224,6 +249,8 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
 
 Deno.test("doctor reports the schema version is current on a fresh install", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# CLI fixture\n");
+    await gitInit(dir);
     assertEquals(
       (await runCli(["setup", "begin", "--confirmed", "--slug", "demo"], dir))
         .code,

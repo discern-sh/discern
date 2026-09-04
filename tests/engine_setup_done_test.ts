@@ -368,7 +368,7 @@ Deno.test("setup done refuses while the authored setup is uncommitted, naming wh
     );
     assert(
       uncommitted.some((l) => l.includes("discern/")),
-      `the authored docs/instructions must be listed:\n${done.stdout}`,
+      `the authored Map/instructions must be listed:\n${done.stdout}`,
     );
     assertStringIncludes(res.message, "Commit these as your authoring commits");
     // Nothing recorded — status keeps reporting setup unfinished.
@@ -595,7 +595,7 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
     );
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
-      "Mark discern setup complete",
+      "Complete discern setup",
     );
     assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
     assertStringIncludes(
@@ -632,9 +632,9 @@ Deno.test("setup-authored commits omit attribution when DISCERN_NO_ATTRIBUTION i
   });
 });
 
-Deno.test("setup done refuses on an uncommitted tracked change; --force still commits only the marker", async () => {
+Deno.test("setup done refuses on an uncommitted tracked change; --unproven still commits only the marker", async () => {
   // A tracked edit anywhere blocks `done` (the clean-tree precondition). Under
-  // `--force` — which skips the whole proof — the marker auto-commit's narrower
+  // `--unproven` — which skips the whole proof — the marker auto-commit's narrower
   // safety invariant still holds: the marker commit includes only discern.toml,
   // and the unrelated edit is left for the agent's own tidy commit.
   await withTempDir(async (dir) => {
@@ -660,7 +660,12 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
       `the tracked edit must be listed:\n${done.stdout}`,
     );
 
-    const forced = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    const forced = await runAgent(dir, [
+      "setup",
+      "done",
+      "--unproven",
+      "--json",
+    ]);
     assertEquals(forced.code, 0, forced.output);
     const res = decodeCliResult(forced.stdout, "setup done");
     assertResultDataKey(res, "bootstrapped");
@@ -668,7 +673,7 @@ Deno.test("setup done refuses on an uncommitted tracked change; --force still co
     assertEquals(res.data.marker_committed, true);
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
-      "Mark discern setup complete",
+      "Complete discern setup",
     );
     const status = await gitOut(dir, "status", "--porcelain");
     assertEquals(
@@ -692,7 +697,7 @@ Deno.test("a forced done fails open when discern.toml carries an extra uncommitt
   // discern.toml is the lone changed file, but it has more than the completion
   // metadata dirty (config the agent did not commit). Only those two fields earn
   // the auto-commit.
-  // Reached via --force — the clean-tree precondition refuses this state otherwise.
+  // Reached via --unproven — the clean-tree precondition refuses this state otherwise.
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
     await runAgent(dir, ["refresh"]);
@@ -705,7 +710,7 @@ Deno.test("a forced done fails open when discern.toml carries an extra uncommitt
       `${toml}\n# stray edit\n`,
     );
 
-    const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    const done = await runAgent(dir, ["setup", "done", "--unproven", "--json"]);
     assertEquals(done.code, 0, done.output);
     const res = decodeCliResult(done.stdout, "setup done");
     assertResultDataKey(res, "bootstrapped");
@@ -718,7 +723,7 @@ Deno.test("a forced done fails open when discern.toml carries an extra uncommitt
   });
 });
 
-Deno.test("setup done refuses when the gate is red, recording nothing; --force overrides (ADR 0065)", async () => {
+Deno.test("setup done refuses when the gate is red, recording nothing; --unproven records the event (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(
       dir,
@@ -741,10 +746,10 @@ Deno.test("setup done refuses when the gate is red, recording nothing; --force o
     );
     await assertIncompleteWithoutProof(dir, "Gate failure");
 
-    // --force is the escape hatch: it skips the proof and records anyway.
-    const forced = await runAgent(dir, ["setup", "done", "--force"]);
+    // --unproven is the explicit bypass: it skips the proof and records anyway.
+    const forced = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(forced.code, 0, forced.output);
-    assertTerminalTextIncludes(forced.stdout, "the gate was not proven");
+    assertTerminalTextIncludes(forced.stdout, "the Gate did not prove it");
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -1055,7 +1060,7 @@ Deno.test("the laid TODO.md starts empty instead of seeding generic documentatio
 Deno.test("setup's _adr skeleton is byte-identical to the discern-write-adr skill's (single source)", async () => {
   for (const f of ["README.md", "0000-template.md"]) {
     const setupCopy = await Deno.readTextFile(
-      join(REAL_TEMPLATES, "setup", "skeleton", "docs", "_adr", f),
+      join(REAL_TEMPLATES, "setup", "skeleton", "map", "_adr", f),
     );
     const skillCopy = await Deno.readTextFile(
       join(
@@ -1063,7 +1068,7 @@ Deno.test("setup's _adr skeleton is byte-identical to the discern-write-adr skil
         "skills",
         "discern-write-adr",
         "skeleton",
-        "docs",
+        "map",
         "_adr",
         f,
       ),
@@ -1071,7 +1076,7 @@ Deno.test("setup's _adr skeleton is byte-identical to the discern-write-adr skil
     assertEquals(
       setupCopy,
       skillCopy,
-      `templates/setup/skeleton/docs/_adr/${f} must stay identical to the discern-write-adr skill's copy`,
+      `templates/setup/skeleton/map/_adr/${f} must stay identical to the discern-write-adr skill's copy`,
     );
   }
 });
@@ -1180,7 +1185,7 @@ Deno.test("discern setup begin refuses to start from a feature branch when the t
   });
 });
 
-Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/instructions/TODO for the agent", async () => {
+Deno.test("discern setup begin commits the scaffolded machinery, leaving Map, instructions, and TODO for the agent", async () => {
   // The cold-setup failure this fixes: a coding agent's safety classifier refuses to
   // commit discern's own permission-widening wiring (.mcp.json / .claude/settings.json
   // pre-approve an MCP server), so setup ended on a dirty tree with discern's essentials
@@ -1212,7 +1217,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/in
     );
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
-      "discern: scaffold wiring",
+      "Scaffold discern wiring",
     );
     assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
     assertEquals(
@@ -1315,7 +1320,7 @@ Deno.test("discern setup begin commits EVERY registry-listed agent's scaffoldabl
   });
 });
 
-Deno.test("discern setup begin fails open (commits nothing, no error) when there is no setup branch", async () => {
+Deno.test("discern setup begin commits nothing without a setup branch and refuses non-Git projects", async () => {
   // The machinery auto-commit only runs when `begin` created the `discern-setup` branch.
   // With --allow-dirty (setup proceeds in place, no branch) it must NOT commit — and must
   // NOT error: the agent commits as before. Mirrors commitCompletionMarker's fail-open.
@@ -1351,7 +1356,7 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
     );
   });
 
-  // No git repo at all — also no branch — `begin` still succeeds, committing nothing.
+  // No Git repository means setup cannot create its isolated/replayable journey.
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     const r = await runAgent(dir, [
@@ -1362,11 +1367,12 @@ Deno.test("discern setup begin fails open (commits nothing, no error) when there
       "--agents",
       "claude_code",
     ]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const res = decodeCliResult(r.stdout, "setup begin");
-    assertResultDataKey(res, "branch");
-    assertEquals(res.data.branch, null);
-    assertEquals(res.data.machinery_committed, false);
+    assertResultDataKey(res, "complete");
+    assertEquals(res.error, "no_repository");
+    assertEquals(res.data.next_action, "git init");
+    assert(!(await targetExists(join(dir, "discern.toml"))));
   });
 });
 
@@ -1396,7 +1402,7 @@ Deno.test("discern setup begin fails open (no error) when the machinery commit i
     assertEquals(res.data.branch, "discern-setup"); // the branch was still created
     assertEquals(res.data.machinery_committed, false); // but the commit fell open
 
-    // No `discern: scaffold wiring` commit was authored (only the gitInit baseline),
+    // No `Scaffold discern wiring` commit was authored (only the gitInit baseline),
     // and the machinery is left in the working tree for the agent to commit by hand.
     assertEquals(await gitOut(dir, "rev-list", "--count", "HEAD"), "1");
     assertStringIncludes(
@@ -1474,8 +1480,9 @@ Deno.test("a fresh begin without --confirmed refuses with awaiting_consent, re-s
     const attestation = res.hints.join("\n");
     for (
       const fact of [
-        "three pillars",
+        "lasting outcome",
         "footprint",
+        "repository boundary",
         "plan",
         "reversibility",
         "numbered confirmation",
@@ -1656,9 +1663,10 @@ Deno.test("bare `discern` shows the fresh welcome inside a git work tree, writin
   });
 });
 
-Deno.test("discern setup begin is still callable with --force after setup is recorded", async () => {
+Deno.test("discern setup begin is still callable with --reseed after setup is recorded", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir); // bootstrapped by default
+    await gitInit(dir);
 
     // Bare `discern setup` (the welcome) now reports it is already done...
     const bare = await runAgent(dir, ["setup"]);
@@ -1666,7 +1674,7 @@ Deno.test("discern setup begin is still callable with --force after setup is rec
     assertTerminalTextIncludes(bare.stdout, "already set up");
 
     // ...but the effectful begin command can explicitly re-seed.
-    const forced = await runAgent(dir, ["setup", "begin", "--force"]);
+    const forced = await runAgent(dir, ["setup", "begin", "--reseed"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(forced.stdout, INSTRUCTIONS_H1);
   });
@@ -1707,6 +1715,7 @@ Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", 
 Deno.test("discern setup begin --json emits the DiscernResult envelope", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const res = decodeCliResult(r.stdout, "setup begin");

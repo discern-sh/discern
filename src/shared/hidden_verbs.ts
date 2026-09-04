@@ -38,7 +38,7 @@ export const HIDDEN_VERBS: Readonly<Record<string, HiddenVerbEntry>> = {
     reason: "the one-time bootstrap verb; once the install is bootstrapped " +
       "it would only crowd the daily listing.",
     revival: "listed automatically whenever the install is not yet " +
-      "bootstrapped; re-runs stay callable with --force while hidden.",
+      "bootstrapped; explicit re-seeding stays callable with `setup begin --reseed` while hidden.",
   },
   // The mark on the box, drawable. Surprises are passed along, not listed.
   triangle: {

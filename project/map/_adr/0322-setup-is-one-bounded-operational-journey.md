@@ -1,5 +1,7 @@
 # ADR 0322: Setup is one bounded operational journey
 
+> **Amendment (2026-09-04).** The journey now consumes provider-registry evidence and security disclosures, requires Git for authoring and completion, exposes persisted `proven | unproven` completion state, and gives every setup result exactly one runnable `next_action`. Setup also states the one-install-per-Git-repository boundary. The typed commit-message registry in [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md) owns every engine-authored setup commit.
+
 **Status**: accepted. Extends the staged handshake in [ADR 0075](0075-setup-staged-handshake.md), the stateless page contract in [ADR 0078](0078-setup-pages-and-per-step-proof.md), the served-message boundary in [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md), the structural worktree proof in [ADR 0090](0090-setup-proves-worktree-viability.md), and the final Proof transaction in [ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md).
 
 ## Context
@@ -37,6 +39,16 @@ The welcome explains that the setup model studies the repository and authors the
 Provider and model facts travel separately. Before the owner chooses, the executing agent reports its current self-declared identifier or `unreported`. `setup begin` records the same fact only when this session continues. A placeholder is never reported or stored, and provenance remains advisory.
 
 First-time provider registration is phase-aware. While `[meta].bootstrapped` is false, refresh tells the agent to continue the same setup session. It does not ask for a restart. Normal first-registration wording remains available outside unfinished setup.
+
+### Provider facts, repository boundary, and runnable routes
+
+Setup projects provider names, written paths, generated Skill directories, trust steps, and permission consequences from the provider registry. Explicit `[project].agents`, including `[]`, wins. Otherwise installed-on-this-machine evidence supports a proposal; with no evidence, setup proposes Claude Code and Codex. Detection never claims to identify the invoking tool or model, and confirmation turns the choice into committed repository configuration.
+
+One Git repository has one root `discern.toml` and one discern installation. A monorepo uses that root install's Scopes and custom jobs; a nested independent Git repository is a separate project. `setup begin` and `setup done` require Git, and non-Git verification reports readiness false. Its sole next action is `git init`; the following instructions then name `discern setup verify`.
+
+Every setup result carries one top-level `next_action` containing exactly one runnable command. Serialization rejects compounds, pipelines, substitutions, and multi-command strings. The selected command is grounded in live state: current-branch resumption uses the setup entry, another branch first checks out the recorded setup branch, non-Git setup initializes Git, incomplete authoring returns to `setup begin`, and proven completion routes to review or acceptance. Explanatory follow-up may describe what comes after that command without smuggling a second action into the field.
+
+The skeleton uses one `{{trunk}}` token for repository branch prose. Its internal source directories are named `map`, while `[map].dir` remains the only installed destination authority.
 
 ### Proof, landing, activation, then optional improvement
 

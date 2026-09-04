@@ -6,6 +6,11 @@
         "type": "command",
         "bash": "discern worktree ensure",
         "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "bash": "discern worktree ensure",
+        "timeoutSec": 600
       }
     ]
   }

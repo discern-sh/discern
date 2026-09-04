@@ -12,13 +12,13 @@ These are real failure modes, each with its fix. **If you hit a new one, add it 
 
 These arise from how discern works (git worktrees, parallel stages, build artifacts, the merge check) and apply on any stack. They are seeded here so the gate has something useful to point at on day one.
 
-### `main` advanced during your session
+### `{{trunk}}` advanced during your session
 
-**Symptom.** `discern done` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `main`. It does **not** merge for you.
+**Symptom.** `discern done` stops almost immediately — before the fixers, build, checks, or tests run — with a message that your branch does not contain the latest `{{trunk}}`. It does **not** merge for you.
 
-**Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `main` moved, so your branch is behind it. A branch behind `main` has to update and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
+**Cause.** The merge check is the gate's **first** step, fail-fast. While you were working, `{{trunk}}` moved, so your branch is behind it. A branch behind `{{trunk}}` has to update and re-run regardless — the integration changes the tree and discards whatever the gate computed against the pre-integration tree — so the gate refuses up front rather than spending the slow fix/build/check/test on a result you are about to throw away.
 
-**Fix.** Commit your work, then run `discern update` — it brings `main` into your branch and re-materializes the agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge main`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to update into.)
+**Fix.** Commit your work, then run `discern update` — it brings `{{trunk}}` into your branch and re-materializes the agent files + skills in one step. (On a conflict it aborts cleanly and names the conflicting files. Resolve them with `git merge {{trunk}}`, commit the merge, then carry on.) Then run `discern done` again to verify the merged tree. (In the main checkout, not a worktree, this check is a no-op — there is nothing to update into.)
 
 ### A generated or local discern artifact was force-added
 
@@ -74,7 +74,7 @@ stage = "generated_drift"
 
 ### A merge pulled in a new dependency
 
-**Symptom.** Right after `git merge main`, the next gate run dies in a check or test stage on a missing module/class/package — something that exists on `main` but is unknown locally.
+**Symptom.** Right after `git merge {{trunk}}`, the next gate run dies in a check or test stage on a missing module/class/package — something that exists on `{{trunk}}` but is unknown locally.
 
 **Cause.** In an isolated worktree (and often elsewhere), dependencies are not in version control. A merge updates the _lockfile text_ but installs nothing. The new code references a dependency that was never fetched into this checkout.
 
@@ -116,7 +116,7 @@ evidence = 'failed \(exit 127\)'
 
 ### The gate skips a step you expected it to run (scope detection)
 
-**Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a docs-only change runs almost nothing.
+**Symptom.** A change you made does not trigger the scope `gate`, preview, or build you expected — for example a Map-only change runs almost nothing.
 
 **Cause.** This is by design. The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected: a change confined to `neutral` paths runs no scope `gate`s and gets no preview. Classification **fails open** — a path matching no rule counts as a real code change, so an unknown path runs _more_ gates, never fewer.
 

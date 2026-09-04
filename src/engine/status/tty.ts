@@ -1386,7 +1386,20 @@ function renderSetup(
   c: TerminalContext,
 ): StatusComponent[] {
   const setup = data.setup_unfinished;
-  if (setup === undefined) return [];
+  if (setup === undefined) {
+    if (data.setup_completion !== "unproven") return [];
+    return [c.presenter.present(renderDiagnosticCli, {
+      title: terminalLine("Setup completion is unproven"),
+      impact: terminalLine(
+        "The completion event was recorded without Gate Proof and cannot be accepted or activated.",
+      ),
+      correction: terminalMultiline(
+        "Resolve the incomplete or red setup, commit the correction, then run `discern setup done`.",
+      ),
+      severity: "attention",
+      maxWidth: width,
+    })];
+  }
   const wired = setup.known_jobs.filter((job) => job.wired).map((job) =>
     job.name
   );

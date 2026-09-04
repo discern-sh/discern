@@ -436,7 +436,7 @@ Usage: `discern setup begin [options]`
 | `--config <file>`          | JSON answers file (or - for stdin) to scaffold declaratively.                                                                                               |
 | `--model <model>`          | Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.                                                     |
 | `--dry-run`                | Print the plan and write nothing.                                                                                                                           |
-| `--force`                  | Re-run even if already set up (re-scaffold + re-seed).                                                                                                      |
+| `--reseed`                 | Re-run even if already set up (re-scaffold + re-seed).                                                                                                      |
 | `--allow-dirty`            | Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.                                       |
 | `--confirmed`              | Attest you have held the setup consent conversation with your human — required for a fresh, non-declarative begin; its absence re-serves that conversation. |
 
@@ -452,9 +452,9 @@ Prove the committed setup, return canonical Proof and completion inventory, and 
 
 Usage: `discern setup done [options]`
 
-| Option    | Description                                                                |
-| --------- | -------------------------------------------------------------------------- |
-| `--force` | Record an explicitly unproved completion; setup acceptance will refuse it. |
+| Option       | Description                                                                |
+| ------------ | -------------------------------------------------------------------------- |
+| `--unproven` | Record an explicitly unproved completion; setup acceptance will refuse it. |
 
 #### `discern setup accept`
 

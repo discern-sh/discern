@@ -201,7 +201,7 @@ export const RESULT_ADVISORY_KINDS = [
   "landing-authority-unverified",
   "optional-resource-unavailable",
   "proof-recording-unavailable",
-  "setup-forced-completion",
+  "setup-unproven-completion",
   "setup-machinery-commit-failed",
   "setup-marker-commit-failed",
   "standards-limits-unverified",

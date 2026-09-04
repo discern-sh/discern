@@ -180,7 +180,7 @@ Deno.test("a marker-bearing clean HEAD with stale Proof validates that HEAD with
   });
 });
 
-Deno.test("a forced marker remains unproved until the non-forced validation path succeeds", async () => {
+Deno.test("an unproven marker converges only after the ordinary proven path succeeds", async () => {
   await withTempDir(async (dir) => {
     await readyForSetupDone(dir, COUNTED_GREEN_GATE);
     await commitSetupAuthoring(dir);
@@ -188,13 +188,14 @@ Deno.test("a forced marker remains unproved until the non-forced validation path
     const forced = await runAgent(dir, [
       "setup",
       "done",
-      "--force",
+      "--unproven",
       "--json",
     ]);
     assertEquals(forced.code, 0, forced.output);
     const forcedResult = decodeCliResult(forced.stdout, "setup done");
     assertResultDataKey(forcedResult, "bootstrapped");
-    assertEquals(forcedResult.data.completion, "forced");
+    assertEquals(forcedResult.data.completion, "unproven");
+    assertEquals(forcedResult.data.setup_completion, "unproven");
     assertEquals(forcedResult.data.gate_proven, false);
     assertEquals(forcedResult.data.proof, undefined);
     assertEquals(forcedResult.data.gate_ran, false);
@@ -209,28 +210,36 @@ Deno.test("a forced marker remains unproved until the non-forced validation path
     assertEquals(validated.code, 0, validated.output);
     const result = decodeCliResult(validated.stdout, "setup done");
     assertResultDataKey(result, "bootstrapped");
-    assertEquals(result.data.completion, "validated");
+    assertEquals(result.data.completion, "created");
     assertEquals(result.data.gate_proven, true);
     assertExists(result.data.proof_line);
     const proved = await setupCompletionSnapshot(dir);
-    assertEquals(proved.head, marker.head);
-    assertEquals(proved.history, marker.history);
-    assertEquals(proved.refs, marker.refs);
+    assert(
+      proved.head !== marker.head,
+      "promotion must persist a new completion state",
+    );
+    assert(proved.history !== marker.history);
+    assert(proved.refs !== marker.refs);
+    assertEquals(proved.status, marker.status);
     assertEquals(proved.gateInvocations, 2);
-    // This field records the completion event; later Proof does not rewrite
-    // history or change the already committed completion marker.
+    // Proven is a persisted replacement state, not a transient Proof overlay.
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
-      'setup_completion = "unproven"',
+      'setup_completion = "proven"',
     );
   });
 });
 
-Deno.test("an unchanged recorded marker failure is visible without another retry", async () => {
+Deno.test("a failed proof convergence restores the committed unproven state", async () => {
   await withTempDir(async (dir) => {
     await readyForSetupDone(dir, "false");
     await commitSetupAuthoring(dir);
-    const forced = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    const forced = await runAgent(dir, [
+      "setup",
+      "done",
+      "--unproven",
+      "--json",
+    ]);
     assertEquals(forced.code, 0, forced.output);
     const red = await runAgent(dir, ["done", "--json"]);
     assertEquals(red.code, 1, red.output);
@@ -239,12 +248,12 @@ Deno.test("an unchanged recorded marker failure is visible without another retry
     const replay = await runAgent(dir, ["setup", "done", "--json"]);
     assertEquals(replay.code, 1, replay.output);
     const result = decodeCliResult(replay.stdout, "setup done");
-    assertEquals(result.error, "unchanged_tree_rerun");
+    assertEquals(result.error, "gate_failed");
     assertResultDataKey(result, "stage");
-    assertEquals(result.data.stage, "proof");
+    assertEquals(result.data.stage, "worktree_probe");
     const failureData = result.data as Record<string, unknown>;
-    assertStringIncludes(String(failureData.state), "recorded failure");
-    assertStringIncludes(String(failureData.next_action), "--rerun");
+    assertStringIncludes(String(failureData.state), "removed");
+    assertEquals(failureData.next_action, "discern worktree setup");
     assertEquals(await setupCompletionSnapshot(dir), before);
   });
 });

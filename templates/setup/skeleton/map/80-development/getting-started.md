@@ -13,7 +13,7 @@ These work the same regardless of language or framework:
 - **`discern start`** creates an isolated worktree and returns its path. Re-root with the agent's native worktree tool or work at that path explicitly (see the worktree note in the project instructions).
 - **`discern prepare`** is the fast inner loop — applies fix-stage jobs, regenerates declared artifacts, completes refresh convergence, then runs check-stage jobs; no other build jobs or tests.
 - **`discern done`** is the full gate — (in a worktree) a fail-fast merge check first, then fixers and build, then checks and tests in parallel, then any scope `gate`s that fired. Run it before declaring a change done.
-- **`discern doctor`** verifies the install is sound (dispatcher executable, hooks present, every configured job resolvable, git worktree support, required tools on PATH).
+- **`discern doctor`** checks `discern.toml` and its schema version, setup provenance, job commands and format semantics, Git attributes and repository shape, Project Scripts, `sh` and Git versions, instruction and Skill sources, the gotchas page, and each configured provider's integration and worktree automation.
 
 ## Setting up
 

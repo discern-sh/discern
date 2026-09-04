@@ -1908,17 +1908,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The probe deliberately maps grammar rejection to false so callers normalize the numeric value before writing TOML.",
   },
-  "uninstall-template-resolution-fallback": {
-    path: "src/commands/uninstall.ts",
-    enclosingFunction: "computeUninstallPlan",
-    operation:
-      "continue uninstall planning without bundled template ownership evidence",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The plan marks templates unavailable and avoids inferring ownership when the bundled source cannot be resolved.",
-  },
   "worktree-hook-live-ports-fallback": {
     path: "src/lib/worktree_hooks.ts",
     enclosingFunction: "worktreeCreateHook",

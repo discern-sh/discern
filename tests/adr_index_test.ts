@@ -229,8 +229,8 @@ Deno.test("the two shipped ADR skeletons are identical", async () => {
   // authored source; `deno task codegen` produces the skill's copy. This
   // byte-identity check backstops the generator: it fails when a copy is
   // edited by hand or a new source file is not yet enrolled and regenerated.
-  const setupPrefix = "templates/setup/skeleton/docs/_adr/";
-  const skillPrefix = "templates/skills/discern-write-adr/skeleton/docs/_adr/";
+  const setupPrefix = "templates/setup/skeleton/map/_adr/";
+  const skillPrefix = "templates/skills/discern-write-adr/skeleton/map/_adr/";
   const skeletonFiles = await structuralGuardScope({
     guard: "tests/adr_index_test.ts#shipped-adr-skeleton-parity",
     universe: "authored-text",
@@ -262,7 +262,7 @@ Deno.test("the two shipped ADR skeletons are identical", async () => {
     assertEquals(
       text,
       skillFiles.get(rel),
-      `templates/…/docs/_adr/${rel} differs between the setup skeleton and ` +
+      `templates/…/map/_adr/${rel} differs between the setup skeleton and ` +
         "the discern-write-adr skill skeleton — edit both together",
     );
   }

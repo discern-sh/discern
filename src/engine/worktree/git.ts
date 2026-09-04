@@ -1287,10 +1287,8 @@ export async function commitUpdateRegeneration(
   }
   return await commitDiscernChanges({
     site: DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration,
+    values: undefined,
     cwd,
-    subject: "Regenerate artifacts after update",
-    body:
-      "Re-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.",
     pathspecs: paths,
     source: "staged-index",
     stagedProof: {

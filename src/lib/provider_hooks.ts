@@ -14,8 +14,11 @@ import {
   type DiscernConfig,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { resolveTemplatesDir } from "./paths.ts";
-import { type Provider, providerFor } from "./providers.ts";
+import {
+  type Provider,
+  providerFor,
+  renderProviderHookSeed,
+} from "./providers.ts";
 import { mergeJsonSettingsText } from "./settings_merge.ts";
 import { readTextIfExists } from "../shared/fs_presence.ts";
 import {
@@ -81,7 +84,6 @@ function semanticallyEqualJson(left: string, right: string): boolean {
 /** Merge a provider's hook seed with the current settings into desired bytes. */
 async function desiredHookText(
   root: string,
-  templatesDir: string,
   provider: Provider,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<{ rel: string; existing: string | undefined; desired: string }> {
@@ -90,7 +92,7 @@ async function desiredHookText(
     throw new Error(`${provider.name} declares no hooks integration`);
   }
   const rel = hooks.settingsFile;
-  const template = await Deno.readTextFile(join(templatesDir, `${rel}.tmpl`));
+  const template = renderProviderHookSeed(hooks);
   const existing = await readTextIfExists(
     join(root, rel),
     (path) => files.readTextFile(path),
@@ -131,21 +133,10 @@ export async function wireProviderHooks(
     return { written, errors };
   }
 
-  let templatesDir: string;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch (error) {
-    return {
-      written,
-      errors: [`could not locate hook seed templates: ${errText(error)}`],
-    };
-  }
-
   for (const provider of providers) {
     try {
       const { rel, existing, desired } = await desiredHookText(
         root,
-        templatesDir,
         provider,
         files,
       );
@@ -178,27 +169,12 @@ export async function checkProviderHooksCurrent(
     return [];
   }
 
-  let templatesDir: string;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch (error) {
-    const detail = `could not locate hook seed templates: ${errText(error)}`;
-    return providers.map((provider) => ({
-      agent: provider.name,
-      label: provider.label,
-      path: provider.hooks?.settingsFile ?? provider.name,
-      reason: "unreadable",
-      detail,
-    }));
-  }
-
   const drift: ProviderHookDriftEntry[] = [];
   for (const provider of providers) {
     const rel = provider.hooks?.settingsFile ?? provider.name;
     try {
       const { existing, desired } = await desiredHookText(
         root,
-        templatesDir,
         provider,
       );
       if (hookTextCurrent(rel, existing, desired)) {

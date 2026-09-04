@@ -68,6 +68,7 @@ Deno.test("setup begin from a subdirectory in a fresh git repo scaffolds at the 
 Deno.test("setup begin from a subdirectory in a mid-setup install reuses the install root", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     const nested = join(dir, "packages", "app");
     await Deno.mkdir(nested, { recursive: true });
 
@@ -233,9 +234,10 @@ Deno.test("real setup begin leaves no unresolved template tokens in seeded or sk
   });
 });
 
-Deno.test("discern setup begin lays the doc skeletons when absent and prints the instructions", async () => {
+Deno.test("discern setup begin lays the Map skeletons when absent and prints the instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     assertEquals(await targetExists(defaultMapPath(dir)), false);
     // The setup assets are binary-embedded, never seeded into the project (ADR
     // 0024/0036): a fresh install must carry neither a `setup/` nor `bootstrap/` tree.
@@ -248,7 +250,7 @@ Deno.test("discern setup begin lays the doc skeletons when absent and prints the
     assertStringIncludes(r.stdout, INSTRUCTIONS_H1);
     assertTerminalTextIncludes(
       r.stdout,
-      `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
+      `Map and ledger skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
     // The skeleton tree is laid, with `{{project_name}}` substituted from the slug.
     assert(
@@ -275,6 +277,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
   await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "# Human docs\n");
+    await gitInit(dir);
 
     const r = await runAgent(dir, [
       "setup",
@@ -288,7 +291,7 @@ Deno.test("setup begin --map persists and scaffolds a separate map tree", async 
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(
       r.stdout,
-      "Project skeletons laid: docs/discern/",
+      "Map and ledger skeletons laid: docs/discern/",
     );
     const step = await runAgent(dir, ["setup", "step", "4"]);
     assertStringIncludes(
@@ -326,7 +329,8 @@ Deno.test("the scaffolded dev-loop docs name the canonical worktree verb (discer
   // the shipped skeletons point at `discern start` and never the help-only worktree parent for starting work.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the docs skeletons
+    await gitInit(dir);
+    await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the Map skeletons
     for (
       const rel of [
         `${SOURCE_PATHS.map.defaultPath}80-development/getting-started.md`,
@@ -352,6 +356,7 @@ Deno.test("discern setup never overwrites an existing configured map tree (seaml
       defaultMapPath(dir, "README.md"),
       "MY OWN DOCS\n",
     );
+    await gitInit(dir);
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
@@ -378,13 +383,14 @@ Deno.test("a project's own root docs/ no longer collides with the default skelet
     await scaffoldEngine(dir, { bootstrapped: false });
     await Deno.mkdir(join(dir, "docs"));
     await Deno.writeTextFile(join(dir, "docs/README.md"), "MY OWN DOCS\n");
+    await gitInit(dir);
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     // The skeleton lands at the namespace default; the user's tree is untouched.
     assertTerminalTextIncludes(
       r.stdout,
-      `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
+      `Map and ledger skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
     assert(await targetExists(defaultMapPath(dir, "README.md")));
     assertEquals(
@@ -402,12 +408,13 @@ Deno.test("a project's own root map/ does not collide with discern's default map
       join(dir, "map/README.md"),
       "# Product geography\n",
     );
+    await gitInit(dir);
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertTerminalTextIncludes(
       r.stdout,
-      `Project skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
+      `Map and ledger skeletons laid: ${SOURCE_PATHS.map.defaultPath}`,
     );
     assert(await targetExists(defaultMapPath(dir, "README.md")));
     assertEquals(
@@ -417,9 +424,10 @@ Deno.test("a project's own root map/ does not collide with discern's default map
   });
 });
 
-Deno.test("discern setup done refuses while skeleton markers remain; --force overrides", async () => {
+Deno.test("discern setup done refuses while skeleton markers remain; --unproven records the event", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the skeletons (markers present)
 
     const blocked = await runAgent(dir, ["setup", "done"]);
@@ -433,9 +441,21 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
       "the marker must not be set while validation fails",
     );
 
-    const forced = await runAgent(dir, ["setup", "done", "--force"]);
-    assertEquals(forced.code, 0, forced.output);
-    assertTerminalTextIncludes(forced.stdout, "Setup complete");
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "complete authored setup fixture",
+      "--no-gpg-sign",
+    );
+    const unproven = await runAgent(dir, ["setup", "done", "--unproven"]);
+    assertEquals(unproven.code, 0, unproven.output);
+    assertTerminalTextIncludes(
+      unproven.stdout,
+      "Setup completion is unproven",
+    );
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -448,14 +468,14 @@ Deno.test("discern setup done refuses while skeleton markers remain; --force ove
 // completion precondition is unmet — and a config discern can't even parse is the floor,
 // because the parse-tolerant marker writer would happily stamp `bootstrapped = true` and
 // only THEN hit the failure the run reports, leaving completion recorded by a failing run.
-// The class INVARIANT both done modes must hold — the checks-and-proof path AND the --force
+// The class INVARIANT both done modes must hold — the checks-and-proof path AND the --unproven
 // escape hatch that deliberately skips it — is: refuse (exit 1) and write no marker. The
-// non-force path already refuses via the gate proof (which loads the config); --force, which
+// proven path already refuses via the gate proof (which loads the config); --unproven, which
 // skips the proof, previously sailed through to the write, so it must now refuse too. Driving
 // this off the mode list means a future done variant is a one-line enrolment, not a silent gap.
 const DONE_MODES: ReadonlyArray<{ label: string; args: string[] }> = [
   { label: "plain", args: ["setup", "done"] },
-  { label: "--force", args: ["setup", "done", "--force"] },
+  { label: "--unproven", args: ["setup", "done", "--unproven"] },
 ];
 
 for (const mode of DONE_MODES) {
@@ -473,7 +493,7 @@ for (const mode of DONE_MODES) {
       );
 
       // The class invariant: the run refuses (exit 1) and records no marker — whichever
-      // refusal path (gate proof or the --force config-parse floor) it takes.
+      // refusal path (gate proof or the --unproven config-parse floor) it takes.
       const json = await runAgent(dir, [...mode.args, "--json"]);
       assertEquals(json.code, 1, json.output);
       assertEquals(decodeCliResult(json.stdout, "setup done").ok, false);
@@ -493,12 +513,12 @@ for (const mode of DONE_MODES) {
   });
 }
 
-// The B49 pivot itself: --force skips the completeness checks and the gate proof, so ONLY
+// The B49 pivot itself: --unproven skips the completeness checks and the gate proof, so ONLY
 // this run reaches the marker write with an unparseable config — the exact regression is
 // that write landing ahead of the failure. Pin the specific refusal so it can't silently
-// revert to stamping the marker: --force on a broken config returns the `invalid_config`
+// revert to stamping the marker: --unproven on a broken config returns the `invalid_config`
 // refusal, names the parse problem, and records nothing.
-Deno.test("setup done --force is refused by the config-parse floor it cannot override (B49)", async () => {
+Deno.test("setup done --unproven is refused by the config-parse floor it cannot override (B49)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const cfgPath = join(dir, "discern.toml");
@@ -508,7 +528,7 @@ Deno.test("setup done --force is refused by the config-parse floor it cannot ove
     );
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertEquals(res.ok, false);
@@ -516,14 +536,14 @@ Deno.test("setup done --force is refused by the config-parse floor it cannot ove
     assertEquals(
       res.error,
       "invalid_config",
-      `--force on a broken config must hit the config-parse floor, not stamp completion; got ${
+      `--unproven on a broken config must hit the config-parse floor, not stamp completion; got ${
         JSON.stringify(res)
       }`,
     );
     assertStringIncludes(res.message, "parse");
     assert(
       !(await Deno.readTextFile(cfgPath)).includes("bootstrapped = true"),
-      "the marker must not be written by the refused --force run",
+      "the marker must not be written by the refused --unproven run",
     );
   });
 });

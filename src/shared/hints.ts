@@ -3511,7 +3511,7 @@ export const HINTS = {
     template: ({ command }): string =>
       "Present the setup instructions in this result to the owner, wait for their " +
       `answers, then run ${command}; its \`--confirmed\` flag attests that ` +
-      "the relay carried the three pillars, footprint, plan, reversibility, " +
+      "the relay carried the lasting outcome, exact footprint, repository boundary, provider permissions, plan, reversibility, " +
       "why the setup model affects future sessions, how the owner switches in " +
       "a fresh session, the current self-declared provider/model fact, the " +
       "agent's stop/continue boundary, every numbered confirmation, and the " +
@@ -3535,11 +3535,11 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
-      `use \`--force\` only ` +
+      `use \`--unproven\` only ` +
       "to record completion without that proof.",
     interactiveTemplate: (): string =>
       `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
-      "use `--force` only to record completion without that proof.",
+      "use `--unproven` only to record completion without that proof.",
   }),
 
   /** Existing authored agent instructions were preserved in the canonical source. */
@@ -3656,19 +3656,19 @@ export const HINTS = {
       } and review the findings with the owner. This optional ongoing work follows completed setup.`,
   }),
 
-  /** Forced setup completion is unproved and cannot enter landing or activation. */
-  "setup-forced-needs-proof": defineHint({
-    id: "setup-forced-needs-proof",
+  /** Unproven setup completion cannot enter landing or activation. */
+  "setup-unproven-needs-proof": defineHint({
+    id: "setup-unproven-needs-proof",
     category: "next-step",
     audience: "all",
     when:
-      "Setup records completion with --force and therefore has no Gate Proof.",
+      "Setup records an unproven completion event and therefore has no Gate Proof.",
     family: "setup-done-next",
     example: undefined,
     template: (): string =>
       `Resolve the incomplete or red setup, commit the correction, then run ${
         discernCommand("setup done")
-      } without \`--force\` to obtain Proof before landing or activation.`,
+      } to replace it with a proven completion before landing or activation.`,
   }),
 
   /**

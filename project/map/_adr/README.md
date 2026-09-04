@@ -67,7 +67,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0065 — `discern setup` keeps its promises](0065-setup-keeps-its-promises.md)
 - [0067 — Accept validates the exact tree it lands, fast-pathed by a gate receipt](0067-accept-validates-the-landed-tree.md)
 - [0068 — Tests inject env/cwd seams so the suite can run `--parallel`](0068-parallel-safe-tests-env-cwd-injection.md)
-- [0069 — A fresh install resolves its default agent set by PATH auto-detection](0069-agent-auto-detect-at-setup.md)
+- [0069 — Setup proposes installed providers once and commits the selection](0069-agent-auto-detect-at-setup.md)
 - [0070 — An agent that reads the canonical AGENTS.md is modelled as "reuse-canonical"](0070-reuse-canonical-guidance.md)
 - [0071 — The settings seed/merge seam is provider-driven, not a Claude special-case](0071-provider-driven-settings-seed.md)
 - [0072 — A provider's MCP wiring is a typed status, accounted by a forcing function](0072-typed-mcp-status-forcing-function.md)
@@ -116,7 +116,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0117 — Temp output artifacts are reaped by age, from one registry](0117-temp-output-artifacts-are-reaped-by-age.md)
 - [0119 — bare `discern` opens the operator's desk](0119-bare-discern-opens-the-operators-desk.md)
 - [0120 — The launch verb canon — questions are nouns, actions are imperatives](0120-launch-verb-canon.md)
-- [0125 — An explicit `[guidance] agents = []` means no agents](0125-explicit-empty-agents-means-no-agents.md)
+- [0125 — An explicit `[project] agents = []` means no providers](0125-explicit-empty-agents-means-no-agents.md)
 - [0126 — Internal ADR citations never ship](0126-no-adr-citations-in-shipped-strings.md)
 - [0127 — Map freshness ships file-linked facts, not verdicts](0127-map-freshness-ships-file-facts.md)
 - [0128 — The ignore block enumerates ownership; compiled guidance is tracked](0128-enumerated-ownership-tracked-guidance.md)
@@ -391,7 +391,7 @@ These records remain under [`_superseded/`](_superseded/) because the path to th
 
 ## For contributors
 
-discern ships the ADR discipline through the bundled `discern-write-adr` skill, which creates `map/_adr/` from [`templates/skills/discern-write-adr/skeleton/docs/_adr/`](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/). The [canonical format](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/README.md) and [copyable template](../../../templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md) are the authoring contract.
+discern ships the ADR discipline through the bundled `discern-write-adr` skill, which creates `map/_adr/` from [`templates/skills/discern-write-adr/skeleton/map/_adr/`](../../../templates/skills/discern-write-adr/skeleton/map/_adr/). The [canonical format](../../../templates/skills/discern-write-adr/skeleton/map/_adr/README.md) and [copyable template](../../../templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md) are the authoring contract.
 
 Number records continuously as `NNNN-slug.md`. The first real record is `0001`. State the decision in the title, and write a record only for a choice that is hard to reverse, surprising without context, and a real trade-off. Move a reversed or fully absorbed record into `_superseded/` and add a banner naming its successor. Never reuse a number.
 

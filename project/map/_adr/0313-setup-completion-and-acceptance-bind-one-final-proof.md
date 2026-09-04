@@ -2,7 +2,7 @@
 
 > **Amendment ([ADR 0322](0322-setup-is-one-bounded-operational-journey.md)).** The completion result derives canonical Map, ledger, and job inventories after Proof. While Proof remains off the trunk, every surface stops at landing choices; acceptance owns the later activation handoff, and improvement is optional only after activation succeeds.
 
-> **Amendment ([ADR 0351](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).** A clean marker-bearing `HEAD` with honored Proof is a read-only replay. Missing or stale Proof validates the existing marker commit through one non-forced path. A failed new marker transaction removes only the exact commit this invocation can prove it owns; it never adds a compensating commit. If ownership or preservation is no longer provable, discern retains the state and reports recovery.
+> **Amendment ([ADR 0351](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).** A clean marker-bearing `HEAD` with honored Proof is a read-only replay. Missing or stale Proof validates the existing marker commit through one ordinary path. A failed new marker transaction removes only the exact commit this invocation can prove it owns; it never adds a compensating commit. If ownership or preservation is no longer provable, discern retains the state and reports recovery.
 
 **Status**: accepted. Revises the completion order in [ADR 0065](0065-setup-keeps-its-promises.md), applies the Proof identity from [ADR 0067](0067-accept-validates-the-landed-tree.md) to the setup landing path in [ADR 0081](0081-setup-accept-command.md), sharpens the worktree probe from [ADR 0090](0090-setup-proves-worktree-viability.md), and extends the receiving-checkout guarantee from [ADR 0098](0098-accept-refreshes-the-landing-checkout.md).
 
@@ -16,7 +16,7 @@ Proof is a statement about one clean commit. Setup needs the same rule as daily 
 
 ## Decision
 
-**A successful non-forced setup completion returns canonical Proof for the clean marker-bearing commit, and setup acceptance lands only that Proof or a separately proved merge commit.**
+**A successful proven setup completion returns canonical Proof for the clean marker-bearing commit, and setup acceptance lands only that Proof or a separately proved merge commit.**
 
 ### Completion is a final-tree transaction
 
@@ -24,7 +24,7 @@ At entry, `setup done` classifies an existing completion marker before it plans 
 
 The transaction then:
 
-1. writes `[meta].bootstrapped = true` and commits only `discern.toml`;
+1. writes `[meta].bootstrapped = true` with `[meta].setup_completion = "proven"` and commits only `discern.toml`;
 2. runs refresh and doctor against that commit;
 3. creates the structural worktree probe from that commit, verifies the probe starts there, and requires the probe Gate to retain current Proof for it;
 4. runs the main-checkout Gate last; and
@@ -34,7 +34,7 @@ Every leg checks that `HEAD` still names the marker commit and that the tracked 
 
 If a post-marker leg fails, setup removes the marker commit only while the checkout, branch, `HEAD`, parent, tree, and changed-path set still prove that the current invocation owns the tip. The ref move is an expected-old compare-and-swap to the sampled predecessor; successful rollback restores the predecessor checkout and the prior Proof snapshot without a compensating commit. If any ownership or preservation fact changed, discern moves no ref, retains the exact visible state, and names recovery. An uncommitted marker whose commit failed is restored only while the predecessor remains current and `discern.toml` is the sole tracked difference.
 
-`--force` remains an explicit escape hatch. It may record the marker without the checks, but returns `gate_proven: false`, `worktree_proven: false`, and no Proof or Proof line. Forced completion cannot enter the proved setup-acceptance path.
+`discern setup done --unproven` is the explicit escape hatch. It records `[meta].setup_completion = "unproven"`, returns `gate_proven: false`, `worktree_proven: false`, and no Proof or Proof line. Setup acceptance refuses that persisted state. A later ordinary `setup done` can validate the committed tree and replace the completion-event state with `"proven"`.
 
 ### Setup acceptance uses the canonical Proof authority
 
@@ -53,7 +53,7 @@ Before the ref transition, setup acceptance requires an empty current tracked-re
 - The completion Proof line names the commit that contains the completion marker and the commit setup acceptance is permitted to land.
 - A final check failure leaves no transaction-owned history when exact rollback remains safe. Intervening work makes rollback refuse visibly instead of being overwritten.
 - A moved trunk costs another Gate run because the merge commit is a new tree. The earlier setup Proof cannot be laundered onto it.
-- Setup acceptance no longer accepts untracked scratch, a forced marker, or a legacy marker without complete structured Proof. The user can ignore machine-local paths deliberately, but a status-reported path prevents a clean Proof.
+- Setup acceptance accepts neither untracked scratch nor an unproven or legacy marker without complete structured Proof. The user can ignore machine-local paths deliberately, but a status-reported path prevents a clean Proof.
 - The first status after a successful setup landing sees current tracked and checkout-local artifacts and the landed Proof note.
 - `setup accept` keeps its dedicated user journey. It shares evidence validation, exact commit movement, durable Proof recording, and convergence authorities with normal acceptance without inheriting worktree resource teardown.
 
@@ -62,6 +62,6 @@ Before the ref transition, setup acceptance requires an empty current tracked-re
 - **Prove first, then commit the marker.** Rejected because the marker commit creates a different tree after Proof.
 - **Write the marker without committing it until after the Gate.** Rejected because a Proof requires a clean committed tree; the Gate would either withhold Proof or describe the pre-marker commit.
 - **Treat `[meta].bootstrapped` as the acceptance receipt.** Rejected because a boolean records setup state, not the Gate result, tree identity, declaration evidence, or clean working state.
-- **Let setup acceptance rerun the Gate whenever Proof is absent.** Rejected because it would erase the distinction between proved completion and forced completion. The dedicated recovery is `setup done`, which performs the marker transaction and structural probe as one operation.
+- **Let setup acceptance rerun the Gate whenever Proof is absent.** Rejected because it would erase the persisted distinction between proven and unproven completion. The dedicated recovery is ordinary `setup done`, which performs validation and the structural probe as one operation.
 - **Merge the setup branch onto the trunk and validate afterward.** Rejected because a red merge would already have moved the shared branch. Building and proving the merge on `discern-setup` keeps the trunk unchanged until the evidence exists.
 - **Invent a setup receipt or marker hash.** Rejected because Gate Proof already owns commit identity, structured review facts, declaration evidence, renderings, and durable landing notes.

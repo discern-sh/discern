@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `[map]` / `discern map` (formerly `[docs]` / `discern docs`), `standards` (formerly `ratchets`), and known/custom `job` (formerly gate `capability` / custom `check`); ADR 0120 later moved the fresh default to `map/`, so the historical `docs/` examples below record the prior default; the configured-root decision and reasoning are unchanged.
 > - **[ADR 0131](0131-setup-never-adopts-existing-docs.md) — consent question retired:** the consent-checklist docs-location question and the `setup begin --map` coda retired — setup states that existing docs stay untouched instead of asking, and `[map].dir` remains address configuration, never an adoption channel.
 > - **[ADR 0286](0286-configured-source-paths-expose-live-references.md) — live references:** `${map.dir}` is now one member of the closed, registry-derived live-reference set for configured source paths; the rejection of general-purpose config interpolation remains.
+> - **Skeleton packaging (2026-09-04):** internal setup and write-ADR skeleton sources now live under `skeleton/map/`, naming their role rather than a historical destination. They still project into the configured `[map].dir`; source location is not a second destination authority.
 
 **Status**: accepted; extends [ADR 0075](0075-setup-staged-handshake.md) (setup's staged handshake) and [ADR 0026](0026-typed-config-schema.md) (the typed config schema is the source of truth); the configured root's default moves inside the `discern/` namespace by [ADR 0099](0099-consolidate-authored-surface-under-discern-namespace.md), and the tree's agent-first identity is formalized by [ADR 0100](0100-project-map-is-the-agents-map.md).
 
@@ -18,9 +19,9 @@ The quality-gate declarations make this more than an Installer flag. Writing a c
 
 ## Decision
 
-`[map].dir` is the single source of truth for discern's agent documentation tree. It defaults to `docs/`, is relative to the project root, and rejects absolute paths and parent traversal. Setup writes the field into `discern.toml`, scaffolds the tree there, and renders its authoring instructions with that path. `discern map`, setup-state checks, guidance, improvement rules, and bundled documentation skills resolve the same field.
+`[map].dir` is the single source of truth for discern's maintained project Map. It defaults to `discern/map/`, is relative to the project root, and rejects absolute paths and parent traversal. Setup writes the field into `discern.toml`, scaffolds the tree there, and renders its authoring instructions with that path. `discern map`, setup-state checks, instructions, improvement rules, and bundled Map skills resolve the same field.
 
-`discern setup verify` remains read-only, as ADR 0075 requires. When it finds a pre-existing `docs/`, its consent checklist asks the human to choose a separate project-relative location and funnels that choice to `discern setup begin --map "<path>"`. `begin` persists the value as `[map].dir` before laying the skeleton.
+`discern setup verify` remains read-only. Existing human documentation stays owner material and is never offered for adoption. A deliberate `setup begin --map "<path>"` choice persists that project-relative destination before laying the skeleton.
 
 Config strings may contain the exact reference `${map.dir}`. The Engine expands it from the loaded config when it runs declared jobs, Scope paths and gates, and Standard commands and extent globs. The hand-authored config template uses that reference for its prose check, docs Scope, and prose Standard, so changing `[map].dir` later keeps those declarations aligned without rewriting them.
 
@@ -28,16 +29,16 @@ The explicit noes:
 
 - **No merging or folding of human-written docs.** Existing project docs remain untouched; this decision only gives discern's separate tree a chosen home.
 - **No state written by `setup verify`.** The read-only-to-mutating boundary remains `verify | begin`.
-- **No absolute or parent-traversing docs roots.** The tree remains inside the project, where root-relative scope and glob semantics are defined.
-- **No schema migration solely for this field.** The default preserves existing projects, while strict config loading supplies `docs/` when the section is absent.
+- **No absolute or parent-traversing Map roots.** The tree remains inside the project, where root-relative Scope and glob semantics are defined.
+- **No second skeleton-path authority.** The source directories are named `map`; codegen projects those bytes into `[map].dir` rather than deriving a destination from the package path.
 
 ## Consequences
 
-An established project can keep its human documentation at `docs/`, place discern's tree at a location such as `docs/discern/`, and have setup, browsing, guidance, setup completion, improvement advice, Scope classification, prose linting, and prose Standards agree on that location.
+An established project can keep its human documentation at `docs/`, place discern's Map at a location such as `discern/map/`, and have setup, browsing, instructions, setup completion, improvement advice, Scope classification, prose linting, and prose Standards agree on that location.
 
 The config template gains a small interpolation language shared by several Engine surfaces. Expansion is deliberately limited to one exact reference, kept in one helper, and covered across every supported declaration type. Other config paths do not become general-purpose variables.
 
-Skeleton sources still live under `templates/**/skeleton/docs/`; that path is the binary's internal packaging layout, not the destination in an installed project. Setup and the Skills copy from it into the configured root.
+Skeleton sources live under `templates/**/skeleton/map/`; that path is the binary's internal packaging layout, not the destination in an installed project. Setup and the Skills copy from it into the configured root.
 
 ## Alternatives considered
 

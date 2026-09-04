@@ -129,7 +129,7 @@ export function setupNextAction(phase: SetupPhase): string {
     case "fresh":
       return "discern setup verify";
     case "in_progress":
-      return "discern setup done";
+      return "discern setup begin";
     case "done":
       return "discern status";
   }

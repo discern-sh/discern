@@ -316,7 +316,7 @@
                               "landing-authority-unverified",
                               "optional-resource-unavailable",
                               "proof-recording-unavailable",
-                              "setup-forced-completion",
+                              "setup-unproven-completion",
                               "setup-machinery-commit-failed",
                               "setup-marker-commit-failed",
                               "standards-limits-unverified",
@@ -526,7 +526,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -655,7 +655,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -891,7 +891,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -1020,7 +1020,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -1073,8 +1073,16 @@
                 "complete": {
                   "type": "boolean"
                 },
+                "setup_completion": {
+                  "type": "string",
+                  "enum": [
+                    "proven",
+                    "unproven"
+                  ]
+                },
                 "next_action": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "agent_instructions": {
                   "type": "string"
@@ -1392,7 +1400,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -1521,7 +1529,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -1567,7 +1575,8 @@
                   "type": "boolean"
                 },
                 "next_action": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "already_set_up": {
                   "type": "boolean"
@@ -2100,13 +2109,18 @@
                         },
                         "instructions": {
                           "type": "string"
+                        },
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
                         }
                       },
                       "required": [
                         "step",
                         "title",
                         "spine",
-                        "instructions"
+                        "instructions",
+                        "next_action"
                       ]
                     },
                     {
@@ -2120,7 +2134,10 @@
                     "type": "string"
                   }
                 }
-              }
+              },
+              "required": [
+                "next_action"
+              ]
             },
             {
               "type": "object",
@@ -2323,7 +2340,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -2452,7 +2469,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -2503,7 +2520,8 @@
                   ]
                 },
                 "next_action": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 },
                 "ready": {
                   "type": "boolean"
@@ -2859,7 +2877,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -2988,7 +3006,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -3028,308 +3046,329 @@
         "data": {
           "anyOf": [
             {
-              "type": "object",
-              "properties": {
-                "step": {
-                  "type": "number"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "spine": {
+              "anyOf": [
+                {
                   "type": "object",
                   "properties": {
-                    "phase": {
-                      "type": "string",
-                      "minLength": 1
+                    "step": {
+                      "type": "number"
                     },
-                    "stable_target": {
-                      "type": "string",
-                      "minLength": 1
+                    "title": {
+                      "type": "string"
                     },
-                    "intent": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "files_to_read": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "must_do": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "authority_boundaries": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "what_not_to_do": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "completion_check": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "stop_conditions": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "recovery": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "next_action": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "owner_moments": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
+                    "spine": {
+                      "type": "object",
+                      "properties": {
+                        "phase": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "stable_target": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "intent": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "files_to_read": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "kind": {
-                            "type": "string",
-                            "enum": [
-                              "explanation",
-                              "progress",
-                              "decision",
-                              "completion"
-                            ]
-                          },
-                          "phase": {
+                          }
+                        },
+                        "must_do": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "purpose": {
+                          }
+                        },
+                        "authority_boundaries": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "applicability": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "type": "string",
-                                    "const": "always"
-                                  }
-                                },
-                                "required": [
-                                  "kind"
-                                ]
-                              },
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "kind": {
-                                    "type": "string",
-                                    "const": "when"
-                                  },
-                                  "evidence_id": {
-                                    "type": "string",
-                                    "minLength": 1
-                                  },
-                                  "condition": {
-                                    "type": "string",
-                                    "minLength": 1
-                                  }
-                                },
-                                "required": [
-                                  "kind",
-                                  "evidence_id",
-                                  "condition"
-                                ]
-                              }
-                            ]
-                          },
-                          "fact_ids": {
-                            "minItems": 1,
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "recommendation": {
+                          }
+                        },
+                        "what_not_to_do": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "decision": {
+                          }
+                        },
+                        "completion_check": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "stop_conditions": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "recovery": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "owner_moments": {
+                          "type": "array",
+                          "items": {
                             "type": "object",
                             "properties": {
-                              "kind": {
-                                "type": "string",
-                                "enum": [
-                                  "model-selection",
-                                  "project-name-confirmation",
-                                  "project-intent-gap",
-                                  "gate-protection-change",
-                                  "authored-source-collision",
-                                  "owner-policy-conflict",
-                                  "subsystem-sanity-check",
-                                  "worktree-resource-policy",
-                                  "documentation-claim-gap",
-                                  "external-reference-inspection",
-                                  "landing-choice"
-                                ]
-                              },
-                              "recommended_option": {
+                              "id": {
                                 "type": "string",
                                 "minLength": 1
                               },
-                              "option_ids": {
-                                "minItems": 2,
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "explanation",
+                                  "progress",
+                                  "decision",
+                                  "completion"
+                                ]
+                              },
+                              "phase": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "purpose": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "applicability": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "always"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "when"
+                                      },
+                                      "evidence_id": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "condition": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "evidence_id",
+                                      "condition"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "fact_ids": {
+                                "minItems": 1,
                                 "type": "array",
                                 "items": {
                                   "type": "string",
                                   "minLength": 1
                                 }
                               },
-                              "agent_waits_when_served": {
-                                "type": "boolean",
-                                "const": true
+                              "recommendation": {
+                                "type": "string",
+                                "minLength": 1
                               },
-                              "delegation": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "allowed": {
-                                        "type": "boolean",
-                                        "const": true
-                                      },
-                                      "action": {
-                                        "type": "string",
-                                        "const": "use-recommendation"
-                                      },
-                                      "selects_option": {
-                                        "type": "string",
-                                        "minLength": 1
-                                      }
-                                    },
-                                    "required": [
-                                      "allowed",
-                                      "action",
-                                      "selects_option"
+                              "decision": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "model-selection",
+                                      "project-name-confirmation",
+                                      "project-intent-gap",
+                                      "gate-protection-change",
+                                      "authored-source-collision",
+                                      "owner-policy-conflict",
+                                      "subsystem-sanity-check",
+                                      "worktree-resource-policy",
+                                      "documentation-claim-gap",
+                                      "external-reference-inspection",
+                                      "landing-choice"
                                     ]
                                   },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "allowed": {
-                                        "type": "boolean",
-                                        "const": false
+                                  "recommended_option": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "option_ids": {
+                                    "minItems": 2,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    }
+                                  },
+                                  "agent_waits_when_served": {
+                                    "type": "boolean",
+                                    "const": true
+                                  },
+                                  "delegation": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "allowed": {
+                                            "type": "boolean",
+                                            "const": true
+                                          },
+                                          "action": {
+                                            "type": "string",
+                                            "const": "use-recommendation"
+                                          },
+                                          "selects_option": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "allowed",
+                                          "action",
+                                          "selects_option"
+                                        ]
                                       },
-                                      "reason": {
-                                        "type": "string",
-                                        "minLength": 1
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "allowed": {
+                                            "type": "boolean",
+                                            "const": false
+                                          },
+                                          "reason": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "allowed",
+                                          "reason"
+                                        ]
                                       }
-                                    },
-                                    "required": [
-                                      "allowed",
-                                      "reason"
                                     ]
                                   }
+                                },
+                                "required": [
+                                  "kind",
+                                  "recommended_option",
+                                  "option_ids",
+                                  "agent_waits_when_served",
+                                  "delegation"
+                                ]
+                              },
+                              "relay_protection": {
+                                "type": "string",
+                                "enum": [
+                                  "adaptive",
+                                  "verbatim-list"
                                 ]
                               }
                             },
                             "required": [
+                              "id",
                               "kind",
-                              "recommended_option",
-                              "option_ids",
-                              "agent_waits_when_served",
-                              "delegation"
-                            ]
-                          },
-                          "relay_protection": {
-                            "type": "string",
-                            "enum": [
-                              "adaptive",
-                              "verbatim-list"
+                              "phase",
+                              "purpose",
+                              "applicability",
+                              "fact_ids",
+                              "relay_protection"
                             ]
                           }
                         },
-                        "required": [
-                          "id",
-                          "kind",
-                          "phase",
-                          "purpose",
-                          "applicability",
-                          "fact_ids",
-                          "relay_protection"
-                        ]
-                      }
+                        "human_decisions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "relay": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": [
+                        "phase",
+                        "stable_target",
+                        "intent",
+                        "files_to_read",
+                        "must_do",
+                        "authority_boundaries",
+                        "what_not_to_do",
+                        "completion_check",
+                        "stop_conditions",
+                        "recovery",
+                        "next_action",
+                        "owner_moments",
+                        "human_decisions"
+                      ]
                     },
-                    "human_decisions": {
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
+                    "instructions": {
+                      "type": "string"
                     },
-                    "relay": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "minLength": 1
-                      }
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
-                    "phase",
-                    "stable_target",
-                    "intent",
-                    "files_to_read",
-                    "must_do",
-                    "authority_boundaries",
-                    "what_not_to_do",
-                    "completion_check",
-                    "stop_conditions",
-                    "recovery",
-                    "next_action",
-                    "owner_moments",
-                    "human_decisions"
+                    "step",
+                    "title",
+                    "spine",
+                    "instructions",
+                    "next_action"
                   ]
                 },
-                "instructions": {
-                  "type": "string"
+                {
+                  "type": "object",
+                  "properties": {
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "next_action"
+                  ]
                 }
-              },
-              "required": [
-                "step",
-                "title",
-                "spine",
-                "instructions"
               ]
             },
             {
@@ -3533,7 +3572,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -3662,7 +3701,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -3716,7 +3755,7 @@
                         "created",
                         "replayed",
                         "validated",
-                        "forced"
+                        "unproven"
                       ]
                     },
                     "effects_performed": {
@@ -3725,7 +3764,14 @@
                     "gate_ran": {
                       "type": "boolean"
                     },
-                    "forced": {
+                    "setup_completion": {
+                      "type": "string",
+                      "enum": [
+                        "proven",
+                        "unproven"
+                      ]
+                    },
+                    "unproven": {
                       "type": "boolean"
                     },
                     "gate_proven": {
@@ -4314,6 +4360,10 @@
                     },
                     "instructions": {
                       "type": "string"
+                    },
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -4321,7 +4371,8 @@
                     "completion",
                     "effects_performed",
                     "gate_ran",
-                    "forced",
+                    "setup_completion",
+                    "unproven",
                     "gate_proven",
                     "worktree_proven",
                     "marker_committed",
@@ -4329,7 +4380,8 @@
                     "assurance",
                     "inventory",
                     "landing",
-                    "instructions"
+                    "instructions",
+                    "next_action"
                   ]
                 },
                 {
@@ -4337,6 +4389,10 @@
                     {
                       "type": "object",
                       "properties": {
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "leftover": {
                           "type": "array",
                           "items": {
@@ -4373,6 +4429,7 @@
                         }
                       },
                       "required": [
+                        "next_action",
                         "leftover",
                         "unmet"
                       ]
@@ -4380,6 +4437,10 @@
                     {
                       "type": "object",
                       "properties": {
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "uncommitted": {
                           "type": "array",
                           "items": {
@@ -4395,6 +4456,7 @@
                         }
                       },
                       "required": [
+                        "next_action",
                         "uncommitted"
                       ]
                     },
@@ -4439,6 +4501,18 @@
                         "state",
                         "next_action",
                         "recovery"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "next_action": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "next_action"
                       ]
                     }
                   ]
@@ -4646,7 +4720,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -4775,7 +4849,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -4819,6 +4893,10 @@
                 {
                   "type": "object",
                   "properties": {
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "landed": {
                       "type": "boolean"
                     },
@@ -5267,6 +5345,7 @@
                     }
                   },
                   "required": [
+                    "next_action",
                     "landed",
                     "branch",
                     "target",
@@ -5280,6 +5359,10 @@
                 {
                   "type": "object",
                   "properties": {
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    },
                     "completion": {
                       "type": "object",
                       "properties": {
@@ -5305,8 +5388,21 @@
                     }
                   },
                   "required": [
+                    "next_action",
                     "completion",
                     "target"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "next_action": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "next_action"
                   ]
                 }
               ]
@@ -5512,7 +5608,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -5641,7 +5737,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -6286,7 +6382,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -6415,7 +6511,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -6750,7 +6846,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -6879,7 +6975,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -7341,7 +7437,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -7470,7 +7566,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -7783,7 +7879,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -7912,7 +8008,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -8167,7 +8263,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -8296,7 +8392,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -8851,7 +8947,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -8980,7 +9076,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -9535,7 +9631,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -9664,7 +9760,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -9915,7 +10011,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -10044,7 +10140,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -10492,7 +10588,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -10621,7 +10717,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -11612,7 +11708,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -11741,7 +11837,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -11977,7 +12073,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -12106,7 +12202,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -12342,7 +12438,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -12471,7 +12567,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -13237,7 +13333,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -13366,7 +13462,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -14142,7 +14238,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -14271,7 +14367,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -14696,7 +14792,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -14825,7 +14921,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -15250,7 +15346,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -15379,7 +15475,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -15701,7 +15797,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -15830,7 +15926,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -16066,7 +16162,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -16195,7 +16291,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -16482,7 +16578,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -16611,7 +16707,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -16976,7 +17072,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -17105,7 +17201,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -17477,7 +17573,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -17606,7 +17702,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -19479,7 +19575,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -19608,7 +19704,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -19930,7 +20026,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -20059,7 +20155,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -20376,7 +20472,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -20505,7 +20601,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -20795,7 +20891,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -20924,7 +21020,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -21160,7 +21256,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -21289,7 +21385,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -21525,7 +21621,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -21654,7 +21750,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -21924,6 +22020,13 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "setup_completion": {
+                  "type": "string",
+                  "enum": [
+                    "proven",
+                    "unproven"
+                  ]
                 },
                 "setup_unfinished": {
                   "type": "object",
@@ -23385,7 +23488,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -23514,7 +23617,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -23918,7 +24021,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -24047,7 +24150,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -24354,7 +24457,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -24483,7 +24586,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -24719,7 +24822,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -24848,7 +24951,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -25731,7 +25834,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -25860,7 +25963,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -26244,7 +26347,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -26373,7 +26476,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -26688,7 +26791,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -26817,7 +26920,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -27086,7 +27189,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -27215,7 +27318,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -27451,7 +27554,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -27580,7 +27683,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -27816,7 +27919,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -27945,7 +28048,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -28181,7 +28284,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -28310,7 +28413,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -28546,7 +28649,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -28675,7 +28778,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -28911,7 +29014,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -29040,7 +29143,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -29276,7 +29379,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -29405,7 +29508,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -29641,7 +29744,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -29770,7 +29873,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -30052,7 +30155,7 @@
                       "landing-authority-unverified",
                       "optional-resource-unavailable",
                       "proof-recording-unavailable",
-                      "setup-forced-completion",
+                      "setup-unproven-completion",
                       "setup-machinery-commit-failed",
                       "setup-marker-commit-failed",
                       "standards-limits-unverified",
@@ -30181,7 +30284,7 @@
                   "landing-authority-unverified",
                   "optional-resource-unavailable",
                   "proof-recording-unavailable",
-                  "setup-forced-completion",
+                  "setup-unproven-completion",
                   "setup-machinery-commit-failed",
                   "setup-marker-commit-failed",
                   "standards-limits-unverified",
@@ -32301,7 +32404,7 @@
         ],
         "optional_advisories": [
           "checkpoint-evidence-dropped",
-          "setup-forced-completion",
+          "setup-unproven-completion",
           "proof-recording-unavailable",
           "acceptance-cleanup-incomplete",
           "setup-marker-commit-failed"

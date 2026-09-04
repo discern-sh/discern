@@ -54,6 +54,12 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
+/** One committed incomplete installation, ready for setup mutation. */
+async function unfinishedSetupRepo(dir: string): Promise<void> {
+  await scaffoldEngine(dir, { bootstrapped: false });
+  await gitInit(dir);
+}
+
 // ── the page parser + the brief's structure ─────────────────────────────────
 
 Deno.test("the shipped brief parses in sequential dependency order and every page has the operational spine", async () => {
@@ -213,7 +219,7 @@ Deno.test("setup step on a non-existent step is a structured no_such_step", asyn
 
 Deno.test("setup begin emits the operating contract + the first page only, never the later steps", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
 
@@ -236,7 +242,7 @@ Deno.test("setup begin emits the operating contract + the first page only, never
 
   // The --json envelope carries the same first-page-only text plus the structured page.
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
+    await unfinishedSetupRepo(dir);
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = decodeCliResult(r.stdout, "setup begin");
@@ -288,7 +294,7 @@ Deno.test("every page stays bounded and documentation pages require the final ev
 
 // ── `setup done` proves per-step completion (the anti-shallow-compliance guard) ──
 
-/** Lay a marker-free project whose docs/instructions satisfy every per-step check, then
+/** Lay a marker-free project whose Map and instructions satisfy every per-step check, then
  * let the caller break exactly one thing. `principles` is the design-principles body. */
 async function layMarkerFreeProject(
   dir: string,
@@ -426,12 +432,12 @@ Deno.test("setup done PASSES once every per-step check is satisfied", async () =
   });
 });
 
-Deno.test("setup done --force records completion even when a per-step check would fail", async () => {
+Deno.test("setup done --unproven records completion even when a per-step check would fail", async () => {
   await withTempDir(async (dir) => {
-    // Capabilities unset → the capability check would fail; --force skips it (and the
+    // Capabilities unset → the capability check would fail; --unproven skips it (and the
     // marker walk and the gate proof) as the manual-setup escape hatch.
-    await scaffoldEngine(dir, { bootstrapped: false });
-    const forced = await runAgent(dir, ["setup", "done", "--force"]);
+    await unfinishedSetupRepo(dir);
+    const forced = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),

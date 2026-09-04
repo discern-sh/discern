@@ -46,7 +46,7 @@ After interruption, run `discern setup` or `discern status`; the recorded phase,
 
 After the authored files are committed, `discern setup done` refreshes, commits `[meta].bootstrapped = true`, and diagnoses and probes that same commit in a temporary worktree. The main-checkout Gate runs last and records its canonical Proof ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md), [ADR 0313](../_adr/0313-setup-completion-and-acceptance-bind-one-final-proof.md)).
 
-Success returns structured Proof and its relay line; unchanged replay is read-only. A failed leg removes only its still-owned marker tip, retaining changed state with recovery. `--force` is unproved and cannot use setup acceptance ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
+Success records `setup_completion = "proven"`, returns structured Proof and its relay line, and replays unchanged state read-only. A failed leg removes only its still-owned marker tip, retaining changed state with recovery. `discern setup done --unproven` records the completion event as unproven, returns no Proof, cannot use setup acceptance, and can later converge through ordinary `discern setup done` ([ADR 0351](../_adr/0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md)).
 
 A failure retains its actionable diagnostic. A pass explains the starting area, its responsibility, other boundaries, one project rule, active checks, and open work from canonical inventories ([ADR 0317](../_adr/0317-gate-commands-and-setup-applicability-are-separate-facts.md)).
 

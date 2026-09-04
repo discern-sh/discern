@@ -263,11 +263,12 @@ Deno.test("verify in a non-git directory serves git-init-first and promises no i
       "then repeat the preflight before setup begins?",
     );
 
-    // Parity (ADR 0086): a flag-less fresh `begin` re-serves the identical
-    // conditioned message.
+    // The effectful boundary refuses until that first action has happened; the
+    // read-only preflight remains the owner of the consent conversation.
     const begin = await runAgent(dir, ["setup", "begin"]);
     assertEquals(begin.code, 1, begin.output);
-    assertStringIncludes(begin.stdout, d.instructions);
+    assertTerminalTextIncludes(begin.stderr, "requires one Git repository");
+    assertEquals(begin.stdout, "");
   });
 });
 
@@ -473,11 +474,11 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
 
   await withTempDir(async (dir) => {
     await prepare(dir);
-    // --force skips the completion proof; the marker is written, and its
+    // --unproven skips the completion proof; the marker is written, and its
     // auto-commit fails on the missing identity. The old output misattributed
     // this as "could not prove that was the only discern.toml change".
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(res, "marker_committed");
@@ -499,7 +500,7 @@ Deno.test("a failed completion-marker commit explains itself instead of misattri
 
   await withTempDir(async (dir) => {
     await prepare(dir);
-    const human = await runAgent(dir, ["setup", "done", "--force"]);
+    const human = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(human.code, 0, human.output);
     assertTerminalTextIncludes(human.stdout, "Git said:");
     assert(
@@ -539,7 +540,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
     assertEquals(w.phase, "in_progress");
     assertExists(w.next_action);
     assertExists(w.agent_instructions);
-    assertStringIncludes(w.next_action, "discern setup begin --confirmed");
+    assertEquals(w.next_action, "discern setup begin --confirmed");
     assertStringIncludes(w.agent_instructions, "without replaying completed");
     const human = (await runAgent(dir, ["setup"])).stdout;
     assertStringIncludes(human, "IN PROGRESS");
@@ -554,7 +555,7 @@ Deno.test("an abandoned setup routes first contact to the resume, and re-begin r
       (await runAgent(dir, ["setup", "verify", "--json"])).stdout,
     );
     assertEquals(v.phase, "in_progress");
-    assertStringIncludes(v.next_action, "discern setup begin --confirmed");
+    assertEquals(v.next_action, "discern setup begin --confirmed");
 
     // A re-begin from main RESUMES: the existing branch is checked out, the
     // materialized install is recognized (nothing re-scaffolded), and nothing of
@@ -1147,7 +1148,7 @@ Deno.test("re-entry attribution guard: every resumed machinery candidate must st
   });
 });
 
-Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' seeds, not DEFAULT_AGENTS", async () => {
+Deno.test("re-entry (B48): a --reseed scaffold lays the configured agents' seeds, not DEFAULT_AGENTS", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -1173,13 +1174,13 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
       "precondition: the fresh install laid only gemini's seed",
     );
 
-    // Re-run with --force and NO --agents. resolveSetupConfig would fall back to
+    // Re-run with --reseed and NO --agents. resolveSetupConfig would fall back to
     // DEFAULT_AGENTS; the cure re-derives the agent set from the persisted
     // [project].agents instead, so the re-scaffold converges on the configured set.
     const re = await runAgent(dir, [
       "setup",
       "begin",
-      "--force",
+      "--reseed",
       "--allow-dirty",
       "--json",
     ]);
@@ -1191,7 +1192,7 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
     assertEquals(
       conv.scaffoldedAgents,
       golden.scaffoldedAgents,
-      `a --force re-scaffold must honour the configured agents, not DEFAULT_AGENTS; ` +
+      `a --reseed scaffold must honour the configured agents, not DEFAULT_AGENTS; ` +
         `laid ${JSON.stringify(conv.scaffoldedAgents)}`,
     );
     assert(
@@ -1218,7 +1219,7 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
 // The fixture uses the declarative answers document: Cliffy drops an empty option
 // value (`--agents ""` parses as undefined), so the document and the persisted config
 // are the surfaces that can express "no agents" — the flag cannot.
-Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [instructions] agents = [] — no seeds, never DEFAULT_AGENTS", async () => {
+Deno.test("re-entry (B48): a --reseed scaffold honours an explicit [instructions] agents = [] — no seeds, never DEFAULT_AGENTS", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
     await gitInit(dir);
@@ -1253,12 +1254,12 @@ Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [instructio
       "precondition: the config records the explicit empty list",
     );
 
-    // Re-run with --force and NO --agents: the persisted explicit [] must be honored,
+    // Re-run with --reseed and NO --agents: the persisted explicit [] must be honored,
     // not treated as unset (which would decay to DEFAULT_AGENTS' seeds).
     const re = await runAgent(dir, [
       "setup",
       "begin",
-      "--force",
+      "--reseed",
       "--allow-dirty",
       "--json",
     ]);
@@ -1267,7 +1268,7 @@ Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [instructio
     assertEquals(
       conv.scaffoldedAgents,
       [],
-      `a --force re-scaffold over an explicit agents = [] must lay no agent seeds; ` +
+      `a --reseed scaffold over an explicit agents = [] must lay no agent seeds; ` +
         `laid ${JSON.stringify(conv.scaffoldedAgents)}`,
     );
   });

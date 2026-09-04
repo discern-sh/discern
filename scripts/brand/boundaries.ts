@@ -117,7 +117,7 @@ export const BOUNDARIES = [
     stability: "enduring",
     scope: "The permissions and containment applied to a coding-agent process.",
     qualification:
-      "Provider integrations may add narrow protective or operational rules, including Claude environment-file denial and Codex Git allowances. Those rules do not make discern a general permission system.",
+      "Provider integrations may add narrow operational rules, such as Codex's git add and git commit command prefixes. They do not make discern a general permission system or extend a provider's own sandbox.",
     evidence: [
       {
         kind: "decision",
@@ -127,8 +127,9 @@ export const BOUNDARIES = [
       },
       {
         kind: "guard",
-        path: "tests/fs_plan_test.ts",
-        summary: "holds the narrow Claude environment-file protection",
+        path: "tests/engine_env_plumbing_test.ts",
+        summary:
+          "holds the environment boundary at explicit project and worktree contracts",
       },
       {
         kind: "source",
@@ -692,6 +693,12 @@ export const BOUNDARIES = [
         kind: "source",
         path: "src/engine/worktree/recovery_refs.ts",
         summary: "creates and expires recovery refs",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_drop_test.ts",
+        summary:
+          "proves destructive worktree drops retain the bounded recovery ref",
       },
     ],
     refusals: [{

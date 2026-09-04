@@ -23,7 +23,9 @@ import {
   type McpWireResult,
   providerFor,
   PROVIDERS,
+  providerSetupFacts,
   providersWithHooks,
+  renderProviderHookSeed,
   skillsDirsForAgents,
   wiredMcp,
   wireProviderMcp as wireProviderMcpFromRegistry,
@@ -122,8 +124,9 @@ async function wireProviderWorktreeApp(
   root: string,
   agents: readonly string[],
   env: EnvReader = fakeEnv(),
+  config: DiscernConfig = parseConfigOrThrow(""),
 ): Promise<string[]> {
-  return await wireProviderWorktreeAppFromRegistry(root, agents, env);
+  return await wireProviderWorktreeAppFromRegistry(root, agents, config, env);
 }
 
 /** Keep provider artifact tests independent of the host attribution setting. */
@@ -147,6 +150,59 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
     );
   }
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
+});
+
+Deno.test("setup facts project provider files, trust, and security disclosures from the registry", () => {
+  for (const name of AGENT_NAMES) {
+    const provider = PROVIDERS[name];
+    const facts = providerSetupFacts(name);
+    assertEquals(facts.agent, name);
+    assertEquals(facts.label, provider.label);
+    assertEquals(facts.instructionFile, provider.instructionFile.path);
+    assertEquals(facts.trust, providerTrustData(name, provider.trust));
+    assertEquals(facts.disclosures, provider.setupDisclosures);
+    assert(facts.disclosures.length > 0, `${name}: no setup disclosure`);
+    assert(
+      facts.writtenFiles.includes(provider.instructionFile.path),
+      `${name}: setup facts omit its compiled agent file`,
+    );
+  }
+
+  assertStringIncludes(
+    providerSetupFacts("claude_code").disclosures.join(" "),
+    "normal MCP tool permissions",
+  );
+  const codex = providerSetupFacts("codex").disclosures.join(" ");
+  for (
+    const fact of [
+      "git add",
+      "git commit",
+      "trailing arguments",
+      "no working-directory boundary",
+      "no push",
+      "no broader Git",
+      "general shell",
+    ]
+  ) {
+    assertStringIncludes(codex, fact);
+  }
+});
+
+Deno.test("a provider advertises enable-hooks exactly when its seed overrides hooksConfig", () => {
+  for (const name of AGENT_NAMES) {
+    const provider = PROVIDERS[name];
+    const enablesHooks = provider.trust.actions.some((action) =>
+      action.kind === "enable-hooks"
+    );
+    const seed = provider.hooks === undefined
+      ? ""
+      : renderProviderHookSeed(provider.hooks);
+    assertEquals(
+      enablesHooks,
+      seed.includes("hooksConfig"),
+      `${name}: enable-hooks action and hooksConfig override must move together`,
+    );
+  }
 });
 
 Deno.test("provider prompt arguments are documented, separate argv options", () => {
@@ -417,6 +473,16 @@ Deno.test("every provider trust action declares typed literal facts", () => {
       }
     }
   }
+  const codexTrustPaths = PROVIDERS.codex.trust.actions.flatMap((action) =>
+    action.facts.filter((fact) => fact.kind === "path").map((fact) =>
+      fact.value
+    )
+  );
+  assertEquals(codexTrustPaths.includes(".codex/"), false);
+  assert(
+    codexTrustPaths.includes("~/.codex/config.toml"),
+    "Codex project trust belongs in the user-level config",
+  );
 });
 
 Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempotently", async () => {
@@ -698,6 +764,11 @@ Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and siblin
     assertEquals(parsed.sandbox_workspace_write?.writable_roots, [
       `../../${basename(dir)}.worktrees`,
     ]);
+    assertEquals(
+      parsed.sandbox_workspace_write?.writable_roots?.includes("../.."),
+      false,
+      "the writable root must never broaden to the repository parent",
+    );
     assertEquals(parsed.mcp_servers.other?.command, "other-tool"); // preserved
     assertEquals(parsed.mcp_servers.discern?.command, "discern"); // added
     assertEquals(parsed.mcp_servers.discern?.args, [
@@ -930,7 +1001,15 @@ Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when 
     // Codex's schema REQUIRES (version: number, name: string). Without these, Codex
     // rejects the file ("expected string, received undefined" at `name`), so seeding
     // them is the guard against that regression — a from-scratch file must validate.
-    const wrote = await wireProviderWorktreeApp(dir, ["codex"]);
+    const config = parseConfigOrThrow(
+      '[project]\nname = "Example Project"\nslug = "example"\n',
+    );
+    const wrote = await wireProviderWorktreeApp(
+      dir,
+      ["codex"],
+      fakeEnv(),
+      config,
+    );
     assertEquals(wrote, [".codex/environments/environment.toml"]);
     const parsed = parseToml(
       await Deno.readTextFile(
@@ -943,7 +1022,7 @@ Deno.test("wireProviderWorktreeApp creates a SCHEMA-VALID environment.toml when 
       cleanup: { script: string };
     };
     assertEquals(parsed.version, 1);
-    assertEquals(parsed.name, "Discern");
+    assertEquals(parsed.name, "Example Project");
     assertEquals(parsed.setup.script, "discern worktree ensure");
     assertEquals(parsed.cleanup.script, "discern worktree teardown");
 
@@ -978,8 +1057,10 @@ Deno.test("wireProviderProjectRules writes Codex discern.rules only, preserving 
     assertStringIncludes(rules, 'pattern = ["git", "add"]');
     assertStringIncludes(rules, 'pattern = ["git", "commit"]');
     assertStringIncludes(rules, 'decision = "allow"');
-    assertStringIncludes(rules, "trusted discern linked worktrees");
-    assertStringIncludes(rules, ".git/worktrees");
+    assertStringIncludes(rules, "trusted Codex session");
+    assertStringIncludes(rules, "no working-directory boundary");
+    assertStringIncludes(rules, '"git push"');
+    assertStringIncludes(rules, '"git reset --hard"');
     assertEquals(
       await Deno.readTextFile(join(dir, ".codex/rules/default.rules")),
       userDefaultRules,
@@ -1445,13 +1526,32 @@ function expectedCodexDiscernRules(env: EnvReader = fakeEnv()): string {
 prefix_rule(
     pattern = ["git", "add"],
     decision = "allow",
-    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+    justification = "Allow the git add command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git add -A",
+        "git add src/example.ts",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )
 
 prefix_rule(
     pattern = ["git", "commit"],
     decision = "allow",
-    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+    justification = "Allow the git commit command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git commit -m Example",
+        "git commit --amend --no-edit",
+        "git commit --no-verify -m Example",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )
 `;
 }

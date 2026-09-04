@@ -3198,7 +3198,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.",
     source: {
       kind: "file",
-      path: "templates/setup/skeleton/docs/80-development/done-gate-gotchas.md",
+      path: "templates/setup/skeleton/map/80-development/done-gate-gotchas.md",
       mustContain: "## Stack-independent traps",
     },
     guards: [
@@ -3959,11 +3959,11 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
 export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
   "site/pages/assets/search.js":
     "copies the single `src/lib/docs_search.js` module into the browser asset",
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md":
+  "templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md":
     "copies the authored setup-skeleton ADR template into the write-adr skill",
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md":
+  "templates/skills/discern-write-adr/skeleton/map/_adr/0001-adopt-discern.md":
     "copies the authored setup-skeleton adoption record into the write-adr skill",
-  "templates/skills/discern-write-adr/skeleton/docs/_adr/README.md":
+  "templates/skills/discern-write-adr/skeleton/map/_adr/README.md":
     "copies the authored setup-skeleton ADR format guide into the write-adr skill",
 };
 

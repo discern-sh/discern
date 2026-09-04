@@ -36,6 +36,10 @@ File ownership is an operational term for edit and overwrite authority. It does 
 
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
+## Repository boundary
+
+One Git repository has one discern installation and one root `discern.toml`. Setup resolves the repository top level; another config in an ordinary nested directory cannot own only that subtree. A monorepo represents its packages or services with root-owned Scopes and custom jobs. A nested independent Git repository is a separate project and may have its own installation.
+
 ## License for discern-authored portions
 
 The discern-authored portions of every canonical project artifact are available immediately under [Apache-2.0](licenses.md). The `Discern-authored portions` column derives from the write-boundary registry, so a future registered destination joins the grant automatically. Project, user, provider, and third-party portions keep their existing terms.

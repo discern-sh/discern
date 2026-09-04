@@ -391,7 +391,7 @@ const SETUP: Category = {
       weight: 2,
       fix: "discern setup begin",
       teach:
-        "Setup seeds the docs skeleton and prompts the agent to author your instructions " +
+        "Setup seeds the Map skeleton and prompts the agent to author your instructions " +
         "and design principles from the repo and your answers. Until it runs, the " +
         "project has only a bare gate. Run `discern setup begin`, then `discern setup done`.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>

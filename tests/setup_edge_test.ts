@@ -17,6 +17,7 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { git, gitInit } from "./engine_helpers.ts";
 
 const ANSWERS = JSON.stringify({
   version: "2",
@@ -29,6 +30,8 @@ const ANSWERS = JSON.stringify({
 
 Deno.test("setup reports templates_not_found in JSON when the override dir is missing", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
+    await gitInit(dir);
     const { code, stdout } = await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
       dir,
@@ -49,6 +52,7 @@ Deno.test("setup begin --json reports a partial refresh as top-level not-ok whil
   await withTempDir(async (dir) => {
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
     await Deno.writeTextFile(join(dir, ".mcp.json"), malformed);
+    await gitInit(dir);
 
     const { code, stdout } = await runCli(
       ["setup", "begin", "--confirmed", "--json", "--slug", "demo"],
@@ -76,6 +80,8 @@ Deno.test("setup begin --json reports a partial refresh as top-level not-ok whil
 
 Deno.test("setup reports templates_not_found to stderr without --json", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
+    await gitInit(dir);
     const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--confirmed", "--slug", "demo"],
       dir,
@@ -92,13 +98,26 @@ Deno.test("setup reports templates_not_found to stderr without --json", async ()
 
 Deno.test("setup reports already-set-up to stdout once recorded, without --json", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
+    await gitInit(dir);
     assertEquals(
       (await runCli(["setup", "begin", "--confirmed", "--slug", "first"], dir))
         .code,
       0,
     );
-    // Record completion (--force: the laid skeletons still carry markers).
-    assertEquals((await runCli(["setup", "done", "--force"], dir)).code, 0);
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "author setup fixture",
+      "--no-gpg-sign",
+    );
+    assertEquals(
+      (await runCli(["setup", "done", "--unproven"], dir)).code,
+      0,
+    );
 
     // A re-run is not a refusal — it reports it is already set up and exits 0.
     const { code, stdout } = await runCli([
@@ -118,6 +137,7 @@ Deno.test("setup reports already-set-up to stdout once recorded, without --json"
 Deno.test("setup reports invalid --config JSON to stderr without --json", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
+    await gitInit(dir);
     const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--config", "bad.json"],
       dir,
@@ -132,6 +152,8 @@ Deno.test("setup reports invalid --config JSON to stderr without --json", async 
 
 Deno.test("setup reports a missing --config file to stderr without --json", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
+    await gitInit(dir);
     const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--config", "absent.json"],
       dir,
@@ -157,6 +179,7 @@ Deno.test("setup reports schema-invalid --config fields to stderr without --json
         jobs: { t: { stage: "bogus", run: "x" } },
       }),
     );
+    await gitInit(dir);
     const { code, stdout, stderr } = await runCli(
       ["setup", "begin", "--config", "answers.json"],
       dir,
@@ -165,19 +188,17 @@ Deno.test("setup reports schema-invalid --config fields to stderr without --json
     assertStringIncludes(stderr, '--config file "answers.json" is invalid');
     assertStringIncludes(stderr, "jobs.t.stage");
     assertEquals(stdout.trim(), "");
-    // The failure happened during planning: nothing was written.
-    let entries = 0;
-    for await (const _ of Deno.readDir(dir)) {
-      entries++;
-    }
-    assertEquals(entries, 1); // just answers.json
+    // The failure happened during planning: no setup footprint was written.
+    assertEquals(await targetExists(join(dir, "discern.toml")), false);
   });
 });
 
 // --- applyFillsToPlan early return when discern.toml is a skip ---
 
-Deno.test("setup begin --force --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
+Deno.test("setup begin --reseed --config leaves an existing discern.toml untouched (fills skip the seed)", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Setup edge fixture\n");
+    await gitInit(dir);
     // First, a plain install so a seed discern.toml exists on disk.
     assertEquals(
       (await runCli(
@@ -190,13 +211,13 @@ Deno.test("setup begin --force --config leaves an existing discern.toml untouche
     // The fresh seed carries no capability fills.
     assert(!before.includes('test = "vitest run"'));
 
-    // Re-run setup with --force AND a --config that *would* fill capabilities. Because
+    // Re-run setup with --reseed AND a --config that would fill capabilities. Because
     // discern.toml is a seed already present, its plan op is `skip`, so
     // applyFillsToPlan returns early and never applies the fills — the seed is
     // left exactly as the user's.
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
     const run = await runCli(
-      ["setup", "begin", "--force", "--config", "answers.json", "--json"],
+      ["setup", "begin", "--reseed", "--config", "answers.json", "--json"],
       dir,
     );
     assertEquals(run.code, 0, run.stderr);

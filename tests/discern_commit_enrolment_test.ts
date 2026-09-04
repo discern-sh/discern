@@ -1,7 +1,8 @@
-/** Runtime behavior of discern's attributed, pathspec-limited commit boundary. */
+/** Runtime and structural enrollment of discern's authored-commit boundary. */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
+import { Node, Project, SyntaxKind } from "ts-morph";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import {
   commitDiscernChanges,
@@ -19,6 +20,160 @@ import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { realDelay } from "./waiting.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
+
+const COMMIT_PRODUCTION_FILES = await structuralGuardScope({
+  guard:
+    "tests/discern_commit_enrolment_test.ts#discern-authored-commit-callers",
+  universe: "authored-ts",
+  narrow: {
+    reason:
+      "Discern-authored commits are production effects, so their caller and message construction boundary is src only.",
+    include: (path) => path.startsWith("src/"),
+  },
+});
+
+interface CommitCallSite {
+  readonly path: string;
+  readonly registryKey: string;
+}
+
+/** Find every production call through the imported commit capability. */
+function discernCommitCallSites(
+  path: string,
+  source: string,
+): CommitCallSite[] {
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  const parsed = project.createSourceFile(path, source, { overwrite: true });
+  const localNames = new Set<string>();
+  for (const declaration of parsed.getImportDeclarations()) {
+    if (!declaration.getModuleSpecifierValue().endsWith("/discern_commit.ts")) {
+      continue;
+    }
+    for (const named of declaration.getNamedImports()) {
+      if (named.getName() === "commitDiscernChanges") {
+        localNames.add(named.getAliasNode()?.getText() ?? named.getName());
+      }
+    }
+  }
+
+  const sites: CommitCallSite[] = [];
+  for (const call of parsed.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (!localNames.has(call.getExpression().getText())) continue;
+    const options = call.getArguments()[0];
+    assert(
+      options !== undefined && Node.isObjectLiteralExpression(options),
+      `${path}: commitDiscernChanges must receive one inline typed options object`,
+    );
+    for (const forbidden of ["subject", "body"]) {
+      assertEquals(
+        options.getProperty(forbidden),
+        undefined,
+        `${path}: ${forbidden} must be selected only by DISCERN_AUTHORED_COMMIT_SITES`,
+      );
+    }
+    const site = options.getProperty("site");
+    assert(
+      site !== undefined && Node.isPropertyAssignment(site),
+      `${path}: commitDiscernChanges needs a static registry site`,
+    );
+    const match = /^DISCERN_AUTHORED_COMMIT_SITES\.([A-Za-z0-9_]+)$/u.exec(
+      site.getInitializer()?.getText() ?? "",
+    );
+    assert(
+      match?.[1] !== undefined,
+      `${path}: commit site must be a direct DISCERN_AUTHORED_COMMIT_SITES member`,
+    );
+    sites.push({ path, registryKey: match[1] });
+  }
+  return sites;
+}
+
+Deno.test("every discern-authored commit site has one real typed caller and no ad hoc message", async () => {
+  const calls: CommitCallSite[] = [];
+  for (const path of COMMIT_PRODUCTION_FILES) {
+    calls.push(
+      ...discernCommitCallSites(
+        path,
+        await Deno.readTextFile(join(REPO_ROOT, path)),
+      ),
+    );
+  }
+  const definitions = Object.entries(DISCERN_AUTHORED_COMMIT_SITES);
+  assertEquals(
+    calls.map((call) => call.registryKey).sort(),
+    definitions.map(([key]) => key).sort(),
+    "registry entries and production commit call sites must remain one-to-one",
+  );
+  for (const [key, definition] of definitions) {
+    assertEquals(
+      calls.find((call) => call.registryKey === key)?.path,
+      definition.callerModule,
+      `${key} must be called only by its registered module`,
+    );
+  }
+});
+
+Deno.test("the commit-message registry renders the five settled subjects and exact attribution", () => {
+  const messages = [
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      values: undefined,
+    }, fakeEnv()),
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+      values: undefined,
+    }, fakeEnv()),
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration,
+      values: undefined,
+    }, fakeEnv()),
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.standardsPin,
+      values: {
+        pins: [{
+          name: "coverage",
+          direction: "up",
+          previousLimit: 80,
+          newLimit: 85,
+          measured: "87",
+        }],
+      },
+    }, fakeEnv()),
+    discernCommitMessage({
+      site: DISCERN_AUTHORED_COMMIT_SITES.standardsLimitProposal,
+      values: {
+        standard: "bundle_size",
+        direction: "down",
+        trunkLimit: 100,
+        proposedLimit: 90,
+        measurement: 88,
+        reason: "The smaller build is now repeatable.",
+        evidencePaths: ["dist/app.js"],
+      },
+    }, fakeEnv()),
+  ];
+  assertEquals(
+    messages.map((message) => message.split("\n", 1)[0]),
+    [
+      "Scaffold discern wiring",
+      "Complete discern setup",
+      "Regenerate artifacts after discern update",
+      "Pin standard baseline: coverage 80 → 85",
+      "Propose standard limit: bundle_size",
+    ],
+  );
+  for (const message of messages) {
+    assert(
+      message.endsWith(`\n\n${DISCERN_MACHINE.trailer}`),
+      `missing exact attribution trailer:\n${message}`,
+    );
+  }
+});
 
 Deno.test("the generic git runner refuses commit through aliases and wrappers", async () => {
   await withTempDir(async (cwd) => {
@@ -81,26 +236,33 @@ Deno.test("git aliases cannot smuggle commit through the generic runner", async 
 });
 
 Deno.test("discern commit messages use an injectable non-empty opt-out", () => {
-  const attributed = discernCommitMessage("Subject", "Body", fakeEnv());
+  const attributed = discernCommitMessage({
+    site: DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration,
+    values: undefined,
+  }, fakeEnv());
   assertEquals(
     attributed,
-    `Subject\n\nBody\n\n${DISCERN_MACHINE.trailer}`,
+    `Regenerate artifacts after discern update\n\nRe-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.\n\n${DISCERN_MACHINE.trailer}`,
   );
   assertEquals(
     discernCommitMessage(
-      "Subject",
-      "Body",
+      {
+        site: DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration,
+        values: undefined,
+      },
       fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
     ),
-    "Subject\n\nBody",
+    "Regenerate artifacts after discern update\n\nRe-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.",
   );
   assertEquals(
     discernCommitMessage(
-      "Subject",
-      undefined,
+      {
+        site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+        values: undefined,
+      },
       fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "" }),
     ),
-    `Subject\n\n${DISCERN_MACHINE.trailer}`,
+    `Complete discern setup\n\n${DISCERN_MACHINE.trailer}`,
   );
 });
 
@@ -120,8 +282,8 @@ Deno.test("the staged-index commit source consumes staged proof bytes, not later
 
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      values: undefined,
       cwd: dir,
-      subject: "Record proven bytes",
       pathspecs: [path],
       source: "staged-index",
       stagedProof,
@@ -167,8 +329,8 @@ Deno.test({
 
       const commit = await commitDiscernChanges({
         site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+        values: undefined,
         cwd: dir,
-        subject: "Record composed bytes",
         pathspecs: [path],
       });
       assertEquals(commit.success, true, commit.stderr);
@@ -214,8 +376,8 @@ printf 'later hook worktree bytes\\n' > ${hookPath}
 
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      values: undefined,
       cwd: dir,
-      subject: "Record proven bytes",
       pathspecs: [proofPath],
       source: "staged-index",
       stagedProof,
@@ -267,8 +429,8 @@ printf 'later hook worktree bytes\\n' > ${hookPath}
 
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+      values: undefined,
       cwd: dir,
-      subject: "Record composed bytes",
       pathspecs: [composedPath],
     });
 
@@ -327,8 +489,8 @@ printf '%s\\n' "$later" > ${laterOidPath}
 
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      values: undefined,
       cwd: dir,
-      subject: "Record proven bytes",
       pathspecs: [proofPath],
       source: "staged-index",
       stagedProof,
@@ -383,8 +545,8 @@ printf '%s\\n' "$later" > ${laterOidPath}
 
     const commit = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      values: undefined,
       cwd: dir,
-      subject: "Record proven bytes",
       pathspecs: [proofPath],
       source: "staged-index",
       stagedProof,
@@ -408,8 +570,8 @@ Deno.test("owned rollback cannot move a branch after an intervening user commit"
     await Deno.writeTextFile(join(dir, ownedPath), "owned\n");
     const authored = await commitDiscernChanges({
       site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+      values: undefined,
       cwd: dir,
-      subject: "Record owned bytes",
       pathspecs: [ownedPath],
       env: fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
     });

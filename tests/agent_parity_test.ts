@@ -21,8 +21,9 @@
  * which one and how).
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
+import { z } from "@zod/zod";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { instructionPathForNative } from "../src/shared/agent_catalogue.ts";
 import {
@@ -33,10 +34,15 @@ import {
   emitsInstructionFile,
   neutralAgentScopePaths,
   PROVIDER_BRAND_ASSET_ROOT,
+  PROVIDER_HOOK_TIMEOUT_SECONDS,
   providerBrandSilhouette,
   providerFor,
+  providerSessionHookCommand,
   providersWithHooks,
+  providerWorktreeEventKeys,
+  renderProviderHookSeed,
 } from "../src/lib/providers.ts";
+import { hookGroupCommands } from "../src/lib/settings_strip.ts";
 import { defaultInstructionScopes } from "../src/lib/config.ts";
 import {
   canonicalDiscernGitignoreBlock,
@@ -45,8 +51,15 @@ import {
 import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
+const PROVIDER_HOOK_SEED_SCHEMA = z.object({
+  hooks: z.record(
+    z.string(),
+    z.array(z.record(z.string(), z.unknown())),
+  ),
+}).passthrough();
 
 /** The seed `.gitignore` fragment — the static distribution surface every install
  * receives. Read once; the per-line predicates below decide coverage. */
@@ -597,7 +610,7 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
   }
 });
 
-Deno.test("the seed settings template seeds each hooks provider's registry worktree-event keys", async () => {
+Deno.test("every tracked provider hook seed is the registry rendering with the explicit vendor-unit timeout", async () => {
   // A hooks provider's worktree-lifecycle hooks are seeded into a STATIC settings
   // template, but the ENGINE reads the event names from the registry's
   // HooksIntegration (the hook-stripper in `setup`, the doctor worktree-automation
@@ -620,16 +633,47 @@ Deno.test("the seed settings template seeds each hooks provider's registry workt
         `${provider.name} declares hooks in ${integ.settingsFile}, but no seed template exists at templates/${integ.settingsFile}.tmpl — its seeded hooks cannot be kept in step with the registry`,
       );
     }
-    for (const key of integ.worktreeEventKeys) {
+    assertEquals(
+      tmpl,
+      renderProviderHookSeed(integ),
+      `templates/${integ.settingsFile}.tmpl must be a projection of the provider registry`,
+    );
+    for (const key of providerWorktreeEventKeys(integ)) {
       assert(
         tmpl.includes(`"${key}"`),
         `templates/${integ.settingsFile}.tmpl does not seed the "${key}" hook the registry declares for ${provider.name} — the seed and the engine's hook vocabulary have drifted`,
       );
     }
     // The session-start hook the registry identifies by needle must be seeded too.
-    assert(
-      new RegExp(integ.sessionHookNeedle, "i").test(tmpl),
-      `templates/${integ.settingsFile}.tmpl seeds no command matching the registry's sessionHookNeedle ("${integ.sessionHookNeedle}") for ${provider.name}`,
+    const sessionCommand = providerSessionHookCommand(integ);
+    assertStringIncludes(
+      tmpl,
+      sessionCommand,
+      `templates/${integ.settingsFile}.tmpl lacks ${provider.name}'s SessionStart command`,
     );
+
+    const root = decodeWith(PROVIDER_HOOK_SEED_SCHEMA, tmpl);
+    const hooks = root.hooks;
+    const expectedTimeout = integ.format.timeoutUnit === "milliseconds"
+      ? PROVIDER_HOOK_TIMEOUT_SECONDS * 1000
+      : PROVIDER_HOOK_TIMEOUT_SECONDS;
+    for (const command of integ.commands) {
+      const group = (hooks[command.event] ?? []).find((candidate) =>
+        hookGroupCommands(candidate).includes(command.command)
+      ) as Record<string, unknown> | undefined;
+      assert(
+        group !== undefined,
+        `${provider.name}: ${command.event} must carry ${command.command}`,
+      );
+      const timed = integ.format.commandPlacement === "nested"
+        ? (group.hooks as Record<string, unknown>[])[0]
+        : group;
+      assert(timed !== undefined, `${provider.name}: missing timed hook body`);
+      assertEquals(
+        timed[integ.format.timeoutKey],
+        expectedTimeout,
+        `${provider.name}: every hook must carry the 600-second budget in ${integ.format.timeoutUnit}`,
+      );
+    }
   }
 });

@@ -4,6 +4,10 @@
     "sessionStart": [
       {
         "command": "discern worktree ensure"
+      },
+      {
+        "command": "discern worktree ensure",
+        "timeout": 600
       }
     ]
   }

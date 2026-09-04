@@ -23,6 +23,7 @@ import {
   type ResultMarkdownPresenter,
 } from "./result_markdown.ts";
 import type { ResultOutputFormat } from "./result_formats.ts";
+import { assertSetupResultNextAction } from "./setup_next_action.ts";
 
 let activeResultOutputFormat: ResultOutputFormat = "json";
 
@@ -70,6 +71,7 @@ export function setResultMarkdownTerminalRenderer(
  * observed-result seam, so the logbook recorder can lift per-step timings from
  * the same envelope the caller received. */
 export function emitResult(result: DiscernResult): void {
+  assertSetupResultNextAction(result);
   const prepared = withFailureRecoveryHint(evaluateResultCompletion(result));
   observeResult(prepared);
   const serialized = serializeResult(prepared);

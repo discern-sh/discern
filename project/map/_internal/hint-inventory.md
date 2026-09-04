@@ -1314,7 +1314,7 @@ Rendered example:
 
 Rendered example:
 
-> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model unreported --confirmed`; its `--confirmed` flag attests that the relay carried the three pillars, footprint, plan, reversibility, why the setup model affects future sessions, how the owner switches in a fresh session, the current self-declared provider/model fact, the agent's stop/continue boundary, every numbered confirmation, and the time-and-tokens expectation.
+> Present the setup instructions in this result to the owner, wait for their answers, then run `discern setup begin --model unreported --confirmed`; its `--confirmed` flag attests that the relay carried the lasting outcome, exact footprint, repository boundary, provider permissions, plan, reversibility, why the setup model affects future sessions, how the owner switches in a fresh session, the current self-declared provider/model fact, the agent's stop/continue boundary, every numbered confirmation, and the time-and-tokens expectation.
 
 Interactive example:
 
@@ -1351,18 +1351,7 @@ Rendered example:
 
 Rendered example:
 
-> Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
-
-## `setup-forced-needs-proof`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: `setup-done-next`
-- Emitting context: Setup records completion with --force and therefore has no Gate Proof.
-
-Rendered example:
-
-> Resolve the incomplete or red setup, commit the correction, then run `discern setup done` without `--force` to obtain Proof before landing or activation.
+> Complete every listed file and unmet check, then re-run `discern setup done`; use `--unproven` only to record completion without that proof.
 
 ## `setup-improvement-after-activation`
 
@@ -1451,6 +1440,17 @@ Rendered example:
 Rendered example:
 
 > Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. 2 files still carry skeleton markers.
+
+## `setup-unproven-needs-proof`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-done-next`
+- Emitting context: Setup records an unproven completion event and therefore has no Gate Proof.
+
+Rendered example:
+
+> Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to replace it with a proven completion before landing or activation.
 
 ## `silent-worktree-divergence`
 

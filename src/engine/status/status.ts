@@ -344,6 +344,9 @@ export async function statusResult(
     worktree,
     git,
     standards: Object.keys(cfg.standards),
+    ...(cfg.meta.setup_completion === undefined
+      ? {}
+      : { setup_completion: cfg.meta.setup_completion }),
   };
   const reappearedPaths = await reappearedWorktreePaths(root);
   if (reappearedPaths.length > 0) {
@@ -648,7 +651,8 @@ export async function statusResult(
   // `checkpoints`, and both `done` paths): serve each required stop question
   // early. Suppressed while setup is unfinished — the lead hint owns that
   // session, and no governing policy exists to inspect yet.
-  const checkpointPreview = setupPending === undefined
+  const checkpointPreview = setupPending === undefined &&
+      cfg.meta.setup_completion !== "unproven"
     ? checkpointInspectionHints(await inspectCheckpointObligations(root, cfg))
     : [];
 
@@ -676,6 +680,7 @@ export async function statusResult(
     trackedIgnoredArtifacts,
     untrackedInstructions,
     setupPending,
+    setupCompletion: cfg.meta.setup_completion,
     nowMs,
     gateProof,
     landingAuthority,
@@ -1004,6 +1009,8 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
+  /** Evidence recorded for the setup completion event, when present. */
+  setupCompletion: "proven" | "unproven" | undefined;
   /** The invocation clock already captured by the status effect boundary. */
   nowMs: number;
   /** Whether the current clean HEAD has an honored proof from `discern done`. */
@@ -1029,7 +1036,9 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // Setup not finished — the most fundamental "what now", so it leads every other
   // hint, in every location. The structured evidence is `data.setup_unfinished`;
   // this is its advisory voice.
-  if (ctx.setupPending !== undefined) {
+  if (ctx.setupCompletion === "unproven") {
+    hints.push(fire(HINTS["setup-unproven-needs-proof"]));
+  } else if (ctx.setupPending !== undefined) {
     hints.push(setupUnfinishedHint(ctx.setupPending));
   }
   if (ctx.mergeWarning !== undefined) {
@@ -1148,7 +1157,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // trunk" when `git.branch` actually says so; otherwise use the off-trunk sibling,
   // which gives the same advice without the false claim. With no git block to check
   // against (no repo), keep the original wording — unverifiable, not contradicted.
-  if (ctx.location === "main" && ctx.setupPending === undefined) {
+  if (
+    ctx.location === "main" && ctx.setupPending === undefined &&
+    ctx.setupCompletion !== "unproven"
+  ) {
     // `ahead_trunk === null` is the "no local trunk" signal (the same
     // honesty rule that replaced the fabricated "0 ahead") — the off-trunk
     // wording would prescribe a `git switch` onto a branch that isn't there.

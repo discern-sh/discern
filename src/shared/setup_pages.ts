@@ -127,7 +127,13 @@ export function parseSetupBrief(text: string): SetupBrief {
       const title = (step[2] ?? "").trim();
       const body = lines.slice(start + 1, end);
       const { spine, instructions } = splitSpineAndProse(body, n);
-      authoredPages.push({ step: n, title, spine, instructions });
+      authoredPages.push({
+        step: n,
+        title,
+        spine,
+        instructions,
+        next_action: spine.next_action,
+      });
     } else if (EPILOGUE_HEADING.test(heading)) {
       epilogue = lines.slice(start, end).join("\n").trimEnd();
     }

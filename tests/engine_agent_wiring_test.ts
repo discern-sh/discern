@@ -23,7 +23,10 @@ import { targetExists } from "../src/shared/fs_presence.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assembleInitPlan } from "../src/commands/setup.ts";
-import { providersWithHooks } from "../src/lib/providers.ts";
+import {
+  providerSessionHookCommand,
+  providersWithHooks,
+} from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
 import {
   MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
@@ -39,7 +42,7 @@ import {
 
 const CommandHookSchema = z.object({ command: z.string() });
 const GeminiSettingsSchema = z.object({
-  hooksConfig: z.object({ enabled: z.boolean() }),
+  hooksConfig: z.object({ enabled: z.boolean() }).optional(),
   hooks: z.object({
     enabled: z.boolean().optional(),
     SessionStart: z.array(z.object({
@@ -110,19 +113,18 @@ const McpSettingsSchema = z.object({
   }),
 });
 
-Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
+Deno.test("Gemini: the registry-rendered SessionStart seed and MCP registration compose in one settings file", async () => {
   await withTempDir(async (dir) => {
     // Gemini is configured, so its per-agent seed (.gemini/settings.json) is laid.
     await scaffoldEngine(dir, { agents: ["claude_code", "gemini"] });
 
-    // The seed landed: hooksConfig.enabled (the hooks system's canonical toggle —
-    // a SEPARATE section from the per-event arrays; Gemini rejects a boolean under
-    // `hooks`) + the SessionStart → worktree ensure hook.
+    // Current Gemini enables hooks by default. The seed therefore needs only the
+    // startup/resume SessionStart command and no parallel enablement setting.
     const seeded = decodeWith(
       GeminiSettingsSchema,
       await Deno.readTextFile(join(dir, ".gemini/settings.json")),
     );
-    assertEquals(seeded.hooksConfig.enabled, true);
+    assertEquals(seeded.hooksConfig, undefined);
     assertEquals(seeded.hooks.enabled, undefined); // never a boolean under hooks
     const seededSessionStart = seeded.hooks.SessionStart[0];
     assertExists(seededSessionStart);
@@ -158,7 +160,7 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     );
     assert(merged.mcpServers !== undefined);
     // All three coexist: the seeded hooks, the MCP server, and the user key.
-    assertEquals(merged.hooksConfig.enabled, true);
+    assertEquals(merged.hooksConfig, undefined);
     const mergedSessionStart = merged.hooks.SessionStart[0];
     assertExists(mergedSessionStart);
     const mergedHook = mergedSessionStart.hooks[0];
@@ -264,7 +266,7 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
       cleanup: { script: string };
     };
     assertEquals(env.version, 1);
-    assertEquals(env.name, "Discern");
+    assertEquals(env.name, "Engine Test");
     assertEquals(env.setup.script, "discern worktree ensure");
     assertEquals(env.cleanup.script, "discern worktree teardown");
 
@@ -273,8 +275,9 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
     );
     assertStringIncludes(rules, 'pattern = ["git", "add"]');
     assertStringIncludes(rules, 'pattern = ["git", "commit"]');
-    assertStringIncludes(rules, "trusted discern linked worktrees");
-    assertStringIncludes(rules, ".git/worktrees");
+    assertStringIncludes(rules, "trusted Codex session");
+    assertStringIncludes(rules, "no working-directory boundary");
+    assertStringIncludes(rules, '"git push"');
     assertEquals((rules.match(/decision = "allow"/g) ?? []).length, 2);
 
     // Idempotent: a second refresh re-wires neither the MCP nor the env file.
@@ -316,7 +319,7 @@ Deno.test("refresh re-seeds missing provider hook files for every configured hoo
       const hooks = provider.hooks;
       assert(hooks !== undefined);
       const body = await Deno.readTextFile(join(dir, hooks.settingsFile));
-      assertStringIncludes(body, hooks.sessionHookNeedle);
+      assertStringIncludes(body, providerSessionHookCommand(hooks));
     }
 
     const second = await runAgent(dir, ["refresh", "--json"]);
@@ -366,7 +369,7 @@ Deno.test("refresh re-seeds provider hooks without clobbering user settings", as
       const body = await Deno.readTextFile(join(dir, hooks.settingsFile));
       const settings = decodeWith(ProviderSettingsSchema, body);
       assertEquals(settings.userPreserved, provider.name);
-      assertStringIncludes(body, hooks.sessionHookNeedle);
+      assertStringIncludes(body, providerSessionHookCommand(hooks));
     }
   });
 });

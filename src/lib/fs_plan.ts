@@ -35,7 +35,6 @@ import {
 import { planDiscernGitattributesFile } from "./agent_gitattributes.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
-import type { SettingsSeedMerge } from "./settings_merge.ts";
 import {
   providersWithHooks,
   type SettingsSeed,
@@ -196,8 +195,8 @@ export async function buildPlan(params: {
   // settings file — derived from the registry, so a new hooks provider's template is
   // routed (and merged with its own strategy) the moment it declares a
   // HooksIntegration. No `.claude/settings.json` literal in the core.
-  const settingsByTarget = new Map<string, SettingsSeedMerge>(
-    (params.seeds ?? settingsSeeds()).map((s) => [s.targetRel, s.merge]),
+  const settingsByTarget = new Map<string, SettingsSeed>(
+    (params.seeds ?? settingsSeeds()).map((seed) => [seed.targetRel, seed]),
   );
   const ops: PlanOp[] = [];
   const unknownTokens = new Map<string, string[]>();
@@ -243,14 +242,13 @@ export async function buildPlan(params: {
       }
     }
 
-    const merge = settingsByTarget.get(targetRel);
-    if (merge !== undefined) {
+    const seed = settingsByTarget.get(targetRel);
+    if (seed !== undefined) {
       const op = await planSettingsMerge(
-        entry.path,
         destDir,
         targetRel,
         tokens,
-        merge,
+        seed,
         unknownTokens,
       );
       ops.push(op);
@@ -326,15 +324,13 @@ async function planFileWrite(params: {
  * path and the strategy come from the registry's {@link settingsSeeds}, so this
  * carries no `.claude/settings.json` literal and no baked-in JSON assumption. */
 async function planSettingsMerge(
-  sourceAbs: string,
   destDir: string,
   targetRel: string,
   tokens: TokenMap,
-  merge: SettingsSeedMerge,
+  seed: SettingsSeed,
   unknownTokens: Map<string, string[]>,
 ): Promise<PlanOp> {
-  const raw = TEXT_DECODER.decode(await Deno.readFile(sourceAbs));
-  const { text, unknown } = substituteTokens(raw, tokens);
+  const { text, unknown } = substituteTokens(seed.templateText, tokens);
   if (unknown.length > 0) {
     unknownTokens.set(targetRel, unknown);
   }
@@ -347,7 +343,7 @@ async function planSettingsMerge(
 
   let merged: string;
   try {
-    merged = merge(existingText, text);
+    merged = seed.merge(existingText, text);
   } catch (error) {
     throw new SettingsMergePlanError(targetRel, { cause: error });
   }

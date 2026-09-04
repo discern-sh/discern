@@ -3,7 +3,7 @@
 <!--
   Copy this file beside the template as `<NN-subsystem>.md` — one per subtree —
   and fill each section. It is the per-subtree complement to the constant
-  documenter brief: it names exactly what THIS agent reads, owns, and produces.
+  Map-authoring brief: it names exactly what THIS agent reads, owns, and produces.
   Delete these comments as you go.
 -->
 
@@ -18,7 +18,7 @@ its boundaries are (what the neighbouring subtrees own instead). -->
 
 <!-- Every .md file the agent must write, with a one-line topic each. The README
 is always first. Note any frontmatter a page must carry beyond the brief's
-baseline (a specific `order`, `publish: false`, a `redirect_from` claim). Keep
+baseline (for example, a specific `order`). Keep
 the set small enough to stay within the length budget. -->
 
 | File        | Topic                                                                                                    |
@@ -41,9 +41,9 @@ agent documents only knobs and behaviour in its lane. -->
 
 -
 
-## Existing-doc content to preserve
+## Existing Map content to preserve
 
-<!-- Any current docs whose wording or structure must survive a refresh, or
+<!-- Any current Map pages whose wording or structure must survive a refresh, or
 "None". Prevents a rewrite from discarding something the project values. -->
 
 None.

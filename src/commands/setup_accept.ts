@@ -211,6 +211,7 @@ function setupAcceptData(
   fields: Partial<SetupAcceptData> = {},
 ): SetupAcceptData {
   return {
+    next_action: ACCEPT_COMMAND,
     landed: false,
     branch,
     target,
@@ -232,7 +233,7 @@ function emitAccept(
       message: string;
       detail?: string[];
       diagnostics?: Diagnostic[];
-      data?: SetupAcceptData | SetupAcceptNoOpData;
+      data?: SetupAcceptData | SetupAcceptNoOpData | { next_action: string };
       code: number;
     }
     & (
@@ -303,7 +304,9 @@ function emitProofRefusal(
         : [`Recorded commit: ${proof.recorded}`]),
       ...(proof.head === undefined ? [] : [`Current commit: ${proof.head}`]),
     ],
-    data: setupAcceptData(branch, target, fastForward, proof),
+    data: setupAcceptData(branch, target, fastForward, proof, {
+      next_action: "discern setup done",
+    }),
     code: 1,
   });
 }
@@ -323,27 +326,49 @@ export async function runSetupAccept(
       ok: false,
       error: "not_initialized",
       message: NO_PROJECT_MESSAGE,
+      data: { next_action: "discern setup verify" },
       code: 1,
     });
   }
-  const config = await loadConfig(root);
+  let config: DiscernConfig;
+  try {
+    config = await loadConfig(root);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "invalid_config",
+      message:
+        `Setup acceptance cannot read discern.toml: ${detail}. Run \`discern doctor\` for the exact correction before retrying.`,
+      data: { next_action: "discern doctor" },
+      code: 1,
+    });
+  }
   const target = integrationBranch(config.repository.trunk);
   const run = (args: string[]) => runGit(args, { cwd: root });
+
+  if (config.meta.setup_completion === "unproven") {
+    return emitAccept(opts, log, {
+      ok: false,
+      error: "precondition_failed",
+      message:
+        `Setup completion is recorded as unproven, so it cannot be accepted. ${PROOF_RECOVERY}`,
+      data: { next_action: "discern setup done" },
+      code: 1,
+    });
+  }
 
   // Outside a Git repository there is no branch to land.
   if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
     return emitAccept(opts, log, {
-      ok: true,
+      ok: false,
+      error: "no_repository",
       message:
-        "No Git repository is present, so there is no setup branch to land.",
+        "Setup acceptance requires one Git repository. Run `git init`, then run `discern setup verify` to restart the repository-backed journey.",
       data: {
-        completion: {
-          status: "no_op",
-          reason: "no_git_repository",
-        },
-        target,
+        next_action: "git init",
       },
-      code: 0,
+      code: 1,
     });
   }
 
@@ -354,6 +379,7 @@ export async function runSetupAccept(
       error: "detached_head",
       message:
         `The checkout has a detached HEAD. Check out ${SETUP_BRANCH}, then retry ${ACCEPT_COMMAND}.`,
+      data: { next_action: `git checkout ${SETUP_BRANCH}` },
       code: 1,
     });
   }
@@ -363,6 +389,7 @@ export async function runSetupAccept(
       message:
         `The checkout is already on ${target}; there is no setup branch to land.`,
       data: {
+        next_action: "discern status",
         completion: {
           status: "no_op",
           reason: "already_on_target",
@@ -385,6 +412,7 @@ export async function runSetupAccept(
         `If your finished setup lives on \`${SETUP_BRANCH}\`, check it out and re-run \`${ACCEPT_COMMAND}\`. ` +
         `If you set up on \`${branch}\` deliberately (--allow-dirty), merge it your usual way ` +
         `(\`git checkout ${target} && git merge ${branch}\`) when you're ready.`,
+      data: { next_action: `git checkout ${SETUP_BRANCH}` },
       code: 1,
     });
   }
@@ -402,6 +430,7 @@ export async function runSetupAccept(
         `\`${target}\` to land onto. Create it at your setup's tip, then land: ` +
         `\`git branch ${target} && ${ACCEPT_COMMAND}\`. ` +
         `(If this project updates on a different branch, set [repository].trunk to it instead.)`,
+      data: { next_action: `git branch ${target}` },
       code: 1,
     });
   }
@@ -427,6 +456,7 @@ export async function runSetupAccept(
       error: "precondition_failed",
       message:
         `Git could not resolve the setup and target commits. Nothing changed. Retry ${ACCEPT_COMMAND}.`,
+      data: { next_action: ACCEPT_COMMAND },
       code: 1,
     });
   }
@@ -451,6 +481,7 @@ export async function runSetupAccept(
   // Preview carries the same Proof inspection the apply path will require.
   if (opts.dryRun) {
     const data = setupAcceptData(branch, target, fastForward, inspected, {
+      next_action: ACCEPT_COMMAND,
       proof_line: validated.line,
       ...(fastForward ? { validated_commit: validated.head } : {}),
     });
@@ -554,6 +585,7 @@ export async function runSetupAccept(
         writePreflightDiagnostic(writeAuthority, ACCEPT_COMMAND),
       ],
       data: setupAcceptData(branch, target, fastForward, inspected, {
+        next_action: ACCEPT_COMMAND,
         proof_line: validated.line,
       }),
       code: 1,
@@ -576,6 +608,7 @@ export async function runSetupAccept(
           `Resolve the integration on ${branch}, run \`discern setup done\`, then retry \`${ACCEPT_COMMAND}\`.`,
         detail: [merge.stderr.trim()].filter((detail) => detail !== ""),
         data: setupAcceptData(branch, target, false, inspected, {
+          next_action: "discern setup done",
           proof_line: validated.line,
         }),
         code: 1,
@@ -595,7 +628,9 @@ export async function runSetupAccept(
         error: "gate_failed",
         message:
           `The merged setup commit did not pass the Gate. ${target} is unchanged. ${PROOF_RECOVERY}`,
-        data: setupAcceptData(branch, target, false, failedProof),
+        data: setupAcceptData(branch, target, false, failedProof, {
+          next_action: "discern setup done",
+        }),
         code: 1,
       });
     }
@@ -648,6 +683,7 @@ export async function runSetupAccept(
         fastForward,
         validated.inspection,
         {
+          next_action: "discern refresh",
           proof_line: validated.line,
           validated_commit: validated.head,
           merge_validated: mergeValidated,
@@ -676,6 +712,7 @@ export async function runSetupAccept(
         fastForward,
         validated.inspection,
         {
+          next_action: "discern refresh",
           proof_line: validated.line,
           validated_commit: validated.head,
           merge_validated: mergeValidated,
@@ -713,6 +750,7 @@ export async function runSetupAccept(
         fastForward,
         validated.inspection,
         {
+          next_action: "discern setup done",
           proof_line: validated.line,
           validated_commit: validated.head,
           merge_validated: mergeValidated,
@@ -737,6 +775,7 @@ export async function runSetupAccept(
         fastForward,
         validated.inspection,
         {
+          next_action: ACCEPT_COMMAND,
           proof_line: validated.line,
           validated_commit: validated.head,
           merge_validated: mergeValidated,
@@ -772,6 +811,7 @@ export async function runSetupAccept(
         fastForward,
         validated.inspection,
         {
+          next_action: partiallyLanded ? "git status --short" : ACCEPT_COMMAND,
           landed: partiallyLanded,
           proof_line: validated.line,
           validated_commit: validated.head,
@@ -821,6 +861,7 @@ export async function runSetupAccept(
   ]);
 
   const data: SetupAcceptData = {
+    next_action: "discern status",
     landed: true,
     branch,
     target,

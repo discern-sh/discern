@@ -134,7 +134,7 @@ function coAuthorIdentity<
   return {
     name,
     email,
-    trailer: `Co-Authored-By: ${name} <${email}>`,
+    trailer: `Co-authored-by: ${name} <${email}>`,
   };
 }
 

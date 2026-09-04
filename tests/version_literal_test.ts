@@ -99,6 +99,8 @@ Deno.test("the version guard enrolls a fresh literal in any authored tree", asyn
 // hold every version-reporting surface to the imported DISCERN_VERSION.
 Deno.test("every version-reporting surface derives from DISCERN_VERSION", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Version fixture\n");
+    await gitInit(dir);
     const setup = await runCli(
       ["setup", "begin", "--confirmed", "--slug", "version-probe"],
       dir,

@@ -5,6 +5,7 @@
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current pointers use `standards` (formerly `ratchets`), `accept` (formerly `graduate`), and known/custom `job` (formerly gate `capability` / custom `check`); the decision and reasoning are unchanged.
 > - **[ADR 0052](0052-worktree-sibling-placement.md) — placement:** the `<cwd>/.claude/worktrees/<name>` placement this record encodes was later replaced by a configurable sibling default (`[worktree].root`); the layering split below — adapter in the feature layer, engine location-agnostic — is exactly what kept that change contained to one resolver.
 > - **Hook naming:** the verbs ship as `discern worktree hook create` / `discern worktree hook remove` — the shipped settings template is the live authority; the parse-in-binary decision stands.
+> - **Vendor boundary (2026-09-04):** Claude Code still supplies `WorktreeCreate` and `WorktreeRemove` JSON with no version field. The adapters require the current string fields, ignore unknown fields, add no private payload version or aliases, refuse malformed create loudly, and keep removal best effort. The provider registry renders the separate 600-second hook budget.
 
 **Status**: accepted
 
@@ -23,10 +24,12 @@ That made `jq` a hard runtime dependency of discern for every end user who drive
 
 ## Decision
 
-The two payload-bearing hooks become thin dispatches to the binary, which reads its own stdin: `WorktreeCreate` → **`discern worktree create`**, `WorktreeRemove` → **`discern worktree remove`**. Each verb reads the hook's JSON payload from stdin, parses it natively (no `jq`), and does the work the shell used to:
+The two payload-bearing hooks are thin dispatches to the binary, which reads its own stdin: `WorktreeCreate` → **`discern worktree hook create`**, `WorktreeRemove` → **`discern worktree hook remove`**. Each verb reads the hook's JSON payload from stdin, parses it natively (no `jq`), and does the work the shell used to:
 
-- `worktree create` derives `<cwd>/.claude/worktrees/<name>` and branch `<branch_prefix><name>` (the prefix read from config, not substituted into the settings template), creates the linked worktree (idempotently — a re-fired hook is a no-op on the `git worktree add`), runs the existing `worktree` setup inside it, and writes **only** the worktree path to stdout (no trailing newline, as the old `printf %s` did) so Claude Code reads it as the result. All setup narration goes to stderr, mirroring the old `… 1>&2`.
-- `worktree remove` reads `worktree_path` and runs the existing `worktree teardown`, swallowing any error so the event never fails (the old hook's trailing `|| true`); a stranded resource is reclaimed later by `worktree prune`.
+- `worktree hook create` requires non-empty string `name` and `cwd` fields, derives `<resolveWorktreeRoot(cwd, config)>/<name>` and branch `<branch_prefix><name>`, creates the linked worktree idempotently, runs worktree setup inside it, and writes **only** the worktree path to stdout. Malformed JSON or a missing required field fails clearly. All setup narration goes to stderr.
+- `worktree hook remove` reads the string `worktree_path` and runs worktree teardown. A missing field, malformed payload, or teardown failure is reported but never fails the vendor removal event; a stranded resource is reclaimed later by `worktree prune`.
+
+Both adapters accept harmless unknown object fields because the vendor payload has no version field and may grow. discern invents no payload-version flag or speculative alias. Hook command, event, shape, and timeout come from the provider registry; every emitted Claude hook carries the explicit 600-second vendor-unit budget.
 
 **Layering.** The adapter lives in the FEATURE layer ([`src/lib/worktree_hooks.ts`](../../../src/lib/worktree_hooks.ts)), not the stack-neutral engine. The agent-agnosticism guard ([`tests/agent_agnostic_test.ts`](../../../tests/agent_agnostic_test.ts)) forbids any `.claude` path in `src/engine/**`; the `.claude/worktrees` convention and the coupling to Claude Code's hook JSON shape are Claude-Code-specific, so they sit beside `src/lib/skills.ts` (which already owns `.claude/skills` materialization). The engine keeps a convention-free `addWorktree(mainRepo, dir, branch)` git helper that the adapter calls with an explicit directory.
 
@@ -35,7 +38,7 @@ The two payload-bearing hooks become thin dispatches to the binary, which reads 
 ## Consequences
 
 - **`jq` is no longer a discern dependency** — for end users or for developing discern. Its entire footprint was these two hooks; the contributor `Brewfile` and the human-setup docs drop it, leaving `git` (+ a coding agent) as the only external runtime requirement. The engine-hook tests no longer skip when `jq` is absent, and assert the rendered `.claude/settings.json` contains no `jq`.
-- **The hook contract is stable and trivial.** The settings entries are now fixed verb names; worktree-creation logic evolves in tested TypeScript (`tests/engine_hooks_test.ts` drives the rendered hooks end-to-end), not in a JSON-escaped shell string. The `{{branch_prefix}}` token is gone from the settings template (still used by `discern.toml.tmpl` and the guidance).
+- **The hook contract is small and explicit.** The settings entries carry fixed verb names; the vendor's current fields are parsed in tested TypeScript (`tests/engine_hooks_test.ts` drives the rendered hooks end-to-end), not in a JSON-escaped shell string. The `{{branch_prefix}}` token is gone from the settings template.
 - **Single source of truth for worktree creation.** The `git worktree add` step moved out of the shell and into the binary, beside the setup it precedes.
 - **A new coupling is made explicit, not added.** The binary now knows Claude Code's hook JSON shape — but the shell hook already hard-coded `.name` / `.cwd` / `.worktree_path`; the coupling moved into one tested, clearly-named module rather than being newly introduced.
 

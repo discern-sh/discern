@@ -55,7 +55,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
  * covering the shapes discern's providers write across vendors (Claude's nested
  * `command`, Cursor's group-level `command`, Copilot's group-level `bash`).
  */
-function hookGroupCommands(group: unknown): string[] {
+export function hookGroupCommands(group: unknown): string[] {
   const out: string[] = [];
   if (!isObject(group)) {
     return out;

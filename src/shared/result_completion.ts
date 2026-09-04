@@ -129,7 +129,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
     ],
     advisories: [
       "checkpoint-evidence-dropped",
-      "setup-forced-completion",
+      "setup-unproven-completion",
       "proof-recording-unavailable",
       "acceptance-cleanup-incomplete",
       "setup-marker-commit-failed",
@@ -553,12 +553,12 @@ function derivedAdvisories(
     add(
       "setup-marker-commit-failed",
       [markerCommitError],
-      "Commit the setup completion marker after repairing the reported Git failure, then run `discern done` before relying on the forced completion.",
+      "Commit the setup completion marker after repairing the reported Git failure, then run `discern setup done` before relying on the unproven completion.",
     );
   }
-  if (data?.forced === true) {
+  if (data?.setup_completion === "unproven") {
     add(
-      "setup-forced-completion",
+      "setup-unproven-completion",
       ["Setup completion bypassed Gate Proof and the worktree-viability proof."],
       "Run `discern doctor`, then `discern done`, and review the resulting Proof before relying on this setup.",
     );

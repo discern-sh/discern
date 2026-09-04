@@ -9,6 +9,14 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { gitInit } from "./engine_helpers.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
+
+/** Create the committed Git baseline required by setup begin. */
+async function initializeSetupRepository(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Setup config fixture\n");
+  await gitInit(dir);
+}
 
 const ANSWERS = JSON.stringify({
   "$schema": "../schema/discern-setup-config.schema.json",
@@ -96,6 +104,7 @@ const ANSWERS = JSON.stringify({
 Deno.test("setup begin --config scaffolds from a JSON answers file", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
@@ -155,6 +164,7 @@ Deno.test("setup begin --config scaffolds from a JSON answers file", async () =>
 
 Deno.test("setup begin --config - reads the answers file from stdin", async () => {
   await withTempDir(async (dir) => {
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "-", "--json"],
       dir,
@@ -176,6 +186,7 @@ Deno.test("setup begin --config - reads the answers file from stdin", async () =
 Deno.test("setup begin --config: an explicit flag overrides the file value", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
+    await initializeSetupRepository(dir);
     const r = await runCli(
       [
         "setup",
@@ -199,6 +210,7 @@ Deno.test("setup begin --config: an explicit flag overrides the file value", asy
 Deno.test("setup begin --config --dry-run writes nothing", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "answers.json"), ANSWERS);
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "answers.json", "--dry-run", "--json"],
       dir,
@@ -214,18 +226,14 @@ Deno.test("setup begin --config --dry-run writes nothing", async () => {
         "worktree.resources.database.retries",
       ),
     );
-    // Only the answers file exists; nothing was scaffolded.
-    let entries = 0;
-    for await (const _ of Deno.readDir(dir)) {
-      entries++;
-    }
-    assertEquals(entries, 1);
+    assertEquals(await targetExists(join(dir, "discern.toml")), false);
   });
 });
 
 Deno.test("setup begin --config rejects invalid JSON", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "bad.json"), "{ not json");
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "bad.json", "--json"],
       dir,
@@ -243,6 +251,7 @@ Deno.test("setup begin --config rejects an unsupported document version", async 
       join(dir, "answers.json"),
       JSON.stringify({ version: "3", slug: "x" }),
     );
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
@@ -261,6 +270,7 @@ Deno.test("setup begin rejects the removed source-glob input surfaces", async ()
       join(dir, "answers.json"),
       JSON.stringify({ version: "2", slug: "x", source_globs: ["src/**"] }),
     );
+    await initializeSetupRepository(dir);
     const document = await runCli(
       ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
@@ -288,6 +298,7 @@ Deno.test("setup begin --config rejects an invalid fill (bad check stage)", asyn
         jobs: { t: { stage: "bogus", run: "x" } },
       }),
     );
+    await initializeSetupRepository(dir);
     const r = await runCli(
       ["setup", "begin", "--config", "answers.json", "--json"],
       dir,
@@ -297,11 +308,7 @@ Deno.test("setup begin --config rejects an invalid fill (bad check stage)", asyn
     assertEquals(result.error, "invalid_config_file");
     assert(result.message !== undefined);
     assertStringIncludes(result.message, "stage");
-    // Nothing was written (the error happened during planning).
-    let entries = 0;
-    for await (const _ of Deno.readDir(dir)) {
-      entries++;
-    }
-    assertEquals(entries, 1); // just answers.json
+    // No setup footprint was written (the error happened during planning).
+    assertEquals(await targetExists(join(dir, "discern.toml")), false);
   });
 });

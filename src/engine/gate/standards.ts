@@ -1317,31 +1317,6 @@ function standardsWriteAccessFailure(
   };
 }
 
-/** The re-pin commit message: an imperative subject and a body listing each limit's
- * old→new and the measurement behind it, so `git log` explains why the bound moved. */
-function pinCommitMessage(
-  pins: PinnedStandard[],
-): { subject: string; body: string } {
-  const only = pins.length === 1 ? pins[0] : undefined;
-  const subject = only !== undefined
-    ? `Pin standard baseline: ${only.standard.name} ${only.standard.limit} → ${only.newLimit}`
-    : "Pin standard baselines after measured improvement";
-  const body = pins.map((p) => {
-    const bound = p.standard.direction === "up" ? "floor" : "ceiling";
-    return `- ${p.standard.name}: ${bound} ${p.standard.limit} → ${p.newLimit} (measured ${
-      fmtRate(p.measured)
-    })`;
-  }).join("\n");
-  return {
-    subject,
-    body:
-      "Capture a measured improvement so it cannot regress. `discern standards`\n" +
-      "measured these metrics past their limits; `--pin` tightens each limit to\n" +
-      "the measured value, leaving any configured margin of headroom:\n\n" +
-      body,
-  };
-}
-
 /** Restore `rel`'s working-tree and index copy to HEAD, undoing a half-applied pin.
  * The clean-tree precondition guaranteed `rel` matched HEAD before the pin began, so
  * `git checkout HEAD -- <rel>` returns both the file and its staged copy to exactly
@@ -1408,8 +1383,16 @@ async function applyPinEdits(
   }
   const commit = await commitDiscernChanges({
     site: DISCERN_AUTHORED_COMMIT_SITES.standardsPin,
+    values: {
+      pins: pins.map((pin) => ({
+        name: pin.standard.name,
+        direction: pin.standard.direction,
+        previousLimit: pin.standard.limit,
+        newLimit: pin.newLimit,
+        measured: fmtRate(pin.measured),
+      })),
+    },
     cwd: root,
-    ...pinCommitMessage(pins),
     pathspecs: [rel],
   });
   if (!commit.success) {

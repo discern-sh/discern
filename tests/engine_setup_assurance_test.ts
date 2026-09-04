@@ -343,15 +343,19 @@ const MIXED_CONFIG = [
   'format = ["deno fmt", "discern tidy"]',
   'lint = "deno lint"',
   'test = ":"  # tests blocked by a runtime mismatch, see TODO.md',
+  "",
+  "[meta]",
+  "bootstrapped = false",
 ].join("\n");
 
 Deno.test("setup done --json carries the per-capability assurance block + verdict", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
+    await gitInit(dir);
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertEquals(res.verb, "setup done");
@@ -390,12 +394,16 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
     "",
     "[jobs]",
     ...applicableNames.map((name) => `${name} = "${name}"`),
+    "",
+    "[meta]",
+    "bootstrapped = false",
   ].join("\n");
 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, config);
-    const terminal = await runAgent(dir, ["setup", "done", "--force"]);
+    await gitInit(dir);
+    const terminal = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(terminal.code, 0, terminal.output);
     assertTerminalTextIncludes(
       terminal.stdout,
@@ -405,7 +413,7 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
     assertTerminalTextIncludes(terminal.stdout, "does not apply");
 
     const result = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(result, "assurance");
@@ -437,7 +445,7 @@ Deno.test("setup done terminal, JSON, and Markdown agree on the applicable denom
   });
 });
 
-Deno.test("forced setup done carries a mechanical inventory and unproved recovery", async () => {
+Deno.test("unproven setup done carries a mechanical inventory and recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
@@ -445,7 +453,7 @@ Deno.test("forced setup done carries a mechanical inventory and unproved recover
     await git(dir, "checkout", "-b", "discern-setup");
 
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(res, "assurance");
@@ -462,27 +470,27 @@ Deno.test("forced setup done carries a mechanical inventory and unproved recover
       Object.values(res.data.inventory.jobs).flat().length,
       Object.keys(KNOWN_JOBS).length,
     );
-    assertHasHint(res, HINTS["setup-forced-needs-proof"]);
+    assertHasHint(res, HINTS["setup-unproven-needs-proof"]);
     assertEquals(res.data.reactivation, undefined);
     assertEquals(res.data.optional_improvement, undefined);
   });
 });
 
-Deno.test("setup done's forced human output withholds the unproved landing path", async () => {
+Deno.test("setup done's unproven output withholds the landing path", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await writeConfig(dir, MIXED_CONFIG);
     await gitInit(dir);
     await git(dir, "checkout", "-b", "discern-setup");
 
-    const done = await runAgent(dir, ["setup", "done", "--force"]);
+    const done = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(done.code, 0, done.output);
     // Honest coverage and the unproved recovery remain visible.
-    assertTerminalTextIncludes(done.stdout, "Setup complete");
+    assertTerminalTextIncludes(done.stdout, "Setup completion is unproven");
     assertTerminalTextIncludes(done.stdout, "Quality coverage: partial");
     assertStringIncludes(done.stdout, "enforced");
     assertStringIncludes(done.stdout, "deferred");
-    assertTerminalTextIncludes(done.stdout, "without `--force`");
+    assertTerminalTextIncludes(done.stdout, "replace the completion state");
     assertTerminalTextIncludes(done.stdout, "before landing or activation");
     assert(!done.stdout.includes("discern setup accept"));
     assert(!done.stdout.includes("start a fresh session"));
@@ -501,10 +509,14 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
         "[jobs]",
         'format = ["deno fmt", "discern tidy"]',
         'lint = "deno lint"',
+        "",
+        "[meta]",
+        "bootstrapped = false",
       ].join("\n"),
     );
+    await gitInit(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(res, "assurance");
@@ -524,9 +536,13 @@ Deno.test("setup done on the seeded config alone is honest: minimal, with the no
   // message must say so.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
-    await writeConfig(dir, '[jobs]\nformat = "discern tidy"\n');
+    await writeConfig(
+      dir,
+      '[jobs]\nformat = "discern tidy"\n\n[meta]\nbootstrapped = false\n',
+    );
+    await gitInit(dir);
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(res, "assurance");

@@ -23,41 +23,121 @@ import {
 import { quiesceProcessGroup } from "./process_group.ts";
 import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
 
-export interface DiscernAuthoredCommitSiteDefinition {
+export interface DiscernCommitMessage {
+  readonly subject: string;
+  readonly body?: string;
+}
+
+export interface DiscernStandardPinCommitValues {
+  readonly pins: readonly {
+    readonly name: string;
+    readonly direction: "up" | "down";
+    readonly previousLimit: number;
+    readonly newLimit: number;
+    readonly measured: string;
+  }[];
+}
+
+export interface DiscernStandardLimitProposalCommitValues {
+  readonly standard: string;
+  readonly direction: "up" | "down";
+  readonly trunkLimit: number;
+  readonly proposedLimit: number;
+  readonly measurement: number;
+  readonly reason: string;
+  readonly evidencePaths: readonly string[];
+}
+
+export interface DiscernAuthoredCommitSiteDefinition<Values> {
   readonly id: string;
   /** Shipped module allowed to import the commit capability for this site. */
   readonly callerModule: `src/${string}.ts`;
+  /** The only subject/body template this site can select. */
+  readonly message: (values: Values) => DiscernCommitMessage;
 }
 
-/** Every workflow whose diff discern itself composes and commits. */
+/**
+ * Every workflow whose diff discern itself composes and commits, with its sole
+ * typed message template. Adding a site here automatically enrolls it in the
+ * caller, message, and runtime membership contracts.
+ */
 export const DISCERN_AUTHORED_COMMIT_SITES = {
   scaffoldWiring: {
     id: "scaffold-wiring",
     callerModule: "src/commands/setup.ts",
+    message: (_values: undefined): DiscernCommitMessage => ({
+      subject: "Scaffold discern wiring",
+    }),
   },
   setupCompletion: {
     id: "setup-completion",
     callerModule: "src/commands/setup.ts",
+    message: (_values: undefined): DiscernCommitMessage => ({
+      subject: "Complete discern setup",
+    }),
   },
   standardsPin: {
     id: "standards-pin",
     callerModule: "src/engine/gate/standards.ts",
+    message: (
+      values: DiscernStandardPinCommitValues,
+    ): DiscernCommitMessage => ({
+      subject: `Pin standard baseline: ${
+        values.pins.map((pin) =>
+          `${pin.name} ${pin.previousLimit} → ${pin.newLimit}`
+        ).join(", ")
+      }`,
+      body:
+        "Capture a measured improvement so it cannot regress. `discern standards`\n" +
+        "measured these metrics past their limits; `--pin` tightens each limit to\n" +
+        "the measured value, leaving any configured margin of headroom:\n\n" +
+        values.pins.map((pin) => {
+          const bound = pin.direction === "up" ? "floor" : "ceiling";
+          return `- ${pin.name}: ${bound} ${pin.previousLimit} → ${pin.newLimit} (measured ${pin.measured})`;
+        }).join("\n"),
+    }),
   },
   standardsLimitProposal: {
     id: "standards-limit-proposal",
     callerModule: "src/engine/gate/standard_proposals.ts",
+    message: (
+      values: DiscernStandardLimitProposalCommitValues,
+    ): DiscernCommitMessage => {
+      const bound = values.direction === "up" ? "floor" : "ceiling";
+      return {
+        subject: `Propose standard limit: ${values.standard}`,
+        body:
+          `Move the ${bound} from ${values.trunkLimit} to ${values.proposedLimit} after measuring ${values.measurement}.\n\n` +
+          `Reason: ${values.reason}\n\n` +
+          `Responsible paths:\n${
+            values.evidencePaths.map((path) => `- ${path}`).join("\n")
+          }`,
+      };
+    },
   },
   updateRegeneration: {
     id: "update-regeneration",
     callerModule: "src/engine/worktree/git.ts",
+    message: (_values: undefined): DiscernCommitMessage => ({
+      subject: "Regenerate artifacts after discern update",
+      body:
+        "Re-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.",
+    }),
   },
-} as const satisfies Readonly<
-  Record<string, DiscernAuthoredCommitSiteDefinition>
->;
+} as const;
 
 export type DiscernAuthoredCommitSite = typeof DISCERN_AUTHORED_COMMIT_SITES[
   keyof typeof DISCERN_AUTHORED_COMMIT_SITES
 ];
+
+export type DiscernCommitMessageSelection = {
+  [Key in keyof typeof DISCERN_AUTHORED_COMMIT_SITES]: {
+    readonly site: typeof DISCERN_AUTHORED_COMMIT_SITES[Key];
+    readonly values: Parameters<
+      typeof DISCERN_AUTHORED_COMMIT_SITES[Key]["message"]
+    >[0];
+  };
+}[keyof typeof DISCERN_AUTHORED_COMMIT_SITES];
 
 const DISCERN_OWNED_COMMIT = Symbol("discern owned commit");
 
@@ -97,11 +177,7 @@ export interface DiscernStagedCommitProof {
 }
 
 interface DiscernCommitBaseOptions {
-  /** Canonical workflow identity; its registry entry also enrolls the caller. */
-  readonly site: DiscernAuthoredCommitSite;
   readonly cwd: string;
-  readonly subject: string;
-  readonly body?: string;
   /**
    * The exact paths this commit may carry. Empty pathspecs are refused. With
    * `source: "staged-index"`, these paths are an exact staged-set assertion and
@@ -119,19 +195,22 @@ const authoredCommitSites = new Set<DiscernAuthoredCommitSite>(
 );
 
 export type DiscernCommitOptions =
-  | DiscernCommitBaseOptions & {
-    /** The established pathspec-scoped Git invocation. */
-    readonly source?: "worktree-pathspecs";
-    readonly stagedProof?: never;
-  }
-  | DiscernCommitBaseOptions & {
-    /**
-     * Commit the already-proven index bytes. The helper verifies the staged
-     * names before Git runs and the resulting commit tree after hooks run.
-     */
-    readonly source: "staged-index";
-    readonly stagedProof: DiscernStagedCommitProof;
-  };
+  & DiscernCommitMessageSelection
+  & (
+    | DiscernCommitBaseOptions & {
+      /** The established pathspec-scoped Git invocation. */
+      readonly source?: "worktree-pathspecs";
+      readonly stagedProof?: never;
+    }
+    | DiscernCommitBaseOptions & {
+      /**
+       * Commit the already-proven index bytes. The helper verifies the staged
+       * names before Git runs and the resulting commit tree after hooks run.
+       */
+      readonly source: "staged-index";
+      readonly stagedProof: DiscernStagedCommitProof;
+    }
+  );
 
 /** Represent a policy refusal as the same structured failure Git callers consume. */
 function refusedCommit(
@@ -473,15 +552,28 @@ async function rollbackAuthoredCommit(
   return { kind: "failed", result: rollback };
 }
 
-/** Render subject, optional body, and the default-on co-author trailer. */
+/** Select the one registry-owned subject/body template for a typed site. */
+function registeredCommitMessage(
+  selection: DiscernCommitMessageSelection,
+): DiscernCommitMessage {
+  // The mapped union proves this pairing to callers. TypeScript cannot retain
+  // that correlation while invoking a union of function properties, so the
+  // boundary erases only the renderer parameter after the pair is validated.
+  const render = selection.site.message as unknown as (
+    values: unknown,
+  ) => DiscernCommitMessage;
+  return render(selection.values);
+}
+
+/** Render the registered message and the default-on co-author trailer. */
 export function discernCommitMessage(
-  subject: string,
-  body: string | undefined,
+  selection: DiscernCommitMessageSelection,
   env: EnvReader = Deno.env,
 ): string {
-  const paragraphs = [subject];
-  if (body !== undefined && body !== "") {
-    paragraphs.push(body);
+  const registered = registeredCommitMessage(selection);
+  const paragraphs = [registered.subject];
+  if (registered.body !== undefined && registered.body !== "") {
+    paragraphs.push(registered.body);
   }
   if (discernAttributionEnabled(env)) {
     paragraphs.push(DISCERN_MACHINE.trailer);
@@ -515,11 +607,7 @@ export async function commitDiscernChanges(
       "has duplicate declared paths; refusing an ambiguous commit",
     );
   }
-  const message = discernCommitMessage(
-    options.subject,
-    options.body,
-    options.env,
-  );
+  const message = discernCommitMessage(options, options.env);
   const source = options.source ?? "worktree-pathspecs";
   let proof: CommitInvocationProof;
   if (options.source === "staged-index") {

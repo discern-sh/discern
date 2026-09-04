@@ -73,6 +73,7 @@ import { writeStderr, writeStdout } from "./engine/output.ts";
 import { detachPromise } from "./shared/promise_effects.ts";
 import { SYSTEM_CLOCK } from "./shared/clock.ts";
 import { EXIT_USAGE } from "./shared/exit_codes.ts";
+import { withSetupResultNextAction } from "./shared/setup_next_action.ts";
 import {
   CLI_JSON_DESCRIPTION_OVERRIDES,
   CLI_RESULT_FORMATS,
@@ -370,12 +371,12 @@ function handleCliValidationError(error: Error, command: Command): void {
     ? setJobValidationMessage(activeDiscernArgv, error.message)
     : setupMessage ?? startMessage ?? error.message;
   if (quietResultRequested(activeDiscernArgv)) {
-    emitResult({
+    emitResult(withSetupResultNextAction({
       ok: false,
       verb: resultVerb,
       error: "invalid_arguments",
       message,
-    });
+    }, `discern ${resultVerb} --help`));
   } else if (
     commandPath === "config set-job" || startMessage !== undefined ||
     setupMessage !== undefined
@@ -501,7 +502,10 @@ export function buildCli(
       "Your self-declared provider/model identifier, or `unreported`; advisory self-reported setup provenance.",
     )
     .option("--dry-run", "Print the plan and write nothing.")
-    .option("--force", "Re-run even if already set up (re-scaffold + re-seed).")
+    .option(
+      "--reseed",
+      "Re-run even if already set up (re-scaffold + re-seed).",
+    )
     .option(
       "--allow-dirty",
       "Advanced/CI: set up on the current branch as-is, skipping the clean-tree check and the isolated discern-setup branch.",
@@ -544,14 +548,14 @@ export function buildCli(
       "Prove the committed setup, return canonical Proof and completion inventory, and record [meta].bootstrapped.",
     )
     .option(
-      "--force",
+      "--unproven",
       "Record an explicitly unproved completion; setup acceptance will refuse it.",
     )
     .action(recordedExit("setup done", async (options) => {
       const { runSetupDone } = await import("./commands/setup.ts");
       return await runSetupDone({
         json: globalFlags(options).json,
-        force: options.force ?? false,
+        unproven: options.unproven ?? false,
         cliModel,
       });
     }));

@@ -24,6 +24,7 @@
  */
 
 import { z } from "@zod/zod";
+import { isSingleRunnableSetupCommand } from "./setup_next_action.ts";
 import { MANUAL_KINDS } from "./manual.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1896,6 +1897,8 @@ export const StatusDataSchema = z.strictObject({
   /** Read-only refresh transformations that could not be planned. */
   tracked_refresh_plan_errors: z.array(z.string()).optional(),
   tracked_ignored_artifacts: z.array(z.string()).optional(),
+  /** Evidence attached to the persisted setup completion event. */
+  setup_completion: z.enum(["proven", "unproven"]).optional(),
   setup_unfinished: z.strictObject({
     pending_markers: z.array(z.string()),
     known_jobs: z.array(
@@ -2360,6 +2363,12 @@ export type DocsData = z.infer<typeof DocsDataSchema>;
 
 // setup step ──────────────────────────────────────────────────────────────────
 
+/** Setup routing is always exactly one runnable command, never a shell chain. */
+const SetupNextActionCommandSchema = z.string().trim().min(1).refine(
+  isSingleRunnableSetupCommand,
+  { message: "setup next_action must be one runnable command" },
+);
+
 /**
  * The structured **spine** of one setup page (ADR 0078) — navigation and
  * completion-proof rails ONLY. The warm behavioral/consent instructions stay in the
@@ -2380,7 +2389,7 @@ export const SETUP_PAGE_SPINE_COMMON_SHAPE = {
   completion_check: z.string().trim().min(1),
   stop_conditions: z.array(z.string().trim().min(1)).min(1),
   recovery: z.array(z.string().trim().min(1)).min(1),
-  next_action: z.string().trim().min(1),
+  next_action: SetupNextActionCommandSchema,
 } as const;
 
 export const SetupPageSpineSchema = z.strictObject({
@@ -2405,8 +2414,22 @@ export const SetupStepDataSchema = z.strictObject({
   title: z.string(),
   spine: SetupPageSpineSchema,
   instructions: z.string(),
+  /** The page spine's canonical continuation, repeated at the result boundary so
+   * every setup result exposes one directly runnable command. */
+  next_action: SetupNextActionCommandSchema,
 });
 export type SetupStepData = z.infer<typeof SetupStepDataSchema>;
+
+/** Recovery-only setup payload for a result that cannot provide its normal
+ * phase-specific data. */
+const SetupNextActionOnlyDataSchema = z.strictObject({
+  next_action: SetupNextActionCommandSchema,
+});
+
+export const SetupStepResultDataSchema = z.union([
+  SetupStepDataSchema,
+  SetupNextActionOnlyDataSchema,
+]);
 
 // setup verify ──────────────────────────────────────────────────────────────────
 
@@ -2472,7 +2495,7 @@ export const SetupVerifyFindingsSchema = z.strictObject({
  */
 export const SetupVerifyDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]),
-  next_action: z.string(),
+  next_action: SetupNextActionCommandSchema,
   ready: z.boolean().optional(),
   findings: SetupVerifyFindingsSchema.optional(),
   conflicts: z.array(SetupVerifyConflictSchema).optional(),
@@ -2581,7 +2604,7 @@ export const SETUP_DONE_SUCCESS_KINDS = [
   "created",
   "replayed",
   "validated",
-  "forced",
+  "unproven",
 ] as const;
 export type SetupDoneSuccessKind = typeof SETUP_DONE_SUCCESS_KINDS[number];
 
@@ -2593,24 +2616,26 @@ export type SetupDoneSuccessKind = typeof SETUP_DONE_SUCCESS_KINDS[number];
  */
 export const SetupDoneDataSchema = z.strictObject({
   bootstrapped: z.literal(true),
-  /** Whether this invocation created, replayed, validated, or forcibly recorded
+  /** Whether this invocation created, replayed, validated, or recorded without Proof
    * the marker-bearing completion state. */
   completion: z.enum(SETUP_DONE_SUCCESS_KINDS),
   /** True only when this invocation crossed a write boundary. */
   effects_performed: z.boolean(),
   /** True only when this invocation executed the main-checkout Gate. */
   gate_ran: z.boolean(),
-  forced: z.boolean(),
+  /** Evidence attached to the persisted setup completion event. */
+  setup_completion: z.enum(["proven", "unproven"]),
+  unproven: z.boolean(),
   gate_proven: z.boolean(),
   /** Whether the required worktree-viability probe ran green. False only on
-   * explicitly forced completion. */
+   * explicitly unproven completion. */
   worktree_proven: z.boolean(),
   marker_committed: z.boolean(),
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
   marker_commit_error: z.string().optional(),
   /** Canonical inspection of the current Gate Proof. Present only after a
-   * non-forced completion proves the committed marker-bearing HEAD. */
+   * proven completion proves the committed marker-bearing HEAD. */
   proof: GateProofCheckSchema.optional(),
   /** The ready-to-relay one-line rendering from that honored Proof. */
   proof_line: z.string().optional(),
@@ -2628,9 +2653,18 @@ export const SetupDoneDataSchema = z.strictObject({
     after: z.literal("activation_verified"),
   }).optional(),
   instructions: z.string(),
+  /** The first phase-correct command after this result. */
+  next_action: SetupNextActionCommandSchema,
 }).superRefine((data, context) => {
-  const activationEligible = data.gate_proven && !data.forced &&
+  const activationEligible = data.gate_proven && !data.unproven &&
     (!data.landing.in_repo || data.landing.on_target);
+  if ((data.setup_completion === "unproven") !== data.unproven) {
+    context.addIssue({
+      code: "custom",
+      path: ["unproven"],
+      message: "unproven must match setup_completion",
+    });
+  }
   if (!activationEligible && data.reactivation !== undefined) {
     context.addIssue({
       code: "custom",
@@ -2672,6 +2706,7 @@ export type SetupDoneCompletionStage =
   (typeof SETUP_DONE_COMPLETION_STAGES)[number];
 
 const SetupDoneIncompleteDataSchema = z.strictObject({
+  next_action: SetupNextActionCommandSchema,
   leftover: z.array(z.string()),
   unmet: z.array(z.strictObject({
     step: z.number().int(),
@@ -2682,6 +2717,7 @@ const SetupDoneIncompleteDataSchema = z.strictObject({
 });
 
 const SetupDoneUncommittedDataSchema = z.strictObject({
+  next_action: SetupNextActionCommandSchema,
   uncommitted: z.array(z.string()),
   stage: z.enum(["refresh", "final_tree"]).optional(),
 });
@@ -2697,7 +2733,7 @@ const SetupDoneGateFailureDataSchema = z.strictObject({
   /** A concise description of the state left on disk and in Git. */
   state: z.string().trim().min(1),
   /** The one supported next command or edit boundary. */
-  next_action: z.string().trim().min(1),
+  next_action: SetupNextActionCommandSchema,
   /** Self-contained recovery that never requires raw ref movement or broad cleanup. */
   recovery: z.string().trim().min(1),
 });
@@ -2707,6 +2743,7 @@ export const SetupDoneFailureDataSchema = z.union([
   SetupDoneIncompleteDataSchema,
   SetupDoneUncommittedDataSchema,
   SetupDoneGateFailureDataSchema,
+  SetupNextActionOnlyDataSchema,
 ]);
 export type SetupDoneFailureData = z.infer<
   typeof SetupDoneFailureDataSchema
@@ -2788,7 +2825,8 @@ export function instructionRefreshData(
 export const SetupWelcomeDataSchema = z.strictObject({
   phase: z.enum(["fresh", "in_progress", "done"]),
   complete: z.boolean(),
-  next_action: z.string(),
+  setup_completion: z.enum(["proven", "unproven"]).optional(),
+  next_action: SetupNextActionCommandSchema,
   agent_instructions: z.string().optional(),
   human_framing: z.string().optional(),
   progress: setupProgressSchema.optional(),
@@ -2797,7 +2835,7 @@ export const SetupWelcomeDataSchema = z.strictObject({
 /** `setup begin` — the scaffold preview, outcome, or structured refusal. */
 export const SetupBeginDataSchema = z.strictObject({
   complete: z.boolean().optional(),
-  next_action: z.string().optional(),
+  next_action: SetupNextActionCommandSchema,
   already_set_up: z.boolean().optional(),
   message: z.string().optional(),
   project: setupProjectSchema.optional(),
@@ -2839,6 +2877,7 @@ export type SetupBeginData = z.infer<typeof SetupBeginDataSchema>;
 /** `setup accept` landing preview/result. Proof refusals carry the same payload
  * with `landed: false`, so every surface can report the failed evidence state. */
 export const SetupAcceptDataSchema = z.strictObject({
+  next_action: SetupNextActionCommandSchema,
   landed: z.boolean(),
   branch: z.string(),
   target: z.string(),
@@ -2880,6 +2919,7 @@ export type SetupAcceptData = z.infer<typeof SetupAcceptDataSchema>;
  * absent landing payload cannot distinguish idempotence from an omitted
  * required landing outcome. */
 export const SetupAcceptNoOpDataSchema = z.strictObject({
+  next_action: SetupNextActionCommandSchema,
   completion: z.strictObject({
     status: z.literal("no_op"),
     reason: z.enum(["no_git_repository", "already_on_target"]),
@@ -2892,6 +2932,7 @@ export type SetupAcceptNoOpData = z.infer<typeof SetupAcceptNoOpDataSchema>;
 export const SetupAcceptResultDataSchema = z.union([
   SetupAcceptDataSchema,
   SetupAcceptNoOpDataSchema,
+  SetupNextActionOnlyDataSchema,
 ]);
 const configEditSchema = z.strictObject({
   key: z.string(),
@@ -3298,7 +3339,7 @@ export const HelpOutputSchema = resultOutputSchema("help", HelpDataSchema);
  * source and a faithfulness test can pin the real serialized output to it. */
 export const SetupStepOutputSchema = resultOutputSchema(
   "setup step",
-  SetupStepDataSchema,
+  SetupStepResultDataSchema,
 );
 
 /** `setup verify` output: envelope + the preflight `data` (fresh or redirect). CLI-only

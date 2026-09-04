@@ -19,9 +19,9 @@ The failure that exposed this behavior originated inside the structural worktree
 `setup done` reads the clean-tree pin and canonical Proof before any mutation:
 
 - A clean marker-bearing `HEAD` with honored current Proof returns `completion: "replayed"`. It re-derives the canonical setup inventory and landing choices from current committed authorities, re-serves the same Proof and line, and reports `effects_performed: false` and `gate_ran: false`.
-- A clean marker-bearing `HEAD` with missing or stale Proof enters one non-forced validation route for that same commit. It never writes or commits a second marker. A green validation records canonical Proof and returns `completion: "validated"`.
+- A clean marker-bearing `HEAD` with missing or stale Proof enters one ordinary validation route for that same commit. It never writes or commits a second marker. A green validation records canonical Proof and returns `completion: "validated"`.
 - A dirty marker-bearing checkout refuses read-only. Existing Proof bytes and the marker stay in place, and the result names the paths and clean-state recovery.
-- A forced marker remains unproved. Only the explicit non-forced validation route can add Proof; force never synthesizes it.
+- A marker with `setup_completion = "unproven"` remains visibly unproven. Only ordinary `setup done` can validate it, add Proof, and converge the persisted state to `"proven"`; the bypass never synthesizes evidence.
 - A recorded red result for the unchanged tree remains visible. Repeating setup completion does not turn into retry-until-green; the caller changes the failing input or explicitly requests the Gate's bounded rerun path.
 
 Proof remains the only completion evidence. The replay projection combines canonical Proof inspection with the derived setup inventory and landing state. There is no setup receipt, marker hash, or second result store.

@@ -62,8 +62,84 @@ import {
 } from "../src/shared/result_markdown.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { providerSetupFacts } from "../src/lib/providers.ts";
+import {
+  assertSetupResultNextAction,
+  isSingleRunnableSetupCommand,
+} from "../src/shared/setup_next_action.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
+
+Deno.test("every setup result route is one runnable command", () => {
+  for (
+    const command of [
+      "discern setup begin",
+      "discern setup begin --name 'A name; still one argument' --confirmed",
+      "git init",
+      "git checkout discern-setup",
+    ]
+  ) {
+    assert(
+      isSingleRunnableSetupCommand(command),
+      `expected one runnable setup command: ${command}`,
+    );
+    assertSetupResultNextAction({
+      verb: "setup begin",
+      data: { next_action: command },
+    });
+  }
+  for (
+    const compound of [
+      "git init && discern setup verify",
+      "git checkout main; discern setup begin",
+      "discern setup begin | tee setup.log",
+      "discern $(printf setup)",
+      "discern `printf setup`",
+      "discern setup\ndiscern status",
+    ]
+  ) {
+    assert(
+      !isSingleRunnableSetupCommand(compound),
+      `compound setup route escaped the guard: ${compound}`,
+    );
+    assertThrows(
+      () =>
+        assertSetupResultNextAction({
+          verb: "setup done",
+          data: { next_action: compound },
+        }),
+      Error,
+      "one runnable data.next_action",
+    );
+  }
+  assertThrows(
+    () => assertSetupResultNextAction({ verb: "setup verify" }),
+    Error,
+    "one runnable data.next_action",
+  );
+});
+
+Deno.test("setup's shipped journey carries no retired pillar or dispatcher vocabulary", async () => {
+  const files = await structuralGuardScope({
+    guard:
+      "tests/engine_setup_operational_contract_test.ts#retired-setup-vocabulary",
+    universe: "authored-text",
+    narrow: {
+      reason:
+        "The setup relay and skeleton are the only surfaces governed by this retired first-use vocabulary.",
+      include: (rel) =>
+        rel.startsWith("templates/setup/") ||
+        rel === "src/shared/setup_messages.ts" ||
+        rel === "src/shared/hints.ts",
+    },
+  });
+  const offenders: string[] = [];
+  for (const rel of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (/\bpillars?\b|\bdispatcher\b/iu.test(source)) offenders.push(rel);
+  }
+  assertEquals(offenders, []);
+});
 
 Deno.test("setup pages form one sequential numbered journey", () => {
   assertEquals(
@@ -89,14 +165,14 @@ Deno.test("setup pages form one sequential numbered journey", () => {
 
 Deno.test("the shipped Map seed promises a scope-manifest template, not pre-created manifests", async () => {
   const mapReadme = await Deno.readTextFile(
-    join(REAL_TEMPLATES, "setup", "skeleton", "docs", "README.md"),
+    join(REAL_TEMPLATES, "setup", "skeleton", "map", "README.md"),
   );
   const documenter = await Deno.readTextFile(
     join(
       REAL_TEMPLATES,
       "setup",
       "skeleton",
-      "docs",
+      "map",
       "_internal",
       "documenter-agent-brief.md",
     ),
@@ -532,13 +608,26 @@ Deno.test("documentation scope meets the primary floor without rewarding reposit
 });
 
 Deno.test("shipped setup relay choices stay neutral and keep each consent fact atomic", () => {
+  const facts = providerSetupFacts("codex");
   const context = {
     worktreePath: "/repo.worktrees",
+    worktreeEnvFiles: [".env", ".env.local"],
+    inheritedEnvNames: [],
     docsExists: false,
     gitRepo: true,
     agents: {
-      wired: [{ label: "Codex", name: "codex" }],
-      detected: true,
+      wired: [{
+        label: facts.label,
+        name: facts.agent,
+        instructionFile: facts.instructionFile,
+        writtenFiles: facts.writtenFiles,
+        ...(facts.generatedSkillsDir === undefined
+          ? {}
+          : { generatedSkillsDir: facts.generatedSkillsDir }),
+        trust: facts.trust,
+        disclosures: facts.disclosures,
+      }],
+      evidence: "detected-on-this-machine",
     },
   } as const;
   const relay = consentRelayItems(context);
@@ -549,6 +638,9 @@ Deno.test("shipped setup relay choices stay neutral and keep each consent fact a
     [
       "lasting-outcome",
       "footprint",
+      "repository-boundary",
+      "provider-codex-1",
+      "provider-codex-2",
       "plan",
       "reversibility",
     ],
@@ -625,7 +717,7 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
         "- [ ] Plain unresolved decision\n",
     );
     await gitInit(dir);
-    const done = await runAgent(dir, ["setup", "done", "--force", "--json"]);
+    const done = await runAgent(dir, ["setup", "done", "--unproven", "--json"]);
     assertEquals(done.code, 0, done.output);
     const envelope = decodeCliResult(done.stdout, "setup done");
     const data = SetupDoneDataSchema.parse(envelope.data);
@@ -665,13 +757,13 @@ Deno.test("setup completion carries canonical Map, ledger, and job inventories",
       !SetupDoneOutputSchema.safeParse(contradictory).success,
       "a forced result must not validate with pre-activation improvement advice",
     );
-    const human = await runAgent(dir, ["setup", "done", "--force"]);
+    const human = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(human.code, 0, human.output);
     assert(human.output.length <= SETUP_RESULT_MAX_CHARS);
     const markdown = await runAgent(dir, [
       "setup",
       "done",
-      "--force",
+      "--unproven",
       "--markdown",
     ]);
     assertEquals(markdown.code, 0, markdown.output);
@@ -793,8 +885,8 @@ Deno.test("every shipped start description states that start returns a path", as
   );
   for (
     const rel of [
-      "setup/skeleton/docs/80-development/README.md",
-      "setup/skeleton/docs/80-development/getting-started.md",
+      "setup/skeleton/map/80-development/README.md",
+      "setup/skeleton/map/80-development/getting-started.md",
     ]
   ) {
     assert(

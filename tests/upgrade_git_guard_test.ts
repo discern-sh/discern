@@ -10,6 +10,7 @@ import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 /** Run a git command in `dir`, throwing on failure. */
 async function git(dir: string, ...args: string[]): Promise<void> {
@@ -26,6 +27,8 @@ async function git(dir: string, ...args: string[]): Promise<void> {
 
 /** A fresh install committed into a new git repo — a clean starting tree. */
 async function initCommittedRepo(dir: string): Promise<void> {
+  await Deno.writeTextFile(join(dir, "README.md"), "# Upgrade fixture\n");
+  await gitInit(dir);
   assertEquals(
     (await runCli(
       ["setup", "begin", "--confirmed", "--slug", "demo"],
@@ -34,11 +37,8 @@ async function initCommittedRepo(dir: string): Promise<void> {
       .code,
     0,
   );
-  await git(dir, "init");
-  await git(dir, "config", "user.email", "test@example.com");
-  await git(dir, "config", "user.name", "Test");
   await git(dir, "add", "-A");
-  await git(dir, "commit", "-m", "initial");
+  await git(dir, "commit", "-m", "install discern");
 }
 
 Deno.test("upgrade proceeds on a clean tree", async () => {

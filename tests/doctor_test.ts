@@ -22,7 +22,13 @@ import {
   unexpectedTerminalControls,
   withTempDir,
 } from "./helpers.ts";
-import { addWorktree, git, gitInit } from "./engine_helpers.ts";
+import {
+  addWorktree,
+  convergeFixtureGitattributes,
+  git,
+  gitInit,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { crossedRepoBoundaries } from "../src/shared/env.ts";
 import {
   agentFilePaths,
@@ -93,6 +99,10 @@ const CLAUDE_SETTINGS_SCHEMA = z.object({
       }).passthrough(),
     ),
   ).optional(),
+}).passthrough();
+
+const PROVIDER_HOOK_FILE_SCHEMA = z.object({
+  hooks: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
 }).passthrough();
 
 /** One check in the validated `doctor --json` payload. */
@@ -209,14 +219,33 @@ Deno.test("doctor terminal Components make dynamic facts inert without mutating 
 
 /** Scaffold a healthy install in `dir`; assert it succeeded. */
 async function setupInstall(dir: string, slug = "doc-demo"): Promise<void> {
+  // `gitInit` needs one authored path to create its baseline commit. Setup itself
+  // now requires that repository boundary before it can write anything.
+  await Deno.writeTextFile(join(dir, "README.md"), "# Doctor fixture\n");
+  await gitInit(dir);
   const { code } = await runCli([
     "setup",
     "begin",
     "--confirmed",
+    "--allow-dirty",
     "--slug",
     slug,
   ], dir);
   assertEquals(code, 0, "setup should scaffold a healthy install");
+}
+
+/** Commit a doctor fixture after setup or a focused configuration edit. */
+async function commitDoctorFixture(dir: string): Promise<void> {
+  await convergeFixtureGitattributes(dir);
+  await git(dir, "add", "-A");
+  await git(
+    dir,
+    "commit",
+    "-q",
+    "-m",
+    "prepare doctor fixture",
+    "--no-gpg-sign",
+  );
 }
 
 /** Run the explicit verbose structured doctor used by execution-model tests. */
@@ -562,7 +591,7 @@ async function generatedDoctorProject(
   }]);
   const refresh = await runCli(["refresh", "--json"], dir);
   assertEquals(refresh.code, 0, refresh.stderr);
-  await gitInit(dir);
+  await commitDoctorFixture(dir);
 }
 
 Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
@@ -1284,7 +1313,7 @@ Deno.test("doctor: generated run probes resolve each leading word without execut
     await addGeneratedGroups(dir, groups);
     await Deno.writeTextFile(join(dir, "reference-output.txt"), "reference\n");
     await Deno.writeTextFile(join(dir, "schema-output.json"), "{}\n");
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 1);
@@ -1320,7 +1349,7 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
     await disableLogbook(dir);
     await Deno.mkdir(join(dir, "generated"));
     await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
     await addGeneratedGroups(dir, [{
       name: "bundle",
       paths: ["generated/**"],
@@ -1601,7 +1630,7 @@ Deno.test("doctor: generated path probes distinguish empty, untracked, and ignor
       append: true,
     });
     await Deno.writeTextFile(join(dir, "ignored-output.txt"), "ignored\n");
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
     await Deno.writeTextFile(join(dir, "untracked-output.txt"), "untracked\n");
 
     const { code, payload } = await runDoctorJson(dir);
@@ -1637,7 +1666,7 @@ Deno.test("doctor: overlapping generated ownership warns with every claiming con
     ] satisfies readonly GeneratedGroupFixture[];
     await addGeneratedGroups(dir, groups);
     await Deno.writeTextFile(join(dir, "shared-output.txt"), "shared\n");
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
@@ -1799,6 +1828,61 @@ Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure
   });
 });
 
+Deno.test("doctor: foreign worktree detection accepts nested command, group command, and group bash vendor shapes", async () => {
+  const cases = [
+    {
+      agent: "claude_code",
+      path: ".claude/settings.json",
+      event: "WorktreeCreate",
+      group: {
+        hooks: [{ type: "command", command: "other-tool worktree setup" }],
+      },
+    },
+    {
+      agent: "cursor",
+      path: ".cursor/hooks.json",
+      event: "sessionStart",
+      group: { command: "other-tool worktree setup" },
+    },
+    {
+      agent: "copilot",
+      path: ".github/hooks/discern.json",
+      event: "sessionStart",
+      group: {
+        type: "command",
+        bash: "other-tool worktree setup",
+      },
+    },
+  ] as const;
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "README.md"), "# Hook fixture\n");
+      await gitInit(dir);
+      const setup = await runCli([
+        "setup",
+        "begin",
+        "--confirmed",
+        "--slug",
+        `doctor-${testCase.agent.replaceAll("_", "-")}`,
+        "--agents",
+        testCase.agent,
+      ], dir);
+      assertEquals(setup.code, 0, setup.stderr);
+      const path = join(dir, testCase.path);
+      const parsed = decodeWith(
+        PROVIDER_HOOK_FILE_SCHEMA,
+        await Deno.readTextFile(path),
+      );
+      (parsed.hooks[testCase.event] ??= []).push({ ...testCase.group });
+      await Deno.writeTextFile(path, `${JSON.stringify(parsed, null, 2)}\n`);
+
+      const { code, payload } = await runDoctorJson(dir);
+      assertEquals(code, 0, JSON.stringify(payload.data.checks));
+      assertEquals(check(payload, "worktree automation").status, "warn");
+    });
+  }
+});
+
 Deno.test("doctor: a known job that declares stage fails with the derivation rule", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -1903,15 +1987,19 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0); // a registry-described divergence is healthy, just reported
 
-    // Claude Code wires every surface, and needs no separate trust step (discern
-    // pre-approves its MCP server) — surfaced so the gap between "wired" and "active"
-    // is visible (deliverable 5).
+    // Claude Code wires every surface. Workspace trust loads the committed files;
+    // only then does discern's named-server pre-approval suppress the second prompt.
     const claude = check(payload, "agent: Claude Code");
     assertEquals(claude.ok, true);
     assertStringIncludes(claude.detail, "instructions CLAUDE.md");
     assertStringIncludes(claude.detail, "mcp");
     assertStringIncludes(claude.detail, "hooks");
-    assertStringIncludes(claude.detail, "trust: not required");
+    assertStringIncludes(claude.detail, "trust: one-time");
+    assertStringIncludes(claude.detail, "enabledMcpjsonServers");
+    assertStringIncludes(
+      claude.detail,
+      "normal MCP tool permissions still apply",
+    );
 
     // Codex's MCP + SessionStart hooks are now WIRED (Phase B) — reported as wired, no
     // longer a pending gap — plus the one-time directory/hook trust it still needs for
@@ -1935,7 +2023,8 @@ Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired fo
     const facts = codexTrust.actions.flatMap((action) => action.facts);
     assert(
       facts.some((fact) =>
-        fact.kind === "config-key" && fact.value === "trust_level"
+        fact.kind === "config-key" &&
+        fact.value === 'projects."<absolute-project-path>".trust_level'
       ),
     );
     assert(
@@ -1977,6 +2066,8 @@ Deno.test("doctor: rejects a scope preview whose static command is unavailable",
 Deno.test("doctor: fails when configured provider hook files are missing", async () => {
   await withTempDir(async (dir) => {
     const hookProviders = providersWithHooks();
+    await Deno.writeTextFile(join(dir, "README.md"), "# Hook fixture\n");
+    await gitInit(dir);
     const { code: setupCode } = await runCli([
       "setup",
       "begin",
@@ -2043,7 +2134,8 @@ Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action",
     assertStringIncludes(gemini.detail, ".gemini/settings.json");
     assertStringIncludes(gemini.detail, "trust: one-time");
     assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
-    assertStringIncludes(gemini.detail, "`hooksConfig.enabled` = `true`");
+    assertStringIncludes(gemini.detail, "hooks are enabled by default");
+    assertEquals(gemini.detail.includes("hooksConfig"), false);
   });
 });
 
@@ -2229,7 +2321,7 @@ Deno.test("doctor --json: omits the execution model when there is no readable co
 Deno.test("doctor: the logbook check covers healthy-empty, recording, and disabled states", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
 
     // Enabled with no completed event yet is a healthy new-install state. The
     // first invocation settles it in one pass rather than demanding a rerun.
@@ -2265,7 +2357,7 @@ Deno.test("doctor: the logbook check covers healthy-empty, recording, and disabl
 Deno.test("doctor: an environment-denied Logbook write is advisory and disables this session", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
     const discernAdmin = join(dir, ".git", "discern");
     await Deno.mkdir(discernAdmin, { recursive: true });
     await Deno.chmod(discernAdmin, 0o500);
@@ -2286,7 +2378,7 @@ Deno.test("doctor: an environment-denied Logbook write is advisory and disables 
 Deno.test("doctor: corrupt schema warns, but unmatched historical begins do not affect health", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    await gitInit(dir);
+    await commitDoctorFixture(dir);
     assertEquals((await runDoctorJson(dir)).code, 0);
     const logbookDir = join(dir, ".git", "discern", "logbook");
     const months: string[] = [];
@@ -2349,7 +2441,7 @@ Deno.test("doctor: corrupt schema warns, but unmatched historical begins do not 
 
 Deno.test("doctor: the logbook check stays out of non-repository installs", async () => {
   await withTempDir(async (dir) => {
-    await setupInstall(dir);
+    await scaffoldEngine(dir);
     const { payload } = await runDoctorJson(dir);
     // No git repository → no logbook to write; the repository-shape check
     // already owns that conversation.

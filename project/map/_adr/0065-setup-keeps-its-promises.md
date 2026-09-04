@@ -4,7 +4,7 @@
 >
 > - **Vocabulary ([ADR 0120](0120-launch-verb-canon.md), [ADR 0168](0168-the-gate-declares-jobs.md)):** current spellings are `standards` (formerly `ratchets`), `done` (formerly `finish`), `accept` (formerly `graduate`), `update` (formerly `integrate`), `map` where it names the command, config, or tree (formerly `docs`), and known/custom `job` (formerly gate `capability` / custom `check`); the decisions below are unchanged.
 > - **[ADR 0128](0128-enumerated-ownership-tracked-guidance.md) — tracked agent files:** §7's uniformly-gitignored posture is reversed — the canonical agent file and its pointer mirrors are tracked by default; the promise-keeping headline of this record stands.
-> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — final-tree transaction:** the order in §1 is replaced. Non-forced completion commits the marker before its final checks, runs the Gate last, and returns canonical Proof for that clean commit. The forced path remains explicit and carries no Proof.
+> - **[ADR 0313](0313-setup-completion-and-acceptance-bind-one-final-proof.md) — final-tree transaction:** the order in §1 is replaced. Ordinary completion commits the marker before its final checks, runs the Gate last, and returns canonical Proof for that clean commit. The explicit `--unproven` path persists that state and carries no Proof.
 > - **[ADR 0351](0351-setup-completion-replays-proof-and-rolls-back-only-owned-tips.md) — replay and owned rollback:** a clean completed commit replays or validates through `setup done` without another marker. A failed new transaction returns to the predecessor only while discern still owns the exact tip; otherwise the changed state is retained with recovery.
 > - **[ADR 0322](0322-setup-is-one-bounded-operational-journey.md), current journey:** `SETUP_PAGE_REGISTRY` owns the live sequential page order and continuations. Numbered step references below record the brief at the time of this decision; they are not current routing instructions.
 
@@ -36,28 +36,28 @@ Each is a separate bug, but the unifying lesson is the one discern already appli
 
 **Every promise `discern setup` prints is backed by structure that exists when it prints it; existing guidance is adopted rather than replaced; and a fresh setup runs isolated on its own branch.** Concretely:
 
-1. **`discern setup done` proves completion structurally.** It runs, in order, `refresh` → `doctor` → `done` (calling the result cores directly, which sit below the router/MCP gate, so no setup bypass plumbing is needed) and records `[meta].bootstrapped = true` **only when doctor and `done` are green** (markers must already be clear, as before). `--force` remains the escape hatch: it bypasses both the marker check and the gate and records completion regardless. The agent no longer runs `done` as a separate pre-`done` step — `setup done` _is_ the green-gate proof, so "the gate is real" can no longer be reported without being true.
+1. **`discern setup done` proves completion structurally.** It records `[meta].bootstrapped = true` with `[meta].setup_completion = "proven"` only after the marker-bearing commit passes refresh, doctor, the worktree probe, and the final Gate. `discern setup done --unproven` is the named escape path: it persists `setup_completion = "unproven"`, returns no Proof, cannot be accepted, and can later converge through ordinary completion. The agent no longer runs `done` as a separate pre-completion step — `setup done` owns the green-gate proof.
 
 2. **The gate's proof verbs are usable during setup.** `done`, `prepare`, `test`, and `standards` are removed from `SETUP_GATED_VERBS` so the agent can iterate while wiring jobs — and test a standard it wires — during Step 7. They are **not** silent: while `!bootstrapped` each carries a `hints[]` entry stating setup is unfinished and this output is indicative until `discern setup
    done` passes. `map`, `accept`, and `update` stay gated — pre-setup they browse an empty tree or act on branch work that doesn't exist yet. This **revises ADR 0036's** uniform redirect: the "empty gate reads as a false all-green" risk it guarded against is now covered by ADR 0037's incompleteness signaling (the `status` banner, the session reminder, and the `setup done` gate), so gating the proof verbs only blocked their legitimate use.
 
 3. **A fresh setup adopts any existing agent file into `guidance.md`.** Before the first compile, on a fresh install (no `discern.toml` yet — so any agent file on disk is the user's, never one discern generated), each pre-existing `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` has its content folded into the tracked `guidance.md` source under a labelled heading, deduped by content. The compile then re-emits it as part of the generated body, so existing instructions flow into the author-once → compile-everywhere pipeline rather than being replaced by it. Duplicate content is harmless — the agent reconciles it in Step 4.
 
-4. **Setup ships what it references.** `laySkeletons` lays a marked `guidance.md` stub (so "flesh out the stub" is literally true, and the existing `findSkeletonMarkers` check enforces it — no second code path) and the `_adr/` skeleton (`README.md` + `0000-template.md`, the canonical ADR format the design-principles template already depends on). The `_internal/` reference is softened to forward-reference the `document-subsystem` skill that owns it. A fresh-scaffold architectural test forbids the class: every relative link in a scaffolded doc must resolve, and every file the brief says to "flesh out" must be laid carrying a marker.
+4. **Setup ships what it references.** `laySkeletons` lays the marked instruction source and the Map's `_adr/` skeleton (`README.md` + `0000-template.md`, the canonical ADR format the design-principles template depends on). A fresh-scaffold architectural test forbids the class: every relative link in a scaffolded Map page resolves, and every file the brief says to fill is laid carrying a marker.
 
-5. **Skeleton fills use the correctly-cased project name.** The display name comes from `SetupConfig.projectName` (casing preserved from the directory), falling back to slug title-casing only on a `--force` resume where the fresh config isn't in hand.
+5. **Skeleton fills use the correctly-cased project name.** The display name comes from `SetupConfig.projectName` (casing preserved from the directory), falling back to slug title-casing only when resumed setup no longer has the fresh input.
 
 6. **`refresh` isolates per-artifact failures.** The skills and agent-file jobs in `compileGuidelines` are wrapped like the MCP job already is; a failure in one is recorded and reported, and the others still run. The result reports partial success rather than throwing.
 
 7. **The agent files are uniformly gitignored build artifacts.** The brief's "except `AGENTS.md`" carve-out is removed, settling the contradiction in favour of the shipped `.gitignore.fragment` and ADR 0034. `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are all generated, all gitignored; the tracked, reviewable source is `guidance.md`.
 
 8. **A fresh setup runs on its own branch.** In a git repo, a fresh `discern
-   setup` requires a clean working tree (it refuses uncommitted _tracked_ changes, pointing at `--allow-dirty`) and creates + checks out a dedicated `discern-setup` branch before writing anything — so the several commits setup makes never land on the user's current branch, and the whole effort is trivial to roll back (delete the branch) or land (merge it) when they're ready. `--allow-dirty` opts out of both the check and the branch; `--dry-run`, a re-run/`--force`, and a non-git directory are no-ops.
+   setup` requires a Git repository and normally a clean working tree (it refuses uncommitted _tracked_ changes, pointing at `--allow-dirty`) and creates + checks out a dedicated `discern-setup` branch before writing anything — so the several commits setup makes never land on the user's current branch, and the whole effort is trivial to roll back or land when ready. `--allow-dirty` keeps the explicitly chosen current-branch path; `--dry-run` has no effects, and `--reseed` refreshes an existing installation without re-detecting its provider selection. A non-Git directory refuses with `git init` as its one next action.
 
 The explicit **no**s:
 
 - **Incompleteness signaling is untouched (ADR 0037).** The loud "SETUP STARTED — NOT FINISHED" frame, the tail-survivable footer, and the `setup done` gate all stand. Making `setup done` run the gate _strengthens_ it: completion is now proven, not asserted.
-- **`setup done` does not weaken to a warning.** A red doctor or `done` run blocks completion (short of `--force`). If the install is unhealthy or the gate is red, setup genuinely is not done.
+- **`setup done` does not weaken to a warning.** A red doctor or Gate run blocks proven completion. The only bypass is the explicit, persisted, non-acceptable `--unproven` state.
 - **No new schema or CLI interactivity.** The completion marker stays `[meta].bootstrapped`; `discern setup` the command stays non-interactive.
 
 ## Consequences
@@ -68,7 +68,7 @@ The explicit **no**s:
 - `setup done` is slower — it runs the full gate, including tests — but that cost buys a real definition-of-done, and it is a one-time event that already asked the agent to run `done` by hand.
 - Un-gating the proof verbs (`done`/`prepare`/`test`/`standards`) leans on ADR 0037's signaling to carry the "not done yet" message; the per-command hint makes that explicit at each call site rather than relying only on `status`.
 - The single-source discipline holds: the `_adr/` skeleton is shared with the `write-adr` skill via a byte-identity guard, so the canonical format lives in one place even though it is laid from two.
-- `doctor` blocking `setup done` means an environment problem (a job's tool not yet on PATH) can hold completion. This is intended — the brief tells the agent to clear `doctor` in Step 8 — but it does couple completion to environment health, which `--force` exists to override when needed.
+- `doctor` blocking ordinary `setup done` means an environment problem can hold proven completion. This is intended: `--unproven` records the exception truthfully without manufacturing acceptance evidence.
 
 ## Alternatives considered
 

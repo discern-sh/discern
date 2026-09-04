@@ -389,7 +389,7 @@ Deno.test("setup accept refuses missing, unreadable, mismatched, and declaration
   });
 });
 
-Deno.test("setup accept refuses an unproved forced completion and a proved branch without the completion marker", async () => {
+Deno.test("setup accept refuses an unproven completion and a proved branch without the completion marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     await gitInit(dir);
@@ -397,7 +397,7 @@ Deno.test("setup accept refuses an unproved forced completion and a proved branc
     const forced = await runAgent(dir, [
       "setup",
       "done",
-      "--force",
+      "--unproven",
       "--json",
     ]);
     assertEquals(forced.code, 0, forced.output);
@@ -459,6 +459,7 @@ Deno.test("setup accept is a clean no-op when already on the integration branch"
     const obj = decodeCliResult(res.stdout, "setup accept");
     assertEquals(obj.ok, true);
     assertEquals(obj.data, {
+      next_action: "discern status",
       completion: {
         status: "no_op",
         reason: "already_on_target",
@@ -468,20 +469,17 @@ Deno.test("setup accept is a clean no-op when already on the integration branch"
   });
 });
 
-Deno.test("setup accept is a typed no-op when the project has no Git repository", async () => {
+Deno.test("setup accept refuses when the project has no Git repository", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
-    assertEquals(res.code, 0, res.output);
+    assertEquals(res.code, 1, res.output);
     const obj = decodeCliResult(res.stdout, "setup accept");
-    assertEquals(obj.ok, true);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.error, "no_repository");
     assertEquals(obj.data, {
-      completion: {
-        status: "no_op",
-        reason: "no_git_repository",
-      },
-      target: "main",
+      next_action: "git init",
     });
   });
 });

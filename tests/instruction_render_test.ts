@@ -605,34 +605,79 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
   }, { prefix: "discern-tmpl-bare-" });
 });
 
-Deno.test("renderAgentFiles: excluding the teach skill removes its instructions reference", async () => {
-  await withTempDir(async (included) => {
-    await withTempDir(async (excluded) => {
-      await Deno.writeTextFile(
-        join(included, "discern.toml"),
-        '[project]\nagents = ["codex"]\n',
-      );
-      await Deno.writeTextFile(
-        join(excluded, "discern.toml"),
-        [
-          "[project]",
-          'agents = ["codex"]',
-          "[skills]",
-          'exclude = ["discern-teach-the-project"]',
-          "",
-        ].join("\n"),
-      );
+Deno.test("renderAgentFiles: every mentioned skill disappears when excluded", async () => {
+  for (
+    const skill of [
+      "discern-teach-the-project",
+      "discern-set-the-standard",
+    ]
+  ) {
+    await withTempDir(async (included) => {
+      await withTempDir(async (excluded) => {
+        await Deno.writeTextFile(
+          join(included, "discern.toml"),
+          '[project]\nagents = ["codex"]\n',
+        );
+        await Deno.writeTextFile(
+          join(excluded, "discern.toml"),
+          [
+            "[project]",
+            'agents = ["codex"]',
+            "[skills]",
+            `exclude = ["${skill}"]`,
+            "",
+          ].join("\n"),
+        );
 
-      const includedBody = (await renderAgentFiles(included)).get("AGENTS.md");
-      const excludedBody = (await renderAgentFiles(excluded)).get("AGENTS.md");
-      assert(includedBody !== undefined && excludedBody !== undefined);
-      assertStringIncludes(includedBody, "discern-teach-the-project");
-      assert(
-        !excludedBody.includes("discern-teach-the-project"),
-        "compiled instructions must not name an excluded skill",
-      );
-    }, { prefix: "discern-teach-excluded-" });
-  }, { prefix: "discern-teach-included-" });
+        const includedBody = (await renderAgentFiles(included)).get(
+          "AGENTS.md",
+        );
+        const excludedBody = (await renderAgentFiles(excluded)).get(
+          "AGENTS.md",
+        );
+        assert(includedBody !== undefined && excludedBody !== undefined);
+        assertStringIncludes(includedBody, skill);
+        assert(
+          !excludedBody.includes(skill),
+          `compiled instructions must not name excluded skill ${skill}`,
+        );
+      }, { prefix: "discern-skill-excluded-" });
+    }, { prefix: "discern-skill-included-" });
+  }
+});
+
+Deno.test("every bundled skill mention is inside its has_skill predicate", async () => {
+  const root = fromFileUrl(new URL("../", import.meta.url));
+  const skills = new Set<string>();
+  for await (const entry of Deno.readDir(join(root, "templates", "skills"))) {
+    if (entry.isDirectory) skills.add(entry.name);
+  }
+  const token =
+    /\{\{#if\s+([a-z0-9_]+)\}\}|\{\{\/if\}\}|`(discern-[a-z0-9-]+)`/gu;
+  for await (
+    const entry of Deno.readDir(join(root, "templates", "instructions"))
+  ) {
+    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+    const text = await Deno.readTextFile(
+      join(root, "templates", "instructions", entry.name),
+    );
+    const predicates: string[] = [];
+    for (const match of text.matchAll(token)) {
+      const opened = match[1];
+      const skill = match[2];
+      if (opened !== undefined) {
+        predicates.push(opened);
+      } else if (match[0] === "{{/if}}") {
+        predicates.pop();
+      } else if (skill !== undefined && skills.has(skill)) {
+        const expected = `has_skill_${skill.replaceAll("-", "_")}`;
+        assert(
+          predicates.includes(expected),
+          `${entry.name}: \`${skill}\` must be gated by {{#if ${expected}}}`,
+        );
+      }
+    }
+  }
 });
 
 Deno.test("renderAgentFiles: the never-edit sentence names the project's real generated files (config-derived)", async () => {
@@ -825,8 +870,12 @@ Deno.test("renderAgentFiles: every instructions template input is config-driven 
       ].join("\n"),
       expect: true,
     },
-    has_teach_skill: {
+    has_skill_discern_teach_the_project: {
       toml: '[skills]\nexclude = ["discern-teach-the-project"]\n',
+      expect: false,
+    },
+    has_skill_discern_set_the_standard: {
+      toml: '[skills]\nexclude = ["discern-set-the-standard"]\n',
       expect: false,
     },
   };

@@ -126,7 +126,7 @@ const FRESH_OWNER_WELCOME = [
   "The selected agent will study the repository, preserve its workflows, set up the final quality check (the Gate) and separate working copies for tasks, then write the maintained project guide and shared agent instructions. discern keeps that working practice in place.",
   "Expect roughly 20–40 minutes and a meaningful number of tokens, prepared as small commits on a separate reviewable branch. You decide cost, access, durable data, new dependencies, exceptions, and landing.",
   `${SETUP_REVERSIBILITY.welcome} ${SETUP_REVERSIBILITY.uninstall}`,
-  "The footprint is one root `discern.toml`, one visible `discern/` folder, and the selected coding tools' local integration files. No API key or outside service is required by discern itself.",
+  "The footprint includes the root `discern.toml` and one visible `discern/` folder for authored sources, plus managed blocks in `.gitignore` and `.gitattributes`, Agent files compiled from the authored instructions, and the selected coding tools' local integration files. Generated provider skill directories stay Git-ignored. No API key or outside service is required by discern itself.",
   "Because future sessions inherit this work, I recommend your strongest suitable reasoning model. Switch with the coding tool's model selector and start a fresh project session. To stop, say so before `begin`; this welcome and the next preflight are read-only.",
 ] as const;
 
@@ -138,11 +138,17 @@ const FRESH_HUMAN_FRAMING = FRESH_OWNER_WELCOME.join(" ");
 const FRESH_NON_GIT_NOTE =
   "This folder isn't a git repository yet — setup's first step is `git init` (git is what makes setup isolated, reversible, and easy to undo); `discern setup verify` walks you through it.";
 
-const IN_PROGRESS_AGENT_INSTRUCTIONS =
-  "Finishing setup is YOUR job, not a status to report back. Continue the setup brief, then run `discern setup done` to validate and record completion — and don't tell the user setup is done until it passes. Reprint the brief any time with `discern setup begin` (idempotent; it won't touch your work).";
+/** Tell the agent how to resume setup on the observed branch state. */
+function inProgressAgentInstructions(branch: string): string {
+  const location = branch === "" ? "a detached HEAD" : `branch \`${branch}\``;
+  return `Finishing setup on ${location} is YOUR job, not a status to report back. Run \`discern setup begin\` to reprint the brief, continue it, then run \`discern setup done\` to validate and record completion — and don't tell the user setup is done until it passes.`;
+}
 
 const ABANDONED_AGENT_INSTRUCTIONS =
   `Setup is already in progress on the \`${SETUP_BRANCH}\` branch. Resume it with \`discern setup begin --confirmed\`; discern checks out that branch and reprints the current brief without replaying completed scaffold writes. Continue it, then run \`discern setup done\` to finish.`;
+
+const UNPROVEN_AGENT_INSTRUCTIONS =
+  "Setup was recorded as unproven, so it cannot be accepted or activated yet. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to replace the persisted state with proven Gate evidence.";
 
 /**
  * Render the welcome for the cwd's project, resolving its lifecycle phase from config
@@ -165,6 +171,8 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     }
   }
   const phase = setupPhaseOf({ hasConfig, bootstrapped });
+  const setupCompletion = config?.meta.setup_completion;
+  const unproven = setupCompletion === "unproven";
 
   // A half-finished setup abandoned from another branch: no config HERE, but a
   // `discern-setup` branch exists carrying setup's work. Route to the resume
@@ -189,7 +197,6 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
     return 0;
   }
 
-  const next = setupNextAction(phase);
   const progress = phase === "in_progress" && root !== undefined &&
       config !== undefined
     ? await setupProgress(root, config)
@@ -200,6 +207,14 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
   const gitRepo = phase !== "fresh" ||
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: Deno.cwd() }))
       .success;
+  const currentBranch = phase === "in_progress" && root !== undefined
+    ? (await runGit(["branch", "--show-current"], { cwd: root })).stdout.trim()
+    : "";
+  const next = phase === "fresh" && !gitRepo
+    ? "git init"
+    : unproven
+    ? "discern setup done"
+    : setupNextAction(phase);
 
   if (opts.json) {
     emitResult({
@@ -207,7 +222,10 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       verb: "setup",
       data: {
         phase,
-        complete: phase === "done",
+        complete: phase === "done" && !unproven,
+        ...(setupCompletion === undefined
+          ? {}
+          : { setup_completion: setupCompletion }),
         next_action: next,
         // The same instructional substance every presentation carries. The named
         // agent and human fields preserve their real audiences independently of
@@ -221,7 +239,10 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
           }
           : {}),
         ...(phase === "in_progress"
-          ? { agent_instructions: IN_PROGRESS_AGENT_INSTRUCTIONS }
+          ? { agent_instructions: inProgressAgentInstructions(currentBranch) }
+          : {}),
+        ...(unproven
+          ? { agent_instructions: UNPROVEN_AGENT_INSTRUCTIONS }
           : {}),
         // Same snake_case shape as status's `setup_unfinished`, so the two derived-
         // progress surfaces read identically.
@@ -254,11 +275,17 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       );
       break;
     case "in_progress":
-      log.line(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
+      log.line(
+        renderHumanOutputGroups(
+          inProgressWelcomeGroups(progress, currentBranch),
+        ),
+      );
       break;
     case "done":
       log.line(
-        "discern is already set up here. Run `discern status` to orient.",
+        unproven
+          ? "discern setup is unproven and cannot be accepted or activated. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to converge to proven."
+          : "discern is already set up here. Run `discern status` to orient.",
       );
       break;
   }
@@ -502,7 +529,20 @@ function abandonedSetupWelcomeGroups(): HumanOutputGroup<string>[] {
  * reassurance. */
 function inProgressWelcomeGroups(
   progress: SetupProgress | undefined,
+  branch: string,
 ): HumanOutputGroup<string>[] {
+  const branchLabel = branch === "" ? "a detached HEAD" : `\`${branch}\``;
+  const recovery = branch === SETUP_BRANCH
+    ? [
+      `Humans: your coding agent is mid-setup on ${branchLabel}. Follow along —`,
+      "roll it all back by deleting that branch, then run `discern uninstall` to",
+      "sweep out any generated files.",
+    ]
+    : [
+      `Humans: your coding agent is mid-setup on ${branchLabel}. This setup was`,
+      "started in place, so there is no separate setup branch to delete. To roll it",
+      "back, revert its scaffold commit on this branch, then run `discern uninstall`.",
+    ];
   return [
     {
       id: "setup-state",
@@ -524,9 +564,7 @@ function inProgressWelcomeGroups(
     {
       id: "human-recovery",
       items: [
-        "Humans: your coding agent is mid-setup on the `discern-setup` branch. Follow",
-        "along — roll it all back by deleting that branch, then `discern uninstall`",
-        "to sweep out any generated files.",
+        ...recovery,
       ],
     },
   ];
@@ -541,10 +579,10 @@ export function renderProgressLines(progress: SetupProgress): string[] {
   const lines: string[] = ["Progress so far:"];
 
   if (progress.pendingMarkers.length === 0) {
-    lines.push("  • docs & instructions: all skeletons filled ✓");
+    lines.push("  • Map & instructions: all skeletons filled ✓");
   } else {
     lines.push(
-      `  • docs & instructions: ${progress.pendingMarkers.length} file(s) still need filling —`,
+      `  • Map & instructions: ${progress.pendingMarkers.length} file(s) still need filling —`,
     );
     for (const f of progress.pendingMarkers) {
       lines.push(`      ${f}`);

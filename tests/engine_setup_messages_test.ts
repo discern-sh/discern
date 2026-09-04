@@ -13,30 +13,55 @@ import {
   completionMessage,
   confirmedBeginCommand,
   consentMessage,
+  type ConsentProviderFacts,
 } from "../src/shared/setup_messages.ts";
 import { renderFreshWelcome } from "../src/commands/setup_welcome.ts";
 import { SETUP_REVERSIBILITY } from "../src/shared/setup_experience.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import type { SetupAssurance } from "../src/shared/setup_assurance.ts";
+import { providerSetupFacts } from "../src/lib/providers.ts";
 
 const WT = "/repo.worktrees";
+const WORKTREE_ENV = {
+  worktreeEnvFiles: [".env", ".env.local"],
+  inheritedEnvNames: [],
+} as const;
 const PROOF_LINE =
   "> **Proof:** The Gate passed for `agent/setup` at `abc123def456` · View the full Proof: `discern status --verbose`";
+
+/** Project one registry provider into setup's consent shape. */
+function consentProvider(
+  name: "claude_code" | "cursor",
+): ConsentProviderFacts {
+  const facts = providerSetupFacts(name);
+  return {
+    label: facts.label,
+    name: facts.agent,
+    instructionFile: facts.instructionFile,
+    writtenFiles: facts.writtenFiles,
+    ...(facts.generatedSkillsDir === undefined
+      ? {}
+      : { generatedSkillsDir: facts.generatedSkillsDir }),
+    trust: facts.trust,
+    disclosures: facts.disclosures,
+  };
+}
 
 /** A detected two-agent set for the consent-context constructions. */
 const AGENTS = {
   wired: [
-    { label: "Claude Code", name: "claude_code" },
-    { label: "Cursor", name: "cursor" },
+    consentProvider("claude_code"),
+    consentProvider("cursor"),
   ],
-  detected: true,
+  evidence: "detected-on-this-machine" as const,
 };
 
 // ── consentMessage ───────────────────────────────────────────────────────────
 
-Deno.test("consentMessage carries the verbatim-protected confirmations, three pillars, cost, reversibility, and worktree path", () => {
+Deno.test("consentMessage carries the verbatim-protected confirmations, relay facts, cost, reversibility, and worktree path", () => {
   const msg = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: AGENTS,
@@ -64,7 +89,7 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   assertStringIncludes(msg, "Provenance is advisory");
   assertStringIncludes(msg, "Current provider/model (self-declared)");
   assertStringIncludes(msg, "never copy the placeholder");
-  // The three plain-word pillars, jargon glossed once.
+  // The relay items are stated plainly, with jargon glossed once.
   assertStringIncludes(
     msg,
     "Lasting outcome: future sessions inherit",
@@ -73,15 +98,29 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   assertStringIncludes(msg, "maintained project guide");
   // Placement stays consent: the tracked-by-default posture is disclosed — the
   // agent files land committed so out-of-tool sessions can read them.
-  assertStringIncludes(msg, "reviewable integration files");
+  assertStringIncludes(msg, "selected-provider integration files");
   // The footprint story in namespace terms (ADR 0099): one root file, one visible
   // folder (the map glossed for a novice) — scoped to what discern itself OWNS, with
   // the provider config files acknowledged as the user's own tools' integrations.
   // The old blanket containment claim ("nothing else in your repo is touched") was
   // an overclaim — `begin` also writes .mcp.json, agent settings, a gitignore block
   // — and must never return.
-  assertStringIncludes(msg, "one root `discern.toml`");
-  assertStringIncludes(msg, "one visible `discern/` folder");
+  assertStringIncludes(msg, "the root `discern.toml`");
+  assertStringIncludes(
+    msg,
+    "managed blocks in `.gitignore` and `.gitattributes`",
+  );
+  assertStringIncludes(msg, "Agent files `CLAUDE.md`, `AGENTS.md`");
+  assertStringIncludes(
+    msg,
+    "Generated, Git-ignored provider skill directories",
+  );
+  assertStringIncludes(msg, "one Git repository has one root `discern.toml`");
+  assertStringIncludes(msg, "A monorepo uses that root install");
+  assertStringIncludes(
+    msg,
+    "independent nested Git repository is a separate project",
+  );
   assertStringIncludes(
     msg,
     "preserve its workflows",
@@ -92,8 +131,11 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
   );
   assertStringIncludes(
     msg,
-    "selected coding tools' reviewable integration files",
+    "selected-provider integration files",
   );
+  assertStringIncludes(msg, "normal MCP tool permissions still apply");
+  assertStringIncludes(msg, "preserves existing Shared-file permission rules");
+  assertStringIncludes(msg, "environment-file order is `.env`, `.env.local`");
   assert(
     !msg.includes("author the project's docs and instructions"),
     "the setup plan must name the map rather than teach docs as its synonym",
@@ -114,6 +156,7 @@ Deno.test("consentMessage carries the verbatim-protected confirmations, three pi
 Deno.test("consentMessage reassures about existing docs and never offers to adopt them (ADR 0131)", () => {
   const withDocs = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: true,
     gitRepo: true,
     agents: AGENTS,
@@ -133,6 +176,7 @@ Deno.test("consentMessage reassures about existing docs and never offers to adop
 
   const noDocs = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: AGENTS,
@@ -144,6 +188,7 @@ Deno.test("consentMessage reassures about existing docs and never offers to adop
 Deno.test("consentMessage makes the agent set a consent point, with --agents as the mechanism", () => {
   const detected = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: AGENTS,
@@ -151,12 +196,13 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
   // The set is named to the human as a confirmation, not wired silently.
   assertStringIncludes(
     detected,
-    "I found Claude Code, Cursor on this machine",
+    "I found Claude Code, Cursor installed on this machine",
   );
   assertStringIncludes(
     detected,
-    "I recommend wiring that detected set",
+    "I recommend committing that detected set for this repository",
   );
+  assertStringIncludes(detected, "not which tool or model is running");
   assertStringIncludes(detected, "Keep it, or name a different set");
   // The mechanics ride OUTSIDE the fence, agent-facing, with the REAL effective
   // set as the example — copied verbatim it wires exactly what would have been
@@ -171,20 +217,25 @@ Deno.test("consentMessage makes the agent set a consent point, with --agents as 
   // Nothing detected → the defaults are still a consent point, phrased honestly.
   const defaulted = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: {
-      wired: [{ label: "Claude Code", name: "claude_code" }],
-      detected: false,
+      wired: [consentProvider("claude_code")],
+      evidence: "no-evidence",
     },
   });
   assertStringIncludes(defaulted, "proposed default set is Claude Code");
-  assertStringIncludes(defaulted, "Keep it, or name the tools you use");
+  assertStringIncludes(
+    defaulted,
+    "Keep it, name the tools you use, or choose none",
+  );
 });
 
 Deno.test("consentMessage conditions every isolation promise on git being present", () => {
   const nonGit = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: false,
     agents: AGENTS,
@@ -212,6 +263,7 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
 
   const withGit = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: AGENTS,
@@ -226,12 +278,13 @@ Deno.test("consentMessage conditions every isolation promise on git being presen
 Deno.test("consentMessage keeps the itemized message body within its bounded relay budget", () => {
   // The message the human reads sits between the two fences; the framing line and the
   // command ride outside it. Keep it short enough to survive a single read — the base
-  // case at the ~430-word target (the three pillars, the honest footprint story with
+  // case at the ~430-word target (the relay facts, the honest footprint story with
   // the provider files acknowledged, the named undo, and the agent-set consent
   // point), the docs case adding only its one extra reassurance bullet.
   const wordsOf = (docsExists: boolean): number => {
     const body = consentMessage({
       worktreePath: WT,
+      ...WORKTREE_ENV,
       docsExists,
       gitRepo: true,
       agents: AGENTS,
@@ -240,8 +293,8 @@ Deno.test("consentMessage keeps the itemized message body within its bounded rel
     return body.trim().split(/\s+/).filter(Boolean).length;
   };
   const base = wordsOf(false);
-  assert(base > 0 && base <= 440, `base message body was ${base} words`);
-  assert(wordsOf(true) <= 490, `docs message body was ${wordsOf(true)} words`);
+  assert(base > 0 && base <= 600, `base message body was ${base} words`);
+  assert(wordsOf(true) <= 650, `docs message body was ${wordsOf(true)} words`);
 });
 
 // ── confirmedBeginCommand ────────────────────────────────────────────────────
@@ -335,7 +388,7 @@ function completionContext(
     landing,
     reactivation: READY_REACTIVATION,
     proofLine: PROOF_LINE,
-    forced: false,
+    unproven: false,
   };
 }
 
@@ -343,6 +396,7 @@ Deno.test("welcome, consent, and completion derive one reversibility authority",
   const welcome = renderFreshWelcome({ tty: false }).join("\n");
   const consent = consentMessage({
     worktreePath: WT,
+    ...WORKTREE_ENV,
     docsExists: false,
     gitRepo: true,
     agents: AGENTS,
@@ -502,7 +556,7 @@ Deno.test("completionMessage withholds restart and improvement until landing, th
     landing,
     reactivation: { summary: "", per_agent: [] },
     proofLine: PROOF_LINE,
-    forced: false,
+    unproven: false,
   });
   assert(
     !noAgents.includes("start a fresh session"),

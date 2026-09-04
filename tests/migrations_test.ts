@@ -20,11 +20,14 @@ import {
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { decodeWith } from "./decode_cli_result.ts";
+import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { providerFor } from "../src/lib/providers.ts";
 
 const MigratedSettingsSchema = z.object({
   model: z.string().optional(),
   theme: z.string().optional(),
   permissions: z.object({ deny: z.array(z.string()).optional() }).optional(),
+  migrationProbe: z.string().optional(),
 });
 
 /** A synthetic step that records its source version when applied. */
@@ -270,8 +273,10 @@ Deno.test("context deep-merges .claude/settings.json", async () => {
       ".claude/settings.json",
       '{"theme":"dark","permissions":{"allow":["Read"]}}\n',
     );
-    await ctx.mergeSettings({ model: "opus" });
-    await ctx.mergeSettings({ permissions: { deny: ["Read(./.env)"] } });
+    await ctx.mergeSettings("claude_code", { model: "opus" });
+    await ctx.mergeSettings("claude_code", {
+      permissions: { deny: ["Read(./.env)"] },
+    });
     const text = await ctx.readText(".claude/settings.json");
     assertExists(text);
     const settings = decodeWith(MigratedSettingsSchema, text);
@@ -286,12 +291,27 @@ Deno.test("context rejects a non-object .claude/settings.json root", async () =>
     const ctx = createMigrationContext(dir);
     await ctx.writeText(".claude/settings.json", "[]\n");
     await assertRejects(
-      () => ctx.mergeSettings({ model: "opus" }),
+      () => ctx.mergeSettings("claude_code", { model: "opus" }),
       TypeError,
       "must contain a JSON object at the root",
     );
     assertEquals(await ctx.readText(".claude/settings.json"), "[]\n");
   });
+});
+
+Deno.test("context routes settings merges through every provider's registry target", async () => {
+  for (const name of AGENT_NAMES) {
+    const hooks = providerFor(name)?.hooks;
+    if (hooks === undefined) continue;
+    await withTempDir(async (dir) => {
+      const ctx = createMigrationContext(dir);
+      await ctx.mergeSettings(name, { migrationProbe: name });
+      const text = await ctx.readText(hooks.settingsFile);
+      assertExists(text);
+      const parsed = decodeWith(MigratedSettingsSchema, text);
+      assertEquals(parsed.migrationProbe, name);
+    });
+  }
 });
 
 Deno.test("context exposes the injected env and forwards notes", () => {

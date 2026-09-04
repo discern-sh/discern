@@ -1,16 +1,13 @@
 {
-  "permissions": {
-    "deny": [
-      "Read(./.env)"
-    ]
-  },
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree ensure"
+            "command": "discern worktree ensure",
+            "timeout": 600
           }
         ]
       }
@@ -20,7 +17,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git worktree add -b {{branch_prefix}}$name"
+            "command": "discern worktree hook create",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "discern worktree hook remove",
+            "timeout": 600
           }
         ]
       }

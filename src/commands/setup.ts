@@ -7,11 +7,11 @@
  * explicit `discern setup begin` both land here. There are no wizard questions and no
  * decisions for the user to make at the CLI — setup is always non-interactive:
  *
- *   1. Scaffold discern's machinery (a fresh install, or a `--force` refresh):
+ *   1. Scaffold discern's machinery (a fresh install, or a `--reseed` refresh):
  *      `discern.toml` with jobs unset, the agent files, the
  *      merged settings, the MCP wiring.
- *   2. Lay the doc skeletons — only when the project has none, so an existing
- *      `docs/` tree is never disturbed.
+ *   2. Lay the Map skeletons — only when the configured Map has none, so an
+ *      existing project documentation tree is never disturbed.
  *   3. Print the setup instructions for the agent in the loop to act on (it asks
  *      the user any clarifying questions in chat — the project never has to).
  *
@@ -27,7 +27,11 @@
 
 import { ensureDir, walk } from "@std/fs";
 import { dirname, join, relative } from "@std/path";
-import { type SetupConfig, tokensFromConfig } from "../lib/config.ts";
+import {
+  parseAgents,
+  type SetupConfig,
+  tokensFromConfig,
+} from "../lib/config.ts";
 import { Logger } from "../lib/log.ts";
 import {
   resolveConfigPath,
@@ -257,7 +261,7 @@ export interface SetupOptions extends InitFlags {
   json: boolean;
   noColor: boolean;
   dryRun: boolean;
-  force: boolean;
+  reseed: boolean;
   /** Set up on the current branch even if it is dirty — skips the clean-tree check
    * AND the auto-created `discern-setup` branch (the user manages git themselves). */
   allowDirty: boolean;
@@ -274,7 +278,7 @@ export interface SetupOptions extends InitFlags {
 /** Options for `discern setup done`. */
 export interface SetupDoneOptions {
   json: boolean;
-  force: boolean;
+  unproven: boolean;
   /** Fully attached live command tree supplied by the binary entry point. */
   cliModel: CliModelProvider;
 }
@@ -294,7 +298,7 @@ export interface RawScaffoldCliOptions {
   config?: string | undefined;
   model?: string | undefined;
   dryRun?: boolean | undefined;
-  force?: boolean | undefined;
+  reseed?: boolean | undefined;
   allowDirty?: boolean | undefined;
   confirmed?: boolean | undefined;
 }
@@ -313,7 +317,7 @@ export function beginOptsFrom(
     json,
     noColor,
     dryRun: o.dryRun ?? false,
-    force: o.force ?? false,
+    reseed: o.reseed ?? false,
     allowDirty: o.allowDirty ?? false,
     confirmed: o.confirmed ?? false,
     name: o.name,
@@ -743,6 +747,7 @@ async function scaffoldHarness(
         verb: "setup begin",
         dry_run: true,
         data: {
+          next_action: setupBeginRetryCommand({ ...opts, dryRun: false }),
           project: { slug: config.slug, agents: config.agents },
           plan: planToJson(plan),
           config_fills: configFills,
@@ -769,7 +774,7 @@ async function scaffoldHarness(
 
   // Record setup provenance into the freshly-scaffolded config — the discern version
   // that ran begin, and any agent-declared --model — for support triage (ADR 0075).
-  // FRESH-INSTALL ONLY: a `--force` re-run over a user's pre-existing config seed must
+  // FRESH-INSTALL ONLY: a `--reseed` run over a user's pre-existing config seed must
   // leave it byte-for-byte untouched, so provenance is never stamped into a file
   // discern didn't write. After applyPlan, so the fresh config exists to edit.
   if (freshInstall) {
@@ -915,7 +920,7 @@ async function scaffoldHarness(
  * at the map-region slot because that derived list can outlive its map. A match is
  * skipped and reported, never re-imported as if it were authoring. The stub is
  * laid only when the source is absent, so a re-run never clobbers the agent's
- * work; on a `--force` re-run the user's content is already in the source from
+ * work; on a `--reseed` run the user's content is already in the source from
  * the first run, so migration is skipped.
  */
 async function seedInstructions(
@@ -1088,6 +1093,7 @@ async function laySkeletons(
   name: string,
   mapDir: string,
   todoRel: string,
+  trunk: string,
 ): Promise<{ laid: string[]; skipped: string[] }> {
   const skeletonDir = join(await resolveSetupDir(), "skeleton");
   const laid: string[] = [];
@@ -1098,13 +1104,14 @@ async function laySkeletons(
     "{{project_name}}": name,
     "{{map_dir}}": docsRel,
     "{{todo_path}}": todoRel,
+    "{{trunk}}": trunk,
   };
 
   if (await pathExists(docsAbs)) {
     skipped.push(docsRel);
-  } else if (await pathExists(join(skeletonDir, "docs"))) {
+  } else if (await pathExists(join(skeletonDir, "map"))) {
     await copyTreeSubstituting(
-      join(skeletonDir, "docs"),
+      join(skeletonDir, "map"),
       docsAbs,
       tokens,
     );
@@ -1193,7 +1200,7 @@ function setupBeginRetryCommand(opts: SetupOptions): string {
   for (const [flag, value] of valueFlags) {
     if (value !== undefined) parts.push(flag, retryArg(value));
   }
-  if (opts.force) parts.push("--force");
+  if (opts.reseed) parts.push("--reseed");
   if (opts.allowDirty) parts.push("--allow-dirty");
   if (opts.confirmed) parts.push("--confirmed");
   return parts.join(" ");
@@ -1294,6 +1301,11 @@ async function beginRequiredEffects(
       : resolveConfiguredAgents(persistedConfig));
   const mapDir = scaffoldInput?.config.mapDir ?? persistedConfig?.map.dir ??
     opts.map ?? SOURCE_PATHS.map.defaultPath;
+  const todoRel = persistedConfig?.project.todo ??
+    SOURCE_PATHS.todo.defaultPath;
+  const instructionRel = persistedConfig === undefined
+    ? SOURCE_PATHS.instructions.defaultPath
+    : instructionSeedRel(persistedConfig.instructions.sources);
 
   const scaffoldPaths = new Set<string>([
     destDir,
@@ -1301,8 +1313,8 @@ async function beginRequiredEffects(
     join(destDir, ".gitignore"),
     join(destDir, ".gitattributes"),
     join(destDir, mapDir),
-    join(destDir, SOURCE_PATHS.todo.defaultPath),
-    join(destDir, SOURCE_PATHS.instructions.defaultPath),
+    join(destDir, todoRel),
+    join(destDir, instructionRel),
     ...writtenProviderArtifactPathsForAgents(agents).map((path) =>
       join(destDir, path)
     ),
@@ -1343,7 +1355,7 @@ async function beginRequiredEffects(
 async function doneRequiredEffects(
   root: string,
   config: DiscernConfig,
-  force: boolean,
+  unproven: boolean,
   includeMarker: boolean,
 ): Promise<SetupRequiredEffect[]> {
   const configPath = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
@@ -1371,7 +1383,7 @@ async function doneRequiredEffects(
   );
   if (commitEffect !== undefined) effects.push(commitEffect);
 
-  if (!force) {
+  if (!unproven) {
     const refreshPaths = [
       root,
       ...writtenProviderArtifactPathsForAgents(
@@ -1418,6 +1430,7 @@ function emitSetupWriteAccessRefusal(
     error: "write_access",
     message: writePreflightFailureMessage(failure),
     diagnostics: [writePreflightDiagnostic(failure, reproduceCmd)],
+    data: { next_action: reproduceCmd },
   };
   observeResult(result);
   if (json) {
@@ -1431,7 +1444,7 @@ function emitSetupWriteAccessRefusal(
 
 /**
  * `discern setup begin` — the first mutating phase of the staged handshake (ADR 0075):
- * scaffold (when fresh, or `--force`), lay the doc skeletons, record setup provenance,
+ * scaffold (when fresh, or `--reseed`), lay the Map skeletons, record setup provenance,
  * and print the setup brief for the agent in the loop. Reached by the explicit `begin`
  * sub-verb, by the declarative `--config`/flag path, and
  * idempotently again to reprint the brief while setup is in progress. Returns an exit
@@ -1456,12 +1469,37 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
 
   const destDir = await resolveSetupRoot(Deno.cwd());
+  const gitRepo = (await runGit(
+    ["rev-parse", "--is-inside-work-tree"],
+    { cwd: destDir },
+  )).success;
+  if (!gitRepo) {
+    const message =
+      "discern setup requires one Git repository for its isolated branch, commits, Proof, and landing path. Run `git init` here, then run `discern setup verify` again.";
+    if (opts.json) {
+      log.result({
+        ok: false,
+        verb: "setup begin",
+        error: "no_repository",
+        message,
+        data: {
+          complete: false,
+          next_action: "git init",
+          instructions:
+            "After Git is initialized, run `discern setup verify` to repeat the read-only preflight before setup begins.",
+        },
+      });
+    } else {
+      log.error(message);
+    }
+    return 1;
+  }
   const existingConfig = await resolveConfigPath(destDir);
   let freshInstall = existingConfig === undefined;
 
-  // Already set up → setup is a no-op unless --force re-seeds. An unparseable
+  // Already set up → setup is a no-op unless --reseed re-seeds. An unparseable
   // config is treated as not-set-up so the agent can repair it.
-  if (!freshInstall && !opts.force) {
+  if (!freshInstall && !opts.reseed) {
     let bootstrapped = false;
     try {
       bootstrapped = (await loadConfig(destDir)).meta.bootstrapped;
@@ -1471,12 +1509,16 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     }
     if (bootstrapped) {
       const message =
-        "this project is already set up. Re-run with --force to seed it again.";
+        "this project is already set up. Re-run with --reseed to seed it again.";
       if (opts.json) {
         log.result({
           ok: true,
           verb: "setup begin",
-          data: { already_set_up: true, message },
+          data: {
+            already_set_up: true,
+            message,
+            next_action: "discern status",
+          },
         });
       } else {
         log.line(message);
@@ -1491,8 +1533,8 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // touching anything and RE-SERVE the identical consent message — an agent that skipped
   // `verify` is handed the conversation to hold, not silently proceeded past it (the
   // error path is the teaching path). The declarative paths (`--config`, `--allow-dirty`,
-  // the CI/automation surfaces) are consent-exempt; a `--force` re-run over an existing
-  // install is not `freshInstall`, so it is exempt too — but `--force` on a truly fresh
+  // the CI/automation surfaces) are consent-exempt; a `--reseed` run over an existing
+  // install is not `freshInstall`, so it is exempt too — but `--reseed` on a truly fresh
   // tree still requires consent. `--dry-run` is exempt as well: consent gates writes,
   // and a dry run writes nothing — previewing the plan is part of the conversation,
   // not something to refuse. Stateless: the attestation rides the invocation, so
@@ -1508,7 +1550,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // read-only setup choices must settle before the write plan is derived. The
   // same resolved value is later consumed by the scaffold executor.
   let scaffoldInput: ResolvedScaffoldInput | undefined;
-  if (freshInstall || opts.force) {
+  if (freshInstall || opts.reseed) {
     const resolved = await resolveScaffoldInput(
       destDir,
       opts,
@@ -1571,7 +1613,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // A fresh setup makes several commits; keep them off the user's current branch and
   // trivially revertible. Require a clean tree (fail if dirty), then create + check
   // out `discern-setup`. Skipped on --dry-run (writes nothing), --allow-dirty (the
-  // user manages git), a re-run/--force, or outside a git repo.
+  // user manages git), a re-run/reseed, or outside a git repo.
   let setupBranch: string | undefined;
   if (freshInstall && !opts.dryRun && !opts.allowDirty) {
     if (setupBranchPlan === undefined) {
@@ -1619,9 +1661,9 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     }
   }
 
-  // --- Phase 1: scaffold the machinery (fresh install, or --force refresh) ---
+  // --- Phase 1: scaffold the machinery (fresh install, or --reseed refresh) ---
   let scaffold: ScaffoldOutcome | undefined;
-  if (freshInstall || opts.force) {
+  if (freshInstall || opts.reseed) {
     if (scaffoldInput === undefined) {
       throw new Error("resolved scaffold input missing after preconditions");
     }
@@ -1663,7 +1705,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const machineryCommitted = machineryCommit?.state === "committed";
 
   // --- Phase 2: lay the doc skeletons (only where the project has none) ---
-  // Read the config for the project name, but degrade gracefully: a `--force`
+  // Read the config for the project name, but degrade gracefully: a `--reseed`
   // re-run over a half-written or minimal config (the resume-after-interruption
   // case) must still lay skeletons rather than throw.
   let cfg: DiscernConfig | undefined;
@@ -1685,7 +1727,15 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   const mapDir = cfg?.map.dir ?? scaffold?.config.mapDir ??
     SOURCE_PATHS.map.defaultPath;
   const todoRel = cfg?.project.todo ?? SOURCE_PATHS.todo.defaultPath;
-  const { laid, skipped } = await laySkeletons(destDir, name, mapDir, todoRel);
+  const trunk = cfg?.repository.trunk ??
+    parseConfigOrThrow("").repository.trunk;
+  const { laid, skipped } = await laySkeletons(
+    destDir,
+    name,
+    mapDir,
+    todoRel,
+    trunk,
+  );
 
   // Instructions now derive their compact region list from the map. A fresh setup's
   // first compile necessarily runs before the starter map exists, so converge
@@ -1813,8 +1863,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
       ...(machineryCommit?.state === "failed"
         ? { machinery_commit_error: machineryCommit.detail }
         : {}),
-      next_action:
-        "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
+      next_action: "discern setup step 1",
       project: {
         slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
         agents: cfg?.project.agents ?? [],
@@ -1886,7 +1935,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (machineryCommitted) {
     scaffoldLines.push(
-      "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, instructions, and TODO below are yours to fill and commit.",
+      "Committed discern's wiring (config, managed Git blocks, MCP, and hooks) for you — the Map, instructions, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
     scaffoldLines.push(
@@ -1895,7 +1944,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   }
   if (laid.length > 0) {
     scaffoldLines.push(
-      `Project skeletons laid: ${
+      `Map and ledger skeletons laid: ${
         laid.join(", ")
       } (filled with the project name; complete them below).`,
     );
@@ -1985,7 +2034,10 @@ function emitDirtySetupRefusal(
       verb: "setup begin",
       error: "dirty_worktree",
       message,
-      data: { changes: state.changes },
+      data: {
+        next_action: "git status --short",
+        changes: state.changes,
+      },
     });
   } else {
     log.error(message);
@@ -2014,9 +2066,8 @@ async function planSetupBranch(
   if (state.kind === "dirty") {
     return { stop: emitDirtySetupRefusal(opts, log, state) };
   }
-  const current =
-    (await runGit(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: destDir }))
-      .stdout.trim();
+  const current = (await runGit(["branch", "--show-current"], { cwd: destDir }))
+    .stdout.trim();
   const exists =
     (await runGit(["rev-parse", "--verify", "--quiet", SETUP_BRANCH], {
       cwd: destDir,
@@ -2035,9 +2086,12 @@ async function planSetupBranch(
       { cwd: destDir },
     )).success;
     if (targetExists && current !== integrationBranchName) {
+      const currentLocation = current === ""
+        ? "your checkout is on a detached HEAD"
+        : `you are on \`${current}\``;
       const message =
         `setup starts from your trunk (\`${integrationBranchName}\`), the shared landing branch, so the finished ` +
-        `work can land back onto it cleanly — you are on \`${current}\`, and a setup branch forked ` +
+        `work can land back onto it cleanly — ${currentLocation}, and a setup branch forked ` +
         `from it would carry this branch's own commits onto \`${integrationBranchName}\` when landed. ` +
         `Check out \`${integrationBranchName}\` (\`git checkout ${integrationBranchName}\`), then re-run ` +
         "`discern setup begin`. (Advanced: --allow-dirty sets up on the current branch as-is, with no " +
@@ -2048,6 +2102,7 @@ async function planSetupBranch(
           verb: "setup begin",
           error: "not_on_trunk",
           message,
+          data: { next_action: `git checkout ${integrationBranchName}` },
         });
       } else {
         log.error(message);
@@ -2088,6 +2143,7 @@ async function ensureSetupBranch(
           message: checkout.stderr.trim(),
           reproduce_cmd: setupBeginRetryCommand(opts),
         }],
+        data: { next_action: setupBeginRetryCommand(opts) },
       });
     } else {
       log.error(message);
@@ -2103,7 +2159,7 @@ async function ensureSetupBranch(
  * the machinery commit. Both are scaffolded into {@link ScaffoldOutcome.written}:
  * the instruction stub (at the resolved seed location) and the brief (the captured
  * intent, present only when a brief was supplied — at its fixed registry path).
- * The other authored seeds — the docs skeletons and the deferred-work ledger —
+ * The other authored seeds — the Map skeletons and the deferred-work ledger —
  * are laid AFTER the commit (by {@link laySkeletons}), so they never reach it.
  */
 function authoredContentSeeds(instructionRel: string): ReadonlySet<string> {
@@ -2117,14 +2173,14 @@ function authoredContentSeeds(instructionRel: string): ReadonlySet<string> {
  * (derived from {@link ScaffoldOutcome.written} ∪ `.mcpWired` ∪ `.hooksWired`
  * ∪ `.worktreeAppWired` ∪ `.projectRulesWired`, minus the
  * {@link authoredContentSeeds} the agent fills) —
- * as one `discern: scaffold wiring` commit on the `discern-setup` branch. discern
+ * as one registry-rendered `Scaffold discern wiring` commit on the `discern-setup` branch. discern
  * OWNS this commit because the files are exactly the ones a coding agent's safety classifier
  * refuses to commit (pre-approving an MCP server widens permissions), which otherwise strands
  * discern's essential wiring on a dirty tree. Extends the {@link commitCompletionMarker}
  * precedent — the engine commits its own output — and mirrors its shape: best-effort and
  * fail-open, so a commit failure (e.g. commit signing) never fails `begin`; the agent can
  * still commit by hand. Commits ONLY the derived machinery paths (never `git add -A`), so the
- * authored-content seeds (the instruction stub, the docs skeletons, the ledger) stay uncommitted
+ * authored-content seeds (the instruction stub, the Map skeletons, the ledger) stay uncommitted
  * for the agent. The caller gates this on being on the `discern-setup` branch (a fresh install
  * in a git repo), so it never runs when setup proceeds in place.
  *
@@ -2223,8 +2279,8 @@ async function commitProvenMachinery(
   const paths = evidence.entries.map((entry) => entry.path);
   const commit = await commitDiscernChanges({
     site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+    values: undefined,
     cwd: root,
-    subject: "discern: scaffold wiring",
     pathspecs: paths,
     source: "staged-index",
     stagedProof: {
@@ -2308,9 +2364,28 @@ export async function runSetupStep(
   n: number,
   opts: SetupStepOptions,
 ): Promise<number> {
-  const rawInstructions = await Deno.readTextFile(
-    join(await resolveSetupDir(), "instructions.md"),
-  );
+  let rawInstructions: string;
+  try {
+    rawInstructions = await Deno.readTextFile(
+      join(await resolveSetupDir(), "instructions.md"),
+    );
+  } catch (error) {
+    const message = `the setup brief is unavailable: ${
+      errMsg(error)
+    }. Run \`discern setup verify\` to restart from the read-only preflight.`;
+    if (opts.json) {
+      emitResult({
+        ok: false,
+        verb: "setup step",
+        error: "not_initialized",
+        message,
+        data: { next_action: "discern setup verify" },
+      });
+    } else {
+      new Logger({ json: false, noColor: false }).error(message);
+    }
+    return 1;
+  }
   let mapDir = SOURCE_PATHS.map.defaultPath;
   let todoRel = SOURCE_PATHS.todo.defaultPath;
   let instructionRel = SOURCE_PATHS.instructions.defaultPath;
@@ -2344,6 +2419,7 @@ export async function runSetupStep(
         verb: "setup step",
         error: "brief_unparseable",
         message,
+        data: { next_action: "discern setup begin" },
       });
     } else {
       new Logger({ json: false, noColor: false }).error(message);
@@ -2359,6 +2435,7 @@ export async function runSetupStep(
         verb: "setup step",
         error: "no_such_step",
         message,
+        data: { next_action: "discern setup begin" },
       });
     } else {
       new Logger({ json: false, noColor: false }).error(message);
@@ -2382,15 +2459,18 @@ export async function runSetupStep(
 /**
  * Commit the `[meta]` completion marker `setup done` just wrote. The safety
  * invariant is path-local: stage and commit ONLY `discern.toml`, and only when its
- * HEAD diff is exactly the two completion fields. Unrelated tracked, staged, or untracked
- * work is left for the agent's own tidy commit. A no-op outside a git repo.
- * Forced completion treats a refusal as best-effort. Non-forced completion requires
+ * HEAD diff is exactly the completion fields plus the schema anchor when an
+ * incomplete legacy install did not carry one. Unrelated tracked, staged, or
+ * untracked work is left for the agent's own tidy commit. A no-op outside a git repo.
+ * Unproven completion treats a refusal as best-effort. Proven completion requires
  * the `committed` outcome before any completion check runs.
  */
 async function commitCompletionMarker(
   root: string,
   configPath: string,
   completion: "proven" | "unproven",
+  previousCompletion: "proven" | "unproven" | undefined,
+  schemaWasMissing: boolean,
 ): Promise<MarkerCommitOutcome> {
   if ((await worktreeState(root)).kind === "not-a-repo") {
     return { state: "no-git" };
@@ -2409,12 +2489,27 @@ async function commitCompletionMarker(
   const removed = body.filter((l) => l.startsWith("-") && !l.startsWith("---"));
   const markerKey = BOOTSTRAPPED_KEY.split(".").pop();
   const evidenceKey = SETUP_COMPLETION_KEY.split(".").pop();
-  const expected = new Set([
-    `${markerKey} = true`,
-    `${evidenceKey} = "${completion}"`,
-  ]);
-  const onlyMarker = removed.length === 0 && added.length === expected.size &&
-    added.every((line) => expected.has(line.slice(1).trim()));
+  const schemaKey = "schema_version";
+  const promoting = previousCompletion === "unproven" &&
+    completion === "proven";
+  const expectedAdded = new Set(
+    promoting
+      ? [`${evidenceKey} = "proven"`]
+      : [`${markerKey} = true`, `${evidenceKey} = "${completion}"`],
+  );
+  if (!promoting && schemaWasMissing) {
+    expectedAdded.add(`${schemaKey} = ${SCHEMA_VERSION}`);
+  }
+  const allowedRemoved = new Set(
+    promoting ? [`${evidenceKey} = "unproven"`] : [`${markerKey} = false`],
+  );
+  const removedCountMatches = promoting
+    ? removed.length === allowedRemoved.size
+    : removed.length <= allowedRemoved.size;
+  const onlyMarker = added.length === expectedAdded.size &&
+    removedCountMatches &&
+    added.every((line) => expectedAdded.has(line.slice(1).trim())) &&
+    removed.every((line) => allowedRemoved.has(line.slice(1).trim()));
   if (!onlyMarker) {
     // More than the completion metadata changed → leave it for the agent.
     return { state: "skipped" };
@@ -2425,8 +2520,8 @@ async function commitCompletionMarker(
   }
   const commit = await commitDiscernChanges({
     site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+    values: undefined,
     cwd: root,
-    subject: "Mark discern setup complete",
     pathspecs: [configRel],
   });
   if (!commit.success) {
@@ -2534,7 +2629,7 @@ async function rollbackCompletionMarker(
     : { state: "owned_commit_removed", detail: proof.detail };
 }
 
-/** Explain why a non-forced setup could not establish its final marker commit. */
+/** Explain why a proven setup could not establish its final marker commit. */
 function markerCommitFailureDetail(outcome: MarkerCommitOutcome): string {
   switch (outcome.state) {
     case "failed":
@@ -2542,7 +2637,7 @@ function markerCommitFailureDetail(outcome: MarkerCommitOutcome): string {
     case "skipped":
       return "the discern.toml change included more than the completion marker, so discern refused to commit it";
     case "no-git":
-      return "the project has no Git commit to bind Proof to; initialize the repository or use --force for an explicitly unproved completion";
+      return "the project has no Git commit to bind Proof to; initialize the repository before completing setup";
     case "committed":
       return "the completion marker was committed";
   }
@@ -2570,7 +2665,7 @@ async function unmetSetupChecks(root: string): Promise<SetupCheckResult[]> {
  * Emit the combined "setup is not finished" failure — the leftover skeleton markers
  * AND the unmet per-step checks, each named — in both human and `--json` modes.
  * `[meta].bootstrapped` stays unrecorded, so `status` keeps reporting setup as
- * unfinished until every one passes (or `--force` overrides it).
+ * unfinished until every one passes (or `--unproven` records the bypass).
  */
 function emitSetupIncomplete(
   json: boolean,
@@ -2591,7 +2686,11 @@ function emitSetupIncomplete(
       verb: "setup done",
       error: "incomplete",
       message,
-      data: { leftover, unmet } satisfies SetupDoneFailureData,
+      data: {
+        next_action: "discern setup begin",
+        leftover,
+        unmet,
+      } satisfies SetupDoneFailureData,
       hints: hintTexts([fire(HINTS["setup-finish-incomplete"])]),
     });
     return;
@@ -2607,7 +2706,7 @@ function emitSetupIncomplete(
   }
   log.group("recovery");
   log.humanLine(
-    "  Fill them and re-run, or pass --force to mark complete anyway.",
+    "  Fill them and re-run, or pass --unproven to record completion without Proof.",
   );
 }
 
@@ -2681,6 +2780,7 @@ function emitSetupDirtyRefusal(
       error: "dirty_worktree",
       message: refusal.message,
       data: {
+        next_action: "git status --short",
         uncommitted: [...refusal.paths],
         ...(refusal.stage === undefined ? {} : { stage: refusal.stage }),
       } satisfies SetupDoneFailureData,
@@ -2709,7 +2809,7 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     group: "uncommitted-items",
     recovery: [
       "  The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-      "  (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+      "  (Untracked scratch outside the setup files never blocks; --unproven skips this check.)",
     ],
   });
 }
@@ -2747,7 +2847,7 @@ function emitSetupFinalTreeDirty(
  * completed `setup done`, computed once and shared with the `--json` envelope. */
 interface DoneSuccessView {
   completion: SetupDoneSuccessKind;
-  forced: boolean;
+  unproven: boolean;
   leftover: string[];
   markerCommit: CompletionMarkerView;
   assurance: SetupAssurance;
@@ -2758,9 +2858,9 @@ interface DoneSuccessView {
    * `--json` `instructions` field (ADR 0086). */
   instructions: string;
   /** Whether the worktree probe actually proved the project viable in a copy (ADR
-   * 0090). False only on forced completion. */
+   * 0090). False only on unproven completion. */
   worktreeProven: boolean;
-  /** The canonical ready-to-relay proof line, absent on forced completion. */
+  /** The canonical ready-to-relay proof line, absent on unproven completion. */
   proofLine?: string | undefined;
 }
 
@@ -2770,11 +2870,11 @@ function doneHints(
   landing: LandingSummary,
   reactivation: ReturnType<typeof reactivationHandoff> | undefined,
   activationAvailable: boolean,
-  forced: boolean,
+  unproven: boolean,
 ): string[] {
   const hints: FiredHint[] = [];
-  if (forced) {
-    return hintTexts([fire(HINTS["setup-forced-needs-proof"])]);
+  if (unproven) {
+    return hintTexts([fire(HINTS["setup-unproven-needs-proof"])]);
   }
   if (landing.inRepo && !landing.onTarget && landing.branch !== "") {
     // `setup accept` lands ONLY the dedicated setup branch — an in-place setup on
@@ -2804,6 +2904,18 @@ function doneHints(
   }
   hints.push(fire(HINTS["setup-improvement-after-activation"]));
   return hintTexts(hints);
+}
+
+/** Select the first runnable command after a successful completion result. */
+function setupDoneNextAction(
+  landing: LandingSummary,
+  unproven: boolean,
+): string {
+  if (unproven) return "discern setup done";
+  if (landing.onTarget) return "discern status";
+  if (landing.branch === "") return `git checkout ${SETUP_BRANCH}`;
+  if (landing.onSetupBranch) return ACCEPT_COMMAND;
+  return `git checkout ${landing.target}`;
 }
 
 /** The one-line coverage verdict (A12), distinguishing setup completion from
@@ -2855,7 +2967,7 @@ function assuranceLines(a: SetupAssurance): string[] {
 function landStep(landing: LandingSummary, n: number): string[] {
   if (!landing.inRepo) {
     return [
-      `  ${n}. Land your setup — this project isn't a git repository, so there's nothing to land; your setup is in place as-is.`,
+      `  ${n}. Git is required before setup can be proven or landed. Run \`git init\`, commit the setup files, then run \`discern setup done\`.`,
     ];
   }
   if (landing.onTarget) {
@@ -2892,7 +3004,7 @@ function landStep(landing: LandingSummary, n: number): string[] {
 function printDoneSuccess(view: DoneSuccessView): void {
   const {
     completion,
-    forced,
+    unproven,
     leftover,
     markerCommit,
     assurance,
@@ -2906,14 +3018,14 @@ function printDoneSuccess(view: DoneSuccessView): void {
 
   const setupUnlanded = landing.inRepo && !landing.onTarget;
   const completionLines = [
-    forced
-      ? "Setup complete — discern is set up here (recorded with --force; the gate was not proven)."
+    unproven
+      ? "Setup completion is unproven — the event is recorded, but the Gate did not prove it."
       : setupUnlanded
       ? `Setup Proof is ready on \`${
         landing.branch || SETUP_BRANCH
       }\`; \`${landing.target}\` does not contain setup yet.`
       : `Setup Proof is ready on \`${landing.target}\`; discern is available on the trunk.`,
-    forced
+    unproven
       ? "The completion marker is present, but Proof and the activation handoff are withheld."
       : setupUnlanded
       ? "Land it or leave the proved branch for review. Do not restart or begin improvement work before landing and activation verification."
@@ -2928,9 +3040,9 @@ function printDoneSuccess(view: DoneSuccessView): void {
       "Validated the existing completion marker and recorded current Proof without another marker commit.",
     );
   }
-  if (forced) {
+  if (unproven) {
     completionLines.push(
-      `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
+      `(Recorded with --unproven despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
   }
   if (completion === "created" && markerCommit.state === "committed") {
@@ -2980,14 +3092,14 @@ function printDoneSuccess(view: DoneSuccessView): void {
 
   // The ordered follow-up is either landing alone, or provider activation then
   // an explicitly optional ongoing review.
-  const nextLines = forced
+  const nextLines = unproven
     ? [
       "What's next:",
       "  1. Resolve the incomplete or red setup, commit the correction, then run",
-      "     `discern setup done` without `--force` to obtain Proof before landing or activation.",
+      "     `discern setup done` to replace the completion state with `proven` before landing or activation.",
     ]
     : ["What's next:", ...landStep(landing, 1)];
-  if (!forced && !setupUnlanded && reactivation !== undefined) {
+  if (!unproven && !setupUnlanded && reactivation !== undefined) {
     let next = 2;
     for (const agent of reactivation.per_agent) {
       nextLines.push(
@@ -3036,13 +3148,13 @@ async function emitSetupDoneSuccess(
     gateRan: boolean;
   },
 ): Promise<number> {
-  const forced = state.completion === "forced";
+  const unproven = state.completion === "unproven";
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const rawToml = await Deno.readTextFile(path);
   const assurance = assessSetupAssurance(cfg, rawToml);
   const landing = await landingSummary(root, cfg);
   const inventory = await deriveSetupCompletionInventory(root, cfg, assurance);
-  const readyForActivation = !forced && (!landing.inRepo || landing.onTarget);
+  const readyForActivation = !unproven && landing.inRepo && landing.onTarget;
   const reactivation = readyForActivation
     ? reactivationHandoff(cfg)
     : undefined;
@@ -3052,16 +3164,18 @@ async function emitSetupDoneSuccess(
     landing,
     reactivation,
     proofLine: state.proof?.proof_line,
-    forced,
+    unproven,
   });
 
   const data: SetupDoneData = {
+    next_action: setupDoneNextAction(landing, unproven),
     bootstrapped: true,
     completion: state.completion,
     effects_performed: state.effectsPerformed,
     gate_ran: state.gateRan,
-    forced,
-    gate_proven: !forced && state.proof?.status === "honored",
+    setup_completion: unproven ? "unproven" : "proven",
+    unproven,
+    gate_proven: !unproven && state.proof?.status === "honored",
     worktree_proven: state.worktreeProven,
     marker_committed: state.markerCommit.state === "committed" ||
       state.markerCommit.state === "existing",
@@ -3097,7 +3211,7 @@ async function emitSetupDoneSuccess(
   const result: DiscernResult<SetupDoneData> = {
     ok: true,
     verb: "setup done",
-    hints: doneHints(landing, reactivation, readyForActivation, forced),
+    hints: doneHints(landing, reactivation, readyForActivation, unproven),
     data,
   };
   observeResult(result);
@@ -3107,7 +3221,7 @@ async function emitSetupDoneSuccess(
   }
   printDoneSuccess({
     completion: state.completion,
-    forced,
+    unproven,
     leftover: state.leftover,
     markerCommit: state.markerCommit,
     assurance,
@@ -3164,19 +3278,23 @@ async function runExistingSetupCompletion(
     head: markerHead,
   };
 
-  // Forced completion predates Git being mandatory: a no-Git installation may
-  // safely re-serve its unproved marker without effects. Inside Git, even force
-  // must pass the marker-state cleanliness check below so it cannot hide or
-  // overwrite intervening work.
-  if (opts.force && repository.kind === "not-a-repo") {
-    return await emitSetupDoneSuccess(root, cfg, opts, {
-      completion: "forced",
-      leftover: await findSkeletonMarkers(root, cfg),
-      markerCommit: marker,
-      worktreeProven: false,
-      effectsPerformed: false,
-      gateRan: false,
-    });
+  // Git is mandatory before this function is reached. Retain the defensive
+  // branch so a direct internal caller cannot turn missing repository evidence
+  // into a successful completion.
+  if (repository.kind === "not-a-repo") {
+    return emitDoneGateFailure(
+      opts.json,
+      "proof",
+      "discern setup completion requires a Git repository",
+      { state: "not_needed" },
+      {
+        error: "no_repository",
+        state: "The existing completion state was retained.",
+        nextAction: "git init",
+        recovery:
+          "Initialize Git, commit the setup files, then run `discern setup done` again.",
+      },
+    );
   }
 
   if (!pin.clean) {
@@ -3190,8 +3308,7 @@ async function runExistingSetupCompletion(
       { state: "not_needed" },
       {
         state: "The existing completion marker and Proof bytes were retained.",
-        nextAction:
-          "Restore a clean checkout without discarding the reported paths, then run `discern setup done` again.",
+        nextAction: "discern setup done",
         recovery:
           "Commit, stash, ignore, or remove only the reported paths. The next clean call will replay current Proof or validate this marker commit.",
         diagnostics: [{
@@ -3203,6 +3320,19 @@ async function runExistingSetupCompletion(
         }],
       },
     );
+  }
+
+  const replayUnproven = opts.unproven &&
+    cfg.meta.setup_completion === "unproven";
+  if (replayUnproven) {
+    return await emitSetupDoneSuccess(root, cfg, opts, {
+      completion: "unproven",
+      leftover: await findSkeletonMarkers(root, cfg),
+      markerCommit: marker,
+      worktreeProven: false,
+      effectsPerformed: false,
+      gateRan: false,
+    });
   }
 
   if (isCanonicalCompletionProof(proof)) {
@@ -3218,20 +3348,10 @@ async function runExistingSetupCompletion(
   }
 
   const leftover = await findSkeletonMarkers(root, cfg);
-  const unmet = opts.force ? [] : await unmetSetupChecks(root);
-  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
+  const unmet = await unmetSetupChecks(root);
+  if (leftover.length > 0 || unmet.length > 0) {
     emitSetupIncomplete(opts.json, leftover, unmet);
     return 1;
-  }
-  if (opts.force) {
-    return await emitSetupDoneSuccess(root, cfg, opts, {
-      completion: "forced",
-      leftover,
-      markerCommit: marker,
-      worktreeProven: false,
-      effectsPerformed: false,
-      gateRan: false,
-    });
   }
   if (pin.head === undefined) {
     return emitDoneGateFailure(
@@ -3241,7 +3361,7 @@ async function runExistingSetupCompletion(
       { state: "not_needed" },
       {
         state: "The existing marker and any prior evidence were retained.",
-        nextAction: "Repair the Git checkout, then run `discern setup done`.",
+        nextAction: "discern setup done",
         recovery:
           "Make HEAD readable on the setup branch. Discern will validate that existing marker instead of creating another commit.",
       },
@@ -3258,8 +3378,7 @@ async function runExistingSetupCompletion(
         hints: hintTexts([fire(HINTS["done-unchanged-tree-red"])]),
         state:
           "The marker remains present and unproved; the recorded failure was retained.",
-        nextAction:
-          "Fix the recorded failure, or run `discern done --rerun` for one deliberate flake probe before retrying `discern setup done`.",
+        nextAction: "discern done --rerun",
         recovery:
           "Change the failing input, or explicitly re-run the Gate once. Repeating setup completion alone will not retry until green.",
       },
@@ -3323,7 +3442,7 @@ async function runExistingSetupCompletion(
  * being meaningfully filled (the shallow-compliance failure). The marker-bearing
  * commit then runs refresh, doctor, the linked-worktree probe, and the final Gate.
  * A failed check removes only the exact marker commit this invocation still owns;
- * changed state is retained with recovery. `--force` is the manual-setup escape
+ * changed state is retained with recovery. `--unproven` is the explicit bypass
  * hatch: it skips the completeness checks and Proof.
  */
 export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
@@ -3342,18 +3461,36 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     emitDoneUnreadableConfig(opts.json, errMsg(error));
     return 1;
   }
-  if (doneCfg.meta.bootstrapped) {
+  if ((await worktreeState(root)).kind === "not-a-repo") {
+    return emitDoneGateFailure(
+      opts.json,
+      "proof",
+      "discern setup completion requires a Git repository",
+      { state: "not_needed" },
+      {
+        error: "no_repository",
+        state:
+          "No completion state or Proof was written; the existing setup files were retained.",
+        nextAction: "git init",
+        recovery:
+          "Initialize Git in this project, commit the setup files, then run `discern setup done` again.",
+      },
+    );
+  }
+  const promotingUnproven = doneCfg.meta.bootstrapped &&
+    doneCfg.meta.setup_completion === "unproven" && !opts.unproven;
+  if (doneCfg.meta.bootstrapped && !promotingUnproven) {
     return await runExistingSetupCompletion(root, doneCfg, opts);
   }
 
   // Structural completeness: no scaffolded doc (or the instruction source) may still
   // carry a marker, AND every derived per-step check must pass (ADR 0078). The
   // checks SUPPLEMENT the marker walk — they catch a skeleton whose marker was
-  // cleared without the file being filled. `--force` skips both.
+  // cleared without the file being filled. `--unproven` records the bypass.
   const leftover = await findSkeletonMarkers(root);
-  const unmet = opts.force ? [] : await unmetSetupChecks(root);
+  const unmet = opts.unproven ? [] : await unmetSetupChecks(root);
 
-  if (!opts.force && (leftover.length > 0 || unmet.length > 0)) {
+  if (!opts.unproven && (leftover.length > 0 || unmet.length > 0)) {
     emitSetupIncomplete(opts.json, leftover, unmet);
     return 1;
   }
@@ -3362,10 +3499,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   // (the worktree probe branches from HEAD), and the completion story — "the
   // branch keeps every commit", `setup accept` — is only true of commits. Refuse
   // while authored setup sits uncommitted, naming exactly what to commit, AFTER
-  // the completeness checks (fill first, then commit, then prove). `--force`
-  // skips it along with the rest of the proof.
+  // the completeness checks (fill first, then commit, then prove). `--unproven`
+  // records the event without running the proof path.
   let predecessorHead: string | undefined;
-  if (!opts.force) {
+  if (!opts.unproven) {
     const uncommitted = await uncommittedSetupWork(root);
     if (uncommitted.length > 0) {
       emitSetupUncommitted(opts.json, uncommitted);
@@ -3376,7 +3513,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const writeAuthority = await preflightSetupEffects(
     setupEffectPlan(
       "done",
-      await doneRequiredEffects(root, doneCfg, opts.force, true),
+      await doneRequiredEffects(root, doneCfg, opts.unproven, true),
     ),
   );
   if (!writeAuthority.ok) {
@@ -3385,10 +3522,10 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
       opts.json,
       "setup done",
       writeAuthority,
-      `discern setup done${opts.force ? " --force" : ""}`,
+      `discern setup done${opts.unproven ? " --unproven" : ""}`,
     );
   }
-  if (!opts.force) {
+  if (!opts.unproven) {
     // Converge tracked instruction artifacts before the final-tree transaction.
     // When this preparation changes tracked files, the caller reviews and commits
     // them first. The required refresh still runs again against the marker-bearing
@@ -3430,22 +3567,31 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
   const originalConfig = await Deno.readTextFile(path);
   const proofBefore = await snapshotGateProof(root);
   const editor = new TomlEditor(originalConfig);
-  const setupCompletion = opts.force ? "unproven" : "proven";
+  const setupCompletion = opts.unproven ? "unproven" : "proven";
+  // Completion is the migration boundary for installs assembled through older
+  // or deliberately minimal setup inputs. Keep the metadata pair atomic: once
+  // bootstrapped becomes true, the current schema anchor must exist too.
+  const schemaWasMissing = doneCfg.meta.schema_version === undefined;
+  if (schemaWasMissing) {
+    stampSchemaVersion(editor, SCHEMA_VERSION);
+  }
   editor.setBool(BOOTSTRAPPED_KEY, true);
   editor.setString(SETUP_COMPLETION_KEY, setupCompletion);
   await writeDiscernToml(path, editor.toString());
 
-  // Forced completion remains an explicit unproved escape hatch and retains the
+  // Unproven completion remains an explicit bypass and retains the
   // established best-effort marker commit. A normal completion requires the exact
   // marker-only commit; without it there is no committed final tree to prove.
   const markerCommit = await commitCompletionMarker(
     root,
     path,
     setupCompletion,
+    doneCfg.meta.setup_completion,
+    schemaWasMissing,
   );
-  if (opts.force) {
+  if (opts.unproven) {
     return await emitSetupDoneSuccess(root, await loadConfig(root), opts, {
-      completion: "forced",
+      completion: "unproven",
       leftover,
       markerCommit,
       worktreeProven: false,
@@ -3472,8 +3618,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
         state: rollback.state === "not_needed"
           ? "The uncommitted marker was removed; the predecessor commit and checkout are current."
           : "The marker state was retained because discern could not prove a safe rollback.",
-        nextAction:
-          "Fix the reported Git failure, then run `discern setup done`.",
+        nextAction: "discern setup done",
         recovery: rollback.state === "retained"
           ? `${rollback.detail}. Re-run \`discern setup done\`; it will inspect and validate any retained marker instead of creating a duplicate.`
           : "The setup branch is back at its sampled predecessor. Correct the Git hook, signing, or identity failure and retry.",
@@ -3558,7 +3703,7 @@ function nestedDiagnosticRecovery(
     }`;
   const rule = actionable.rule === undefined ? "" : ` (${actionable.rule})`;
   return {
-    nextAction: `Edit ${location}, then run \`${actionable.reproduce_cmd}\`.`,
+    nextAction: actionable.reproduce_cmd,
     recovery:
       `Fix ${location}${rule}: ${actionable.message}. Run \`${actionable.reproduce_cmd}\` to verify the content correction, then run \`discern setup done\` again.`,
   };
@@ -3623,7 +3768,7 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "refresh",
       detail: refreshFailure,
-      nextAction: "Fix the named refresh input, then run `discern refresh`.",
+      nextAction: "discern refresh",
       recovery:
         "Correct the reported generated-integration or instruction source problem, run `discern refresh`, and retry `discern setup done`.",
     };
@@ -3634,7 +3779,7 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "refresh",
       detail: refreshDrift,
-      nextAction: "Review and commit the named refresh drift.",
+      nextAction: "git status --short",
       recovery:
         "Preserve the changed paths, review and commit the intended refresh output, then retry `discern setup done`.",
     };
@@ -3646,7 +3791,7 @@ async function proveFinalSetupTree(
       stage: "doctor",
       detail:
         "the install has problems; run `discern doctor` and fix what it flags",
-      nextAction: "Run `discern doctor` and fix its named diagnostic.",
+      nextAction: "discern doctor",
       recovery:
         "Use the doctor's exact file or config correction, then retry `discern setup done`.",
     };
@@ -3657,7 +3802,7 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "doctor",
       detail: doctorDrift,
-      nextAction: "Review the named changed paths.",
+      nextAction: "git status --short",
       recovery:
         "Preserve and reconcile the changed paths, return the marker-bearing tree to clean state, then retry `discern setup done`.",
     };
@@ -3673,7 +3818,7 @@ async function proveFinalSetupTree(
       ok: false,
       stage: "worktree_probe",
       detail: probeDrift,
-      nextAction: "Review the named changed paths.",
+      nextAction: "git status --short",
       recovery:
         "Preserve and reconcile the changed paths, then retry `discern setup done` from a clean tree.",
     };
@@ -3699,7 +3844,7 @@ async function proveFinalSetupTree(
         ? {}
         : { diagnostics: gate.diagnostics }),
       nextAction: diagnosticRecovery?.nextAction ??
-        "Fix the first Gate diagnostic, then run its reproduce command.",
+        "discern done",
       recovery: diagnosticRecovery?.recovery ??
         "Use the Gate's first diagnostic and reproduce command, correct that failure, then retry `discern setup done`.",
     };
@@ -3716,7 +3861,7 @@ async function proveFinalSetupTree(
         `the final Gate did not record a complete current Proof (${proof.status}${
           proof.reason === undefined ? "" : `: ${proof.reason}`
         })`,
-      nextAction: "Run `discern setup done` to validate the retained marker.",
+      nextAction: "discern setup done",
       recovery:
         "The marker is not accepted without canonical Proof. Repair the reported Proof write/read condition, then use `discern setup done`; it will validate the existing marker without another marker commit.",
     };
@@ -3801,7 +3946,7 @@ async function proveWorktreeViable(
             ? {}
             : { diagnostics: outcome.diagnostics }),
           nextAction: correction?.nextAction ??
-            "Edit the source named by the nested diagnostic.",
+            "discern setup done",
           recovery: correction?.recovery ??
             "Correct the source content named by the nested diagnostic, run its reproduce command, then retry `discern setup done`.",
         };
@@ -3815,8 +3960,7 @@ async function proveWorktreeViable(
         ...(outcome.diagnostics === undefined
           ? {}
           : { diagnostics: outcome.diagnostics }),
-        nextAction:
-          "Wire the missing copy-time dependency through the applicable worktree authority.",
+        nextAction: "discern worktree setup",
         recovery:
           "Something the project needs does not survive into a copy. Use `[repository].ensure` for shared dependencies, `[worktree.setup]` for copy-specific convergence, or `[worktree.resources]` for external lifecycle state, then retry `discern setup done`.",
       };
@@ -3831,8 +3975,8 @@ async function proveWorktreeViable(
           : { diagnostics: outcome.diagnostics }),
         nextAction: outcome.diagnostics?.[0]?.reproduce_cmd ===
             "discern worktree prune"
-          ? "Run `discern worktree prune` after fixing the named teardown failure."
-          : "Fix the named worktree setup or resource command, then run `discern worktree setup`.",
+          ? "discern worktree prune"
+          : "discern worktree setup",
         recovery: outcome.reason.toLocaleLowerCase().includes("resource")
           ? "Fix the named `[worktree.resources]` create or destroy command and its prerequisites. Run `discern worktree prune` when retained resource cleanup is named, then retry `discern setup done`."
           : "Fix the named `[repository].ensure` or `[worktree.setup]` command and its prerequisites, then retry `discern setup done`.",
@@ -3843,8 +3987,7 @@ async function proveWorktreeViable(
         stage: "worktree_probe",
         detail:
           `discern could not create the required linked-worktree probe: ${outcome.reason}`,
-        nextAction:
-          "Fix the named Git worktree creation state, then run `discern setup done`.",
+        nextAction: "discern setup done",
         recovery:
           "Restore a normal committed branch and writable configured worktree root. The next call creates and retires one owned probe through the production lifecycle.",
       };
@@ -3853,7 +3996,7 @@ async function proveWorktreeViable(
 
 /**
  * Refuse `setup done` when `discern.toml` can't be parsed, in both modes — the floor
- * even `--force` can't override, because there is no coherent project to mark complete
+ * even `--unproven` cannot override, because there is no coherent project to mark complete
  * and the marker write must never land ahead of a run that then fails. Names the parse
  * error and the exact fix. `[meta].bootstrapped` is left unrecorded (nothing is written).
  */
@@ -3861,7 +4004,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
   const message =
     `setup can't be marked complete — discern.toml doesn't parse: ${detail}. ` +
     "Fix the syntax it names (run `discern doctor` to see the full diagnosis), then " +
-    "re-run `discern setup done`. (Even --force won't record completion over a config " +
+    "re-run `discern setup done`. (Even --unproven won't record completion over a config " +
     "discern can't read.)";
   if (json) {
     emitResult({
@@ -3869,6 +4012,7 @@ function emitDoneUnreadableConfig(json: boolean, detail: string): void {
       verb: "setup done",
       error: "invalid_config",
       message,
+      data: { next_action: "discern doctor" },
     });
   } else {
     new Logger({ json: false, noColor: false }).error(message);
@@ -3883,12 +4027,11 @@ function emitDonePreMarkerFailure(
 ): number {
   const state =
     "No completion marker was written; existing Git and Proof state were retained.";
-  const nextAction =
-    "Fix the reported failure, then run `discern setup done` again.";
+  const nextAction = "discern setup done";
   const recovery =
     "Use the named stage's diagnostic or command to make the correction. The next call starts from the same incomplete setup commit.";
   const message =
-    `Setup completion stopped because ${detail}. ${state} ${nextAction}`;
+    `Setup completion stopped because ${detail}. ${state} Next action: \`${nextAction}\`.`;
   if (json) {
     emitResult({
       ok: false,
@@ -3927,7 +4070,7 @@ function emitDoneGateFailure(
   projection: SetupDoneFailureProjection,
 ): number {
   const message =
-    `Setup completion stopped because ${detail}. ${projection.state} ${projection.nextAction}`;
+    `Setup completion stopped because ${detail}. ${projection.state} Next action: \`${projection.nextAction}\`.`;
   if (json) {
     emitResult({
       ok: false,
@@ -3968,7 +4111,7 @@ function emitDoneGateFailure(
       log.humanLine(`  Reproduce: ${diagnostic.reproduce_cmd}`);
     }
     log.humanLine(
-      "  Use --force only when you intend to record an unproved completion that setup acceptance will refuse.",
+      "  Use --unproven only when you intend to record a completion event without Proof; setup acceptance will refuse it.",
     );
   }
   return 1;
@@ -3987,10 +4130,29 @@ async function emitAwaitingConsent(
   log: Logger,
   opts: SetupOptions,
   destDir: string,
+  env: EnvReader = Deno.env,
 ): Promise<number> {
+  const explicit = opts.agents === undefined
+    ? undefined
+    : parseAgents(opts.agents);
+  if (explicit !== undefined && explicit.unknown.length > 0) {
+    emitSetupError(
+      log,
+      opts,
+      "invalid_arguments",
+      `unknown agent(s): ${explicit.unknown.join(", ")}`,
+    );
+    return 1;
+  }
   const context = await deriveConsentContext(
     destDir,
-    (await consentAgentSet()).set,
+    (await consentAgentSet(
+      env,
+      explicit === undefined ? undefined : {
+        agents: explicit.agents,
+        evidence: "explicit-repository-selection",
+      },
+    )).set,
   );
   const instructions = consentMessage(context);
   const command = confirmedBeginCommand(context.projectName?.proposed);
@@ -4002,7 +4164,7 @@ async function emitAwaitingConsent(
       verb: "setup begin",
       error: AWAITING_CONSENT_SLUG,
       message,
-      data: { instructions, command },
+      data: { instructions, command, next_action: command },
       hints: hintTexts([
         fire(HINTS["setup-awaiting-confirmation"], {
           command: confirmedBeginCommandReference(
@@ -4030,7 +4192,13 @@ function emitSetupError(
   message: string,
 ): void {
   if (opts.json) {
-    log.result({ ok: false, verb: "setup begin", error, message });
+    log.result({
+      ok: false,
+      verb: "setup begin",
+      error,
+      message,
+      data: { next_action: setupBeginRetryCommand(opts) },
+    });
   } else {
     log.error(message);
   }
@@ -4054,6 +4222,7 @@ async function rootOrError(
         verb,
         error: "not_initialized",
         message: NO_PROJECT_MESSAGE,
+        data: { next_action: "discern setup verify" },
       });
     } else {
       new Logger({ json: false, noColor: false }).error(NO_PROJECT_MESSAGE);

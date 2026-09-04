@@ -17,6 +17,7 @@ import {
   AGENT_NAMES,
   type DiscernConfig,
   parseConfigOrThrow,
+  projectDisplayName,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -45,6 +46,7 @@ import {
 } from "../shared/file_ownership.ts";
 import {
   generatedArtifactMarker,
+  isGeneratedArtifactMarker,
   stripGeneratedArtifactMarker,
 } from "../shared/brand.ts";
 import { fire, HINTS } from "../shared/hints.ts";
@@ -399,6 +401,7 @@ export interface WorktreeAppIntegration {
    * written (empty when already in place). */
   register(
     root: string,
+    config: DiscernConfig,
     env?: EnvReader,
     files?: RefreshFileOps,
   ): Promise<string[]>;
@@ -426,6 +429,34 @@ export interface ProjectRulesIntegration {
 
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
  * the hook-event vocabulary it uses. Drives `setup`'s hook-stripping. */
+export const PROVIDER_HOOK_TIMEOUT_SECONDS = 600 as const;
+
+/** Why one vendor hook runs. The semantic kind stays stable while each vendor's
+ * event spelling remains part of its own format declaration. */
+export type ProviderHookKind =
+  | "session-start"
+  | "worktree-create"
+  | "worktree-remove";
+
+/** One command in a provider's committed hook file. */
+export interface ProviderHookCommand {
+  readonly kind: ProviderHookKind;
+  readonly event: string;
+  readonly command: `discern ${string}`;
+  readonly matcher?: string;
+}
+
+/** The vendor-controlled JSON shape for rendering a provider's hook groups. */
+export interface ProviderHookFormat {
+  readonly commandPlacement: "nested" | "group";
+  readonly commandKey: "command" | "bash";
+  readonly commandType: boolean;
+  readonly timeoutKey: "timeout" | "timeoutSec";
+  readonly timeoutUnit: "seconds" | "milliseconds";
+  readonly schema?: string;
+  readonly version?: 1;
+}
+
 export interface HooksIntegration {
   /** The project-relative settings file this provider's hooks live in. */
   readonly settingsFile: string;
@@ -433,16 +464,9 @@ export interface HooksIntegration {
   readonly ownership: FileOwnershipDeclaration;
   /** How this discern-written artifact carries provenance. */
   readonly writtenArtifact: WrittenArtifactClassDeclaration;
-  /**
-   * The create/remove worktree-lifecycle hook-event keys this provider uses. MAY be
-   * empty: an agent with no worktree create/remove events (the non-Claude agents)
-   * declares a SessionStart-only hooks surface — `worktreeEventKeys = []` and just a
-   * `sessionHookNeedle`. The hook-stripper and the parity guard both handle an empty
-   * list cleanly (they iterate it).
-   */
-  readonly worktreeEventKeys: readonly string[];
-  /** A substring identifying a SessionStart hook that drives the worktree flow. */
-  readonly sessionHookNeedle: string;
+  /** Every discern command carried by this provider's committed hook file. */
+  readonly commands: readonly ProviderHookCommand[];
+  readonly format: ProviderHookFormat;
   /**
    * How this provider's seed template merges into an existing settings file. Absent
    * ⇒ the default JSON deep-merge ({@link mergeJsonSettingsText}), which every
@@ -453,6 +477,72 @@ export interface HooksIntegration {
   readonly mergeSeed?: SettingsSeedMerge;
 }
 
+/** Render the vendor hook seed from the provider registry. The 600-second hook
+ * budget is converted only here, so seconds and milliseconds cannot drift. */
+export function renderProviderHookSeed(hooks: HooksIntegration): string {
+  const root: Record<string, unknown> = {};
+  if (hooks.format.schema !== undefined) {
+    root.$schema = hooks.format.schema;
+  }
+  if (hooks.format.version !== undefined) {
+    root.version = hooks.format.version;
+  }
+  const groups: Record<string, Record<string, unknown>[]> = {};
+  const timeout = hooks.format.timeoutUnit === "milliseconds"
+    ? PROVIDER_HOOK_TIMEOUT_SECONDS * 1000
+    : PROVIDER_HOOK_TIMEOUT_SECONDS;
+  for (const spec of hooks.commands) {
+    const hook: Record<string, unknown> = {
+      ...(hooks.format.commandType ? { type: "command" } : {}),
+      [hooks.format.commandKey]: spec.command,
+      [hooks.format.timeoutKey]: timeout,
+    };
+    const group: Record<string, unknown> = {
+      ...(spec.matcher !== undefined ? { matcher: spec.matcher } : {}),
+      ...(hooks.format.commandPlacement === "nested"
+        ? { hooks: [hook] }
+        : hook),
+    };
+    (groups[spec.event] ??= []).push(group);
+  }
+  root.hooks = groups;
+  return `${JSON.stringify(root, null, 2)}\n`;
+}
+
+/** Vendor event keys that create or remove worktrees. */
+export function providerWorktreeEventKeys(
+  hooks: HooksIntegration,
+): string[] {
+  return hooks.commands
+    .filter((command) => command.kind !== "session-start")
+    .map((command) => command.event);
+}
+
+/** The declared SessionStart command proving the rendered seed contains the
+ * registry's runnable command. */
+export function providerSessionHookCommand(
+  hooks: HooksIntegration,
+): string {
+  return hooks.commands.find((command) => command.kind === "session-start")
+    ?.command ?? "";
+}
+
+/** The worktree command word common to this provider's declared hook commands.
+ * Doctor uses it to recognize foreign vendor shapes without copying a command. */
+export function providerWorktreeHookNeedle(
+  hooks: HooksIntegration,
+): string {
+  for (const entry of hooks.commands) {
+    const word = entry.command.split(/\s+/u).find((part) =>
+      part === "worktree"
+    );
+    if (word !== undefined) {
+      return word;
+    }
+  }
+  return "worktree";
+}
+
 /**
  * One hooks provider's settings SEED: the project-relative target file its seed
  * template writes to, plus the strategy that merges the seed into an existing file.
@@ -461,6 +551,7 @@ export interface HooksIntegration {
 export interface SettingsSeed {
   readonly targetRel: string;
   readonly merge: SettingsSeedMerge;
+  readonly templateText: string;
 }
 
 /** The compiled agent-instruction file for one provider. */
@@ -653,6 +744,9 @@ export interface Provider {
    * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
    */
   readonly trust: TrustGate;
+  /** Plain-language security consequences setup must disclose before the owner
+   * commits this provider selection. Kept beside the wiring they describe. */
+  readonly setupDisclosures: readonly string[];
   /** Exact local recovery when the post-restart activation check is absent. */
   readonly activation: ProviderActivation;
   /** Human-facing provider setup that discern reports but never applies. */
@@ -672,6 +766,34 @@ export interface Provider {
    * hand-copied list. Absent → the agent has none.
    */
   readonly localState?: readonly ProviderArtifactPath[];
+}
+
+/** Registry-owned facts setup may present without reconstructing provider
+ * permissions or file locations in its conversation layer. */
+export interface ProviderSetupFacts {
+  readonly agent: AgentName;
+  readonly label: string;
+  readonly instructionFile: string;
+  readonly writtenFiles: readonly string[];
+  readonly generatedSkillsDir?: string | undefined;
+  readonly trust: ProviderTrustData;
+  readonly disclosures: readonly string[];
+}
+
+/** Project the final provider contract into setup. */
+export function providerSetupFacts(agent: AgentName): ProviderSetupFacts {
+  const provider = PROVIDERS[agent];
+  return {
+    agent,
+    label: provider.label,
+    instructionFile: provider.instructionFile.path,
+    writtenFiles: writtenProviderArtifactPathsForAgents([agent]),
+    ...(provider.skillsDir === undefined
+      ? {}
+      : { generatedSkillsDir: provider.skillsDir.path }),
+    trust: providerTrustData(agent, provider.trust),
+    disclosures: [...provider.setupDisclosures],
+  };
 }
 
 /**
@@ -882,13 +1004,32 @@ function codexDiscernRules(env: EnvReader = Deno.env): string {
 prefix_rule(
     pattern = ["git", "add"],
     decision = "allow",
-    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+    justification = "Allow the git add command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git add -A",
+        "git add src/example.ts",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )
 
 prefix_rule(
     pattern = ["git", "commit"],
     decision = "allow",
-    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+    justification = "Allow the git commit command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git commit -m Example",
+        "git commit --amend --no-edit",
+        "git commit --no-verify -m Example",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )
 `;
 }
@@ -904,6 +1045,23 @@ const CURSOR_HOOKS_FILE = ".cursor/hooks.json";
  * `.github/hooks/*.json`, so discern keeps its SessionStart hook in a discern-owned
  * `.github/hooks/discern.json`. */
 const COPILOT_HOOKS_FILE = ".github/hooks/discern.json";
+
+const NESTED_SECONDS_HOOK_FORMAT: ProviderHookFormat = {
+  commandPlacement: "nested",
+  commandKey: "command",
+  commandType: true,
+  timeoutKey: "timeout",
+  timeoutUnit: "seconds",
+};
+
+const GROUP_SECONDS_HOOK_FORMAT: ProviderHookFormat = {
+  commandPlacement: "group",
+  commandKey: "command",
+  commandType: false,
+  timeoutKey: "timeout",
+  timeoutUnit: "seconds",
+  version: 1,
+};
 
 /**
  * Register a stdio MCP server into a JSON file's `mcpServers.<name>` map, writing
@@ -1209,6 +1367,7 @@ function shouldWriteCodexEnvScript(
  */
 async function registerCodexEnvironment(
   root: string,
+  config: DiscernConfig,
   env: EnvReader = Deno.env,
   files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<string[]> {
@@ -1224,7 +1383,7 @@ async function registerCodexEnvironment(
         editor.setRootNumber("version", 1);
       }
       if (!editor.hasRootKey("name")) {
-        editor.setRootString("name", "Discern");
+        editor.setRootString("name", projectDisplayName(config));
       }
       const setupScript = stringAt(parsed, ["setup", "script"]);
       if (shouldWriteCodexEnvScript(setupScript, CODEX_ENV_SETUP_SCRIPT)) {
@@ -1330,6 +1489,12 @@ export async function stripDiscernFromCodexConfig(
  * ownership without discarding the app's config.
  */
 export function stripDiscernFromCodexEnv(existingText: string): string | null {
+  const hasDiscernMarker = existingText.split(/\r?\n/u).some((line) =>
+    isGeneratedArtifactMarker(
+      line,
+      ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    )
+  );
   const editor = new TomlEditor(existingText);
   const parsed = parseTomlObject(existingText);
 
@@ -1352,8 +1517,8 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
   );
   const remaining = parseTomlObject(withoutMarker);
   const keys = Object.keys(remaining);
-  const isDiscernShell = keys.every((k) => k === "version" || k === "name") &&
-    remaining.version === 1 && remaining.name === "Discern";
+  const isDiscernShell = hasDiscernMarker &&
+    keys.every((key) => key === "version" || key === "name");
   if (keys.length === 0 || isDiscernShell) {
     return null;
   }
@@ -1481,24 +1646,54 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       settingsFile: CLAUDE_SETTINGS_FILE,
       ownership: { shared: true },
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-      worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
-      sessionHookNeedle: "worktree",
+      commands: [{
+        kind: "session-start",
+        event: "SessionStart",
+        command: "discern worktree ensure",
+      }, {
+        kind: "worktree-create",
+        event: "WorktreeCreate",
+        command: "discern worktree hook create",
+      }, {
+        kind: "worktree-remove",
+        event: "WorktreeRemove",
+        command: "discern worktree hook remove",
+      }],
+      format: {
+        ...NESTED_SECONDS_HOOK_FORMAT,
+        schema: "https://json.schemastore.org/claude-code-settings.json",
+      },
     },
-    // discern pre-approves the MCP server by name in .claude/settings.json
-    // (enabledMcpjsonServers), so no separate trust/approval prompt gates it.
+    // Claude loads committed project configuration only after workspace trust.
+    // The named pre-approval then suppresses the additional project-server prompt;
+    // it does not bypass normal MCP tool permissions.
     trust: {
-      required: false,
+      required: true,
       explanation:
-        "discern pre-approves its MCP server, so no separate trust prompt is required.",
+        "Committed project settings and MCP configuration load only after the workspace is trusted.",
       actions: [{
+        kind: "trust-directory",
+        instruction:
+          "Trust the workspace so the committed Claude Code configuration loads",
+        facts: [
+          { kind: "path", value: MCP_JSON_FILE },
+          { kind: "path", value: CLAUDE_SETTINGS_FILE },
+        ],
+      }, {
         kind: "verify-configuration",
-        instruction: "Verify the committed pre-approval if activation fails",
+        instruction:
+          "After trust, verify the named local-server pre-approval; normal MCP tool permissions still apply",
         facts: [
           { kind: "config-key", value: "enabledMcpjsonServers" },
+          { kind: "config-value", value: DISCERN_MCP_SERVER.name },
           { kind: "path", value: CLAUDE_SETTINGS_FILE },
         ],
       }],
     },
+    setupDisclosures: [
+      "After you trust the workspace, Claude Code pre-approves only the named local discern MCP server so it does not show an additional project-server prompt; normal MCP tool permissions still apply.",
+      "discern adds no Claude Code permission rules and preserves existing Shared-file permission rules.",
+    ],
     activation: {
       callable: "mcp__discern__discern_status",
       recovery:
@@ -1580,14 +1775,19 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // SessionStart-only hooks surface in the committable `.codex/hooks.json` (JSON, so
     // the default deep-merge): the per-session `discern worktree ensure` re-ready step.
-    // No worktree create/remove event, so discern's own worktrees stay CLI/MCP-driven
-    // (empty worktreeEventKeys). A committed hook won't run until its hash is approved.
+    // No worktree create/remove event, so discern's own worktrees stay CLI/MCP-driven.
+    // A committed hook won't run until its hash is approved.
     hooks: {
       settingsFile: CODEX_HOOKS_FILE,
       ownership: { shared: true },
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-      worktreeEventKeys: [],
-      sessionHookNeedle: "discern worktree ensure",
+      commands: [{
+        kind: "session-start",
+        event: "SessionStart",
+        matcher: "startup|resume",
+        command: "discern worktree ensure",
+      }],
+      format: NESTED_SECONDS_HOOK_FORMAT,
     },
     // The Codex *app* runs `environment.toml` [setup]/[cleanup] when IT creates/tears
     // down one of its own worktrees — a create/teardown analogue discern co-manages
@@ -1617,10 +1817,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       actions: [{
         kind: "trust-directory",
         instruction:
-          "Grant one-time directory trust for the project configuration and rules",
+          "Trust this absolute project path in the user Codex configuration so its project layer loads",
         facts: [
-          { kind: "path", value: `${dirname(CODEX_CONFIG_FILE)}/` },
-          { kind: "config-key", value: "trust_level" },
+          { kind: "path", value: "~/.codex/config.toml" },
+          {
+            kind: "config-key",
+            value: 'projects."<absolute-project-path>".trust_level',
+          },
           { kind: "config-value", value: "trusted" },
         ],
       }, {
@@ -1633,6 +1836,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         }],
       }],
     },
+    setupDisclosures: [
+      "Codex receives only the git add and git commit command prefixes. Each prefix covers trailing arguments and has no working-directory boundary. It grants no broader Git access: no push or reset, and no general shell access.",
+      "Codex workspace-write adds exactly the configured worktree root. A relative root is written relative to .codex; an absolute configured root stays absolute.",
+    ],
     activation: {
       callable: "mcp__discern__discern_status",
       recovery:
@@ -1705,21 +1912,33 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // SessionStart-only hooks surface: Gemini has no worktree create/remove event, so
     // discern's own worktrees stay CLI/MCP-driven and only the per-session
-    // `discern worktree ensure` re-ready step is seeded (empty worktreeEventKeys). The
-    // seed sets hooksConfig.enabled = true so the hook actually fires (see trust).
+    // `discern worktree ensure` re-ready step is seeded. Hooks are enabled by default
+    // in current Gemini CLI; the seed includes the
+    // startup and resume sources and needs no parallel enablement setting.
     hooks: {
       settingsFile: GEMINI_SETTINGS_FILE,
       ownership: { shared: true },
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-      worktreeEventKeys: [],
-      sessionHookNeedle: "discern worktree ensure",
+      commands: [{
+        kind: "session-start",
+        event: "SessionStart",
+        matcher: "startup|resume",
+        command: "discern worktree ensure",
+      }],
+      format: {
+        commandPlacement: "nested",
+        commandKey: "command",
+        commandType: true,
+        timeoutKey: "timeout",
+        timeoutUnit: "milliseconds",
+      },
     },
     // Committed .gemini/settings.json is inert in safe mode until the folder is
-    // trusted; its hooks additionally require hooksConfig.enabled = true to fire.
+    // trusted. Current Gemini CLI enables hooks by default.
     trust: {
       required: true,
       explanation:
-        "Committed project settings remain inactive in safe mode until the workspace is trusted, and hooks must be enabled separately.",
+        "Committed project settings remain inactive in safe mode until the workspace is trusted; hooks are enabled by default.",
       actions: [{
         kind: "trust-directory",
         instruction:
@@ -1732,15 +1951,11 @@ export const PROVIDERS: Record<AgentName, Provider> = {
             value: "GEMINI_CLI_TRUST_WORKSPACE=true",
           },
         ],
-      }, {
-        kind: "enable-hooks",
-        instruction: "Enable hooks in the committed settings",
-        facts: [
-          { kind: "config-key", value: "hooksConfig.enabled" },
-          { kind: "config-value", value: "true" },
-        ],
       }],
     },
+    setupDisclosures: [
+      "Gemini loads the committed MCP server and the startup/resume hook after workspace trust; hooks are enabled by default.",
+    ],
     activation: {
       callable: "discern_status",
       recovery:
@@ -1844,7 +2059,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // SessionStart-only hooks surface in the committable `.cursor/hooks.json`: the
     // per-session `discern worktree ensure` re-ready step. No worktree create/remove
-    // event (empty worktreeEventKeys), so discern's own worktrees stay CLI/MCP-driven.
+    // event exists, so discern's own worktrees stay CLI/MCP-driven.
     // Cursor's hook groups carry the command at the group level (`{ command }`), which
     // the default merge can't dedup — so it uses the group-dedup seed strategy to stay
     // idempotent across re-seeds.
@@ -1852,8 +2067,12 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       settingsFile: CURSOR_HOOKS_FILE,
       ownership: { shared: true },
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-      worktreeEventKeys: [],
-      sessionHookNeedle: "discern worktree ensure",
+      commands: [{
+        kind: "session-start",
+        event: "sessionStart",
+        command: "discern worktree ensure",
+      }],
+      format: GROUP_SECONDS_HOOK_FORMAT,
       mergeSeed: mergeJsonSettingsDedupingGroups,
     },
     // Committed .cursor/ MCP is inert until the workspace is trusted, and tool use is
@@ -1869,6 +2088,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         facts: [{ kind: "flag", value: "--approve-mcps" }],
       }],
     },
+    setupDisclosures: [
+      "Cursor requires workspace trust and first-use approval for the discern MCP tools.",
+    ],
     activation: {
       callable: "discern_status",
       recovery:
@@ -1961,15 +2183,26 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // SessionStart-only hooks surface in a discern-owned `.github/hooks/discern.json`
     // (Copilot loads every `.github/hooks/*.json`). sessionStart fires per-prompt in
     // interactive mode, so the seeded `discern worktree ensure` must stay idempotent —
-    // it is. No worktree create/remove event (empty worktreeEventKeys). Copilot's hook
+    // it is. No worktree create/remove event exists. Copilot's hook
     // groups carry the command at the group level (`{ bash }`), so this uses the
     // group-dedup seed strategy to re-seed idempotently.
     hooks: {
       settingsFile: COPILOT_HOOKS_FILE,
       ownership: { shared: true },
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
-      worktreeEventKeys: [],
-      sessionHookNeedle: "discern worktree ensure",
+      commands: [{
+        kind: "session-start",
+        event: "sessionStart",
+        command: "discern worktree ensure",
+      }],
+      format: {
+        commandPlacement: "group",
+        commandKey: "bash",
+        commandType: true,
+        timeoutKey: "timeoutSec",
+        timeoutUnit: "seconds",
+        version: 1,
+      },
       mergeSeed: mergeJsonSettingsDedupingGroups,
     },
     // Committed .mcp.json / .github/hooks config is inert until the folder is trusted.
@@ -1989,6 +2222,9 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         ],
       }],
     },
+    setupDisclosures: [
+      "GitHub Copilot loads the shared .mcp.json and its committed session hook only after folder trust.",
+    ],
     activation: {
       callable: "discern_status",
       recovery:
@@ -2023,6 +2259,7 @@ export function settingsSeeds(): SettingsSeed[] {
       ? [{
         targetRel: p.hooks.settingsFile,
         merge: p.hooks.mergeSeed ?? mergeJsonSettingsText,
+        templateText: renderProviderHookSeed(p.hooks),
       }]
       : []
   );
@@ -2228,6 +2465,7 @@ export async function wireProviderMcp(
 export async function wireProviderWorktreeApp(
   root: string,
   agents: readonly string[],
+  config: DiscernConfig = parseConfigOrThrow(""),
   env: EnvReader = Deno.env,
   files?: RefreshFileOps,
 ): Promise<string[]> {
@@ -2235,7 +2473,7 @@ export async function wireProviderWorktreeApp(
   for (const agent of agents) {
     const integration = providerFor(agent)?.worktreeApp;
     if (integration !== undefined) {
-      written.push(...(await integration.register(root, env, files)));
+      written.push(...(await integration.register(root, config, env, files)));
     }
   }
   return [...new Set(written)];

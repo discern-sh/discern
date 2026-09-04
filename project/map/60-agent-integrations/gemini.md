@@ -36,37 +36,28 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 
 ## `.gemini/settings.json`
 
-`discern refresh` deep-merges `.gemini/settings.json`. It preserves the user's other settings and servers while adding the Gemini-shaped MCP server entry and the session-start hook:
+`discern refresh` deep-merges `.gemini/settings.json`. The registry-rendered hook seed is:
 
 ```json
 {
-  "hooksConfig": {
-    "enabled": true
-  },
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree ensure"
+            "command": "discern worktree ensure",
+            "timeout": 600000
           }
         ]
       }
     ]
-  },
-  "mcpServers": {
-    "discern": {
-      "command": "discern",
-      "args": ["mcp", "--long-tool-calls"],
-      "timeout": 3600000
-    }
   }
 }
 ```
 
-Gemini infers stdio from the presence of `command`, so discern does not write a `type` field for this server. The hook seed includes `hooksConfig.enabled: true`, the hooks system's canonical toggle. This field sits outside the per-event `hooks` arrays. Gemini requires every key under `hooks` to contain an event array and rejects a boolean there. Without the toggle, Gemini keeps the hook block inert.
+Gemini enables hooks by default, so discern writes no `hooksConfig` override. The matcher covers both a new session and a resumed one. MCP registration separately adds `mcpServers.discern` with `"command": "discern"`, `"args": ["mcp", "--long-tool-calls"]`, and `"timeout": 3600000`, preserving the hook and every user-owned setting. Gemini infers stdio from `command`, so the server has no `type` field.
 
 Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds. A longer watch continues from the returned 15-character resume handle.
 

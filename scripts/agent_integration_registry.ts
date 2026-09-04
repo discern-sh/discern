@@ -31,6 +31,7 @@ import {
   emitsInstructionFile,
   type Provider,
   PROVIDERS,
+  providerWorktreeEventKeys,
 } from "../src/lib/providers.ts";
 import { renderProviderTrustMarkdown } from "../src/shared/provider_trust.ts";
 import {
@@ -133,10 +134,9 @@ function hooksPhrase(provider: Provider, withFile: boolean): string {
   if (hooks === undefined) {
     return "none";
   }
-  const events = hooks.worktreeEventKeys.length > 0
-    ? `${
-      hooks.worktreeEventKeys.map((key) => code(key)).join("/")
-    } + SessionStart`
+  const worktreeEvents = providerWorktreeEventKeys(hooks);
+  const events = worktreeEvents.length > 0
+    ? `${worktreeEvents.map((key) => code(key)).join("/")} + SessionStart`
     : "SessionStart only";
   return withFile
     ? `wired: ${events} (${code(hooks.settingsFile)})`
@@ -440,7 +440,7 @@ export const PROVIDER_FIELD_NOTES: Readonly<
   },
   hooks: {
     meaning:
-      "`{ settingsFile, worktreeEventKeys, sessionHookNeedle, mergeSeed? }`",
+      "`{ settingsFile, commands, format, mergeSeed? }` — registry-rendered commands, vendor JSON shape, timeout unit, and merge",
     absent: "no worktree-hook surface — skipped",
   },
   worktreeApp: {
@@ -456,6 +456,11 @@ export const PROVIDER_FIELD_NOTES: Readonly<
   trust: {
     meaning:
       "`TrustGate { required, explanation, actions }` — one-time trust for committed MCP/hooks, with literal machine facts separated from prose",
+    absent: null,
+  },
+  setupDisclosures: {
+    meaning:
+      "Plain-language security consequences projected into setup consent from the provider registry",
     absent: null,
   },
   activation: {
@@ -495,7 +500,7 @@ export const AGENT_COMMENTARY: Readonly<
     body:
       `Claude Code drives its worktree lifecycle through hooks in \`.claude/settings.json\` (ADR 0011/0040): \`SessionStart → discern worktree ensure\`, \`WorktreeCreate → discern worktree hook create\`, and \`WorktreeRemove → discern worktree hook remove\`. \`WorktreeCreate\` passes \`{name, cwd}\` on stdin. discern creates the linked worktree, runs setup, and writes the worktree path to stdout without a trailing newline for Claude Code to read. \`WorktreeRemove\` passes \`{worktree_path}\` and attempts resource teardown. The provider-specific payload adapter lives in \`src/lib/worktree_hooks.ts\`. The agent-agnosticism guard in \`tests/agent_agnostic_test.ts\` forbids \`.claude\` paths under the stack-neutral \`src/engine/**\` tree (ADR 0040).
 
-MCP needs no trust step. \`registerClaudeCodeMcp\` writes the stdio server into the shared \`.mcp.json\`, which GitHub Copilot co-owns through the same byte-identical writer (ADR 0074), and pre-approves the server through \`enabledMcpjsonServers\` in \`.claude/settings.json\`. The additive, idempotent merge in \`src/lib/settings_merge.ts\` appends hook groups with command-string deduplication, unions permission arrays, and sets other keys when absent. The seed carries \`permissions.deny: ["Read(./.env)"]\`. Claude Code reads Skills from \`.claude/skills/\`; it does not read the cross-tool \`.agents/skills/\` (anthropics/claude-code#31005, open). The vendor's per-machine \`settings.local.json\` stays ignored.`,
+Claude Code loads committed \`.mcp.json\` and \`.claude/settings.json\` only after workspace trust. After trust, \`registerClaudeCodeMcp\`'s \`enabledMcpjsonServers\` entry suppresses the additional prompt for the named local \`discern\` server; normal MCP tool permissions still apply. The additive, idempotent merge preserves every existing Shared permission rule, and discern's seed adds no permission rule. Claude Code reads Skills from \`.claude/skills/\`; it does not read the cross-tool \`.agents/skills/\` (anthropics/claude-code#31005, open). The vendor's per-machine \`settings.local.json\` stays ignored.`,
   },
   codex: {
     epithet: "canonical instructions + the widest committed-config surface",
@@ -505,9 +510,9 @@ MCP needs no trust step. \`registerClaudeCodeMcp\` writes the stdio server into 
 Its committed-config surface is now the widest of the five, all merged idempotently and comment-preservingly:
 
 - **MCP + project config** — \`registerCodexProjectConfig\` merges \`[mcp_servers.discern]\` (command, args, tool/startup timeouts), a set-if-absent \`project_doc_max_bytes\` instruction-file headroom, and the sibling-worktree writable root into \`sandbox_workspace_write.writable_roots\` in \`<repo>/.codex/config.toml\` via the comment-preserving \`TomlEditor\`, preserving other servers, keys, and comments. \`mcp_servers\` is **not** on Codex's narrow project-scope ignored-keys list, so the file rides in the repo like Claude's \`.mcp.json\`.
-- **The \`ensure\` step** — \`templates/.codex/hooks.json.tmpl\` seeds a committable \`.codex/hooks.json\` \`SessionStart\` hook running \`discern worktree ensure\`.
+- **The \`ensure\` step** — the provider registry renders a committable \`.codex/hooks.json\` \`SessionStart\` hook for startup and resume, running \`discern worktree ensure\` with a separate 600-second hook budget.
 - **The setup and teardown pair** — \`registerCodexEnvironment\` co-manages the Codex app's generated \`.codex/environments/environment.toml\`: \`[setup].script → discern worktree ensure\` and \`[cleanup].script → discern worktree teardown\`. It seeds the top-level \`version\` and \`name\` fields when absent and re-emits discern's entries on every refresh if the app regenerates the file (ADR 0073). The pair fires for Codex-app-managed worktrees under \`$CODEX_HOME/worktrees\`. discern's sibling worktrees use the portable \`SessionStart\` hook. Cleanup has an open reliability bug at \`openai/codex#19480\`, so \`discern worktree prune\` provides out-of-band reclamation.
-- **Exec-policy rules** — \`registerCodexRules\` owns a narrow \`.codex/rules/discern.rules\`: prefix allowances for \`git add\` and \`git commit\` only, so the linked-worktree happy path (Git writing metadata under the main checkout's \`.git/worktrees/\`) clears Codex's approval layer without granting broad git, push, shell wrappers, or sandbox bypass. It is separate from any user-owned \`.codex/rules/*.rules\` file, which discern never touches.
+- **Exec-policy rules** — \`registerCodexRules\` owns a narrow \`.codex/rules/discern.rules\`: command-prefix allowances for \`git add\` and \`git commit\` only. A prefix covers trailing arguments such as \`-A\`, \`--amend\`, and \`--no-verify\`, and has no working-directory boundary. It grants no broad Git, push, reset, shell-wrapper, network, or sandbox-bypass access. Inline \`match\`/\`not_match\` cases make that boundary executable.
 
 The trust gate is two-stage: a one-time directory trust activates the committed \`.codex/\` layers, and each committed hook additionally needs its hash approved before it runs (the registry's structured trust actions name both, and \`doctor\` relays them).`,
   },
@@ -516,7 +521,7 @@ The trust gate is two-stage: a one-time directory trust activates the committed 
     body:
       `\`GEMINI.md\` is a pointer. Gemini's verified Markdown-only Memory Import accepts \`@AGENTS.md\`, the same one-line import that Claude Code uses (ADR 0043 §5). Gemini prefers the cross-tool \`.agents/skills/\` alias over \`.gemini/skills/\`, so Codex and Gemini share one Skills materialization target.
 
-One committable file carries both wired seams: \`registerGeminiMcp\` deep-merges \`mcpServers.discern\` (stdio inferred from \`command\` — Gemini takes no \`type\` field, which is why it does not share the \`.mcp.json\`-shape writer) into \`.gemini/settings.json\`, preserving the seeded \`hooks\` block and the user's own servers; the seed sets \`hooksConfig.enabled: true\` because without it the \`SessionStart → discern worktree ensure\` hook never fires. Both seams are inert in Folder-Trust "safe mode" until the folder is user-trusted; the compiled \`GEMINI.md\` is read regardless of trust, so instructions are unaffected.
+One committable file carries both wired seams: \`registerGeminiMcp\` deep-merges \`mcpServers.discern\` (stdio inferred from \`command\` — Gemini takes no \`type\` field) into \`.gemini/settings.json\`, preserving the seeded \`hooks\` block and the user's own servers. Gemini enables hooks by default, so the seed adds no \`hooksConfig\` override; it matches both startup and resume and expresses the 600-second hook budget as 600,000 milliseconds. Both seams are inert in Folder-Trust "safe mode" until the folder is user-trusted; the compiled \`GEMINI.md\` is read regardless of trust.
 
 Live code supersedes 2 older ADR descriptions. ADR 0032 describes \`GEMINI.md\` as “still a full copy” and Claude's pointer as carrying a “do-not-edit banner.” ADR 0043 §5 changed \`GEMINI.md\` to an \`@AGENTS.md\` pointer. The current \`atImportPointer\` emits a bare \`@AGENTS.md\` line because Claude Code strips HTML comments before the model sees them. \`base.md\` carries the generated-file instruction in band, and the currency check guards the output. Use the registry and generated artifacts as the current authority.`,
   },
@@ -532,7 +537,7 @@ Detection uses \`cursor-agent\` as its \`PATH\` signal because unrelated tools c
   copilot: {
     epithet: "wired, reuse-canonical",
     body:
-      `Copilot CLI reads \`AGENTS.md\` natively as its primary instructions and reads \`.agents/skills/\`, so Instructions and Skills reuse discern's existing artifacts. It has no \`@import\` requirement. Copilot shares \`.mcp.json\` with Claude Code (ADR 0074). \`registerCopilotMcp\` writes the byte-identical stdio entry through the shared writer, making provider order irrelevant. Copilot gates on folder trust and does not use Claude Code's \`enabledMcpjsonServers\` pre-approval. The CLI ignores \`.github/mcp.json\` without a diagnostic (copilot-cli #1886), so discern writes the shared root file.
+      `Copilot CLI reads \`AGENTS.md\` natively as its primary instructions and reads \`.agents/skills/\`, so Instructions and Skills reuse discern's existing artifacts. It has no \`@import\` requirement. Copilot supports both root \`.mcp.json\` and \`.github/mcp.json\`; discern uses the root file so Claude Code can co-own the same byte-identical entry through one writer (ADR 0074). Copilot gates on folder trust and does not use Claude Code's \`enabledMcpjsonServers\` pre-approval.
 
 The \`ensure\` step seeds \`sessionStart → discern worktree ensure\` into discern-owned \`.github/hooks/discern.json\`; Copilot loads every \`.github/hooks/*.json\` file. The group-dedup merge re-seeds it idempotently. \`sessionStart\` fires for each prompt in interactive mode, and \`worktree ensure\` is safe to rerun. The trust grant lives in user-level \`trustedFolders\` within \`~/.copilot/config.json\`. Unattended startup needs \`--allow-all-tools --allow-all-paths\` or a pre-seeded \`COPILOT_HOME\`. Copilot's fail-closed \`preToolUse\` hook supports \`modifiedArgs\`, making it a candidate for the pre-execution guard surveyed in the worktree-isolation research. That possible feature does not affect the current worktree lifecycle.`,
   },
@@ -566,7 +571,7 @@ export function seamNarratives(): readonly SeamNarrative[] {
     {
       title: "Worktree hooks (the Claude-coupled spine)",
       body:
-        `Claude Code drives discern's isolated-worktree workflow through \`SessionStart\`, \`WorktreeCreate\`, and \`WorktreeRemove\` hooks in \`.claude/settings.json\` (ADR 0011/0040). Each \`HooksIntegration\` record names the settings file, event keys, session-hook needle, and any \`mergeSeed\` strategy required by the vendor's hook-group format. The parity test requires the seed template to contain those events and the session-hook needle. \`providersWithHooks()\` returns Claude Code, Codex, Gemini, Cursor, and Copilot. Claude Code declares the full create, remove, and session-start set. The other providers declare a \`SessionStart\` surface with empty \`worktreeEventKeys\` and seed \`discern worktree ensure\` into their committable file. Codex also provides \`environment.toml [cleanup]\` for its app-managed worktrees (see {{g:lifecycle-teardown}}). Every provider can reach the full lifecycle through discern's CLI and MCP verbs. Claude Code alone auto-fires create and remove through the agent hook contract.`,
+        `Each \`HooksIntegration\` declares its commands, semantic event kinds, vendor group shape, timeout key and unit, and merge strategy. One renderer supplies setup, refresh, uninstall, and the tracked templates. Every declared hook receives the separate 600-second budget in the vendor's unit. Claude Code declares session start plus create/remove; Codex declares startup/resume; Gemini declares startup/resume in milliseconds; Cursor and Copilot declare their group-level forms. The parity guard iterates the registry and rejects any template, command, event, or timeout drift. Codex also provides \`environment.toml [cleanup]\` for its app-managed worktrees (see {{g:lifecycle-teardown}}).`,
     },
     {
       title: "Settings, gitignore, and convergence",
@@ -697,7 +702,7 @@ const REGISTRY_MECHANICS =
 
 /** The authored reading of the derived coverage matrix. */
 const MATRIX_COMMENTARY =
-  `**Cursor and Copilot reuse canonical Instructions and Skills.** Their \`reuse-canonical\` cells mean that discern emits no provider-specific Instruction file and materializes Skills into the shared directory. **Every agent reads committed MCP configuration.** Claude pre-approves the server without a trust prompt. Codex, Gemini, Cursor, and Copilot require a one-time trust grant or per-tool approval. Every agent also has a wired \`SessionStart\` hook for \`discern worktree ensure\`. Claude provides a committable \`WorktreeRemove\` hook, and Codex provides \`environment.toml [cleanup]\` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.`;
+  `**Cursor and Copilot reuse canonical Instructions and Skills.** Their \`reuse-canonical\` cells mean that discern emits no provider-specific Instruction file and materializes Skills into the shared directory. **Every agent reads committed MCP configuration after its provider trust boundary is satisfied.** Claude's named pre-approval takes effect only after workspace trust; it suppresses one project-server prompt rather than normal tool permissions. Every agent also has a wired \`SessionStart\` hook for \`discern worktree ensure\`. Claude provides a committable \`WorktreeRemove\` hook, and Codex provides \`environment.toml [cleanup]\` for Codex-managed worktrees. Teardown reliability and scope vary, so discern owns creation and removal for its worktrees. The OS-sandbox row is empty because discern currently emits no sandbox configuration. The [worktree-isolation research](../_private/research/worktree-isolation-research.md) surveys provider capabilities outside this page's integration scope.`;
 
 const SEE_ALSO = `## See also
 

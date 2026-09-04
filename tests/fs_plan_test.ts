@@ -52,7 +52,7 @@ const SettingsHookSchema = z.object({
 
 const ClaudeSettingsSchema = z.object({
   model: z.string().optional(),
-  permissions: z.object({ deny: z.array(z.string()) }).passthrough(),
+  permissions: z.object({ deny: z.array(z.string()) }).passthrough().optional(),
   hooks: z.object({
     WorktreeCreate: z.array(SettingsHookSchema),
     SessionStart: z.array(SettingsHookSchema),
@@ -217,15 +217,14 @@ Deno.test("init creates .claude/settings.json from the template when absent", as
       ClaudeSettingsSchema,
       await readTarget(dir, ".claude/settings.json"),
     );
-    assertEquals(settings.permissions.deny, ["Read(./.env)"]);
-    // The branch_prefix token was substituted inside the hook command.
+    assertEquals(settings.permissions, undefined);
     const worktreeCreate = settings.hooks.WorktreeCreate[0];
     assertExists(worktreeCreate);
     const commandHook = worktreeCreate.hooks[0];
     assertExists(commandHook);
     assertStringIncludes(
       commandHook.command,
-      "git worktree add -b agent/$name",
+      "discern worktree hook create",
     );
   });
 });
@@ -251,8 +250,8 @@ Deno.test("init deep-merges settings into an existing file without clobbering", 
     );
     // User scalar preserved.
     assertEquals(settings.model, "opus");
-    // deny unioned: user's first, ours appended.
-    assertEquals(settings.permissions.deny, ["Read(./secret)", "Read(./.env)"]);
+    // Existing Shared permission rules are preserved; discern adds none.
+    assertEquals(settings.permissions?.deny, ["Read(./secret)"]);
     // SessionStart has both the user's hook and ours.
     assertEquals(settings.hooks.SessionStart.length, 2);
   });
@@ -294,7 +293,7 @@ Deno.test("settings merge is idempotent across a re-run (no dup hooks)", async (
       await readTarget(dir, ".claude/settings.json"),
     );
     assertEquals(settings.hooks.SessionStart.length, 1);
-    assertEquals(settings.permissions.deny, ["Read(./.env)"]);
+    assertEquals(settings.permissions, undefined);
   });
 });
 

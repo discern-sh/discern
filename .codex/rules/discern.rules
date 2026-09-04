@@ -4,11 +4,30 @@
 prefix_rule(
     pattern = ["git", "add"],
     decision = "allow",
-    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+    justification = "Allow the git add command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git add -A",
+        "git add src/example.ts",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )
 
 prefix_rule(
     pattern = ["git", "commit"],
     decision = "allow",
-    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+    justification = "Allow the git commit command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = [
+        "git commit -m Example",
+        "git commit --amend --no-edit",
+        "git commit --no-verify -m Example",
+    ],
+    not_match = [
+        "git status",
+        "git push",
+        "git reset --hard",
+    ],
 )

@@ -28,6 +28,7 @@ import type { AgentName } from "./config.ts";
 import {
   type Provider,
   PROVIDERS,
+  providerSetupFacts,
   type SetupFilesystemMarker,
 } from "./providers.ts";
 
@@ -242,14 +243,34 @@ export async function resolveDefaultAgents(
  */
 export async function consentAgentSet(
   env: EnvReader = Deno.env,
+  selection?: {
+    readonly agents: readonly AgentName[];
+    readonly evidence:
+      | "explicit-repository-selection"
+      | "committed-repository-selection";
+  },
 ): Promise<{ detected: AgentName[]; set: ConsentAgentSet }> {
   const detected = await detectInstalledAgents(env);
-  const wired = await resolveDefaultAgents(env, detected);
+  const wired = selection?.agents ?? await resolveDefaultAgents(env, detected);
   return {
     detected,
     set: {
-      wired: wired.map((name) => ({ label: PROVIDERS[name].label, name })),
-      detected: detected.length > 0,
+      wired: wired.map((name) => {
+        const facts = providerSetupFacts(name);
+        return {
+          label: facts.label,
+          name: facts.agent,
+          instructionFile: facts.instructionFile,
+          writtenFiles: facts.writtenFiles,
+          ...(facts.generatedSkillsDir === undefined
+            ? {}
+            : { generatedSkillsDir: facts.generatedSkillsDir }),
+          trust: facts.trust,
+          disclosures: facts.disclosures,
+        };
+      }),
+      evidence: selection?.evidence ??
+        (detected.length > 0 ? "detected-on-this-machine" : "no-evidence"),
     },
   };
 }

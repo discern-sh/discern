@@ -100,6 +100,7 @@ export async function reconcileTrackedProviderArtifacts(
     worktreeAppWired = await wireProviderWorktreeApp(
       root,
       agents,
+      config,
       env,
       files,
     );

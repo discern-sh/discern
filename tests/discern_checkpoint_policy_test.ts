@@ -377,7 +377,7 @@ Deno.test("boundary checkpoints exclude generated subjects by default", () => {
 
   const generatedTemplate = {
     path:
-      "templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md",
+      "templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md",
     generated: true,
     kind: "modified" as const,
     insertions: 1,

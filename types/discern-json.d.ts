@@ -193,7 +193,7 @@ export type DiscernResultState =
           | "landing-authority-unverified"
           | "optional-resource-unavailable"
           | "proof-recording-unavailable"
-          | "setup-forced-completion"
+          | "setup-unproven-completion"
           | "setup-machinery-commit-failed"
           | "setup-marker-commit-failed"
           | "standards-limits-unverified"
@@ -558,7 +558,7 @@ export type DiscernRootResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -599,7 +599,7 @@ export type DiscernRootResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -692,7 +692,7 @@ export type DiscernSetupResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -733,7 +733,7 @@ export type DiscernSetupResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -747,6 +747,7 @@ export type DiscernSetupResult = DiscernResultState & {
   data?: {
     phase: "fresh" | "in_progress" | "done";
     complete: boolean;
+    setup_completion?: "proven" | "unproven";
     next_action: string;
     agent_instructions?: string;
     human_framing?: string;
@@ -854,7 +855,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -895,7 +896,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -908,7 +909,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
   verb: "setup begin";
   data?: {
     complete?: boolean;
-    next_action?: string;
+    next_action: string;
     already_set_up?: boolean;
     message?: string;
     project?: {
@@ -1015,6 +1016,7 @@ export type DiscernSetupBeginResult = DiscernResultState & {
         relay?: Array<string>;
       };
       instructions: string;
+      next_action: string;
     } | null;
     changes?: Array<string>;
   } | {
@@ -1099,7 +1101,7 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -1140,7 +1142,7 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -1271,7 +1273,7 @@ export type DiscernSetupStepResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -1312,7 +1314,7 @@ export type DiscernSetupStepResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -1383,6 +1385,9 @@ export type DiscernSetupStepResult = DiscernResultState & {
       relay?: Array<string>;
     };
     instructions: string;
+    next_action: string;
+  } | {
+    next_action: string;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -1465,7 +1470,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -1506,7 +1511,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -1519,10 +1524,11 @@ export type DiscernSetupDoneResult = DiscernResultState & {
   verb: "setup done";
   data?: {
     bootstrapped: true;
-    completion: "created" | "replayed" | "validated" | "forced";
+    completion: "created" | "replayed" | "validated" | "unproven";
     effects_performed: boolean;
     gate_ran: boolean;
-    forced: boolean;
+    setup_completion: "proven" | "unproven";
+    unproven: boolean;
     gate_proven: boolean;
     worktree_proven: boolean;
     marker_committed: boolean;
@@ -1687,7 +1693,9 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       after: "activation_verified";
     };
     instructions: string;
+    next_action: string;
   } | {
+    next_action: string;
     leftover: Array<string>;
     unmet: Array<{
       step: number;
@@ -1696,6 +1704,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       passed: boolean;
     }>;
   } | {
+    next_action: string;
     uncommitted: Array<string>;
     stage?: "refresh" | "final_tree";
   } | {
@@ -1710,6 +1719,8 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     state: string;
     next_action: string;
     recovery: string;
+  } | {
+    next_action: string;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -1792,7 +1803,7 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -1833,7 +1844,7 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -1845,6 +1856,7 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
   message?: string;
   verb: "setup accept";
   data?: {
+    next_action: string;
     landed: boolean;
     branch: string;
     target: string;
@@ -1985,11 +1997,14 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
       after: "activation_verified";
     };
   } | {
+    next_action: string;
     completion: {
       status: "no_op";
       reason: "no_git_repository" | "already_on_target";
     };
     target: string;
+  } | {
+    next_action: string;
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
@@ -2072,7 +2087,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2113,7 +2128,7 @@ export type DiscernUpgradeResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -2286,7 +2301,7 @@ export type DiscernUninstallResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2327,7 +2342,7 @@ export type DiscernUninstallResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -2438,7 +2453,7 @@ export type DiscernDoctorResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2479,7 +2494,7 @@ export type DiscernDoctorResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -2643,7 +2658,7 @@ export type DiscernLicensesResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2684,7 +2699,7 @@ export type DiscernLicensesResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -2792,7 +2807,7 @@ export type DiscernTriangleResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2833,7 +2848,7 @@ export type DiscernTriangleResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -2929,7 +2944,7 @@ export type DiscernMapResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -2970,7 +2985,7 @@ export type DiscernMapResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -3155,7 +3170,7 @@ export type DiscernDocsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -3196,7 +3211,7 @@ export type DiscernDocsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -3381,7 +3396,7 @@ export type DiscernHelpResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -3422,7 +3437,7 @@ export type DiscernHelpResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -3517,7 +3532,7 @@ export type DiscernConfigResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -3558,7 +3573,7 @@ export type DiscernConfigResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -3693,7 +3708,7 @@ export type DiscernDoneResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -3734,7 +3749,7 @@ export type DiscernDoneResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -4034,7 +4049,7 @@ export type DiscernPrepareResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -4075,7 +4090,7 @@ export type DiscernPrepareResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -4168,7 +4183,7 @@ export type DiscernTestResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -4209,7 +4224,7 @@ export type DiscernTestResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -4302,7 +4317,7 @@ export type DiscernImprovementResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -4343,7 +4358,7 @@ export type DiscernImprovementResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -4542,7 +4557,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -4583,7 +4598,7 @@ export type DiscernCheckpointsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -4836,7 +4851,7 @@ export type DiscernStandardsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -4877,7 +4892,7 @@ export type DiscernStandardsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5009,7 +5024,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5050,7 +5065,7 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5182,7 +5197,7 @@ export type DiscernRefreshResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5223,7 +5238,7 @@ export type DiscernRefreshResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5330,7 +5345,7 @@ export type DiscernTidyResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5371,7 +5386,7 @@ export type DiscernTidyResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5464,7 +5479,7 @@ export type DiscernImpactResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5505,7 +5520,7 @@ export type DiscernImpactResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5608,7 +5623,7 @@ export type DiscernCouplingResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5649,7 +5664,7 @@ export type DiscernCouplingResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5768,7 +5783,7 @@ export type DiscernAwaitResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5809,7 +5824,7 @@ export type DiscernAwaitResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -5945,7 +5960,7 @@ export type DiscernPatternsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -5986,7 +6001,7 @@ export type DiscernPatternsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -6382,7 +6397,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -6423,7 +6438,7 @@ export type DiscernPatternsResetResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -6533,7 +6548,7 @@ export type DiscernPatternsSealResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -6574,7 +6589,7 @@ export type DiscernPatternsSealResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -6683,7 +6698,7 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -6724,7 +6739,7 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -6827,7 +6842,7 @@ export type DiscernDeskResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -6868,7 +6883,7 @@ export type DiscernDeskResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -6961,7 +6976,7 @@ export type DiscernEnterResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -7002,7 +7017,7 @@ export type DiscernEnterResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -7095,7 +7110,7 @@ export type DiscernStatusResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -7136,7 +7151,7 @@ export type DiscernStatusResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -7189,6 +7204,7 @@ export type DiscernStatusResult = DiscernResultState & {
     pending_tracked_refresh?: Array<string>;
     tracked_refresh_plan_errors?: Array<string>;
     tracked_ignored_artifacts?: Array<string>;
+    setup_completion?: "proven" | "unproven";
     setup_unfinished?: {
       pending_markers: Array<string>;
       known_jobs: Array<{
@@ -7600,7 +7616,7 @@ export type DiscernStartResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -7641,7 +7657,7 @@ export type DiscernStartResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -7768,7 +7784,7 @@ export type DiscernWorktreeRenameResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -7809,7 +7825,7 @@ export type DiscernWorktreeRenameResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -7917,7 +7933,7 @@ export type DiscernWorktreeEnsureResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -7958,7 +7974,7 @@ export type DiscernWorktreeEnsureResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8051,7 +8067,7 @@ export type DiscernAcceptResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -8092,7 +8108,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8382,7 +8398,7 @@ export type DiscernUpdateResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -8423,7 +8439,7 @@ export type DiscernUpdateResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8544,7 +8560,7 @@ export type DiscernIdentityResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -8585,7 +8601,7 @@ export type DiscernIdentityResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8691,7 +8707,7 @@ export type DiscernScriptsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -8732,7 +8748,7 @@ export type DiscernScriptsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8831,7 +8847,7 @@ export type DiscernWorktreeResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -8872,7 +8888,7 @@ export type DiscernWorktreeResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -8965,7 +8981,7 @@ export type DiscernWorktreeSetupResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9006,7 +9022,7 @@ export type DiscernWorktreeSetupResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9099,7 +9115,7 @@ export type DiscernWorktreeTeardownResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9140,7 +9156,7 @@ export type DiscernWorktreeTeardownResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9233,7 +9249,7 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9274,7 +9290,7 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9367,7 +9383,7 @@ export type DiscernWorktreeParkResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9408,7 +9424,7 @@ export type DiscernWorktreeParkResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9501,7 +9517,7 @@ export type DiscernWorktreePruneResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9542,7 +9558,7 @@ export type DiscernWorktreePruneResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9635,7 +9651,7 @@ export type DiscernSkillsResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9676,7 +9692,7 @@ export type DiscernSkillsResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9769,7 +9785,7 @@ export type DiscernSkillsListResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9810,7 +9826,7 @@ export type DiscernSkillsListResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"
@@ -9911,7 +9927,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
         | "landing-authority-unverified"
         | "optional-resource-unavailable"
         | "proof-recording-unavailable"
-        | "setup-forced-completion"
+        | "setup-unproven-completion"
         | "setup-machinery-commit-failed"
         | "setup-marker-commit-failed"
         | "standards-limits-unverified"
@@ -9952,7 +9968,7 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
       | "landing-authority-unverified"
       | "optional-resource-unavailable"
       | "proof-recording-unavailable"
-      | "setup-forced-completion"
+      | "setup-unproven-completion"
       | "setup-machinery-commit-failed"
       | "setup-marker-commit-failed"
       | "standards-limits-unverified"

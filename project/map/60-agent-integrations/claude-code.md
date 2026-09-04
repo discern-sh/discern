@@ -1,6 +1,6 @@
 ---
 title: Claude Code
-description: How discern configures instructions, Skills, MCP, hooks, permissions, and worktrees for Claude Code.
+description: How discern configures instructions, Skills, MCP, hooks, trust, and worktrees for Claude Code.
 order: 10
 aliases:
   - Claude Code
@@ -10,16 +10,16 @@ aliases:
 
 # Claude Code integration
 
-_The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, hooks, and project-local permission defaults._
+_The Claude Code integration supplies shared instructions and Skills, a Model Context Protocol (MCP) server entry, and worktree hooks without adding permission rules._
 
 When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
-| File                    | Role                                             | Ownership             |
-| ----------------------- | ------------------------------------------------ | --------------------- |
-| `CLAUDE.md`             | Pointer to the canonical agent file              | Generated, committed  |
-| `.claude/skills/`       | Materialized Claude Code Skills                  | Generated, gitignored |
-| `.mcp.json`             | Project Model Context Protocol (MCP) server      | Shared, tracked       |
-| `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Shared, tracked       |
+| File                    | Role                                        | Ownership             |
+| ----------------------- | ------------------------------------------- | --------------------- |
+| `CLAUDE.md`             | Pointer to the canonical agent file         | Generated, committed  |
+| `.claude/skills/`       | Materialized Claude Code Skills             | Generated, gitignored |
+| `.mcp.json`             | Project Model Context Protocol (MCP) server | Shared, tracked       |
+| `.claude/settings.json` | Hooks and named MCP pre-approval            | Shared, tracked       |
 
 Claude Code may create `.claude/settings.local.json` for machine-local permissions. discern neither seeds nor tracks it. The shipped `.gitignore` keeps it local.
 
@@ -64,14 +64,11 @@ The one-hour client timeout reserves 55 minutes for `discern_await` and five for
 
 ## `.claude/settings.json`
 
-The Claude Code settings seed includes the worktree hooks and denies `Read(./.env)` by default:
+The Claude Code settings seed includes the worktree hooks and no permission rules:
 
 ```json
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "permissions": {
-    "deny": ["Read(./.env)"]
-  },
   "hooks": {
     "SessionStart": [
       {
@@ -89,7 +86,8 @@ The Claude Code settings seed includes the worktree hooks and denies `Read(./.en
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree hook create"
+            "command": "discern worktree hook create",
+            "timeout": 600
           }
         ]
       }
@@ -99,21 +97,23 @@ The Claude Code settings seed includes the worktree hooks and denies `Read(./.en
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree hook remove"
+            "command": "discern worktree hook remove",
+            "timeout": 600
           }
         ]
       }
     ]
-  },
-  "enabledMcpjsonServers": ["discern"]
+  }
 }
 ```
 
-`discern refresh` deep-merges this file. Hook groups append with de-duplication, permission arrays are merged, and existing unrelated settings are preserved. `enabledMcpjsonServers` pre-approves the project `.mcp.json` server by name, so Claude Code does not need a separate folder-trust step for discern's MCP server.
+`discern refresh` deep-merges this file. Hook groups append with de-duplication and every existing Shared permission rule remains unchanged. MCP registration separately adds `enabledMcpjsonServers = ["discern"]`. After workspace trust, that named local-server pre-approval suppresses the additional project-server prompt; normal MCP tool permissions remain in force.
 
 ## Runtime behavior and gotchas
 
 Among the supported providers, Claude Code exposes the worktree lifecycle hook contract. `WorktreeCreate` and `WorktreeRemove` run `discern worktree hook`; `SessionStart` runs `discern worktree ensure`.
+
+Claude Code's current hook payloads have no version field. Create requires string `name` and `cwd` fields, ignores harmless unknown fields, and refuses malformed input clearly. Remove reads the string `worktree_path`, ignores unknown fields, and remains best effort because teardown must not strand Claude's own removal. discern adds no private payload-version flag or speculative aliases.
 
 `EnterWorktree` re-roots Claude Code's shell and instruction context, but a stdio MCP process keeps its launch cwd. `discern_start` re-aims discern's live MCP root to its new worktree; a native cwd move does not move a generic server.
 

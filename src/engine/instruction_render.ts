@@ -169,8 +169,11 @@ export function instructionContext(config: DiscernConfig): InstructionContext {
       // The teach skill is bundled, and an authored skill of the same name only
       // overrides it, so exclusion is the sole operation that removes this name
       // from the effective skill set.
-      has_teach_skill: !config.skills.exclude.includes(
+      has_skill_discern_teach_the_project: !config.skills.exclude.includes(
         "discern-teach-the-project",
+      ),
+      has_skill_discern_set_the_standard: !config.skills.exclude.includes(
+        "discern-set-the-standard",
       ),
     },
   };

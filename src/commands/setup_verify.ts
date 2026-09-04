@@ -90,12 +90,19 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
 
   // Preflight is a FRESH-install step. Once begin has run, redirect instead.
   if (phase !== "fresh") {
-    const message = phase === "done"
+    const unproven = config?.meta.setup_completion === "unproven";
+    const message = unproven
+      ? "Setup completion is unproven and cannot be accepted. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to converge to proven."
+      : phase === "done"
       ? "This project is already set up — preflight isn't needed. Run `discern status` to orient."
-      : "Setup has already begun here. Continue the brief and run `discern setup done` to finish (or `discern setup begin` to reprint the brief).";
+      : "Setup has already begun here. Run `discern setup begin` to reprint the brief, then continue it and run `discern setup done` to finish.";
     const redirect: SetupVerifyData = {
       phase,
-      next_action: phase === "done" ? "discern status" : "discern setup done",
+      next_action: unproven
+        ? "discern setup done"
+        : phase === "done"
+        ? "discern status"
+        : "discern setup begin",
     };
     if (opts.json) {
       log.result({ ok: true, verb: "setup verify", data: redirect });
@@ -134,11 +141,17 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // worktree path, whether a docs/ folder already exists, whether git is here at
   // all, and the agent set `begin` will wire — derived once in the shared module
   // so `begin`'s `awaiting_consent` refusal re-serves the identical message.
-  const { worktreePath, docsExists, gitRepo, projectName } =
-    await deriveConsentContext(
-      destDir,
-      agents.set,
-    );
+  const {
+    worktreePath,
+    worktreeEnvFiles,
+    inheritedEnvNames,
+    docsExists,
+    gitRepo,
+    projectName,
+  } = await deriveConsentContext(
+    destDir,
+    agents.set,
+  );
   const existingInstructions = await findExistingInstructions(destDir);
 
   const conflicts = buildConflicts(git, identity, existingInstructions);
@@ -150,6 +163,8 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // re-serves the same string.
   const instructions = consentMessage({
     worktreePath,
+    worktreeEnvFiles,
+    inheritedEnvNames,
     docsExists,
     gitRepo,
     agents: agents.set,
@@ -160,12 +175,12 @@ export async function runSetupVerify(opts: VerifyOptions): Promise<number> {
   // which could only proceed in place, with no branch and nothing to land.
   const nextAction = gitRepo
     ? confirmedBeginCommand(projectName.proposed)
-    : "git init && discern setup verify";
+    : "git init";
 
   if (opts.json) {
     const data: SetupVerifyData = {
       phase: "fresh",
-      ready: git.kind !== "dirty",
+      ready: git.kind === "clean",
       findings: {
         git: {
           repo: git.kind !== "not-a-repo",

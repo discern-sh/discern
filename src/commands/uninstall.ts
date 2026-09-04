@@ -55,13 +55,13 @@ import {
   resolveMapDir,
   resolveScriptsDir,
   resolveSkillsDir,
-  resolveTemplatesDir,
   resolveTodoPath,
 } from "../lib/paths.ts";
 import {
   allInstructionFilePaths,
   allSkillsDirs,
   PROVIDERS,
+  renderProviderHookSeed,
   stripDiscernFromCodexConfig,
   stripDiscernFromCodexEnv,
   wiredMcp,
@@ -306,7 +306,7 @@ async function computeUninstallPlan(
   // Collect each distinct file and which of discern's contributions it carries.
   const jsonJobs = new Map<
     string,
-    { hasMcp: boolean; hooksTemplateRel?: string }
+    { hasMcp: boolean; hooksTemplateText?: string }
   >();
   const tomlMcpFiles = new Set<string>();
   const tomlEnvFiles = new Set<string>();
@@ -328,7 +328,7 @@ async function computeUninstallPlan(
     ) {
       const sf = provider.hooks.settingsFile;
       const job = jsonJobs.get(sf) ?? { hasMcp: false };
-      job.hooksTemplateRel = sf;
+      job.hooksTemplateText = renderProviderHookSeed(provider.hooks);
       jsonJobs.set(sf, job);
     }
     if (provider.worktreeApp !== undefined) {
@@ -336,46 +336,15 @@ async function computeUninstallPlan(
     }
   }
 
-  let templatesDir: string | undefined;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch {
-    // discern-best-effort: uninstall-template-resolution-fallback
-    templatesDir = undefined;
-    plan.templatesAvailable = false;
-  }
-
   for (const [rel, job] of jsonJobs) {
     const existing = await readTextIfExists(abs(rel));
     if (existing === undefined) {
       continue;
     }
-    let hooksTemplateText: string | undefined;
-    if (job.hooksTemplateRel !== undefined && templatesDir !== undefined) {
-      hooksTemplateText = await readTextIfExists(
-        join(templatesDir, `${job.hooksTemplateRel}.tmpl`),
-      );
-    }
     const stripped = stripDiscernFromJsonSettings(existing, {
       hasMcp: job.hasMcp,
-      hooksTemplateText,
+      hooksTemplateText: job.hooksTemplateText,
     });
-    // A hooks target stripped without its seed template keeps whatever
-    // permission/scalar entries that template contributed — the strip can't
-    // identify them. Record it (unless the file was removed outright, leaving
-    // nothing behind) so the result and the human view say so plainly.
-    if (
-      job.hooksTemplateRel !== undefined &&
-      hooksTemplateText === undefined &&
-      stripped !== null
-    ) {
-      plan.incompleteStrips.push({
-        rel,
-        reason: plan.templatesAvailable
-          ? "discern's hooks seed template was not found, so template-seeded permission/scalar entries may remain"
-          : "discern's templates/ tree could not be resolved, so template-seeded permission/scalar entries may remain",
-      });
-    }
     pushCoOwnedOp(plan, rel, existing, stripped, "co-owned agent settings");
   }
   for (const rel of tomlMcpFiles) {

@@ -221,7 +221,7 @@ const PROJECT_CASES: readonly PurityCase[] = [
   {
     commandPath: "setup begin",
     envelopeVerb: "setup begin",
-    args: ["setup", "begin", "--force", "--dry-run", "--confirmed"],
+    args: ["setup", "begin", "--reseed", "--dry-run", "--confirmed"],
   },
   {
     commandPath: "setup step",

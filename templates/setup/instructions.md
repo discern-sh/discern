@@ -42,7 +42,7 @@ files_to_read = [
   "`discern status --json` and `discern doctor --json`",
 ]
 must_do = [
-  "Confirm the relay carried the three discern pillars, footprint, plan, reversibility, every numbered confirmation, and the time-and-tokens expectation; if any item was compressed away, re-run `discern setup verify` and relay its fenced message before continuing.",
+  "Confirm the relay carried the lasting outcome, complete footprint, existing-documentation protection when applicable, plan, reversibility, every numbered confirmation, and the time-and-tokens expectation; if any item was compressed away, re-run `discern setup verify` and relay its fenced message before continuing.",
   "Confirm `[meta].setup_model` contains the exact provider/model identifier you self-declared or the literal advisory value `unreported`; never infer a model id from capability and never copy a placeholder.",
   "Run `discern status --json`, then `discern doctor --json`; use `discern doctor --verbose --json` only when the full execution model is needed to diagnose a finding.",
 ]
@@ -52,7 +52,7 @@ authority_boundaries = [
 ]
 owner_moments = ["model-selection"]
 what_not_to_do = [
-  "Do not ask the agent to certify that it is capable, expert, safe, or the best option.",
+  "Do not certify that you are capable, expert, safe, or the best option.",
   "Do not restart this unfinished setup merely because refresh registered MCP integration.",
   "Do not treat a healthy doctor result as completed setup.",
 ]
@@ -109,7 +109,7 @@ recovery = [
 next_action = "discern setup step 2"
 ```
 
-The inventory is working evidence, not another documentation tree. Keep it in the setup session until Step 8 turns verified facts into the final Map.
+The inventory is working evidence, not another Map. Keep it in the setup session until Step 8 turns verified facts into the final Map.
 
 ---
 
@@ -190,7 +190,7 @@ authority_boundaries = [
 ]
 owner_moments = ["authored-source-collision"]
 what_not_to_do = [
-  "Do not adopt or overwrite an existing documentation tree by inference.",
+  "Do not adopt or overwrite existing human documentation by inference.",
   "Do not hand-edit generated agent files or generated references.",
   "Do not delete imported instructions before their meaning is reconciled in Step 9.",
 ]
@@ -255,7 +255,7 @@ intent = "Author concise project-specific operating instructions from evidence, 
 files_to_read = [
   "{{instruction_path}} including every imported instruction block",
   "the existing project commands and Gate configuration proved in Step 2",
-  "AGENTS.md only as a generated preview, never as the edit target",
+  "the generated agent file or files for the configured providers only as previews, never as edit targets",
 ]
 must_do = [
   "Write a one-line project pitch and a filled Conventions section using current repository evidence.",
@@ -439,7 +439,7 @@ must_do = [
   "Confirm the final factual recheck happened after smoke, remove generic or duplicated ledger items, and commit all final setup work before Proof.",
   "Run `discern setup done` once on the clean commit and use its derived primary-subsystem context, project principles, instruction sources, Map-region list, ledger-item list, jobs-by-state, Proof line, branch, and landing choices in the closing relay.",
   "Run the result's `discern setup accept` landing command only with applicable recorded or current owner authority; otherwise leave the proved branch for review and state that the trunk does not contain setup.",
-  "After landing, start the provider-required fresh session, run each exact activation check from the landing result, report its success or recovery, and only then offer `discern improvement --json` as optional owner review.",
+  "After landing, ask the owner to open the fresh provider session named by the landing result; in that session, run each exact activation check, report its success or recovery, and only then offer `discern improvement --json` as optional owner review.",
 ]
 authority_boundaries = [
   "A clean green Proof authorizes no landing by itself; the owner or a recorded grant decides whether the setup branch lands.",
@@ -451,7 +451,7 @@ what_not_to_do = [
   "Do not count Map regions, ledger items, or job states by hand.",
   "Do not lead an unlanded completion with restart or improvement, and do not mutate the branch after Proof.",
   "Do not present self-authored option labels that assert the agent is capable, expert, safe, or qualified.",
-  "Do not use `--force` to hide a real incomplete step or red Gate.",
+  "Do not use `--unproven` to hide a real incomplete step or red Gate.",
 ]
 completion_check = "`discern setup done` returns success for the clean final commit, with canonical Proof, qualitative project context, mechanical completion inventory, branch-aware landing choices, and no post-Proof mutation."
 stop_conditions = [

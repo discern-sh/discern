@@ -113,7 +113,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                              | `scripts/brand/vale.ts#voiceEnforcementCoverage`                                  | 23      | —                | —                           |
-| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
+| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored)     | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `scripts/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                       | 3       | —                | node `licenses`             |
@@ -132,7 +132,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 185     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 184     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
@@ -1944,7 +1944,7 @@ The advisory hint registry: every hint string enters results through it.
   - `setup-done-land-manually`
   - `setup-reactivate-tools`
   - `setup-improvement-after-activation`
-  - `setup-forced-needs-proof`
+  - `setup-unproven-needs-proof`
   - `setup-unfinished-doctor`
   - `doctor-failed-checks`
   - `doctor-execution-model-verbose`
@@ -2992,7 +2992,7 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
   - `landing-authority-unverified`
   - `optional-resource-unavailable`
   - `proof-recording-unavailable`
-  - `setup-forced-completion`
+  - `setup-unproven-completion`
   - `setup-machinery-commit-failed`
   - `setup-marker-commit-failed`
   - `standards-limits-unverified`
@@ -3794,7 +3794,7 @@ Every proposed mechanical voice check has one generated Vale rule, Map projectio
 
 The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.
 
-- Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
+- Source: `templates/setup/skeleton/map/80-development/done-gate-gotchas.md` (authored table)
 - Members: — (the authored source keeps member names outside codegen)
 - Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — the seeded Gate-gotchas page owns this documentation content
@@ -4176,7 +4176,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 185
+- Members: 184
   - `acceptance-transaction-temp-cleanup`
   - `adr-duplicate-scan-fallback`
   - `agent-gitignore-template-fallback`
@@ -4356,7 +4356,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `third-party-package-license-decode-fallback`
   - `third-party-payload-compare-fallback`
   - `toml-number-probe-fallback`
-  - `uninstall-template-resolution-fallback`
   - `worktree-hook-live-ports-fallback`
   - `worktree-hook-port-warning-fallback`
   - `worktree-shell-drain-cancel`
@@ -4596,9 +4595,9 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 `UNAFFILIATED_CODEGEN_TARGETS` records these write targets. The write chokepoint in `scripts/codegen.ts` permits only declared artifacts and recorded unaffiliated targets.
 
 - `site/pages/assets/search.js` — copies the single `src/lib/docs_search.js` module into the browser asset
-- `templates/skills/discern-write-adr/skeleton/docs/_adr/0000-template.md` — copies the authored setup-skeleton ADR template into the write-adr skill
-- `templates/skills/discern-write-adr/skeleton/docs/_adr/0001-adopt-discern.md` — copies the authored setup-skeleton adoption record into the write-adr skill
-- `templates/skills/discern-write-adr/skeleton/docs/_adr/README.md` — copies the authored setup-skeleton ADR format guide into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/map/_adr/0000-template.md` — copies the authored setup-skeleton ADR template into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/map/_adr/0001-adopt-discern.md` — copies the authored setup-skeleton adoption record into the write-adr skill
+- `templates/skills/discern-write-adr/skeleton/map/_adr/README.md` — copies the authored setup-skeleton ADR format guide into the write-adr skill
 
 ### Single-source claims anchoring no set
 

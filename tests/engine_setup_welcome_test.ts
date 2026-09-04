@@ -312,9 +312,10 @@ Deno.test("the fresh welcome --json carries phase=fresh and the verify funnel", 
   });
 });
 
-Deno.test("the in-progress welcome shows derived progress and funnels to done", async () => {
+Deno.test("the in-progress welcome shows derived progress and reprints the current-branch journey", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the marker-carrying skeletons
 
     const human = await runAgent(dir, ["setup"]);
@@ -325,6 +326,7 @@ Deno.test("the in-progress welcome shows derived progress and funnels to done", 
       (await runAgent(dir, ["setup", "--json"])).stdout,
     );
     assertEquals(d.phase, "in_progress");
+    assertEquals(d.next_action, "discern setup begin");
     assertExists(d.progress);
     // Derived progress: docs markers remain and only discern's seeded formatter
     // is wired; every project-specific job is still unset.
@@ -390,6 +392,7 @@ Deno.test("the fresh welcome --json carries the same instructional substance as 
 Deno.test("the in-progress welcome --json carries the 'your job, not a status' agent instructions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    await gitInit(dir);
     await runAgent(dir, ["setup", "begin", "--confirmed"]);
     const d = decodeSetupData(
       (await runAgent(dir, ["setup", "--json"])).stdout,
@@ -440,7 +443,7 @@ Deno.test("verify reports grounded findings and the consent conversation, writin
     );
     assertStringIncludes(
       d.instructions,
-      "Isolated working copies will live beside",
+      "Isolated working copies resolve to",
     );
     assertStringIncludes(d.instructions, "Ready for me to begin");
     assertStringIncludes(
@@ -503,7 +506,7 @@ Deno.test("verify's consent instructions are identical and faithful across the h
     assertStringIncludes(human, d.instructions);
 
     // Every load-bearing point is present in BOTH surfaces: the adaptive relay
-    // licence, the exact model question verbatim, the three-pillar explainer, the
+    // licence, the exact model question verbatim, the relay facts, the
     // time+token expectation, the worktree location, and the confirmed command — the
     // content a courier agent must carry unweakened (ADR 0086, the two-lane rule).
     for (
@@ -519,7 +522,7 @@ Deno.test("verify's consent instructions are identical and faithful across the h
         "Only if the owner chooses to continue in this session",
         "separate task workspaces",
         "20–40 minutes",
-        "Isolated working copies will live beside",
+        "Isolated working copies resolve to",
         "The strongest project name I found",
         "--confirmed",
       ]
@@ -611,16 +614,17 @@ Deno.test("verify redirects once setup is recorded (the preflight is moot)", asy
 
 // ── completion phase boundary + provenance ───────────────────────────────────
 
-Deno.test("forced setup completion withholds activation and improvement without Proof", async () => {
+Deno.test("unproven setup completion withholds activation and improvement without Proof", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
-    const done = await runAgent(dir, ["setup", "done", "--force"]);
+    await gitInit(dir);
+    const done = await runAgent(dir, ["setup", "done", "--unproven"]);
     assertEquals(done.code, 0, done.output);
     assertTerminalTextIncludes(done.stdout, "activation handoff are withheld");
     assert(!done.stdout.includes("start a fresh Claude Code session"));
     assert(!done.stdout.includes("discern improvement"));
     const d = decodeSetupDoneData(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
     );
     assertExists(d.instructions);
     assertEquals(d.reactivation, undefined);
@@ -638,9 +642,10 @@ Deno.test("setup done serves the completion message at parity across the human r
   // `instructions` lane, carried verbatim by both surfaces so the relay can't drift.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // agents: [claude_code]
-    const human = (await runAgent(dir, ["setup", "done", "--force"])).stdout;
+    await gitInit(dir);
+    const human = (await runAgent(dir, ["setup", "done", "--unproven"])).stdout;
     const res = decodeCliResult(
-      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+      (await runAgent(dir, ["setup", "done", "--unproven", "--json"])).stdout,
       "setup done",
     );
     assertResultDataKey(res, "instructions");

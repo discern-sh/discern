@@ -20,7 +20,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { providerFor, wiredMcp } from "../src/lib/providers.ts";
+import {
+  providerFor,
+  renderProviderHookSeed,
+  wiredMcp,
+} from "../src/lib/providers.ts";
 import { extractTitle } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -236,4 +240,52 @@ Deno.test("every wired provider's integration doc carries its MCP call profile",
       );
     }
   }
+});
+
+Deno.test("every hooks provider documents the exact registry-rendered seed in the map and manual", async () => {
+  const docs = await integrationDocs();
+  const manual = await Deno.readTextFile(
+    join(
+      REPO_ROOT,
+      "project/manual/30-reference/platforms-and-providers.md",
+    ),
+  );
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider registered for "${name}"`);
+    if (provider.hooks === undefined) continue;
+    const doc = docs.find((candidate) =>
+      extractTitle(candidate.text) === `${provider.label} integration`
+    );
+    assert(doc !== undefined, `no integration doc found for "${name}"`);
+    const fenced = `\`\`\`json\n${
+      renderProviderHookSeed(provider.hooks).trimEnd()
+    }\n\`\`\``;
+    assertStringIncludes(
+      doc.text,
+      fenced,
+      `${doc.file}: hook JSON must equal the provider registry rendering`,
+    );
+    assertStringIncludes(
+      manual,
+      fenced,
+      `platforms-and-providers.md: ${name} hook JSON must equal the registry rendering`,
+    );
+  }
+});
+
+Deno.test("Copilot documentation states both supported project MCP locations without an ignores claim", async () => {
+  const docs = await integrationDocs();
+  const copilot = docs.find((doc) =>
+    extractTitle(doc.text) === "GitHub Copilot integration"
+  );
+  assert(copilot !== undefined);
+  assertStringIncludes(copilot.text, "`.mcp.json`");
+  assertStringIncludes(copilot.text, "`.github/mcp.json`");
+  assert(
+    !/ignores?\s+`.github\/mcp\.json`|does not use\s+that file/iu.test(
+      copilot.text,
+    ),
+    "Copilot supports .github/mcp.json; discern chooses the shared root file",
+  );
 });

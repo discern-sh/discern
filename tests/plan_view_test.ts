@@ -19,11 +19,13 @@ import {
   assertExists,
   assertStringIncludes,
 } from "@std/assert";
+import { join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
 import type { OpDisposition, Plan, PlanOp } from "../src/lib/fs_plan.ts";
 import { planToJson, renderPlan, renderReview } from "../src/lib/plan_view.ts";
 import { displayWidth } from "../src/lib/text.ts";
 import { pinnedTerminal, runCli, withTempDir } from "./helpers.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 /** Capture everything written to console.error / console.log while `fn` runs. */
 async function capture(
@@ -262,6 +264,8 @@ Deno.test("planToJson maps each op to {path, action, note}", () => {
 
 Deno.test("setup begin --dry-run prints the full per-file plan via renderPlan", async () => {
   await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "# Plan fixture\n");
+    await gitInit(dir);
     const { code, stdout } = await runCli(
       ["setup", "begin", "--confirmed", "--dry-run", "--slug", "demo"],
       dir,

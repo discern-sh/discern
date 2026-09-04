@@ -48,7 +48,7 @@ tool_timeout_sec = 3600
 
 `project_doc_max_bytes` is set only when the project has not chosen its own value. The 65,536-byte value raises Codex's default instruction-file limit for discern-generated instructions.
 
-`sandbox_workspace_write.writable_roots` is merged with any existing list. The added entry points at the directory where discern creates linked worktrees, so a Codex session that starts in the main checkout can edit and run commands in a new sibling worktree with fewer sandbox prompts. For the default `[worktree].root = ""`, the entry is relative to `.codex/` and looks like `../../<repo>.worktrees`. If `[worktree].root` is relative, discern emits the corresponding path relative to `.codex/`. If `[worktree].root` is absolute, discern keeps it absolute.
+`sandbox_workspace_write.writable_roots` is merged with any existing list. discern adds the configured worktree root: for `[worktree].root = ""` it is relative to `.codex/` and looks like `../../<repo>.worktrees`; another relative value is rewritten relative to `.codex/`; an absolute configured value stays absolute. discern never broadens that grant to `../..`. Because Codex has no machine-local project layer for this setting, differently named clones can produce tracked-value churn; run `discern refresh` in the active clone and review the added root.
 
 When `discern refresh` runs from inside an existing linked worktree, discern asks Git for the main checkout and computes the writable root from that main checkout instead of from the transient worktree directory. This keeps a worktree-local refresh from rewriting the tracked config to `../../<worktree-id>.worktrees`.
 
@@ -69,7 +69,8 @@ The discern-owned Codex hook seed is:
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree ensure"
+            "command": "discern worktree ensure",
+            "timeout": 600
           }
         ]
       }
@@ -86,7 +87,7 @@ The Codex app has its own worktree environment file. discern co-manages only the
 
 ```toml
 version = 1
-name = "Discern"
+name = "<project name>"
 
 [setup]
 script = "discern worktree ensure"
@@ -95,13 +96,13 @@ script = "discern worktree ensure"
 script = "discern worktree teardown"
 ```
 
-`version` and `name` are written only when absent, so an app-created file keeps the app's values. Missing or still-default discern scripts are re-emitted on refresh because the Codex app can regenerate this file; user-customized script values are preserved.
+`version` and `name` are written only when absent; a new file takes `name` from `[project].name` (with the normal project display-name fallback), while an app-created file keeps its values. Missing or still-default discern scripts are re-emitted on refresh because the Codex app can regenerate this file; user-customized script values are preserved. Uninstall recognizes a discern-created shell by its generated marker rather than a hard-coded environment name.
 
 This file is for Codex-app-managed worktrees. discern's own sibling worktrees still come from `discern start` / `discern_start` and the worktree lifecycle verbs.
 
 ## `.codex/rules/discern.rules`
 
-Codex project rules can grant narrow, project-local exec-policy decisions after the project is trusted. discern writes its own rules file rather than mutating user-owned files such as `.codex/rules/default.rules`.
+Codex loads this project rules file after the project is trusted. The rules are command-prefix grants with no working-directory boundary. discern writes its own file rather than mutating user-owned files such as `.codex/rules/default.rules`.
 
 The generated rules file allows only these prefixes:
 
@@ -109,23 +110,27 @@ The generated rules file allows only these prefixes:
 prefix_rule(
     pattern = ["git", "add"],
     decision = "allow",
-    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+    justification = "Allow the git add command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = ["git add -A", "git add src/example.ts"],
+    not_match = ["git status", "git push", "git reset --hard"],
 )
 
 prefix_rule(
     pattern = ["git", "commit"],
     decision = "allow",
-    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+    justification = "Allow the git commit command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = ["git commit -m Example", "git commit --amend --no-edit", "git commit --no-verify -m Example"],
+    not_match = ["git status", "git push", "git reset --hard"],
 )
 ```
 
-This supports the linked-worktree workflow after `discern_start`. The `writable_roots` entry in `.codex/config.toml` covers normal file paths, while the two rules allow staging and committing to write Git metadata under the main checkout's `.git/worktrees` directory. The rules do not allow broad `git`, `git push`, shell wrappers, destructive commands, network access, or full sandbox bypass.
+The exact prefixes include trailing arguments such as `git add -A`, `git commit --amend`, and `git commit --no-verify`. They do not grant broad `git`, `git push`, `git reset`, shell wrappers, network access, or sandbox bypass. Their `match` and `not_match` examples are validated when Codex loads the rules.
 
 ## Runtime behavior and gotchas
 
-Project `.codex/` config is inert until Codex trusts the directory. That trust is outside the repository; discern can write the files, but it cannot self-trust a project for the user. Start a fresh session or restart Codex when needed so it loads newly written project config and rules.
+Project `.codex/` config is inert until user-level `~/.codex/config.toml` records `projects."<absolute-project-path>".trust_level = "trusted"`. That absolute-path trust is outside the repository; discern can write project files but cannot self-trust the project. Start a fresh session or restart Codex when needed so it loads newly written config and rules.
 
-`discern_start` can re-aim the long-lived discern MCP server at the new worktree, but it cannot move Codex's shell workspace. The writable-root entry in `.codex/config.toml` reduces the resulting sandbox friction for normal file edits and commands; `.codex/rules/discern.rules` covers the expected `git add`/`git commit` prefixes that write linked-worktree Git metadata under the main checkout.
+`discern_start` can re-aim the long-lived discern MCP server at the new worktree, but it cannot move Codex's shell workspace. The writable-root entry grants the configured worktree directory; the rules separately grant only the `git add` and `git commit` command prefixes, wherever that trusted session invokes them.
 
 Because Codex's shell stays at its original root, drive the worktree explicitly. Prefix every shell command with `cd <path> &&`, and pass `path` to every discern tool. Edits and the Gate then use the same worktree root.
 

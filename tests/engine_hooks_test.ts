@@ -31,6 +31,11 @@ import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { portForId } from "../src/engine/worktree/identity.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
+import {
+  providersWithHooks,
+  renderProviderHookSeed,
+} from "../src/lib/providers.ts";
+import { hookGroupCommands } from "../src/lib/settings_strip.ts";
 
 const DECODER = new TextDecoder();
 
@@ -48,6 +53,10 @@ const CLAUDE_HOOK_SETTINGS_SCHEMA = z.object({
       }).passthrough(),
     ),
   ),
+}).passthrough();
+
+const PROVIDER_HOOK_SEED_SCHEMA = z.object({
+  hooks: z.record(z.string(), z.array(z.unknown())),
 }).passthrough();
 
 /** The command string a settings.json hook event runs (first hook of the group). */
@@ -172,6 +181,29 @@ Deno.test("hooks: every shipped hook is a bare discern dispatch", async () => {
       "worktree hook remove",
     );
   });
+});
+
+Deno.test("hooks: every registry-rendered vendor shape is a bare discern dispatch", () => {
+  const violations: string[] = [];
+  for (const provider of providersWithHooks()) {
+    const integration = provider.hooks;
+    assert(integration !== undefined);
+    const root = decodeWith(
+      PROVIDER_HOOK_SEED_SCHEMA,
+      renderProviderHookSeed(integration),
+    );
+    for (const [event, groups] of Object.entries(root.hooks)) {
+      for (const group of groups) {
+        for (const command of hookGroupCommands(group)) {
+          const reason = hookCommandViolation(command);
+          if (reason !== undefined) {
+            violations.push(`${provider.name}:${event}: ${reason}`);
+          }
+        }
+      }
+    }
+  }
+  assertEquals(violations, []);
 });
 
 Deno.test("hook SessionStart: dispatches worktree ensure (a no-op in the main checkout)", async () => {

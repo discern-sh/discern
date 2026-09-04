@@ -67,7 +67,9 @@ import {
   allInstructionFilePaths,
   providerFor,
   providersWithHooks,
+  providerWorktreeHookNeedle,
 } from "../lib/providers.ts";
+import { hookGroupCommands } from "../lib/settings_strip.ts";
 import {
   providerTrustData,
   renderProviderTrustCli,
@@ -112,7 +114,6 @@ import {
   preflightPlannedWrites,
   writePreflightFailureMessage,
 } from "../shared/write_preflight.ts";
-import { z } from "@zod/zod";
 import {
   type DiscernResult,
   type HumanOutputGroup,
@@ -139,25 +140,6 @@ export interface DoctorOptions {
 
 /** Maximum serialized characters for the routine structured orientation result. */
 export const DOCTOR_ORIENTATION_MAX_CHARS = 12_000;
-
-/** The slice of an agent's settings file the worktree-automation check reads: the
- * hook groups whose inner `command` strings it scans for a foreign worktree hook.
- * Deliberately lenient — unknown keys are stripped (a settings file carries far more
- * than `hooks`), and a wrong-typed value degrades to `undefined` (`.catch`), so a
- * settings file in any shape validates to what can be read rather than being trusted
- * via an `as`-cast over untrusted JSON. */
-const hookSettingsSchema = z.object({
-  hooks: z.record(
-    z.string(),
-    z.array(
-      z.object({
-        hooks: z.array(
-          z.object({ command: z.string().optional().catch(undefined) }),
-        ).optional().catch(undefined),
-      }),
-    ).optional().catch(undefined),
-  ).optional().catch(undefined),
-});
 
 /** The runtime-environment summary doctor reports — triage context a user can paste
  * into a bug report (which discern build, on what platform, against which git).
@@ -1204,17 +1186,20 @@ export async function runChecks(
       const raw = await readTextIfExists(join(destDir, integ.settingsFile));
       if (raw === undefined) continue;
       try {
-        // Untrusted JSON in any shape — validate it through the lenient schema rather
-        // than asserting a type and walking it; a wrong-shaped file yields no hooks.
-        const parsed = hookSettingsSchema.safeParse(JSON.parse(raw));
-        const hooks = parsed.success ? parsed.data.hooks ?? {} : {};
+        const parsed: unknown = JSON.parse(raw);
+        const hooks = typeof parsed === "object" && parsed !== null &&
+            !Array.isArray(parsed) &&
+            typeof (parsed as Record<string, unknown>).hooks === "object" &&
+            (parsed as Record<string, unknown>).hooks !== null &&
+            !Array.isArray((parsed as Record<string, unknown>).hooks)
+          ? (parsed as Record<string, unknown>).hooks as Record<string, unknown>
+          : {};
         // Scan EVERY hook group for a worktree-touching command (the registry's
         // needle) that isn't discern's — no hardcoded event-name list to fall behind.
-        const needle = new RegExp(integ.sessionHookNeedle, "i");
+        const needle = new RegExp(providerWorktreeHookNeedle(integ), "i");
         const foreign = Object.values(hooks)
-          .flatMap((g) => g ?? [])
-          .flatMap((g) => g.hooks ?? [])
-          .map((h) => h.command ?? "")
+          .flatMap((groups) => Array.isArray(groups) ? groups : [])
+          .flatMap(hookGroupCommands)
           .filter((c) => needle.test(c))
           .filter((c) =>
             !c.includes("discern") && !c.includes("deno task dev")

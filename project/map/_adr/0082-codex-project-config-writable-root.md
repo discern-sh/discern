@@ -27,7 +27,7 @@ writable_roots = ["../../<repo>.worktrees"]
 
 [mcp_servers.discern]
 command = "discern"
-args = ["mcp"]
+args = ["mcp", "--long-tool-calls"]
 startup_timeout_sec = 30
 tool_timeout_sec = 3600
 ```
@@ -44,17 +44,21 @@ discern also co-manages `.codex/rules/discern.rules`, a discern-owned project ru
 prefix_rule(
     pattern = ["git", "add"],
     decision = "allow",
-    justification = "Allow staging from trusted discern linked worktrees; Git writes linked-worktree indexes and locks under the main checkout .git/worktrees directory.",
+    justification = "Allow the git add command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = ["git add -A", "git add src/example.ts"],
+    not_match = ["git status", "git push", "git reset --hard"],
 )
 
 prefix_rule(
     pattern = ["git", "commit"],
     decision = "allow",
-    justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
+    justification = "Allow the git commit command prefix in a trusted Codex session; this grant has no working-directory boundary.",
+    match = ["git commit -m Example", "git commit --amend --no-edit"],
+    not_match = ["git status", "git push", "git reset --hard"],
 )
 ```
 
-The rules file is idempotently re-emitted only when Codex is enabled in `[guidance].agents`. It is reported as `project_rules_wired`, not `mcp_wired`, because it is a provider policy artifact rather than an MCP server entry.
+The rules file is idempotently re-emitted only when Codex is enabled in `[project].agents`. It is reported as `project_rules_wired`, not `mcp_wired`, because it is a provider policy artifact rather than an MCP server entry.
 
 The explicit *no*s:
 
@@ -66,7 +70,7 @@ The explicit *no*s:
 
 ## Consequences
 
-Codex users get fewer filesystem prompts after `discern_start`: normal file writes happen under a configured writable root, and the expected staging/commit operations are covered by narrow project rules for trusted discern linked worktrees. The writable-root grant stays narrow and derives from the same `[worktree].root` setting that creates the worktrees.
+Codex users get fewer filesystem prompts after `discern_start`: normal file writes happen under the configured writable root, and the two expected command prefixes are allowed after the project layer is trusted. The prefix rules have no working-directory boundary, so they are narrow by command prefix rather than by path. The writable-root grant stays narrow and derives from the same `[worktree].root` setting that creates the worktrees.
 
 The committed config can still change when a repository is cloned under a different directory name, because the default worktree root is based on the main checkout's basename. That churn is preferable to granting the whole parent directory.
 

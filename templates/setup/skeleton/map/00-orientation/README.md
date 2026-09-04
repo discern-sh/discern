@@ -1,10 +1,10 @@
 # Orientation
 
-The shape of the system in plain English. Read this tier once and the rest of the documentation tree slots into place.
+The shape of the system in plain English. Read this tier once and the rest of the Map slots into place.
 
 Orientation is deliberately small and stable. The subsystem subtrees go deep on mechanism; this tier exists so you understand _what the pieces are_ and _why the system is shaped the way it is_ before you read how any one piece works.
 
-> These four docs start as skeletons. The `discern setup` command fills them from the repo and a few questions it asks you. Look for the `<!-- setup fills this -->` markers.
+> These four Map pages start as skeletons. The `discern setup` command fills them from the repository and a few questions it asks you. Look for the `<!-- setup fills this -->` markers.
 
 ---
 
@@ -17,7 +17,7 @@ Orientation is deliberately small and stable. The subsystem subtrees go deep on 
 | [glossary.md](glossary.md)                   | Look up a specific term. The canonical names live here.                                   |
 | [design-principles.md](design-principles.md) | Understand why the system is shaped the way it is — the hard rules every change respects. |
 
-Once you've read these, return to the [docs front page](../README.md) and pick a subsystem subtree to drill into.
+Once you've read these, return to the [Map front page](../README.md) and pick a subsystem subtree to drill into.
 
 ---
 

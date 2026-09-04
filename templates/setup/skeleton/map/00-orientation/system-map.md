@@ -1,6 +1,6 @@
 # System map
 
-Bird's-eye view of how {{project_name}} fits together. Read this once and the rest of the documentation tree should slot into place.
+Bird's-eye view of how {{project_name}} fits together. Read this once and the rest of the Map should slot into place.
 
 > This doc is a skeleton. The `discern setup` command fills it from the repo and a few questions it asks you. The map is **ASCII-first** so it lives in the text and stays diffable — draw the boxes and arrows below.
 
@@ -32,7 +32,7 @@ _(A short list: which parts are processes, which are libraries, which are extern
 
 <!-- setup fills this -->
 
-_(A table mapping each region of the diagram to the subsystem subtree that documents it in depth — the numbered subtrees on the docs front page. This is what turns the picture into a navigation aid.)_
+_(A table mapping each region of the diagram to the subsystem subtree that explains it in depth — the numbered subtrees on the Map front page. This is what turns the picture into a navigation aid.)_
 
 | Region of the map | Documented in      |
 | ----------------- | ------------------ |

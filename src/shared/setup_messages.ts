@@ -27,10 +27,12 @@
  * these relay blocks; agent-facing text keeps discern's precise terms.
  */
 
-import { basename, dirname, join } from "@std/path";
+import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
 import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
+import { type DiscernConfig, parseConfigOrThrow } from "./config_schema.ts";
+import type { ProviderTrustData } from "./provider_trust.ts";
 import { runGit } from "./subprocess.ts";
 import { lstatIfExists, pathExists, readTextIfExists } from "./fs_presence.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
@@ -60,11 +62,28 @@ const HUMAN_DOCS_REL = "docs/";
  * defaults. Declared here — the bottom layer — and produced by the feature
  * layer's installation detection (`src/lib/detect_agents.ts`), mirroring how
  * {@link CompletionLanding} keeps this module from importing upward. */
+export type ConsentAgentEvidence =
+  | "no-evidence"
+  | "detected-on-this-machine"
+  | "explicit-repository-selection"
+  | "committed-repository-selection";
+
+/** One registry projection setup may relay without recreating vendor facts. */
+export interface ConsentProviderFacts {
+  readonly label: string;
+  readonly name: string;
+  readonly instructionFile: string;
+  readonly writtenFiles: readonly string[];
+  readonly generatedSkillsDir?: string | undefined;
+  readonly trust: ProviderTrustData;
+  readonly disclosures: readonly string[];
+}
+
 export interface ConsentAgentSet {
   /** The set `begin` will wire, in registry order. */
-  wired: ReadonlyArray<{ label: string; name: string }>;
-  /** True when installation evidence was found; false for the default set. */
-  detected: boolean;
+  wired: ReadonlyArray<ConsentProviderFacts>;
+  /** Why this exact set is being proposed. Detection is installation evidence only. */
+  evidence: ConsentAgentEvidence;
 }
 
 /** The repo facts a consent message is grounded in — the exact sibling worktree
@@ -77,6 +96,8 @@ export interface ConsentAgentSet {
  * wire (a consent point of its own, with `--agents` as the mechanism). */
 export interface ConsentContext {
   worktreePath: string;
+  worktreeEnvFiles: readonly string[];
+  inheritedEnvNames: readonly string[];
   docsExists: boolean;
   gitRepo: boolean;
   agents: ConsentAgentSet;
@@ -95,14 +116,28 @@ export interface ConsentContext {
 export async function deriveConsentContext(
   destDir: string,
   agents: ConsentAgentSet,
+  config: DiscernConfig = parseConfigOrThrow(""),
 ): Promise<ConsentContext & { projectName: SetupProjectNameRecommendation }> {
   const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
-  const worktreePath = join(dirname(destDir), `${basename(destDir)}.worktrees`);
+  const configuredRoot = config.worktree.root.trim();
+  const worktreePath = configuredRoot === ""
+    ? join(dirname(destDir), `${basename(destDir)}.worktrees`)
+    : isAbsolute(configuredRoot)
+    ? resolve(configuredRoot)
+    : resolve(destDir, configuredRoot);
   const gitRepo =
     (await runGit(["rev-parse", "--is-inside-work-tree"], { cwd: destDir }))
       .success;
   const projectName = await deriveProjectNameRecommendation(destDir);
-  return { worktreePath, docsExists, gitRepo, agents, projectName };
+  return {
+    worktreePath,
+    worktreeEnvFiles: [...config.worktree.env_files],
+    inheritedEnvNames: [...config.worktree.inherit_env],
+    docsExists,
+    gitRepo,
+    agents,
+    projectName,
+  };
 }
 
 /** Gather bounded project-owned identity evidence without following external links. */
@@ -237,7 +272,7 @@ function fence(label: string): string {
  * The pre-`begin` consent block `verify` serves and a flag-less fresh `begin` re-serves.
  * ONE prose string: (a) a framing line to the agent carrying the adaptive relay licence;
  * (b) the message itself — first-person agent voice, kept short enough to survive a
- * single read — the three-pillar explainer (with a reassurance bullet when the project
+ * single read — the itemized outcome and footprint (with a reassurance bullet when the project
  * has its own `docs/`: it stays untouched, the map lives separately — ADR 0131), the
  * roadmap with an honest time-and-tokens expectation and the safety frame, then the
  * numbered confirmations (the model question verbatim, the git-init consent when the
@@ -252,6 +287,22 @@ function fence(label: string): string {
 export interface ConsentRelayItem {
   readonly key: string;
   readonly message: string;
+}
+
+/** Preserve registry order while collapsing shared provider paths. */
+function uniqueStrings(values: readonly string[]): string[] {
+  const unique: string[] = [];
+  for (const value of values) {
+    if (!unique.includes(value)) unique.push(value);
+  }
+  return unique;
+}
+
+/** Render an exact path/name set without hiding an intentionally empty choice. */
+function inlineSet(values: readonly string[]): string {
+  return values.length === 0
+    ? "none"
+    : values.map((value) => `\`${value}\``).join(", ");
 }
 
 /** Resolve one required human moment from a lifecycle surface. */
@@ -302,6 +353,21 @@ assertSetupHumanSurfaceConsumption("activation", [ACTIVATION_HANDOFF.id]);
 export function consentRelayItems(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
+  const instructionFiles = uniqueStrings(
+    ctx.agents.wired.map((agent) => agent.instructionFile),
+  );
+  const skillsDirs = uniqueStrings(
+    ctx.agents.wired.flatMap((agent) =>
+      agent.generatedSkillsDir === undefined ? [] : [agent.generatedSkillsDir]
+    ),
+  );
+  const integrationFiles = uniqueStrings(
+    ctx.agents.wired.flatMap((agent) =>
+      agent.writtenFiles.filter((path) =>
+        path !== agent.instructionFile && path !== agent.generatedSkillsDir
+      )
+    ),
+  );
   const plan = ctx.gitRepo
     ? "Plan: I will study the repository, preserve its workflows, prove its final quality check and separate task workspaces, write the maintained project guide and agent instructions, then bring the finished branch back for your landing decision."
     : "Plan: after approval, I will initialize Git and repeat this read-only preflight. Then I will study the repository, preserve its workflows, prove its checks and separate task workspaces, write the maintained project guide and agent instructions, and bring the finished branch back for your landing decision.";
@@ -322,8 +388,25 @@ export function consentRelayItems(
     {
       key: "footprint",
       message:
-        `Footprint: one root \`discern.toml\`, one visible \`discern/\` folder (including the guide at \`${SOURCE_PATHS.map.defaultPath}\`), and the selected coding tools' reviewable integration files.`,
+        `Footprint: discern writes the root \`discern.toml\`; the authored Map at \`${SOURCE_PATHS.map.defaultPath}\`, instructions at \`${SOURCE_PATHS.instructions.defaultPath}\`, and TODO ledger at \`${SOURCE_PATHS.todo.defaultPath}\`; managed blocks in \`.gitignore\` and \`.gitattributes\`; Agent files ${
+          inlineSet(instructionFiles)
+        }; and selected-provider integration files ${
+          inlineSet(integrationFiles)
+        }. Generated, Git-ignored provider skill directories are ${
+          inlineSet(skillsDirs)
+        }.`,
     },
+    {
+      key: "repository-boundary",
+      message:
+        "Repository boundary: one Git repository has one root `discern.toml` and one discern installation. A monorepo uses that root install with Scopes and custom jobs; an independent nested Git repository is a separate project and may have its own install.",
+    },
+    ...ctx.agents.wired.flatMap((agent) =>
+      agent.disclosures.map((disclosure, index) => ({
+        key: `provider-${agent.name}-${index + 1}`,
+        message: `${agent.label}: ${disclosure}`,
+      }))
+    ),
     ...(ctx.docsExists
       ? [{
         key: "existing-docs",
@@ -340,7 +423,9 @@ export function consentRelayItems(
 export function consentConfirmations(
   ctx: ConsentContext,
 ): readonly ConsentRelayItem[] {
-  const agentLabels = ctx.agents.wired.map((agent) => agent.label).join(", ");
+  const agentLabels = ctx.agents.wired.length === 0
+    ? "no coding tools"
+    : ctx.agents.wired.map((agent) => agent.label).join(", ");
   const projectName = ctx.projectName ?? recommendSetupProjectName([{
     source: "directory-fallback",
     value: "this project",
@@ -375,14 +460,27 @@ export function consentConfirmations(
     }]),
     {
       key: "agents",
-      message: ctx.agents.detected
-        ? `I found ${agentLabels} on this machine. I recommend wiring that detected set. Keep it, or name a different set; this decides which coding tools receive discern integration files.`
-        : `I found no specific coding tool, so the proposed default set is ${agentLabels}. Keep it, or name the tools you use; this decides which tools receive discern integration files.`,
+      message: (() => {
+        switch (ctx.agents.evidence) {
+          case "detected-on-this-machine":
+            return `I found ${agentLabels} installed on this machine. That evidence says what is installed, not which tool or model is running this setup. I recommend committing that detected set for this repository. Keep it, or name a different set; this decides which coding tools receive discern integration files.`;
+          case "no-evidence":
+            return `I found no installed coding-tool evidence, so the proposed default set is ${agentLabels}. Keep it, name the tools you use, or choose none; this decides which tools receive discern integration files.`;
+          case "explicit-repository-selection":
+            return `This setup request explicitly selected ${agentLabels} for the repository. That explicit choice wins over machine detection and will be committed if you continue. Keep it, or name a different set.`;
+          case "committed-repository-selection":
+            return `This repository already commits ${agentLabels} in \`[project].agents\`. That repository selection, including an explicit empty list, wins over machine detection. Keep it, or name a different set.`;
+        }
+      })(),
     },
     {
       key: "worktree-path",
       message:
-        `Isolated working copies will live beside this project at ${ctx.worktreePath}. I recommend this easy-to-find sibling location so task work stays separate from the main checkout. Keep it, or provide another location.`,
+        `Isolated working copies resolve to ${ctx.worktreePath}. Their environment-file order is ${
+          inlineSet(ctx.worktreeEnvFiles)
+        }; inherited variable names are ${
+          inlineSet(ctx.inheritedEnvNames)
+        }. Keep these resolved defaults, or provide another worktree root or environment policy.`,
     },
     {
       key: "cost",
@@ -427,7 +525,9 @@ export function consentMessage(ctx: ConsentContext): string {
     `    ${command}`,
     "",
     `If the owner corrected the project name, replace the value of \`--name\` with that confirmed answer. It is the single name authority for every later setup step. If the owner changed the coding-tool set, pass the exact set to wire: \`--agents ${
-      ctx.agents.wired.map((agent) => agent.name).join(",")
+      ctx.agents.wired.length === 0
+        ? "''"
+        : ctx.agents.wired.map((agent) => agent.name).join(",")
     }\` (edit that list).`,
   ].join("\n");
 }
@@ -466,7 +566,7 @@ export interface CompletionContext {
   landing: CompletionLanding;
   reactivation?: CompletionReactivation | undefined;
   proofLine?: string | undefined;
-  forced: boolean;
+  unproven: boolean;
 }
 
 /** Plain-word coverage line for the completion message: what runs and which
@@ -539,10 +639,10 @@ function landingLine(l: CompletionLanding): string {
  * {@link CompletionContext} pieces — never recomputed.
  */
 export function completionMessage(ctx: CompletionContext): string {
-  const { assurance, inventory, landing, reactivation, proofLine, forced } =
+  const { assurance, inventory, landing, reactivation, proofLine, unproven } =
     ctx;
   const readyForActivation = !landing.inRepo || landing.onTarget;
-  const headline = forced
+  const headline = unproven
     ? "discern setup was recorded without a Gate Proof. Review the unproved setup before treating it as ready."
     : readyForActivation
     ? `discern setup is proved and available on \`${landing.target}\`.`
@@ -603,8 +703,8 @@ export function completionMessage(ctx: CompletionContext): string {
     ...inventoryLines,
     `  • The installed footprint is \`discern.toml\`, the \`discern/\` folder, and the selected coding tools' integration files. ${SETUP_REVERSIBILITY.uninstall}`,
     `  • ${
-      forced
-        ? "This unproved state cannot use setup acceptance. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` without `--force` before landing or activation."
+      unproven
+        ? "This unproven completion cannot use setup acceptance. Resolve the incomplete or red setup, commit the correction, then run `discern setup done` to replace it with a proven completion before landing or activation."
         : landingLine(landing)
     }`,
     ...activationLines,

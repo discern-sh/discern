@@ -831,13 +831,13 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const landing = object(data.landing);
   const reactivation = object(data.reactivation);
   const improvement = object(data.optional_improvement);
-  const forced = boolean(data.forced) === true;
+  const unproven = text(data.setup_completion) === "unproven";
   const unmet = records(data.unmet);
   const instructions = verbatimText(data.instructions);
   const activation = records(reactivation?.per_agent).flatMap((agent) =>
     unique([text(agent.step)])
   );
-  const action = forced
+  const action = unproven
     ? []
     : boolean(landing?.on_target) === false
     ? unique([text(landing?.command)])
@@ -852,7 +852,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(
       result,
-      forced
+      unproven
         ? "discern setup was recorded without Gate Proof."
         : "discern setup is complete.",
     ),
