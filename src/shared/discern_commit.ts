@@ -553,21 +553,26 @@ async function rollbackAuthoredCommit(
 }
 
 /** Select the one registry-owned subject/body template for a typed site. */
-function registeredCommitMessage(
-  selection: DiscernCommitMessageSelection,
+function registeredCommitMessage<Values>(
+  selection: {
+    readonly site: DiscernAuthoredCommitSiteDefinition<Values>;
+    readonly values: Values;
+  },
 ): DiscernCommitMessage {
-  // The mapped union proves this pairing to callers. TypeScript cannot retain
-  // that correlation while invoking a union of function properties, so the
-  // boundary erases only the renderer parameter after the pair is validated.
-  const render = selection.site.message as unknown as (
-    values: unknown,
-  ) => DiscernCommitMessage;
-  return render(selection.values);
+  return selection.site.message(selection.values);
 }
 
 /** Render the registered message and the default-on co-author trailer. */
 export function discernCommitMessage(
   selection: DiscernCommitMessageSelection,
+  env?: EnvReader,
+): string;
+/** Implement the public mapped-union contract with its correlated value type. */
+export function discernCommitMessage<Values>(
+  selection: {
+    readonly site: DiscernAuthoredCommitSiteDefinition<Values>;
+    readonly values: Values;
+  },
   env: EnvReader = Deno.env,
 ): string {
   const registered = registeredCommitMessage(selection);
