@@ -10,9 +10,9 @@ aliases:
 
 # What a Skill is
 
-_A Skill is a focused agent playbook that becomes available when its description matches the work._
+_A skill is a focused agent playbook that becomes available when its description matches the work._
 
-Each Skill lives in a named directory with a `SKILL.md`. Frontmatter gives it a name and description. The description defines its trigger: the requests, failures, or situations that call for the playbook. The body explains the procedure and the judgment needed to apply it.
+Each skill lives in a named directory with a `SKILL.md`. Frontmatter gives it a name and description. The description defines its trigger: the requests, failures, or situations that call for the playbook. The body explains the procedure and the judgment needed to apply it.
 
 discern makes the same effective set available to every configured coding agent. Its built-in instructions tell agents to load a skill when a task matches. Naming the skill in your request works across integrations even when their command syntax differs.
 
@@ -25,7 +25,7 @@ discern skills list
 discern skills list --json
 ```
 
-The terminal listing marks each skill as built-in, yours, an override, or excluded. JSON returns the same catalog under `data.skills`, with `source`, `overrides_bundled`, `has_bundled`, and `excluded` on each row. Excluded Skills remain visible in the listing so a missing playbook has an explanation.
+The terminal listing marks each skill as built-in, yours, an override, or excluded. JSON returns the same catalog under `data.skills`, with `source`, `overrides_bundled`, `has_bundled`, and `excluded` on each row. Excluded skills remain visible in the listing so a missing playbook has an explanation.
 
 ## Choose the right home
 

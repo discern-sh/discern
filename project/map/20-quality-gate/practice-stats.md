@@ -34,7 +34,7 @@ discern patterns --stats
 
 An accepted change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them. A cycle therefore needs both ends on record: an accept whose start predates the logbook counts as accepted without adding a cycle.
 
-For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The Standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
+For the overlap reading, a branch is in flight from its first analyzed event to its last. A pause inside that window stays in flight. A branch stops counting after its last event, and the trunk is not a change. The standards trend normalizes each standard to its own first reading, direction-adjusted so improvement is always positive. That shared scale lets a coverage floor and a byte-size ceiling average into one line, and lets "most improved" compare like-for-like. The Agents section uses the same cohort boundary as the detectors: the card counts identities below the reporting minimums without listing them, and always states the unattributed share.
 
 ## Validation workflow cycles
 
@@ -52,7 +52,7 @@ Once the span holds 2 days, cadence sparklines sit beside the Accepted, Gate, St
 
 ## The rules of the surface
 
-Every number is a count or duration from the same analysis population the detectors read: CI runs, `--dry-run` previews, and setup-era events stay out. The card assigns no score, grade, or rank. The Logbook never leaves the machine, so there is no external corpus for comparison ([ADR 0229](../_adr/0229-practice-stats-are-counted-local-and-never-comparative.md)). Each number can be re-derived from the checkout.
+Every number is a count or duration from the same analysis population the detectors read: CI runs, `--dry-run` previews, and setup-era events stay out. The card assigns no score, grade, or rank. The logbook never leaves the machine, so there is no external corpus for comparison ([ADR 0229](../_adr/0229-practice-stats-are-counted-local-and-never-comparative.md)). Each number can be re-derived from the checkout.
 
 `--json` carries the counts as `data.stats`, and over MCP `discern_patterns` takes `stats: true`. Without the flag the payload carries no stats key at all.
 

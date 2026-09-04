@@ -29,7 +29,7 @@ The first successful stage snapshot containing the path identifies its origin. T
 
 ## When the check runs
 
-A run that starts on a clean, committed tree can earn a Proof, and a strand from the fix or build group forfeits it. Once those groups pass, `done` checks for strands and stops on any it finds. The Standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](../_adr/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
+A run that starts on a clean, committed tree can earn a Proof, and a strand from the fix or build group forfeits it. Once those groups pass, `done` checks for strands and stops on any it finds. The standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](../_adr/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
 
 A run that starts dirty (tracked edits or untracked files) cannot earn a Proof. It skips the checkpoint, runs every stage, and reports strands at the end. Run `done` on a dirty tree when you need feedback from the full gate.
 

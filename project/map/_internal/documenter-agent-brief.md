@@ -4,7 +4,7 @@ Every documenter agent that produces or refreshes a subtree under the configured
 
 Use this brief for shared requirements. Use the scope manifest for assignment-specific requirements.
 
-Invoke the [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) Skill to document or refresh a subtree. The Skill dispatches this brief and the matching scope manifest.
+Invoke the [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) Skill to document or refresh a subtree. The skill dispatches this brief and the matching scope manifest.
 
 ---
 
@@ -18,7 +18,7 @@ Other documenter agents may work in parallel. Stop at the boundary in your scope
 
 ## Maintaining the Map
 
-Treat documentation as part of the change. Every page describes the current code. When a change alters documented behavior, update its page in the same commit. The Gate treats a stale page as a defect. Define terminology once in the [Glossary](../00-orientation/glossary.md) and use it identically everywhere. Ground each implementation claim with a link to its source file.
+Treat documentation as part of the change. Every page describes the current code. When a change alters documented behavior, update its page in the same commit. The gate treats a stale page as a defect. Define terminology once in the [Glossary](../00-orientation/glossary.md) and use it identically everywhere. Ground each implementation claim with a link to its source file.
 
 ---
 
@@ -112,7 +112,7 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 ## Frontmatter
 
-Every published page carries frontmatter. The Gate validates it against a closed schema, so an unknown key or invalid value fails `discern done` ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Use these keys:
+Every published page carries frontmatter. The gate validates it against a closed schema, so an unknown key or invalid value fails `discern done` ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Use these keys:
 
 | Key             | Rule                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -127,7 +127,7 @@ Frontmatter provides metadata. Rendered pages strip the block, and the H1 stays 
 
 ## ADR citations
 
-Cite decision records as freely as the reasoning requires; rendering handles their visible density ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). In a published tier, put linked citations in a parenthetical group at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The Gate requires the sentence to remain correct after deleting the citation, which excludes a citation from the grammatical-subject position.
+Cite decision records as freely as the reasoning requires; rendering handles their visible density ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). In a published tier, put linked citations in a parenthetical group at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The gate requires the sentence to remain correct after deleting the citation, which excludes a citation from the grammatical-subject position.
 
 ---
 

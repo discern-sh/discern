@@ -35,7 +35,7 @@ Proof binds the full committed `HEAD`, a clean tree, checkpoint declaration evid
 
 ## Proposal-bearing Proof
 
-A live standard limit proposal lets the gate explain one otherwise-forbidden limit change. The Gate forces a fresh measurement for that standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof carries the standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
+A live standard limit proposal lets the gate explain one otherwise-forbidden limit change. The gate forces a fresh measurement for that standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof carries the standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 The Proof line states the open proposal as awaiting the owner's exact approval. The page presents the proposal before routine standard results. Compact JSON, Markdown, Model Context Protocol results, status, and Proof notes retain the structured proposal. A green proposal-bearing Proof establishes gate success for that committed tree; it grants neither landing authority nor proposal approval.
 
@@ -45,7 +45,7 @@ A Proof may carry one `Logbook:` advisory from `hints[]`. `discern patterns` own
 
 ## When a Proof is recorded
 
-The Gate pins `HEAD` and worktree cleanliness before jobs, then checks both before recording. It also rechecks the trunk. Movement warns you to update and rerun. A Proof is withheld when:
+The gate pins `HEAD` and worktree cleanliness before jobs, then checks both before recording. It also rechecks the trunk. Movement warns you to update and rerun. A Proof is withheld when:
 
 - the worktree had staged, uncommitted, or untracked changes;
 - `HEAD` moved while the gate was running;
@@ -54,7 +54,7 @@ The Gate pins `HEAD` and worktree cleanliness before jobs, then checks both befo
 
 Before jobs run and again before the Proof is written, the gate requires an empty tracked-refresh plan. Pending effects fail as `refresh_drift`; `done` names the paths without rewriting them.
 
-The Gate can still pass when a review Proof is withheld for one of those identity or summary reasons. Its result explains why no Proof was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
+The gate can still pass when a review Proof is withheld for one of those identity or summary reasons. Its result explains why no Proof was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
 Write authority is different. Before any declared job or standard measurement starts, discern performs a create, write, rename, and remove probe beside its Git administration marker files. If a sandbox or filesystem permission blocks that write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a green gate result from being discarded because its Proof could not be saved. The probe observes only that invocation; provider authority may change later ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 

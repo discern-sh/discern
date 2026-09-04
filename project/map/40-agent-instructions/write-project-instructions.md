@@ -11,7 +11,7 @@ aliases:
 
 # Write project instructions
 
-_A Instruction source holds the project instructions that discern supplies to every configured coding agent._
+_An instruction source holds the project instructions that discern supplies to every configured coding agent._
 
 The compiled file opens as your project's own document. Its heading names the project (`[project].name`, or the slug when it is unset), and its first line states that your instructions are the final authority ([ADR 0177](../_adr/0177-compiled-agent-file-opens-as-the-projects-own.md)). discern places its built-in operating instructions first, then adds your sources with project-specific facts. Your rules can therefore override the built-in instructions. Record how to run the project, which files discern generates, where decisions live, and which practices the gate cannot infer from commands alone. The default source is `discern/instructions.md`.
 

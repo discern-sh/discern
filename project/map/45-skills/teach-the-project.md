@@ -18,7 +18,7 @@ discern's built-in instructions also tell agents to offer this capture at a natu
 
 ## Record each lesson once
 
-The Skill checks for an existing source before adding anything. Update the current rule, playbook, or page instead of creating a second authority.
+The skill checks for an existing source before adding anything. Update the current rule, playbook, or page instead of creating a second authority.
 
 | The lesson is…                          | Its home                                                                         |
 | --------------------------------------- | -------------------------------------------------------------------------------- |

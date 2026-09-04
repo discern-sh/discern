@@ -21,13 +21,13 @@ discern makes **zero network calls** and ships **no telemetry**. It uploads noth
 
 The public site uses no client-side tracking or cookies.
 
-One thing is measured, and it stays on your machine. The Logbook records discern's own use, has its own switch, and can be sealed or deleted through a terminal-confirmed owner command.
+One thing is measured, and it stays on your machine. The logbook records discern's own use, has its own switch, and can be sealed or deleted through a terminal-confirmed owner command.
 
 ## The logbook: local history, one switch
 
 With recording on and the project's `discern.toml` readable, discern records one line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. A call outside every discern project records nothing. Each line holds names and numbers: the verb, branch, outcome, duration, change size, and each standard's measured value. Validation runs add opaque keyed digests and counts for the repository state and job setup they saw. The key stays under `.git`; lines contain no manifests, content, commands, config or environment values, or reusable plain hashes. Possible coding-agent identity signals may also appear, including environment marker names with their values removed and the MCP client's declared name, title, and version. Those clues do not establish which agent drove a run. No code, prompts, command output, or file contents enter the logbook. Read active history with `discern patterns`; seal it for later reports with `discern patterns seal`; remove it with `discern patterns reset`; or turn recording off with `logbook = false` under `[project]`. Archive and reset apply only after a terminal operator reviews the scope and answers Yes. Turning recording off also disables the features listed under [what it powers](../70-reference/the-logbook.md#what-it-powers).
 
-The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
+The logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own gate. [The logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
 ## Secure random values come from WebCrypto
 
@@ -45,7 +45,7 @@ There is no push mapping. Configuring one would change plain `git push`, so publ
 
 ## Gate verbs run your configured commands
 
-Like a `Makefile` or an npm `scripts` block, discern runs the commands you wrote in `discern.toml`. The Gate runs your `format`, `lint`, and `test` commands. A scope gate or standard runs the command you supplied. discern adds no project command beyond its built-in Git and file operations.
+Like a `Makefile` or an npm `scripts` block, discern runs the commands you wrote in `discern.toml`. The gate runs your `format`, `lint`, and `test` commands. A scope gate or standard runs the command you supplied. discern adds no project command beyond its built-in Git and file operations.
 
 The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, `discern checkpoints`, the docs browser, and CLI help) run none of your commands and change none of your files. A checkpoint's configured `when` command runs only at the gate. Unless recording is off, each run appends a line to the local logbook. Commands from your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. Reading project status executes none of those commands. `discern.toml` lists everything the gate will run.
 

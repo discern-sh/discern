@@ -68,6 +68,6 @@ Every response class, including assets, redirects, and errors, receives the same
 
 ## Current state
 
-The homepage, For Agents page, and trust gateway are static build output from typed sources. The manual and map use the same server-rendered reading shell but remain different corpora with different navigation, search endpoints, framing, raw policies, and machine reach. The Map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
+The homepage, For Agents page, and trust gateway are static build output from typed sources. The manual and map use the same server-rendered reading shell but remain different corpora with different navigation, search endpoints, framing, raw policies, and machine reach. The map's public predicate admits the registered project and contributor tiers while rejecting underscore-prefixed protected directories and `publish: false`; it is not an allowlist of page names.
 
 `deno task site:build` owns ignored output under `site/pages/`, and Deno Deploy runs that build before starting the handler. Never hand-edit generated shells or emitted design-system assets.

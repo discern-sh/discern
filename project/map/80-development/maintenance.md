@@ -35,7 +35,7 @@ The detector ignores comments, whitespace, local identifier spelling, literal va
 
 After a focused cleanup, run the relevant tests and `deno task duplication-census`. If `duplicated_lines` falls, run `discern standards --pin duplicated_lines` so the lower ceiling becomes the next branch's baseline. Keep each cleanup behavior-preserving and atomic. The cleanup ledger in [`project/TODO.md`](../../TODO.md) stays open while defensible incidental groups remain; a broad campaign to manufacture a convenient number is not a maintenance goal.
 
-The Gate runs the census when a declared input changes and may replay its prior reading otherwise. It does not use a detector cache. Generated ownership and source membership come from the same configuration and Git-derived structural-scope authorities used elsewhere in the repository.
+The gate runs the census when a declared input changes and may replay its prior reading otherwise. It does not use a detector cache. Generated ownership and source membership come from the same configuration and Git-derived structural-scope authorities used elsewhere in the repository.
 
 ## Read the complexity tail
 

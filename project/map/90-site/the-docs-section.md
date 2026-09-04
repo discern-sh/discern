@@ -43,9 +43,9 @@ Each browser fetches its index once and searches locally. There is no query tele
 
 ## The public Map exhibit
 
-The Map projection widens discovery first, then applies the canonical safe predicate. It admits the root README and every public document in a registered map section, including intended contributor tiers. It rejects `_internal`, `_private`, `_adr`, any other underscore-prefixed protected directory, unregistered tiers, and `publish: false`.
+The map projection widens discovery first, then applies the canonical safe predicate. It admits the root README and every public document in a registered map section, including intended contributor tiers. It rejects `_internal`, `_private`, `_adr`, any other underscore-prefixed protected directory, unregistered tiers, and `publish: false`.
 
-The exhibit has a rooted navigation tree, its own breadcrumbs and pager, unique metadata even when authored titles repeat, isolated search, pristine raw Markdown, sitemap enrollment, and corpus-specific empty/not-found responses. Its persistent label explains that discern is developed under its own practice, making the map working evidence from internal use rather than independent validation. Every Map page points readers back to `/docs` for product documentation.
+The exhibit has a rooted navigation tree, its own breadcrumbs and pager, unique metadata even when authored titles repeat, isolated search, pristine raw Markdown, sitemap enrollment, and corpus-specific empty/not-found responses. Its persistent label explains that discern is developed under its own practice, making the map working evidence from internal use rather than independent validation. Every map page points readers back to `/docs` for product documentation.
 
 The predicate follows [`MAP_SECTION_REGISTRY`](../../../src/lib/paths.ts) and [`isPublicDoc`](../../../src/lib/docs.ts); adding a safe page enrolls it automatically, and adding protected material creates a tested rejection. The site must never add a hand-picked map page list.
 

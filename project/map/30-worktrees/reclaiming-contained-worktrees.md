@@ -17,7 +17,7 @@ Composition below the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)) leav
 
 ## The offer
 
-`discern worktree prune` reports contained worktrees as their own plan section, the `status` fleet survey marks the rows, and the desk offers a reclaim action. Each report names the nearest containing branch with tip hashes and its lead. Idleness follows the logbook's paired begin/finish events when the logbook is on. An install with recording off falls back to a 1-hour inactivity period. The Logbook narrows the offer. Human confirmation decides whether reclaim runs.
+`discern worktree prune` reports contained worktrees as their own plan section, the `status` fleet survey marks the rows, and the desk offers a reclaim action. Each report names the nearest containing branch with tip hashes and its lead. Idleness follows the logbook's paired begin/finish events when the logbook is on. An install with recording off falls back to a 1-hour inactivity period. The logbook narrows the offer. Human confirmation decides whether reclaim runs.
 
 ## The reclaim
 

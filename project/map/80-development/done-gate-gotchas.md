@@ -44,7 +44,7 @@ stage = "tracked_artifacts"
 
 **Symptom.** `done` reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). A run that started on a clean, committed tree stops right after the fix and build groups, with the later steps marked skipped; a run that started dirty reports at the end, after every stage. The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
 
-**Cause.** The fix stage (here `deno fmt`) is allowed to mutate files, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The Gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
+**Cause.** The fix stage (here `deno fmt`) is allowed to mutate files, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
 
 **Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and rerun `done`. Run `done` or `prepare` before the final commit to put generated files in canonical form first. Tree drift applies only when a stage changes an already committed file.
 
@@ -68,7 +68,7 @@ stage = "generated_drift"
 
 **Symptom.** You run 1 test or linter over the files you changed and it passes. The same step fails inside `discern done`.
 
-**Cause.** Shared state or ordering. The Gate often runs the full suite in parallel. Tests that depend on a shared resource (a file, a database row, a global, or a fixed port) or a particular order can pass in isolation and collide during the parallel suite. A targeted run misses that collision.
+**Cause.** Shared state or ordering. The gate often runs the full suite in parallel. Tests that depend on a shared resource (a file, a database row, a global, or a fixed port) or a particular order can pass in isolation and collide during the parallel suite. A targeted run misses that collision.
 
 **Fix.** Make each test self-contained, with its own fixtures, no ordering dependency, and no resource another test can touch concurrently. Reproduce with the full suite or your stack's parallel mode. Repair the test's isolation.
 
@@ -78,7 +78,7 @@ stage = "generated_drift"
 
 **Cause.** A `build` job produces artifacts that a later `check`/`test` stage reads, and the artifacts on disk are from a previous run (or were half-written while something read them).
 
-**Fix.** Rebuild from a clean source tree, then rerun `discern done`. The Gate orders `build` and `fix` before `check` and `test`, so later stages read the completed artifacts. This failure usually follows an out-of-order command or a partial build.
+**Fix.** Rebuild from a clean source tree, then rerun `discern done`. The gate orders `build` and `fix` before `check` and `test`, so later stages read the completed artifacts. This failure usually follows an out-of-order command or a partial build.
 
 ### A merge pulled in a new dependency
 
@@ -92,7 +92,7 @@ stage = "generated_drift"
 
 **Symptom.** `discern done` sits on a stage with no further output. After the job's time budget runs out (the global `[gate].timeout`, default 600 seconds, or the job's own `timeout` entry), it fails that stage with a diagnostic that the command "timed out … and was killed". The diagnostic names the config key whose budget fired. The command works when you run it by hand.
 
-**Cause.** A Gate command fails to finish. A watch-mode test runner or development server wired into a job can create this state. In your terminal, the command may choose a single run. The Gate runs it with standard input closed, no terminal (TTY), and piped output, where many runners watch for file changes and wait indefinitely. The Gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. The same timeout occurs when the command exits and leaves a background process holding its output stream open. The watchdog kills the group and releases the held pipes.
+**Cause.** A gate command fails to finish. A watch-mode test runner or development server wired into a job can create this state. In your terminal, the command may choose a single run. The gate runs it with standard input closed, no terminal (TTY), and piped output, where many runners watch for file changes and wait indefinitely. The gate exports `CI=1` with `NO_COLOR` and `TERM=dumb` to select single-run behavior. A runner that ignores `CI` still hangs, so the timeout watchdog kills the process group and fails the stage. The same timeout occurs when the command exits and leaves a background process holding its output stream open. The watchdog kills the group and releases the held pipes.
 
 **Fix.** Wire the command in its single-run form, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command needs more time than the budget, raise the config key the diagnostic names: the job's own `timeout` entry, or the global `[gate].timeout`. Setting a budget to `0` disables its bound and permits an indefinite hang.
 
@@ -108,7 +108,7 @@ evidence = 'timed out after \d+s and was killed'
 
 **Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure`. discern runs them in every managed worktree and after acceptance updates the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources. Put one-shot scaffolding under `[worktree.setup].steps` ([ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
-The self-shim makes `discern` available to every operator command. The Engine prepends the shim to `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job such as the seeded `format = "discern tidy"` resolves to the engine running the gate. This also applies when CI drives the engine from source or an MCP server starts with a stripped environment. The shim is cached once per engine identity under the repository's Git administrative directory ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
+The self-shim makes `discern` available to every operator command. The engine prepends the shim to `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job such as the seeded `format = "discern tidy"` resolves to the engine running the gate. This also applies when CI drives the engine from source or an MCP server starts with a stripped environment. The shim is cached once per engine identity under the repository's Git administrative directory ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
 
 ```gotcha-match
 evidence = 'failed \(exit 127\)'
@@ -126,7 +126,7 @@ evidence = 'failed \(exit 127\)'
 
 **Symptom.** A changed path does not trigger the expected scope gate, preview, or build. For example, a documentation-only change can run almost nothing.
 
-**Cause.** The Gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected. A change confined to a `neutral` scope runs no scope gates and gets no preview. Classification fails open: a path matching no scope counts as a real code change and runs additional gates.
+**Cause.** The gate classifies which scopes a change touched (`[scopes]` in `discern.toml`) and skips work that cannot be affected. A change confined to a `neutral` scope runs no scope gates and gets no preview. Classification fails open: a path matching no scope counts as a real code change and runs additional gates.
 
 **Fix.** If an expected scope gate was skipped, widen the `[scopes]` globs to match the changed paths. If an unexpected gate ran, the path reached the fail-open default. Add the path to `neutral` or the applicable scope only when it needs no gate.
 

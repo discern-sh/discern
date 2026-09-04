@@ -113,7 +113,7 @@ The task compiles the current checkout to a temporary binary before the PTY run.
 
 The settled-frame projector recognizes both inline erases and complete alternate-screen repaints. It also normalizes the doubled carriage return that a PTY line discipline can add when a complete-frame writer has already returned to column zero. A remaining carriage return still refuses the artifact because it represents a live repaint rather than a settled screen.
 
-Every task run overrides the caller's terminal environment with explicit facts: `TERM=xterm-256color`, a scripted geometry, static CI output, the selected locale, and the selected color mode. The Gate may invoke the task with `CI=1`, `NO_COLOR=1`, and `TERM=dumb`; those inherited values do not change the capture. The static mode records the completed command surface rather than a history of progress-frame repaints.
+Every task run overrides the caller's terminal environment with explicit facts: `TERM=xterm-256color`, a scripted geometry, static CI output, the selected locale, and the selected color mode. The gate may invoke the task with `CI=1`, `NO_COLOR=1`, and `TERM=dumb`; those inherited values do not change the capture. The static mode records the completed command surface rather than a history of progress-frame repaints.
 
 The package projection validates the captured styled output and owns its conversion to typed spans and self-contained HTML. The repository does not decode Select Graphic Rendition (SGR) or Operating System Command (OSC) sequences for this workflow ([ADR 0279](../_adr/0279-external-terminal-rendering-crosses-one-process-boundary.md)). A carriage-return repaint left in a static capture makes the task fail.
 

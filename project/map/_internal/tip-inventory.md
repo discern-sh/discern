@@ -2,7 +2,7 @@
 
 # Tip inventory
 
-_Every Desk tip, generated from the live registry._
+_Every desk tip, generated from the live registry._
 
 Entries follow the authored order, which defines the onboarding sequence. The sequence starts with the desk, orientation, an isolated working copy, and the daily loop. It then covers human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons may appear earlier when live state makes them relevant. Place each new tip at its intended learning point.
 

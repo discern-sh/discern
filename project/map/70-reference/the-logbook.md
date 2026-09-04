@@ -10,7 +10,7 @@ aliases:
 
 # The Logbook
 
-_The Logbook is a local activity record containing metadata rather than code or output._
+_The logbook is a local activity record containing metadata rather than code or output._
 
 With recording on and `discern.toml` readable, each command-line interface (CLI) verb run and each Model Context Protocol (MCP) invocation resolved to that project adds an event. Effectful verbs add paired start and completion events with one invocation id and the operation registry's resolved exclusion boundary. All worktrees share plain-text files under `.git`.
 
@@ -97,7 +97,7 @@ Each line contains names and numbers. It excludes code, prompts, command output,
 | `checkpoints`   | checkpoint servings, declarations, variances, abandoned open questions  |
 | `epoch`         | a fingerprint of your config                                            |
 
-`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The Logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
+`partial` marks an error after an irreversible effect. `crash` appears only when discern encounters an unexpected throw and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack. A saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md). `checkpoints` carries the open-question and variance lifecycle as metadata — ids, conclusions, revision flags, definition and subject fingerprints, and elapsed times; the unmet rationale never lands here.
 
 Readers skip unknown schema versions, and fields are append-only. `begin` carries run identity and the invocation facts that selected its boundary. Completion adds outcome and `duration_ms`. Capped runs add `waited_ms`, including `0`; uncapped and older events omit it. Readers derive execution as `duration_ms - (waited_ms ?? 0)` for priors and suite health. End-to-end statistics retain wall time. Other kinds are `config-change`, `pin`, and `prune`.
 
@@ -131,7 +131,7 @@ MCP describes the client implementation. An editor, extension, or proxy may sit 
 
 ## Local storage only
 
-discern writes the logbook under the Git administrative area, outside commits and ignore rules. The Logbook writer has no network interface under a test in discern's own gate. A write failure does not change the verb outcome; the verb continues without recording the event.
+discern writes the logbook under the Git administrative area, outside commits and ignore rules. The logbook writer has no network interface under a test in discern's own gate. A write failure does not change the verb outcome; the verb continues without recording the event.
 
 Doctor treats an enabled empty logbook as healthy, including on first use. Disabled, invalid, and write-denied states stay distinct. Unmatched begin events remain interruption or crash evidence and do not affect the storage-health result. Environmental denial warns and disables recording for the process; it does not block setup ([ADR 0320](../_adr/0320-setup-plans-own-write-authority-and-activation-recovery.md)).
 

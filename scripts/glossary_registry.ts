@@ -145,7 +145,7 @@ function regexLiteral(value: string): string {
 export function runningProseCaseRules(
   glossary: readonly GlossaryEntry[] = GLOSSARY,
 ): RunningProseCaseRule[] {
-  const context = String.raw`\b[A-Za-z][\w-]*\s+`;
+  const context = String.raw`(?:\b|_)[A-Za-z][\w-]*\s+`;
   const rules: RunningProseCaseRule[] = [];
   for (const entry of glossary) {
     if (entry.runningCase === "proof-family") {

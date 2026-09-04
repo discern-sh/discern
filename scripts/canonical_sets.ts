@@ -744,7 +744,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "worktree-lifecycle-repo-root-verbs",
     title: "Repository-root worktree lifecycle verbs",
     what:
-      "The Worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.",
+      "The worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.",
     source: {
       kind: "module",
       module: "src/engine/worktree/lifecycle.ts",
@@ -768,7 +768,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "desk-actions",
     title: "Desk actions",
     what:
-      "The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.",
+      "The desk's per-worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.",
     source: {
       kind: "module",
       module: "src/engine/desk/model.ts",
@@ -906,7 +906,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "stages",
     title: "Stages",
-    what: "The Gate's stage vocabulary and order.",
+    what: "The gate's stage vocabulary and order.",
     source: {
       kind: "module",
       module: "src/shared/capabilities.ts",
@@ -1085,7 +1085,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "bundled-skills",
     title: "Bundled skills",
-    what: "The Skills the binary ships and materializes into a project.",
+    what: "The skills the binary ships and materializes into a project.",
     source: {
       kind: "module",
       module: "src/lib/skills.ts",

@@ -13,7 +13,7 @@ aliases:
 
 _Bare `discern` starts new work and opens the human view over work in progress (the desk)._
 
-Individual worktree operations are available through Model Context Protocol (MCP) tools and JSON or Markdown CLI results. The Desk gives a person starting or supervising several changes one interactive [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open it ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
+Individual worktree operations are available through Model Context Protocol (MCP) tools and JSON or Markdown CLI results. The desk gives a person starting or supervising several changes one interactive [fleet](../00-orientation/glossary.md#fleet) view. Run `discern` with no verb, or `discern desk`, from the main checkout to open it ([ADR 0119](../_adr/0119-bare-discern-opens-the-operators-desk.md), [ADR 0151](../_adr/0151-the-desk-starts-tasks-and-opens-agents.md)).
 
 For direct movement between checkouts, [`discern enter`](opening-worktrees.md) opens a one-shot picker from any checkout and starts a child shell at the matching project-relative directory.
 
@@ -38,7 +38,7 @@ After creation, the desk opens the new row. `Refresh` runs another status survey
 
 ## Read the decision order
 
-The Desk uses the same observed fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0318](../_adr/0318-the-desk-adapts-status-into-one-human-decision.md)):
+The desk uses the same observed fleet facts and task status as `discern status`; it does not classify the same work again. It groups each task into one of 5 human-decision states ([ADR 0318](../_adr/0318-the-desk-adapts-status-into-one-human-decision.md)):
 
 | Group           | Included worktrees                                                                                                                                                                  |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,7 +110,7 @@ Before review, a Project Script asks for an optional argument line. Spaces separ
 
 Configured agents remain visible when their binary is missing from `PATH`. One available action launches directly. Several actions keep provider-owned labels and commands.
 
-Before launch, the AgentHandoff presentation shows the stored brief. The Desk appends that brief to provider command arguments when the provider registry declares a documented prompt option with a separate argument value. Current provider entries declare no such option. The handoff therefore asks the person to copy the brief and leaves the configured command arguments unchanged.
+Before launch, the AgentHandoff presentation shows the stored brief. The desk appends that brief to provider command arguments when the provider registry declares a documented prompt option with a separate argument value. Current provider entries declare no such option. The handoff therefore asks the person to copy the brief and leaves the configured command arguments unchanged.
 
 Session state stays outside discern, and resume arguments come from the provider registry. Scripts, agents, and shells inherit the selected checkout's terminal and return to a fresh survey. Their process groups stop with the desk ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)).
 
@@ -122,11 +122,11 @@ After every repair, refusal, or cleanup, the desk surveys the fleet again. If th
 
 `Recent completed tasks` is a bounded read-only view over successful local acceptance events and the latest landed Proof note. It distinguishes a recently landed task from an unexplained removal without creating a task archive.
 
-The Desk offers no branch-delete shortcut because the lifecycle has no guarded branch-only deletion core. Contained refs remain informational while another live branch contains their commits. Their existing reclaim workflow owns the applicable worktree action.
+The desk offers no branch-delete shortcut because the lifecycle has no guarded branch-only deletion core. Contained refs remain informational while another live branch contains their commits. Their existing reclaim workflow owns the applicable worktree action.
 
 ## Know when the Desk stays closed
 
-discern owns desk policy. The design-system package owns terminal effects. The Desk stays closed under `--plain`, `--json`, CI, or when terminal input or output is unavailable. Bare `discern` shows help in those states. `discern desk` returns `invalid_arguments` and points to `discern status --json`. Ctrl+C and end-of-input cancel. During task creation, Ctrl+U returns to the previous applicable question and retains earlier answers.
+discern owns desk policy. The design-system package owns terminal effects. The desk stays closed under `--plain`, `--json`, CI, or when terminal input or output is unavailable. Bare `discern` shows help in those states. `discern desk` returns `invalid_arguments` and points to `discern status --json`. Ctrl+C and end-of-input cancel. During task creation, Ctrl+U returns to the previous applicable question and retains earlier answers.
 
 Before setup completes, bare `discern` keeps showing the setup welcome. From inside a linked worktree, the desk directs you to the main checkout because accept and drop operate from the fleet's supervisory view. Desk-launched processes reject nested desk entry; exit to return ([ADR 0157](../_adr/0157-the-desk-owns-launched-child-sessions.md)).
 

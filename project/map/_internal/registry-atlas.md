@@ -975,7 +975,7 @@ The irreversible acceptance effects carried by partial and successful results, M
 
 ## `worktree-lifecycle-repo-root-verbs` — Repository-root worktree lifecycle verbs
 
-The Worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.
+The worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.
 
 - Source: `src/engine/worktree/lifecycle.ts` — `WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`
 - Members: 2
@@ -987,7 +987,7 @@ The Worktree lifecycle verbs that require `discern.toml` at the Git repository r
 
 ## `desk-actions` — Desk actions
 
-The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
+The desk's per-worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
 - Members: 16
@@ -1126,7 +1126,7 @@ The known gate jobs: the command table's fixed vocabulary.
 
 ## `stages` — Stages
 
-The Gate's stage vocabulary and order.
+The gate's stage vocabulary and order.
 
 - Source: `src/shared/capabilities.ts` — `STAGES`
 - Members: 4
@@ -1270,7 +1270,7 @@ The authored-source locations: instructions, Map, Skills, Project Scripts, TODO,
 
 ## `bundled-skills` — Bundled skills
 
-The Skills the binary ships and materializes into a project.
+The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
 - Members: 10

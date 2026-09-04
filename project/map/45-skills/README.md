@@ -9,9 +9,9 @@ aliases:
 
 # Skills
 
-_A Skill is a reusable agent playbook for work that needs a focused procedure._
+_A skill is a reusable agent playbook for work that needs a focused procedure._
 
-A Skill is a directory centered on `SKILL.md`. Its description states when the playbook applies. Its body contains the steps, judgment points, and completion conditions. Each configured agent receives the project's effective set and can load a skill when the request matches. You can also name a skill in your request to require that procedure.
+A skill is a directory centered on `SKILL.md`. Its description states when the playbook applies. Its body contains the steps, judgment points, and completion conditions. Each configured agent receives the project's effective set and can load a skill when the request matches. You can also name a skill in your request to require that procedure.
 
 discern ships a [bundled catalog](bundled-skills.md) of development playbooks. A project adds its own under `[skills].dir`, which defaults to `discern/skills`. `discern refresh` materializes the effective set into each configured agent's skills directory, alongside the compiled [agent instructions](../40-agent-instructions/).
 

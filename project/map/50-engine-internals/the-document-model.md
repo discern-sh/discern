@@ -28,7 +28,7 @@ Sibling reading order is README-first, then `DocEntry.order`. An explicit frontm
 - `frontmatterShapeIssues` is the domain-neutral tier every project's Gate applies through the map-integrity preflight: a broken block (unterminated fence, invalid YAML, non-mapping) and mis-shaped values on discern's known keys fail; unknown keys stay legal, because projects carry third-party frontmatter;
 - `validateFrontmatter` layers the strict, closed schema on the same shape rules: unknown-key rejection, `title`'s short-label ceiling, `description` bounds, `redirect_from` as absolute canonical routes, and list-content rules. [`tests/map_frontmatter_test.ts`](../../../tests/map_frontmatter_test.ts) applies this repository's house style to its own Map. The shipped Gate uses the neutral tier.
 
-The repository manual wrapper adds the facts only that corpus can require. Every root, section index, and leaf must declare one `id`, `title`, `description`, `order`, `publish`, `aliases`, and registered `kind`. It rejects unregistered sections, stray files, symbolic links, oversized or invalid UTF-8 pages, duplicate identities, route or alias ownership collisions, unresolved reachable links, invalid redirects, and incomplete section indexes. A Map page may carry `kind`, but map discovery and integrity do not require it.
+The repository manual wrapper adds the facts only that corpus can require. Every root, section index, and leaf must declare one `id`, `title`, `description`, `order`, `publish`, `aliases`, and registered `kind`. It rejects unregistered sections, stray files, symbolic links, oversized or invalid UTF-8 pages, duplicate identities, route or alias ownership collisions, unresolved reachable links, invalid redirects, and incomplete section indexes. A map page may carry `kind`, but map discovery and integrity do not require it.
 
 ## The map-integrity preflight
 
@@ -62,7 +62,7 @@ Map and docs pass the same records to the agent ranker in `docs_search.ts`. Exac
 
 ## Redirects
 
-`buildRedirectRegistry` assembles destination-owned `redirect_from` claims into a one-hop table. A source may not be a live route, and no source may be claimed twice, which prevents chains and cycles. The site's serving layer consumes the registry. The Gate validates it against the live routes.
+`buildRedirectRegistry` assembles destination-owned `redirect_from` claims into a one-hop table. A source may not be a live route, and no source may be claimed twice, which prevents chains and cycles. The site's serving layer consumes the registry. The gate validates it against the live routes.
 
 ## Prose, comprehension, and benefits
 

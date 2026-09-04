@@ -40,7 +40,7 @@ The Copilot CLI reads `AGENTS.md` natively as its primary instruction file, so d
 
 discern generates `AGENTS.md` from its built-in instructions plus the project's `[instructions].sources`. Edit the sources, then run `discern refresh`.
 
-Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
+Copilot also reads the cross-tool Agent skills directory `.agents/skills/`. discern materializes bundled skills there and creates symbolic links to authored project skills from `[skills].dir`. Codex, Gemini, and Cursor use the same directory.
 
 ## `.mcp.json`
 

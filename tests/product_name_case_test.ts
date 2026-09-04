@@ -213,14 +213,19 @@ Deno.test("lowercase glossary terms stay lowercase after capitalized lead-ins", 
       rule.expected ===
         rule.term.charAt(0).toLowerCase() + rule.term.slice(1)
     )
-    .filter((rule) =>
-      !new RegExp(rule.pattern).test(`The ${rule.term} remains visible.`)
-    )
-    .map((rule) => rule.term);
+    .flatMap((rule) =>
+      [
+        `The ${rule.term} remains visible.`,
+        `_The ${rule.term} remains visible._`,
+      ].filter((text) => !new RegExp(rule.pattern).test(text))
+        .map((text) => `${rule.term}: ${text}`)
+    );
   assertEquals(
     misses,
     [],
-    `capitalized lead-ins escaped the running-prose detector: ${misses.join(", ")}`,
+    `capitalized lead-ins escaped the running-prose detector: ${
+      misses.join(", ")
+    }`,
   );
 });
 
@@ -234,6 +239,7 @@ Deno.test("lowercase glossary terms retain case at true prose starts", () => {
       [
         `${rule.term} remains visible.`,
         `Proof: ${rule.term} remains visible.`,
+        `Proof: _${rule.term} remains visible._`,
       ].filter((text) => new RegExp(rule.pattern).test(text))
         .map((text) => `${rule.term}: ${text}`)
     );

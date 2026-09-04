@@ -89,7 +89,7 @@ A single accepted change keeps `biggest` and `best day` off the card, since eith
 
 ## The logbook
 
-_The Logbook is a local activity record containing metadata rather than code or output._
+_The logbook is a local activity record containing metadata rather than code or output._
 
 With recording on and `discern.toml` readable, each command-line interface (CLI) verb run and each Model Context Protocol (MCP) invocation resolved to that project adds an event. Effectful verbs add paired start and completion events with one invocation id. All worktrees share plain-text files under `.git`.
 

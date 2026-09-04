@@ -8,7 +8,7 @@ _This reference records discern's current integration for each coding agent: com
 >
 > **How this grows.** The `AGENT_NAMES` catalog in `src/shared/agent_catalogue.ts` supplies the agent axis to this page and the [cross-agent behavior reference](cross-agent-behaviour-reference.md). A new provider extends each derived cell because `PROVIDERS` is a total record. The typed commentary layer in `scripts/agent_integration_registry.ts` fails the gate until verdict prose covers that provider. Edit the commentary source and run `deno task codegen`; code generation overwrites hand edits to this page.
 >
-> **Freshness.** The Gate regenerates and diffs the derived layer, so its state matches the provider registry at the last code generation. The authored commentary and vendor-behavior claims summarize the cross-agent behavior reference and carry that page's mid-2026 freshness boundary.
+> **Freshness.** The gate regenerates and diffs the derived layer, so its state matches the provider registry at the last code generation. The authored commentary and vendor-behavior claims summarize the cross-agent behavior reference and carry that page's mid-2026 freshness boundary.
 
 ---
 
@@ -177,7 +177,7 @@ Cursor reads the canonical root `AGENTS.md` and the cross-tool `.agents/skills/`
 
 Cursor's MCP **call-duration policy** is surface-dependent. Its project `.cursor/mcp.json` feeds the integrated development environment (IDE) and the CLI or Agent Client Protocol (ACP) path. The CLI stops tool calls at 60 seconds and has no supported override. discern's server therefore declares `--strict-tool-calls`, and `discern_await` returns lossless 45-second continuation slices (the behavior reference §12 carries the vendor evidence).
 
-Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commonly claim the generic `agent` alias. The `cursor` shell command in the IDE and the application locations count as setup-only installation evidence. Cursor declares `humanSetupAdvice` because External File Protection is a user-wide setting that discern cannot change; `setup done` relays that handoff. Committed `.cursor/` configuration remains inert until the workspace is trusted, and tool use requires approval by default (`--approve-mcps` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI Skill-loading bugs. Re-verify the `cursor-agent` binary before relying on skills there.
+Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commonly claim the generic `agent` alias. The `cursor` shell command in the IDE and the application locations count as setup-only installation evidence. Cursor declares `humanSetupAdvice` because External File Protection is a user-wide setting that discern cannot change; `setup done` relays that handoff. Committed `.cursor/` configuration remains inert until the workspace is trusted, and tool use requires approval by default (`--approve-mcps` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI skill-loading bugs. Re-verify the `cursor-agent` binary before relying on skills there.
 
 ### GitHub Copilot — wired, reuse-canonical
 
@@ -233,7 +233,7 @@ Every coverage-matrix cell derives from the provider registry. `wired` names a d
 
 ### Skills materialization
 
-`src/lib/skills.ts` reconciles the effective skill set into each configured agent's skills directory (ADR 0042). The effective set combines bundled skills from the binary with authored skills under `[skills].dir`; an authored skill wins when names collide. Bundled Skills are copied because their source lives inside the binary. Authored Skills are symlinked so source edits remain live. Claude Code reads `.claude/skills/`; Codex, Gemini, Cursor, and Copilot read the shared `.agents/skills/`. A default install therefore writes those 2 directories, while a Codex-and-Gemini project writes the shared directory. The per-directory `.discern-materialized.json` manifest lets a later run prune stale discern-owned copies while preserving foreign drop-ins. `checkSkillsCurrent` resolves the effective set again and compares bundled bytes and authored symlinks with disk; `discern done` blocks on `stale` (ADR 0043).
+`src/lib/skills.ts` reconciles the effective skill set into each configured agent's skills directory (ADR 0042). The effective set combines bundled skills from the binary with authored skills under `[skills].dir`; an authored skill wins when names collide. Bundled skills are copied because their source lives inside the binary. Authored skills are symlinked so source edits remain live. Claude Code reads `.claude/skills/`; Codex, Gemini, Cursor, and Copilot read the shared `.agents/skills/`. A default install therefore writes those 2 directories, while a Codex-and-Gemini project writes the shared directory. The per-directory `.discern-materialized.json` manifest lets a later run prune stale discern-owned copies while preserving foreign drop-ins. `checkSkillsCurrent` resolves the effective set again and compares bundled bytes and authored symlinks with disk; `discern done` blocks on `stale` (ADR 0043).
 
 ### MCP wiring
 

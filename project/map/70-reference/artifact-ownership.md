@@ -60,7 +60,7 @@ The managed block requests `merge=discern-generated` for every tracked declared 
 
 Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured map, instructions, skills, scripts, TODO, and brief paths plus active agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
 
-Materialized Skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
+Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
 
 The ignore reconciler owns only its marked block and exact standalone rules that the current provider-artifact registry declares. Similar broad or retired rules outside the block remain project-owned. When `[worktree].root` resolves inside the repository, the managed block also ignores that exact nested directory; the default sibling worktree root needs no repository rule.
 

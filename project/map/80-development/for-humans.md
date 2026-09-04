@@ -12,7 +12,7 @@ _The prerequisites, editor settings, and maintainer actions used alongside codin
 
 ## Core idea: the engine belongs to the binary
 
-discern is a self-contained Deno binary with the engine compiled in as TypeScript under [`src/engine/`](../../../src/engine/). The Engine runs the project's final quality check (the gate), the worktree workflow, Standards, and the instruction compiler. An installed project receives that engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repository runs the same engine from source with `discern done`, so the installed and source workflows share one implementation.
+discern is a self-contained Deno binary with the engine compiled in as TypeScript under [`src/engine/`](../../../src/engine/). The engine runs the project's final quality check (the gate), the worktree workflow, Standards, and the instruction compiler. An installed project receives that engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repository runs the same engine from source with `discern done`, so the installed and source workflows share one implementation.
 
 An install puts `discern.toml` at the root and keeps the map, instructions, Skills, Project Scripts, ledger, and setup brief under `discern/` by default ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). [File ownership](../00-orientation/glossary.md#file-ownership) assigns those paths to project-owned, shared, or generated buckets. Project-owned files include the map and authored files under `discern/`. Shared files include `discern.toml`, provider settings, and discern's delimited `.gitignore` block. Generated files include the tracked agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) and the gitignored materialized-Skill directories. The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place. Rebuild generated files with `discern refresh` or `discern upgrade`.
 
@@ -26,7 +26,7 @@ The worktree hooks read their JavaScript Object Notation (JSON) payload in the b
 
 Run `deno task vale:sync` after a fresh clone if you need the gate in the main checkout. Managed worktree setup and post-landing convergence run it automatically through `[repository].ensure`. The task derives the release from [`.vale-version`](../../../.vale-version), verifies the platform checksum in [`.vale-assets.json`](../../../.vale-assets.json), and shares the content-addressed binary through the repository's Git common directory ([ADR 0337](../_adr/0337-vale-self-provisions-from-tracked-release-integrity.md)). A Homebrew `vale` binary is ignored and may be absent; `tar` supplies archive extraction on macOS, Linux, and WSL 2.
 
-`discern doctor` verifies that Git and a Portable Operating System Interface (POSIX) `sh` resolve on `PATH`. Node is optional and used only by the Model Context Protocol (MCP) Inspector helper in [Inspecting the MCP server](#inspecting-the-mcp-server). The Gate, build, and tests do not use Node.
+`discern doctor` verifies that Git and a Portable Operating System Interface (POSIX) `sh` resolve on `PATH`. Node is optional and used only by the Model Context Protocol (MCP) Inspector helper in [Inspecting the MCP server](#inspecting-the-mcp-server). The gate, build, and tests do not use Node.
 
 Stack-specific setup (installing project dependencies, running the app) lives in [getting-started.md](getting-started.md) once `discern setup begin` has filled it in.
 
@@ -72,7 +72,7 @@ For the combined browser archive, run `deno task site:art` and open the printed 
 
 `deno task inspect-mcp` opens the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) against discern's own MCP server (`discern mcp`, run from source). Use it to inspect annotations, input and output schemas, and resources while editing [`src/engine/mcp/server.ts`](../../../src/engine/mcp/server.ts). The default opens the browser user interface (UI). Append `--cli --method tools/list`, or `tools/call --tool-name … --tool-arg k=v`, for a one-shot terminal call. The script header in [`scripts/inspect_mcp.ts`](../../../scripts/inspect_mcp.ts) documents the full command.
 
-The Inspector is a human debugging helper under `scripts/`, outside `templates/`. The Gate and binary omit it. Node is required only for this helper because the Inspector launches Node subprocesses (`spawnPromise("node", …)`) through `npx`. The [`Brewfile`](../../../Brewfile) therefore leaves Node as a commented optional maintainer dependency. Install Node when you need the Inspector.
+The Inspector is a human debugging helper under `scripts/`, outside `templates/`. The gate and binary omit it. Node is required only for this helper because the Inspector launches Node subprocesses (`spawnPromise("node", …)`) through `npx`. The [`Brewfile`](../../../Brewfile) therefore leaves Node as a commented optional maintainer dependency. Install Node when you need the Inspector.
 
 ## Keeping this page current
 

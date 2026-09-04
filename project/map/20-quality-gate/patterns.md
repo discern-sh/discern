@@ -121,7 +121,7 @@ Both lifecycle actions are CLI-only owner operations. Their `--dry-run` forms re
 
 Reset removes only active history. Archive seals it and starts a fresh active logbook. [Logbook lifecycle](../70-reference/logbook-lifecycle.md) specifies the transaction, recovery path, recorder boundary, and historical-read commands. Recording starts again after either action unless `[project].logbook = false`.
 
-Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md). [The Logbook](../70-reference/the-logbook.md) covers the recording substrate.
+Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md). [The logbook](../70-reference/the-logbook.md) covers the recording substrate.
 
 ## Where it lives in code
 

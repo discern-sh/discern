@@ -10,7 +10,7 @@ aliases:
 
 _Cloning, setting up, and running the project locally for the first time._
 
-This page takes a fresh clone to a running project and a first green run of the project's final quality check (the gate). The discern commands are the same on every stack. The repository-specific steps below build discern's self-contained Deno binary, which includes the installer and TypeScript Engine. This repository runs `discern <verb>` from source through the local-development wrapper at `scripts/discern`, which selects the current checkout's engine.
+This page takes a fresh clone to a running project and a first green run of the project's final quality check (the gate). The discern commands are the same on every stack. The repository-specific steps below build discern's self-contained Deno binary, which includes the installer and TypeScript engine. This repository runs `discern <verb>` from source through the local-development wrapper at `scripts/discern`, which selects the current checkout's engine.
 
 ## The discern loop
 

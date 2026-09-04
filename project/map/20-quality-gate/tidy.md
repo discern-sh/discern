@@ -14,7 +14,7 @@ aliases:
 
 _An offline formatter for the files whose conventions discern defines._
 
-Fresh installations put bare `discern tidy` in the [format job](../00-orientation/glossary.md#gate-job). The project declares that formatter in its jobs table, so the gate runs it as an ordinary fix-stage command. The Gate resolves `discern` in a job command to the engine running that gate, so this self-invocation works even where the surrounding environment has no discern on `PATH`.
+Fresh installations put bare `discern tidy` in the [format job](../00-orientation/glossary.md#gate-job). The project declares that formatter in its jobs table, so the gate runs it as an ordinary fix-stage command. The gate resolves `discern` in a job command to the engine running that gate, so this self-invocation works even where the surrounding environment has no discern on `PATH`.
 
 ## What it formats
 

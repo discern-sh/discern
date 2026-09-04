@@ -11,7 +11,7 @@ aliases:
 
 _The knowledge tree for coding agents and maintainers changing discern itself._
 
-This Map explains the boundaries and intent that the code cannot express alone. It is the configured source behind `discern map`; it is not the product manual. Readers learning or using discern start in [`project/manual/`](../manual/README.md) or at [discern.sh/docs](https://discern.sh/docs). The separation is recorded in [ADR 0314](_adr/0314-separate-public-manual-and-project-map.md).
+This map explains the boundaries and intent that the code cannot express alone. It is the configured source behind `discern map`; it is not the product manual. Readers learning or using discern start in [`project/manual/`](../manual/README.md) or at [discern.sh/docs](https://discern.sh/docs). The separation is recorded in [ADR 0314](_adr/0314-separate-public-manual-and-project-map.md).
 
 ## Where to start
 
@@ -37,4 +37,4 @@ Start with [orientation](00-orientation/) for the product model and vocabulary. 
 
 `discern map [target]` browses this repository's configured map. `discern docs [target]` browses the separately sourced product manual. Both commands use the same neutral document reader, renderer, target resolver, and search model; their corpus policies decide what is admitted and delivered.
 
-Update the map when a change alters a durable boundary, supported workflow, or maintainer mental model. Link the implementation authority instead of copying facts that code or registries already make mechanically derivable. Update the manual only when the reader-facing product contract changes. The Gate validates both corpora with distinct integrity, checkpoint, and prose policies.
+Update the map when a change alters a durable boundary, supported workflow, or maintainer mental model. Link the implementation authority instead of copying facts that code or registries already make mechanically derivable. Update the manual only when the reader-facing product contract changes. The gate validates both corpora with distinct integrity, checkpoint, and prose policies.

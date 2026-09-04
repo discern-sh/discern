@@ -30,7 +30,7 @@ When unresolved later distinct failures coincide with long-running or queued val
 
 ## Standard trajectory decisions
 
-The Gate records whether a measured or replayed standard is mechanically eligible to pin and the exact target under its margin. Patterns reads that authority; it does not repeat direction, rounding, or margin arithmetic. Eligibility remains visible even when no pin is recommended.
+The gate records whether a measured or replayed standard is mechanically eligible to pin and the exact target under its margin. Patterns reads that authority; it does not repeat direction, rounding, or margin arithmetic. Eligibility remains visible even when no pin is recommended.
 
 A recommendation additionally requires a current active standard, measured or replayed evidence, Gate eligibility across the latest 3 comparable readings, and no direction reversal or same-Standard regression in the latest 5. A deferred on-demand reading routes to `discern standards`. Missing current fields stay historical or stale. A retired standard remains a trajectory without a live pin action.
 

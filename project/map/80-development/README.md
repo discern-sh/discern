@@ -10,7 +10,7 @@ aliases:
 
 _How contributors set up the checkout, change code, run the checks, and prepare a release._
 
-This subtree documents local setup, the testing approach, the conventions the tooling enforces, and the recovery reference for a gate failure whose immediate diagnostic needs more context. The Gate is the project's final quality check.
+This subtree documents local setup, the testing approach, the conventions the tooling enforces, and the recovery reference for a gate failure whose immediate diagnostic needs more context. The gate is the project's final quality check.
 
 Contributors use the same `discern <verb>` commands as installed projects. In this repository, the local-development wrapper runs each command against the current checkout's engine:
 

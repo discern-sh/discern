@@ -9,13 +9,13 @@ aliases:
 
 # Desk tips
 
-_Each Desk session puts a teaching line directly below the root status._
+_Each desk session puts a teaching line directly below the root status._
 
-The Desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's Note cue keeps it secondary across terminal modes. The complete text wraps to the terminal and may enter terminal history on short screens.
+The desk selects one tip when a session opens and keeps it stable until exit ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The design system's Note cue keeps it secondary across terminal modes. The complete text wraps to the terminal and may enter terminal history on short screens.
 
 ## How the tip is chosen
 
-Selection is deterministic: identical state shows the identical tip, and nothing is random. The Desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
+Selection is deterministic: identical state shows the identical tip, and nothing is random. The desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
 
 1. Tips new since the seen-state's baseline version, in authored order. These carry a "New in \<version\>" prefix; a fresh install starts at the current version.
 2. Unseen tips whose context currently applies. A relevance predicate reads the survey — "no standards configured", "a branch is behind the trunk" — and makes a tip timely.

@@ -43,11 +43,11 @@ Acceptance requires a clean branch containing the latest trunk and a tracked-cle
 
 On success, the acceptance result, one-line Proof, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit, converges the main checkout, and tears down the worktree. If another line of work moves the trunk first, acceptance keeps this worktree for `update → done → accept`. [Start, update, and accept](lifecycle.md) carries every landing precondition. [Interrupted landing recovery](acceptance-recovery.md) explains journals and `partial_acceptance` results.
 
-You can also supervise a ready branch from [the desk](the-desk.md). Its Accept action shows the plan, asks for confirmation, and calls the same acceptance core.
+You can also supervise a ready branch from [the desk](the-desk.md). Its accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
 ## Spin out follow-on work
 
-Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The Skill prepares self-contained prompts for agents to run in fresh worktrees and hands them back. It assumes you'll launch them yourself. If it can launch them, it shows you the dispatch plan, offers, and waits for confirmation before starting anything.
+Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The skill prepares self-contained prompts for agents to run in fresh worktrees and hands them back. It assumes you'll launch them yourself. If it can launch them, it shows you the dispatch plan, offers, and waits for confirmation before starting anything.
 
 Leave the ready worktree untouched while its landing decision is pending. Independent follow-ups start from the trunk in separate worktrees. A dependent follow-up starts from the unlanded work with `discern start --from <source>` or pulls that source into its own worktree with `discern update --from <source>`; the source may be a ref or an unambiguous worktree id or path. [Parallel and team work](team-workflow.md) covers that composition model.
 

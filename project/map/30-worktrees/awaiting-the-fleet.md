@@ -25,7 +25,7 @@ Pass one condition per call:
 | `--landed <worktree>` | The selected branch has work and its latest observed tip is reachable from the trunk.                     | Git ancestry            |
 | `--trunk-moved`       | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself    |
 
-Verdicts come from the state named in the table. The Logbook wakes the wait but never decides the condition ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
+Verdicts come from the state named in the table. The logbook wakes the wait but never decides the condition ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
 Select a live sibling by its exact worktree id, path, local branch, or full local ref. These forms resolve to the same registered line of work; an ambiguous token refuses and asks for an absolute path or full ref. Display titles are not identity. Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work when given the exact branch recorded in its trunk Proof note. Without one, it refuses ([ADR 0359](../_adr/0359-worktree-targets-share-one-resolution-contract.md)).
 

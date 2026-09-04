@@ -33,6 +33,6 @@ Import and re-export declarations, type-only declarations, syntax-declared top-l
 
 ## Reduce and pin the total
 
-The census has no cache. Its [Standard](../20-quality-gate/standards.md) `inputs` cover authored source suffixes, generated-file ownership configuration, the parser dependency, and runner configuration. The Gate measures a matching change and may replay the recorded value for unrelated work.
+The census has no cache. Its [Standard](../20-quality-gate/standards.md) `inputs` cover authored source suffixes, generated-file ownership configuration, the parser dependency, and runner configuration. The gate measures a matching change and may replay the recorded value for unrelated work.
 
 Consolidate the path and line ranges named by one diagnostic, then run `deno task duplication-census` again. When `duplicated_lines` falls, run `discern standards --pin duplicated_lines` to hold the lower ceiling.
