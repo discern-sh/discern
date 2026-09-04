@@ -36,6 +36,11 @@ import { RESULT_COMPLETION_POLICIES } from "../src/shared/result_completion.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 import type { DiscernTidyResult } from "../types/discern-json.d.ts";
+import {
+  renderCliManifest,
+  renderConventionsManifest,
+  renderMcpToolsManifest,
+} from "../scripts/contract_manifests.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
@@ -137,6 +142,25 @@ Deno.test("schema/discern-proof-note.schema.json matches the generator (run `den
     "schema/discern-proof-note.schema.json is stale — run `deno task codegen`",
   );
 });
+
+for (
+  const [path, render] of [
+    ["discern-mcp-tools.json", renderMcpToolsManifest],
+    ["discern-cli.json", renderCliManifest],
+    ["discern-conventions.json", renderConventionsManifest],
+  ] as const
+) {
+  Deno.test(`schema/${path} matches the live manifest generator`, async () => {
+    const committed = await Deno.readTextFile(
+      new URL(`../schema/${path}`, import.meta.url),
+    );
+    assertEquals(
+      committed,
+      render(),
+      `schema/${path} is stale — run \`deno task codegen\``,
+    );
+  });
+}
 
 Deno.test("the proof-note schema publishes one DSSE payload boundary", () => {
   const schema = buildProofNoteJsonSchema();

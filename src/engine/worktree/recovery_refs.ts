@@ -2,7 +2,7 @@
  * Bounded local recovery refs for branches removed by `worktree drop`.
  *
  * Deleting a branch also deletes its branch reflog. Before drop removes that
- * ref, discern keeps the branch tip under `refs/discern/recovery/`. Git owns the
+ * ref, discern keeps the branch tip under its registered recovery namespace. Git owns the
  * ref storage (including reftable repositories); this module never edits files
  * beneath `.git/refs`.
  */
@@ -15,12 +15,12 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import {
+  DROP_RECOVERY_REF_LIMIT,
+  DROP_RECOVERY_REF_PREFIX,
+} from "../../shared/git_conventions.ts";
 
-/** Namespace reserved for committed branch tips retained after a drop. */
-export const DROP_RECOVERY_REF_PREFIX = "refs/discern/recovery";
-
-/** The newest dropped branch tips retained in one repository. */
-export const DROP_RECOVERY_REF_LIMIT = 32;
+export { DROP_RECOVERY_REF_LIMIT, DROP_RECOVERY_REF_PREFIX };
 
 const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 

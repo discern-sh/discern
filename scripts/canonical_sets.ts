@@ -2543,6 +2543,50 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "contract-manifests",
+    title: "Frozen contract manifests",
+    what:
+      "The generated MCP, CLI, and conventions baselines whose same-major policies preserve every published v1 member.",
+    source: {
+      kind: "module",
+      module: "scripts/contract_manifests.ts",
+      exportName: "CONTRACT_MANIFEST_ARTIFACTS",
+    },
+    guards: [
+      "tests/result_codegen_test.ts",
+      "tests/public_schema_compatibility_guard_test.ts",
+      "tests/git_footprint_contract_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-mcp-tools.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "schema/discern-cli.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "schema/discern-conventions.json",
+        kind: "generated-file",
+        banner: false,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the public contract reference explains these compatibility artifacts without adding another product term",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () => [
+      ...(await import("./contract_manifests.ts"))
+        .CONTRACT_MANIFEST_ARTIFACTS,
+    ],
+  },
+  {
     id: "public-schema-publications",
     title: "Public schema publications",
     what:

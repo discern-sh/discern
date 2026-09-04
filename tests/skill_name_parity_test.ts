@@ -18,6 +18,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
 import { SKILL_CITATION_BARE } from "../src/lib/docs_integrity.ts";
+import { BUNDLED_SKILL_NAMES } from "../src/lib/skills.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -52,6 +53,10 @@ const NON_SKILL_TOKENS = new Map<string, string>([
   [
     "discern-proof-note",
     "the landing proof note's published schema artifact basename",
+  ],
+  [
+    "discern-mcp-tools",
+    "the frozen MCP tools manifest's published artifact basename",
   ],
   [
     "discern-checkpoint-input",
@@ -93,6 +98,26 @@ const INSTRUCTION_RELS = new Set(
     relative(REPO_ROOT, path).replaceAll("\\", "/")
   ),
 );
+
+Deno.test("bundled skill registry exactly matches the shipped directories", async () => {
+  const prefix = "templates/skills/";
+  const directories = new Set<string>();
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/skill_name_parity_test.ts#bundled-skill-registry",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "Bundled skill membership is defined by the first directory below the shipped templates skill root.",
+        include: (path) => path.startsWith(prefix),
+      },
+    })
+  ) {
+    const name = rel.slice(prefix.length).split("/")[0];
+    if (name !== undefined && name !== "") directories.add(name);
+  }
+  assertEquals([...directories].sort(), [...BUNDLED_SKILL_NAMES]);
+});
 
 Deno.test("skill-name parity: every live discern-* citation ships", async () => {
   const known = new Set<string>();

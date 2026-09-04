@@ -29,6 +29,7 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
+import { DEFAULT_WORKTREE_BRANCH_PREFIX } from "./git_conventions.ts";
 import {
   isKnownJob,
   isValidSlug,
@@ -609,8 +610,8 @@ const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
     `The shared branch the Gate compares against and completed work lands on. Detected at setup; ${DISCERN_ENVIRONMENT_VARIABLES.trunk} overrides it per invocation.`,
   ),
-  branch_prefix: z.string().default("agent/").describe(
-    'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
+  branch_prefix: z.string().default(DEFAULT_WORKTREE_BRANCH_PREFIX).describe(
+    `Branch prefix for worktrees created by discern, e.g. "${DEFAULT_WORKTREE_BRANCH_PREFIX}my-feature".`,
   ),
   proof_notes: z.enum(["local", "fetch"]).default("local").describe(
     'Both modes record landed Proof notes locally. "fetch" also manages fetch-only transport. Publishing remains an explicit owner action; there is no off mode.',
@@ -931,7 +932,7 @@ export const configDocSchema = z.strictObject({
       "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
     ),
   branch_prefix: z.string().optional().describe(
-    'Branch prefix for worktrees, e.g. "agent/".',
+    `Branch prefix for worktrees, e.g. "${DEFAULT_WORKTREE_BRANCH_PREFIX}".`,
   ),
   brief: z.string().optional().describe(
     "Free-text description of what the project is.",

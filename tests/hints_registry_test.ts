@@ -218,7 +218,7 @@ Deno.test("hint templates never point at JSON envelope paths", () => {
 // The projections resolve audience from the live registry by id, so these
 // behavior tests fire real entries — one from each audience — rather than
 // local definitions the registry cannot know.
-Deno.test("the interactive projections drop agent-audience entries and keep the rest", () => {
+Deno.test("the interactive projections drop agent-audience entries and keep human-visible audiences", () => {
   const entries = Object.values(HINTS) as unknown as readonly {
     id: string;
     audience: HintAudience;
@@ -227,8 +227,10 @@ Deno.test("the interactive projections drop agent-audience entries and keep the 
   }[];
   const agentEntry = entries.find((e) => e.audience === "agent");
   const allEntry = entries.find((e) => e.audience === "all");
+  const ownerEntry = entries.find((e) => e.audience === "owner");
   assert(agentEntry !== undefined, "registry has no agent-audience entry");
   assert(allEntry !== undefined, "registry has no all-audience entry");
+  assert(ownerEntry !== undefined, "registry has no owner-audience entry");
   const agentFired = {
     id: agentEntry.id,
     text: agentEntry.template(agentEntry.example),
@@ -237,8 +239,15 @@ Deno.test("the interactive projections drop agent-audience entries and keep the 
     id: allEntry.id,
     text: allEntry.template(allEntry.example),
   };
+  const ownerFired = {
+    id: ownerEntry.id,
+    text: ownerEntry.template(ownerEntry.example),
+  };
 
-  assertEquals(interactiveHints([agentFired, allFired]), [allFired]);
+  assertEquals(interactiveHints([agentFired, allFired, ownerFired]), [
+    allFired,
+    ownerFired,
+  ]);
 
   const texts = mergeHintTexts(
     hintTexts([agentFired, allFired]),
@@ -252,7 +261,7 @@ Deno.test("the interactive projections drop agent-audience entries and keep the 
 });
 
 // The class guard: every agent-audience entry — current and future — provably
-// stays off the interactive surface, and every all-audience entry provably
+// stays off the interactive surface, and every human-visible entry provably
 // reaches it. Iterates the live registry, so a new entry auto-enrols.
 Deno.test("every registry entry's audience decides its interactive rendering", () => {
   for (const [key, def] of Object.entries(HINTS)) {
@@ -274,7 +283,7 @@ Deno.test("every registry entry's audience decides its interactive rendering", (
       assertEquals(
         projected,
         [fired.text],
-        `${key} is all-audience but the interactive projection dropped it`,
+        `${key} is ${entry.audience}-audience but the interactive projection dropped it`,
       );
     }
   }

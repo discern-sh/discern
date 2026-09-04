@@ -4,12 +4,15 @@ import { join } from "@std/path";
 import { readDirIfExists } from "../shared/fs_presence.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
-import { DISCERN_GENERATED_MERGE_DRIVER } from "../lib/agent_gitattributes.ts";
+import {
+  DISCERN_GENERATED_MERGE_DRIVER_CONFIG_KEY,
+  WORKTREE_CONFIG_EXTENSION_KEY,
+} from "../shared/git_conventions.ts";
 import { resolveCommonGitDir } from "./worktree/git.ts";
 
 export const GENERATED_MERGE_DRIVER_KEY =
-  `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`;
-export const WORKTREE_CONFIG_EXTENSION_KEY = "extensions.worktreeConfig";
+  DISCERN_GENERATED_MERGE_DRIVER_CONFIG_KEY;
+export { WORKTREE_CONFIG_EXTENSION_KEY };
 export const GENERATED_MERGE_DRIVER_VALUE = "true";
 
 export type GeneratedMergeDriverOperation =

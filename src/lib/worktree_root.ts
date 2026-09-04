@@ -2,6 +2,7 @@
 
 import { basename, dirname, join } from "@std/path";
 import type { DiscernConfig } from "../shared/config_schema.ts";
+import { DEFAULT_WORKTREE_ROOT_SUFFIX } from "../shared/git_conventions.ts";
 
 /**
  * The directory under which per-worktree `<name>` checkouts are created — the
@@ -15,7 +16,10 @@ export function resolveWorktreeRoot(
 ): string {
   const configured = config.worktree.root;
   if (configured === "") {
-    return join(dirname(repoRoot), `${basename(repoRoot)}.worktrees`);
+    return join(
+      dirname(repoRoot),
+      `${basename(repoRoot)}${DEFAULT_WORKTREE_ROOT_SUFFIX}`,
+    );
   }
   return configured.startsWith("/") ? configured : join(repoRoot, configured);
 }

@@ -110,6 +110,11 @@ import {
   PROVIDER_BRAND_PROVENANCE_REL,
   renderProviderBrandProvenance,
 } from "./provider_brand_provenance.ts";
+import {
+  renderCliManifest,
+  renderConventionsManifest,
+  renderMcpToolsManifest,
+} from "./contract_manifests.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -421,6 +426,13 @@ await write(
   renderProofNoteJsonSchema(),
 );
 await write("types/discern-json.d.ts", renderResultTypesDts());
+console.log("Regenerating frozen contract manifests from live registries:");
+await write("schema/discern-mcp-tools.json", renderMcpToolsManifest());
+await write("schema/discern-cli.json", renderCliManifest());
+await write(
+  "schema/discern-conventions.json",
+  renderConventionsManifest(),
+);
 console.log(
   "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",
 );

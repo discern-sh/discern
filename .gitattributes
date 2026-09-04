@@ -5,6 +5,9 @@
 /schema/discern-setup-config.schema.json merge=discern-generated linguist-generated
 /schema/discern-results.schema.json merge=discern-generated linguist-generated
 /schema/discern-proof-note.schema.json merge=discern-generated linguist-generated
+/schema/discern-mcp-tools.json merge=discern-generated linguist-generated
+/schema/discern-cli.json merge=discern-generated linguist-generated
+/schema/discern-conventions.json merge=discern-generated linguist-generated
 /types/discern-json.d.ts merge=discern-generated linguist-generated
 /project/map/00-orientation/glossary.md merge=discern-generated linguist-generated
 /project/map/00-orientation/the-practice.md merge=discern-generated linguist-generated

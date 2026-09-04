@@ -33,6 +33,7 @@ import { productSentence } from "./product_sentence.ts";
 import { worktreeContinuityPolicy } from "./operating_policies.ts";
 import { RELATED_CHECKPOINT_KIND_LABELS } from "./checkpoints.ts";
 import type { GitCount } from "./git_count.ts";
+import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
 /**
  * Shared references for the commands hints cite most. Each is one token
@@ -71,14 +72,14 @@ export type HintCategory =
   | "notice";
 
 /**
- * A suppression flag for the interactive terminal presentation, not a format
- * targeting field: every entry rides JSON, Markdown, and MCP results regardless
- * of audience. `all` also renders in the interactive terminal; `agent` marks
- * entries whose instruction only an agent can execute — relaying to an owner,
- * re-rooting a session — which the terminal renderer drops. The drop keys on
- * this field, not on reconstructing the rendered string.
+ * A semantic audience plus a suppression flag for the interactive terminal
+ * presentation, not a format-targeting field: every entry rides JSON, Markdown,
+ * and MCP results. `all` renders everywhere; `agent` marks instructions only an
+ * agent can execute and is dropped by the terminal renderer; `owner` reserves a
+ * decision or external effect for the human owner and remains visible there.
+ * Projection keys on this field, not reconstructed prose.
  */
-export type HintAudience = "all" | "agent";
+export type HintAudience = "all" | "agent" | "owner";
 
 /**
  * A data-only declaration of what observable action a delivered hint invites.
@@ -3232,14 +3233,14 @@ export const HINTS = {
    * Git operation so discern never makes a network request. */
   "accept-publish-proof-note": defineHint<{ remote: string }>({
     id: "accept-publish-proof-note",
-    category: "next-step",
-    audience: "all",
+    category: "owner-attention",
+    audience: "owner",
     when: "A landing Proof note is recorded with fetch transport enabled.",
     example: { remote: "origin" },
     template: ({ remote }): string =>
-      `Share this landing's Proof with other clones: ` +
-      `\`git push ${remote} refs/notes/discern\`. discern records Proof ` +
-      "locally; network publication occurs only through the Git command you run.",
+      `The owner can share this landing's Proof with other clones by running ` +
+      `\`git push ${remote} ${PROOF_NOTES_REF}\`. discern records Proof locally; ` +
+      "network publication remains an explicit owner action.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */

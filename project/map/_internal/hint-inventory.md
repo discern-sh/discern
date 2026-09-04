@@ -54,14 +54,14 @@ Rendered example:
 
 ## `accept-publish-proof-note`
 
-- Category: `next-step`
-- Audience: `all`
+- Category: `owner-attention`
+- Audience: `owner`
 - Family: —
 - Emitting context: A landing Proof note is recorded with fetch transport enabled.
 
 Rendered example:
 
-> Share this landing's Proof with other clones: `git push origin refs/notes/discern`. discern records Proof locally; network publication occurs only through the Git command you run.
+> The owner can share this landing's Proof with other clones by running `git push origin refs/notes/discern`. discern records Proof locally; network publication remains an explicit owner action.
 
 ## `accept-reconcile-partial-effects`
 

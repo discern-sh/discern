@@ -22,7 +22,11 @@ import type { ResolvedGeneratedGroup } from "../../shared/generated_artifacts.ts
 import type { JobTimeout } from "../jobs/types.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
-import { DROP_RECOVERY_REF_LIMIT } from "./recovery_refs.ts";
+import {
+  DROP_RECOVERY_REF_LIMIT,
+  DROP_RECOVERY_REF_PREFIX,
+  PROOF_NOTES_REF,
+} from "../../shared/git_conventions.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
 import type { ReappearedWorktreePathScan } from "./retired_paths.ts";
@@ -120,7 +124,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     kind: "git",
     label: BUILT_IN_STEP_LABELS.writeProofNote,
     disposition: "run",
-    note: `attach the landed proof under refs/notes/discern`,
+    note: `attach the landed proof under ${PROOF_NOTES_REF}`,
   });
   steps.push({
     kind: "refresh",
@@ -567,7 +571,7 @@ export function dropPlanToEngine(plan: DropPlan): EnginePlan {
     label: BUILT_IN_STEP_LABELS.preserveBranchTip,
     disposition: plan.preserveHead ? "run" : "skip",
     note: plan.preserveHead
-      ? `retain the commit under refs/discern/recovery/ (newest ${DROP_RECOVERY_REF_LIMIT})`
+      ? `retain the commit under ${DROP_RECOVERY_REF_PREFIX}/ (newest ${DROP_RECOVERY_REF_LIMIT})`
       : plan.branch === ""
       ? "detached HEAD is already reachable from the trunk"
       : plan.branchKeepReason ?? `${plan.branch} is kept`,

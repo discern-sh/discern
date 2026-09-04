@@ -10,6 +10,7 @@ import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { renderTomlStringList } from "./toml_render.ts";
 import { DISCERN_VERSION } from "./version.ts";
+import { DEFAULT_WORKTREE_BRANCH_PREFIX } from "../shared/git_conventions.ts";
 
 // The native agent/provider vocabulary is derived from the shared identity
 // catalogue, then re-exported by the canonical schema under `AGENT_NAMES`. The
@@ -42,7 +43,7 @@ export type { KnownJob, Stage } from "../shared/capabilities.ts";
 
 /** Default values for every wizard answer. */
 export const DEFAULTS = {
-  branchPrefix: "agent/",
+  branchPrefix: DEFAULT_WORKTREE_BRANCH_PREFIX,
   // Default to the two built-in providers; gemini is opt-in.
   agents: [...DEFAULT_AGENTS] as AgentName[],
   mapDir: SOURCE_PATHS.map.defaultPath,

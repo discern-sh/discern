@@ -25,6 +25,7 @@ import {
   WORKTREE_TOKEN_DESCRIPTIONS,
   WORKTREE_TOKENS,
 } from "../engine/worktree/tokens.ts";
+import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
 /** Prose attached to one key of a documented unit. */
 export interface ConfigKeyProse {
@@ -118,7 +119,7 @@ export const CONFIG_PROSE = {
         detail: [
           "`local` adds no transport; `fetch` manages a fetch-only mapping per remote.",
           "Publish only when the owner chooses:",
-          "  `git push <remote> refs/notes/discern`.",
+          `  \`git push <remote> ${PROOF_NOTES_REF}\`.`,
         ],
       },
     },

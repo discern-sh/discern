@@ -68,6 +68,8 @@ Every project-operating tool accepts an optional `path` that selects the discern
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
 
+`discern_standards` accepts `names` to narrow both measurement and the candidates considered for `pin: true`. `discern_standards_propose` remains the separate one-standard proposal tool.
+
 `discern_refresh` accepts `dry_run: true`. Its plan covers agent files, materialized Skills, integrations, proof-note Git config, removals, and planning errors; preview has no `steps`. A normal call applies only those targets and reports `steps` ([ADR 0335](../_adr/0335-operation-policy-enrolls-faithful-previews.md)).
 
 ### Startup discovery
@@ -189,6 +191,8 @@ Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero t
 ## Published schemas and types
 
 The public schema publication table is generated from `PUBLIC_SCHEMA_PUBLICATIONS` (`src/shared/public_schemas.ts`) into the product manual: [MCP tools & results](https://discern.sh/docs/reference/mcp-and-results#published-schemas-and-types). The repository artifacts live under [`schema/`](../../../schema/).
+
+The generated manifest publications freeze the request-side MCP catalog, the full CLI grammar, and the cross-cutting convention registries from their live authorities. Same-major releases may add only the members each manifest's recorded policy permits; an existing value cannot move merely because code generation moved with it ([ADR 0372](../_adr/0372-v1-registries-publish-append-only-manifests.md)).
 
 [`types/discern-json.d.ts`](../../../types/discern-json.d.ts) provides standalone TypeScript types indexed by verb, command path, and MCP tool name. Each per-verb type intersects with `DiscernResultState`, so narrowing `ok` also narrows `error`, and planned and completed steps cannot coexist. The result schema's `x-discern-contracts` metadata publishes each registered verb's required outcomes, optional advisory kinds, refusal, cancellation, partial-effect, no-op, and recovery-owner policy.
 

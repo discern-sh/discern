@@ -27,12 +27,20 @@ import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { resolveSourcePaths } from "../shared/source_path_resolution.ts";
+import {
+  DISCERN_GENERATED_MERGE_DRIVER,
+  DISCERN_MANAGED_BLOCK,
+  DISCERN_MARKDOWN_DIFF_DRIVER,
+  LINGUIST_GENERATED_ATTRIBUTE,
+} from "../shared/git_conventions.ts";
 
-export const DISCERN_GITATTRIBUTES_BEGIN = "# --- discern ---";
-export const DISCERN_GITATTRIBUTES_END = "# --- /discern ---";
-export const DISCERN_GENERATED_MERGE_DRIVER = "discern-generated";
-export const DISCERN_MARKDOWN_DIFF_DRIVER = "markdown";
-export const LINGUIST_GENERATED_ATTRIBUTE = "linguist-generated";
+export const DISCERN_GITATTRIBUTES_BEGIN = DISCERN_MANAGED_BLOCK.begin;
+export const DISCERN_GITATTRIBUTES_END = DISCERN_MANAGED_BLOCK.end;
+export {
+  DISCERN_GENERATED_MERGE_DRIVER,
+  DISCERN_MARKDOWN_DIFF_DRIVER,
+  LINGUIST_GENERATED_ATTRIBUTE,
+};
 export const GITATTRIBUTES_REL = ".gitattributes";
 
 export type GitattributesTranslation =

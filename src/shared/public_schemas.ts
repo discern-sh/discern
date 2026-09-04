@@ -38,6 +38,27 @@ export const PROOF_NOTE_SCHEMA_ID = publicSchemaId(
   PROOF_NOTE_SCHEMA_MAJOR,
   "discern-proof-note.schema.json",
 );
+
+/** Frozen MCP request and tool-selection surface. */
+export const MCP_TOOLS_MANIFEST_MAJOR = 1;
+export const MCP_TOOLS_MANIFEST_ID = publicSchemaId(
+  MCP_TOOLS_MANIFEST_MAJOR,
+  "discern-mcp-tools.json",
+);
+
+/** Frozen command-line grammar. */
+export const CLI_MANIFEST_MAJOR = 1;
+export const CLI_MANIFEST_ID = publicSchemaId(
+  CLI_MANIFEST_MAJOR,
+  "discern-cli.json",
+);
+
+/** Frozen cross-surface names and repository conventions. */
+export const CONVENTIONS_MANIFEST_MAJOR = 1;
+export const CONVENTIONS_MANIFEST_ID = publicSchemaId(
+  CONVENTIONS_MANIFEST_MAJOR,
+  "discern-conventions.json",
+);
 /** The named payload definition inside the proof-note publication. */
 export const PROOF_NOTE_PAYLOAD_DEFINITION = "DiscernProofNotePayload";
 /** DSSE authenticates this type together with the decoded payload bytes. */
@@ -66,17 +87,26 @@ export const PUBLIC_SCHEMA_EXTENSION_KEYWORDS = [
 
 export const CONFIG_SCHEMA_COMPATIBILITY_POLICY = "config-input";
 export const RESULT_SCHEMA_COMPATIBILITY_POLICY = "result-output";
+export const MCP_TOOLS_COMPATIBILITY_POLICY = "mcp-tools-append-only";
+export const CLI_COMPATIBILITY_POLICY = "cli-append-only";
+export const CONVENTIONS_COMPATIBILITY_POLICY = "conventions-append-only";
 
 export type PublicSchemaCompatibility =
   | typeof CONFIG_SCHEMA_COMPATIBILITY_POLICY
-  | typeof RESULT_SCHEMA_COMPATIBILITY_POLICY;
+  | typeof RESULT_SCHEMA_COMPATIBILITY_POLICY
+  | typeof MCP_TOOLS_COMPATIBILITY_POLICY
+  | typeof CLI_COMPATIBILITY_POLICY
+  | typeof CONVENTIONS_COMPATIBILITY_POLICY;
 
 /** Narrow unknown metadata to one of the 2 published compatibility policies. */
 export function isPublicSchemaCompatibility(
   value: unknown,
 ): value is PublicSchemaCompatibility {
   return value === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
-    value === RESULT_SCHEMA_COMPATIBILITY_POLICY;
+    value === RESULT_SCHEMA_COMPATIBILITY_POLICY ||
+    value === MCP_TOOLS_COMPATIBILITY_POLICY ||
+    value === CLI_COMPATIBILITY_POLICY ||
+    value === CONVENTIONS_COMPATIBILITY_POLICY;
 }
 
 export interface PublicSchemaPublication {
@@ -123,6 +153,33 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     contract:
       "The proof envelope acceptance attaches to a landed commit, using the Dead Simple Signing Envelope (DSSE) field and payload boundary.",
   },
+  {
+    id: MCP_TOOLS_MANIFEST_ID,
+    artifactPath: "schema/discern-mcp-tools.json",
+    major: MCP_TOOLS_MANIFEST_MAJOR,
+    compatibility: MCP_TOOLS_COMPATIBILITY_POLICY,
+    label: "MCP tools manifest",
+    contract:
+      "Tool order, names, titles, descriptions, request schemas, and annotations.",
+  },
+  {
+    id: CLI_MANIFEST_ID,
+    artifactPath: "schema/discern-cli.json",
+    major: CLI_MANIFEST_MAJOR,
+    compatibility: CLI_COMPATIBILITY_POLICY,
+    label: "CLI grammar manifest",
+    contract:
+      "Command paths, aliases, positional arguments, flags, option value counts and types, defaults, and visibility.",
+  },
+  {
+    id: CONVENTIONS_MANIFEST_ID,
+    artifactPath: "schema/discern-conventions.json",
+    major: CONVENTIONS_MANIFEST_MAJOR,
+    compatibility: CONVENTIONS_COMPATIBILITY_POLICY,
+    label: "Conventions manifest",
+    contract:
+      "Frozen environment, skill, Git, checkpoint, identity, provider, hook, and local-format names.",
+  },
 ] as const satisfies readonly PublicSchemaPublication[];
 
 export const PUBLIC_SCHEMA_REFERENCE_START =
@@ -134,9 +191,18 @@ export const PUBLIC_SCHEMA_REFERENCE_END =
 function compatibilityContract(
   policy: PublicSchemaCompatibility,
 ): string {
-  return policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    ? "Same-major releases may add only optional fields, new contracts, and error slugs."
-    : "Same-major releases may add only optional keys and sections.";
+  switch (policy) {
+    case RESULT_SCHEMA_COMPATIBILITY_POLICY:
+      return "Same-major releases may add only optional fields, new contracts, and error slugs.";
+    case CONFIG_SCHEMA_COMPATIBILITY_POLICY:
+      return "Same-major releases may add only optional keys and sections.";
+    case MCP_TOOLS_COMPATIBILITY_POLICY:
+      return "Same-major releases may add tools or optional input properties; existing metadata and inputs remain compatible.";
+    case CLI_COMPATIBILITY_POLICY:
+      return "Same-major releases may add commands, aliases, options, and positional arguments without changing existing grammar.";
+    case CONVENTIONS_COMPATIBILITY_POLICY:
+      return "Same-major releases may add names; every published existing value is immutable.";
+  }
 }
 
 /** Resolve one registry artifact for the document that receives the block. */

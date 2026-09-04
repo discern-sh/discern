@@ -355,6 +355,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0369 — Public claims and refusals bind to cited guards](0369-public-claims-and-refusals-bind-to-cited-guards.md)
 - [0370 — The consequence canon records second-order effects above the benefit canons](0370-the-consequence-canon-records-second-order-effects.md)
 - [0371 — Practice tenets carry the belief they follow from](0371-practice-tenets-carry-the-belief-they-follow-from.md)
+- [0372 — V1 registries publish append-only generated manifests](0372-v1-registries-publish-append-only-manifests.md)
 
 <!-- END GENERATED: current ADR records -->
 

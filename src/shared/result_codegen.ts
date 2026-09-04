@@ -32,6 +32,7 @@ import {
 } from "./result_schemas.ts";
 import { ERROR_SLUGS } from "./result.ts";
 import { RESULT_COMPLETION_POLICIES } from "./result_completion.ts";
+import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
 
@@ -363,7 +364,7 @@ export function buildProofNoteJsonSchema(): JsonObject {
     description:
       "The discern proof envelope follows the Dead Simple Signing Envelope " +
       "(DSSE) field and payload boundary. Discern attaches it to a landed " +
-      "commit as a Git note under refs/notes/discern. The note body is this object as " +
+      `commit as a Git note under ${PROOF_NOTES_REF}. The note body is this object as ` +
       "one line of JSON plus a newline. Decode payload from Base64 and keep " +
       "those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), " +
       "payload bytes). No other envelope field enters that signature input. " +

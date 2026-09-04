@@ -801,7 +801,7 @@ export const ProofNotePayloadSchema = z.strictObject({
 export type ProofNotePayload = z.infer<typeof ProofNotePayloadSchema>;
 
 /** The durable proof note envelope `discern accept` attaches to a landed
- * commit under `refs/notes/discern`. Current writers use discern's unsigned
+ * commit under the registered Proof-note ref. Current writers use discern's unsigned
  * empty-array extension; durable readers use {@link TolerantProofNoteSchema}. */
 export const ProofNoteSchema = z.strictObject({
   payloadType: z.literal(PROOF_NOTE_PAYLOAD_TYPE).meta({

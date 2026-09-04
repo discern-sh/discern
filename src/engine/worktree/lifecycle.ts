@@ -274,6 +274,7 @@ import {
   preserveDropRecoveryCommit,
   preserveDropRecoveryRef,
 } from "./recovery_refs.ts";
+import { DROP_RECOVERY_REF_PREFIX } from "../../shared/git_conventions.ts";
 import {
   classifyAutomaticBranchOwnership,
   deleteAutomaticallyOwnedBranch,
@@ -1621,7 +1622,7 @@ export async function worktreeDrop(
             plan.branch === ""
               ? `detached HEAD ${plan.head}`
               : `branch '${plan.branch}'`
-          } under refs/discern/recovery/. ` +
+          } under ${DROP_RECOVERY_REF_PREFIX}/. ` +
           `Fix the Git error, then re-run \`discern worktree drop ${plan.id}\`. ` +
           `Git said: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },

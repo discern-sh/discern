@@ -48,33 +48,18 @@ import {
   type WorktreeField,
   type WorktreeIdentityField,
 } from "../../shared/worktree_identity_fields.ts";
+import { WORKTREE_IDENTITY_CONTRACT } from "../../shared/worktree_identity_contract.ts";
+import { DEFAULT_WORKTREE_BRANCH_PREFIX } from "../../shared/git_conventions.ts";
 
 export {
   sanitizeSlug,
   WORKTREE_FIELDS,
+  WORKTREE_IDENTITY_CONTRACT,
   WORKTREE_IDENTITY_FIELDS,
   type WorktreeField,
   type WorktreeIdentityField,
 };
 
-/**
- * The dev-server port band: 17290–19289, clear of common local services and
- * below the Linux/macOS ephemeral ranges. Based at 1729 × 10 — the taxicab
- * number Hardy dismissed as dull and Ramanujan discerned as the smallest
- * expressible as a sum of two cubes in two ways (1³+12³ = 9³+10³).
- */
-export const WORKTREE_IDENTITY_CONTRACT = Object.freeze(
-  {
-    checksum: "posix-cksum",
-    portBase: 17290,
-    portSpan: 2000,
-    dnsLabelLimit: 63,
-    databaseInputs: ["project-slug", "worktree-id"],
-    branchInputs: ["branch-prefix", "worktree-id"],
-    seedInput: "full-branch",
-    slugCollisionPrefix: "wt-",
-  } as const,
-);
 /** Validation pattern for an explicit `DISCERN_WORKTREE_ID` override. */
 const OVERRIDE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$/;
 
@@ -566,7 +551,8 @@ export async function loadIdentitySettings(
       rawSlug = config?.project.slug ?? "";
     }
     if (branchPrefix === undefined) {
-      branchPrefix = config?.repository.branch_prefix ?? "agent/";
+      branchPrefix = config?.repository.branch_prefix ??
+        DEFAULT_WORKTREE_BRANCH_PREFIX;
     }
     envFiles = config?.worktree.env_files;
   }

@@ -30,6 +30,10 @@ import { padDisplayEnd } from "../../lib/text.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { gitOperationMarkerPath } from "../../shared/git_admin_paths.ts";
+import {
+  ACCEPTANCE_TRANSACTION_MARKER_PREFIX,
+  acceptanceReflogMessage,
+} from "../../shared/git_conventions.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
   discernMergeArgs,
@@ -519,8 +523,7 @@ export type AcceptanceTransactionMarkerRead =
   | { readonly kind: "missing" }
   | { readonly kind: "unavailable"; readonly detail: string };
 
-export const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
-  "refs/worktree/discern/acceptance-transactions";
+export { ACCEPTANCE_TRANSACTION_MARKER_PREFIX };
 
 /** Derive the per-worktree proof ref coupled to one acceptance transaction. */
 export function acceptanceTransactionMarkerRef(
@@ -616,17 +619,6 @@ function ignoredCollisionDetail(paths: readonly string[]): string {
   );
   const more = paths.length > 3 ? ` and ${paths.length - 3} more` : "";
   return `the landing would overwrite ignored checkout data at ${shown}${more}`;
-}
-
-/** Tag a fast-forward or rollback with its transaction when recovery evidence exists. */
-function acceptanceReflogMessage(
-  transactionId: string | undefined,
-  action: "fast-forward" | "rollback",
-  branch: string,
-): string {
-  return transactionId === undefined
-    ? `discern accept: ${action} ${branch}`
-    : `discern accept transaction ${transactionId}: ${action} ${branch}`;
 }
 
 /** Submit ref commands through Git's prepared all-or-nothing stdin transaction. */

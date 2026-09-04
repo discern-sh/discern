@@ -35,6 +35,10 @@ import { type DiscernConfig, parseConfigOrThrow } from "./config_schema.ts";
 import type { ProviderTrustData } from "./provider_trust.ts";
 import { runGit } from "./subprocess.ts";
 import { lstatIfExists, pathExists, readTextIfExists } from "./fs_presence.ts";
+import {
+  DEFAULT_WORKTREE_ROOT_SUFFIX,
+  SETUP_BRANCH,
+} from "./git_conventions.ts";
 import { type CommandRef, discernCommand, flag } from "./command_reference.ts";
 import {
   assertSetupHumanSurfaceConsumption,
@@ -121,7 +125,10 @@ export async function deriveConsentContext(
   const docsExists = await pathExists(join(destDir, HUMAN_DOCS_REL));
   const configuredRoot = config.worktree.root.trim();
   const worktreePath = configuredRoot === ""
-    ? join(dirname(destDir), `${basename(destDir)}.worktrees`)
+    ? join(
+      dirname(destDir),
+      `${basename(destDir)}${DEFAULT_WORKTREE_ROOT_SUFFIX}`,
+    )
     : isAbsolute(configuredRoot)
     ? resolve(configuredRoot)
     : resolve(destDir, configuredRoot);
@@ -611,7 +618,7 @@ function landingLine(l: CompletionLanding): string {
     return `Your setup already lives on \`${l.target}\`, so there's nothing to land.`;
   }
   if (l.branch === "") {
-    return `Your setup is on the \`discern-setup\` branch, not yet on \`${l.target}\`. Proof verifies the branch and does not authorize landing. Check out \`discern-setup\`, then choose to land it with \`discern setup accept\`, leave it for review, or decline it. I will wait; do not restart or activate before that choice.`;
+    return `Your setup is on the \`${SETUP_BRANCH}\` branch, not yet on \`${l.target}\`. Proof verifies the branch and does not authorize landing. Check out \`${SETUP_BRANCH}\`, then choose to land it with \`discern setup accept\`, leave it for review, or decline it. I will wait; do not restart or activate before that choice.`;
   }
   if (!l.onSetupBranch) {
     // `setup accept` lands only the dedicated setup branch — recommending it for
@@ -647,7 +654,7 @@ export function completionMessage(ctx: CompletionContext): string {
     : readyForActivation
     ? `discern setup is proved and available on \`${landing.target}\`.`
     : `discern setup is proved on \`${
-      landing.branch || "discern-setup"
+      landing.branch || SETUP_BRANCH
     }\`, but \`${landing.target}\` does not contain it yet.`;
   const primary = inventory.project_context.primary_subsystem;
   const qualitativeLines = primary === null

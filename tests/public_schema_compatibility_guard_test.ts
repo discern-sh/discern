@@ -20,7 +20,10 @@ import {
   publicSchemaPublicationIdentityIssues,
 } from "../scripts/public_schema_compatibility.ts";
 import {
+  CLI_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+  CONVENTIONS_COMPATIBILITY_POLICY,
+  MCP_TOOLS_COMPATIBILITY_POLICY,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   PUBLIC_SCHEMA_PUBLICATIONS,
   type PublicSchemaPublication,
@@ -214,6 +217,33 @@ const VOYAGE_PUBLICATION: PublicSchemaPublication = {
   label: "voyage results",
   contract: "voyage result envelopes",
 };
+
+/**
+ * Deliberately hand-typed contract-major tripwire. This is test evidence, not
+ * a runtime registry: changing an existing row means an explicit major-version
+ * decision, while adding a publication requires consciously adding its row.
+ */
+const FROZEN_V1_PUBLICATION_MAJORS = [
+  ["schema/discern-config.schema.json", 1],
+  ["schema/discern-setup-config.schema.json", 1],
+  ["schema/discern-results.schema.json", 1],
+  ["schema/discern-proof-note.schema.json", 1],
+  ["schema/discern-mcp-tools.json", 1],
+  ["schema/discern-cli.json", 1],
+  ["schema/discern-conventions.json", 1],
+] as const;
+
+Deno.test("the hand-typed public contract table pins every v1 major", () => {
+  assertEquals(
+    PUBLIC_SCHEMA_PUBLICATIONS.map((publication) =>
+      [
+        publication.artifactPath,
+        publication.major,
+      ] as const
+    ),
+    [...FROZEN_V1_PUBLICATION_MAJORS],
+  );
+});
 
 Deno.test("same-major compatibility catches removed fields, type changes, and required-field changes", () => {
   const removed = clone(CONFIG_INPUT_FIXTURE);
@@ -1911,6 +1941,198 @@ Deno.test("public definition names never repeat an adjacent semantic segment", (
   );
 });
 
+Deno.test("the MCP manifest permits only append-only tools and optional request inputs", () => {
+  const previous: JsonObject = {
+    format: 1,
+    tools: [{
+      name: "discern_probe",
+      title: "Probe",
+      description: "Inspect the selected project.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        type: "object",
+        properties: { path: { type: "string" } },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    }],
+  };
+  const compatible = clone(previous);
+  const tool = (compatible.tools as JsonObject[])[0];
+  assert(tool !== undefined && isRecord(tool.inputSchema));
+  assert(isRecord(tool.inputSchema.properties));
+  tool.inputSchema.properties.dry_run = { type: "boolean" };
+  tool.inputSchema.required = [];
+  (compatible.tools as JsonValue[]).push({
+    name: "discern_future",
+    title: "Future",
+    description: "Observe a future fact.",
+    inputSchema: { type: "object", properties: {} },
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      compatible,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const renamedInput = clone(compatible);
+  const renamedTool = (renamedInput.tools as JsonObject[])[0];
+  assert(renamedTool !== undefined && isRecord(renamedTool.inputSchema));
+  assert(isRecord(renamedTool.inputSchema.properties));
+  delete renamedTool.inputSchema.properties.path;
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      renamedInput,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("path") && issue.includes("removed")),
+  );
+
+  const changedDescription = clone(previous);
+  const changedTool = (changedDescription.tools as JsonObject[])[0];
+  assert(changedTool !== undefined);
+  changedTool.description = "Changed selection semantics.";
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      changedDescription,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("description")),
+  );
+
+  const newlyRequired = clone(previous);
+  const newlyRequiredTool = (newlyRequired.tools as JsonObject[])[0];
+  assert(
+    newlyRequiredTool !== undefined && isRecord(newlyRequiredTool.inputSchema),
+  );
+  delete newlyRequiredTool.inputSchema.required;
+  const requiredCurrent = clone(newlyRequired);
+  const requiredCurrentTool = (requiredCurrent.tools as JsonObject[])[0];
+  assert(
+    requiredCurrentTool !== undefined &&
+      isRecord(requiredCurrentTool.inputSchema),
+  );
+  requiredCurrentTool.inputSchema.required = ["path"];
+  assert(
+    publicSchemaCompatibilityIssues(
+      newlyRequired,
+      requiredCurrent,
+      MCP_TOOLS_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes('added required input "path"')),
+  );
+});
+
+Deno.test("the CLI manifest permits additions but rejects grammar removal and arity drift", () => {
+  const command: JsonObject = {
+    path: ["probe"],
+    description: "Inspect one fact.",
+    aliases: ["p"],
+    hidden: false,
+    hidden_when: null,
+    positionals: [{ name: "target", optional: true, variadic: false }],
+    usage: "",
+    flags: [{
+      spellings: ["-n", "--name"],
+      description: "Select a name.",
+      type_definition: "<name:string>",
+      arity: 1,
+      value_types: ["string"],
+      default: null,
+      hidden: false,
+      global: false,
+    }],
+  };
+  const previous: JsonObject = {
+    format: 1,
+    implicit_flags: { command: ["--help"], root: ["--version"] },
+    commands: [command],
+  };
+  const compatible = clone(previous);
+  const nextCommand = (compatible.commands as JsonObject[])[0];
+  assert(nextCommand !== undefined && Array.isArray(nextCommand.aliases));
+  nextCommand.aliases.push("inspect");
+  assert(Array.isArray(nextCommand.flags));
+  nextCommand.flags.push({
+    spellings: ["--future"],
+    description: "Enable a future option.",
+    type_definition: "",
+    arity: 0,
+    value_types: [],
+    default: null,
+    hidden: false,
+    global: false,
+  });
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      compatible,
+      CLI_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const removedAlias = clone(previous);
+  const aliasCommand = (removedAlias.commands as JsonObject[])[0];
+  assert(aliasCommand !== undefined);
+  aliasCommand.aliases = [];
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      removedAlias,
+      CLI_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("aliases") && issue.includes("removed")),
+  );
+
+  const changedArity = clone(previous);
+  const arityCommand = (changedArity.commands as JsonObject[])[0];
+  assert(arityCommand !== undefined && Array.isArray(arityCommand.flags));
+  const arityFlag = arityCommand.flags[0];
+  assert(isRecord(arityFlag));
+  arityFlag.arity = 2;
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      changedArity,
+      CLI_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("arity")),
+  );
+});
+
+Deno.test("the conventions manifest permits new members but keeps existing values immutable", () => {
+  const previous: JsonObject = {
+    format: 1,
+    git: { refs: { proof: "refs/example/proof" } },
+    providers: { agent: { hooks_file: ".agent/hooks.json" } },
+  };
+  const compatible = clone(previous);
+  assert(isRecord(compatible.providers));
+  compatible.providers.future = { hooks_file: ".future/hooks.json" };
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      compatible,
+      CONVENTIONS_COMPATIBILITY_POLICY,
+    ),
+    [],
+  );
+
+  const renamed = clone(previous);
+  assert(isRecord(renamed.git) && isRecord(renamed.git.refs));
+  renamed.git.refs.proof = "refs/example/renamed";
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      renamed,
+      CONVENTIONS_COMPATIBILITY_POLICY,
+    ).some((issue) =>
+      issue.includes("refs.proof") && issue.includes("changed")
+    ),
+  );
+});
+
 Deno.test("the schema baseline is the highest predecessor version tag, never a release candidate at HEAD", async () => {
   await withTempDir(async (repo) => {
     await Deno.writeTextFile(`${repo}/README.md`, "schema tag fixture\n");
@@ -2074,11 +2296,16 @@ Deno.test("generated public schemas carry their identities and remain compatible
 
   for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
     const current = buildCurrentPublicSchema(publication);
-    assertEquals(
-      compileErrorOrUndefined(current),
-      undefined,
-      `${publication.artifactPath} must be valid JSON Schema draft 2020-12`,
-    );
+    if (
+      publication.compatibility === CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+      publication.compatibility === RESULT_SCHEMA_COMPATIBILITY_POLICY
+    ) {
+      assertEquals(
+        compileErrorOrUndefined(current),
+        undefined,
+        `${publication.artifactPath} must be valid JSON Schema draft 2020-12`,
+      );
+    }
     assertEquals(
       publicSchemaPublicationIdentityIssues(current, publication),
       [],

@@ -22,6 +22,7 @@ import {
 } from "./subprocess.ts";
 import { quiesceProcessGroup } from "./process_group.ts";
 import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
+import { discernAuthoredCommitReflogAction } from "./git_conventions.ts";
 
 export interface DiscernCommitMessage {
   readonly subject: string;
@@ -675,9 +676,9 @@ export async function commitDiscernChanges(
       indexTreeBefore,
     };
   }
-  const reflogAction = `discern authored commit/${
-    (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid()
-  }`;
+  const reflogAction = discernAuthoredCommitReflogAction(
+    (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid(),
+  );
   const args = [
     "-c",
     "core.logAllRefUpdates=always",

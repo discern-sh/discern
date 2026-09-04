@@ -10,6 +10,7 @@
  */
 
 import type { GitAdminStateKey } from "./git_admin_paths.ts";
+import { PROOF_NOTES_REF } from "./git_conventions.ts";
 
 export type OnDiskNewerVersionPolicy = "refuse" | "observe";
 export type OnDiskVersionField =
@@ -194,7 +195,7 @@ export const ON_DISK_FORMATS = {
   },
   proofNote: {
     id: "proof-note",
-    location: { kind: "git-note", ref: "refs/notes/discern" },
+    location: { kind: "git-note", ref: PROOF_NOTES_REF },
     version: 1,
     versionField: "payloadType",
     reader: "src/engine/gate/proof_notes.ts#parseProofNote",

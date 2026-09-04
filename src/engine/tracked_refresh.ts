@@ -29,6 +29,10 @@ import { readTextIfExists, statIfExists } from "../shared/fs_presence.ts";
 import { type EnginePlan, verbatimStepLabel } from "../shared/result.ts";
 import { runGit } from "../shared/subprocess.ts";
 import {
+  DISCERN_GENERATED_MERGE_DRIVER_CONFIG_KEY,
+  WORKTREE_CONFIG_EXTENSION_KEY,
+} from "../shared/git_conventions.ts";
+import {
   planProofNotesFetch,
   type ProofNotesFetchOperation,
   type ProofNotesFetchPlan,
@@ -325,10 +329,10 @@ function addGeneratedMergeDriverEffects(
     effects.push({
       type: "git-config",
       target: operation.kind === "set-common-driver"
-        ? "git config merge.discern-generated.driver"
+        ? `git config ${DISCERN_GENERATED_MERGE_DRIVER_CONFIG_KEY}`
         : operation.kind === "unset-worktree-extension"
-        ? "git config extensions.worktreeConfig"
-        : `git config merge.discern-generated.driver (${operation.configFile})`,
+        ? `git config ${WORKTREE_CONFIG_EXTENSION_KEY}`
+        : `git config ${DISCERN_GENERATED_MERGE_DRIVER_CONFIG_KEY} (${operation.configFile})`,
       disposition: operation.kind === "set-common-driver" ? "update" : "remove",
       artifacts: ["generated_merge_driver"],
       trackedKinds: [],

@@ -1,0 +1,780 @@
+{
+  "$id": "https://discern.sh/schema/v1/discern-conventions.json",
+  "format": 1,
+  "x-discern-compatibility-policy": "conventions-append-only",
+  "environment_variables": {
+    "DISCERN_REPO": true,
+    "DISCERN_VERSION": true,
+    "DISCERN_BIN_DIR": true,
+    "DISCERN_TRUNK": true,
+    "DISCERN_NO_ATTRIBUTION": true,
+    "DISCERN_PROJECT_SLUG": true,
+    "DISCERN_WORKTREE_BRANCH_PREFIX": true,
+    "DISCERN_WORKTREE_ID": true,
+    "DISCERN_ROOT": true,
+    "DISCERN_TOML": true,
+    "DISCERN_SCRIPTS_DIR": true,
+    "DISCERN_CHECKPOINT_INPUT": true,
+    "DISCERN_WORKTREE_PORT": true,
+    "DISCERN_WORKTREE": true,
+    "DISCERN_RESOURCE_<NAME>": true,
+    "DISCERN_EXPERIMENTAL_MCP_PRELOAD": true,
+    "DISCERN_EXPERIMENTAL_AWAIT_CALL_SECONDS": true,
+    "DISCERN_CRASH_PROBE": true,
+    "DISCERN_INTERACTION_TRACE": true,
+    "DISCERN_HOME": true,
+    "DISCERN_TEMPLATES_DIR": true,
+    "DISCERN_DOCS_DIR": true,
+    "DISCERN_GATE_TEST_REPORTER": true,
+    "DISCERN_DESIGN_SYSTEM_PATH": true,
+    "DISCERN_DESK_SESSION": true,
+    "DISCERN_TEST_SLOT": true,
+    "DISCERN_SPAWNED_BY": true,
+    "DISCERN_OPERATION_LOCK_DELEGATION": true,
+    "DISCERN_SETUP_DENO": true,
+    "DISCERN_SETUP_CONFIG": true,
+    "DISCERN_SETUP_MAIN": true,
+    "DISCERN_TEST_MCP_READINESS_TIMEOUT_MS": true,
+    "DISCERN_TEST_MCP_TIMEOUT_MS": true,
+    "DISCERN_TEST_ACCEPTANCE_JOURNAL": true,
+    "DISCERN_TEST_EFFORT_GRANT": true,
+    "DISCERN_TEST_MAIN_REF_LOCK": true,
+    "DISCERN_TEST_WORKTREE": true,
+    "DISCERN_TEST_ACCEPT_PAUSED": true,
+    "DISCERN_TEST_ACCEPT_RELEASE": true
+  },
+  "bundled_skills": {
+    "discern-await-the-fleet": true,
+    "discern-clear-the-decks": true,
+    "discern-cure-a-bug": true,
+    "discern-delegate-work": true,
+    "discern-document-subsystem": true,
+    "discern-place-a-checkpoint": true,
+    "discern-set-the-standard": true,
+    "discern-teach-the-project": true,
+    "discern-write-adr": true,
+    "discern-write-it-once": true
+  },
+  "git_admin_state": {
+    "namespace": "discern",
+    "entries": {
+      "resources": {
+        "path": "discern/resources",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "logbook": {
+        "path": "discern/logbook",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "logbookArchives": {
+        "path": "discern/logbook-archives",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "logbookRecovery": {
+        "path": "discern/logbook-recovery",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "logbookLifecycleLock": {
+        "path": "discern/logbook-lifecycle.lock",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "validationHmacKey": {
+        "path": "discern/validation-hmac-key",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "crash": {
+        "path": "discern/crash",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "testSlots": {
+        "path": "discern/test-slots",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "deskTips": {
+        "path": "discern/desk/tips.json",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "deskPreferences": {
+        "path": "discern/desk/preferences.json",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "parkedTaskMetadata": {
+        "path": "discern/parked-tasks",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "taskMetadata": {
+        "path": "discern/task-metadata.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "tempArtifactSweep": {
+        "path": "discern/temp-artifact-sweep",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "continuations": {
+        "path": "discern/continuations",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "retiredWorktreePaths": {
+        "path": "discern/retired-worktree-paths",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "dropRecoveryLock": {
+        "path": "discern/drop-recovery.lock",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
+      "gateProof": {
+        "path": "discern/gate-proof",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "lastGateRun": {
+        "path": "discern/last-gate-run",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "standardMeasurements": {
+        "path": "discern/standard-measurements",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "standardMeasurementEvidence": {
+        "path": "discern/standard-measurement-evidence.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "standardLimitProposals": {
+        "path": "discern/standard-limit-proposals.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "standardLimitProposalTransaction": {
+        "path": "discern/standard-limit-proposal-transaction.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": true
+      },
+      "ignoredBaseline": {
+        "path": "discern/ignored-baseline",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "checkpointOpenQuestions": {
+        "path": "discern/checkpoint-open-questions",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "effortGrant": {
+        "path": "discern/effort-grant",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "effortGrantClaims": {
+        "path": "discern/effort-grant-claims",
+        "scope": "worktree",
+        "kind": "directory",
+        "validation": false
+      },
+      "acceptanceTransaction": {
+        "path": "discern/acceptance-transaction.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "setupMachineryCommitEvidence": {
+        "path": "discern/setup-machinery-commit-evidence.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "worktreeSetupSteps": {
+        "path": "discern/worktree-setup-steps.json",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "worktreeReady": {
+        "path": "discern/worktree-ready",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
+      "selfShim": {
+        "path": "discern/shim",
+        "scope": "worktree",
+        "kind": "directory",
+        "validation": false
+      }
+    }
+  },
+  "checkpoints": {
+    "map-focus": "map.focus",
+    "instruction-economy": "instructions.economy",
+    "skills-playbook": "skills.executable",
+    "gotchas-playbook": "setup.failure-memory",
+    "deletion-heavy-change": "change.deletion-safety",
+    "parallel-implementation": "change.parallel-implementation",
+    "new-binary-asset": "change.binary-asset",
+    "effort-sprawl": "change.effort-scope",
+    "map-drift": "map.current",
+    "commit-story": "change.commit-story"
+  },
+  "questions": {
+    "gate.fast-feedback": true,
+    "gate.test-depth": true,
+    "gate.structured-diagnostics": true,
+    "setup.failure-memory": true,
+    "instructions.project-specific": true,
+    "instructions.economy": true,
+    "map.current": true,
+    "map.navigation": true,
+    "map.focus": true,
+    "worktrees.resources": true,
+    "standards.opportunity": true,
+    "standards.normalize": true,
+    "checkpoints.opportunity": true,
+    "skills.opportunity": true,
+    "skills.executable": true,
+    "change.binary-asset": true,
+    "change.deletion-safety": true,
+    "change.parallel-implementation": true,
+    "change.effort-scope": true,
+    "change.commit-story": true
+  },
+  "identity": {
+    "stored_fields": {
+      "id": true,
+      "site": true,
+      "branch": true,
+      "port": true,
+      "db": true,
+      "seed": true
+    },
+    "selectable_fields": {
+      "id": true,
+      "site": true,
+      "branch": true,
+      "port": true,
+      "db": true,
+      "seed": true,
+      "worktree": true
+    },
+    "derivation": {
+      "checksum": "posix-cksum",
+      "port_base": 17290,
+      "port_span": 2000,
+      "dns_label_limit": 63,
+      "database_inputs": [
+        "project-slug",
+        "worktree-id"
+      ],
+      "branch_inputs": [
+        "branch-prefix",
+        "worktree-id"
+      ],
+      "seed_input": "full-branch",
+      "slug_collision_prefix": "wt-"
+    }
+  },
+  "hidden_verbs": {
+    "setup": {
+      "when": "bootstrapped"
+    },
+    "triangle": {
+      "when": "always"
+    }
+  },
+  "shell_only_verbs": {
+    "worktree": "a hook-driven command group; an agent must never operate on its own footing",
+    "identity": "identity-resolution plumbing",
+    "skills": "a command group (skills list/eject)",
+    "mcp": "the server itself — it cannot expose itself as one of its tools",
+    "scripts": "arbitrary project executables own their arguments and output",
+    "queue": "a shell command wrapper whose child owns its arguments, streams, and exit status",
+    "tidy": "embedded formatter output belongs to the interactive terminal boundary",
+    "desk": "the interactive human surface; it wields supervisory actions over other efforts",
+    "enter": "an interactive child-shell handoff across the worktree fleet",
+    "setup": "the one-time interactive setup flow, driven at a terminal",
+    "upgrade": "operates on the discern install itself, not a project state",
+    "uninstall": "operates on the discern install itself, not a project state",
+    "config": "config plumbing; agents read and edit discern.toml directly",
+    "help": "human-readable CLI reference; MCP tool schemas carry their own help",
+    "licenses": "license-text dump for humans",
+    "triangle": "terminal art for humans at a terminal"
+  },
+  "providers": {
+    "claude_code": {
+      "instruction_file": "CLAUDE.md",
+      "skills_directory": ".claude/skills",
+      "mcp_file": ".mcp.json",
+      "hooks_file": ".claude/settings.json",
+      "hook_events": {
+        "SessionStart": "session-start",
+        "WorktreeCreate": "worktree-create",
+        "WorktreeRemove": "worktree-remove"
+      },
+      "worktree_app_file": null,
+      "project_rules_file": null,
+      "local_state_files": {
+        ".claude/settings.local.json": true
+      }
+    },
+    "codex": {
+      "instruction_file": "AGENTS.md",
+      "skills_directory": ".agents/skills",
+      "mcp_file": ".codex/config.toml",
+      "hooks_file": ".codex/hooks.json",
+      "hook_events": {
+        "SessionStart": "session-start"
+      },
+      "worktree_app_file": ".codex/environments/environment.toml",
+      "project_rules_file": ".codex/rules/discern.rules",
+      "local_state_files": {}
+    },
+    "gemini": {
+      "instruction_file": "GEMINI.md",
+      "skills_directory": ".agents/skills",
+      "mcp_file": ".gemini/settings.json",
+      "hooks_file": ".gemini/settings.json",
+      "hook_events": {
+        "SessionStart": "session-start"
+      },
+      "worktree_app_file": null,
+      "project_rules_file": null,
+      "local_state_files": {}
+    },
+    "cursor": {
+      "instruction_file": "AGENTS.md",
+      "skills_directory": ".agents/skills",
+      "mcp_file": ".cursor/mcp.json",
+      "hooks_file": ".cursor/hooks.json",
+      "hook_events": {
+        "sessionStart": "session-start"
+      },
+      "worktree_app_file": null,
+      "project_rules_file": null,
+      "local_state_files": {}
+    },
+    "copilot": {
+      "instruction_file": "AGENTS.md",
+      "skills_directory": ".agents/skills",
+      "mcp_file": ".mcp.json",
+      "hooks_file": ".github/hooks/discern.json",
+      "hook_events": {
+        "sessionStart": "session-start"
+      },
+      "worktree_app_file": null,
+      "project_rules_file": null,
+      "local_state_files": {}
+    }
+  },
+  "local_formats": {
+    "acceptance-transaction": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "acceptanceTransaction"
+        ]
+      }
+    },
+    "await-continuation": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "continuations"
+        ]
+      }
+    },
+    "checkpoint-open-questions": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "checkpointOpenQuestions"
+        ]
+      }
+    },
+    "continuation-record": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "continuations"
+        ]
+      }
+    },
+    "crash-report": {
+      "version": 1,
+      "version_field": "header",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "crash"
+        ]
+      }
+    },
+    "desk-preferences": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "deskPreferences"
+        ]
+      }
+    },
+    "desk-tip-state": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "deskTips"
+        ]
+      }
+    },
+    "effort-grant": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "effortGrant",
+          "effortGrantClaims"
+        ]
+      }
+    },
+    "fresh-standard-measurement-evidence": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "standardMeasurementEvidence"
+        ]
+      }
+    },
+    "gate-proof": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "gateProof"
+        ]
+      }
+    },
+    "ignored-baseline": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "ignoredBaseline"
+        ]
+      }
+    },
+    "last-gate-run": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "lastGateRun"
+        ]
+      }
+    },
+    "logbook-epoch": {
+      "version": 1,
+      "version_field": "schema",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "logbook",
+          "logbookRecovery"
+        ]
+      }
+    },
+    "logbook-event": {
+      "version": 1,
+      "version_field": "schema",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "logbook",
+          "logbookArchives",
+          "logbookRecovery"
+        ]
+      }
+    },
+    "logbook-validation-evidence": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "logbook",
+          "logbookArchives",
+          "logbookRecovery"
+        ]
+      }
+    },
+    "proof-note": {
+      "version": 1,
+      "version_field": "payloadType",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-note",
+        "ref": "refs/notes/discern"
+      }
+    },
+    "resource-ledger": {
+      "version": 1,
+      "version_field": "schema",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "resources"
+        ]
+      }
+    },
+    "retired-worktree-path": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "retiredWorktreePaths"
+        ]
+      }
+    },
+    "setup-machinery-commit-evidence": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "setupMachineryCommitEvidence"
+        ]
+      }
+    },
+    "setup-step-journal": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "worktreeSetupSteps"
+        ]
+      }
+    },
+    "standard-limit-proposal-store": {
+      "version": 2,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "standardLimitProposals"
+        ]
+      }
+    },
+    "standard-limit-proposal-transaction": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "standardLimitProposalTransaction"
+        ]
+      }
+    },
+    "standard-measurements": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "standardMeasurements"
+        ]
+      }
+    },
+    "task-metadata": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "taskMetadata"
+        ]
+      }
+    },
+    "parked-task-metadata": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "parkedTaskMetadata"
+        ]
+      }
+    },
+    "temp-artifact-sweep": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "tempArtifactSweep"
+        ]
+      }
+    }
+  },
+  "git": {
+    "refs": {
+      "proof_notes": "refs/notes/discern",
+      "proof_notes_transport_reservation": "refs/notes/discern*",
+      "proof_notes_short": "discern",
+      "proof_notes_tracking_prefix": "refs/discern/remotes",
+      "proof_notes_tracking_reservation": "refs/discern/remotes/<remote>/notes*",
+      "drop_recovery_prefix": "refs/discern/recovery",
+      "acceptance_transaction_prefix": "refs/worktree/discern/acceptance-transactions"
+    },
+    "refspec_templates": {
+      "proof_notes_fetch": "+refs/notes/discern*:refs/discern/remotes/<remote>/notes*"
+    },
+    "reflog_templates": {
+      "acceptance": "discern accept: <fast-forward|rollback> <branch>",
+      "acceptance_transaction": "discern accept transaction <id>: <fast-forward|rollback> <branch>",
+      "authored_commit": "discern authored commit/<uuid>"
+    },
+    "config_keys": {
+      "proof_notes_fetch_remote": "discern.proofNotesFetchRemote",
+      "remote_fetch": "remote.<remote>.fetch",
+      "worktree_config_extension": "extensions.worktreeConfig",
+      "generated_merge_driver": "merge.discern-generated.driver"
+    },
+    "branches": {
+      "worktree_prefix_default": "agent/",
+      "setup": "discern-setup",
+      "detached_fallback": "<branch>-<8-character-commit>"
+    },
+    "worktree_root": {
+      "default_suffix": ".worktrees",
+      "default_template": "<repo>.worktrees/<name>"
+    },
+    "managed_block": {
+      "begin": "# --- discern ---",
+      "end": "# --- /discern ---"
+    },
+    "generated_marker_prefix": "# Generated automatically ",
+    "attributes": {
+      "generated_merge_driver": "discern-generated",
+      "generated_merge_assignment": "merge=discern-generated",
+      "markdown_diff_driver": "markdown",
+      "markdown_diff_assignment": "diff=markdown",
+      "linguist_generated": "linguist-generated"
+    },
+    "machine": {
+      "name": "discern",
+      "email": "done@discern.sh",
+      "trailer": "Co-authored-by: discern <done@discern.sh>"
+    },
+    "no_attribution_effects": {
+      "trigger": {
+        "environment_variable": "DISCERN_NO_ATTRIBUTION",
+        "active_when": "non-empty"
+      },
+      "commit_trailer": {
+        "attributed": "included",
+        "unattributed": "omitted"
+      },
+      "generated_marker": {
+        "attributed": "product-and-source",
+        "unattributed": "source-only"
+      },
+      "proof_note_author": {
+        "attributed": "discern-machine",
+        "unattributed": "ambient-git-identity"
+      },
+      "proof_record": {
+        "attributed": "recorded",
+        "unattributed": "recorded"
+      }
+    },
+    "bounds": {
+      "drop_recovery_refs": 32,
+      "retired_worktree_path_days": 90,
+      "retired_worktree_path_entries": 256
+    }
+  }
+}

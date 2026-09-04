@@ -26,9 +26,10 @@ import { generatedArtifactMarker } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import type { DiscernConfig } from "../shared/config_schema.ts";
 import { resolveWorktreeRoot } from "./worktree_root.ts";
+import { DISCERN_MANAGED_BLOCK } from "../shared/git_conventions.ts";
 
-export const DISCERN_GITIGNORE_BEGIN = "# --- discern ---";
-export const DISCERN_GITIGNORE_END = "# --- /discern ---";
+export const DISCERN_GITIGNORE_BEGIN = DISCERN_MANAGED_BLOCK.begin;
+export const DISCERN_GITIGNORE_END = DISCERN_MANAGED_BLOCK.end;
 
 const GITIGNORE_FRAGMENT_NAME = ".gitignore.fragment";
 const TARGET_REL = ".gitignore";

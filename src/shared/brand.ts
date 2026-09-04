@@ -1,5 +1,10 @@
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
 import { DISCERN_NAME, DISCERN_URL } from "./product_identity.ts";
+import { GENERATED_ARTIFACT_MARKER_PREFIX } from "./git_conventions.ts";
+export {
+  DISCERN_MACHINE,
+  GENERATED_ARTIFACT_MARKER_PREFIX,
+} from "./git_conventions.ts";
 export {
   DISCERN_ADVISORY_URL,
   DISCERN_DOCS_URL,
@@ -22,17 +27,16 @@ export const DISCERN_MARK = "◮";
 /** The text wordmark used by decorative human-facing headings. */
 export const DISCERN_WORDMARK = `${DISCERN_MARK} ${DISCERN_NAME}`;
 
-/** The shared opening of every hash-comment provenance marker. */
-export const GENERATED_ARTIFACT_MARKER_PREFIX = "# Generated automatically ";
-
 /** The attributed provenance body used unless the process opts out. */
 function attributedArtifactMarkerBody(source: string): string {
-  return `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`;
+  return `${
+    GENERATED_ARTIFACT_MARKER_PREFIX.slice(2)
+  }by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`;
 }
 
 /** The source-only provenance body used when attribution is disabled. */
 function unattributedArtifactMarkerBody(source: string): string {
-  return `Generated automatically via ${source}`;
+  return `${GENERATED_ARTIFACT_MARKER_PREFIX.slice(2)}via ${source}`;
 }
 
 /** A provenance marker's text without the format-specific hash-comment prefix. */
@@ -118,28 +122,3 @@ export function stripGeneratedArtifactMarker(
     !isGeneratedArtifactMarker(line, source)
   ).join(eol);
 }
-
-/** Couple a Git author name and email with their canonical commit trailer. */
-function coAuthorIdentity<
-  const Name extends string,
-  const Email extends string,
->(
-  name: Name,
-  email: Email,
-): {
-  readonly name: Name;
-  readonly email: Email;
-  readonly trailer: string;
-} {
-  return {
-    name,
-    email,
-    trailer: `Co-authored-by: ${name} <${email}>`,
-  };
-}
-
-/** The identity attached to commits whose diffs discern composes. */
-export const DISCERN_MACHINE = coAuthorIdentity(
-  DISCERN_NAME,
-  "done@discern.sh",
-);

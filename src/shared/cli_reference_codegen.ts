@@ -37,6 +37,12 @@ export interface CliOption {
   description: string;
   /** Cliffy's value spec (`"<name:string>"`), `""` for a boolean flag. */
   type_definition: string;
+  /** Number of values Cliffy consumes for one occurrence. */
+  arity: number;
+  /** Parser value types, in argument order; empty for a Boolean flag. */
+  value_types: string[];
+  /** Registered default, or null when the option has no default. */
+  default_value: unknown;
   hidden: boolean;
   /** True for a root `globalOption` inherited by every command. */
   global: boolean;
@@ -82,6 +88,8 @@ interface CommandView {
     flags: string[];
     description: string;
     typeDefinition?: string;
+    args?: ReadonlyArray<{ type?: string }>;
+    default?: unknown;
     hidden?: boolean;
     global?: boolean;
   }>;
@@ -113,6 +121,9 @@ function walkCommand(
       flags: [...o.flags],
       description: o.description,
       type_definition: o.typeDefinition ?? "",
+      arity: o.args?.length ?? 0,
+      value_types: o.args?.map((arg) => arg.type ?? "unknown") ?? [],
+      default_value: o.default ?? null,
       hidden: o.hidden === true,
       global: o.global === true,
     })),

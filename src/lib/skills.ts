@@ -87,9 +87,33 @@ async function dirNames(dir: string): Promise<string[]> {
   return names.sort();
 }
 
+/**
+ * Public directory identities of the skills bundled in the binary.
+ *
+ * These names are `[skills].exclude` keys, so v1 treats each spelling as a
+ * compatibility contract. The directory-parity guard makes the registry and
+ * shipped tree move together; manifest generation reads this registry.
+ */
+export const BUNDLED_SKILLS = {
+  "discern-await-the-fleet": true,
+  "discern-clear-the-decks": true,
+  "discern-cure-a-bug": true,
+  "discern-delegate-work": true,
+  "discern-document-subsystem": true,
+  "discern-place-a-checkpoint": true,
+  "discern-set-the-standard": true,
+  "discern-teach-the-project": true,
+  "discern-write-adr": true,
+  "discern-write-it-once": true,
+} as const;
+
+export const BUNDLED_SKILL_NAMES: readonly string[] = Object.freeze(
+  Object.keys(BUNDLED_SKILLS).sort(),
+);
+
 /** The names of the skills bundled in the binary (`templates/skills/`). */
-export async function bundledSkillNames(): Promise<string[]> {
-  return await dirNames(await resolveBundledSkillsDir());
+export function bundledSkillNames(): Promise<string[]> {
+  return Promise.resolve([...BUNDLED_SKILL_NAMES]);
 }
 
 // ── skill frontmatter well-formedness ───────────────────────────────────────

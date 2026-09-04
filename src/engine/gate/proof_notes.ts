@@ -7,7 +7,14 @@
  * history. All writes are local; this module never fetches or pushes.
  */
 
-import { DISCERN_MACHINE } from "../../shared/brand.ts";
+import {
+  DISCERN_MACHINE,
+  PROOF_NOTES_FETCH_MARKER_KEY,
+  PROOF_NOTES_REF,
+  PROOF_NOTES_SHORT_REF,
+  PROOF_NOTES_TRACKING_PREFIX,
+  proofNotesFetchMapping,
+} from "../../shared/git_conventions.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
@@ -27,23 +34,15 @@ import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { abbreviatedObjectIdMatches } from "../../shared/tree_identity.ts";
 
-export const PROOF_NOTES_REF = "refs/notes/discern";
-export const PROOF_NOTES_SHORT_REF = "discern";
-export const PROOF_NOTES_TRACKING_PREFIX = "refs/discern/remotes";
-
-export const PROOF_NOTES_FETCH_MARKER_KEY = "discern.proofNotesFetchRemote";
+export {
+  PROOF_NOTES_FETCH_MARKER_KEY,
+  PROOF_NOTES_REF,
+  PROOF_NOTES_SHORT_REF,
+  PROOF_NOTES_TRACKING_PREFIX,
+  proofNotesFetchMapping,
+};
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
-
-/** Derive the private tracking ref that holds one remote's fetched proof notes. */
-function fetchRef(remote: string): string {
-  return `${PROOF_NOTES_TRACKING_PREFIX}/${remote}/notes`;
-}
-
-/** Render the wildcard refspec that fetches proof notes without requiring their existence. */
-export function proofNotesFetchMapping(remote: string): string {
-  return `+${PROOF_NOTES_REF}*:${fetchRef(remote)}*`;
-}
 
 /** Prefer Git's stderr or stdout detail and fall back to its exit status. */
 function gitReason(result: GitResult): string {
@@ -680,7 +679,7 @@ async function proofTrackingRefs(root: string): Promise<string[]> {
 }
 
 /** Supply discern's Git note author identity only when attribution is enabled. */
-function notesIdentity(
+export function proofNoteAuthorEnvironment(
   env: EnvReader,
 ): Record<string, string> | undefined {
   if (!discernAttributionEnabled(env)) {
@@ -740,7 +739,7 @@ export async function writeProofNote(
     };
   }
 
-  const identity = notesIdentity(env);
+  const identity = proofNoteAuthorEnvironment(env);
   const mergedRefs: string[] = [];
   for (const ref of await proofTrackingRefs(root)) {
     const merge = await runGit(

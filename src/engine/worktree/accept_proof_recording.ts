@@ -17,7 +17,7 @@ import type {
   Proof,
   StandardLimitProposalData,
 } from "../../shared/result_schemas.ts";
-import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
+import { fireOwnerAttention, HINTS, hintTexts } from "../../shared/hints.ts";
 import { cloneStandardLimitProposal } from "../gate/standard_proposal_state.ts";
 import {
   gateRunContext,
@@ -192,7 +192,9 @@ export async function recordLandingProofNote(input: {
     proofWritten && publicationRemote !== undefined;
   const publicationHints = shouldOfferPublication
     ? hintTexts([
-      fire(HINTS["accept-publish-proof-note"], { remote: publicationRemote }),
+      fireOwnerAttention(HINTS["accept-publish-proof-note"], {
+        remote: publicationRemote,
+      }),
     ])
     : hintTexts([]);
   return {

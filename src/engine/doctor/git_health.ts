@@ -15,6 +15,7 @@ import {
 } from "../../shared/subprocess.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { parseWorktreeList, resolveCommonGitDir } from "../worktree/git.ts";
+import { WORKTREE_CONFIG_EXTENSION_KEY } from "../../shared/git_conventions.ts";
 
 /** One doctor-compatible diagnostic emitted by the Git health probes. */
 export interface GitHealthCheck {
@@ -717,7 +718,10 @@ async function worktreeConfigCheck(
     );
   }
   const linked = Math.max(0, inventory.registeredCount - 1);
-  const extension = effectiveEntry(common, "extensions.worktreeconfig");
+  const extension = effectiveEntry(
+    common,
+    WORKTREE_CONFIG_EXTENSION_KEY.toLowerCase(),
+  );
   const extensionEnabled = extension !== undefined &&
     configBoolean(extension.value) === true;
   const misplacedKeys = [
@@ -740,7 +744,7 @@ async function worktreeConfigCheck(
     );
   }
   const repair =
-    "enable checkout-local config with `git config extensions.worktreeConfig true`; " +
+    `enable checkout-local config with \`git config ${WORKTREE_CONFIG_EXTENSION_KEY} true\`; ` +
     "move core.worktree or sparse-checkout values out of the common config by unsetting each there and setting it from the affected checkout with `git config --worktree <key> <value>`";
   if (failures.length > 0) {
     return check(
@@ -759,8 +763,8 @@ async function worktreeConfigCheck(
     linked === 0
       ? "no linked worktrees need checkout-local Git config yet"
       : extensionEnabled
-      ? `extensions.worktreeConfig is enabled for ${linked} linked worktree(s), with no checkout-specific settings in the common config`
-      : `${linked} linked worktree(s) use only the shared clone-local Git configuration; extensions.worktreeConfig is not needed`,
+      ? `${WORKTREE_CONFIG_EXTENSION_KEY} is enabled for ${linked} linked worktree(s), with no checkout-specific settings in the common config`
+      : `${linked} linked worktree(s) use only the shared clone-local Git configuration; ${WORKTREE_CONFIG_EXTENSION_KEY} is not needed`,
   );
 }
 

@@ -29,9 +29,14 @@ import {
   newerOnDiskFormatMessage,
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
+import {
+  RETIRED_WORKTREE_PATH_MAX_ENTRIES,
+  RETIRED_WORKTREE_PATH_RETENTION_DAYS,
+} from "../../shared/git_conventions.ts";
 
-export const RETIRED_WORKTREE_PATH_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-export const RETIRED_WORKTREE_PATH_MAX_ENTRIES = 256;
+export const RETIRED_WORKTREE_PATH_TTL_MS =
+  RETIRED_WORKTREE_PATH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+export { RETIRED_WORKTREE_PATH_MAX_ENTRIES };
 export const REAPPEARED_WORKTREE_CONTENTS_CAP = 20;
 export const REAPPEARED_WORKTREE_INSPECTION_CAP = 1_000;
 

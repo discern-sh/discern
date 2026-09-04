@@ -23,10 +23,11 @@ import {
 } from "./setup_assurance.ts";
 import { runGit } from "./subprocess.ts";
 import { pathExists, readTextIfExists } from "./fs_presence.ts";
+import { SETUP_BRANCH } from "./git_conventions.ts";
 
 /** The branch a fresh `discern setup begin` isolates its work on, so its several
  * commits never land on — or pollute — the user's current branch (ADR 0065). */
-export const SETUP_BRANCH = "discern-setup";
+export { SETUP_BRANCH };
 
 /**
  * True when a setup branch exists in `dir`'s repository. From a branch WITHOUT

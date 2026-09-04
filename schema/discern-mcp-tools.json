@@ -1,0 +1,608 @@
+{
+  "$id": "https://discern.sh/schema/v1/discern-mcp-tools.json",
+  "format": 1,
+  "x-discern-compatibility-policy": "mcp-tools-append-only",
+  "tools": [
+    {
+      "name": "discern_status",
+      "title": "Orient with discern_status",
+      "description": "Start here: call discern_status. Read-only: reports the current project, Git, worktree, and fleet situation without running gates, tests, standards, or setup effects. The default structuredContent is a bounded orientation projection: data.projection names the mode and true omitted counts, while data.fleet_total preserves fleet size. Set verbose=true only when complete structured detail is genuinely needed. data.location distinguishes the main checkout from a worktree; data.git reports cleanliness and trunk divergence; data.gate lists checks that would run; data.gate_proof reports existing Proof state; data.worktree carries identity; and main checkout results sample data.fleet. Treat every other fleet row as a separate effort. data.git.trunk is the selected project's configured trunk. data.setup_unfinished carries pending markers, known-job applicability, and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive that plan. incoming_overlap previews what discern_update brings in, and reappeared_worktree_paths need discern worktree prune in a shell. Owner decisions appear under Owner attention. Next action belongs to the reading agent. Set all=true to include the fleet from a worktree, or local=true to suppress it.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "all": {
+            "description": "Include the fleet survey even from a worktree (default false).",
+            "type": "boolean"
+          },
+          "local": {
+            "description": "Local view only — suppress the fleet survey even in the main checkout (default false).",
+            "type": "boolean"
+          },
+          "verbose": {
+            "description": "Return complete structured status; the default is the bounded orientation projection.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_start",
+      "title": "Start a worktree",
+      "description": "One worktree lasts for an effort, across review feedback and resumed sessions. If this effort already has one, continue at its recorded path; pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern_start` again. Create a fresh ISOLATED worktree — a separate checkout and branch for one effort — from the selected project's configured trunk. The result reports that trunk and data.path. Run this only from a main checkout when the effort has no worktree; it refuses from a linked worktree. The call sets up the checkout and re-aims later discern tools at it, but you must also move your own file operations to data.path. Pass an absolute path to start in another discern project. name seeds a normalized, readable worktree id; title and brief carry task metadata. from deliberately selects a non-trunk starting point. data.landing_authority reports any prospective standing grant, whose final coverage is rechecked against changed paths. Each non-preview call creates a new worktree and is not idempotent. Set dry_run to preview the plan without creating anything.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Optional task title and worktree-id seed. discern preserves the supplied text in data.task.title and normalizes the id. Omit for a random codename.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Optional display title when it should differ from `name`. With no `name`, this title also seeds the worktree id.",
+            "type": "string"
+          },
+          "brief": {
+            "description": "Optional one-line task brief. The new worktree stores it for status, Desk detail, and visible agent handoff.",
+            "type": "string"
+          },
+          "from": {
+            "description": "Branch the new worktree from a ref (branch, tag, or commit) or an unambiguous worktree id or path instead of the trunk. OMIT for everyday starts — the default is always the selected project's configured trunk, so there is nothing to look up or confirm. Use this only to build on unlanded or experimental work.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Create the worktree for a specific discern project. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the project this MCP server currently targets. A successful start re-aims later discern calls at the new worktree.",
+            "type": "string"
+          },
+          "dry_run": {
+            "description": "Preview the start plan and touch nothing (default false).",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "discern_prepare",
+      "title": "Run the fast gate",
+      "description": "Run the fast inner-loop gate — the project's quick quality check — with the fix-stage fixers, then the [generated] artifact regenerations, then the read-only check-stage jobs (no build jobs, no tests) — and return the result envelope. The quick check to run while iterating, before the full discern_done — and the pass to run before the FINAL commit, so the fixers and regenerations have nothing left to rewrite when discern_done runs on the committed tree. NOTE: the fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files).",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "discern_done",
+      "title": "Verify the claim that the change is done",
+      "description": "Claim this change is done: run finishing steps, including format, which may rewrite files; then verify lint, type-check, tests, and scope gates. A scope is a named region of the repository with its own check. Return the structured result with per-step outcomes plus normalized diagnostics (tool, file/line when available, message, and the exact command to reproduce each failure). A green run over a clean committed tree ahead of the selected project's configured trunk — its shared landing branch — also carries data.proof and resolves any recorded grant into data.landing_authority. Follow the resolution-gated hints: an uncovered landing is reported to the owner in your own words and ends with data.proof.line verbatim before you wait; a covered landing names the verified source and routes straight to discern_accept. Never paste the full Proof page into a message; your owner retrieves it with `discern status --verbose`. Set dry_run to preview the plan without running anything.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "description": "Preview the gate plan and touch nothing (default false).",
+            "type": "boolean"
+          },
+          "ci": {
+            "description": "Run the machine Gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.",
+            "type": "boolean"
+          },
+          "rerun": {
+            "description": "Run the full Gate even when current green Proof covers this exact tree, or deliberately retry an unchanged red verdict. The rerun is recorded.",
+            "type": "boolean"
+          },
+          "met": {
+            "description": "Checkpoint ids whose served question your change satisfies — your recorded judgment, valid only for checkpoints with an active open question here (the awaiting_declaration refusal lists them). The gate runs in the same call once every awaiting checkpoint has a conclusion.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmet": {
+            "description": "Declare ONE served checkpoint's question not satisfied. The gate still runs; landing then needs the owner to authorize a variance for it.",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "The checkpoint id declared unmet."
+              },
+              "why": {
+                "type": "string",
+                "description": "The required rationale: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision."
+              }
+            },
+            "required": [
+              "id",
+              "why"
+            ],
+            "additionalProperties": false
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "discern_update",
+      "title": "Update this branch",
+      "description": "Update this branch: merge the selected project's configured trunk into the selected worktree and run the complete refresh reconciliation. This is the inverse of discern_accept and resolves discern_done's behind-trunk check. Omit from for the configured trunk; pass from only to compose on a different ref or worktree. The operation is idempotent and never changes the main checkout. It requires a tracked-clean tree, aborts a conflicting merge without leaving conflict state, and remains the recovery after conflicts are resolved. Even when no merge is needed it reruns refresh and [worktree.setup].ensure; review and commit any tracked result. data.commits, data.files, data.overlap, data.scopes_incoming, and data.range report what arrived beneath this work. Capped lists carry their totals. Set dry_run to return the same predicted data without changing anything. Use discern_refresh for refresh alone and `discern upgrade` to update discern itself.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "from": {
+            "description": "Pull a ref (branch, tag, or commit) or an unambiguous worktree id or path into this worktree instead of the trunk. OMIT for the routine call — the default is always the selected project's configured trunk, so there is nothing to check first. Use this only to compose on unlanded work.",
+            "type": "string"
+          },
+          "dry_run": {
+            "description": "Preview the update plan and touch nothing (default false).",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    {
+      "name": "discern_await",
+      "title": "Await a fleet condition",
+      "description": "Block until a fleet condition holds, then return the observed state and the next step — one call instead of guessed polling while a sibling worktree finishes. Pass exactly ONE condition: `green` (a branch name) waits until that branch's worktree holds an honored gate proof — a green `discern_done` on its current clean HEAD (the work landing on the selected project's configured trunk also satisfies it, since only a validated tree lands); `landed` (a branch name) waits until that branch's work — its latest observed tip after it has work — is reachable from the selected project's configured trunk; `trunk_moved` waits until that trunk moves. Conditions ground in git ancestry, gate proofs, and landed proof notes, never in recorded activity. If the bound expires, the result stays ok with data.met false. Pass data.resume by itself on the next call: it preserves the original branch transition or trunk baseline, so a condition crossed between calls is not lost. Do not surface progress until it returns. On `data.met: false`, resume with `data.resume` without an update; repeat without a fixed limit until met, stopped, or unnecessary. Never resume `ok: false`; follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or an error needs action. Always respond to new user input. Omit timeout to hold one call for up to 3300s on a known configurable client, or 45s on a strict or unknown client. A larger request is sliced to that transport-safe bound and reported in data.requested_timeout_s. The condition returns as soon as it holds. On success the hint chooses `discern_start` from the main checkout or `discern_update` from an existing worktree, including the green result's immutable commit as `from` when composing below the trunk.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "green": {
+            "description": "Sibling selected by worktree id, path, local branch, or full local ref. Its checkout must hold an honored gate proof; its landing also satisfies the wait.",
+            "type": "string"
+          },
+          "landed": {
+            "description": "Sibling selected by worktree id, path, local branch, or full local ref. Its work must become reachable from the trunk. The latest observed tip and landing transition survive branch deletion.",
+            "type": "string"
+          },
+          "trunk_moved": {
+            "description": "Wait until the trunk ref moves from its position at call start.",
+            "type": "boolean"
+          },
+          "resume": {
+            "description": "Short continuation handle returned by a previous not-met wait. Pass it by itself instead of green, landed, or trunk_moved so the original branch transition or trunk baseline survives between calls.",
+            "type": "string"
+          },
+          "timeout": {
+            "description": "Seconds before answering \"not yet\". Omit for the longest reliable bound this MCP client supports; a larger request is sliced losslessly and 0 checks once.",
+            "type": "number"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_accept",
+      "title": "Accept and land the worktree",
+      "description": "Use only when the user explicitly asks to hand off or land this branch. Resolve the selected project's configured trunk for this call, then fast-forward that shared landing branch to this worktree's tip. The tool first verifies a clean committed branch containing the latest trunk, a clean main checkout on that trunk, current Proof, and an empty tracked refresh plan. It tears down worktree resources, removes the worktree, and deletes the merged branch. Tracked instructions and provider integrations must already be committed; after landing only checkout-local agent artifacts are materialized. Landing authority comes from confirmed current consent or a machine-verified grant. Recorded grants never cover a checkpoint variance or Standard proposal. Without authority the call is read-only and re-serves the review moment. Use discern_update when the branch is behind. Set dry_run to preview without changing anything. After success, report the result in your own words and end with data.proof_line verbatim; the full review page remains available through `discern status --verbose`.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "description": "Preview the acceptance plan and touch nothing (default false).",
+            "type": "boolean"
+          },
+          "confirmed": {
+            "description": "Attestation that the owner has accepted this landing in the current conversation. Set it only then. Recorded standing and effort grants are checked directly; do not assert them through this flag.",
+            "type": "boolean"
+          },
+          "variance": {
+            "description": "The owner's authorization to land each named declared-unmet checkpoint without changing it (requires confirmed). The ids must equal the current declared-unmet set, id for id — the awaiting_variance refusal serves it with each question and rationale — and recorded grants never authorize a variance.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approve_standard": {
+            "description": "The owner's exact approval tokens for the Standard limit proposals carried by the current Proof (requires confirmed). Use the tokens served by the read-only refusal; they bind each Standard, value, and reason. Generic or recorded landing grants never authorize them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "discern_test",
+      "title": "Run the tests",
+      "description": "discern_test runs the project's complete test stage on demand, outside the full Gate, and returns the result envelope. discern_done already includes the same test stage, so a final Gate run needs no standalone test preflight. While iterating, use each diagnostic's reproduce_cmd or a targeted project command. When no test command is configured, discern_test returns a trivial pass with a hint that says so.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "discern_standards",
+      "title": "Check the standards",
+      "description": "Measure the selected configured standards and compare each value with its limit. Pass names to narrow both measurement and pin candidates; omit it for every standard. The comparison uses the selected project's configured trunk. This call always measures; discern_done already measures ordinary standards with the tests and verifies their limits. Use this tool for an on-demand (`measure = \"on-demand\"`) standard, an explicit remeasurement, or a pin. Non-dry-run calls require a clean worktree unless force is set for authoring or diagnosis. dry_run previews without measuring. pin captures measured improvements, commits only the tighter limits, and carries the Proof forward. Pinning requires a clean worktree and refuses while any selected standard fails. Never hand-edit a limit to make the gate pass.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "description": "Preview the plan and touch nothing — measures nothing, with or without pin (default false).",
+            "type": "boolean"
+          },
+          "force": {
+            "description": "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
+            "type": "boolean"
+          },
+          "pin": {
+            "description": "Capture measured improvements, commit the limit change alone, and carry Gate Proof forward. Reuses available same-commit values and measures missing selected values (default false).",
+            "type": "boolean"
+          },
+          "names": {
+            "description": "Measure only these standards. With pin, only these standards are pin candidates too (default: every standard).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "discern_standards_propose",
+      "title": "Propose Standard limit",
+      "description": "Finalize a proposed limit for a Standard breached by this change. Run after the intended tree is committed and clean. The tool measures only the named Standard, then commits only the proposed limit and records its value, delta, reason, definition, trunk baseline, and responsible input paths. Repeating an unchanged proposal on an eligible descendant renews its measured binding without another commit. A changed tuple or value refuses. The resulting Gate Proof cannot land until the owner approves the current proposal; generic landing authority never covers it.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The exact configured Standard name."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "The verbatim, one-paragraph, secret-free engineering reason for the Standard limit proposal."
+          },
+          "dry_run": {
+            "description": "Return the pure proposal plan without committing or recording anything (default false).",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_impact",
+      "title": "Show change impact",
+      "description": "Show this change's impact: list which configured scopes — named regions of the repository with their own checks — the current branch and working tree wake. This decides which extra checks the gate, the project's full quality check, runs.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_coupling",
+      "title": "Show co-change coupling",
+      "description": "Surface the files that historically change TOGETHER as a read-only advisory mined from git history, so a touched file's habitual sibling isn't forgotten. Three forms: with NO file it is DIFF-AWARE, reporting the files that co-change with your current change set but are MISSING from it (the primary surface); pass `file` to query ONE file's top co-change partners (its blast radius); pass `file` AND `with` to drill into the shared history of TWO files — the commits where both changed, with dates and subjects, to judge a coupling essential vs incidental. The partners (data.partners) and the shared commits (data.commits) carry their evidence in plain counts, and the human-readable finding rides in hints[]. You decide whether a strong coupling is an essential invariant to lock with a forcing-function, or incidental and ignorable. The list is not exhaustive.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "file": {
+            "description": "Query ONE file's co-change partners (its blast radius). Omit for the diff-aware view: what co-changes with your current change set but is missing from it.",
+            "type": "string"
+          },
+          "with": {
+            "description": "A SECOND file to compare with `file`: returns their shared co-change history — the commits where BOTH changed (dates + subjects), plus each file's own commit count, to weigh a coupling as one decision or incidental. Requires `file`.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_patterns",
+      "title": "Read the practice patterns",
+      "description": "Read the project's local, metadata-only Logbook and return advisory workflow findings without changing files, configuration, authority, or retry policy. Each data.findings member carries a plain summary, concrete observed evidence with the relevant counts and denominator, its exact subject and scope, structured evidence, any material limitations, and one next_step. data.investigations connects eligible findings with the same summary/observed distinction, a bounded evidence boundary, one diagnostic_action, and a falsifier; treat estimated values only as estimates, cohort findings as descriptive rather than comparative judgments, and adjacency as non-causal. data.detectors includes fired, quiet, and insufficient-evidence states; do not treat limited history as a clean bill. The default keeps a bounded set of findings; data.findings_total reports any omitted count and all: true returns the larger complete set. Trends compare only runs sharing recorded setup conditions and name excluded runs in their evidence. Active history is the default; logbook_file selects one sealed archive basename from `discern patterns archives` without changing the active recorder. stats: true adds Practice Stats from the same local evidence. Findings never block the Gate. Retry only after the named evidence or precondition changes.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "stats": {
+            "description": "Also compute data.stats — practice stats: changes accepted and their scale, green Gate streaks, start-to-accept cycle times, standards trends, agent cohorts, and breadth, as plain counts. For the owner's own use; nothing is compared to anyone else's numbers.",
+            "type": "boolean"
+          },
+          "all": {
+            "description": "Report every finding instead of each detector's strongest few. The result can be very large on a long history; prefer the default bound unless the elided findings are the question.",
+            "type": "boolean"
+          },
+          "logbook_file": {
+            "description": "A sealed Logbook archive basename from `discern patterns archives`. Paths, active month files, and nonarchive names are rejected. Omit to read the active Logbook.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_checkpoints",
+      "title": "Read the checkpoint contract",
+      "description": "Report the checkpoint contract for this effort, read-only. data.checkpoints lists each governing checkpoint: its question (the judgment the caller records at the gate), one-line trigger summary, mode (stop interlocks the gate; advise never blocks), a structural preview of whether the current change fires it, and this effort's open-question state — awaiting_declaration, declared_met, declared_unmet (variance_required marks a conclusion only the owner can authorize a variance for at landing), or reopened (a relevant change unbound the recorded conclusion; declare again). data.policy is the merge-base commit whose configuration governs — never the branch's own edits. Nothing runs and nothing is recorded: a configured when command is reported as undecided (when_pending), and conclusions are recorded only by discern_done (met / unmet with why). Follow hints[] for the valid next step.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_refresh",
+      "title": "Refresh generated artifacts",
+      "description": "Refresh the agent files, materialized skills, provider integration artifacts, and the maintained ADR index (the record lists between markers in the map's ADR README, regenerated from the record files on disk). It rewrites discern-generated or shared artifacts only; edit instruction sources, skill sources, or explicit provider config for durable changes. Idempotent: a second call with the same inputs writes nothing. Set dry_run to preview every target and change nothing. Use discern_update for this branch; use `discern upgrade` for discern itself.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "dry_run": {
+            "description": "Preview every refresh create, update, and removal without changing project or Git state (default false).",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_map",
+      "title": "Read the project map",
+      "description": "Read or search the configured project Map, the agent-maintained source for documented project behavior. With no input, return its full index and top-level regions digest with file-linked freshness facts. Pass `target` to read one page or list one region. Pass `search` to get the full match count and up to five highest-ranked results with context and canonical targets; combine it with `target` to scope the search. This local project surface is distinct from discern_docs, which reads discern's product manual. `path` selects the project or worktree to inspect; it never selects a Map subtree.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "target": {
+            "description": "An exact document or top-level region target. Without `search`, a document returns its Markdown and a region returns its compact index. With `search`, it limits the search to that document or region.",
+            "type": "string"
+          },
+          "search": {
+            "description": "Task language, a command, a config key, or error text to find in the map. Complete matches lead, and strong partial matches can fill the five result slots. Each result identifies its match kind and carries a canonical target. The query is used for this call and is not recorded in discern's logbook.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_docs",
+      "title": "Read discern's manual",
+      "description": "Read or search discern's complete published product manual. With no input, return every page's canonical target, stable identity, kind, title, and summary. Pass `target` to retrieve one page's exact reader-visible Markdown or list one region. Pass `search` to get the full match count and up to five highest-ranked results with context and canonical targets; combine it with `target` to scope the search. This manual is distinct from discern_map, which reads the current project's Map. Decision records and protected Map tiers are excluded.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "target": {
+            "description": "An exact document or top-level region target. Without `search`, a document returns its Markdown and a region returns its compact index. With `search`, it limits the search to that document or region.",
+            "type": "string"
+          },
+          "search": {
+            "description": "Task language, a command, a config key, or error text to find in discern's public docs. Complete matches lead, and strong partial matches can fill the five result slots. Each result identifies its match kind and carries a canonical target. The query is used for this call and is not recorded in discern's logbook.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_doctor",
+      "title": "Check the install",
+      "description": "Verify the discern install and return each check as an actionable result: config validity, schema currency, whether the declared job commands — configured project commands such as format, lint, and test — resolve on PATH, and advisories. data.checks lists every check with its detail and — on failure — the exact fix. Set verbose=true only when you need data.execution_model, which lists, per configurable verb, the ordered steps it runs — each marked project (your configured command) or discern (a built-in step), with its expectation — so you can see what runs when, and catch a real config mistake (e.g. a slow command in the fast inner loop).",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "verbose": {
+            "description": "Include the complete per-verb execution model (default false). Routine orientation omits it to keep the result bounded.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "discern_improvement",
+      "title": "Find the next improvement",
+      "description": "Return the ranked next action for improving the project, plus the full health audit and open qualitative reviews behind it for agent and owner to evaluate together. data.next_action is the single highest-value improvement to make now; data.categories carries the deterministic findings and review material. A score of 100 means nothing objectively weak, not that the project is done. Pass a category to focus one area.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "category": {
+            "description": "Restrict to one area: gate, setup, instructions, map, worktrees, standards, checkpoints, skills.",
+            "type": "string"
+          },
+          "min_score": {
+            "description": "Mark the result failed (isError) when the overall score is below this floor.",
+            "type": "number"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
