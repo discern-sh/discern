@@ -85,11 +85,9 @@ import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import {
   currentTreeIdentity,
-  type GateProofSnapshot,
   inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
-  restoreGateProofAfterOwnedRollback,
   sameTreeIdentity,
   snapshotGateProof,
 } from "../engine/gate/proof.ts";
@@ -152,8 +150,6 @@ import { runGit } from "../shared/subprocess.ts";
 import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
-  type DiscernOwnedCommit,
-  rollbackDiscernOwnedCommit,
 } from "../shared/discern_commit.ts";
 import { parsePorcelainZ } from "../shared/git_paths.ts";
 import { writeDiscernToml } from "../lib/tidy_format.ts";
@@ -222,6 +218,17 @@ import {
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../shared/write_preflight.ts";
+import {
+  BOOTSTRAPPED_KEY,
+  commitCompletionMarker,
+  type CompletionMarkerView,
+  gitFailureLine,
+  markerCommitFailureDetail,
+  type MarkerRollbackOutcome,
+  restorePendingCompletionMarker,
+  rollbackCompletionMarker,
+  SETUP_COMPLETION_KEY,
+} from "./setup_completion_git.ts";
 
 /**
  * The AUDIENCE of each setup command path's terminal presentation: agent-addressed
@@ -333,11 +340,6 @@ export function beginOptsFrom(
 
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
-
-/** The config key recording that one-time setup is complete. */
-const BOOTSTRAPPED_KEY = "meta.bootstrapped";
-/** The config key recording whether completion carried current Gate Proof. */
-const SETUP_COMPLETION_KEY = "meta.setup_completion";
 
 /**
  * Assemble the complete plan for a scaffold run: the seed templates walk plus the
@@ -2310,44 +2312,6 @@ type AutoCommitOutcome =
   | { state: "skipped" }
   | { state: "failed"; detail: string };
 
-/** The completion-marker commit's outcome. A committed marker carries the exact
- * resulting HEAD so every later completion check can be tied to that transaction. */
-type MarkerCommitOutcome =
-  | {
-    state: "committed";
-    head: string;
-    owned: DiscernOwnedCommit;
-  }
-  | { state: "skipped" }
-  | { state: "failed"; detail: string }
-  | { state: "no-git" };
-
-/** The marker fact rendered for a completed state, whether new or replayed. */
-type CompletionMarkerView = MarkerCommitOutcome | {
-  state: "existing";
-  head: string;
-};
-
-/** How a failed final-tree transaction left its owned marker commit. */
-type MarkerRollbackOutcome =
-  | { state: "owned_commit_removed"; detail?: string | undefined }
-  | { state: "not_needed" }
-  | { state: "retained"; detail: string };
-
-/**
- * The one git stderr line worth relaying from a failed auto-commit: the last
- * `fatal:`/`error:` line when present (git states the specific cause there —
- * "unable to auto-detect email address", a signing failure), else the first
- * non-empty line, else a generic fallback.
- */
-function gitFailureLine(stderr: string): string {
-  const lines = stderr.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-  const fatal = lines.findLast((l) =>
-    l.startsWith("fatal:") || l.startsWith("error:")
-  );
-  return fatal ?? lines[0] ?? "git did not report a cause";
-}
-
 /** Options for `discern setup step <n>` (just the global flags). */
 export interface SetupStepOptions {
   json: boolean;
@@ -2454,193 +2418,6 @@ export async function runSetupStep(
     ]));
   }
   return 0;
-}
-
-/**
- * Commit the `[meta]` completion marker `setup done` just wrote. The safety
- * invariant is path-local: stage and commit ONLY `discern.toml`, and only when its
- * HEAD diff is exactly the completion fields plus the schema anchor when an
- * incomplete legacy install did not carry one. Unrelated tracked, staged, or
- * untracked work is left for the agent's own tidy commit. A no-op outside a git repo.
- * Unproven completion treats a refusal as best-effort. Proven completion requires
- * the `committed` outcome before any completion check runs.
- */
-async function commitCompletionMarker(
-  root: string,
-  configPath: string,
-  completion: "proven" | "unproven",
-  previousCompletion: "proven" | "unproven" | undefined,
-  schemaWasMissing: boolean,
-): Promise<MarkerCommitOutcome> {
-  if ((await worktreeState(root)).kind === "not-a-repo") {
-    return { state: "no-git" };
-  }
-  const configRel = relative(root, configPath);
-  // The config change must be EXACTLY the completion metadata we just wrote
-  // (e.g. jobs the agent left uncommitted). Diff against HEAD so staged
-  // config edits are included in the check instead of sneaking into the commit.
-  // "Anything else is unexpected", so fail open.
-  const diff = await runGit(["diff", "HEAD", "--", configRel], { cwd: root });
-  if (!diff.success) {
-    return { state: "failed", detail: gitFailureLine(diff.stderr) };
-  }
-  const body = diff.stdout.split("\n");
-  const added = body.filter((l) => l.startsWith("+") && !l.startsWith("+++"));
-  const removed = body.filter((l) => l.startsWith("-") && !l.startsWith("---"));
-  const markerKey = BOOTSTRAPPED_KEY.split(".").pop();
-  const evidenceKey = SETUP_COMPLETION_KEY.split(".").pop();
-  const schemaKey = "schema_version";
-  const promoting = previousCompletion === "unproven" &&
-    completion === "proven";
-  const expectedAdded = new Set(
-    promoting
-      ? [`${evidenceKey} = "proven"`]
-      : [`${markerKey} = true`, `${evidenceKey} = "${completion}"`],
-  );
-  if (!promoting && schemaWasMissing) {
-    expectedAdded.add(`${schemaKey} = ${SCHEMA_VERSION}`);
-  }
-  const allowedRemoved = new Set(
-    promoting ? [`${evidenceKey} = "unproven"`] : [`${markerKey} = false`],
-  );
-  const removedCountMatches = promoting
-    ? removed.length === allowedRemoved.size
-    : removed.length <= allowedRemoved.size;
-  const onlyMarker = added.length === expectedAdded.size &&
-    removedCountMatches &&
-    added.every((line) => expectedAdded.has(line.slice(1).trim())) &&
-    removed.every((line) => allowedRemoved.has(line.slice(1).trim()));
-  if (!onlyMarker) {
-    // More than the completion metadata changed → leave it for the agent.
-    return { state: "skipped" };
-  }
-  const add = await runGit(["add", "--", configRel], { cwd: root });
-  if (!add.success) {
-    return { state: "failed", detail: gitFailureLine(add.stderr) };
-  }
-  const commit = await commitDiscernChanges({
-    site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
-    values: undefined,
-    cwd: root,
-    pathspecs: [configRel],
-  });
-  if (!commit.success) {
-    return { state: "failed", detail: gitFailureLine(commit.stderr) };
-  }
-  if (commit.owned === undefined) {
-    return {
-      state: "failed",
-      detail:
-        "Git created the completion commit without returning discern ownership evidence",
-    };
-  }
-  return {
-    state: "committed",
-    head: commit.owned.head,
-    owned: commit.owned,
-  };
-}
-
-/**
- * Restore an uncommitted marker only while HEAD remains the sampled predecessor
- * and the config is the sole tracked difference. This covers a hook/signing
- * refusal before a marker commit exists without touching an advanced branch.
- */
-async function restorePendingCompletionMarker(
-  root: string,
-  configPath: string,
-  originalConfig: string,
-  predecessor: string,
-): Promise<MarkerRollbackOutcome> {
-  const current = await runGit(["rev-parse", "--verify", "HEAD"], {
-    cwd: root,
-  });
-  if (!current.success || current.stdout.trim() !== predecessor) {
-    return {
-      state: "retained",
-      detail:
-        "HEAD moved after the marker write, so discern retained the exact branch and checkout state",
-    };
-  }
-  const configRel = relative(root, configPath);
-  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
-  if (!status.success) {
-    return {
-      state: "retained",
-      detail: "Git could not prove which tracked paths changed",
-    };
-  }
-  const changed = parsePorcelainZ(status.stdout);
-  if (
-    changed.some((entry) =>
-      entry.path !== configRel || entry.origPath !== undefined
-    )
-  ) {
-    return {
-      state: "retained",
-      detail:
-        "the checkout changed outside discern.toml after the marker write",
-    };
-  }
-  try {
-    await Deno.writeTextFile(configPath, originalConfig);
-  } catch (error) {
-    return {
-      state: "retained",
-      detail: `could not restore discern.toml (${errMsg(error)})`,
-    };
-  }
-
-  const unstaged = await runGit(
-    ["restore", "--staged", "--", configRel],
-    { cwd: root },
-  );
-  if (!unstaged.success) {
-    return {
-      state: "retained",
-      detail: `discern.toml is restored, but Git could not restore its index (${
-        gitFailureLine(unstaged.stderr)
-      })`,
-    };
-  }
-  const clean = await runGit(["status", "--porcelain", "-z"], { cwd: root });
-  return clean.success && clean.stdout === "" ? { state: "not_needed" } : {
-    state: "retained",
-    detail:
-      "discern.toml is restored, but the checkout no longer matches the sampled predecessor",
-  };
-}
-
-/** Remove the exact marker commit this invocation owns and restore prior Proof. */
-async function rollbackCompletionMarker(
-  marker: Extract<MarkerCommitOutcome, { state: "committed" }>,
-  proofBefore: GateProofSnapshot,
-): Promise<MarkerRollbackOutcome> {
-  const rollback = await rollbackDiscernOwnedCommit(marker.owned);
-  if (rollback.kind !== "rolled-back") {
-    return { state: "retained", detail: rollback.detail };
-  }
-  const proof = await restoreGateProofAfterOwnedRollback(
-    proofBefore,
-    marker.head,
-  );
-  return proof.kind === "restored"
-    ? { state: "owned_commit_removed" }
-    : { state: "owned_commit_removed", detail: proof.detail };
-}
-
-/** Explain why a proven setup could not establish its final marker commit. */
-function markerCommitFailureDetail(outcome: MarkerCommitOutcome): string {
-  switch (outcome.state) {
-    case "failed":
-      return `the completion marker could not be committed: ${outcome.detail}`;
-    case "skipped":
-      return "the discern.toml change included more than the completion marker, so discern refused to commit it";
-    case "no-git":
-      return "the project has no Git commit to bind Proof to; initialize the repository before completing setup";
-    case "committed":
-      return "the completion marker was committed";
-  }
 }
 
 /**

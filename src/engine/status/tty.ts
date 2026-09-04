@@ -43,7 +43,6 @@ import { compactDuration } from "../output.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
-import { notApplicableCountLabel } from "../../shared/setup_assurance.ts";
 import {
   type GitCount,
   isPositiveGitCount,
@@ -53,6 +52,7 @@ import {
   degradedFleetAttention,
   degradedFleetKind,
 } from "./recovery_presentation.ts";
+import { renderSetupStatus } from "./setup_presentation.ts";
 
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
@@ -1379,62 +1379,6 @@ function renderLastLanding(
   return [];
 }
 
-/** Setup-incomplete action block that still obeys the report width. */
-function renderSetup(
-  data: StatusData,
-  width: number,
-  c: TerminalContext,
-): StatusComponent[] {
-  const setup = data.setup_unfinished;
-  if (setup === undefined) {
-    if (data.setup_completion !== "unproven") return [];
-    return [c.presenter.present(renderDiagnosticCli, {
-      title: terminalLine("Setup completion is unproven"),
-      impact: terminalLine(
-        "The completion event was recorded without Gate Proof and cannot be accepted or activated.",
-      ),
-      correction: terminalMultiline(
-        "Resolve the incomplete or red setup, commit the correction, then run `discern setup done`.",
-      ),
-      severity: "attention",
-      maxWidth: width,
-    })];
-  }
-  const wired = setup.known_jobs.filter((job) => job.wired).map((job) =>
-    job.name
-  );
-  const notApplicable = setup.known_jobs.filter((job) =>
-    job.not_applicable === true
-  ).map((job) => job.name);
-  const missing = setup.known_jobs.filter((job) =>
-    !job.wired && job.not_applicable !== true
-  ).map((job) => job.name);
-  const impact = [
-    ...(setup.pending_markers.length === 0
-      ? []
-      : [`Skeleton markers: ${setup.pending_markers.join(", ")}.`]),
-    `Gate jobs: ${wired.length === 0 ? "none configured" : wired.join(", ")}${
-      notApplicable.length === 0
-        ? ""
-        : `; does not apply: ${notApplicable.join(", ")}`
-    }${missing.length === 0 ? "" : `; still unset: ${missing.join(", ")}`}.`,
-    `Applicable protections: ${setup.assurance?.enforced ?? 0} of ${
-      setup.assurance?.total ?? 0
-    } enforced; ${
-      notApplicableCountLabel(setup.assurance?.not_applicable ?? 0)
-    }.`,
-  ].join(" ");
-  return [c.presenter.present(renderDiagnosticCli, {
-    title: terminalLine("Setup is not finished"),
-    impact: terminalLine(impact),
-    correction: terminalMultiline(
-      "Complete the setup brief before starting or landing work.",
-    ),
-    severity: "attention",
-    maxWidth: width,
-  })];
-}
-
 /** Copyable stored Markdown pages shown only under `--verbose`. */
 function renderVerboseProofs(
   data: StatusData,
@@ -1492,7 +1436,7 @@ export function renderStatusDashboard(
   if (data.location === "main") {
     blocks.push(mainCheckoutLine(data, width, c));
   }
-  const setup = renderSetup(data, width, c);
+  const setup = renderSetupStatus(data, width, c);
   if (setup.length > 0) blocks.push(section("Setup", setup, c, width));
 
   const trunk = trunkOf(data);

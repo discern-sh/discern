@@ -71,7 +71,7 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
   },
   setupCompletion: {
     id: "setup-completion",
-    callerModule: "src/commands/setup.ts",
+    callerModule: "src/commands/setup_completion_git.ts",
     message: (_values: undefined): DiscernCommitMessage => ({
       subject: "Complete discern setup",
     }),

@@ -77,6 +77,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "setup: the instructions seed, the docs/TODO skeletons (registry-resolved), config provenance",
   ],
   [
+    "src/commands/setup_completion_git.ts",
+    "setup completion: restores the exact config bytes when its narrow marker commit is refused",
+  ],
+  [
     "src/commands/uninstall.ts",
     "the uninstall executor: removes registry-declared generated files and strips co-owned files (the write-surface inverse)",
   ],
