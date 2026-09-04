@@ -121,8 +121,9 @@ export const BOUNDARIES = [
       },
       {
         kind: "guard",
-        path: "tests/fs_plan_test.ts",
-        summary: "holds the narrow Claude environment-file protection",
+        path: "tests/engine_env_plumbing_test.ts",
+        summary:
+          "holds the shipped Claude settings seed to hooks alone, with no permission rule",
       },
       {
         kind: "source",
@@ -687,6 +688,12 @@ export const BOUNDARIES = [
         path: "src/engine/worktree/recovery_refs.ts",
         summary: "creates and expires recovery refs",
       },
+      {
+        kind: "guard",
+        path: "tests/engine_worktree_drop_test.ts",
+        summary:
+          "retains a bounded recovery ref before removing the branch and worktree",
+      },
     ],
     refusals: [{
       order: 15,
@@ -812,6 +819,12 @@ export const BOUNDARIES = [
         path: "src/engine/worktree/resources.ts",
         summary: "owns configured per-worktree resources",
       },
+      {
+        kind: "guard",
+        path: "tests/credential_boundary_test.ts",
+        summary:
+          "keeps credential-shaped environment reads, configuration keys, and credential stores out of the shipped program",
+      },
     ],
     refusals: [{
       order: 19,
@@ -844,6 +857,12 @@ export const BOUNDARIES = [
         kind: "decision",
         path: "project/map/_adr/0244-brand-addresses-the-owner.md",
         summary: "keeps evaluation on project work",
+      },
+      {
+        kind: "guard",
+        path: "tests/non_gamified_practice_test.ts",
+        summary:
+          "keeps score, rank, grade, badge, point, level, and reward fields out of the Patterns result contract",
       },
     ],
     refusals: [{
@@ -895,6 +914,12 @@ export const BOUNDARIES = [
         kind: "source",
         path: "src/engine/gate/proof_render.ts",
         summary: "renders the conditions and commit the Proof covers",
+      },
+      {
+        kind: "guard",
+        path: "tests/engine_proof_render_test.ts",
+        summary:
+          "keeps certifying vocabulary out of every rendered Proof page and line",
       },
       {
         kind: "decision",

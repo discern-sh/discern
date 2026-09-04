@@ -5,6 +5,8 @@
  * same tree, same result → same proof (durations excepted, and durations here
  * are fixed inputs too). A wording or layout change must show up as a deliberate
  * edit to these golden strings.
+ *
+ * Guards: boundary:exact-tree-proof, boundary:proof-scope, claim:proof-exact-tree
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -665,4 +667,52 @@ Deno.test("a proof page applies the package muted role per line", () => {
       line === "" ? "" : COLOR_TERMINAL.role(line, "muted")
     ),
   );
+});
+
+// ── the Proof's vocabulary ──────────────────────────────────────────────────
+//
+// Proof reports which conditions held for one commit and which conclusions the
+// agent declared. It never certifies the software: no rendered page or line may
+// call the change correct, secure, compliant, or ready to ship. Those words
+// belong to the owner's decision, not to the record that informs it.
+
+Deno.test("proof render: no page or line certifies an outcome", () => {
+  const checkpoints = {
+    declared_met: [{ id: "docs", declared_at: "2026-08-26T00:00:00Z" }],
+    declared_unmet: [{
+      id: "migration",
+      why: "The change ships without a migration path.",
+      declared_at: "2026-08-26T00:00:00Z",
+    }],
+  };
+  const facts: ProofFacts = {
+    ...FACTS,
+    standard_proposals: [GROWTH_PROPOSAL],
+    checkpoints,
+  };
+  const fullLine = renderProofLine(facts, [HELD], VERIFIED);
+  const rendered = [
+    renderProofMarkdown(FACTS, STEPS),
+    renderProofMarkdown(facts, STEPS, [HELD], VERIFIED),
+    renderProofLine(FACTS),
+    fullLine,
+    renderLandingProofLine(fullLine, { source: "conversation" }, {
+      proposals: [GROWTH_PROPOSAL],
+      checkpoints,
+    }),
+    renderLandingProofLine(renderProofLine(FACTS), {
+      source: "standing-grant",
+      scopes: ["_web_"],
+    }),
+  ];
+  const certifying =
+    /\b(?:correct(?:ness)?|secure|safe|bug-free|defect-free|compliant|certif\w*|guarantee\w*|ready to ship|production-ready)\b/i;
+  for (const text of rendered) {
+    const match = certifying.exec(text);
+    assertEquals(
+      match,
+      null,
+      `a rendered Proof certifies an outcome with "${match?.[0]}":\n${text}`,
+    );
+  }
 });

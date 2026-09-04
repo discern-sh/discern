@@ -4,6 +4,8 @@
  * deliberately keeps anything unmerged or dirty). Drop tears down resources,
  * removes the worktree, and deletes its branch — refusing anything a drop would
  * DISCARD (uncommitted changes, unmerged commits) unless `--force` consents.
+ *
+ * Guards: boundary:recoverable-destruction
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
