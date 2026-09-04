@@ -35,8 +35,8 @@ import { FACT_LINES, HEADLINES } from "../scripts/brand/messaging.ts";
 import { EVIDENCE_CLASS_NAMES } from "../scripts/brand/model.ts";
 import { renderBrandDoc } from "../scripts/brand_registry.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { assertFreshCanonIds } from "./canon_ids.ts";
 
-const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SENTENCE = /[.!?]$/u;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const OWNER_DIMINISHING_LANGUAGE =
@@ -51,18 +51,10 @@ Deno.test("consequence ids are unique, kebab-case, and collide with no benefit, 
     ...DEMAND_CANON.map((territory) => territory.id),
     ...allDemandEntries().map(({ entry }) => entry.id),
   ]);
-  const seen = new Set<string>();
-  const claim = (id: string): void => {
-    assert(!seen.has(id), `duplicate consequence-canon id: ${id}`);
-    assert(
-      !taken.has(id),
-      `consequence-canon id collides with a benefit, feature, or demand id: ${id}`,
-    );
-    assert(KEBAB.test(id), `consequence-canon id is not kebab-case: ${id}`);
-    seen.add(id);
-  };
-  for (const entry of CONSEQUENCE_CANON) claim(entry.id);
-  for (const id of Object.keys(SHARED_HYPOTHESES)) claim(id);
+  assertFreshCanonIds("consequence-canon", [
+    ...CONSEQUENCE_CANON.map((entry) => entry.id),
+    ...Object.keys(SHARED_HYPOTHESES),
+  ], taken);
 });
 
 Deno.test("every consequence rests on live benefits of its own audience, each cited once", () => {
