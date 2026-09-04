@@ -7,6 +7,7 @@
  */
 
 import type { ClaimSlug } from "./claims.ts";
+import { type EvidenceSource, evidenceSourceLabel } from "./model.ts";
 
 /** How strongly one boundary is intended to persist. */
 export const BOUNDARY_STABILITIES = [
@@ -33,13 +34,6 @@ export interface MistakenIdentity {
   readonly discriminatingFact: string;
 }
 
-/** One inspectable source behind a boundary. */
-export interface BoundaryEvidence {
-  readonly kind: "decision" | "guard" | "source";
-  readonly path: string;
-  readonly summary: string;
-}
-
 /** One conceptual product boundary and any public projections it owns. */
 export interface ProductBoundary<Slug extends string = string> {
   readonly id: string;
@@ -50,7 +44,7 @@ export interface ProductBoundary<Slug extends string = string> {
   /** Required for edition and implementation properties. */
   readonly horizon?: string;
   readonly claims?: readonly [Slug, ...Slug[]];
-  readonly evidence: readonly [BoundaryEvidence, ...BoundaryEvidence[]];
+  readonly evidence: readonly [EvidenceSource, ...EvidenceSource[]];
   readonly refusals?: readonly [BoundaryProjection, ...BoundaryProjection[]];
   readonly identities?: readonly [MistakenIdentity, ...MistakenIdentity[]];
   readonly absences?: readonly [BoundaryProjection, ...BoundaryProjection[]];
@@ -1455,18 +1449,6 @@ export function allBoundaryProjections(): readonly ProjectedBoundary[] {
   return [...inOrder(refusals), ...inOrder(identities), ...inOrder(absences)];
 }
 
-/** The display label for one evidence kind. */
-function evidenceLabel(kind: BoundaryEvidence["kind"]): string {
-  switch (kind) {
-    case "decision":
-      return "Decision";
-    case "guard":
-      return "Guard";
-    case "source":
-      return "Source";
-  }
-}
-
 /** Render one projection section from the flattened authority. */
 function renderProjectionSection(
   heading: string,
@@ -1519,7 +1501,7 @@ function renderBoundaryRecord(
     "**Evidence:**",
     "",
     ...boundary.evidence.map((item) =>
-      `- ${evidenceLabel(item.kind)}: \`${item.path}\` — ${item.summary}.`
+      `- ${evidenceSourceLabel(item.kind)}: \`${item.path}\` — ${item.summary}.`
     ),
   );
   return lines;
