@@ -75,6 +75,23 @@ export interface InstalledVersionDeps {
 }
 
 /**
+ * Capture one command used by the installed-version handshake. The resolver
+ * needs the provider process's ambient PATH, while the probe needs one exact
+ * executable path; keeping both here leaves one registered spawn boundary.
+ */
+async function captureVersionCommand(
+  binary: string,
+  args: string[],
+  options: { env?: Record<string, string>; stderr: "null" },
+): Promise<Deno.CommandOutput> {
+  return await new Deno.Command(binary, {
+    args,
+    stdout: "piped",
+    ...options,
+  }).output();
+}
+
+/**
  * A resolver for "the version of the discern binary on disk right now". Returns
  * `undefined` when it cannot be determined reliably (unreadable binary, or a
  * non-discern executable at `execPath`), so the caller stays silent rather than
@@ -131,11 +148,13 @@ export async function resolveCommandPath(
   command: string,
 ): Promise<string | undefined> {
   try {
-    const output = await new Deno.Command("sh", {
-      args: ["-c", 'command -v "$1"', "sh", command],
-      stdout: "piped",
-      stderr: "null",
-    }).output();
+    const output = await captureVersionCommand(
+      "sh",
+      ["-c", 'command -v "$1"', "sh", command],
+      {
+        stderr: "null",
+      },
+    );
     if (!output.success) return undefined;
     const path = new TextDecoder().decode(output.stdout).trim();
     return path.startsWith("/") ? path : undefined;
@@ -188,12 +207,11 @@ async function defaultProbeVersion(
   execPath: string,
 ): Promise<string | undefined> {
   try {
-    const output = await new Deno.Command(execPath, {
-      args: ["--version"],
-      stdout: "piped",
-      stderr: "null",
-      env: { NO_COLOR: "1" },
-    }).output();
+    const output = await captureVersionCommand(
+      execPath,
+      ["--version"],
+      { stderr: "null", env: { NO_COLOR: "1" } },
+    );
     if (!output.success) {
       return undefined;
     }

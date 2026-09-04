@@ -3959,7 +3959,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
   - `src/engine/owned_child.ts#runOwnedChild`
   - `src/engine/jobs/command.ts#spawnJob`
   - `src/engine/worktree/shell.ts#runShellRouted`
-  - `src/engine/mcp/version_check.ts#defaultProbeVersion`
+  - `src/engine/mcp/version_check.ts#captureVersionCommand`
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
 - Feature canon: described by the `interruption-safety` node

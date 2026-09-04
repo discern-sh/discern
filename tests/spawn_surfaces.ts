@@ -309,11 +309,12 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   },
   {
     path: "src/engine/mcp/version_check.ts",
-    enclosingFunction: "defaultProbeVersion",
-    operation: "probe a candidate discern executable version",
+    enclosingFunction: "captureVersionCommand",
+    operation:
+      "resolve and probe the installed discern executable for the MCP version handshake",
     reason:
-      "the MCP handshake invokes an exact executable path with a short timeout and protocol-specific capture",
-    may: ["other"],
+      "the handshake resolves the provider process's ambient PATH without a self-shim and then invokes an exact executable path with protocol-specific capture",
+    may: ["sh", "other"],
     role: "registered-boundary",
   },
 ] as const satisfies readonly SubprocessSpawnBoundary[];
@@ -352,7 +353,7 @@ export const SPAWN_INTERRUPT_CONTRACTS = {
   "src/engine/worktree/shell.ts": { surfaces: ["worktree-setup"] },
   "src/engine/mcp/version_check.ts": {
     exempt:
-      "the discern version handshake is explicitly timeout-bounded and exits immediately",
+      "the discern version handshake performs two short read-only probes that exit immediately",
   },
 } as const satisfies Readonly<Record<string, SpawnInterruptContract>>;
 
