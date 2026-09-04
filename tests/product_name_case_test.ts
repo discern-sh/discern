@@ -217,3 +217,13 @@ Deno.test("the glossary case detector leaves dotted contract fields alone", () =
   );
   assertEquals(hits, []);
 });
+
+Deno.test("the glossary case detector leaves relay placeholders alone", () => {
+  const prose = runningMarkdownProse(
+    "Carry <proof> as a named relay fact, not running product prose.",
+  );
+  const hits = runningProseCaseRules().filter((rule) =>
+    new RegExp(rule.pattern).test(prose)
+  );
+  assertEquals(hits, []);
+});

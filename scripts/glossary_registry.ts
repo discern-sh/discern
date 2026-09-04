@@ -653,7 +653,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     runningCase: "proof-family",
     matches: ["proof line"],
     plain: {
-      phrase: "Proof that the finished change passed the project's checks",
+      phrase: "the finished change passed the project's checks",
       match: false,
     },
     definition:

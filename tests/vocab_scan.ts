@@ -152,6 +152,7 @@ export function runningMarkdownProse(text: string): string {
     .replace(/<!--[^]*?-->/g, "")
     .replace(/^(?:```|~~~)[^\n]*\n[^]*?^(?:```|~~~)\s*$/gm, "")
     .replace(/<https?:\/\/[^>\s]+>/g, "")
+    .replace(/<[a-z][a-z0-9_]*>/g, "")
     .replace(/`[^`\n]*`/g, "")
     .replace(/^(?:\{\{[^}\n]+\}\})?#{1,6}\s+.*$/gm, "");
 }
