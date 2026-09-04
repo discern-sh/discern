@@ -70,9 +70,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Forbidden inference:** all providers behave identically or support identical integrations.
 - **Primary source:** feature registry/canon; config schema; glossary.
 - **Inspectable basis:**
-  - Guard: `tests/agent_parity_test.ts` — holds every provider's instruction surface to the one registry and source.
+  - Guard: `tests/agent_parity_test.ts` — holds every provider's instruction surface to the provider registry and the instruction source.
   - Guard: `tests/engine_refresh_test.ts` — compiles the instruction files for every configured provider from one source.
-  - Guard: `tests/engine_done_json_surfaces_test.ts` — fails the Gate on a stale compiled agent file.
+  - Guard: `tests/engine_done_json_surfaces_test.ts` — fails the Gate on a stale agent file.
 
 ### `switch-without-reteaching` — switching providers does not require re-teaching the project
 
@@ -249,7 +249,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Primary source:** config reference; one-file-settings tip.
 - **Inspectable basis:**
   - Guard: `tests/paths_write_surface_test.ts` — enumerates every path discern may write in a project.
-  - Source: `src/shared/config_schema.ts` — defines the whole root configuration.
+  - Source: `src/shared/config_schema.ts` — defines every key of the root configuration file.
   - Decision: `project/map/_adr/0020-dissolve-discern-dir.md` — dissolves the hidden namespace into one root file.
 
 ### `setup-proves-worktree` — setup proves the project runs in a worktree

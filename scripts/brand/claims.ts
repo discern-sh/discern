@@ -130,7 +130,7 @@ export const CLAIMS = {
         kind: "guard",
         path: "tests/agent_parity_test.ts",
         summary:
-          "holds every provider's instruction surface to the one registry and source",
+          "holds every provider's instruction surface to the provider registry and the instruction source",
       },
       {
         kind: "guard",
@@ -141,7 +141,7 @@ export const CLAIMS = {
       {
         kind: "guard",
         path: "tests/engine_done_json_surfaces_test.ts",
-        summary: "fails the Gate on a stale compiled agent file",
+        summary: "fails the Gate on a stale agent file",
       },
     ],
   },
@@ -255,7 +255,8 @@ export const CLAIMS = {
       {
         kind: "guard",
         path: "tests/engine_worktree_test.ts",
-        summary: "drives the real linked-worktree lifecycle through the dispatcher",
+        summary:
+          "drives the real linked-worktree lifecycle through the dispatcher",
       },
       {
         kind: "guard",
@@ -368,7 +369,8 @@ export const CLAIMS = {
       {
         kind: "guard",
         path: "tests/engine_proof_render_test.ts",
-        summary: "pins the exact commit, branch, and conditions the Proof names",
+        summary:
+          "pins the exact commit, branch, and conditions the Proof names",
       },
       {
         kind: "decision",
@@ -531,7 +533,7 @@ export const CLAIMS = {
       {
         kind: "source",
         path: "src/shared/config_schema.ts",
-        summary: "defines the whole root configuration",
+        summary: "defines every key of the root configuration file",
       },
       {
         kind: "decision",
@@ -556,7 +558,8 @@ export const CLAIMS = {
       {
         kind: "guard",
         path: "tests/engine_setup_done_test.ts",
-        summary: "refuses setup completion when the throwaway worktree probe fails",
+        summary:
+          "refuses setup completion when the throwaway worktree probe fails",
       },
       {
         kind: "guard",
@@ -757,7 +760,9 @@ function renderClaim(slug: string, claim: Claim): string {
     }`,
     "- **Inspectable basis:**",
     ...claim.basis.map((item) =>
-      `  - ${evidenceSourceLabel(item.kind)}: \`${item.path}\` — ${item.summary}.`
+      `  - ${
+        evidenceSourceLabel(item.kind)
+      }: \`${item.path}\` — ${item.summary}.`
     ),
   );
   return lines.join("\n");

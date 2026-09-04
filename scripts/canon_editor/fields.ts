@@ -294,7 +294,10 @@ export const CLAIM_FIELDS = {
 
 /** One inspectable source behind a claim: the path is identity, the summary prose. */
 export const CLAIM_BASIS_FIELDS = {
-  kind: { edit: "locked", reason: "the evidence-source kinds are a closed set" },
+  kind: {
+    edit: "locked",
+    reason: "the evidence-source kinds are a closed set",
+  },
   path: { edit: "locked", reason: "must name a real path — the guard checks" },
   summary: { edit: "prose", register: "technical" },
 } as const satisfies Record<keyof EvidenceSource, FieldSpec>;
