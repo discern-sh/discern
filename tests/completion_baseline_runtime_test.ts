@@ -23,7 +23,7 @@ import { openInBrowser } from "../src/lib/open_browser.ts";
 import { denoMetadata } from "../src/shared/deno_metadata.ts";
 import { quoteCommandWord } from "../src/shared/command_evidence.ts";
 import type { Scheduler } from "../src/shared/scheduler.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 Deno.test("literal argument boundaries preserve quoted words and refuse incomplete editor syntax", () => {
@@ -168,7 +168,7 @@ Deno.test("browser adapter executes literal argv and preserves launcher failures
       stderr: "piped",
     }).output();
     assert(output.success, new TextDecoder().decode(output.stderr));
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       new TextDecoder().decode(output.stdout),
       "xdg-open exited with status 7",
     );
