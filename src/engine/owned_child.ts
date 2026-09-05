@@ -26,6 +26,7 @@ import {
 } from "./process_signals.ts";
 import { bestEffortSync } from "../shared/best_effort.ts";
 import { operationLockChildEnv } from "../shared/operation_lock_context.ts";
+import { spawnedByEnv } from "../shared/invocation_context.ts";
 import {
   type Scheduler,
   SYSTEM_SCHEDULER,
@@ -41,6 +42,8 @@ export interface OwnedChildOptions {
   readonly env?: Record<string, string>;
   /** Start from an empty environment instead of inheriting the parent. */
   readonly clearEnv?: boolean;
+  /** Automated work inherits this invocation; an interactive handoff clears it. */
+  readonly lineage?: "automation" | "interactive";
   /** Delegate currently held operation locks. Defaults to true. */
   readonly delegateOperationLocks?: boolean;
   /** Keep this process alive after an interrupt once the child is reaped. */
@@ -185,6 +188,7 @@ export async function runOwnedChild(
           ...((opts.delegateOperationLocks ?? true)
             ? operationLockChildEnv()
             : {}),
+          ...spawnedByEnv(opts.lineage),
         },
         stdin: "inherit",
         stdout: "inherit",

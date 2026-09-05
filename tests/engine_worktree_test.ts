@@ -29,6 +29,7 @@ import {
   writeDiscernToml,
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { driverKind } from "../src/engine/logbook/cohorts.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import {
@@ -61,6 +62,7 @@ import {
   git,
   gitInit,
   gitOut,
+  readLogbookEvents,
   runAgent,
   scaffoldEngine,
   worktreePath,
@@ -1588,6 +1590,30 @@ Deno.test("start --from: branch-owned instructions are refreshed by the new work
     assertEquals(started.code, 0, started.output);
     const result = decodeCliResult(started.stdout, "start");
     assertResultDataKey(result, "path");
+
+    const events = await readLogbookEvents(dir);
+    const parent = events.find((event) =>
+      event.kind === "begin" && event.verb === "start"
+    );
+    assert(parent?.kind === "begin");
+    const child = events.find((event) =>
+      event.kind === "verb" && event.verb === "refresh" &&
+      event.branch === result.data.branch
+    );
+    assert(child?.kind === "verb");
+    assertEquals(child.driver?.spawned_by, parent.invocation);
+    assertEquals(driverKind(child), "automation");
+    const childBegin = events.find((event) =>
+      event.kind === "begin" && event.invocation === child.invocation
+    );
+    assert(childBegin?.kind === "begin");
+    assertEquals(childBegin.driver?.spawned_by, parent.invocation);
+
+    const patterns = await runAgent(result.data.path, ["patterns", "--json"]);
+    assertEquals(patterns.code, 0, patterns.output);
+    const report = decodeCliResult(patterns.stdout, "patterns");
+    assertResultDataKey(report, "population");
+    assert(report.data.population.automation >= 1);
 
     assertStringIncludes(
       await Deno.readTextFile(join(result.data.path, "AGENTS.md")),

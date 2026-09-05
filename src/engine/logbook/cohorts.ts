@@ -48,7 +48,7 @@ function invocationSignals(e: VerbEvent): EffectiveAgentSignal[] {
 /**
  * Who plausibly drove one invocation, scored from the raw driver signals the
  * recorder stored as evidence: the MCP surface is an agent by construction;
- * a `spawned_by` marker is discern's own job runner declaring a
+ * a `spawned_by` marker is discern's subprocess boundary declaring a
  * self-invocation, and the conventional CI marker reads as automation too —
  * the fallback that classifies history recorded before the explicit marker
  * and genuine external CI alike (ADR 0282). An invocation-scoped identity

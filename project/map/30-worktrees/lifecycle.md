@@ -42,6 +42,8 @@ Setup runs in this order:
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.              |
 | Refresh              | Uses the new checkout's engine for shared and checkout-local refresh work.                 |
 
+In a source checkout of discern, the Refresh phase launches that checkout's engine. The child records the `start` invocation as its parent in the [logbook](../70-reference/the-logbook.md#possible-agent-identity-signals), so patterns counts this work as automation. Installed projects refresh in process.
+
 `start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` source, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation retires only the checkout and branch that call minted; an incomplete discard is part of the reported failure rather than a successful rollback.
 
 ## Bring the trunk into the branch

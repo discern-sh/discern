@@ -25,6 +25,7 @@
 import { byteWriter } from "../output.ts";
 import type { Logger } from "../../lib/log.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
+import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { selfShimPath, SPAWN_FAILED } from "../../shared/subprocess.ts";
@@ -178,6 +179,7 @@ export async function runShellRouted(
     ...env,
     ...operationLockChildEnv(),
     PATH: await selfShimPath(cwd, env?.PATH),
+    ...spawnedByEnv(),
   };
   try {
     const run = await superviseSpawn(

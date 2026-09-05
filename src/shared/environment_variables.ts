@@ -336,7 +336,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: false,
       reason:
-        "Carries the parent invocation id into a discern child the gate's job runner spawns, so the logbook records the run as a self-invocation.",
+        "Carries the parent invocation id into automated child processes, so the logbook records nested discern runs as self-invocations.",
     },
   },
   operationLockDelegation: {

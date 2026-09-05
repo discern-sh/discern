@@ -150,7 +150,7 @@ const crashSignatureSchema = z.looseObject({
  *    over MCP. It identifies the client implementation, not necessarily the
  *    model or agent behind it;
  *  - `spawned_by` — the parent invocation id when discern itself spawned this
- *    run (the gate's job runner stamps it), so readers can classify
+ *    run (automated subprocess boundaries stamp it), so readers can classify
  *    self-invocations as automation and join them to the run that caused them.
  */
 const agentSignalSchema = z.looseObject({

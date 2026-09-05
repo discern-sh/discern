@@ -3413,6 +3413,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/engine_subprocess_ssot_test.ts",
+      "tests/engine_child_lineage_guard_test.ts",
       "tests/engine_interrupt_surfaces_test.ts",
     ],
     artifacts: [],

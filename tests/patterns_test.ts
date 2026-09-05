@@ -4931,7 +4931,7 @@ Deno.test("patterns driver scoring: provenance and CI classify automation", () =
       },
     })),
     "automation",
-    "an explicit spawned_by marker is discern's own job runner",
+    "an explicit spawned_by marker declares an automated child invocation",
   );
   assertEquals(
     driverKind(verb({

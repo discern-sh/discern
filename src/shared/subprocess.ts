@@ -21,6 +21,7 @@
 
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
 import { operationLockChildEnv } from "./operation_lock_context.ts";
+import { spawnedByEnv } from "./invocation_context.ts";
 import {
   selfShimDir as resolveSelfShimDir,
   selfShimPath as resolveSelfShimPath,
@@ -716,7 +717,7 @@ export async function runGit(
       args: safeArgs,
       cwd: opts.cwd,
       clearEnv: environment.clearEnv,
-      env: environment.env,
+      env: { ...environment.env, ...spawnedByEnv() },
       stdin: opts.stdin === undefined ? "null" : "piped",
       stdout: "piped",
       stderr: "piped",
@@ -871,6 +872,7 @@ export async function runShell(
         ...opts.env,
         ...operationLockChildEnv(),
         PATH: await selfShimPath(opts.cwd, opts.env?.PATH),
+        ...spawnedByEnv(),
       },
       stdin: "null",
       stdout: "piped",

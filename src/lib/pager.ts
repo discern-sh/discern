@@ -8,6 +8,7 @@
 
 import { bestEffort } from "../shared/best_effort.ts";
 import { commandEvidence } from "../shared/command_evidence.ts";
+import { spawnedByEnv } from "../shared/invocation_context.ts";
 
 /** The outcome of handing rendered text to the configured external pager. */
 export interface PagerResult {
@@ -34,6 +35,7 @@ export async function pageThrough(
   try {
     const child = new Deno.Command(command, {
       args,
+      env: { ...spawnedByEnv("interactive") },
       stdin: "piped",
       stdout: "inherit",
       stderr: "inherit",

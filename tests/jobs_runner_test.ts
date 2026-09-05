@@ -1,5 +1,5 @@
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
-import { setActiveInvocationId } from "../src/engine/logbook/invocation_context.ts";
+import { setActiveInvocationId } from "../src/shared/invocation_context.ts";
 import {
   assert,
   assertEquals,

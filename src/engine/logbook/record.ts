@@ -68,7 +68,7 @@ import {
   takeCheckpointActivity,
 } from "../../shared/result_capture.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
-import { setActiveInvocationId } from "./invocation_context.ts";
+import { setActiveInvocationId } from "../../shared/invocation_context.ts";
 import type {
   BeginEvent,
   ChangeScale,

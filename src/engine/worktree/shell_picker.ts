@@ -338,7 +338,7 @@ const DEFAULT_ENTER_RUNTIME: EnterRuntime = {
   select: (options) => requestSelection(options),
   shell: () => userShell(),
   launchShell: async (shell, cwd) =>
-    (await runOwnedChild(shell, { cwd })).status.code,
+    (await runOwnedChild(shell, { cwd, lineage: "interactive" })).status.code,
   now: SYSTEM_CLOCK.wallNow,
 };
 

@@ -9,7 +9,13 @@
  */
 
 import { join } from "@std/path";
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type NewExpression,
+  Node,
+  Project,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { REPO_ROOT } from "../tests/repo_authored_paths.ts";
 import {
   registeredSpawnBoundaryCount,
@@ -43,12 +49,47 @@ function functionLikeName(node: Node): string | undefined {
 }
 
 /** Nearest stable named function, or `<module>` for top-level construction. */
-function enclosingFunction(node: Node): string {
+export function enclosingFunction(node: Node): string {
   for (const ancestor of node.getAncestors()) {
     const name = functionLikeName(ancestor);
     if (name !== undefined) return name;
   }
   return "<module>";
+}
+
+/** Resolve local initializer aliases without depending on variable spelling. */
+export function resolveSpawnExpression(
+  node: Node | undefined,
+  depth = 0,
+): Node | undefined {
+  if (node === undefined || depth > 12) return undefined;
+  if (Node.isParenthesizedExpression(node)) {
+    return resolveSpawnExpression(node.getExpression(), depth + 1);
+  }
+  if (Node.isIdentifier(node)) {
+    const declaration = node.getSymbol()?.getDeclarations()[0];
+    if (declaration !== undefined && Node.isVariableDeclaration(declaration)) {
+      return resolveSpawnExpression(declaration.getInitializer(), depth + 1);
+    }
+  }
+  return node;
+}
+
+/** Direct constructors, including locally aliased Deno.Command bindings. */
+export function subprocessConstructors(source: SourceFile): NewExpression[] {
+  return source.getDescendantsOfKind(SyntaxKind.NewExpression).filter(
+    (node) => {
+      const expression = resolveSpawnExpression(node.getExpression());
+      return expression?.getText() === "Deno.Command" ||
+        (expression !== undefined &&
+          Node.isElementAccessExpression(expression) &&
+          expression.getExpression().getText() === "Deno" &&
+          expression.getArgumentExpression()?.getText().replaceAll(
+              /["']/g,
+              "",
+            ) === "Command");
+    },
+  );
 }
 
 /** Direct `new Deno.Command` sites in one parsed source file. */
@@ -58,9 +99,8 @@ function directSpawnSitesInSourceFile(
 ): DirectSpawnSite[] {
   const sites: DirectSpawnSite[] = [];
   for (
-    const node of sourceFile.getDescendantsOfKind(SyntaxKind.NewExpression)
+    const node of subprocessConstructors(sourceFile)
   ) {
-    if (node.getExpression().getText() !== "Deno.Command") continue;
     const location = sourceFile.getLineAndColumnAtPos(node.getStart());
     sites.push({
       path,

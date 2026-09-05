@@ -10,11 +10,10 @@
  * falls back to killing the direct child.
  */
 
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
-import { activeInvocationId } from "../logbook/invocation_context.ts";
+import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
@@ -99,16 +98,6 @@ export const GATE_JOB_ENVIRONMENT: Readonly<Record<string, string>> = {
   TERM: "dumb",
   CI: "1",
 };
-
-/** Stamp the recording invocation into a job child's environment, so a
- * `discern` the job invokes records itself as this run's self-invocation
- * rather than a decision somebody made. */
-function spawnedByEnv(): Record<string, string> {
-  const invocation = activeInvocationId();
-  return invocation === undefined
-    ? {}
-    : { [DISCERN_ENVIRONMENT_VARIABLES.spawnedBy]: invocation };
-}
 
 /**
  * The exit code a finished job reports. A job terminated by a signal — i.e. the
@@ -260,10 +249,10 @@ export async function spawnJob(
     // whatever the ambient PATH holds (self_shim.ts).
     env: {
       ...GATE_JOB_ENVIRONMENT,
-      ...spawnedByEnv(),
       ...(opts.env ?? {}),
       ...operationLockChildEnv(),
       PATH: await selfShimPath(opts.cwd),
+      ...spawnedByEnv(),
     },
     stdin: "null",
     stdout: "piped",

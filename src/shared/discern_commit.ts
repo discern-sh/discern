@@ -10,6 +10,7 @@
  */
 
 import { DISCERN_MACHINE } from "./brand.ts";
+import { spawnedByEnv } from "./invocation_context.ts";
 import { discernAttributionEnabled, type EnvReader } from "./env.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import {
@@ -696,7 +697,10 @@ export async function commitDiscernChanges(
       args,
       cwd: options.cwd,
       clearEnv: true,
-      env: gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction }),
+      env: {
+        ...gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction }),
+        ...spawnedByEnv(),
+      },
       stdout: "piped",
       stderr: "piped",
       detached: Deno.build.os !== "windows",

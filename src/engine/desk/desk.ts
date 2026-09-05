@@ -506,6 +506,7 @@ export async function runDeskInteractiveChild(
     cwd,
     env,
     resumeAfterInterrupt: true,
+    lineage: "interactive",
   });
   return child.status.code;
 }
