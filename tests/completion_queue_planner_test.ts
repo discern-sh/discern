@@ -162,11 +162,25 @@ Deno.test("queue Q07: planning is read-only and preserves distinct stops", () =>
   ];
   const before = JSON.stringify(input.observation);
   for (const stop of stops) {
-    const assessments = new Map(input.assessments).set(first.candidate_id, {
-      ...first,
-      blockers: [stop],
-    });
-    assertEquals(planQueue({ ...input, assessments }).blockers, [stop]);
+    for (
+      const evidence of [
+        [],
+        [{ kind: "missing-evidence" as const, requirements: [] }],
+        [{
+          kind: "stale-evidence" as const,
+          evidence_ids: [],
+          reason: "policy-changed" as const,
+        }],
+      ]
+    ) {
+      const assessments = new Map(input.assessments).set(first.candidate_id, {
+        ...first,
+        blockers: [...evidence, stop],
+      });
+      const plan = planQueue({ ...input, assessments });
+      assertEquals(plan.blockers, [stop]);
+      assertEquals(plan.actions, []);
+    }
   }
   assertEquals(JSON.stringify(input.observation), before);
 });

@@ -314,7 +314,7 @@ export async function composeCandidate(input: {
     },
   });
   await saveEnvironmentArtifact(
-    input.root,
+    await Deno.realPath(input.root),
     {
       attempt_id: execution.fence.attempt_id,
       candidate_id: execution.candidate_id,
@@ -332,7 +332,7 @@ async function compositionReceiptMatches(
   candidate: Candidate,
 ): Promise<boolean> {
   const path = await artifactPath(
-    root,
+    await Deno.realPath(root),
     candidate.attempt_id,
     "environment/queue-composition.json",
   );

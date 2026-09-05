@@ -312,11 +312,15 @@ export function planQueue(input: {
         reason: entry.invalidation ?? "predecessor-changed",
       });
     }
-    const blocker = assessment.blockers[0];
+    const blocker = assessment.blockers.find((item) =>
+      item.kind !== "missing-evidence" && item.kind !== "stale-evidence"
+    ) ?? assessment.blockers[0];
     if (
       blocker !== undefined && blocker.kind !== "missing-evidence" &&
       blocker.kind !== "stale-evidence"
-    ) return stop(blocker);
+    ) {
+      return stop(blocker);
+    }
     if (blocker !== undefined || !proofMatches(assessment, input.observation)) {
       if (assessment.refresh === null) {
         return stop(blocker ?? { kind: "missing-evidence", requirements: [] });
@@ -329,7 +333,9 @@ export function planQueue(input: {
           assessment.candidate.expected_predecessor.head === queue.trunk,
         retainedExecutionCount(entries, input.observation),
       );
-      if (capacity !== undefined) return stop(capacity);
+      if (capacity !== undefined) {
+        return stop(capacity);
+      }
       actions.push({ kind: "validate", ...assessment.refresh });
       return result;
     }
@@ -344,7 +350,9 @@ export function planQueue(input: {
       executor: input.executor,
       attempt: input.transition_attempts.get(assessment.candidate_id),
     });
-    if (action.kind !== "land") return stop(action);
+    if (action.kind !== "land") {
+      return stop(action);
+    }
     actions.push(action);
   }
   return result;
