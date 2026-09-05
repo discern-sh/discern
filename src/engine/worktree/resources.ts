@@ -306,11 +306,14 @@ export async function listEntries(
   return out;
 }
 
-/** Remove an entry file, idempotently (a no-op when already gone). */
-async function removeEntryFile(path: string): Promise<void> {
+/** Report whether the observed ledger entry was actually removed. */
+async function removeEntryFile(path: string): Promise<boolean> {
+  let removed = false;
   await bestEffort("resource-ledger-entry-remove", async () => {
     await Deno.remove(path);
+    removed = true;
   });
+  return removed;
 }
 
 /**
@@ -330,8 +333,7 @@ async function deleteEntryCAS(
     return false;
   }
   if (sameEntry(expected, read.entry)) {
-    await removeEntryFile(path);
-    return true;
+    return await removeEntryFile(path);
   }
   return false; // a new tenant rewrote it — leave it alone
 }
@@ -551,8 +553,7 @@ async function cleanupUncertainIntent(
   log: Logger,
   scheduler: Scheduler,
 ): Promise<boolean> {
-  if (!(await runDestroyEntry(entry, cwd, log, scheduler))) return false;
-  return await deleteEntryCAS(path, entry);
+  return await destroyRecordedEntry(path, entry, cwd, log, scheduler);
 }
 
 /** Resolve every token a set of command templates names, for the ledger token_map. */
@@ -638,8 +639,8 @@ export async function entriesForWorktree(
  * teardown plan, already in reverse-creation order, so a dependency created first
  * is destroyed last). Runs the FROZEN destroy command (what was true at create),
  * best-effort and idempotent. The caller passes the entries it planned from, so
- * apply acts on exactly the previewed set — there is no re-read that could drift
- * from the plan. An entry is cleared only on success; a failed destroy keeps it so
+ * apply acts on exactly the previewed set. Each effect and deletion rechecks that
+ * the frozen ownership still matches. An entry is cleared only on success; a failed destroy keeps it so
  * a later `worktree prune` retries (self-healing). Returns which resources were
  * destroyed and which were kept-for-retry.
  */
@@ -652,17 +653,29 @@ export async function destroyResources(
   const failed: string[] = [];
   for (const { path, entry } of entries) {
     ctx.log.info(`Destroying worktree resource '${entry.resource_name}'…`);
-    if (await runDestroyEntry(entry, ctx.cwd, ctx.log, scheduler)) {
-      await removeEntryFile(path);
+    if (await destroyRecordedEntry(path, entry, ctx.cwd, ctx.log, scheduler)) {
       destroyed.push(entry.resource_name);
     } else {
       ctx.log.warn(
-        `Worktree resource '${entry.resource_name}' destroy reported an error — keeping its ledger entry for prune to retry.`,
+        `Worktree resource '${entry.resource_name}' cleanup failed or its ownership evidence changed — keeping the standing ledger entry for reconciliation.`,
       );
       failed.push(entry.resource_name);
     }
   }
   return { destroyed, failed };
+}
+
+/** All resource cleanup rechecks frozen ownership before effects and deletion. */
+async function destroyRecordedEntry(
+  path: string,
+  entry: ResourceEntry,
+  cwd: string,
+  log: Logger,
+  scheduler: Scheduler,
+): Promise<boolean> {
+  if (!sameEntry(entry, await readEntry(path))) return false;
+  if (!(await runDestroyEntry(entry, cwd, log, scheduler))) return false;
+  return await deleteEntryCAS(path, entry);
 }
 
 /**
@@ -934,16 +947,15 @@ export async function gcPlannedOrphanResources(
     }
     p.log.line(`  reclaiming ${label}…`);
     if (
-      await runDestroyEntry(
+      await destroyRecordedEntry(
+        path,
         entry,
         p.cwd,
         p.log,
         p.scheduler ?? SYSTEM_SCHEDULER,
       )
     ) {
-      if (await deleteEntryCAS(path, entry)) {
-        result.reclaimed.push(entry.resource_identity);
-      }
+      result.reclaimed.push(entry.resource_identity);
     } else {
       result.failed = true; // keep the entry for a later retry
     }
