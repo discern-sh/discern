@@ -193,13 +193,15 @@ Deno.test("V07 cancellation and claim expiry restore source, and newer environme
     const live = await requireEnvironment(f.root, f.id);
     const active = await f.executor.recover(f.id, live.stamp, f.actor);
     assertEquals(active.kind, "recovery-incomplete");
+    assert(live.record.data.state.kind === "executing");
+    const expiredAt = live.record.data.state.claim.expires_at + 1;
     const expired = createEnvironmentExecutor({
       ...f.options,
-      clock: { wallNow: () => 100000, monotonicNow: () => 20 },
+      clock: { wallNow: () => expiredAt, monotonicNow: () => 20 },
     });
     const expiredPlan = expired.plan({
       trunk: "main",
-      observed_at: 100000,
+      observed_at: expiredAt,
       records: [{
         selector: { kind: "environment", id: f.id },
         reading: await expired.observe(f.id),

@@ -5,6 +5,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
+import type { Scheduler } from "../../shared/scheduler.ts";
 import { ArtifactPathSchema } from "../completion/evidence.ts";
 import {
   type FileSchema,
@@ -23,6 +24,10 @@ export async function executionGit(
   path: string,
   args: string[],
   bounds: CaptureBounds,
+  options: {
+    readonly allowedExitCodes?: readonly number[];
+    readonly scheduler?: Scheduler;
+  } = {},
 ): Promise<string> {
   const result = await runGit(args, {
     cwd: path,
@@ -30,12 +35,25 @@ export async function executionGit(
     timeoutMs: bounds.gitTimeoutMs,
     maxOutputBytes: bounds.maxBytes,
     quiesceDescendants: true,
+    ...(options.scheduler !== undefined
+      ? { scheduler: options.scheduler }
+      : {}),
   });
-  if (!result.success) {
+  if (
+    !result.success &&
+    (result.timedOut || result.outputLimitExceeded ||
+      !options.allowedExitCodes?.includes(result.code))
+  ) {
+    const facts = [`exit ${result.code}`];
+    if (result.timedOut) facts.push(`time limit ${bounds.gitTimeoutMs} ms`);
+    if (result.outputLimitExceeded) {
+      facts.push(`output limit ${bounds.maxBytes} bytes`);
+    }
+    const detail = result.stderr.trim();
     throw new Error(
-      `Git ${
-        args[0]
-      } failed: ${result.stderr.trim()}. Preserve the environment for recovery.`,
+      `Git ${args[0]} failed (${facts.join("; ")})${
+        detail === "" ? "." : `: ${detail}`
+      } Preserve the environment for recovery.`,
     );
   }
   return result.stdout;
@@ -121,12 +139,12 @@ async function captureOnce(
     executionGit(root, args, bounds);
   const head = (await git(["rev-parse", "HEAD"])).trim();
   const tree = (await git(["rev-parse", "HEAD^{tree}"])).trim();
-  const branchResult = await runGit(["symbolic-ref", "-q", "HEAD"], {
-    cwd: root,
-  });
-  if (!branchResult.success && branchResult.code !== 1) {
-    throw new Error("Git could not inspect checkout attachment.");
-  }
+  const branch = (await executionGit(
+    root,
+    ["symbolic-ref", "-q", "HEAD"],
+    bounds,
+    { allowedExitCodes: [1] },
+  )).trim();
   const gitDir = (await git(["rev-parse", "--absolute-git-dir"])).trim();
   const indexPath = join(gitDir, "index");
   const indexEntries = await git(["ls-files", "--stage", "-z"]);
@@ -204,7 +222,7 @@ async function captureOnce(
     format: "execution-git-snapshot-v1",
     head,
     tree,
-    branch: branchResult.success ? branchResult.stdout.trim() : null,
+    branch: branch === "" ? null : branch,
     git_dir: gitDir,
     index_path: indexPath,
     index,

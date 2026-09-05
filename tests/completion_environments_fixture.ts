@@ -2,6 +2,7 @@
 import { assert, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
+import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
 import {
   COMPLETION_DIGEST,
   completionFixtures,
@@ -210,8 +211,12 @@ export async function environmentFixture(
     root,
     environmentId: id,
     settings,
-    bounds: { maxFiles: 100, maxBytes: 1024 * 1024, gitTimeoutMs: 5000 },
-    commandTimeoutSeconds: 5,
+    bounds: {
+      maxFiles: 100,
+      maxBytes: 1024 * 1024,
+      gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+    },
+    commandTimeoutSeconds: TEST_PROCESS_TIMEOUT_MS / 1000,
     clock,
   });
   await registerExecutionEnvironment(
@@ -246,7 +251,7 @@ export async function environmentFixture(
     workspace,
     lifetime,
     clock,
-    leaseMs: 60000,
+    leaseMs: TEST_PROCESS_TIMEOUT_MS,
     reserveAttempt: (plan, executor) => {
       sequence++;
       return Promise.resolve({

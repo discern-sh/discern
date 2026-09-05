@@ -6,6 +6,7 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
 import { git, gitOut } from "./engine_helpers.ts";
 import { environmentFixture } from "./completion_environments_fixture.ts";
 import { completionId } from "./completion_fixtures.ts";
@@ -209,7 +210,11 @@ Deno.test("V04 source changes after the install phase is recorded prevent detach
 Deno.test("V05 incomplete bounded capture and symlink ancestors refuse without removing files", async () => {
   await withTempDir(async (base) => {
     const f = await environmentFixture(base);
-    const bounds = { maxFiles: 1, maxBytes: 1024, gitTimeoutMs: 5000 };
+    const bounds = {
+      maxFiles: 1,
+      maxBytes: 1024,
+      gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+    };
     await assertRejects(
       () => captureGitSnapshot(f.path, bounds, "alternate-index"),
       Error,
