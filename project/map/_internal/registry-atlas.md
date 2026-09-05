@@ -64,7 +64,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
-| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 19      | —                | —                           |
+| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 18      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 190     | "Advisory"       | node `hints`                |
@@ -127,7 +127,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 13      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
-| [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 24      | —                | —                           |
+| [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 23      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -1772,10 +1772,9 @@ The shipped capability modules whose importers are restricted: attributed commit
 Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.
 
 - Source: `tests/atomic_write_renames.ts` — `REGISTERED_RENAMES`
-- Members: 19
+- Members: 18
   - `scripts/build.ts#stageBundledManual`
   - `scripts/cli_install.ts#writeExecutableSync`
-  - `scripts/coverage_profiles.ts#reapProfileDir`
   - `scripts/coverage_profiles.ts#worker`
   - `scripts/vale_toolchain.ts#reclaimStaleLock`
   - `scripts/vale_toolchain.ts#ensureVale`
@@ -3938,7 +3937,7 @@ Every direct production-and-tooling subprocess constructor, with its exact path,
 
 - Source: `tests/spawn_surfaces.ts` — `SUBPROCESS_SPAWN_BOUNDARIES`
 - Members: 31
-  - `scripts/binary_size.ts#<module>`
+  - `scripts/binary_size.ts#buildTarget`
   - `scripts/build.ts#compileTarget`
   - `scripts/build.ts#verifyDarwinSignature`
   - `scripts/canon_editor/guards.ts#runGuardFile`
@@ -4103,7 +4102,7 @@ The only modules permitted to call Deno's raw temporary-directory primitives, ea
 Every genuine wall-clock interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.
 
 - Source: `tests/waiting.ts` — `TEST_REAL_DELAY_BOUNDARIES`
-- Members: 24
+- Members: 23
   - `commit-hook-quiescence-window`
   - `escaped-daemon-hold`
   - `job-descendant-quiescence-window`
@@ -4124,7 +4123,6 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
   - `self-signal-desk-trigger`
   - `self-signal-owned-lifetime`
   - `self-signal-owned-trigger`
-  - `validation-capture-deadline-watchdog`
   - `waiting-real-delay-fake-time`
   - `worktree-probe-hook-quiescence-window`
   - `worktree-probe-job-quiescence-window`
