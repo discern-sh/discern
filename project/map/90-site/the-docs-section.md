@@ -27,6 +27,8 @@ Every document route has a pristine `.md` edition and text-client negotiation. T
 
 ## The manual journey
 
+Manual prose addresses the human directing the project. The shared `manual-public-reader` stop in [`discern.toml`](../../../discern.toml) serves the manual authoring procedure for every changed authored, published page; the per-kind checkpoint judges the page's specific job. Both use [`manual_doc_checkpoint.ts`](../../../scripts/manual_doc_checkpoint.ts), which reads publication and kind from the canonical model, including governing versions of deleted pages. Review firing frequency and declarations with `discern checkpoints` after landed efforts accumulate.
+
 [`MANUAL_SECTION_REGISTRY`](../../../src/shared/manual.ts) owns the five sections and their order. Strict publication validation requires one index per section and makes every published page reachable. A page's kind drives labels while the canonical sequence drives breadcrumbs and previous/next movement.
 
 The manual root contains the central front-door authority. `DocsSite.frontDoors` adapts those marked links to the browser landing; the site never copies the promotion set. The compact root rail shows section landings. The browser projection keeps the authored introduction and durable reader orientation, removes the authored maintenance lists and section table, then renders the promoted journeys and complete published tree directly from the model. Raw Markdown remains unchanged. Leaf pages use the complete rooted manual navigation.

@@ -31,6 +31,10 @@ export type ManualCheckpointId =
 export const MANUAL_FRONT_DOOR_CHECKPOINT_ID =
   "manual-front-door-promotion" as const;
 
+/** The public-reader judgment shared by every authored published manual page. */
+export const MANUAL_PUBLIC_READER_CHECKPOINT_ID =
+  "manual-public-reader" as const;
+
 /** The closed editorial purposes a manual page can serve. */
 export const MANUAL_KINDS = [
   "tutorial",

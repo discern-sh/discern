@@ -1,6 +1,6 @@
 /**
- * Select changed product-manual pages for one purpose-specific comprehension
- * checkpoint. The engine has already applied the broad manual path selector;
+ * Select changed product-manual pages for a shared public-reader or
+ * purpose-specific checkpoint. The engine has applied the authored path selector;
  * this bounded read-only matcher validates that input again, admits paths and
  * kinds through the canonical manual registries, and reads deleted pages from
  * the governing Git tree. Any malformed or unavailable fact fires closed: an
@@ -23,7 +23,7 @@ import {
 import { MANUAL_PAGE_MAX_BYTES } from "../src/lib/manual.ts";
 import {
   isManualMarkdownPath,
-  MANUAL_KIND_REGISTRY,
+  MANUAL_PUBLIC_READER_CHECKPOINT_ID,
   type ManualKind,
   manualKindForCheckpoint,
   REPOSITORY_MANUAL_REL,
@@ -68,14 +68,22 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+/** Admit the shared question or one registered purpose-specific question. */
+function requireManualCheckpoint(checkpointId: string): void {
+  if (
+    checkpointId !== MANUAL_PUBLIC_READER_CHECKPOINT_ID &&
+    manualKindForCheckpoint(checkpointId) === undefined
+  ) {
+    fail(`${checkpointId} is not a registered manual checkpoint`);
+  }
+}
+
 /** Parse and strictly validate one version-1 matcher input. */
 export function parseManualCheckpointInput(
   text: string,
   checkpointId: string,
 ): CheckpointWhenInput {
-  if (manualKindForCheckpoint(checkpointId) === undefined) {
-    return fail(`${checkpointId} is not a registered manual checkpoint`);
-  }
+  requireManualCheckpoint(checkpointId);
   return parseCheckpointWhenInput(text, {
     id: checkpointId,
     mode: "stop",
@@ -181,7 +189,7 @@ export function isCanonicalManualPath(
 }
 
 /**
- * Whether one admitted page is published and belongs to the served kind.
+ * Whether one admitted page is published and belongs to the served question.
  * Missing, malformed, or incomplete metadata is an error so the process-level
  * handler fires closed rather than treating bad policy input as a non-match.
  */
@@ -192,8 +200,9 @@ export function matchesManualPage(
   model: ManualCheckpointModel = CANONICAL_MANUAL_CHECKPOINT_MODEL,
 ): boolean {
   if (!isCanonicalManualPath(path, model)) return false;
+  const shared = checkpointId === MANUAL_PUBLIC_READER_CHECKPOINT_ID;
   const kind = model.kindForCheckpoint(checkpointId);
-  if (kind === undefined) {
+  if (!shared && kind === undefined) {
     return fail(`${checkpointId} has no registered manual kind`);
   }
   const frontmatterIssues = validateFrontmatter(markdown);
@@ -213,10 +222,10 @@ export function matchesManualPage(
   ) {
     return fail(`${path} must declare id, publish, and kind`);
   }
-  return meta.publish && meta.kind === kind;
+  return meta.publish && (shared || meta.kind === kind);
 }
 
-/** Resolve the exact changed paths one kind-specific question covers. */
+/** Resolve the exact changed paths one manual question covers. */
 export async function matchingManualChanges(
   cwd: string,
   input: CheckpointWhenInput,
@@ -246,11 +255,7 @@ export async function matchingManualChanges(
 
 /** Run the bounded matcher for the checkpoint id passed by its config entry. */
 async function main(checkpointId: string): Promise<number> {
-  if (
-    !MANUAL_KIND_REGISTRY.some((entry) => entry.checkpointId === checkpointId)
-  ) {
-    return fail(`${checkpointId} is not a registered manual checkpoint`);
-  }
+  requireManualCheckpoint(checkpointId);
   const input = await checkpointWhenInputFromEnvironment({
     id: checkpointId,
     mode: "stop",
