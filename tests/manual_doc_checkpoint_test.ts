@@ -1,4 +1,4 @@
-/** Purpose-specific product-manual checkpoint matcher coverage. */
+/** Shared-reader and purpose-specific manual checkpoint matcher coverage. */
 
 import { ensureDir } from "@std/fs";
 import { join } from "@std/path";
@@ -24,10 +24,15 @@ import { GIT_REPOSITORY_LOCATION_ENVIRONMENT } from "../src/shared/subprocess.ts
 import {
   isManualMarkdownPath,
   MANUAL_KIND_REGISTRY,
+  MANUAL_PUBLIC_READER_CHECKPOINT_ID,
+  MANUAL_SECTION_REGISTRY,
   type ManualKind,
   manualKindForCheckpoint,
   REPOSITORY_MANUAL_REL,
 } from "../src/shared/manual.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { resolveCheckpoints } from "../src/engine/checkpoints/policy.ts";
+import { evaluateStructuralTrigger } from "../src/engine/checkpoints/triggers.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -39,6 +44,10 @@ const SCRIPT = join(
 );
 const DENO_CONFIG = join(REPO_ROOT, "deno.json");
 const DECODER = new TextDecoder();
+const CHECKPOINT_IDS = [
+  MANUAL_PUBLIC_READER_CHECKPOINT_ID,
+  ...MANUAL_KIND_REGISTRY.map((entry) => entry.checkpointId),
+];
 
 interface MatcherResult {
   readonly code: number;
@@ -128,31 +137,62 @@ async function runMatcher(
 }
 
 Deno.test("manual matcher boundary accepts only its exact registered checkpoint", () => {
-  const id = MANUAL_KIND_REGISTRY[0]?.checkpointId;
-  if (id === undefined) throw new Error("manual kind registry is empty");
-  const valid = matcherInput(id, "a".repeat(40));
-  assertEquals(parseManualCheckpointInput(JSON.stringify(valid), id), valid);
-  assertThrows(() =>
-    parseManualCheckpointInput(JSON.stringify({ ...valid, version: 2 }), id)
+  for (const id of CHECKPOINT_IDS) {
+    const valid = matcherInput(id, "a".repeat(40));
+    assertEquals(parseManualCheckpointInput(JSON.stringify(valid), id), valid);
+    assertThrows(() =>
+      parseManualCheckpointInput(JSON.stringify({ ...valid, version: 2 }), id)
+    );
+    assertThrows(() =>
+      parseManualCheckpointInput(JSON.stringify(valid), "unknown-checkpoint")
+    );
+    assertThrows(() =>
+      parseManualCheckpointInput(
+        JSON.stringify({
+          ...valid,
+          changed_files: [{
+            path: "../outside.md",
+            kind: "modified",
+            insertions: 1,
+            deletions: 0,
+            binary: false,
+          }],
+        }),
+        id,
+      )
+    );
+  }
+});
+
+Deno.test("public-reader configuration admits a single authored page in every section and excludes generated output", async () => {
+  const { checkpoints } = resolveCheckpoints(await loadConfig(REPO_ROOT));
+  const checkpoint = checkpoints.find((entry) =>
+    entry.id === MANUAL_PUBLIC_READER_CHECKPOINT_ID
   );
-  assertThrows(() =>
-    parseManualCheckpointInput(JSON.stringify(valid), "unknown-checkpoint")
-  );
-  assertThrows(() =>
-    parseManualCheckpointInput(
-      JSON.stringify({
-        ...valid,
-        changed_files: [{
-          path: "../outside.md",
+  assert(checkpoint !== undefined);
+  assertEquals(checkpoint.mode, "stop");
+  const paths = [
+    `${REPOSITORY_MANUAL_REL}/README.md`,
+    ...MANUAL_SECTION_REGISTRY.map((section) =>
+      `${REPOSITORY_MANUAL_REL}/${section.dir}/future-page.md`
+    ),
+  ];
+  for (const path of paths) {
+    for (const generated of [false, true]) {
+      const result = evaluateStructuralTrigger(checkpoint, {
+        files: [{
+          path,
+          generated,
           kind: "modified",
           insertions: 1,
           deletions: 0,
           binary: false,
         }],
-      }),
-      id,
-    )
-  );
+        baseFiles: [],
+      });
+      assertEquals(result.holds, !generated, `${path}: generated=${generated}`);
+    }
+  }
 });
 
 Deno.test("manual matcher derives all kinds and sections from canonical registries", () => {
@@ -174,6 +214,16 @@ Deno.test("manual matcher derives all kinds and sections from canonical registri
       path,
       page(`${registration.kind}-fixture`, registration.kind),
       registration.checkpointId,
+    ));
+    assert(matchesManualPage(
+      path,
+      page(`${registration.kind}-fixture`, registration.kind),
+      MANUAL_PUBLIC_READER_CHECKPOINT_ID,
+    ));
+    assertFalse(matchesManualPage(
+      path,
+      page(`${registration.kind}-fixture`, registration.kind, false),
+      MANUAL_PUBLIC_READER_CHECKPOINT_ID,
     ));
     const other = MANUAL_KIND_REGISTRY.find((entry) =>
       entry.kind !== registration.kind
@@ -209,6 +259,12 @@ Deno.test("manual matcher model seam enrolls a future section and member without
     path,
     page("future-member", "guide"),
     "manual-future-comprehension",
+    futureModel,
+  ));
+  assert(matchesManualPage(
+    path,
+    page("future-member", "guide"),
+    MANUAL_PUBLIC_READER_CHECKPOINT_ID,
     futureModel,
   ));
 });
@@ -274,6 +330,34 @@ Deno.test("manual matcher emits exact added, modified, and deleted kind matches"
       ),
       JSON.stringify(result),
     );
+    const shared = await runMatcher(
+      dir,
+      MANUAL_PUBLIC_READER_CHECKPOINT_ID,
+      matcherInput(MANUAL_PUBLIC_READER_CHECKPOINT_ID, policyCommit, changed),
+    );
+    assertEquals(shared.code, 0, shared.stderr);
+    assertEquals(shared.stderr, "");
+    assertEquals(
+      shared.stdout.trim().split("\n"),
+      [addedRel, deletedRel, guideRel, modifiedRel].sort().map((path) =>
+        `DISCERN_MATCH ${path}`
+      ),
+    );
+    const skipped = await runMatcher(
+      dir,
+      MANUAL_PUBLIC_READER_CHECKPOINT_ID,
+      matcherInput(MANUAL_PUBLIC_READER_CHECKPOINT_ID, policyCommit, [
+        ...changed.filter((file) => file.path === withheldRel),
+        {
+          path: "project/map/README.md",
+          kind: "modified",
+          insertions: 1,
+          deletions: 0,
+          binary: false,
+        },
+      ]),
+    );
+    assertEquals(skipped, { code: 10, stdout: "", stderr: "" });
   });
 });
 
@@ -292,33 +376,33 @@ Deno.test("manual matcher fires closed for malformed, invalid UTF-8, oversized, 
       deletions: 0,
       binary,
     }];
-    const id = "manual-tutorial-comprehension";
+    for (const id of CHECKPOINT_IDS) {
+      const assertClosed = async (input: unknown): Promise<void> => {
+        const result = await runMatcher(dir, id, input);
+        assertEquals(result.code, 0, result.stderr);
+        assertTerminalTextIncludes(result.stderr, "firing closed");
+      };
 
-    const assertClosed = async (input: unknown): Promise<void> => {
-      const result = await runMatcher(dir, id, input);
-      assertEquals(result.code, 0, result.stderr);
-      assertTerminalTextIncludes(result.stderr, "firing closed");
-    };
-
-    await Deno.writeTextFile(join(dir, rel), "---\nkind: tutorial\n");
-    await assertClosed(matcherInput(id, policyCommit, changed()));
-    await Deno.writeFile(join(dir, rel), new Uint8Array([0xff, 0xfe]));
-    await assertClosed(matcherInput(id, policyCommit, changed()));
-    await Deno.writeTextFile(
-      join(dir, rel),
-      page("page", "tutorial") + "x".repeat(1024 * 1024),
-    );
-    await assertClosed(matcherInput(id, policyCommit, changed()));
-    await assertClosed(matcherInput(id, policyCommit, changed(true)));
-    await assertClosed({
-      ...matcherInput(id, policyCommit),
-      changed_files: [{
-        path: "../outside.md",
-        kind: "modified",
-        insertions: 1,
-        deletions: 0,
-        binary: false,
-      }],
-    });
+      await Deno.writeTextFile(join(dir, rel), "---\nkind: tutorial\n");
+      await assertClosed(matcherInput(id, policyCommit, changed()));
+      await Deno.writeFile(join(dir, rel), new Uint8Array([0xff, 0xfe]));
+      await assertClosed(matcherInput(id, policyCommit, changed()));
+      await Deno.writeTextFile(
+        join(dir, rel),
+        page("page", "tutorial") + "x".repeat(1024 * 1024),
+      );
+      await assertClosed(matcherInput(id, policyCommit, changed()));
+      await assertClosed(matcherInput(id, policyCommit, changed(true)));
+      await assertClosed({
+        ...matcherInput(id, policyCommit),
+        changed_files: [{
+          path: "../outside.md",
+          kind: "modified",
+          insertions: 1,
+          deletions: 0,
+          binary: false,
+        }],
+      });
+    }
   });
 });

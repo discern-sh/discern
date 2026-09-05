@@ -1343,9 +1343,16 @@
 [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
 [checkpoints.skills-playbook] # a skill is an executable playbook
 [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
-# The five manual checkpoints share one bounded, read-only matcher. It reads
+# The shared reader and per-kind checkpoints use one bounded, read-only matcher. It reads
 # current pages or deleted governing blobs, derives publication and purpose
 # from the canonical manual model, and fires closed on unavailable facts.
+[checkpoints.manual-public-reader]
+  paths = ["project/manual/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-public-reader"
+  mode = "stop"
+  question = "Have you read project/map/_internal/brand/manual-authoring.md and applied it to every changed authored, published manual page? Does each page address the human reader, state the observable benefit before implementation detail and above the first H2, define necessary product terms in plain language at first use, remove incidental internal vocabulary and repository shorthand, name human and agent responsibilities, and explain why the important rules matter? Have you validated claims and examples against the live product and kept the page understandable before any link, with deeper detail pointing to published manual destinations? Judge deleted pages by whether the remaining manual still gives readers the explanation or next step they need."
+  teach = "The manual helps people understand, adopt, and direct discern. The map helps contributors navigate implementation. Public pages need a complete local explanation in product voice; the per-kind question separately judges the page's job."
+  reference = "project/map/_internal/brand/manual-authoring.md"
 [checkpoints.manual-tutorial-comprehension]
   paths = ["project/manual/**"]
   when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/manual_doc_checkpoint.ts manual-tutorial-comprehension"
