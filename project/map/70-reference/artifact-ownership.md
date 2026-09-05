@@ -83,6 +83,8 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 
 | Registered path                                    | Lifetime   | Purpose                                                                                                               |
 | -------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `discern/completion/records/`                      | repository | Internal completion records and revision history. Public commands do not use this store.                              |
+| `discern/completion/artifacts/`                    | repository | Reserved storage for attempt-owned output and recovery bytes.                                                         |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                      |
 | `discern/logbook/`                                 | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                                |
 | `discern/logbook-archives/`                        | repository | Sealed Logbook event streams for historical Patterns and Stats reads.                                                 |
