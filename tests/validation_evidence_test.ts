@@ -25,6 +25,7 @@ import {
   VALIDATION_CAPTURE_LIMITS,
   VALIDATION_EXECUTION_LIMITS,
   validationBoundaryNotReached,
+  type ValidationCaptureOptions,
 } from "../src/engine/logbook/validation_state.ts";
 import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { modeOf, withTempDir } from "./helpers.ts";
@@ -36,7 +37,8 @@ import {
   validationKey,
   type ValidationKeyResult,
 } from "../src/engine/logbook/validation_key.ts";
-import { realDelay } from "./waiting.ts";
+import * as captureApi from "../src/engine/logbook/validation_state.ts";
+import type { Scheduler } from "../src/shared/scheduler.ts";
 import { fakeSecureEntropy } from "./fake_secure_entropy.ts";
 
 const cfg = configSchema.parse({});
@@ -570,67 +572,112 @@ Deno.test("path, byte, time, and unreadable budgets fail open without a comparab
   });
 });
 
-const CAPTURE_DEADLINE_TOLERANCE_MS = 250;
+interface CaptureTiming {
+  readonly options: ValidationCaptureOptions;
+  advanceTo(elapsedMs: number): void;
+  deliverDeadline(): void;
+  readonly pending: boolean;
+}
 
-/** Require a capture to return its categorical deadline result promptly. */
+/** Control elapsed time independently of delivery of the capture's one timer. */
+function captureTiming(timeMs: number): CaptureTiming {
+  let elapsedMs = 0;
+  let deadline: (() => void) | undefined;
+  const unexpectedInterval = (): never => {
+    throw new Error("capture uses one timeout, never an interval");
+  };
+  const scheduler: Scheduler = {
+    scheduleTimeout: (callback, delayMs) => {
+      assertEquals(deadline, undefined, "one shared capture deadline");
+      assertEquals(delayMs, timeMs);
+      deadline = callback;
+      return 1;
+    },
+    cancelTimeout: (handle) => {
+      assertEquals(handle, 1);
+      deadline = undefined;
+    },
+    scheduleInterval: unexpectedInterval,
+    cancelInterval: unexpectedInterval,
+  };
+  return {
+    options: {
+      limits: { timeMs },
+      clock: { wallNow: () => 0, monotonicNow: () => elapsedMs },
+      scheduler,
+    },
+    advanceTo(value): void {
+      assert(value >= elapsedMs);
+      elapsedMs = value;
+    },
+    deliverDeadline(): void {
+      const callback = deadline;
+      assert(callback !== undefined, "capture must schedule its deadline");
+      callback();
+      assertEquals(deadline, undefined, "expiry retires the timer");
+    },
+    get pending(): boolean {
+      return deadline !== undefined;
+    },
+  };
+}
+
+/** Require categorical deadline evidence after the controlled callback fires. */
 async function assertCaptureDeadline(
   capturePromise: Promise<ValidationStart>,
-  timeMs: number,
   label: string,
 ): Promise<ValidationStart> {
-  const watchdog = new AbortController();
-  const winner = await Promise.race([
-    capturePromise.then((value) => ({ kind: "capture" as const, value })),
-    realDelay(
-      "validation-capture-deadline-watchdog",
-      timeMs + CAPTURE_DEADLINE_TOLERANCE_MS,
-      watchdog.signal,
-    ).then(() => ({ kind: "hung" as const })),
-  ]).finally(() => watchdog.abort());
-  // Timer ordering is the load-safe bound. If the event loop is starved, both
-  // callbacks can resume late; the capture deadline must still beat the later
-  // watchdog, without blaming scheduler time in which neither could progress.
+  const value = await capturePromise;
+  assertEquals(value.state.complete, false, label);
+  assertEquals(value.state.digest, undefined, label);
   assert(
-    winner.kind === "capture",
-    `${label} exceeded its ${timeMs}ms capture deadline plus ${CAPTURE_DEADLINE_TOLERANCE_MS}ms tolerance`,
-  );
-  assertEquals(winner.value.state.complete, false, label);
-  assert(
-    winner.value.state.incomplete?.some((entry) =>
+    value.state.incomplete?.some((entry) =>
       entry.category === "budget" && entry.reason === "time-limit"
     ),
     `${label} must report the shared time-limit category`,
   );
-  return winner.value;
+  return value;
 }
 
 Deno.test("capture deadline assertions remain valid after scheduler starvation", async () => {
-  const timeMs = 20;
-  const keyProvider = (): Promise<ValidationKeyResult> =>
-    new Promise<ValidationKeyResult>(() => {});
+  for (const elapsedMs of [20, 10_000]) {
+    const timing = captureTiming(20);
+    const capturePromise = captureValidationStart(
+      "/unreachable",
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      {
+        ...timing.options,
+        keyProvider: () => new Promise<ValidationKeyResult>(() => {}),
+      },
+    );
+    // Advancing the clock does not dispatch callbacks. Deliver the deadline
+    // explicitly, whether punctual or delayed by an arbitrary scheduler pause.
+    timing.advanceTo(elapsedMs);
+    assert(timing.pending);
+    timing.deliverDeadline();
+    const evidence = await assertCaptureDeadline(capturePromise, "stalled key");
+    assertEquals(evidence.state.elapsed_ms, elapsedMs);
+    assertEquals(timing.pending, false);
+  }
+});
+
+Deno.test("elapsed capture budget expires at a probe before a delayed timer is delivered", async () => {
+  const timing = captureTiming(20);
+  const key = Promise.withResolvers<ValidationKeyResult>();
   const capturePromise = captureValidationStart(
     "/unreachable",
     cfg,
     VALIDATION_RUNS.test,
     group(VALIDATION_RUNS.test),
-    { limits: { timeMs }, keyProvider },
+    { ...timing.options, keyProvider: () => key.promise },
   );
-  const blocker = new Int32Array(
-    new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT),
-  );
-  queueMicrotask(() => {
-    Atomics.wait(
-      blocker,
-      0,
-      0,
-      timeMs + CAPTURE_DEADLINE_TOLERANCE_MS + 50,
-    );
-  });
-  await assertCaptureDeadline(
-    capturePromise,
-    timeMs,
-    "scheduler-starved key capture",
-  );
+  timing.advanceTo(21);
+  key.resolve({ key: new Uint8Array(32).fill(7) });
+  const evidence = await assertCaptureDeadline(capturePromise, "resumed probe");
+  assertEquals(evidence.state.elapsed_ms, 21);
+  assertEquals(timing.pending, false, "probe expiry cancels the delayed timer");
 });
 
 Deno.test("a stalled tracked-file read cannot hold validation capture past its deadline", async () => {
@@ -650,100 +697,79 @@ esac
 `,
     );
     await Deno.chmod(fakeGit, 0o755);
-    let readStartedResolve: (() => void) | undefined;
-    const readStarted = new Promise<void>((resolve) => {
-      readStartedResolve = resolve;
-    });
+    const readStarted = Promise.withResolvers<void>();
     const timeMs = VALIDATION_CAPTURE_LIMITS.timeMs;
+    const timing = captureTiming(timeMs);
     const capturePromise = captureValidationStart(
       dir,
       cfg,
       VALIDATION_RUNS.test,
       group(VALIDATION_RUNS.test),
       {
-        limits: { timeMs },
+        ...timing.options,
         gitBin: fakeGit,
         keyProvider: () => Promise.resolve({ key: new Uint8Array(32).fill(7) }),
         readFile: () => {
-          readStartedResolve?.();
+          readStarted.resolve();
           return new Promise<Uint8Array>(() => {});
         },
       },
     );
     const reachedRead = await Promise.race([
-      readStarted.then(() => true),
+      readStarted.promise.then(() => true),
       capturePromise.then(() => false),
     ]);
-    assert(
-      reachedRead,
-      "the deterministic Git prelude must reach the stalled tracked read",
-    );
-    await assertCaptureDeadline(capturePromise, timeMs, "tracked read");
+    assert(reachedRead, "the Git prelude must reach the stalled tracked read");
+    timing.advanceTo(timeMs);
+    timing.deliverDeadline();
+    await assertCaptureDeadline(capturePromise, "tracked read");
   });
 });
 
 Deno.test("every validation capture API bounds a stalled key provider", async () => {
-  const timeMs = 20;
-  const keyProvider = (): Promise<ValidationKeyResult> =>
-    new Promise<ValidationKeyResult>(() => {});
-  const cases = [
-    {
-      label: "validation start",
-      capture: captureValidationStart(
-        "/unreachable",
-        cfg,
-        VALIDATION_RUNS.test,
-        group(VALIDATION_RUNS.test),
-        { limits: { timeMs }, keyProvider },
-      ),
-      boundary: false,
-    },
-    {
-      label: "boundary not reached",
-      capture: validationBoundaryNotReached(
-        "/unreachable",
-        cfg,
-        VALIDATION_RUNS.done,
-        group(VALIDATION_RUNS.done),
-        { limits: { timeMs }, keyProvider },
-      ),
-      boundary: true,
-    },
-  ];
-  for (const testCase of cases) {
-    const evidence = await assertCaptureDeadline(
-      testCase.capture,
-      timeMs,
-      testCase.label,
+  const apis = Object.values(captureApi).filter(
+    (value): value is typeof captureValidationStart =>
+      typeof value === "function",
+  );
+  for (const api of apis) {
+    const timing = captureTiming(20);
+    const pending = api(
+      "/unreachable",
+      cfg,
+      VALIDATION_RUNS.test,
+      group(VALIDATION_RUNS.test),
+      {
+        ...timing.options,
+        keyProvider: () => new Promise<ValidationKeyResult>(() => {}),
+      },
     );
+    timing.advanceTo(20);
+    timing.deliverDeadline();
+    const evidence = await assertCaptureDeadline(pending, api.name);
     assertEquals(
       evidence.state.incomplete?.some((entry) =>
         entry.category === "boundary" && entry.reason === "not-reached"
       ) ?? false,
-      testCase.boundary,
-      `${testCase.label} must preserve its real boundary verdict`,
+      api === validationBoundaryNotReached,
+      `${api.name} must preserve its real boundary verdict`,
     );
   }
 });
 
 Deno.test("a rejection arriving after the capture deadline is still observed", async () => {
-  let rejectKey: ((reason: Error) => void) | undefined;
-  const keyProvider = (): Promise<ValidationKeyResult> =>
-    new Promise<ValidationKeyResult>((_, reject) => {
-      rejectKey = reject;
-    });
-  await assertCaptureDeadline(
-    captureValidationStart(
-      "/unreachable",
-      cfg,
-      VALIDATION_RUNS.test,
-      group(VALIDATION_RUNS.test),
-      { limits: { timeMs: 20 }, keyProvider },
-    ),
-    20,
-    "late key rejection",
+  const timing = captureTiming(20);
+  const key = Promise.withResolvers<ValidationKeyResult>();
+  const pending = captureValidationStart(
+    "/unreachable",
+    cfg,
+    VALIDATION_RUNS.test,
+    group(VALIDATION_RUNS.test),
+    { ...timing.options, keyProvider: () => key.promise },
   );
-  rejectKey?.(new Error("late forced failure"));
+  timing.advanceTo(20);
+  timing.deliverDeadline();
+  await assertCaptureDeadline(pending, "late key rejection");
+  key.reject(new Error("late forced failure"));
   await Promise.resolve();
 });
 

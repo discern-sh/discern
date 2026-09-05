@@ -192,14 +192,6 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
       "The signal must arrive asynchronously while the parent is awaiting the child, which is the behavior under test.",
     classification: "adversarial-stimulus",
   },
-  "validation-capture-deadline-watchdog": {
-    path: "tests/validation_evidence_test.ts",
-    enclosing: "assertCaptureDeadline",
-    operation: "bound a categorical capture-deadline assertion",
-    reason:
-      "The test subject is the validation capture's elapsed-time deadline; the later watchdog distinguishes a returned deadline result from a hang.",
-    classification: "elapsed-behavior",
-  },
   "waiting-real-delay-fake-time": {
     path: "tests/waiting_test.ts",
     enclosing: "realDelay follows the test scheduler",
