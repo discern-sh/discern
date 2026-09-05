@@ -37,8 +37,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 31      | —                | —                           |
-| [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 26      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 33      | —                | —                           |
+| [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 27      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
@@ -1017,7 +1017,9 @@ The desk's per-worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 31
+- Members: 33
+  - `completionRecords`
+  - `completionArtifacts`
   - `resources`
   - `logbook`
   - `logbookArchives`
@@ -1058,7 +1060,8 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
 Every versioned record discern writes in Git administration state or a Proof note: its storage coordinate, current version, reader, and forward-skew policy.
 
 - Source: `src/shared/on_disk_formats.ts` — `ON_DISK_FORMATS`
-- Members: 26
+- Members: 27
+  - `completion-record`
   - `acceptance-transaction`
   - `await-continuation`
   - `checkpoint-open-questions`
