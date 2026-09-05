@@ -4,6 +4,7 @@ import { dirname, join } from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
+import { splitNulRecords } from "../../shared/git_paths.ts";
 import { ArtifactPathSchema } from "../completion/evidence.ts";
 import {
   type FileSchema,
@@ -131,7 +132,7 @@ async function captureOnce(
   const indexEntries = await git(["ls-files", "--stage", "-z"]);
   const indexFlags = await git(["ls-files", "-v", "-z"]);
   if (
-    indexFlags.split("\0").some((entry) => /^[a-zS] /u.test(entry)) ||
+    splitNulRecords(indexFlags).some((entry) => /^[a-zS] /u.test(entry)) ||
     (await git(["rev-parse", "--shared-index-path"])).trim() !== ""
   ) {
     throw new Error(
@@ -139,7 +140,7 @@ async function captureOnce(
     );
   }
   if (
-    indexEntries.split("\0").some((entry) =>
+    splitNulRecords(indexEntries).some((entry) =>
       entry.startsWith("160000 ") || /^\d+ [0-9a-f]+ [123]\t/u.test(entry)
     )
   ) {
@@ -148,22 +149,26 @@ async function captureOnce(
     );
   }
   const names = new Set(
-    (await git([
-      "ls-files",
-      "--cached",
-      "--others",
-      "--exclude-standard",
-      "-z",
-    ])).split("\0").filter(Boolean),
+    splitNulRecords(
+      await git([
+        "ls-files",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "-z",
+      ]),
+    ),
   );
   const ignored = new Set(
-    (await git([
-      "ls-files",
-      "--others",
-      "--ignored",
-      "--exclude-standard",
-      "-z",
-    ])).split("\0").filter(Boolean),
+    splitNulRecords(
+      await git([
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "-z",
+      ]),
+    ),
   );
   for (const path of ignored) names.add(path);
   if (names.size > bounds.maxFiles) {
@@ -208,6 +213,7 @@ async function captureOnce(
     status: await git([
       "status",
       "--porcelain=v1",
+      "-z",
       "--untracked-files=all",
       "--ignore-submodules=none",
     ]),

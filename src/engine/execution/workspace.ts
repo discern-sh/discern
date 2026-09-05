@@ -4,6 +4,7 @@ import { decodeBase64 } from "@std/encoding/base64";
 import { atomicReplaceBytes } from "../../shared/atomic_write.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { readTextIfExists, statIfExists } from "../../shared/fs_presence.ts";
+import { splitNulRecords } from "../../shared/git_paths.ts";
 import {
   deriveIdentity,
   type IdentitySettings,
@@ -554,7 +555,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     // Every removed leaf is in the just-verified complete capture. Git does not
     // receive a force/clean/reset command or an unknown directory to delete.
     const tracked = new Set(
-      current.index_entries.split("\0").filter(Boolean).map((entry) =>
+      splitNulRecords(current.index_entries).map((entry) =>
         entry.slice(entry.indexOf("\t") + 1)
       ),
     );

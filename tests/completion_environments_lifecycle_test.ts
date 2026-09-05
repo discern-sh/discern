@@ -25,6 +25,7 @@ import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
 import { SnapshotSchema } from "../src/engine/execution/snapshot_schema.ts";
 import { WorkspaceStateSchema } from "../src/engine/execution/workspace_state.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { parsePorcelainZ } from "../src/shared/git_paths.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { completionFixtures, completionId } from "./completion_fixtures.ts";
 import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
@@ -177,19 +178,24 @@ Deno.test("V05 staged binary and new files are captured before return and cannot
     const f = await environmentFixture(base);
     const execution = await f.claim();
     const bytes = new Uint8Array([0, 255, 12, 67]);
+    const newFiles = ["new-file", "new file π"];
     const result = await f.executor.execute(execution, async () => {
       await Deno.writeFile(join(f.path, "binary"), bytes);
       await git(f.path, "add", "binary");
       await Deno.writeFile(join(f.path, "binary"), new Uint8Array([0, 1, 2]));
-      await Deno.writeTextFile(join(f.path, "new-file"), "candidate write");
+      for (const path of newFiles) {
+        await Deno.writeTextFile(join(f.path, path), "candidate write");
+      }
       return false;
     });
     assertEquals(result.returned.kind, "restored", JSON.stringify(result));
     assertEquals(await Deno.readTextFile(join(f.path, "binary")), "original\n");
-    await assertRejects(
-      () => Deno.readFile(join(f.path, "new-file")),
-      Deno.errors.NotFound,
-    );
+    for (const path of newFiles) {
+      await assertRejects(
+        () => Deno.readFile(join(f.path, path)),
+        Deno.errors.NotFound,
+      );
+    }
     // The snapshot artifact keeps binary payloads independently of Git's index objects.
     const directory = await gitAdminStatePath(f.root, "completionArtifacts");
     assert(directory !== undefined);
@@ -220,13 +226,16 @@ Deno.test("V05 staged binary and new files are captured before return and cannot
       ),
       new Uint8Array([0, 1, 2]),
     );
-    assertEquals(
-      new TextDecoder().decode(decodeBase64(
-        capture.git.files.find((file) => file.path === "new-file")?.contents ??
-          "",
-      )),
-      "candidate write",
-    );
+    const status = parsePorcelainZ(capture.git.status);
+    for (const path of newFiles) {
+      assertEquals(status.find((entry) => entry.path === path)?.status, "??");
+      assertEquals(
+        new TextDecoder().decode(decodeBase64(
+          capture.git.files.find((file) => file.path === path)?.contents ?? "",
+        )),
+        "candidate write",
+      );
+    }
     const record = await readCompletionRecord(f.root, {
       kind: "attempt",
       id: execution.fence.attempt_id,
