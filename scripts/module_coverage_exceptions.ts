@@ -117,13 +117,4 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
     recovery:
       "Plant the remaining blob, path-shape, and read-failure combinations.",
   },
-  {
-    path: "src/shared/discern_commit.ts",
-    measuredPct: 77.1,
-    owner: "Git write boundary",
-    reason:
-      "Commit reconciliation retains hook-expanded, concurrent, and rollback branches.",
-    recovery:
-      "Exercise each post-hook tree and failed commit recovery outcome.",
-  },
 ] as const satisfies readonly ModuleCoverageException[];

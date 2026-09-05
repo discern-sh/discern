@@ -195,3 +195,17 @@ Deno.test("generated merge doctor diagnoses an unavailable Git checkout", async 
     assert(checks.every((check) => check.fix !== undefined));
   });
 });
+
+Deno.test({
+  name: "permission-restricted default browser launcher preserves failure data",
+  permissions: { run: false },
+  fn: async (): Promise<void> => {
+    assert((await Deno.permissions.query({ name: "run" })).state !== "granted");
+    const url = "https://example.test/permission-boundary";
+    const result = await openInBrowser(url, { os: "linux" });
+    assertEquals(result.status, "failed");
+    assert(result.status === "failed");
+    assertEquals(result.launch, { command: "xdg-open", args: [url] });
+    assertStringIncludes(result.message, result.launch.command);
+  },
+});
