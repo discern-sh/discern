@@ -170,7 +170,7 @@ export type DiscernOwnedRollbackOutcome =
   | { readonly kind: "retained"; readonly detail: string };
 
 export interface DiscernStagedCommitProof {
-  /** Branch whose ref the commit may advance. */
+  /** Branch whose ref may advance; an empty branch permits detached regeneration only. */
   readonly branch: string;
   /** HEAD before the commit, or null for an unborn branch. */
   readonly head: string | null;
@@ -235,6 +235,12 @@ async function gitValue(
   const result = await runGit(args, { cwd });
   const value = result.stdout.trim();
   return result.success && value !== "" ? value : undefined;
+}
+
+/** Preserve a successful detached-HEAD observation separately from a failed branch read. */
+async function commitBranchValue(cwd: string): Promise<string | undefined> {
+  const result = await runGit(["branch", "--show-current"], { cwd });
+  return result.success ? result.stdout.trim() : undefined;
 }
 
 /** Resolve HEAD, distinguishing an unborn branch from an unreadable repository. */
@@ -310,15 +316,16 @@ async function authoredCommitFromReflog(
       "show",
       "-z",
       "--format=%H%x00%gs",
-      `refs/heads/${branch}`,
+      branch === "" ? "HEAD" : `refs/heads/${branch}`,
     ],
     { cwd },
   );
   if (!result.success) {
     return undefined;
   }
-  const fields = splitNulRecords(result.stdout);
-  if (fields.length % 2 !== 0) {
+  // HEAD reflogs permit empty summaries; only the final NUL is framing.
+  const fields = result.stdout.split("\0");
+  if (fields.pop() !== "" || fields.length % 2 !== 0) {
     return undefined;
   }
   let authored: string | undefined;
@@ -637,11 +644,13 @@ export async function commitDiscernChanges(
       );
     }
     const [branch, head, tree] = await Promise.all([
-      gitValue(options.cwd, ["branch", "--show-current"]),
+      commitBranchValue(options.cwd),
       headValue(options.cwd),
       gitValue(options.cwd, ["write-tree"]),
     ]);
     if (
+      (branch === "" &&
+        options.site !== DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration) ||
       branch !== stagedProof.branch ||
       head !== stagedProof.head ||
       tree !== stagedProof.tree
@@ -658,12 +667,12 @@ export async function commitDiscernChanges(
     };
   } else {
     const [branch, head, indexTreeBefore] = await Promise.all([
-      gitValue(options.cwd, ["branch", "--show-current"]),
+      commitBranchValue(options.cwd),
       headValue(options.cwd),
       gitValue(options.cwd, ["write-tree"]),
     ]);
     if (
-      branch === undefined || head === undefined ||
+      branch === undefined || branch === "" || head === undefined ||
       indexTreeBefore === undefined
     ) {
       return refusedCommit(
@@ -794,9 +803,9 @@ export async function commitDiscernChanges(
     }
   }
 
-  const ref = `refs/heads/${proof.branch}`;
+  const ref = proof.branch === "" ? "HEAD" : `refs/heads/${proof.branch}`;
   const [committedBranch, branchHead] = await Promise.all([
-    gitValue(options.cwd, ["branch", "--show-current"]),
+    commitBranchValue(options.cwd),
     refValue(options.cwd, ref),
   ]);
   if (
@@ -820,6 +829,16 @@ export async function commitDiscernChanges(
   }
   if (mismatch === undefined) {
     mismatch = "did not remain the exact tip of its proven branch";
+  }
+
+  if (proof.branch === "") {
+    return {
+      success: false,
+      code: 2,
+      stdout: commit.stdout,
+      stderr:
+        `discern-authored commit site '${options.site.id}' ${mismatch}; detached execution state is retained for its environment's capture and recovery`,
+    };
   }
 
   const rollback = await rollbackAuthoredCommit(
@@ -915,6 +934,13 @@ export async function rollbackDiscernOwnedCommit(
 ): Promise<DiscernOwnedRollbackOutcome> {
   if (owned[DISCERN_OWNED_COMMIT] !== true) {
     return { kind: "retained", detail: "commit ownership is unavailable" };
+  }
+  if (owned.branch === "") {
+    return {
+      kind: "retained",
+      detail:
+        "detached execution commits require environment capture and recovery",
+    };
   }
   if (owned.parent === null) {
     return {
