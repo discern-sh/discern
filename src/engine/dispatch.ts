@@ -452,7 +452,7 @@ export function attachEngineCommands(
   root
     .command("scripts")
     .description(
-      "List executable Project Scripts, or run one literal name at the project root with the documented four-variable DISCERN_* environment and every following argument forwarded unchanged.",
+      "List executable Project Scripts, or run one literal name at the project root with the four supported DISCERN_* variables and every following argument forwarded unchanged.",
     )
     .arguments("[name:string] [...args:string]")
     .action(

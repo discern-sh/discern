@@ -884,7 +884,7 @@ export async function runChecks(
           detail: `script(s) reference unsupported DISCERN_* names: ${
             offenders.join(", ")
           }`,
-          fix: `Project Scripts receive only DISCERN_ROOT, DISCERN_TOML, ` +
+          fix: `Project Scripts may use only DISCERN_ROOT, DISCERN_TOML, ` +
             `DISCERN_SCRIPTS_DIR, and DISCERN_TRUNK from discern; read other ` +
             `config with \`discern config get\` or use a declared worktree-environment value`,
         },

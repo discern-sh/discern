@@ -306,14 +306,14 @@ Deno.test("both production Git spawners consume the one repository-location sani
       calls: [
         "const environment = gitChildEnvironmentPlan(",
         "clearEnv: environment.clearEnv",
-        "env: environment.env",
+        "...environment.env",
       ],
     },
     {
       path: new URL("../src/shared/discern_commit.ts", import.meta.url),
       calls: [
         "clearEnv: true",
-        "env: gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction })",
+        "...gitChildEnvironment({ GIT_REFLOG_ACTION: reflogAction })",
       ],
     },
   ] as const;

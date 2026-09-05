@@ -1,6 +1,6 @@
 # ADR 0137: Project Scripts live under the `script` command
 
-> **Amendment ([ADR 0360](0360-the-project-script-namespace-holds-only-commands.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md)).** The canonical command is now the plural `scripts`. A name resolves literally and runs from the project root. The child inherits ordinary process values but receives exactly four `DISCERN_*` values from discern: absolute `DISCERN_ROOT`, `DISCERN_TOML`, and `DISCERN_SCRIPTS_DIR`, plus `DISCERN_TRUNK`. Every remaining argument belongs to the child; machine mode must therefore precede a name. These current contracts replace the singular spelling and two script-directory variables recorded below.
+> **Amendment ([ADR 0360](0360-the-project-script-namespace-holds-only-commands.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md)).** The canonical command is now the plural `scripts`. A name resolves literally and runs from the project root. The child inherits ordinary process values and receives four supported `DISCERN_*` values from discern: absolute `DISCERN_ROOT`, `DISCERN_TOML`, and `DISCERN_SCRIPTS_DIR`, plus `DISCERN_TRUNK`. A recording invocation also supplies its fresh private lineage id under [ADR 0282](0282-self-invocations-carry-recorded-provenance.md); this is not a supported script variable. Every remaining argument belongs to the child; machine mode must therefore precede a name. These current contracts replace the singular spelling and two script-directory variables recorded below.
 
 **Status**: accepted
 

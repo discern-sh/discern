@@ -7,7 +7,7 @@
  * project root by walking up from the cwd to the nearest ancestor holding that
  * file.
  *
- * A Project Script receives one fixed `DISCERN_*` environment and reads any
+ * A Project Script receives a fixed supported `DISCERN_*` interface and reads
  * other project facts through public commands such as `discern config get`.
  */
 
@@ -155,8 +155,8 @@ export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
  *
  * Ordinary process values such as `PATH` survive, but every inherited or
  * caller-supplied `DISCERN_*` value is removed before the four supported
- * contract values are installed. This makes the exported namespace exact even
- * when discern itself is running under internal diagnostics or a lock lease.
+ * contract values are installed. The spawn boundary may then add a fresh
+ * private lineage id; inherited diagnostics and lock leases remain stripped.
  */
 export function projectScriptProcessEnv(
   contract: ScriptEnv,

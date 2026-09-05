@@ -1919,7 +1919,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "project-scripts",
         title: "Project scripts",
         what:
-          "Any executable dropped under `[scripts].dir` becomes `discern scripts <name>`: its direct filename is resolved literally, it runs from the project root with the documented four-variable `DISCERN_*` environment, arguments are forwarded unchanged, and an optional `# desc:` line supplies the listing text. Scripts occupy their own namespace, so built-in verb names stay legal.",
+          "Any executable dropped under `[scripts].dir` becomes `discern scripts <name>`: its direct filename is resolved literally, it runs from the project root with four supported `DISCERN_*` variables, arguments are forwarded unchanged, and an optional `# desc:` line supplies the listing text. Scripts occupy their own namespace, so built-in verb names stay legal.",
         why:
           "The project's own tooling gets the project root, active config, scripts directory, and resolved trunk without wrapper boilerplate or ambient discern capabilities.",
         plain: {

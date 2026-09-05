@@ -399,7 +399,7 @@ Project-owned automation, listed or run by name.
 
 ### `discern scripts`
 
-List executable Project Scripts, or run one literal name at the project root with the documented four-variable DISCERN_* environment and every following argument forwarded unchanged.
+List executable Project Scripts, or run one literal name at the project root with the four supported DISCERN_* variables and every following argument forwarded unchanged.
 
 Usage: `discern scripts [name] [args...] [options]`
 

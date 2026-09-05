@@ -7,6 +7,8 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
+  gitInit,
+  readLogbookEvents,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -213,7 +215,7 @@ Deno.test("scripts: --json lists project scripts as one structured result", asyn
   });
 });
 
-Deno.test("scripts: a Project Script runs at root with exactly the four supported DISCERN variables", async () => {
+Deno.test("scripts: a Project Script receives only its supported variables and fresh private lineage", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "discern/scripts/show-slug"), SLUG_SCRIPT);
@@ -227,10 +229,12 @@ Deno.test("scripts: a Project Script runs at root with exactly the four supporte
         "printf 'SCRIPTS_DIR=%s\\n' \"$DISCERN_SCRIPTS_DIR\"",
         "printf 'TRUNK=%s\\n' \"$DISCERN_TRUNK\"",
         "printf 'PWD=%s\\n' \"$PWD\"",
+        "discern status --json >/dev/null",
         "",
       ].join("\n"),
     );
 
+    await gitInit(dir);
     const slug = await runAgent(dir, ["scripts", "show-slug"]);
     assertEquals(slug.code, 0, slug.output);
     assertStringIncludes(slug.stdout, "SLUG=engine-test");
@@ -244,18 +248,33 @@ Deno.test("scripts: a Project Script runs at root with exactly the four supporte
         [unsupportedAmbient]: "must-not-leak",
         [DISCERN_ENVIRONMENT_VARIABLES.operationLockDelegation]:
           "must-not-leak",
+        [DISCERN_ENVIRONMENT_VARIABLES.spawnedBy]: "stale-caller-lineage",
       },
     });
     assertEquals(env.code, 0, env.output);
     const contractNames = env.stdout.split("\n").filter((line) =>
       line.startsWith("DISCERN_")
     );
-    assertEquals(contractNames, [
-      "DISCERN_ROOT",
-      "DISCERN_SCRIPTS_DIR",
-      "DISCERN_TOML",
-      "DISCERN_TRUNK",
-    ]);
+    assertEquals(
+      contractNames,
+      [
+        "DISCERN_ROOT",
+        "DISCERN_SCRIPTS_DIR",
+        "DISCERN_TOML",
+        "DISCERN_TRUNK",
+        DISCERN_ENVIRONMENT_VARIABLES.spawnedBy,
+      ].sort(),
+    );
+    const events = await readLogbookEvents(dir);
+    const parent = events.filter((event) =>
+      event.kind === "verb" && event.verb === "scripts"
+    ).at(-1);
+    const child = events.find((event) =>
+      event.kind === "verb" && event.verb === "status"
+    );
+    assert(parent?.kind === "verb" && parent.invocation !== undefined);
+    assert(child?.kind === "verb");
+    assertEquals(child.driver?.spawned_by, parent.invocation);
     const realRoot = await Deno.realPath(dir);
     assertTerminalTextIncludes(env.stdout, `ROOT=${realRoot}`);
     assertTerminalTextIncludes(

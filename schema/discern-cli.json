@@ -3881,7 +3881,7 @@
       "path": [
         "scripts"
       ],
-      "description": "List executable Project Scripts, or run one literal name at the project root with the documented four-variable DISCERN_* environment and every following argument forwarded unchanged.",
+      "description": "List executable Project Scripts, or run one literal name at the project root with the four supported DISCERN_* variables and every following argument forwarded unchanged.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
