@@ -1,6 +1,6 @@
 ---
 title: Design principles
-description: The rules discern enforces, with each one observable in your repository and covered by its own Gate.
+description: The rules that govern discern, their repository effects, and accepted requirements awaiting implementation.
 order: 20
 aliases:
   - principles
@@ -11,9 +11,9 @@ aliases:
 
 # Design principles
 
-_Why discern works this way: the rules the system enforces and what each one means in your repository._
+_Why discern works this way: its design requirements and what each means in your repository._
 
-Tests in discern's own gate enforce each principle. An exception requires a written Architecture Decision Record (ADR), published in the [decision archive](../_adr/). These principles explain behavior that may otherwise be surprising.
+Implemented principles have checks in discern's own gate. Accepted requirements awaiting implementation are marked below. An exception requires a written Architecture Decision Record (ADR), published in the [decision archive](../_adr/). These principles explain behavior that may otherwise be surprising.
 
 ### 1. The engine stays stack-neutral
 
@@ -67,12 +67,12 @@ The documentation tree discern maintains is the agents' Map of the codebase. Age
 
 The footprint consists of one committed root file, one visible folder, the agent files, and a declared list of integration files. An architectural test rejects writes outside that inventory ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)).
 
+### 14. Completion survives agent sessions
+
+Source revisions, composition, authority, validation evidence, and recovery state must be durable enough for a replacement session to continue an effort without the original conversation. A discern executor can perform recorded mechanical work. Any missing judgment or consent must be supplied before the affected action proceeds. No active executor means no progress.
+
+Coordinated completion under this principle is accepted with implementation pending. [ADR 0375](../_adr/0375-source-authority-survives-declared-composition.md) defines durable source authority, [ADR 0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) defines active-command coordination, and [ADR 0378](../_adr/0378-landing-completion-survives-checkout-retirement.md) keeps recovery evidence beyond checkout retirement. Eligibility to use another effort's released environment remains subject to [ADR 0377](../_adr/0377-execution-environments-declare-reuse-and-recovery.md).
+
 ## When a principle bends
 
 An exception requires an [ADR](../_adr/) that states which principle it overrides and why. The [decision archive](../_adr/) publishes that reasoning with the rules.
-
-## Accepted execution-model direction
-
-ADRs [0374](../_adr/0374-complete-proof-is-independent-of-measurement-scheduling.md), [0375](../_adr/0375-source-authority-survives-declared-composition.md), and [0376](../_adr/0376-active-commands-advance-an-authorized-landing-queue.md) record complete candidate evidence, source authority, and active-command coordination. [ADR 0377](../_adr/0377-execution-environments-declare-reuse-and-recovery.md) defines project-owned environment reuse. [ADR 0378](../_adr/0378-landing-completion-survives-checkout-retirement.md) separates landing from retirement, and [ADR 0379](../_adr/0379-emergency-landings-record-an-explicit-proof-exception.md) defines explicit emergency exceptions.
-
-Implementation is pending. The runtime sections above remain current. The accepted design keeps the no-daemon and agent checkout boundaries, while giving discern executors recorded authority to use released environments and advance approved work. Mechanical completion must retain the facts needed by a replacement session.

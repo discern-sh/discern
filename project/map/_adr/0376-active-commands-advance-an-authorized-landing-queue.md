@@ -29,3 +29,9 @@ Concurrency and speculative depth bound compute. Queue length is not the compute
 - Every observable trunk prefix requires its own complete Proof. A passing combined batch does not prove intermediate prefixes.
 - Batching requires a separate explicit product policy and is outside this implementation.
 - Results and live progress explain the current effort, reason for order or waiting, next transition, and required owner action.
+
+## Alternatives considered
+
+- A resident daemon could advance work with no active caller, but would introduce a continuously running service and its own lifetime management. Active commands preserve the no-daemon boundary and expose the absence of an executor as a pending state.
+- Requiring each original session to finish its effort leaves an active acceptance command unable to complete an approved prefix after another session ends. Durable authority and operation claims let that command continue mechanical work.
+- Requiring a standalone green gate before queue admission adds a validation pass that may become stale immediately. Selecting the expected integration candidate first spends that validation on the candidate intended to land.

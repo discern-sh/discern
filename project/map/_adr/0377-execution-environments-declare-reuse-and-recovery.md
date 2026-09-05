@@ -29,3 +29,9 @@ Without an eligible environment, ordered coordination continues. A current sourc
 - Resource and child-process lifetimes join the claim and recovery boundary.
 - Evidence includes relevant execution conditions. Switching back to an authoring branch does not change the identity of a completed candidate Proof.
 - Stateful projects may need isolation. This is a correctness requirement independent of fleet size.
+
+## Alternatives considered
+
+- A mandatory fresh environment for every candidate avoids restoration but repeats provisioning and can exhaust project resource capacity. Declared borrowing and reset allow reuse where the project can establish its validity.
+- An isolated reusable pool avoids borrowing authoring checkouts but still carries state between candidates. Isolation alone cannot establish a valid return from newer migrations or dependencies to an older candidate.
+- Treating a successful preparation or clean Git tree as reuse eligibility leaves ignored state and backward transitions unverified. The project must declare restoration or reset as well as preparation.

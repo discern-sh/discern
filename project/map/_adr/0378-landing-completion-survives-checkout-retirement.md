@@ -1,6 +1,6 @@
 # ADR 0378: Landing completion survives checkout retirement
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md) and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
+**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
 
 ## Context
 
@@ -24,3 +24,8 @@ A cleanup failure never makes a landed effort pending for another acceptance. Re
 - Retirement has observable pending and recovery states.
 - Removing a checkout cannot erase the evidence needed to finish or explain the operation.
 - Cooperative execution does not grant another agent permission to edit the source checkout.
+
+## Alternatives considered
+
+- Keeping acceptance open until teardown completes couples an already completed ref transition to slow or failed cleanup. Separate outcomes release the landing boundary and preserve an explicit retirement obligation.
+- Removing another effort's checkout as soon as its candidate lands assumes that landing approval releases the workspace. Requiring recorded release and current ownership protects source work that may still be active.

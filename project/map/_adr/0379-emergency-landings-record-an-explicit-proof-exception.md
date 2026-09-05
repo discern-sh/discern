@@ -1,6 +1,6 @@
 # ADR 0379: Emergency landings record an explicit Proof exception
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md).
+**Status**: accepted on 2026-09-05; implementation pending. Amends the ordinary acceptance boundary of [ADR 0110](0110-the-landing-model.md) and the claim contract of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), with authority from [ADR 0375](0375-source-authority-survives-declared-composition.md).
 
 ## Context
 
@@ -26,3 +26,8 @@ External branch protections and deployment systems keep their own authority. A b
 - Emergency integration may invalidate queued predictions.
 - Failure accounting and machine consumers must distinguish Proof from exception records.
 - Commercial signing and independent verification remain separate work. The record preserves the distinction they will need.
+
+## Alternatives considered
+
+- Leaving every emergency to raw Git preserves a smaller command surface but loses the supported record of which obligations failed, never ran, or have stale evidence. A distinct exception operation retains that accounting within discern's transition boundary.
+- A skip-checks flag that still issues passing Proof makes unchecked integration indistinguishable from successful validation. The separate claim kind preserves that distinction for people and machine consumers.

@@ -27,3 +27,8 @@ An effort can resume from durable source, candidate, authority, and recovery rec
 - A real source dependency cannot be skipped to promote an approved successor.
 - Standard failures against a predecessor's tighter policy use the owner's proposal mechanism. Revising an unlanded pin is another explicit owner decision. Scheduling cannot select a permissive order to evade policy.
 - Source authorship, approving authority, and executing actor remain separately attributable.
+
+## Alternatives considered
+
+- Binding consent to each exact composed commit requires renewed approval after mechanical integration, even when the approved authored work is unchanged. Recorded source authority lets validation establish the new candidate without repeating that decision.
+- Approving every descendant avoids repeated approval but also admits unrelated authored edits. The declared composition procedure bounds which resulting candidates the source approval covers.

@@ -1,6 +1,6 @@
 # ADR 0374: Complete Proof is independent of measurement scheduling
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0133](0133-standards-join-the-gate.md) and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md). Their documented runtime behavior remains current until the implementation lands.
+**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0003](0003-named-metric-standards.md), [ADR 0133](0133-standards-join-the-gate.md), and [ADR 0319](0319-current-green-proof-composes-and-red-reruns-stay-explicit.md). Their documented runtime behavior remains current until the implementation lands.
 
 ## Context
 
