@@ -99,6 +99,19 @@ export const GATE_JOB_ENVIRONMENT: Readonly<Record<string, string>> = {
   CI: "1",
 };
 
+/** Resolve process overrides before the spawn boundary adds invocation lineage. */
+export async function jobEnvironment(
+  cwd: string,
+  overrides: Readonly<Record<string, string>> = {},
+): Promise<Readonly<Record<string, string>>> {
+  return {
+    ...GATE_JOB_ENVIRONMENT,
+    ...overrides,
+    ...operationLockChildEnv(),
+    PATH: await selfShimPath(cwd),
+  };
+}
+
 /**
  * The exit code a finished job reports. A job terminated by a signal — i.e. the
  * one fail-fast tree-killed mid-run — defaults to 1. A job that exited on its
@@ -247,13 +260,7 @@ export async function spawnJob(
     cwd: opts.cwd,
     // `discern` in a job command resolves to the engine running this gate,
     // whatever the ambient PATH holds (self_shim.ts).
-    env: {
-      ...GATE_JOB_ENVIRONMENT,
-      ...(opts.env ?? {}),
-      ...operationLockChildEnv(),
-      PATH: await selfShimPath(opts.cwd),
-      ...spawnedByEnv(),
-    },
+    env: { ...await jobEnvironment(opts.cwd, opts.env), ...spawnedByEnv() },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
