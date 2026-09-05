@@ -65,6 +65,8 @@ Give each prompt a clear spine. Adapt the headings to the task, but cover:
 
 Anchor the prompt in the real tree, then tell the agent to verify those anchors against the live code: files move, and a brief written from this conversation can be stale by the time someone runs it.
 
+**Include required companion edits in the allocation.** Check ownership exclusions against the live gate before handing off: a stream must be able to maintain its own brief's required index entry and add exact guard enrollments for already-declared paths or capabilities. Name those narrow edits and their landing order when a file is shared. Keep new shared behavior and contract decisions with their assigned owner. A routine enrollment or reference repair that preserves the existing contract needs no second permission exchange.
+
 ---
 
 ## 4. Bake in what every delegated task needs
@@ -87,6 +89,8 @@ Keep this to a few lines. The agent's own instruction file already states most o
 Present each finished prompt as one self-contained block the user can copy verbatim: clearly delimited, complete top to bottom, nothing left for them to fill in by hand. Always present the prompts in the session first.
 
 When there's more than one, also offer to save them as Markdown files in the user's project, each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a spot you suggest from the project's own layout (an existing planning or prompts folder, say). Files keep the key first — the folder scopes them, and the key sorts them into the wave plan; only worktree names lead with the programme slug (§3). Write them only if the user says yes. Give each brief you save one final line in its own definition of done: when its task is complete, move the brief file into a `_done/` subfolder beside it (`planning/2c-<slug>.md` → `planning/_done/2c-<slug>.md`), landed as part of that work, so completed briefs don't linger for you to tidy. That line belongs only in a saved brief (a chat-only prompt has no file to move), and lands cleanly only once the briefs are committed to the trunk each stream branches from.
+
+Apply the companion-edit allocation from §3 to that finishing line: repair the moved brief's relative links and include any required update of its own README or index row to the live `_done/` path in the same commit, while preserving other streams' rows.
 
 Then explain the dispatch topology outside the copyable prompts. State how many sessions, worktrees, and sub-agents will start, which will run concurrently, and any setup or capacity the user should check. Assume the user will launch them. If you can launch them directly, offer to dispatch them and wait for explicit confirmation. Do not start anything before the user launches it or accepts the offer. Their confirmation covers only the described dispatch; if the set or topology changes, explain the new plan and ask again.
 

@@ -1,0 +1,107 @@
+/** Complete stdout capture for producer protocols through the supervised job runner. */
+import { quoteCommandWord } from "../../shared/command_evidence.ts";
+import { toCommand } from "../../shared/config_schema.ts";
+import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
+import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
+import { spawnJob } from "./command.ts";
+import { JobOutputRecorder } from "./output_record.ts";
+import type { JobResult } from "./types.ts";
+
+/** Bound protocol memory while retaining original output for reproduction. */
+export const PRODUCER_CAPTURE_BYTES = 16 * 1024 * 1024;
+
+/** Read bounded bytes only when the regular file stays unchanged through EOF. */
+export async function readCompleteCapture(
+  path: string,
+  limit = PRODUCER_CAPTURE_BYTES,
+): Promise<Uint8Array> {
+  const file = await Deno.open(path, { read: true });
+  try {
+    const before = await file.stat();
+    if (!before.isFile || before.size > limit) {
+      throw new Error(
+        "producer capture exceeds its byte bound or is not a file",
+      );
+    }
+    const bytes = new Uint8Array(before.size + 1);
+    let length = 0;
+    while (length < bytes.length) {
+      const read = await file.read(bytes.subarray(length));
+      if (read === null) break;
+      if (read === 0) throw new Error("producer capture read made no progress");
+      length += read;
+    }
+    const after = await file.stat();
+    if (
+      length !== before.size || after.size !== before.size ||
+      after.mtime?.getTime() !== before.mtime?.getTime() ||
+      after.ctime?.getTime() !== before.ctime?.getTime()
+    ) throw new Error("producer capture changed while being read");
+    return bytes.slice(0, length);
+  } finally {
+    file.close();
+  }
+}
+
+/** Stdout alone supplies extraction input; stderr stays in the job reproduction artifact. */
+export async function runCapturedCommands(input: {
+  readonly root: string;
+  readonly label: string;
+  readonly commands: readonly string[];
+  readonly timeout: number;
+  readonly signal: AbortSignal;
+  readonly environment: Readonly<Record<string, string>>;
+  readonly stdin?: Uint8Array;
+}): Promise<
+  {
+    readonly result: JobResult;
+    readonly stdout: Uint8Array;
+    readonly capture_complete: boolean;
+    readonly output_path: string;
+  }
+> {
+  const scope = await tempArtifactScopeFor(input.root);
+  const output = await makeTempArtifact("job", scope);
+  let redirect = "";
+  if (input.stdin !== undefined) {
+    const recorder = await JobOutputRecorder.create(scope);
+    await recorder.write(input.stdin);
+    const recorded = await recorder.finish();
+    if (recorded.outputPath === undefined) {
+      throw new Error("extractor input capture is incomplete");
+    }
+    redirect = ` < ${quoteCommandWord(recorded.outputPath)}`;
+  }
+  const command = `(\n${toCommand([...input.commands]) || ":"}\n) > ${
+    quoteCommandWord(output)
+  }${redirect}`;
+  const settled = await spawnJob({ label: input.label, command }, {
+    cwd: input.root,
+    stream: false,
+    write: () => {},
+    signal: input.signal,
+    env: input.environment,
+    timeout: { seconds: input.timeout, key: input.label },
+    keepOutput: true,
+  });
+  try {
+    return {
+      result: settled.result,
+      stdout: await readCompleteCapture(output),
+      capture_complete: true,
+      output_path: output,
+    };
+  } catch (error) {
+    return {
+      result: {
+        ...settled.result,
+        status: "failed",
+        code: 1,
+        failureMessage: error instanceof Error ? error.message : String(error),
+      },
+      stdout: new Uint8Array(),
+      capture_complete: false,
+      output_path: output,
+    };
+  }
+}

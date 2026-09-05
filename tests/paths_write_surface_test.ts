@@ -126,6 +126,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "completion records and revision history — registry-resolved common Git-admin state, published through the atomic writer",
   ],
   [
+    "src/engine/validation/artifacts.ts",
+    "attempt-owned producer captures — registry-resolved common Git-admin artifacts, created once and verified before extraction",
+  ],
+  [
     "src/engine/worktree/env_file.ts",
     "the worktree .env upsert (never created)",
   ],
