@@ -199,6 +199,7 @@ export async function composeCandidate(input: {
     await gitValue(path, [
         "status",
         "--porcelain=v1",
+        "-z",
         "--untracked-files=all",
       ]) !== ""
   ) {
@@ -269,7 +270,13 @@ export async function composeCandidate(input: {
     const convergence = await convergeGenerated(execution, recipe);
     if (convergence !== undefined) return convergence;
     const changed = splitNulRecords(
-      await gitOutput(path, ["diff", "--name-only", "-z", "HEAD"]),
+      await gitOutput(path, [
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        "HEAD",
+      ]),
     );
     const untracked = splitNulRecords(
       await gitOutput(path, [
@@ -469,7 +476,7 @@ export async function verifyComposition(
     await gitValue(root, ["show", "-s", "--format=%P", regeneration]) !== merge
   ) return false;
   const diff = await runGit(
-    ["diff", "--name-only", "-z", merge, regeneration],
+    ["diff", "--no-renames", "--name-only", "-z", merge, regeneration],
     { cwd: root },
   );
   return diff.success &&
