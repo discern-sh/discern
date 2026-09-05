@@ -27,12 +27,18 @@ import { AMBIENT_READ_BOUNDARIES } from "../scripts/ambient_state_lint.ts";
 import {
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   MANUAL_KIND_REGISTRY,
+  MANUAL_PUBLIC_READER_CHECKPOINT_ID,
 } from "../src/shared/manual.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-const PROJECT_CHECKPOINT_IDS = [
+const MANUAL_PAGE_CHECKPOINT_IDS = [
+  MANUAL_PUBLIC_READER_CHECKPOINT_ID,
   ...MANUAL_KIND_REGISTRY.map((entry) => entry.checkpointId),
+] as const;
+
+const PROJECT_CHECKPOINT_IDS = [
+  ...MANUAL_PAGE_CHECKPOINT_IDS,
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   "templates-stay-generic",
   "shipped-instruction-rent",
@@ -111,14 +117,14 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
   );
   assertEquals(authored.sort(), [...PROJECT_CHECKPOINT_IDS].sort());
 
-  for (const registration of MANUAL_KIND_REGISTRY) {
-    const definition = checkpoint(registration.checkpointId);
+  for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
+    const definition = checkpoint(id);
     assertEquals(definition.mode, "stop");
     assertEquals(definition.selector?.globs, ["project/manual/**"]);
     assertEquals(
       definition.when,
       CHECKPOINT_GIT_MATCHER_PREFIX +
-        `scripts/manual_doc_checkpoint.ts ${registration.checkpointId}`,
+        `scripts/manual_doc_checkpoint.ts ${id}`,
     );
   }
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "public-doc-audience"));
@@ -418,24 +424,26 @@ Deno.test("manual when input contains only authored pre-scoped facts", () => {
       { path: generated.path, generated: true },
     ],
   };
-  const definition = checkpoint("manual-guide-comprehension");
-  const structural = evaluateStructuralTrigger(definition, diff);
-  assert(structural.holds);
-  assertEquals(structural.matched, [authored.path]);
-  assertEquals(structural.whenPending, true);
-  assertEquals(
-    checkpointWhenInput(definition, "b".repeat(40), structural),
-    {
-      version: 1,
-      checkpoint: { id: "manual-guide-comprehension", mode: "stop" },
-      policy_commit: "b".repeat(40),
-      changed_files: [{
-        path: authored.path,
-        kind: "modified",
-        insertions: 5,
-        deletions: 2,
-        binary: false,
-      }],
-    },
-  );
+  for (const id of MANUAL_PAGE_CHECKPOINT_IDS) {
+    const definition = checkpoint(id);
+    const structural = evaluateStructuralTrigger(definition, diff);
+    assert(structural.holds);
+    assertEquals(structural.matched, [authored.path]);
+    assertEquals(structural.whenPending, true);
+    assertEquals(
+      checkpointWhenInput(definition, "b".repeat(40), structural),
+      {
+        version: 1,
+        checkpoint: { id, mode: "stop" },
+        policy_commit: "b".repeat(40),
+        changed_files: [{
+          path: authored.path,
+          kind: "modified",
+          insertions: 5,
+          deletions: 2,
+          binary: false,
+        }],
+      },
+    );
+  }
 });
