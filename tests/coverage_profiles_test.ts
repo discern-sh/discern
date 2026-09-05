@@ -15,10 +15,8 @@ import {
   classifyRawProfileHead,
   isPrunableProfile,
   pruneAndShardProfiles,
-  reapProfileDir,
   reportShardCount,
 } from "../scripts/coverage_profiles.ts";
-import { fileExists } from "../src/shared/fs_presence.ts";
 import {
   lcovReportArgs,
   srcCoverageUrlPrefix,
@@ -133,26 +131,5 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
       shardOf.get("bb.json"),
       "profiles for one module URL must share a shard so its range merge stays whole",
     );
-  });
-});
-
-Deno.test("reaping renames the profile dir once and detaches its remover", async () => {
-  await withTempDir(async (dir) => {
-    const profileDir = join(dir, "profiles");
-    await Deno.mkdir(profileDir);
-    await Deno.writeTextFile(join(profileDir, "aa.json"), profile("file:///x"));
-    const spawns: string[][] = [];
-    const graveyard = await reapProfileDir(
-      profileDir,
-      (args) => spawns.push(args),
-    );
-    assertEquals(graveyard, `${profileDir}-reaped`);
-    assertEquals(await fileExists(profileDir), false);
-    assertEquals(await fileExists(join(graveyard, "aa.json")), true);
-    assertEquals(spawns.length, 1);
-    const args = spawns[0] ?? [];
-    assertEquals(args[0], "eval");
-    assertEquals(args.length, 2, "eval takes no permission flags");
-    assert((args[1] ?? "").includes(JSON.stringify(graveyard)));
   });
 });

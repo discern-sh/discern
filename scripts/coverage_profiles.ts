@@ -19,10 +19,7 @@
  *   partitions of one module's profiles, so URL-hash assignment is what
  *   keeps the sharded numbers exact. An opaque head routes by filename
  *   hash; the join's per-line union covers that degraded case.
- * - **Reap**: after the report passes, deleting a million-file directory
- *   costs minutes, so the measured path retires the directory with one
- *   rename and hands removal to a detached child instead of paying per-file
- *   unlinks on its own clock.
+ * Scratch cleanup belongs to the producer's awaited temporary-directory lifetime.
  */
 
 import { join } from "@std/path";
@@ -174,24 +171,4 @@ export async function pruneAndShardProfiles(
     pruned,
     opaque,
   };
-}
-
-/**
- * Retire a measured profile directory off the critical path: one rename to a
- * sibling graveyard name, then a detached remover process the caller spawns.
- * Deleting the directory's files inline costs minutes of per-file unlinks —
- * long enough to push a finished measurement past its timeout — so removal
- * happens on the detached child's clock. Returns the graveyard path.
- */
-export async function reapProfileDir(
-  profileDir: string,
-  spawnDetached: (args: string[]) => void,
-): Promise<string> {
-  const graveyard = `${profileDir}-reaped`;
-  await Deno.rename(profileDir, graveyard);
-  spawnDetached([
-    "eval",
-    `await Deno.remove(${JSON.stringify(graveyard)}, { recursive: true });`,
-  ]);
-  return graveyard;
 }

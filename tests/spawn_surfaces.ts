@@ -39,7 +39,7 @@ export interface SubprocessSpawnBoundary {
 export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/binary_size.ts",
-    enclosingFunction: "<module>",
+    enclosingFunction: "buildTarget",
     operation: "compile the release binary before measuring its size",
     reason:
       "the build process needs Deno-specific permissions and captures the compiler result directly",
@@ -139,7 +139,7 @@ export const SUBPROCESS_SPAWN_BOUNDARIES = [
   {
     path: "scripts/coverage.ts",
     enclosingFunction: "denoCommand",
-    operation: "run a Deno coverage subprocess or detach its profile remover",
+    operation: "run a Deno coverage subprocess",
     reason:
       "coverage owns profile directories, command permissions, and raw subprocess output for its report pipeline",
     may: ["other"],

@@ -1,41 +1,17 @@
 /**
- * Measure aggregate and per-module `src/` line coverage in one instrumented run.
+ * Instrument the canonical repository suite once and derive all coverage metrics.
  *
- * This is the measurement command behind `[standards.coverage]` (see ADR 0003 and
- * `discern.toml`). Discern runs it on demand via `discern standards`,
- * scans the output for the LAST metric line for each Standard. Aggregate
- * coverage, module-floor failures, and registered legacy debt all consume this
- * same process.
- *
- * It runs the full suite — through the project's `test` task, so everything
- * that task provides (the site build, the permission flags, `--parallel`)
- * comes from that one definition — then computes line coverage over
- * the repo's own `src/` tree — both the installer AND the TypeScript engine
- * (`src/engine/**`), all one tree, instrumented by the same number. (`runAgent`
- * subprocesses count too: Deno propagates the coverage dir to child `deno`
- * processes via the environment.) Git and the structural-scope contract elect
- * which modules ought to have run; `scripts/coverage_lib.ts` joins LCOV onto
- * that universe, so an absent executable module measures zero.
- *
- * Speed shape: those subprocesses leave one V8 profile per module per spawn —
- * hundreds of thousands of small JSONs, most of them dependency and fixture
- * modules the report filter would reject only after parsing them — and a
- * report pass over a profile dir is single-threaded. So the test run collects
- * raw profiles only (suppressing the reports `deno test --coverage` generates
- * at the end of a run), `scripts/coverage_profiles.ts` prunes the profiles no
- * report can use and spreads the rest across shard directories by module
- * URL, one concurrent report pass each — per-module merging then happens
- * whole within one pass, so the joined numbers equal the single merged
- * pass at a fraction of the wall clock. The module census runs alongside
- * the report passes, and the measured path retires the profile dir with
- * one rename to a detached remover rather than paying a million unlinks
- * on its own clock.
- *
- * Usage: `deno task coverage` (the `[standards.coverage]` run command). Prints a
- * per-file table to stderr for context, then the metric line to stdout.
+ * With no arguments, measure and print metrics for the current public standards.
+ * `produce <path>` writes LCOV for the validation engine's attempt-owned artifact
+ * capture; `extract` reads captured LCOV on stdin and prints all three readings.
+ * Both modes share the Git-derived module universe, parser, and held thresholds.
+ * Raw profiles are sharded by module URL before reporting; scratch cleanup is
+ * awaited before success so the producer leaves no detached cleanup process.
  */
-
-import { fromFileUrl } from "@std/path";
+import { dirname, fromFileUrl } from "@std/path";
+import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
+import { resolveContainedProjectWritePath } from "../src/shared/project_path.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import {
   evaluateModuleCoverage,
   lcovReportArgs,
@@ -45,7 +21,6 @@ import {
 } from "./coverage_lib.ts";
 import {
   pruneAndShardProfiles,
-  reapProfileDir,
   reportShardCount,
 } from "./coverage_profiles.ts";
 import {
@@ -63,33 +38,17 @@ function denoCommand(args: string[], io: Deno.CommandOptions): Deno.Command {
 /** Run a `deno` subcommand, returning its captured stdout (throws on failure). */
 async function deno(
   args: string[],
-  opts: { capture?: boolean } = {},
+  opts: { capture?: boolean; cwd?: string } = {},
 ): Promise<string> {
   const result = await denoCommand(args, {
     stdout: opts.capture ? "piped" : "inherit",
     stderr: "inherit",
+    ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }),
   }).output();
   if (!result.success) {
     throw new Error(`deno ${args[0]} failed (exit ${result.code}).`);
   }
   return opts.capture ? new TextDecoder().decode(result.stdout) : "";
-}
-
-/**
- * Spawn a `deno` subcommand unobserved, unreferenced, and leading its own
- * process group — for work that must outlive this measurement without holding
- * its clock. Group leadership matters: the job runner tears down a finished
- * job's process group, and only a detached child survives that sweep.
- */
-function denoDetached(args: string[]): void {
-  denoCommand(args, {
-    stdin: "null",
-    stdout: "null",
-    stderr: "null",
-    detached: true,
-  })
-    .spawn()
-    .unref();
 }
 
 /**
@@ -110,45 +69,80 @@ async function shardedLcovReports(
       `${summary.shardDirs.length} report passes; ${summary.pruned} non-src ` +
       `pruned; ${summary.opaque} unrecognized kept for the report filter`,
   );
-  return await Promise.all(
+  const settled = await Promise.allSettled(
     summary.shardDirs.map((dir) =>
-      deno(lcovReportArgs(dir, repoRoot), { capture: true })
+      deno(lcovReportArgs(dir, repoRoot), { capture: true, cwd: repoRoot })
     ),
   );
+  const reports: string[] = [];
+  const failures: unknown[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") reports.push(result.value);
+    else failures.push(result.reason);
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      "coverage reporting failed after every shard settled",
+    );
+  }
+  return reports;
 }
 
-await withToolTempDir("coverage-profile", async (profile) => {
-  const repoRoot = fromFileUrl(new URL("../", import.meta.url));
-  // 1. Run the project's own `test` task under coverage instrumentation — the
-  //    task is the single definition of how the suite runs (site build, allow
-  //    flags, --parallel), and the extra args forward to its final command,
-  //    the `deno test` invocation. V8 writes a profile per isolate into the
-  //    shared dir, so the parallel run aggregates to the same number as a
-  //    serial one. Raw profiles only: the end-of-run reports (table, lcov,
-  //    HTML) each cost a full pass over the profile dir, and the shard passes
-  //    below are the only reports anything reads.
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
+
+/** Run the canonical suite exactly once, collecting only raw V8 profiles. */
+async function instrumentSuite(
+  profile: string,
+  reporter: readonly string[] = [],
+  repoRoot: string = REPO_ROOT,
+): Promise<void> {
   await deno([
     "task",
     "test",
     `--coverage=${profile}`,
     "--coverage-raw-data-only",
-  ]);
+    ...reporter,
+  ], { cwd: repoRoot });
+}
 
-  // 2. The report passes and the module census share no inputs, so they run
-  //    concurrently and meet at the join. Each shard pass anchors the URL
-  //    filter to this checkout's src/ tree so fixture and site paths never
-  //    enter a report; the join remains authoritative for membership inside
-  //    that boundary. Product modules use non-test basenames so Deno's
-  //    test-source exclusion stays semantically aligned with the
-  //    source-module convention.
-  const [modules, lcovs] = await Promise.all([
-    sourceModuleUniverse(repoRoot),
-    shardedLcovReports(profile, repoRoot),
-  ]);
+/**
+ * Produce one LCOV artifact from one instrumented suite. All report shards and
+ * scratch cleanup finish before this producer can publish successful output.
+ * The injected suite capability lets integration fixtures use a small real suite.
+ */
+export async function produceCoverage(
+  repoRoot: string = REPO_ROOT,
+  runSuite: (profile: string) => Promise<void> = (profile) =>
+    instrumentSuite(profile, [], repoRoot),
+): Promise<string> {
+  const started = SYSTEM_CLOCK.monotonicNow();
+  let suiteFinished = started;
+  let reportsFinished = started;
+  const lcov = await withToolTempDir("coverage-profile", async (profile) => {
+    await runSuite(profile);
+    suiteFinished = SYSTEM_CLOCK.monotonicNow();
+    const reports = await shardedLcovReports(profile, repoRoot);
+    reportsFinished = SYSTEM_CLOCK.monotonicNow();
+    return reports.join("\n");
+  });
+  const finished = SYSTEM_CLOCK.monotonicNow();
+  console.error(
+    `coverage producer: 1 instrumented suite; ` +
+      `suite ${((suiteFinished - started) / 1000).toFixed(1)}s; ` +
+      `reports ${((reportsFinished - suiteFinished) / 1000).toFixed(1)}s; ` +
+      `cleanup ${((finished - reportsFinished) / 1000).toFixed(1)}s`,
+  );
+  return lcov;
+}
 
-  // 3. Per-file table to stderr (context for the operator), then the machine
-  //    metric to stdout — the line the standard reads.
-  const cov = srcLineCoverage(lcovs, repoRoot, modules);
+/** Extract every coverage reading using the existing LCOV parser and Git census. */
+export async function coverageReadings(
+  lcov: string,
+  repoRoot: string = REPO_ROOT,
+): Promise<string> {
+  const modules = await sourceModuleUniverse(repoRoot);
+  const cov = srcLineCoverage([lcov], repoRoot, modules);
   const moduleEvaluation = evaluateModuleCoverage(
     cov,
     MODULE_LINE_COVERAGE_FLOOR,
@@ -164,19 +158,52 @@ await withToolTempDir("coverage-profile", async (profile) => {
   for (const failure of moduleEvaluation.failures) {
     console.error(`MODULE COVERAGE: ${failure}`);
   }
-
-  // 4. Retire the profile dir before the metric lines: deleting a
-  //    million-file directory inline costs minutes — enough to push a
-  //    finished measurement past its timeout — so one rename hands it to a
-  //    detached remover, and a reap fault still fails the run loudly. The
-  //    owning temp capability tolerates the then-absent directory.
-  await reapProfileDir(profile, denoDetached);
-
-  console.log(`DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`);
-  console.log(
+  return [
+    `DISCERN_METRIC coverage ${cov.pct.toFixed(1)}`,
     `DISCERN_METRIC module_coverage_failures ${moduleEvaluation.failureCount}`,
-  );
-  console.log(
     `DISCERN_METRIC module_coverage_exceptions ${MODULE_COVERAGE_EXCEPTIONS.length}`,
+  ].join("\n");
+}
+
+/** Write the producer output for the engine to capture into its attempt identity. */
+export async function writeCoverageArtifact(
+  repoRoot: string,
+  path: string,
+  lcov: string,
+): Promise<void> {
+  const destination = await resolveContainedProjectWritePath(
+    repoRoot,
+    ArtifactPathSchema.parse(path),
+    "coverage artifact",
   );
-});
+  await Deno.mkdir(dirname(destination), { recursive: true });
+  await Deno.writeTextFile(destination, lcov);
+}
+
+/** Keep legacy measurement available beside explicit producer and extractor modes. */
+async function main(): Promise<void> {
+  if (Deno.args.length === 0) {
+    console.log(await coverageReadings(await produceCoverage()));
+  } else if (Deno.args.length === 1 && Deno.args[0] === "extract") {
+    const lcov = await new Response(Deno.stdin.readable).text();
+    console.log(await coverageReadings(lcov));
+  } else if (
+    (Deno.args.length === 2 || Deno.args.length === 3) &&
+    Deno.args[0] === "produce" && Deno.args[1] !== undefined &&
+    (Deno.args[2] === undefined || /^--reporter=.+$/.test(Deno.args[2]))
+  ) {
+    const path = ArtifactPathSchema.parse(Deno.args[1]);
+    const lcov = await produceCoverage(
+      REPO_ROOT,
+      (profile) => instrumentSuite(profile, Deno.args.slice(2)),
+    );
+    await writeCoverageArtifact(REPO_ROOT, path, lcov);
+    console.error(`coverage artifact: ${path}`);
+  } else {
+    throw new Error(
+      "Usage: coverage.ts [produce <project-relative.lcov> [--reporter=<format>] | extract]",
+    );
+  }
+}
+
+if (import.meta.main) await main();
