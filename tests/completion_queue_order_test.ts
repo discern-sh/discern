@@ -102,6 +102,36 @@ Deno.test("queue Q03: real source dependencies require their own approval and pr
   assertEquals(dependencyBlocker(cycle)?.kind, "missing-authority");
 });
 
+Deno.test("queue Q03: shared dependency subgraphs remain bounded and landed dependencies are settled", () => {
+  const { queue } = queueExample(120);
+  const linked = {
+    ...queue,
+    entries: queue.entries.map((entry, index) => ({
+      ...entry,
+      dependencies: queue.entries.slice(Math.max(0, index - 2), index).map((
+        dependency,
+      ) => dependency.source.effort_id),
+    })),
+  };
+  assertEquals(dependencyBlocker(linked), undefined);
+  const missing = {
+    ...linked,
+    entries: linked.entries.map((entry, index) =>
+      index === 0 ? { ...entry, dependencies: ["absent-source"] } : entry
+    ),
+  };
+  const blocked = dependencyBlocker(missing);
+  assert(blocked?.kind === "missing-authority");
+  assertEquals(blocked.sources.length, 120);
+  const settled = {
+    ...missing,
+    entries: missing.entries.map((entry, index) =>
+      index === 0 ? { ...entry, state: "landed" as const } : entry
+    ),
+  };
+  assertEquals(dependencyBlocker(settled), undefined);
+});
+
 Deno.test("queue Q05/E06: invalidation follows dependency edges and preserves unrelated artifacts", () => {
   const { queue, candidates } = queueExample(3);
   const a = candidates.get(completionId(100));

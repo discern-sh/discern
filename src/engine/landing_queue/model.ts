@@ -43,15 +43,23 @@ export function dependencyBlocker(
   const entries = new Map(
     queue.entries.map((entry) => [entry.source.effort_id, entry]),
   );
-  const visit = (id: string, trail: ReadonlySet<string>): boolean => {
-    if (trail.has(id)) return false;
+  const visited = new Map<string, boolean>();
+  const visiting = new Set<string>();
+  const visit = (id: string): boolean => {
+    const known = visited.get(id);
+    if (known !== undefined) return known;
+    if (visiting.has(id)) return false;
     const entry = entries.get(id);
-    return entry !== undefined && entry.state !== "withdrawn" &&
-      entry.dependencies.every((dep) => visit(dep, new Set([...trail, id])));
+    visiting.add(id);
+    const valid = entry !== undefined && entry.state !== "withdrawn" &&
+      (entry.state === "landed" || entry.dependencies.every(visit));
+    visiting.delete(id);
+    visited.set(id, valid);
+    return valid;
   };
   const invalid = queue.entries.filter((entry) =>
     entry.state !== "withdrawn" && entry.state !== "landed" &&
-    !visit(entry.source.effort_id, new Set())
+    !visit(entry.source.effort_id)
   );
   return invalid.length === 0 ? undefined : {
     kind: "missing-authority",
