@@ -64,15 +64,6 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
       "Plant each missing, malformed, retained, and successfully reaped grant state.",
   },
   {
-    path: "src/engine/worktree/ignored.ts",
-    measuredPct: 79,
-    owner: "worktree lifecycle",
-    reason:
-      "Ignored-state comparison retains large-tree and unreadable metadata branches.",
-    recovery:
-      "Exercise the remaining bounded fingerprint and read-failure outcomes.",
-  },
-  {
     path: "src/engine/worktree/ownership.ts",
     measuredPct: 73,
     owner: "worktree lifecycle",
