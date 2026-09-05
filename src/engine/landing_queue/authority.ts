@@ -87,16 +87,22 @@ export function resolveSourceAuthority(input: {
       record.data.composition_procedure !== subject.composition.procedure
     ) missing.push(source);
   };
-  verify(candidate, authority, false);
-  for (const predecessor of input.predecessors) {
-    const record = predecessor.authority;
-    if (
-      record.id !== authority.id &&
-      !authority.data.predecessor_authorities.includes(record.id)
-    ) {
-      missing.push(predecessor.candidate.source);
+  const chain = [
+    { candidate, authority, landed: false },
+    ...input.predecessors,
+  ];
+  for (const [index, subject] of chain.entries()) {
+    verify(subject.candidate, subject.authority, subject.landed);
+    for (const predecessor of chain.slice(index + 1)) {
+      if (
+        predecessor.authority.id !== subject.authority.id &&
+        !subject.authority.data.predecessor_authorities.includes(
+          predecessor.authority.id,
+        )
+      ) {
+        missing.push(predecessor.candidate.source);
+      }
     }
-    verify(predecessor.candidate, record, predecessor.landed);
   }
   for (const dependency of candidate.dependencies) {
     const predecessor = input.predecessors.find((item) =>

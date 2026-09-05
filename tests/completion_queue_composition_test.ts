@@ -1,0 +1,317 @@
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
+import {
+  COMPLETION_CLOCK,
+  COMPLETION_DIGEST,
+  completionFixtures,
+  completionId,
+} from "./completion_fixtures.ts";
+import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { compileInstructions } from "../src/engine/instructions.ts";
+import { Logger } from "../src/lib/log.ts";
+import {
+  composeCandidate,
+  discoverSourceDependencies,
+  observeSource,
+  publishCandidate,
+  verifyComposition,
+} from "../src/engine/landing_queue/composition.ts";
+import { compositionRecipe } from "../src/engine/landing_queue/generation.ts";
+import { writeCompletionRecord } from "../src/engine/completion/store.ts";
+import { candidateRef } from "../src/engine/completion/identity.ts";
+import type { ClaimedExecution } from "../src/engine/completion/protocol.ts";
+import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
+import {
+  initializeQueue,
+  replaceQueue,
+  requireQueue,
+} from "../src/engine/landing_queue/repository.ts";
+
+/** An isolated claimed test checkout composes two real branches with owned generated output. */
+async function compositionFixture(
+  base: string,
+  conflict: boolean,
+): Promise<
+  {
+    root: string;
+    slot: string;
+    execution: ClaimedExecution;
+    predecessor: string;
+  }
+> {
+  const root = join(base, "repo");
+  await Deno.mkdir(root);
+  await Deno.writeTextFile(
+    join(root, "discern.toml"),
+    '[project]\nslug = "queue-test"\nagents = []\n[generated.data]\npaths = ["generated.txt"]\nrun = "sh generator.sh"\n',
+  );
+  await Deno.writeTextFile(join(root, "a"), "a\n");
+  await Deno.writeTextFile(join(root, "b"), "b\n");
+  await Deno.writeTextFile(join(root, "generated.txt"), "a\nb\n");
+  await Deno.writeTextFile(
+    join(root, "generator.sh"),
+    "cat a b > generated.txt\n",
+  );
+  await gitInit(root);
+  await compileInstructions(root, new Logger({ json: true, noColor: true }));
+  await git(root, "add", ".");
+  await git(
+    root,
+    "commit",
+    "--allow-empty",
+    "-m",
+    "Declare generated ownership",
+  );
+  const author = join(base, "author");
+  await git(root, "worktree", "add", "-b", "agent/source", author);
+  await Deno.writeTextFile(join(author, "a"), "A\n");
+  await Deno.writeTextFile(join(author, "generated.txt"), "A\nb\n");
+  await git(author, "add", ".");
+  await git(author, "commit", "-m", "Author source");
+  const source = await observeSource(root, "source", "refs/heads/agent/source");
+  await Deno.writeTextFile(join(root, conflict ? "a" : "b"), "B\n");
+  await Deno.writeTextFile(join(root, "generated.txt"), "a\nB\n");
+  await git(root, "add", ".");
+  await git(root, "commit", "-m", "Author predecessor");
+  const predecessor = await gitOut(root, "rev-parse", "HEAD");
+  const slot = join(base, "slot");
+  await git(root, "worktree", "add", "--detach", slot, source.head);
+  const fixtures = completionFixtures();
+  const attempt = COMPLETION_FAMILIES.attempt.schema.parse(fixtures.attempt);
+  const environment = COMPLETION_FAMILIES.environment.schema.parse(
+    fixtures.environment,
+  );
+  const candidate = COMPLETION_FAMILIES.candidate.schema.parse(
+    fixtures.candidate,
+  );
+  assert(attempt.data.state.kind === "claimed");
+  environment.data = {
+    ...environment.data,
+    path: slot,
+    ownership: {
+      kind: "isolated",
+      owner_operation: attempt.data.identity.executor.operation_id,
+      disposable: true,
+    },
+    state: {
+      kind: "executing",
+      attempt_id: attempt.id,
+      candidate_id: candidate.id,
+      release_id: completionId(22),
+      claim: attempt.data.state.claim,
+      phase: "validate",
+    },
+  };
+  candidate.data = {
+    ...candidate.data,
+    source,
+    head: source.head,
+    tree: source.tree,
+  };
+  await initializeQueue(root, predecessor);
+  const queue = COMPLETION_FAMILIES.queue.schema.parse(fixtures.queue).data;
+  await replaceQueue(root, await requireQueue(root), {
+    ...queue,
+    trunk: predecessor,
+    entries: queue.entries.map((entry) => ({
+      ...entry,
+      source,
+      state: "active",
+    })),
+  }, COMPLETION_CLOCK);
+  assertEquals(
+    (await writeCompletionRecord(
+      root,
+      attempt,
+      null,
+      undefined,
+      COMPLETION_CLOCK,
+    )).kind,
+    "written",
+  );
+  assertEquals(
+    (await writeCompletionRecord(
+      root,
+      environment,
+      null,
+      undefined,
+      COMPLETION_CLOCK,
+    )).kind,
+    "written",
+  );
+  const execution: ClaimedExecution = {
+    fence: { attempt_id: attempt.id, token: attempt.data.state.claim.token },
+    attempt: attempt.data,
+    environment_id: environment.id,
+    environment: environment.data,
+    candidate_id: candidate.id,
+    candidate: candidate.data,
+    signal: new AbortController().signal,
+  };
+  return { root, slot, execution, predecessor };
+}
+
+Deno.test("queue A03: real Git composition and generation remain separate, with immutable refs and source identity", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await compositionFixture(base, false);
+    const recipe = await compositionRecipe(
+      fixture.slot,
+      await loadConfig(fixture.slot),
+      COMPLETION_DIGEST,
+      TEST_PROCESS_TIMEOUT_MS / 1000,
+      {},
+    );
+    const candidate = await composeCandidate({
+      ...fixture,
+      recipe,
+      dependencies: [],
+      predecessor: { head: fixture.predecessor, candidate_id: null },
+      policy: COMPLETION_DIGEST,
+      requirement_set: COMPLETION_DIGEST,
+      clock: COMPLETION_CLOCK,
+    });
+    assert(!("kind" in candidate), JSON.stringify(candidate));
+    assert(
+      candidate.composition.merge_commit !== null &&
+        candidate.composition.regeneration_commit !== null,
+    );
+    assert(
+      candidate.composition.merge_commit !==
+        candidate.composition.regeneration_commit,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(fixture.slot, "generated.txt")),
+      "A\nB\n",
+    );
+    assertEquals(
+      await gitOut(fixture.root, "rev-parse", candidate.source.branch),
+      candidate.source.head,
+    );
+    assert(await verifyComposition(fixture.root, candidate, recipe));
+    await publishCandidate(
+      fixture.root,
+      fixture.execution.candidate_id,
+      candidate,
+      fixture.execution.fence,
+      COMPLETION_CLOCK,
+    );
+    assertEquals(
+      await gitOut(
+        fixture.root,
+        "rev-parse",
+        candidateRef(fixture.execution.candidate_id, candidate.attempt_id),
+      ),
+      candidate.head,
+    );
+    await Deno.writeTextFile(join(fixture.slot, "a"), "unapproved\n");
+    await git(fixture.slot, "add", "a");
+    await git(fixture.slot, "commit", "-m", "Unapproved conflict edit");
+    const altered = {
+      ...candidate,
+      head: await gitOut(fixture.slot, "rev-parse", "HEAD"),
+      tree: await gitOut(fixture.slot, "rev-parse", "HEAD^{tree}"),
+    };
+    assertEquals(await verifyComposition(fixture.root, altered, recipe), false);
+    await assertRejects(
+      () =>
+        publishCandidate(
+          fixture.root,
+          fixture.execution.candidate_id,
+          altered,
+          fixture.execution.fence,
+          COMPLETION_CLOCK,
+        ),
+      Error,
+      "receipt",
+    );
+    assertEquals(
+      await discoverSourceDependencies(
+        fixture.root,
+        candidate.source,
+        fixture.predecessor,
+        [candidate.source],
+      ),
+      [],
+    );
+  });
+});
+
+Deno.test("queue A02: substantive merge conflicts return judgment and preserve the source", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await compositionFixture(base, true);
+    const recipe = await compositionRecipe(
+      fixture.slot,
+      await loadConfig(fixture.slot),
+      COMPLETION_DIGEST,
+      TEST_PROCESS_TIMEOUT_MS / 1000,
+      {},
+    );
+    const candidate = await composeCandidate({
+      ...fixture,
+      recipe,
+      dependencies: [],
+      predecessor: { head: fixture.predecessor, candidate_id: null },
+      policy: COMPLETION_DIGEST,
+      requirement_set: COMPLETION_DIGEST,
+      clock: COMPLETION_CLOCK,
+    });
+    assert("kind" in candidate && candidate.kind === "missing-judgment");
+    assert(candidate.subjects.includes("a"));
+    assertEquals(
+      await gitOut(fixture.slot, "rev-parse", "HEAD"),
+      fixture.execution.candidate.source.head,
+    );
+    assertEquals(await gitOut(fixture.slot, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("queue A01/Q03: source dependencies retain the included revision after another source advances", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await compositionFixture(base, true);
+    const included = fixture.execution.candidate.source;
+    await git(fixture.root, "branch", "agent/dependent", included.head);
+    const dependent = await observeSource(
+      fixture.root,
+      "dependent",
+      "refs/heads/agent/dependent",
+    );
+    const author = join(base, "author");
+    await Deno.writeTextFile(join(author, "later"), "later source revision\n");
+    await git(author, "add", "later");
+    await git(author, "commit", "-m", "Replace source revision");
+    const replaced = await observeSource(
+      fixture.root,
+      included.effort_id,
+      included.branch,
+    );
+    assertEquals(
+      await discoverSourceDependencies(
+        fixture.root,
+        dependent,
+        fixture.predecessor,
+        [replaced, included],
+      ),
+      [included],
+    );
+    const next = { ...dependent, head: replaced.head, tree: replaced.tree };
+    assertEquals(
+      await discoverSourceDependencies(
+        fixture.root,
+        next,
+        fixture.predecessor,
+        [included, replaced],
+      ),
+      [replaced],
+    );
+    assertEquals(
+      await discoverSourceDependencies(fixture.root, next, replaced.head, [
+        included,
+        replaced,
+      ]),
+      [],
+    );
+  });
+});

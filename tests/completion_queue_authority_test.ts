@@ -144,6 +144,74 @@ Deno.test("queue A01: successor consent cannot supply an unapproved predecessor"
     }),
     "authorized",
   );
+  const oldest = {
+    ...predecessor,
+    source: {
+      ...predecessor.source,
+      effort_id: "oldest",
+      branch: "refs/heads/agent/oldest",
+      head: "e".repeat(40),
+    },
+  };
+  const oldestAuthority = {
+    ...preceding,
+    id: completionId(81),
+    data: { ...preceding.data, sources: [oldest.source] },
+  };
+  const outer = {
+    ...authority,
+    data: {
+      ...authority.data,
+      predecessor_authorities: [preceding.id, oldestAuthority.id],
+    },
+  };
+  const chain = [{
+    candidate: predecessor,
+    authority: preceding,
+    landed: false,
+  }, { candidate: oldest, authority: oldestAuthority, landed: false }];
+  const oldestFact = {
+    ...facts[0],
+    source: oldest.source,
+    record_id: authority.data.source.record_id,
+    policy: COMPLETION_DIGEST,
+    current: true,
+    classifications: [],
+    granted_scopes: [],
+    defined_scopes: [],
+  };
+  assertEquals(
+    resolveSourceAuthority({
+      candidate,
+      authority: outer,
+      facts: [...facts, oldestFact],
+      predecessors: chain,
+    }).kind,
+    "missing-authority",
+  );
+  assertEquals(
+    resolveSourceAuthority({
+      candidate,
+      authority: outer,
+      facts: [...facts, oldestFact],
+      predecessors: [
+        {
+          ...chain[0],
+          candidate: predecessor,
+          landed: false,
+          authority: {
+            ...preceding,
+            data: {
+              ...preceding.data,
+              predecessor_authorities: [oldestAuthority.id],
+            },
+          },
+        },
+        { candidate: oldest, authority: oldestAuthority, landed: false },
+      ],
+    }).kind,
+    "authorized",
+  );
 });
 
 Deno.test("queue A02/A04: grants cannot fill changed judgments, variances or owner pin tuples", () => {
