@@ -17,7 +17,7 @@ export const SnapshotSchema = z.strictObject({
   value: z.unknown(),
 });
 export const ExecutionIntentSchema = z.strictObject({
-  format: z.literal("discern-environment-intent-v1"),
+  format: z.literal("execution-intent-v1"),
   environment_id: RecordIdSchema,
   environment: EnvironmentSchema,
   candidate_id: RecordIdSchema,

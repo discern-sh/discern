@@ -34,6 +34,7 @@ import {
   worktreeGitKey,
 } from "../src/engine/worktree/git.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { createGitExecutionWorkspace } from "../src/engine/execution/workspace.ts";
 import {
   createEnvironmentExecutor,
@@ -173,7 +174,7 @@ export async function environmentFixture(
       resources: ["schema"],
       ignored: ["cache.dat"],
       prepare:
-        `old=0; if test -f ${resourceShell}; then old=$(cat ${resourceShell}); fi; test "$old" -le "$(cat schema)" && cat schema > ${resourceShell} && cat schema > cache.dat`,
+        `test "$${DISCERN_ENVIRONMENT_VARIABLES.projectSlug}" = sample && test "$${DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix}" = agent/ || exit 9; old=0; if test -f ${resourceShell}; then old=$(cat ${resourceShell}); fi; test "$old" -le "$(cat schema)" && cat schema > ${resourceShell} && cat schema > cache.dat`,
       restore:
         `cat schema > ${resourceShell} && cat schema > cache.dat && test "$(cat ${resourceShell})" = "$(cat schema)"`,
       reset: `printf '0\\n' > ${resourceShell}`,

@@ -16,7 +16,7 @@ const FileSchema = z.strictObject({
   ignored: z.boolean(),
 });
 export const GitSnapshotSchema = z.strictObject({
-  format: z.literal("discern-git-snapshot-v1"),
+  format: z.literal("execution-git-snapshot-v1"),
   head: ObjectIdSchema,
   tree: ObjectIdSchema,
   branch: z.string().nullable(),
@@ -217,7 +217,7 @@ async function captureOnce(
     );
   }
   return GitSnapshotSchema.parse({
-    format: "discern-git-snapshot-v1",
+    format: "execution-git-snapshot-v1",
     head,
     tree,
     branch: branchResult.success ? branchResult.stdout.trim() : null,

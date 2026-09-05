@@ -222,7 +222,10 @@ Deno.test("V05 incomplete bounded capture and symlink ancestors refuse without r
     await Deno.symlink("alias-target", join(f.path, "alias"));
     await git(f.path, "add", "alias-target/bytes");
     // A tracked ancestor is replaced after indexing; capture must not follow it.
-    await Deno.rename(join(f.path, "alias-target"), join(f.path, "retained"));
+    await Deno.mkdir(join(f.path, "retained"));
+    await Deno.writeTextFile(join(f.path, "retained", "bytes"), "preserve");
+    await Deno.remove(join(f.path, "alias-target", "bytes"));
+    await Deno.remove(join(f.path, "alias-target"));
     await Deno.symlink("retained", join(f.path, "alias-target"));
     await assertRejects(
       () => captureGitSnapshot(f.path, { ...bounds, maxFiles: 100 }),
@@ -364,6 +367,34 @@ Deno.test("V05 hidden tracked changes and concurrent artifact writers cannot aut
         saveEnvironmentArtifact(f.root, subject, "concurrent", "replacement"),
       Error,
       "different bytes",
+    );
+  });
+});
+
+Deno.test("V07 missing checkout after preparation cannot masquerade as an unused isolated reservation", async () => {
+  await withTempDir(async (base) => {
+    const f = await environmentFixture(base, "isolated");
+    const execution = await f.claim();
+    const result = await f.executor.execute(execution, async () => {
+      const artifacts = await gitAdminStatePath(f.root, "completionArtifacts");
+      assert(artifacts !== undefined);
+      // Inject external loss after preparation; the executor owns no such removal.
+      await git(f.root, "worktree", "remove", "--force", f.path);
+      await Deno.remove(
+        join(
+          artifacts,
+          execution.fence.attempt_id,
+          "environment",
+          "installed.json",
+        ),
+      );
+      return true;
+    });
+    assertEquals(result.returned.kind, "recovery-incomplete");
+    assertEquals(await Deno.readTextFile(f.resourcePath), "2\n");
+    assertEquals(
+      (await requireEnvironment(f.root, f.id)).record.data.state.kind,
+      "recovery",
     );
   });
 });

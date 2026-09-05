@@ -90,7 +90,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         ) => [name, resourceForId(settings.slug, id, name)]),
       );
     const base = {
-      format: "discern-workspace-state-v1" as const,
+      format: "execution-workspace-state-v1" as const,
       settings: ExecutionIdentitySettingsSchema.parse(settings),
       worktree_id: id,
       seed: borrowed?.identity.seed ?? identity.seed,
@@ -308,6 +308,9 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     const identity = deriveIdentity(id, this.options.settings);
     const handle = worktreeBase(this.options.settings.slug, id);
     const env: Record<string, string> = {
+      [DISCERN_ENVIRONMENT_VARIABLES.projectSlug]: this.options.settings.slug,
+      [DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix]:
+        this.options.settings.branchPrefix,
       [DISCERN_ENVIRONMENT_VARIABLES.worktreeId]: id,
       [DISCERN_ENVIRONMENT_VARIABLES.worktree]: handle,
     };
@@ -460,6 +463,8 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
   ): Promise<boolean> {
     if (
       execution.environment.ownership.kind !== "isolated" ||
+      execution.environment.state.kind !== "executing" ||
+      execution.environment.state.phase !== "install" ||
       (await this.frozen(source)).git !== null ||
       (await this.frozen(captured)).git !== null
     ) return false;

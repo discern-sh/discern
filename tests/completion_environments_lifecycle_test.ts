@@ -6,6 +6,7 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { git, gitOut } from "./engine_helpers.ts";
 import {
   environmentFixture,
@@ -182,8 +183,9 @@ Deno.test("V05 staged binary and new files are captured before return and cannot
     const name = names[0];
     assert(name !== undefined);
     const capture = WorkspaceStateSchema.parse(
-      SnapshotSchema.parse(
-        JSON.parse(await Deno.readTextFile(join(artifacts, name))),
+      decodeWith(
+        SnapshotSchema,
+        await Deno.readTextFile(join(artifacts, name)),
       ).value,
     );
     assert(capture.git !== null);

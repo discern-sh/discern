@@ -17,7 +17,7 @@ export const ExecutionIdentitySettingsSchema = z.strictObject({
 }));
 
 export const WorkspaceStateSchema = z.strictObject({
-  format: z.literal("discern-workspace-state-v1"),
+  format: z.literal("execution-workspace-state-v1"),
   git: GitSnapshotSchema.nullable(),
   settings: ExecutionIdentitySettingsSchema,
   worktree_id: NameSchema,

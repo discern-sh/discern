@@ -234,7 +234,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
         state: { kind: "claimed", claim },
       };
       const intent = ExecutionIntentSchema.parse({
-        format: "discern-environment-intent-v1",
+        format: "execution-intent-v1",
         environment_id: plan.environment_id,
         environment,
         candidate_id: plan.candidate_id,
@@ -455,7 +455,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
     };
     let quiescent = false;
     try {
-      await this.current(execution, true);
+      const beforeReturn = await this.current(execution, true);
       quiescent = await lifetime.quiesce(
         execution.environment.path,
         execution.fence.attempt_id,
@@ -479,7 +479,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
       );
       drift = { kind: "captured", artifacts: [artifact] };
       const unprovisioned = await workspace.unprovisioned(
-        execution,
+        { ...execution, environment: beforeReturn.record.data },
         intent.source,
         captured,
       );
@@ -852,7 +852,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
           candidate_id: intent.candidate_id,
           release_id: environment.release.id,
           claim,
-          phase: "capture",
+          phase: state.kind === "executing"
+            ? state.phase
+            : state.recovery.phase === "install"
+            ? "install"
+            : "capture",
         },
       }, this.clock);
       const execution: ClaimedExecution = {
@@ -864,7 +868,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
         candidate: intent.candidate,
         signal: new AbortController().signal,
       };
-      // Fence the old publisher before obtaining child or checkout capabilities.
+      // Fence the original publisher before obtaining child or checkout capabilities.
       const oldExecution = {
         ...execution,
         fence: {

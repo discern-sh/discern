@@ -130,6 +130,14 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "attempt-owned producer captures — registry-resolved common Git-admin artifacts, created once and verified before extraction",
   ],
   [
+    "src/engine/execution/artifacts.ts",
+    "frozen environment intent and drift — registry-resolved common Git-admin attempt artifacts, immutable under the publication lock",
+  ],
+  [
+    "src/engine/execution/workspace.ts",
+    "explicitly released and exclusively claimed checkout return — only freshly verified captured leaves and the frozen Git-admin index, guarded by completion environment ownership",
+  ],
+  [
     "src/engine/worktree/env_file.ts",
     "the worktree .env upsert (never created)",
   ],
