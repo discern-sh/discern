@@ -18,21 +18,21 @@ aliases:
 
 # Files and ownership
 
-Look up authored/shared/generated/runtime files, write ownership, setup/uninstall boundaries, temporary retention, and registered paths.
+Use this reference to decide which files you or your agent may edit, which discern may rewrite, and what remains after removal. Knowing those boundaries helps you protect the project's work while keeping generated files current.
 
-Prerequisite: the path or write/removal question you need to resolve. The generated inventory answers every registered project path; the later tables cover Git-admin and operating-system temporary state.
+Start with the file path or edit/removal question you need to resolve. The inventory names the project files discern manages; later tables cover its local working records inside Git and the operating system's temporary directory.
 
-One registry drives the project-path inventory and its write-surface guard. A registered path without [file ownership](glossary.md#file-ownership) fails the gate.
+Project-owned files remain yours to change. Shared files contain entries discern maintains alongside yours. Generated files are rebuilt from their source, so your agent changes the source to keep an edit from being overwritten.
 
 File ownership is an operational term for edit and overwrite authority. It does not assign copyright or change a file's license.
 
 ## The ownership contract
 
-| Bucket                                          | May you edit it?                                                     | Can discern overwrite it?                                           |
-| ----------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| [Project-owned](glossary.md#project-owned-file) | Yes. Edit the file in place.                                         | No. Setup may seed it, then discern leaves it alone.                |
-| [Shared](glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                 | It may replace its region or entry and preserves the rest.          |
-| [Generated](glossary.md#generated-file)         | No. Edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
+| Bucket                                          | May you edit it?                                                                   | Can discern overwrite it?                                           |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Project-owned](glossary.md#project-owned-file) | Yes. Edit the file in place.                                                       | No. Setup may seed it, then discern leaves it alone.                |
+| [Shared](glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                               | It may replace its region or entry and preserves the rest.          |
+| [Generated](glossary.md#generated-file)         | Ask your agent to edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
 The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
 
@@ -58,7 +58,7 @@ Registry tests enforce classification and both marker rules ([ADR 0211](https://
 
 `/**` covers a directory. Provider-local remains visible so ignored files are not mistaken for Generated ones.
 
-The table uses fresh-install defaults. Configured worktree environment paths replace the default `.env` row while keeping the same Shared and Apache-2.0 answers.
+The table uses fresh-install defaults. An isolated workspace for one task (a Git worktree) may use configured environment-file paths instead of `.env`; those files keep the same Shared and Apache-2.0 answers.
 
 <!-- BEGIN GENERATED: project artifact ownership -->
 <!-- This table is generated from the ownership registries. -->
@@ -115,6 +115,8 @@ The ignore reconciler owns only its marked block and exact standalone rules that
 
 These are the only Git configuration entries discern writes. discern stores all of them in clone-local configuration.
 
+The project's final quality check (the gate) produces evidence for the exact checked change (Proof). A Proof note preserves the account of a landed change in Git. Passing checks supplies evidence; your permission determines whether the change may land. Later edits make Proof stale because the files waiting to land differ from those that passed.
+
 | Key or keyed pattern                                            | Scope        | Writer                           | Uninstall behavior                                                               |
 | --------------------------------------------------------------- | ------------ | -------------------------------- | -------------------------------------------------------------------------------- |
 | `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the common value and obsolete worktree-local copies.                     |
@@ -126,10 +128,12 @@ The generated merge driver has one definition in the common clone config and is 
 
 ## Runtime state inside `.git`
 
-Git-admin runtime records live under `discern/`; do not commit or edit them.
+These local working records live under `discern/` inside Git's administrative directories. Your agent manages them through discern so checks, approvals, and recovery state stay consistent across sessions; leave them out of project commits and manual edits. A checkpoint is a question the agent must judge, and only the owner may authorize an unmet answer.
 
 | Registered path                                    | Lifetime   | Purpose                                                                                                                                    |
 | -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `discern/completion/records/`                      | repository | Internal completion records and revision history. Public commands do not use this store.                                                   |
+| `discern/completion/artifacts/`                    | repository | Reserved storage for attempt-owned output and recovery bytes.                                                                              |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                                           |
 | `discern/logbook/`                                 | repository | [Logbook](../20-understand/local-control.md) events.                                                                                       |
 | `discern/logbook-archives/`                        | repository | Sealed logbook event streams for historical patterns and Stats reads.                                                                      |
@@ -169,7 +173,7 @@ Repository records use the common Git directory; worktree records disappear with
 
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
-Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
+Acceptance atomically moves the project's shared branch (the trunk) and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
 
 ## Git refs
 
@@ -230,7 +234,7 @@ It keeps project-owned files, `discern.toml`, unmarked Git configuration, checko
 
 ## See also
 
-- [The install surface](https://discern.sh/map/development/install-surface): the exhaustive engineering inventory by ownership bucket.
+- [Proof](../20-understand/proof.md): what passing checks establishes and why later edits make that evidence stale.
 - [Licenses for project payloads](licenses.md): the authorship boundary and downstream redistribution responsibility.
 - [Agent integrations](../10-guides/connect-a-coding-agent.md): the exact file table per coding agent.
 - [Trust and your data](../20-understand/local-control.md): the network, telemetry, and execution contract on one screen.

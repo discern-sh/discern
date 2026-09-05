@@ -39,6 +39,15 @@ export interface OnDiskFormatDefinition {
 
 /** Every versioned record discern persists locally. */
 export const ON_DISK_FORMATS = {
+  completionRecord: {
+    id: "completion-record",
+    location: { kind: "git-admin", keys: ["completionRecords"] },
+    version: 1,
+    versionField: "version",
+    reader: "src/engine/completion/store.ts#readCompletionRecord",
+    writers: ["src/engine/completion/store.ts"],
+    newerVersionPolicy: "refuse",
+  },
   acceptanceTransaction: {
     id: "acceptance-transaction",
     location: { kind: "git-admin", keys: ["acceptanceTransaction"] },
@@ -323,6 +332,8 @@ export type OnDiskFormatKey = keyof typeof ON_DISK_FORMATS;
  * than a versioned document. The coverage guard requires every location not
  * claimed by a format to carry one precise reason here. */
 export const UNVERSIONED_GIT_ADMIN_STATE = {
+  completionArtifacts:
+    "attempt-owned opaque output and drift bytes; their digests and ownership live in completion records",
   logbookLifecycleLock: "an operating-system lock with no persisted payload",
   validationHmacKey: "an opaque fixed-length secret key",
   testSlots: "short-lived locked lease files owned by live processes",
