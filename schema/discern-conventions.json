@@ -57,6 +57,18 @@
   "git_admin_state": {
     "namespace": "discern",
     "entries": {
+      "completionRecords": {
+        "path": "discern/completion/records",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
+      "completionArtifacts": {
+        "path": "discern/completion/artifacts",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
       "resources": {
         "path": "discern/resources",
         "scope": "common",
@@ -407,6 +419,17 @@
     }
   },
   "local_formats": {
+    "completion-record": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionRecords"
+        ]
+      }
+    },
     "acceptance-transaction": {
       "version": 1,
       "version_field": "version",
@@ -706,6 +729,7 @@
       "proof_notes_tracking_prefix": "refs/discern/remotes",
       "proof_notes_tracking_reservation": "refs/discern/remotes/<remote>/notes*",
       "drop_recovery_prefix": "refs/discern/recovery",
+      "candidate_prefix": "refs/discern/candidates",
       "acceptance_transaction_prefix": "refs/worktree/discern/acceptance-transactions"
     },
     "refspec_templates": {

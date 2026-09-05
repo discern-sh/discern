@@ -20,6 +20,18 @@ interface GitAdminStateEntry {
 }
 
 export const GIT_ADMIN_STATE = {
+  completionRecords: {
+    path: "discern/completion/records",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
+  completionArtifacts: {
+    path: "discern/completion/artifacts",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   resources: {
     path: "discern/resources",
     scope: "common",

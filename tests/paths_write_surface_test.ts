@@ -122,6 +122,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ["src/lib/agent_gitattributes.ts", "the .gitattributes block writer"],
   // runtime worktree state
   [
+    "src/engine/completion/store.ts",
+    "completion records and revision history — registry-resolved common Git-admin state, published through the atomic writer",
+  ],
+  [
     "src/engine/worktree/env_file.ts",
     "the worktree .env upsert (never created)",
   ],
