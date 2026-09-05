@@ -3,19 +3,11 @@ import { z } from "@zod/zod";
 import { EnvironmentDeclarationSchema } from "../completion/configuration.ts";
 import { AttemptSchema, EnvironmentSchema } from "../completion/environment.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
-import {
-  DigestSchema,
-  NameSchema,
-  RecordIdSchema,
-} from "../completion/identity.ts";
+import { NameSchema, RecordIdSchema } from "../completion/identity.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
-import { readExecutionDocument } from "./artifacts.ts";
-import { releasedSubject } from "./registry.ts";
-
-export const SnapshotSchema = z.strictObject({
-  digest: DigestSchema,
-  value: z.unknown(),
-});
+import { readExecutionDocument } from "./artifact_read.ts";
+import { releasedSubject } from "./subjects.ts";
+import { SnapshotSchema } from "./snapshot_schema.ts";
 export const ExecutionIntentSchema = z.strictObject({
   format: z.literal("execution-intent-v1"),
   environment_id: RecordIdSchema,

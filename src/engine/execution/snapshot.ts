@@ -1,34 +1,16 @@
 /** Bounded complete byte capture. No path is removed by this module. */
-import { z } from "@zod/zod";
-import { dirname, join, resolve } from "@std/path";
+import type { z } from "@zod/zod";
+import { dirname, join } from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { ArtifactPathSchema } from "../completion/evidence.ts";
-import { ObjectIdSchema } from "../completion/identity.ts";
-import type { WorkspaceSnapshot } from "./types.ts";
-
-const FileSchema = z.strictObject({
-  path: ArtifactPathSchema,
-  kind: z.enum(["file", "symlink", "missing"]),
-  contents: z.string(),
-  executable: z.boolean(),
-  ignored: z.boolean(),
-});
-export const GitSnapshotSchema = z.strictObject({
-  format: z.literal("execution-git-snapshot-v1"),
-  head: ObjectIdSchema,
-  tree: ObjectIdSchema,
-  branch: z.string().nullable(),
-  git_dir: z.string(),
-  index_path: z.string(),
-  index: z.string(),
-  index_entries: z.string(),
-  staged_patch: z.string(),
-  status: z.string(),
-  files: z.array(FileSchema),
-});
-export type GitSnapshot = z.infer<typeof GitSnapshotSchema>;
+import {
+  type FileSchema,
+  type GitSnapshot,
+  GitSnapshotSchema,
+  type WorkspaceSnapshot,
+} from "./snapshot_schema.ts";
 export interface CaptureBounds {
   readonly maxFiles: number;
   readonly maxBytes: number;
@@ -145,10 +127,7 @@ async function captureOnce(
     throw new Error("Git could not inspect checkout attachment.");
   }
   const gitDir = (await git(["rev-parse", "--absolute-git-dir"])).trim();
-  const indexPath = resolve(
-    root,
-    (await git(["rev-parse", "--git-path", "index"])).trim(),
-  );
+  const indexPath = join(gitDir, "index");
   const indexEntries = await git(["ls-files", "--stage", "-z"]);
   const indexFlags = await git(["ls-files", "-v", "-z"]);
   if (
@@ -247,7 +226,13 @@ export async function snapshotValue(
 export async function captureGitSnapshot(
   root: string,
   bounds: CaptureBounds,
+  indexFile: string | undefined = Deno.env.get("GIT_INDEX_FILE"),
 ): Promise<GitSnapshot> {
+  if (indexFile !== undefined) {
+    throw new Error(
+      "An alternate Git index requires its own restoration contract; use the checkout's native index before releasing it.",
+    );
+  }
   if (
     ![bounds.maxFiles, bounds.maxBytes, bounds.gitTimeoutMs].every((bound) =>
       Number.isSafeInteger(bound) && bound > 0

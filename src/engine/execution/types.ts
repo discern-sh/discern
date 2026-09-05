@@ -29,10 +29,8 @@ export interface ExecutionLifetime {
 }
 
 /** An immutable, JSON-serializable source snapshot owned by the workspace adapter. */
-export interface WorkspaceSnapshot {
-  readonly digest: string;
-  readonly value: unknown;
-}
+import type { WorkspaceSnapshot } from "./snapshot_schema.ts";
+export type { WorkspaceSnapshot } from "./snapshot_schema.ts";
 
 export type ExecutionRecipe = {
   readonly action: "source-tip";

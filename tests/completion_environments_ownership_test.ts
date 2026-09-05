@@ -22,10 +22,8 @@ import {
 } from "../src/engine/worktree/identity.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { captureGitSnapshot } from "../src/engine/execution/snapshot.ts";
-import {
-  readEnvironmentArtifact,
-  saveEnvironmentArtifact,
-} from "../src/engine/execution/artifacts.ts";
+import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
+import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
 
 Deno.test("V02 detached child identity ignores candidate settings and environment overrides", async () => {
   await withTempDir(async (base) => {
@@ -212,6 +210,11 @@ Deno.test("V05 incomplete bounded capture and symlink ancestors refuse without r
   await withTempDir(async (base) => {
     const f = await environmentFixture(base);
     const bounds = { maxFiles: 1, maxBytes: 1024, gitTimeoutMs: 5000 };
+    await assertRejects(
+      () => captureGitSnapshot(f.path, bounds, "alternate-index"),
+      Error,
+      "alternate Git index",
+    );
     await assertRejects(
       () => captureGitSnapshot(f.path, bounds),
       Error,

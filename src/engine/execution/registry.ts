@@ -1,5 +1,4 @@
 /** Enrollment and release are explicit actions, independent of fleet availability. */
-import { join } from "@std/path";
 import {
   type EnvironmentDeclaration,
   EnvironmentDeclarationSchema,
@@ -27,22 +26,15 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
-import { sha256Hex } from "../../shared/sha256.ts";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import { registeredWorktreeRecord } from "../worktree/git.ts";
 import { withOperationLock } from "../operation_lock.ts";
 import { recoveryFor } from "./types.ts";
-import type {
-  ExecutionLifetime,
-  ExecutionWorkspace,
-  WorkspaceSnapshot,
-} from "./types.ts";
+import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
+import { declarationIdentity, releasedSubject } from "./subjects.ts";
+import { enrolledEnvironments } from "./enrollment_read.ts";
 
-export type EnvironmentRecord = Extract<
-  CompletionRecord,
-  { kind: "environment" }
->;
+type EnvironmentRecord = Extract<CompletionRecord, { kind: "environment" }>;
 export type RecordedEnvironment = {
   readonly record: EnvironmentRecord;
   readonly stamp: string;
@@ -51,34 +43,6 @@ export type RecordedEnvironment = {
 /** Environmental refusal supplies neither a failed producer nor missing authority. */
 export function unavailable(reason: string): CompletionBlocker {
   return { kind: "environment-unavailable", reason };
-}
-
-/** Freeze normalized declaration bytes, retaining the distinct source-tip case. */
-export async function declarationIdentity(
-  declaration: EnvironmentDeclaration | null,
-): Promise<string> {
-  return await sha256Hex(
-    JSON.stringify(
-      declaration === null
-        ? "source-tip"
-        : EnvironmentDeclarationSchema.parse(declaration),
-    ),
-  );
-}
-
-/** Release binds checkout state and ownership independently of candidate selection. */
-export async function releasedSubject(
-  environment: ExecutionEnvironment,
-  snapshot: WorkspaceSnapshot,
-): Promise<string> {
-  return await sha256Hex(
-    JSON.stringify({
-      path: environment.path,
-      declaration: environment.declaration,
-      ownership: environment.ownership,
-      snapshot: snapshot.digest,
-    }),
-  );
 }
 
 /** Unknown or unreadable durable versions cannot become usable slots. */
@@ -93,6 +57,15 @@ export async function requireEnvironment(
     );
   }
   return { record: reading.record, stamp: reading.stamp };
+}
+
+/** Capacity and mutation require complete canonical envelopes, not presence alone. */
+async function enrollmentRecords(root: string): Promise<EnvironmentRecord[]> {
+  const records: EnvironmentRecord[] = [];
+  for (const environment of await enrolledEnvironments(root)) {
+    records.push((await requireEnvironment(root, environment.id)).record);
+  }
+  return records;
 }
 
 /** Advance only the observed revision through the canonical record writer. */
@@ -120,28 +93,6 @@ export async function replaceEnvironment(
     );
   }
   return { record, stamp: written.stamp };
-}
-
-/** Capacity counts recovery as occupied and refuses unknown enrollment records. */
-export async function enrolledEnvironments(
-  root: string,
-): Promise<EnvironmentRecord[]> {
-  const directory = await gitAdminStatePath(root, "completionRecords");
-  if (directory === undefined) {
-    throw new Error("Common environment storage is unavailable.");
-  }
-  const records: EnvironmentRecord[] = [];
-  try {
-    for await (const entry of Deno.readDir(join(directory, "environment"))) {
-      if (!entry.isFile || !entry.name.endsWith(".json")) continue;
-      records.push(
-        (await requireEnvironment(root, entry.name.slice(0, -5))).record,
-      );
-    }
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
-  }
-  return records;
 }
 
 /** A supplied slot is new ownership, never a selected idle authoring worktree. */
@@ -185,7 +136,7 @@ export async function registerExecutionEnvironment(
         "Isolated disposal ownership must match the declared reuse policy.",
       );
     }
-    const enrolled = await enrolledEnvironments(root);
+    const enrolled = await enrollmentRecords(root);
     if (
       enrolled.some((record) =>
         record.data.path === data.path && record.data.state.kind !== "disposed"
@@ -268,7 +219,7 @@ export async function verifyClaimCapacity(
   capacity: number,
 ): Promise<void> {
   if (environment.ownership.kind !== "borrowed") return;
-  const occupied = (await enrolledEnvironments(root)).filter((record) =>
+  const occupied = (await enrollmentRecords(root)).filter((record) =>
     record.data.ownership.kind === "borrowed" &&
     (record.data.state.kind === "executing" ||
       record.data.state.kind === "recovery")

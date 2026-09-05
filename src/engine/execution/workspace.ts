@@ -33,14 +33,14 @@ import {
   type WorkspaceState,
   WorkspaceStateSchema,
 } from "./workspace_state.ts";
-import { loadExecutionIntent, SnapshotSchema } from "./intent.ts";
-import { readExecutionDocument } from "./artifacts.ts";
+import { loadExecutionIntent } from "./intent.ts";
+import { type GitSnapshot, SnapshotSchema } from "./snapshot_schema.ts";
+import { readExecutionDocument } from "./artifact_read.ts";
 import {
   type CaptureBounds,
   captureGitSnapshot,
   containedFile,
   executionGit,
-  type GitSnapshot,
   snapshotValue,
 } from "./snapshot.ts";
 import type {

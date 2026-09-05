@@ -2,7 +2,7 @@
 import { z } from "@zod/zod";
 import { NameSchema } from "../completion/identity.ts";
 import type { IdentitySettings } from "../worktree/identity.ts";
-import { GitSnapshotSchema } from "./snapshot.ts";
+import { GitSnapshotSchema } from "./snapshot_schema.ts";
 
 export const ExecutionIdentitySettingsSchema = z.strictObject({
   slug: z.string().min(1),

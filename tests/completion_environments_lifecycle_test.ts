@@ -20,15 +20,16 @@ import {
 import {
   readEnvironmentArtifact,
   readExecutionDocument,
-  saveEnvironmentArtifact,
-} from "../src/engine/execution/artifacts.ts";
-import { SnapshotSchema } from "../src/engine/execution/intent.ts";
+} from "../src/engine/execution/artifact_read.ts";
+import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
+import { SnapshotSchema } from "../src/engine/execution/snapshot_schema.ts";
 import { WorkspaceStateSchema } from "../src/engine/execution/workspace_state.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { decodeBase64 } from "@std/encoding/base64";
 import { completionFixtures, completionId } from "./completion_fixtures.ts";
 import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
 import {
+  completionRecordPath,
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
@@ -123,6 +124,28 @@ Deno.test("V03 isolated capacity and reset permit schema-v2 then schema-v1 witho
       assertEquals(result.returned.kind, "reset", JSON.stringify(result));
       assertEquals(await Deno.readTextFile(f.resourcePath), "0\n");
     }
+    const current = await requireEnvironment(f.root, f.id);
+    const path = await completionRecordPath(f.root, {
+      kind: "environment",
+      id: f.id,
+    });
+    assert(path !== undefined);
+    const malformed = JSON.stringify({
+      ...current.record,
+      revision: "invalid",
+      data: { ...current.record.data, state: { kind: "disposed", at: 100 } },
+    });
+    await Deno.writeTextFile(path, malformed);
+    await assertRejects(
+      () =>
+        registerExecutionEnvironment(f.root, completionId(52), {
+          path: join(base, "blocked-slot"),
+          ownership: environment.ownership,
+        }, f.declaration),
+      Error,
+      "invalid",
+    );
+    assertEquals(await Deno.readTextFile(path), malformed);
   });
 });
 

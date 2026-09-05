@@ -10,6 +10,7 @@ import { gitOut } from "./engine_helpers.ts";
 import { environmentFixture } from "./completion_environments_fixture.ts";
 import { createEnvironmentExecutor } from "../src/engine/execution/executor.ts";
 import { requireEnvironment } from "../src/engine/execution/registry.ts";
+import { enrolledEnvironments } from "../src/engine/execution/enrollment_read.ts";
 import {
   completionRecordPath,
   readCompletionRecord,
@@ -218,6 +219,11 @@ Deno.test("V07 cancellation and claim expiry restore source, and newer environme
     });
     await Deno.writeTextFile(recordPath, newer);
     assertEquals((await f.executor.observe(f.id)).kind, "newer");
+    await assertRejects(
+      () => enrolledEnvironments(f.root),
+      Error,
+      "supported current version",
+    );
     assertEquals(
       (await f.executor.recover(f.id, live.stamp, f.actor)).kind,
       "recovery-incomplete",

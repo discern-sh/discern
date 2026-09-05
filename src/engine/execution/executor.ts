@@ -37,15 +37,14 @@ import {
   loadExecutionIntent,
 } from "./intent.ts";
 import {
-  declarationIdentity,
   planEnvironment,
   type RecordedEnvironment,
-  releasedSubject,
   replaceEnvironment,
   requireEnvironment,
   unavailable,
   verifyClaimCapacity,
 } from "./registry.ts";
+import { declarationIdentity, releasedSubject } from "./subjects.ts";
 import {
   type EnvironmentPhase,
   errorReason,

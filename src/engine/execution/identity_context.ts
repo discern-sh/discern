@@ -1,6 +1,6 @@
 /** Detached checkouts keep the identity recorded before candidate installation. */
 import { runGit } from "../../shared/subprocess.ts";
-import { enrolledEnvironments } from "./registry.ts";
+import { enrolledEnvironments } from "./enrollment_read.ts";
 import { loadExecutionIntent } from "./intent.ts";
 import {
   type WorkspaceState,
