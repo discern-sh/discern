@@ -32,6 +32,9 @@ export const RequirementSchema = z.strictObject({
 });
 export type Requirement = z.infer<typeof RequirementSchema>;
 
+export const CompletionModeSchema = z.enum(["strict", "report"]);
+export const EvidencePurposeSchema = z.enum(["completion", "diagnostic"]);
+
 /** All equality dimensions are explicit; unknown closure uses candidate binding. */
 export const ApplicabilitySchema = z.strictObject({
   producer: z.string().min(1),
@@ -71,7 +74,8 @@ export const EvidenceSchema = z.strictObject({
   attempt_id: RecordIdSchema,
   candidate_id: RecordIdSchema,
   sequence: z.number().int().positive(),
-  purpose: z.enum(["completion", "diagnostic"]),
+  purpose: EvidencePurposeSchema,
+  mode: CompletionModeSchema,
   applicability: ApplicabilitySchema,
   finished_at: InstantSchema,
   artifacts: z.array(ArtifactSchema),
@@ -113,18 +117,21 @@ export const CandidateProofSchema = z.strictObject({
   head: ObjectIdSchema,
   policy: DigestSchema,
   requirement_set: DigestSchema,
-  mode: z.enum(["strict", "report"]),
+  mode: CompletionModeSchema,
   requirements: z.array(RequirementSchema).min(1),
   receipts: z.array(RequirementReceiptSchema).min(1),
   assembled_at: InstantSchema,
 }).refine((value) => {
+  const obligations = value.requirements.map((requirement) =>
+    JSON.stringify([requirement.kind, requirement.id, requirement.context])
+  );
   const keys = value.requirements.map((requirement) =>
     JSON.stringify(requirement)
   );
   const receipts = value.receipts.map((receipt) =>
     JSON.stringify(receipt.requirement)
   );
-  return new Set(keys).size === keys.length &&
+  return new Set(obligations).size === obligations.length &&
     keys.length === receipts.length &&
     new Set(receipts).size === receipts.length && keys.every((key) =>
       receipts.includes(key)

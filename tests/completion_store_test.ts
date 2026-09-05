@@ -12,6 +12,7 @@ import {
 } from "../src/engine/completion/records.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { applicabilitySubject } from "../src/engine/completion/evidence.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { withTempDir } from "./helpers.ts";
 import { git } from "./engine_helpers.ts";
@@ -263,6 +264,85 @@ Deno.test("completion records survive linked checkout removal and are observed t
     const reading = await readCompletionRecord(main, fixture);
     assert(reading.kind === "recorded");
     assertEquals(reading.record, fixture);
+  });
+});
+
+Deno.test("one claimed attempt publishes every planned producer while preserving mode, purpose, and sequence", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const fixtures = completionFixtures();
+    const first = COMPLETION_FAMILIES.evidence.schema.parse(fixtures.evidence);
+    const second = COMPLETION_FAMILIES.evidence.schema.parse({
+      ...first,
+      id: completionId(31),
+      data: {
+        ...first.data,
+        applicability: { ...first.data.applicability, producer: "jobs.check" },
+        artifacts: [],
+      },
+    });
+    const attempt = COMPLETION_FAMILIES.attempt.schema.parse(fixtures.attempt);
+    const subjects = await Promise.all(
+      [first, second].map((evidence) =>
+        applicabilitySubject(evidence.data.applicability)
+      ),
+    );
+    const claimed = await writeCompletionRecord(
+      root,
+      {
+        ...attempt,
+        data: { ...attempt.data, subjects },
+      },
+      null,
+      undefined,
+      COMPLETION_CLOCK,
+    );
+    assert(claimed.kind === "written", JSON.stringify(claimed));
+    for (const evidence of [first, second]) await writeFixture(root, evidence);
+    for (
+      const data of [
+        { ...first.data, sequence: first.data.sequence + 1 },
+        { ...first.data, mode: "report" },
+        { ...first.data, purpose: "diagnostic" },
+        {
+          ...first.data,
+          applicability: {
+            ...first.data.applicability,
+            producer: "jobs.build",
+          },
+        },
+      ]
+    ) {
+      const substituted = COMPLETION_FAMILIES.evidence.schema.parse({
+        ...first,
+        id: completionId(32),
+        data,
+      });
+      assertEquals(
+        (await writeCompletionRecord(
+          root,
+          substituted,
+          null,
+          fence,
+          COMPLETION_CLOCK,
+        )).kind,
+        "claim-lost",
+      );
+    }
+    const proof = COMPLETION_FAMILIES.proof.schema.parse(fixtures.proof);
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        {
+          ...proof,
+          data: { ...proof.data, mode: "report" },
+        },
+        null,
+        fence,
+        COMPLETION_CLOCK,
+      )).kind,
+      "claim-lost",
+    );
   });
 });
 

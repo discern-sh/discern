@@ -71,6 +71,8 @@ export interface CompletionObservation {
 export interface ProducerDemand {
   readonly selector: string;
   readonly recipe: ProducerDeclaration;
+  /** Complete applicability for every component this producer will publish. */
+  readonly evidence_subjects: readonly ComponentEvidence["applicability"][];
   readonly consumers: readonly {
     readonly requirement: Requirement;
     readonly input: StandardInputPlan;
@@ -78,23 +80,29 @@ export interface ProducerDemand {
 }
 
 export type ValidationDemand =
-  | { readonly kind: "done"; readonly requirements: readonly Requirement[] }
-  | {
-    readonly kind: "test";
-    readonly producers: readonly string[];
-    readonly readings: "already-produced";
+  & {
+    readonly context: string;
+    readonly mode: ComponentEvidence["mode"];
   }
-  | {
-    readonly kind: "standards" | "pin" | "proposal";
-    readonly requirements: readonly Requirement[];
-  }
-  | { readonly kind: "prepare"; readonly measurement: "none" }
-  | {
-    readonly kind: "diagnostic";
-    readonly failing_requirement: Requirement;
-    readonly source: SourceRevision;
-    readonly base: string;
-  };
+  & (
+    | { readonly kind: "done"; readonly requirements: readonly Requirement[] }
+    | {
+      readonly kind: "test";
+      readonly producers: readonly string[];
+      readonly readings: "already-produced";
+    }
+    | {
+      readonly kind: "standards" | "pin" | "proposal";
+      readonly requirements: readonly Requirement[];
+    }
+    | { readonly kind: "prepare"; readonly measurement: "none" }
+    | {
+      readonly kind: "diagnostic";
+      readonly failing_requirement: Requirement;
+      readonly source: SourceRevision;
+      readonly base: string;
+    }
+  );
 
 export interface ValidationPlan {
   readonly candidate_id: string;
@@ -136,6 +144,7 @@ export interface ProducerEvaluator {
   plan(
     observation: CompletionObservation,
     demand: ValidationDemand,
+    candidateId: string,
   ): ValidationPlan;
   execute(
     plan: ValidationPlan,
@@ -146,6 +155,7 @@ export interface ProducerEvaluator {
     candidate: Candidate,
     requirements: readonly Requirement[],
     evidence: readonly CompletionRecord[],
+    mode: ValidationDemand["mode"],
   ): MachineAssembly;
 }
 
@@ -154,6 +164,7 @@ export interface EnvironmentPlan {
   readonly expected_stamp: string;
   readonly candidate_id: string;
   readonly declaration: EnvironmentDeclaration;
+  readonly validation: ValidationPlan;
   readonly action: "borrow" | "provision" | "reuse" | "source-tip";
 }
 export type EnvironmentReturn =
@@ -171,7 +182,7 @@ export interface EnvironmentExecutor {
   observe(environmentId: string): Promise<CompletionRecordReading>;
   plan(
     observation: CompletionObservation,
-    candidateId: string,
+    validation: ValidationPlan,
   ): EnvironmentPlan | CompletionBlocker;
   claim(
     plan: EnvironmentPlan,

@@ -198,9 +198,18 @@ async function checkFence(
     ) return "evidence sequence does not match its attempt";
     if (
       record.kind === "evidence" &&
-      await applicabilitySubject(record.data.applicability) !== attempt.subject
+      (!attempt.subjects.includes(
+        await applicabilitySubject(record.data.applicability),
+      ) || record.data.mode !== attempt.mode ||
+        record.data.purpose !== attempt.purpose)
     ) {
-      return "evidence applicability does not match its attempt subject";
+      return "evidence applicability, mode, or purpose does not match its attempt";
+    }
+    if (
+      record.kind === "proof" &&
+      (record.data.mode !== attempt.mode || attempt.purpose !== "completion")
+    ) {
+      return "Proof publication requires a completion attempt with the same mode";
     }
   }
   return undefined;

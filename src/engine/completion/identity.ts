@@ -43,7 +43,7 @@ export const AttemptIdentitySchema = z.strictObject({
   id: RecordIdSchema,
   candidate_id: RecordIdSchema,
   executor: ExecutorSchema,
-  /** Allocated under the common lock for this applicable execution subject. */
+  /** Repository-wide reservation order; evidence compares only applicable subjects. */
   sequence: z.number().int().positive(),
   rerun_of: RecordIdSchema.nullable(),
   started_at: InstantSchema,

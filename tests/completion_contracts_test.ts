@@ -114,6 +114,20 @@ Deno.test("completion evidence cannot turn incomplete capture, substituted conte
   assert(receipt !== undefined);
   for (
     const data of [
+      {
+        ...proof.data,
+        requirements: [...proof.data.requirements, {
+          ...COMPLETION_REQUIREMENT,
+          definition: "e".repeat(64),
+        }],
+        receipts: [receipt, {
+          ...receipt,
+          requirement: {
+            ...COMPLETION_REQUIREMENT,
+            definition: "e".repeat(64),
+          },
+        }],
+      },
       { ...proof.data, receipts: [] },
       { ...proof.data, receipts: [receipt, receipt] },
       {

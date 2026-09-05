@@ -1,7 +1,11 @@
 /** Release, exclusive execution, and recovery retain independent durable facts. */
 import { z } from "@zod/zod";
 import { isAbsolute } from "@std/path";
-import { ArtifactSchema } from "./evidence.ts";
+import {
+  ArtifactSchema,
+  CompletionModeSchema,
+  EvidencePurposeSchema,
+} from "./evidence.ts";
 import {
   AttemptIdentitySchema,
   DigestSchema,
@@ -56,8 +60,13 @@ export type CompletionRecovery = z.infer<typeof RecoverySchema>;
 export const AttemptSchema = z.strictObject({
   identity: AttemptIdentitySchema,
   environment_id: RecordIdSchema,
-  /** Hash of Applicability; ordering is per applicable subject, never wall time. */
-  subject: DigestSchema,
+  /** Planned Applicability hashes; one environment attempt may execute many producers. */
+  subjects: z.array(DigestSchema).refine(
+    (subjects) => new Set(subjects).size === subjects.length,
+    "attempt subjects must be distinct",
+  ),
+  purpose: EvidencePurposeSchema,
+  mode: CompletionModeSchema,
   state: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("planned") }),
     z.strictObject({ kind: z.literal("claimed"), claim: ClaimSchema }),

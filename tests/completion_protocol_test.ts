@@ -15,6 +15,20 @@ import type {
 Deno.test("completion ports require claims, preserve refusals, and separate pure plans from execution", () => {
   // These assignments fail type-checking if a port broadens or erases a boundary.
   const boundaries: {
+    candidate_is_explicit:
+      Parameters<ProducerEvaluator["plan"]>["length"] extends 3 ? true : false;
+    assembly_mode_is_explicit:
+      Parameters<ProducerEvaluator["assemble"]>["length"] extends 5 ? true
+        : false;
+    environment_binds_validation:
+      Parameters<EnvironmentExecutor["plan"]>[1] extends
+        Parameters<ProducerEvaluator["execute"]>[0] ? true : false;
+    context_is_required:
+      Omit<Extract<ValidationDemand, { kind: "test" }>, "context"> extends
+        ValidationDemand ? false : true;
+    mode_is_required:
+      Omit<Extract<ValidationDemand, { kind: "test" }>, "mode"> extends
+        ValidationDemand ? false : true;
     producer_plan_is_pure: ReturnType<ProducerEvaluator["plan"]> extends
       Promise<unknown> ? false : true;
     producer_needs_claim: Parameters<ProducerEvaluator["execute"]>[1] extends
@@ -27,8 +41,12 @@ Deno.test("completion ports require claims, preserve refusals, and separate pure
       Promise<unknown> ? false : true;
     landing_can_refuse: CompletionBlocker extends
       Awaited<ReturnType<LandingPublisher["publish"]>> ? true : false;
-    prepare_cannot_measure: { kind: "prepare"; measurement: "required" } extends
-      ValidationDemand ? false : true;
+    prepare_cannot_measure: {
+      kind: "prepare";
+      context: "local";
+      mode: "strict";
+      measurement: "required";
+    } extends ValidationDemand ? false : true;
     events_cannot_authorize: CompletionEvent extends
       Parameters<LandingPublisher["publish"]>[0] ? false : true;
     judgment_is_not_recovery:
@@ -39,6 +57,11 @@ Deno.test("completion ports require claims, preserve refusals, and separate pure
       Extract<CompletionBlocker, { kind: "missing-authority" }> extends
         Extract<CompletionBlocker, { kind: "stale-evidence" }> ? false : true;
   } = {
+    candidate_is_explicit: true,
+    assembly_mode_is_explicit: true,
+    environment_binds_validation: true,
+    context_is_required: true,
+    mode_is_required: true,
     producer_plan_is_pure: true,
     producer_needs_claim: true,
     plan_cannot_execute: true,

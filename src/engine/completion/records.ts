@@ -109,7 +109,9 @@ function fixedRecordIdentity(record: CompletionRecord): unknown {
       return {
         identity: record.data.identity,
         environment_id: record.data.environment_id,
-        subject: record.data.subject,
+        subjects: record.data.subjects,
+        purpose: record.data.purpose,
+        mode: record.data.mode,
       };
     case "environment":
       return {

@@ -117,7 +117,9 @@ export function completionFixtures(): Record<
         started_at: 10,
       },
       environment_id: completionId(5),
-      subject: SUBJECT,
+      subjects: [SUBJECT],
+      purpose: "completion",
+      mode: "strict",
       state: { kind: "claimed", claim: COMPLETION_CLAIM },
     }),
     evidence: parse("evidence", 3, {
@@ -125,6 +127,7 @@ export function completionFixtures(): Record<
       candidate_id: completionId(1),
       sequence: 1,
       purpose: "completion",
+      mode: "strict",
       applicability: APPLICABILITY,
       finished_at: 99,
       artifacts: [{
