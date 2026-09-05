@@ -532,6 +532,8 @@ export async function loadIdentitySettings(
   root: string,
   env: EnvReader = Deno.env,
 ): Promise<IdentitySettings> {
+  const frozen = await executionIdentityContext(root);
+  if (frozen !== undefined) return frozen.settings;
   let rawSlug = env.get(DISCERN_ENVIRONMENT_VARIABLES.projectSlug) ?? "";
   let branchPrefix = env.get(
     DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix,
@@ -568,6 +570,31 @@ export async function loadIdentitySettings(
     trunk: integrationBranch(config?.repository.trunk, env),
     ...(envFiles === undefined ? {} : { envFiles }),
   };
+}
+
+/** Detached execution identity comes from durable release provenance, never candidate config. */
+async function executionIdentityContext(path: string): Promise<
+  {
+    readonly settings: IdentitySettings;
+    readonly worktree_id: string;
+    readonly seed: number;
+  } | undefined
+> {
+  if (await gitOut(path, ["symbolic-ref", "-q", "HEAD"]) !== undefined) {
+    return undefined;
+  }
+  try {
+    const { frozenExecutionContext } = await import(
+      "../execution/identity_context.ts"
+    );
+    return await frozenExecutionContext(path);
+  } catch (error) {
+    throw new IdentityError(
+      "Detached execution identity could not be verified. Inspect the environment's recorded recovery before using this checkout.",
+      1,
+      { cause: error },
+    );
+  }
 }
 
 /** Run a git subcommand for a target path, returning trimmed stdout or undefined. */
@@ -746,6 +773,13 @@ export async function resolveIdentity(
 ): Promise<WorktreeIdentity> {
   const settings = await loadIdentitySettings(root);
   const canonical = await canonicalizeTarget(target);
+  const frozen = await executionIdentityContext(canonical);
+  if (frozen !== undefined) {
+    return {
+      ...deriveIdentity(frozen.worktree_id, frozen.settings),
+      seed: frozen.seed,
+    };
+  }
   const dirs = await gitCheckoutDirs(canonical);
   if (dirs !== undefined && dirs.gitDir === dirs.commonGitDir) {
     return deriveTrunkIdentity(settings);
