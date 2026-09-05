@@ -1,5 +1,7 @@
 /** Build the configured representative target locally and report its byte size. */
-import { fromFileUrl, join } from "@std/path";
+import { fromFileUrl } from "@std/path";
+import { lstatIfExists } from "../src/shared/fs_presence.ts";
+import { resolveContainedProjectWritePath } from "../src/shared/project_path.ts";
 import { BUILD_TARGETS } from "./build_targets.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -20,7 +22,8 @@ async function buildTarget(target: string, root: string): Promise<void> {
 
 /**
  * Measure only after a successful local build. The target registry owns output
- * names; missing, non-regular or failed output never supplies a size reading.
+ * names. Remove its previous regular output before building so success without
+ * new output, non-regular output, and failed builds supply no size reading.
  */
 export async function measureBinarySize(
   target: string = DEFAULT_TARGET,
@@ -31,8 +34,17 @@ export async function measureBinarySize(
   if (selected === undefined) {
     throw new Error(`unknown build target '${target}'`);
   }
+  const outPath = await resolveContainedProjectWritePath(
+    root,
+    `dist/${selected.output}`,
+    "binary size output",
+  );
+  const previous = await lstatIfExists(outPath);
+  if (previous !== undefined) {
+    if (!previous.isFile) throw new Error(`${outPath} is not a regular file`);
+    await Deno.remove(outPath);
+  }
   await build(target, root);
-  const outPath = join(root, "dist", selected.output);
   const stat = await Deno.lstat(outPath);
   if (!stat.isFile || stat.isSymlink) {
     throw new Error(`${outPath} is not a regular file`);
