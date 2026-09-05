@@ -5,6 +5,7 @@ import type {
   CompletionBlocker,
   CompletionEvent,
   EnvironmentExecutor,
+  EnvironmentPlan,
   LandingPublisher,
   ProducerEvaluator,
   QueuePlanner,
@@ -15,6 +16,20 @@ import type {
 Deno.test("completion ports require claims, preserve refusals, and separate pure plans from execution", () => {
   // These assignments fail type-checking if a port broadens or erases a boundary.
   const boundaries: {
+    source_tip_needs_no_declaration:
+      Extract<EnvironmentPlan, { action: "source-tip" }>["declaration"] extends
+        null ? true : false;
+    speculation_needs_declaration: null extends Extract<
+      EnvironmentPlan,
+      { action: "borrow" | "provision" | "reuse" }
+    >["declaration"] ? false
+      : true;
+    environment_can_be_new: null extends EnvironmentPlan["expected_stamp"]
+      ? true
+      : false;
+    landing_uses_record_identity:
+      Parameters<LandingPublisher["publish"]>[0] extends
+        { id: string; revision: number } ? true : false;
     candidate_is_explicit:
       Parameters<ProducerEvaluator["plan"]>["length"] extends 3 ? true : false;
     assembly_mode_is_explicit:
@@ -57,6 +72,10 @@ Deno.test("completion ports require claims, preserve refusals, and separate pure
       Extract<CompletionBlocker, { kind: "missing-authority" }> extends
         Extract<CompletionBlocker, { kind: "stale-evidence" }> ? false : true;
   } = {
+    source_tip_needs_no_declaration: true,
+    speculation_needs_declaration: true,
+    environment_can_be_new: true,
+    landing_uses_record_identity: true,
     candidate_is_explicit: true,
     assembly_mode_is_explicit: true,
     environment_binds_validation: true,

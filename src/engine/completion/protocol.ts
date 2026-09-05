@@ -159,14 +159,20 @@ export interface ProducerEvaluator {
   ): MachineAssembly;
 }
 
-export interface EnvironmentPlan {
-  readonly environment_id: string;
-  readonly expected_stamp: string;
-  readonly candidate_id: string;
-  readonly declaration: EnvironmentDeclaration;
-  readonly validation: ValidationPlan;
-  readonly action: "borrow" | "provision" | "reuse" | "source-tip";
-}
+export type EnvironmentPlan =
+  & {
+    readonly environment_id: string;
+    readonly expected_stamp: string | null;
+    readonly candidate_id: string;
+    readonly validation: ValidationPlan;
+  }
+  & (
+    | { readonly action: "source-tip"; readonly declaration: null }
+    | {
+      readonly action: "borrow" | "provision" | "reuse";
+      readonly declaration: EnvironmentDeclaration;
+    }
+  );
 export type EnvironmentReturn =
   | {
     readonly kind: "restored" | "reset" | "disposed";
@@ -209,16 +215,17 @@ export type QueueAction =
   }
   | {
     readonly kind: "land";
-    readonly record_id: string;
-    readonly landing: CompletionLanding;
+    readonly record: Extract<CompletionRecord, { kind: "landing" }>;
+    readonly expected_stamp: string | null;
   }
   | {
     readonly kind: "retire";
-    readonly record_id: string;
-    readonly retirement: CompletionRetirement;
+    readonly record: Extract<CompletionRecord, { kind: "retirement" }>;
+    readonly expected_stamp: string | null;
   };
 export interface QueuePlan {
-  readonly expected_stamp: string;
+  readonly queue_id: string;
+  readonly expected_stamp: string | null;
   readonly queue: CompletionQueue;
   readonly actions: readonly QueueAction[];
   readonly blockers: readonly CompletionBlocker[];
@@ -248,7 +255,8 @@ export interface LandingPublisher {
     candidateId: string,
   ): CompletionLanding | CompletionBlocker;
   publish(
-    landing: CompletionLanding,
+    record: Extract<CompletionRecord, { kind: "landing" }>,
+    expectedStamp: string | null,
     fence: PublicationFence,
   ): Promise<CompletionLanding | CompletionBlocker>;
   recover(
@@ -256,7 +264,8 @@ export interface LandingPublisher {
     executor: Executor,
   ): Promise<CompletionLanding | CompletionBlocker>;
   retire(
-    retirement: CompletionRetirement,
+    record: Extract<CompletionRecord, { kind: "retirement" }>,
+    expectedStamp: string | null,
     executor: Executor,
   ): Promise<CompletionRetirement>;
 }
