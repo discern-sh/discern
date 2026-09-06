@@ -155,6 +155,7 @@ async function runTestGate(
     config: cfg,
     scopes: [],
     kind: "test",
+    capacity: { slots, out },
     ...(signal === undefined ? {} : { signal }),
   });
   const results = new Map(validationRun.results);

@@ -683,6 +683,7 @@ async function runCandidateGate(
         ...(signal === undefined ? {} : { signal }),
         onProgress,
         producerBoundary: generatedBoundary.observer,
+        capacity: { slots, out: runOut },
       })
       : await executePublicValidation({
         root,
@@ -703,6 +704,7 @@ async function runCandidateGate(
           : { rerun_of: presentation.completion.rerun_of }),
         onProgress,
         producerBoundary: generatedBoundary.observer,
+        capacity: { slots, out: runOut },
       });
     generatedDiagnostics = generatedBoundary.diagnostics;
     generatedFailureRemedies = generatedBoundary.hints;

@@ -17,6 +17,7 @@ import { configuredValidation } from "./configuration.ts";
 import { requirementSetIdentity } from "./catalog.ts";
 import {
   executePublicValidation,
+  type PublicValidationCapacity,
   type PublicValidationRun,
 } from "./public_run.ts";
 
@@ -34,12 +35,13 @@ export async function standaloneValidation(input: {
   readonly standards?: readonly string[];
   readonly signal?: AbortSignal;
   readonly producerBoundary?: ProducerBoundary;
+  readonly capacity?: PublicValidationCapacity;
   readonly onProgress?: Parameters<
     typeof executePublicValidation
   >[0]["onProgress"];
 }): Promise<PublicValidationRun> {
   const root = await Deno.realPath(input.root);
-  return await withCompletionCheckout(root, async () => {
+  return await withCompletionCheckout(root, async (signal) => {
     const stageDependencies = input.kind === "standalone" &&
       input.standards === undefined;
     const configured = await configuredValidation(
@@ -119,7 +121,7 @@ export async function standaloneValidation(input: {
       seed: identity.seed,
       candidate_id: candidateId,
       candidate,
-      signal: input.signal ?? new AbortController().signal,
+      signal,
     };
     const demand: ValidationDemand = input.kind === "test"
       ? {
@@ -148,6 +150,7 @@ export async function standaloneValidation(input: {
       claimed: execution,
       demand,
       stageDependencies,
+      ...(input.capacity === undefined ? {} : { capacity: input.capacity }),
       ...(input.producerBoundary === undefined
         ? {}
         : { producerBoundary: input.producerBoundary }),
@@ -155,5 +158,5 @@ export async function standaloneValidation(input: {
         ? {}
         : { onProgress: input.onProgress }),
     });
-  });
+  }, input.signal);
 }

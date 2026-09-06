@@ -337,7 +337,7 @@ async function executeStandardPlan(
   const blocked = verification?.blockedStandards ?? new Set<string>();
   const names = plan.standards.filter((standard) => !blocked.has(standard.name))
     .map((standard) => standard.name);
-  const validation = names.length === 0 ||
+  const measured = names.length === 0 ||
       verification?.diagnostics.some((diagnostic) =>
         diagnostic.tool === "standards"
       )
@@ -347,7 +347,14 @@ async function executeStandardPlan(
       names,
       opts.kind ?? "standards",
       opts.signal,
+      { slots: opts.slots, out: makeOut(false, { quiet: true }) },
     );
+  const pending = measured !== undefined && "kind" in measured
+    ? measured
+    : undefined;
+  const validation = measured !== undefined && !("kind" in measured)
+    ? measured
+    : undefined;
   const outcomes: StandardOutcome[] = [];
   const readings: GateStandard[] = [];
   const results: StepResult[] = [];
@@ -418,7 +425,15 @@ async function executeStandardPlan(
         ...(job?.timedOut === undefined
           ? {}
           : { rule: TIMEOUT_DIAGNOSTIC_RULE }),
-        message: job?.timedOut !== undefined
+        message: pending !== undefined
+          ? `Measurement is pending (${pending.kind}): ${
+            "reason" in pending
+              ? pending.reason
+              : pending.kind === "recovery-incomplete"
+              ? pending.recovery.reason
+              : JSON.stringify(pending)
+          }`
+          : job?.timedOut !== undefined
           ? jobFailureMessage(standard.name, job)
           : validation?.standard_verdicts.get(standard.name)?.reason ??
             (job === undefined

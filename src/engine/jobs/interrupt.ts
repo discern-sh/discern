@@ -14,9 +14,9 @@
  * controller — tree-killing the detached job groups — and, once the last run
  * has settled and reaped its children, re-raises the signal with the default
  * disposition restored, so the process dies with the conventional
- * killed-by-signal status. Living in the runner, it covers every caller — the
- * CLI gate verbs, setup's gate probes, accept's re-run, the MCP server —
- * with no per-entry-point wiring to forget.
+ * killed-by-signal status. Stage runners own their child lifetime; native
+ * completion owns the wider checkout lifetime through source return and
+ * durable settlement. Nested owners share this same watcher.
  */
 
 import { INTERRUPT_SIGNALS, reraiseInterrupt } from "../process_signals.ts";
@@ -102,4 +102,17 @@ export function beginTrackedRun(external?: AbortSignal): TrackedRun {
       releaseRun();
     },
   };
+}
+
+/** Keep signal ownership until the caller has settled its children and durable state. */
+export async function withTrackedRun<T>(
+  external: AbortSignal | undefined,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const tracked = beginTrackedRun(external);
+  try {
+    return await operation(tracked.signal);
+  } finally {
+    tracked.release();
+  }
 }

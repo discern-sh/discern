@@ -134,6 +134,10 @@ export interface ValidationRuntimeOptions {
   readonly root: string;
   readonly conditions: ValidationConditions;
   readonly environment: Readonly<Record<string, string>>;
+  /** Accounting markers apply only to commands whose capacity is accounted. */
+  readonly commandEnvironment?: (
+    selector: string,
+  ) => Readonly<Record<string, string>>;
   readonly inheritedEnvironment: EnvReader;
   readonly timeout: number;
   /** Re-observe applicable toolchain, environment, resource and input identity at effects. */
@@ -183,7 +187,7 @@ function runtime(
       commands: runCommands,
       timeout,
       signal: execution.signal,
-      environment: options.environment,
+      environment: options.commandEnvironment?.(label) ?? options.environment,
       ...(stdin === undefined ? {} : { stdin }),
     });
     options.onResult?.(label, result.result);

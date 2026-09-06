@@ -219,19 +219,64 @@ export async function retireBorrowedEnrollment(
   });
 }
 
+/** Inspect the same occupied population used by atomic claim validation. */
+export async function observeClaimCapacity(
+  root: string,
+  environment: ExecutionEnvironment,
+  capacity: number,
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<CompletionBlocker | null> {
+  if (environment.ownership.kind !== "borrowed") return null;
+  const occupied = (await enrollmentRecords(root)).filter((record) =>
+    record.data.ownership.kind === "borrowed" &&
+    (record.data.state.kind === "executing" ||
+      record.data.state.kind === "recovery")
+  );
+  if (occupied.length < capacity) return null;
+  for (const record of occupied) {
+    const state = record.data.state;
+    if (state.kind === "recovery") {
+      return {
+        kind: "recovery-incomplete",
+        record_id: record.id,
+        recovery: state.recovery,
+      };
+    }
+    if (
+      state.kind === "executing" && state.claim.expires_at <= clock.wallNow()
+    ) {
+      return {
+        kind: "recovery-incomplete",
+        record_id: record.id,
+        recovery: recoveryFor(
+          state.phase,
+          "An expired execution still occupies capacity. Recover its environment before starting another execution.",
+          record.data.path,
+          [],
+        ),
+      };
+    }
+  }
+  const active = occupied.find((record) =>
+    record.data.state.kind === "executing"
+  )?.data.state;
+  if (active?.kind !== "executing") {
+    throw new Error("Occupied execution capacity has no owning attempt.");
+  }
+  return {
+    kind: "waiting-for-operation",
+    attempt_id: active.attempt_id,
+    expires_at: active.claim.expires_at,
+  };
+}
+
 /** Released borrowed slots consume capacity only while executing or in recovery. */
 export async function verifyClaimCapacity(
   root: string,
   environment: ExecutionEnvironment,
   capacity: number,
 ): Promise<void> {
-  if (environment.ownership.kind !== "borrowed") return;
-  const occupied = (await enrollmentRecords(root)).filter((record) =>
-    record.data.ownership.kind === "borrowed" &&
-    (record.data.state.kind === "executing" ||
-      record.data.state.kind === "recovery")
-  );
-  if (occupied.length >= capacity) {
+  if (await observeClaimCapacity(root, environment, capacity) !== null) {
     throw new Error(
       "Borrowed execution capacity is occupied, including incomplete recovery. Wait for an existing return before claiming another checkout.",
     );

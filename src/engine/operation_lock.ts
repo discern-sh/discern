@@ -12,6 +12,10 @@
  */
 
 import { dirname, join, resolve } from "@std/path";
+import { withTrackedRun } from "./jobs/interrupt.ts";
+import { SYSTEM_CLOCK } from "../shared/clock.ts";
+import { SYSTEM_SCHEDULER } from "../shared/scheduler.ts";
+import { emitCompletionProgress } from "./completion/events.ts";
 import { bestEffort } from "../shared/best_effort.ts";
 import {
   type OperationEffectPolicy,
@@ -279,6 +283,7 @@ async function acquireLock(
   cwd: string,
   spec: LockSpec,
   entropy: SecureEntropy,
+  waitForPublication: boolean,
 ): Promise<AcquiredLock> {
   let file: Deno.FsFile;
   try {
@@ -324,6 +329,28 @@ async function acquireLock(
         return { lease: inherited };
       }
     }
+  }
+  try {
+    if (!acquired && waitForPublication) {
+      emitCompletionProgress({
+        phase: "queue",
+        state: "publication-wait",
+        candidate_id: null,
+        reason: "Waiting for another short repository publication to finish.",
+      });
+      const deadline = SYSTEM_CLOCK.monotonicNow() + 10_000;
+      while (!acquired && SYSTEM_CLOCK.monotonicNow() < deadline) {
+        await new Promise<void>((resolve) =>
+          SYSTEM_SCHEDULER.scheduleTimeout(resolve, 25)
+        );
+        acquired = await file.tryLock(true);
+      }
+    }
+  } catch (error) {
+    file.close();
+    throw error;
+  }
+  if (!acquired) {
     file.close();
     throw refusal(
       invocation,
@@ -427,7 +454,10 @@ export async function withAcceptanceRecoveryBoundary<T>(
 /** Concurrent local publications share a FIFO; the OS lock still excludes other processes. */
 const completionPublications = new Map<string, Promise<void>>();
 
-/** Completion publications own only the short shared boundary. */
+/** Completion publications own only the short shared boundary. Cross-process
+ * contention waits at most ten seconds before any callback effect runs. Return
+ * publications use the same bounded wait after cancellation; ordinary operation
+ * locks and invalid lock-order acquisitions remain non-blocking refusals. */
 export async function withCompletionPublication<T>(
   cwd: string,
   operation: () => Promise<T>,
@@ -444,6 +474,8 @@ export async function withCompletionPublication<T>(
       },
       operation,
       SYSTEM_SECURE_ENTROPY,
+      undefined,
+      true,
     );
   const held = currentOperationLocks();
   const spec = (await resolveLockSpecs(cwd, "common"))?.[0];
@@ -465,26 +497,32 @@ export async function withCompletionPublication<T>(
   }
 }
 
-/** Native execution retains the same OS checkout lock across short common publications. */
+/** Native execution retains checkout exclusion and process-signal ownership
+ * through child shutdown, source restoration and short state publications. */
 export async function withCompletionCheckout<T>(
   cwd: string,
-  operation: () => Promise<T>,
+  operation: (signal: AbortSignal) => Promise<T>,
+  externalSignal?: AbortSignal,
 ): Promise<T> {
-  return await withPolicyLock(cwd, { command: "done" }, {
-    effects: ["discern-checkout-mutation", "project-command"],
-    lock: "checkout",
-    preview: "required",
-    gitWriteAuthority: "opaque",
-  }, async () => {
-    const held = currentOperationLocks();
-    if (held === undefined) {
-      throw new Error("Completion checkout exclusion was not acquired.");
-    }
-    return await runWithOperationLocks(
-      { ...held, completionExecution: true },
-      operation,
-    );
-  }, SYSTEM_SECURE_ENTROPY);
+  return await withTrackedRun(
+    externalSignal,
+    (signal) =>
+      withPolicyLock(cwd, { command: "done" }, {
+        effects: ["discern-checkout-mutation", "project-command"],
+        lock: "checkout",
+        preview: "required",
+        gitWriteAuthority: "opaque",
+      }, async () => {
+        const held = currentOperationLocks();
+        if (held === undefined) {
+          throw new Error("Completion checkout exclusion was not acquired.");
+        }
+        return await runWithOperationLocks(
+          { ...held, completionExecution: true },
+          () => operation(signal),
+        );
+      }, SYSTEM_SECURE_ENTROPY),
+  );
 }
 
 /** A newly created setup probe runs under its parent's already-held common transaction.
@@ -535,6 +573,7 @@ async function withPolicyLock<T>(
   operation: () => Promise<T>,
   entropy: SecureEntropy,
   setupProbe?: { readonly common: string; readonly checkout: string },
+  waitForPublication = false,
 ): Promise<T> {
   if (policy.lock === "none") return await operation();
   if (policy.lock === "phased") {
@@ -608,7 +647,13 @@ async function withPolicyLock<T>(
   const acquiredLeases: OperationLockLease[] = [];
   try {
     for (const spec of missing) {
-      const acquired = await acquireLock(invocation, cwd, spec, entropy);
+      const acquired = await acquireLock(
+        invocation,
+        cwd,
+        spec,
+        entropy,
+        waitForPublication,
+      );
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }

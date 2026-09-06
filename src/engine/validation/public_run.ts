@@ -56,9 +56,15 @@ import {
   TEST_RUN_SLOT_VALUE,
   type TestRunSlotHold,
 } from "../test_run_slots.ts";
-import { buildTestRunSlots } from "../gate/test_slots.ts";
-import { makeOut } from "../output.ts";
+import { buildTestRunSlots, type TestRunSlots } from "../gate/test_slots.ts";
+import { makeOut, type Out } from "../output.ts";
 import type { ComponentEvidence } from "../completion/evidence.ts";
+
+/** The command owns one capacity observation and its live presentation. */
+export interface PublicValidationCapacity {
+  readonly slots: TestRunSlots | undefined;
+  readonly out: Out;
+}
 
 export interface PublicValidationRun {
   readonly configured: ConfiguredValidation;
@@ -97,6 +103,7 @@ export async function executePublicValidation(input: {
   readonly bindComposition?: boolean;
   readonly rerun_of?: string;
   readonly producerBoundary?: ProducerBoundary;
+  readonly capacity?: PublicValidationCapacity;
   readonly onProgress?: (
     fact: {
       producer: string;
@@ -150,6 +157,20 @@ export async function executePublicValidation(input: {
       root,
     ),
   });
+  const { slots, out } = input.capacity ??
+    {
+      slots: buildTestRunSlots(root, config),
+      out: makeOut(false, { quiet: true }),
+    };
+  let hold: TestRunSlotHold | undefined;
+  let acquiring: Promise<void> | undefined;
+  const needsSlot = (producer: ProducerDemand): boolean =>
+    configured.stages.get(producer.selector) === "test" ||
+    producer.consumers.some((consumer) =>
+      consumer.requirement.kind === "standard"
+    ) ||
+    // A recipe that observes the accounting marker must execute with that fact true.
+    producer.recipe.environment.includes(TEST_RUN_SLOT_ENV);
   const abort = new AbortController();
   let execution: ValidationSubject = {
     ...input.claimed,
@@ -160,6 +181,13 @@ export async function executePublicValidation(input: {
       root,
       conditions,
       environment: overrides,
+      commandEnvironment: (selector) =>
+        selector.startsWith("extract:") ||
+          plan.producers.some((producer) =>
+            producer.selector === selector && needsSlot(producer)
+          )
+          ? overrides
+          : {},
       inheritedEnvironment: hostEnv,
       timeout: config.gate.timeout,
       verifyConditions: async () => {
@@ -199,6 +227,20 @@ export async function executePublicValidation(input: {
     },
     produce: async (producer: ProducerDemand, claimed: ValidationSubject) => {
       await input.producerBoundary?.before(producer, plan);
+      if (needsSlot(producer) && slots !== undefined) {
+        acquiring ??= (async () => {
+          emitCompletionProgress({
+            phase: "queue",
+            state: "waiting",
+            candidate_id: claimed.candidate_id,
+            reason:
+              "Waiting for test-run capacity; independent checks can continue.",
+          });
+          hold = await slots.acquire(out, claimed.signal);
+        })();
+        await acquiring;
+      }
+      claimed.signal.throwIfAborted();
       counts[producer.selector] = (counts[producer.selector] ?? 0) + 1;
       input.onProgress?.({ producer: producer.selector, state: "running" });
       emitCompletionProgress({
@@ -265,30 +307,8 @@ export async function executePublicValidation(input: {
       new TextEncoder().encode(JSON.stringify(facts)),
     );
   }
-  const slots = buildTestRunSlots(root, config);
-  let hold: TestRunSlotHold | undefined;
   let outcome: ValidationExecution;
   try {
-    if (
-      plan.producers.some((producer) =>
-        configured.stages.get(producer.selector) === "test" ||
-        producer.consumers.some((consumer) =>
-          consumer.requirement.kind === "standard"
-        )
-      )
-    ) {
-      emitCompletionProgress({
-        phase: "queue",
-        state: "waiting",
-        candidate_id: execution.candidate_id,
-        reason:
-          "Waiting for the configured test-run capacity before starting producers.",
-      });
-      hold = await slots?.acquire(
-        makeOut(false, { quiet: true }),
-        execution.signal,
-      );
-    }
     outcome = plan.blockers.length > 0
       ? { evidence: [], blockers: plan.blockers }
       : "diagnostic" in execution

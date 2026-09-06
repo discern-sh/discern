@@ -1,5 +1,14 @@
-import { emitComponentUse } from "../completion/events.ts";
+import {
+  emitCompletionProgress,
+  emitComponentUse,
+} from "../completion/events.ts";
 import { producerLabel } from "./public_run.ts";
+import { SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
+import {
+  observeClaimCapacity,
+  requireEnvironment,
+  unavailable,
+} from "../execution/registry.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { runGit } from "../../shared/subprocess.ts";
 /** Standalone standards retain component receipts without any queue claim, admission or queue success. */
@@ -16,11 +25,15 @@ import { requirementSetIdentity } from "./catalog.ts";
 import { standaloneValidation } from "./diagnostics.ts";
 import {
   executePublicValidation,
+  type PublicValidationCapacity,
   type PublicValidationRun,
 } from "./public_run.ts";
 import { observeCompletionRecords } from "./runtime.ts";
 import type { Candidate } from "../completion/candidate.ts";
-import type { ValidationPlan } from "../completion/protocol.ts";
+import type {
+  CompletionBlocker,
+  ValidationPlan,
+} from "../completion/protocol.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
@@ -48,10 +61,11 @@ export async function measureDeclaredStandards(
   root: string,
   names: readonly string[],
   kind: "standards" | "pin" | "proposal",
-  signal?: AbortSignal,
-): Promise<PublicValidationRun> {
+  externalSignal?: AbortSignal,
+  capacity?: PublicValidationCapacity,
+): Promise<PublicValidationRun | CompletionBlocker> {
   root = await Deno.realPath(root);
-  return await withCompletionCheckout(root, async () => {
+  return await withCompletionCheckout(root, async (signal) => {
     const config = await loadConfig(root);
     const pin = await pinValidatedTree(root);
     const branch = await runGit(["symbolic-ref", "--quiet", "HEAD"], {
@@ -70,6 +84,7 @@ export async function measureDeclaredStandards(
         scopes: [],
         kind: "standalone",
         standards: names,
+        ...(capacity === undefined ? {} : { capacity }),
         ...(signal === undefined ? {} : { signal }),
       });
     }
@@ -167,9 +182,54 @@ export async function measureDeclaredStandards(
       blockers: [],
     };
     const plan = executor.plan(await observeCompletionRecords(root), empty);
-    if ("kind" in plan) throw new Error(JSON.stringify(plan));
-    const claimed = await executor.claim(plan, actor);
-    if ("kind" in claimed) throw new Error(JSON.stringify(claimed));
+    if ("kind" in plan) return plan;
+    const capacityLimit = plan.declaration?.capacity ?? 1;
+    let pendingAttempt: string | undefined;
+    const claim = async () => {
+      while (!signal.aborted) {
+        const availability = await observeClaimCapacity(
+          root,
+          (await requireEnvironment(root, environmentId)).record.data,
+          capacityLimit,
+        );
+        if (availability === null) {
+          const claimed = await executor.claim(plan, actor);
+          if (!("kind" in claimed)) return claimed;
+          // Claim rechecks under exclusion. A racing winner can consume capacity
+          // after observation; only an observed live owner permits another wait.
+          if (
+            await observeClaimCapacity(
+              root,
+              (await requireEnvironment(root, environmentId)).record.data,
+              capacityLimit,
+            ) === null
+          ) return claimed;
+        } else if (availability.kind !== "waiting-for-operation") {
+          return availability;
+        }
+        if (
+          availability?.kind === "waiting-for-operation" &&
+          pendingAttempt !== availability.attempt_id
+        ) {
+          pendingAttempt = availability.attempt_id;
+          emitCompletionProgress({
+            phase: "environment",
+            state: "waiting",
+            candidate_id: candidateId,
+            reason:
+              `Waiting for execution ${availability.attempt_id} to return its environment.`,
+          });
+        }
+        await new Promise<void>((resolve) =>
+          SYSTEM_SCHEDULER.scheduleTimeout(resolve, 250)
+        );
+      }
+      return unavailable(
+        "Measurement was cancelled while waiting for execution capacity.",
+      );
+    };
+    const claimed = await claim();
+    if ("kind" in claimed) return claimed;
     let failure: unknown;
     const returned = await executor.execute(claimed, async (execution) => {
       try {
@@ -199,6 +259,7 @@ export async function measureDeclaredStandards(
           config,
           scopes: [],
           claimed: { ...execution, candidate },
+          ...(capacity === undefined ? {} : { capacity }),
           stageDependencies: false,
           bindComposition: true,
           demand: {
@@ -246,12 +307,12 @@ export async function measureDeclaredStandards(
       }
     });
     if (returned.returned.kind === "recovery-incomplete") {
-      throw new Error(JSON.stringify(returned.returned));
+      return { ...returned.returned, record_id: environmentId };
     }
     if (returned.validation === null) {
       throw failure ??
         new Error("Measurement execution did not return evidence.");
     }
     return returned.validation;
-  });
+  }, externalSignal);
 }

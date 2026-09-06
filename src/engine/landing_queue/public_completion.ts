@@ -145,7 +145,7 @@ export async function withPublicCompletion<T>(
   CompletedCandidate<T> | CompletionBlocker | { readonly kind: "replan" }
 > {
   const root = await Deno.realPath(rootInput);
-  return await withCompletionCheckout(root, async () => {
+  return await withCompletionCheckout(root, async (signal) => {
     const config = await loadConfig(root);
     const identity = await resolveIdentity(root, root);
     const branch = await gitValue(root, ["symbolic-ref", "--quiet", "HEAD"]);
@@ -337,7 +337,7 @@ export async function withPublicCompletion<T>(
       workspace,
       lifetime,
       leaseMs: completionLease(config),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      signal,
       reserveAttempt: (plan, executor) =>
         reserveQueueAttempt(root, plan, executor, rerunOf),
       preserveReleaseOnReturn: options.released !== undefined,
@@ -475,6 +475,17 @@ export async function withPublicCompletion<T>(
         ? blocker
         : { ...base, value: result.value, blockers: [blocker] };
     }
+    if (signal.aborted) {
+      await releaseQueueClaim(root, claim, candidate);
+      const cancelled = {
+        kind: "environment-unavailable" as const,
+        reason:
+          "Completion was cancelled; its environment and queue claim have returned.",
+      };
+      return result === null
+        ? cancelled
+        : { ...base, value: result.value, blockers: [cancelled] };
+    }
     if (result === null) {
       await releaseQueueClaim(root, claim, candidate);
       if (compositionFailure !== undefined) return compositionFailure;
@@ -560,5 +571,5 @@ export async function withPublicCompletion<T>(
       proof_id: admission.proof_id,
       blockers: [],
     };
-  });
+  }, options.signal);
 }
