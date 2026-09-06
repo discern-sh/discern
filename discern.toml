@@ -174,6 +174,32 @@
 # Help:    `discern config explain jobs`
 # ─────────────────────────────────────────────────────────────────────────────
 
+[completion]
+  required_contexts = ["local"]
+  concurrency = 1
+  lookahead = 1
+
+# The same required convergence runs on the composed tree and after source return.
+# Caches below may change; retained binary outputs never supply a measurement.
+[execution.local]
+  kind = "borrowed"
+  prepare = "deno run --allow-read --allow-write --allow-env --allow-run scripts/completion_environment.ts"
+  restore = "deno run --allow-read --allow-write --allow-env --allow-run scripts/completion_environment.ts"
+  reusable = true
+  resources = ["lifecycle-probe"]
+  ignored = [
+    "node_modules/**",
+    "dist/**",
+    ".vale/**",
+    "site/pages/**",
+    ".discern-bundled-docs/**",
+    "coverage/**",
+    ".agents/skills/**",
+    ".claude/skills/**",
+  ]
+  inputs = ["**"]
+  capacity = 1
+
 [jobs]
   format = ["deno fmt", "discern tidy"]
   # `deno task codegen` runs as the [generated.codegen] group below — one
@@ -188,7 +214,7 @@
   # passes an explicit replayable shuffle to Deno on every invocation.
   # The budget keeps one-third headroom over the hosted full-suite observation
   # recorded in the testing Map while still bounding a genuine hang.
-  test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 3600 }
+  test = { run = "deno task coverage", timeout = 10800, toolchain = [".dvmrc", "deno.json", "deno.lock"], environment = ["CI", "PATH", "HOME", "TMPDIR", "DENO_DIR", "DENO_V8_COVERAGE", "DISCERN_GATE_TEST_REPORTER", "LANG", "LC_ALL", "TZ"] }
   smoke = "deno task dev --version"
 
   # `prose` lints the map with Vale at the check stage. Error-severity findings
@@ -637,8 +663,8 @@
 # Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
 # tell a gain from a loosening.
 #
-# Params:  metric, direction, limit, run, per, scale, margin, measure,
-#          inputs, timeout
+# Params:  metric, direction, limit, run or producer, extract, artifact, per,
+#          scale, margin, inputs, needs, artifacts, environment, toolchain, contexts, timeout
 # Help:    `discern config explain standards`
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -646,41 +672,43 @@
 # the count of per-module floor failures, and the reviewed exception count.
 # Git elects the live src/ module universe; LCOV supplies observations rather
 # than membership, so an unloaded executable module is an explicit zero.
-# Deferred from the gate's measurement
-# pass with the honest reason: it re-runs the ENTIRE test suite under
-# instrumentation, roughly doubling the gate's slowest job — the pathological
-# case the opt-out exists for. The never-loosen floor check still runs on every
-# `discern done`; CI measures it on every PR, and `discern standards` on demand.
-# `inputs` names everything the measurement reads, so a tree that touches none
-# of it (docs, map, site) replays the recorded value for free; `margin` keeps a
-# pin from setting the floor razor-tight against ordinary coverage drift.
+# One instrumented test producer supplies these three protected readings.
+# The producer remains candidate-bound until its complete external environment
+# can be observed and reverified. All three consumers read its captured metrics.
 [standards.coverage]
+  producer = "jobs.test"
+  inputs = [
+    "src/**",
+    "tests/**",
+    "templates/**",
+    "scripts/coverage.ts",
+    "scripts/coverage_lib.ts",
+    "deno.json",
+    "deno.lock",
+  ]
   direction = "up"
   limit = 91.7
   margin = 0.5
-  run = "deno task coverage"
-  timeout = 1200
+
+[standards.module_coverage]
+  producer = "jobs.test"
   inputs = [
     "src/**",
     "tests/**",
     "templates/**",
     "scripts/coverage.ts",
     "scripts/coverage_lib.ts",
+    "scripts/module_coverage_exceptions.ts",
+    "scripts/source_module_universe.ts",
     "deno.json",
     "deno.lock",
   ]
-  measure = "on-demand"
-
-# A set-valued module failure is represented honestly by its violation count;
-# the measurement output names every member and its recovery. Zero is the
-# permanent ceiling. The 80% line floor lives beside the reviewed registry in
-# scripts/module_coverage_exceptions.ts, where stale and regressed debts fail.
-[standards.module_coverage]
   metric = "module_coverage_failures"
   direction = "down"
   limit = 0
-  run = "deno task coverage"
-  timeout = 1200
+
+[standards.module_coverage_exceptions]
+  producer = "jobs.test"
   inputs = [
     "src/**",
     "tests/**",
@@ -692,41 +720,10 @@
     "deno.json",
     "deno.lock",
   ]
-  measure = "on-demand"
-
-# The exception population is independent debt with a falling ceiling. New
-# members require the Standards engine's owner-approved growth transaction;
-# normal work can only remove them and then pin the smaller count.
-[standards.module_coverage_exceptions]
   metric = "module_coverage_exceptions"
   direction = "down"
   limit = 14
-  run = "deno task coverage"
-  timeout = 1200
-  inputs = [
-    "src/**",
-    "tests/**",
-    "templates/**",
-    "scripts/coverage.ts",
-    "scripts/coverage_lib.ts",
-    "scripts/module_coverage_exceptions.ts",
-    "scripts/source_module_universe.ts",
-    "deno.json",
-    "deno.lock",
-  ]
-  measure = "on-demand"
 
-# Prose standard — hold the map's Vale alert *density* at or below a falling ceiling.
-# `deno task prose` runs Vale over the map and emits DISCERN_METRIC prose <count>
-# (every severity; error-severity findings are separately blocked by the gate via
-# [jobs.prose]). The same staged corpus emits `prose_words`, so frontmatter and
-# every `_private` subtree contribute to neither side of the ratio. The standard
-# tracks alerts per 1,000 linted words — a *rate*: writing more docs never
-# breaches it, only writing nittier-than-average prose does. Held by `discern
-# standards`, enforced on every PR in CI. Lower the limit as the density
-# improves — the ceiling only falls. `inputs` names what the metric reads (the
-# map, Vale's tracked toolchain, and the wrapper scripts), so a code-only change
-# replays the recorded density instead of re-running Vale.
 [standards.prose]
   direction = "down"
   per = "prose_words"
@@ -1232,15 +1229,15 @@
 # resulting dist/discern-* binary, avoiding macOS codesigning noise while still
 # protecting the shipped single-file executable from silent growth. Re-baseline
 # only for deliberate release-surface changes or Deno compiler/runtime shifts.
-# Deferred from the gate's measurement pass with the honest reason: it compiles
-# a full release binary — minutes of work no per-commit gate should pay. The
-# never-loosen ceiling check still runs on every `discern done`; CI and
-# `discern standards` measure it.
+# Required completion evidence is built locally for this exact candidate. No
+# declared input closure permits cross-candidate reuse. Hosted observations and
+# existing dist outputs cannot substitute for this producer's successful build.
 [standards.binary_size]
+  timeout = 600
   metric = "binary_size_bytes"
   direction = "down"
   limit = 147500000
-  measure = "on-demand"
+
   # The binary's byte count drifts with every commit, so `discern standards --pin`
   # leaves 1 MB of headroom when it re-pins this ceiling — capturing a real size
   # win without pinning to an exact value the next commit would breach.

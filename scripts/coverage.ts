@@ -11,6 +11,8 @@
 import { dirname, fromFileUrl } from "@std/path";
 import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
 import { resolveContainedProjectWritePath } from "../src/shared/project_path.ts";
+import type { EnvReader } from "../src/shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import {
   evaluateModuleCoverage,
@@ -180,10 +182,23 @@ export async function writeCoverageArtifact(
   await Deno.writeTextFile(destination, lcov);
 }
 
-/** Keep legacy measurement available beside explicit producer and extractor modes. */
+/** Resolve the repository gate reporter at the executable process boundary. */
+export function coverageReporter(env: EnvReader = Deno.env): string {
+  return env.get(DISCERN_ENVIRONMENT_VARIABLES.gateTestReporter) || "junit";
+}
+
+/** Run the shared metrics producer or an explicit artifact production/extraction. */
 async function main(): Promise<void> {
   if (Deno.args.length === 0) {
-    console.log(await coverageReadings(await produceCoverage()));
+    console.log(
+      await coverageReadings(
+        await produceCoverage(
+          REPO_ROOT,
+          (profile) =>
+            instrumentSuite(profile, [`--reporter=${coverageReporter()}`]),
+        ),
+      ),
+    );
   } else if (Deno.args.length === 1 && Deno.args[0] === "extract") {
     const lcov = await new Response(Deno.stdin.readable).text();
     console.log(await coverageReadings(lcov));

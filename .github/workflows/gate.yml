@@ -1,13 +1,15 @@
 name: gate
 
-# Run the repo's own machine gate under the explicit CI review-report lane on
+# Run the complete measured gate as a standalone CI report on
 # every push to main and every pull request. Ubuntu covers private
 # development; native macOS and WSL 2 join routine CI once the repository is
 # public. The release workflow repeats both gates before every publication.
 #
 # The engine is TS-native (in the binary), so there is no committed shell engine
 # or shell recipe matrix. The standalone remote installer remains POSIX shell and
-# is linted in the gate.
+# is linted in the gate. These hosted reports evaluate the declared local
+# requirement set on each named platform. They issue no landing Proof and
+# cannot substitute for any separately required remote context.
 
 on:
   push:
@@ -29,19 +31,18 @@ concurrency:
 
 jobs:
   gate:
+    timeout-minutes: 240
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-tags: true
+          fetch-depth: 0
 
-      - name: Fetch main for baseline checks
-        run: |
-          git fetch --no-tags --depth=1 origin \
-            +refs/heads/main:refs/remotes/origin/main
-          if [ "$(git branch --show-current)" != "main" ]; then
-            git branch --force main refs/remotes/origin/main
-          fi
+      - name: Fetch the actual gate policy base
+        uses: ./.github/actions/policy-base
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -64,12 +65,13 @@ jobs:
       - name: Run the gate (discern done --ci, via the dev binary)
         env:
           DISCERN_GATE_TEST_REPORTER: pretty
-        run: deno task dev done --ci
+        run: deno task dev done --ci --standalone --context local --policy-base refs/discern/ci-policy-base
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
         run: git diff --exit-code
 
   macos:
+    timeout-minutes: 240
     name: macOS gate
     # Private development already carries local macOS gate proofs. Keep the
     # hosted lane for public changes; releases repeat it before publication.
@@ -79,14 +81,12 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-tags: true
+          fetch-depth: 0
 
-      - name: Fetch main for baseline checks
-        run: |
-          git fetch --no-tags --depth=1 origin \
-            +refs/heads/main:refs/remotes/origin/main
-          if [ "$(git branch --show-current)" != "main" ]; then
-            git branch --force main refs/remotes/origin/main
-          fi
+      - name: Fetch the actual gate policy base
+        uses: ./.github/actions/policy-base
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -106,54 +106,17 @@ jobs:
     runs-on: windows-2025
     # WSL 2 provisioning can hang when the runner image misbehaves; a bound keeps
     # a stuck lane from burning six hours of 2x Windows minutes.
-    timeout-minutes: 45
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-tags: true
+          fetch-depth: 0
 
-      - name: Fetch main for baseline checks
-        shell: bash
-        run: |
-          git fetch --no-tags --depth=1 origin \
-            +refs/heads/main:refs/remotes/origin/main
-          if [ "$(git branch --show-current)" != "main" ]; then
-            git branch --force main refs/remotes/origin/main
-          fi
+      - name: Fetch the actual gate policy base
+        uses: ./.github/actions/policy-base
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
 
       - name: Run the gate inside WSL 2
         uses: ./.github/actions/wsl-gate
-
-  standards:
-    # Hold the metric standards (coverage, …). They run the whole suite under
-    # coverage instrumentation, so they are deliberately NOT part of the gate.
-    # Enforce them on PULL REQUESTS only: every PR must hold the floor, while
-    # direct pushes to main stay fast (whatever landed already passed on its PR).
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          fetch-tags: true
-
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
-        with:
-          deno-version-file: .dvmrc
-          cache: true
-
-      # Standards and agreement-version checks compare against the real base
-      # branch. A shallow PR checkout does not carry it, so fetch it explicitly.
-      - name: Fetch main for baseline checks
-        run: |
-          git fetch --no-tags --depth=1 origin \
-            +refs/heads/main:refs/remotes/origin/main
-          if [ "$(git branch --show-current)" != "main" ]; then
-            git branch --force main refs/remotes/origin/main
-          fi
-
-      # The prose standard measures through the same pinned repository task.
-      - name: Provision the pinned Vale toolchain
-        run: deno task vale:sync
-
-      - name: Hold the standards
-        run: deno task dev standards

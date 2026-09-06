@@ -96,16 +96,6 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Extract one cohesive finish responsibility and prove the file-level metric falls.",
   },
   {
-    file: "src/engine/gate/standards.ts",
-    maxScore: 105.13,
-    maxCyclo: 237,
-    owner: "standards engine",
-    reason:
-      "Standard measurement, comparison, and evidence handling remain concentrated here.",
-    recovery:
-      "Separate one standards phase without weakening comparison or replay guarantees.",
-  },
-  {
     file: "src/engine/logbook/detectors.ts",
     maxScore: 162.73,
     maxCyclo: 599,

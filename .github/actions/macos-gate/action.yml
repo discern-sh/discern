@@ -13,10 +13,11 @@ runs:
       run: deno task vale:sync
 
     - name: Run the gate (discern done --ci, via the dev binary)
+      timeout-minutes: 210
       shell: bash
       env:
         DISCERN_GATE_TEST_REPORTER: pretty
-      run: deno task dev done --ci
+      run: deno task dev done --ci --standalone --context local --policy-base refs/discern/ci-policy-base
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)
       shell: bash
