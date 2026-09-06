@@ -2845,11 +2845,6 @@ export type SetupDoneFailureData = z.infer<
   typeof SetupDoneFailureDataSchema
 >;
 
-/** The complete success-and-refusal data contract for `setup done`. */
-export const SetupDoneResultDataSchema = z.union([
-  SetupDoneDataSchema,
-  SetupDoneFailureDataSchema,
-]);
 // CLI-only installer/configuration result payloads ────────────────────────────
 
 const setupProjectSchema = z.strictObject({
@@ -3024,12 +3019,6 @@ export const SetupAcceptNoOpDataSchema = z.strictObject({
 });
 export type SetupAcceptNoOpData = z.infer<typeof SetupAcceptNoOpDataSchema>;
 
-/** Every successful or attempted setup-acceptance outcome. */
-export const SetupAcceptResultDataSchema = z.union([
-  SetupAcceptDataSchema,
-  SetupAcceptNoOpDataSchema,
-  SetupNextActionOnlyDataSchema,
-]);
 const configEditSchema = z.strictObject({
   key: z.string(),
   literal: z.string().nullable().describe(
