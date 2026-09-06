@@ -57,14 +57,18 @@ Its registered JSON format is version 1:
   "version": 1,
   "head": "<full commit id>",
   "mode": "strict",
+  "completion": {
+    "candidate_id": "<candidate id>",
+    "proof_id": "<complete Proof id>"
+  },
   "proof": { "...": "the structured Proof and both renderings" },
   "evidence": "<checkpoint declaration evidence identity>"
 }
 ```
 
-`head` is the commit pinned before the gate and rechecked before the write. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
+`head` is the authored source commit pinned before the gate and rechecked before the write. `completion` points to the immutable candidate and its complete evidence in shared repository storage. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
 
-A current record may omit `proof` or `evidence` while an interrupted or narrow operation records observable state, but that incomplete record cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
+A record missing `completion`, `proof` or `evidence` cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
 
 This worktree-local cache disappears with the worktree. Acceptance writes the durable Proof note below after the exact commit reaches the trunk.
 
@@ -92,7 +96,7 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts)).
 
-Readers accept additive fields inside the current split v1 envelope. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](proof-and-checkpoint-formats.md) defines the contract and reading rules.
+Readers accept additive fields inside the current split v1 envelope. The public major and stored Proof-note format are both 1. A prelaunch v1 note missing complete evidence, or carrying acceptance without settled authority, is stale; the reader preserves its bytes and never supplies the missing facts. Unknown payload types report unsupported; bare private formats are not Proof notes. [Proof note format](proof-and-checkpoint-formats.md) defines the contract and reading rules.
 
 ### Replay keeps the first presentation
 
@@ -102,7 +106,7 @@ The write identity is the explicit subject commit plus the stable machine-readab
 
 The notes commit uses `discern <done@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The Proof still records.
 
-The note write and fetch-configuration reconciliation both fail open. `data.proof_note.write` and `data.proof_note.fetch` carry their status and any cause. A transport or recording problem cannot roll the trunk back or turn the completed landing red.
+The completed trunk transition remains landed if note publication fails. Each acceptance queue row carries its note and pending state; the agent retries the recorded publication without repeating the transition or spending authority again. Setup results expose `data.proof_note.write` and `data.proof_note.fetch`.
 
 ### Carry notes between clones
 
@@ -154,7 +158,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 - Direct Git inspection shows a Base64 payload. Use `discern status --verbose` for the rendered Proof.
 - A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
 - Refresh reconciles the canonical exact mapping discern owns. Any other exact mapping stays untouched.
-- A note with a different stable claim on the same commit fails open. Inspect the cause in `data.proof_note.write`.
+- A note with a different stable claim on the same commit is retained as a publication conflict. Inspect the pending note result before retrying.
 
 ## Proof note format
 
@@ -170,12 +174,13 @@ A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/
 }
 ```
 
-The Base64 payload decodes to a UTF-8 JSON claim:
+The Base64 payload decodes to a UTF-8 JSON claim. This layout abbreviates nested evidence; the schema defines the complete objects:
 
 ```json
 {
   "subject": { "commit": "<full commit id>" },
   "proof": {
+    "completion": { "...": "complete candidate and evidence receipts" },
     "branch": "…",
     "trunk": "…",
     "head": "…",
@@ -204,19 +209,20 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 | `issuer`       | object | No       | Reserved asserted `name`, `email`, and `key`; current writers emit none. |
 | `brief`        | string | No       | Reserved signed-intent reference; current writers emit none.             |
 
-| `proof` field        | Type                 | Required | Contract                                                     |
-| -------------------- | -------------------- | -------- | ------------------------------------------------------------ |
-| `branch`             | string               | Yes      | Validated effort branch.                                     |
-| `trunk`              | string               | Yes      | Trunk branch used by the gate.                               |
-| `head`               | string               | Yes      | Validated commit id.                                         |
-| `files_total`        | number               | Yes      | Changed-file count.                                          |
-| `insertions`         | number               | Yes      | Added-line count.                                            |
-| `deletions`          | number               | Yes      | Removed-line count.                                          |
-| `mode`               | `strict` or `report` | No       | `report` is CI review evidence and is not landing authority. |
-| `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                       |
-| `standard_proposals` | array                | No       | Commit-bound pending standard proposals.                     |
+| `proof` field        | Type                 | Required | Contract                                                                                                       |
+| -------------------- | -------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `completion`         | object               | Yes      | Immutable candidate and source, composition procedure, complete evidence receipts, policy, and executor facts. |
+| `branch`             | string               | Yes      | Validated effort branch.                                                                                       |
+| `trunk`              | string               | Yes      | Trunk branch used by the gate.                                                                                 |
+| `head`               | string               | Yes      | Validated commit id.                                                                                           |
+| `files_total`        | number               | Yes      | Changed-file count.                                                                                            |
+| `insertions`         | number               | Yes      | Added-line count.                                                                                              |
+| `deletions`          | number               | Yes      | Removed-line count.                                                                                            |
+| `mode`               | `strict` or `report` | No       | `report` is CI review evidence and is not landing authority.                                                   |
+| `checkpoint_drops`   | array                | No       | Bounded fail-open checkpoint accounts.                                                                         |
+| `standard_proposals` | array                | No       | Commit-bound pending standard proposals.                                                                       |
 
-When `acceptance` is present, its `consent`, `variances`, and `standard_proposals` fields are all required; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
+When `acceptance` is present, its `authority`, `consent`, `variances`, and `standard_proposals` fields are all required. `authority` retains the claim and settlement used for the exact transition; either decision array may be empty. `consent.source` is `conversation`, `standing-grant`, or `effort-grant`; `scopes` is optional. Each `variances[]` member contains `checkpoint`, `definition_hash`, `subject`, and `why`. A standard proposal contains `standard`, `commit`, `bound_commit`, `measured_commit`, `definition_fingerprint`, `trunk`, `trunk_commit`, `direction`, `trunk_limit`, `proposed_limit`, `measurement`, `delta`, `reason`, and non-empty `evidence_paths`.
 
 - `payloadType` identifies the contract and compatibility major.
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
@@ -224,7 +230,7 @@ When `acceptance` is present, its `consent`, `variances`, and `standard_proposal
 
 `subject.commit` is the full commit; `proof` is the closed claim; `presentation` holds its line and page. Optional `checkpoint_drops` retains bounded failed-open accounts. Optional `standard_proposals` retains pending decisions. `commit` is the immutable config-only origin. `measured_commit` is its measured parent. `bound_commit` is the current measured descendant. The remaining fields give fingerprint, limits, measurement, delta, reason, and paths. Optional `mode` identifies report-only CI Proof and is absent in strict local markers; acceptance never writes it as landing evidence. The writer excludes `waited_ms` and other telemetry. A future signature authenticates presentation. Policy remains non-authoritative. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts), [ADR 0307](https://discern.sh/docs/decisions/0307-ci-reports-checkpoint-review-and-proof-retains-drops), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
-Normal acceptance adds consent, variances, and approved `standard_proposals`. A proposal-bearing claim without matching acceptance remains pending; generic consent approves none.
+Normal acceptance adds settled authority, consent, variances, and approved `standard_proposals`. A proposal-bearing claim without matching acceptance remains pending; generic consent approves none.
 
 Write replay identity consists of `subject.commit` and the canonical `proof` claim. `presentation` differences return `already_present` and do not replace the standing note. A different canonical claim for the same subject is a conflict ([ADR 0333](https://discern.sh/docs/decisions/0333-proof-note-replay-uses-stable-claim-identity)).
 
@@ -248,6 +254,7 @@ discern neither signs nor verifies today. A later profile chooses the algorithm,
 4. Require the envelope, split `proof` and `presentation` blocks, an explicit subject, and `signatures`, including the empty unsigned extension.
 5. Accept standard or Base64url payload alphabets, with or without padding; current writers emit padded standard Base64.
 6. Treat proposal fields as structured landing evidence only when the Proof claim and acceptance evidence both carry the approved records.
+7. Require complete candidate evidence and, when acceptance is present, its settled authority. Missing prelaunch fields make a note stale; report-only evidence cannot become landing Proof.
 
 `data.landed_proof` means the note is readable and commit-bound. This path performs no cryptographic verification.
 
@@ -261,7 +268,7 @@ discern neither signs nor verifies today. A later profile chooses the algorithm,
 
 ## Checkpoint state and declarations
 
-A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. This page is the reference for its states, flags, and surfaces. The governing definitions are read from `[checkpoints]` at the effort's merge-base with the trunk — the **policy identity** every report and Proof names. A `stop` checkpoint interlocks `discern done`; an `advise` checkpoint serves its question through the advisory channel and blocks nothing.
+A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. This page is the reference for its states, flags, and surfaces. Completion reads governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk or proven queued work it would follow. CI reports use their declared comparison policy. This commit supplies the **policy identity** every report and Proof names. A `stop` checkpoint interlocks `discern done`; an `advise` checkpoint serves its question through the advisory channel and blocks nothing.
 
 ### Open question states
 

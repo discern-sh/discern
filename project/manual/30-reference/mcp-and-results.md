@@ -110,27 +110,29 @@ Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats 
 
 The input object is strict: undeclared keys are rejected. Optional keys by tool are:
 
-| Tool                        | Accepted input keys                                            |
-| --------------------------- | -------------------------------------------------------------- |
-| `discern_status`            | `all`, `local`, `verbose`, `path`                              |
-| `discern_start`             | `name`, `title`, `brief`, `from`, `path`, `dry_run`            |
-| `discern_prepare`           | `path`                                                         |
-| `discern_done`              | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`               |
-| `discern_update`            | `from`, `dry_run`, `path`                                      |
-| `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`  |
-| `discern_accept`            | `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
-| `discern_test`              | `path`                                                         |
-| `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                     |
-| `discern_standards_propose` | `name`, `reason`, `dry_run`, `path`                            |
-| `discern_impact`            | `path`                                                         |
-| `discern_coupling`          | `file`, `with`, `path`                                         |
-| `discern_patterns`          | `stats`, `all`, `logbook_file`, `path`                         |
-| `discern_checkpoints`       | `path`                                                         |
-| `discern_refresh`           | `dry_run`, `path`                                              |
-| `discern_map`               | `target`, `search`, `path`                                     |
-| `discern_docs`              | `target`, `search`                                             |
-| `discern_doctor`            | `verbose`, `path`                                              |
-| `discern_improvement`       | `category`, `min_score`, `path`                                |
+| Tool                        | Accepted input keys                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `discern_status`            | `all`, `local`, `verbose`, `path`                                                                           |
+| `discern_start`             | `name`, `title`, `brief`, `from`, `path`, `dry_run`                                                         |
+| `discern_prepare`           | `path`                                                                                                      |
+| `discern_done`              | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `context`, `policy_base`, `retain_checkout` |
+| `discern_update`            | `from`, `dry_run`, `path`                                                                                   |
+| `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                               |
+| `discern_accept`            | `dry_run`, `confirmed`, `variance`, `approve_standard`, `path`                                              |
+| `discern_test`              | `path`                                                                                                      |
+| `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                                                                  |
+| `discern_standards_propose` | `name`, `reason`, `dry_run`, `path`                                                                         |
+| `discern_impact`            | `path`                                                                                                      |
+| `discern_coupling`          | `file`, `with`, `path`                                                                                      |
+| `discern_patterns`          | `stats`, `all`, `logbook_file`, `path`                                                                      |
+| `discern_checkpoints`       | `path`                                                                                                      |
+| `discern_refresh`           | `dry_run`, `path`                                                                                           |
+| `discern_map`               | `target`, `search`, `path`                                                                                  |
+| `discern_docs`              | `target`, `search`                                                                                          |
+| `discern_doctor`            | `verbose`, `path`                                                                                           |
+| `discern_improvement`       | `category`, `min_score`, `path`                                                                             |
+
+For completion, `context` names the declared execution context supplied by the call and defaults to `local`. Every required context must supply applicable evidence before a candidate receives Proof. `standalone: true` provides diagnostics without queue admission or Proof. `policy_base` accepts a fetched comparison ref only for a standalone CI report. `retain_checkout: true` keeps authoring control after completion; the default releases an eligible checkout for later validation and retirement. None of these options grants landing authority.
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 

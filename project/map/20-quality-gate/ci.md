@@ -15,7 +15,7 @@ CI and local completion use the same producer planner and evaluator. The invocat
 
 ## Add the workflow
 
-The repository's [gate workflow](../../../.github/workflows/gate.yml) is the executable recipe. Its [policy-base action](../../../.github/actions/policy-base/action.yml) fetches the pull request's actual base commit or the push's prior commit into a dedicated local ref. It preserves the checked-out source. Comparing a push only with its new trunk tip would hide changed policy and checkpoint subjects.
+The repository's [gate workflow](../../../.github/workflows/gate.yml) is the executable recipe. Its [policy-base action](../../../.github/actions/policy-base/action.yml) fetches the pull request's actual base commit or the push's prior commit into a dedicated local ref. It preserves the checked-out source. Hosted contributor-agreement checks read that same fetched policy ref; local checks read the configured trunk. Neither path changes the source checkout. Comparing a push only with its new trunk tip would hide changed policy and checkpoint subjects.
 
 Provision the pinned toolchain and locked dependencies before the gate. Run the source wrapper against the checked-out engine. A report-only invocation names both facts:
 

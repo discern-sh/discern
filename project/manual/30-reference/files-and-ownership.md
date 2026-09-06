@@ -132,8 +132,9 @@ These local working records live under `discern/` inside Git's administrative di
 
 | Registered path                                    | Lifetime   | Purpose                                                                                                                                    |
 | -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `discern/completion/records/`                      | repository | Internal completion records and revision history. Public commands do not use this store.                                                   |
-| `discern/completion/artifacts/`                    | repository | Reserved storage for attempt-owned output and recovery bytes.                                                                              |
+| `discern/completion/records/`                      | repository | Candidate evidence, execution state, queue authority, and durable landing and retirement records used by public commands.                  |
+| `discern/completion/artifacts/`                    | repository | Captured producer output, candidate reviews, and restoration evidence retained beyond checkout retirement.                                 |
+| `discern/completion/grant-claims/`                 | repository | Claims joining recorded effort grants to common completion authority and settlement.                                                       |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                                           |
 | `discern/logbook/`                                 | repository | [Logbook](../20-understand/local-control.md) events.                                                                                       |
 | `discern/logbook-archives/`                        | repository | Sealed logbook event streams for historical patterns and Stats reads.                                                                      |
