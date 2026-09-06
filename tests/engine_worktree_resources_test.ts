@@ -23,6 +23,19 @@ import {
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
+/** A released environment positively accounts for the resource it may retire. */
+const RETIREMENT_ENVIRONMENT = `
+[execution.local]
+kind = 'borrowed'
+capacity = 1
+reusable = true
+inputs = ['discern.toml']
+ignored = []
+resources = ['thing']
+prepare = 'true'
+restore = 'true'
+`;
+
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
@@ -166,16 +179,18 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
         [
           'create  = "mkdir -p @MARKERS@ && touch @MARKERS@/@resource@.live"',
           'destroy = "mkdir -p @MARKERS@ && rm -f @MARKERS@/@resource@.live && touch @MARKERS@/@resource@.gone"',
+          RETIREMENT_ENVIRONMENT,
         ].join("\n"),
       );
       assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
       await commitCurrentWorktree(wt);
+      const completion = await runAgent(wt, ["done", "--json"]);
+      assertEquals(completion.code, 0, completion.output);
       const handle = (await runAgent(wt, ["identity", "--resource", "thing"]))
         .stdout
         .trim();
 
-      // accept tears resources down at step 4 (while @dir@ still resolves),
-      // then removes the worktree — so a landed worktree leaves no orphan.
+      // Retirement destroys the positively owned resource before its checkout.
       const grad = await runAgent(wt, ["accept", "--confirmed"]);
       assertEquals(grad.code, 0, grad.output);
       assert(
@@ -186,40 +201,39 @@ Deno.test("accept destroys the worktree's resources before removing it", async (
   });
 });
 
-Deno.test("accept keeps a failed resource teardown green only as a typed cleanup advisory", async () => {
+Deno.test("accept retains failed resource teardown separately from its completed landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "cleanup-advisory");
     await declareResource(
       wt,
       join(dir, "markers"),
-      ['create = "true"', 'destroy = "false"'].join("\n"),
+      ['create = "true"', 'destroy = "false"', RETIREMENT_ENVIRONMENT].join(
+        "\n",
+      ),
     );
     assertEquals((await runAgent(wt, ["worktree", "setup"])).code, 0);
     await commitCurrentWorktree(wt);
+    const completion = await runAgent(wt, ["done", "--json"]);
+    assertEquals(completion.code, 0, completion.output);
 
     const accepted = await runAgent(wt, [
       "accept",
       "--confirmed",
       "--json",
     ]);
-    assertEquals(accepted.code, 0, accepted.output);
+    assertEquals(accepted.code, 1, accepted.output);
     const envelope = decodeCliResult(accepted.stdout, "accept");
-    assertEquals(envelope.ok, true);
-    assert(envelope.data !== undefined && "landing" in envelope.data);
-    assertEquals(envelope.data.landing?.trunk_landed, true);
-    assertEquals(envelope.data.landing?.worktree_removed, true);
-    assertEquals(envelope.data.landing?.branch_deleted, true);
-    assertEquals(
-      envelope.advisories?.some((advisory) =>
-        advisory.kind === "acceptance-cleanup-incomplete" &&
-        advisory.evidence.some((evidence) => evidence.includes("thing"))
-      ),
-      true,
-    );
-    const teardown = envelope.steps?.find((step) =>
-      step.kind === "resource-destroy" && step.outcome === "failed"
-    );
-    assertEquals(teardown?.advisory?.kind, "acceptance-cleanup-incomplete");
+    assertEquals(envelope.ok, false);
+    assert(envelope.data !== undefined && "queue" in envelope.data);
+    const row = envelope.data.queue?.[0];
+    assertEquals(row?.state, "landed", accepted.output);
+    assertEquals(row?.retirement, "recovery", accepted.output);
+    assertEquals(row?.retirement_effects, {
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assert(await targetExists(wt), "failed teardown retains its checkout");
+    assertStringIncludes(row?.retirement_reason ?? "", "thing");
   });
 });
 

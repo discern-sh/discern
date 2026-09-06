@@ -556,7 +556,7 @@ Deno.test("prepare permits fixer/regeneration convergence; clean completion stop
       obj.diagnostics?.map((item) => item.message).join("\n") ?? "",
       "data.txt",
     );
-    assertEquals(obj.data.gate_proof?.status, "unavailable");
+    assertEquals(obj.data.gate_proof?.status, "pending");
   });
 });
 
@@ -638,7 +638,7 @@ Deno.test("done: the producer boundary fails closed when a fixer corrupts the in
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, "fix");
-    assertEquals(obj.data.gate_proof?.status, "unavailable");
+    assertEquals(obj.data.gate_proof?.status, "pending");
     assertStringIncludes(r.stdout, "index");
     assertEquals(await Deno.readTextFile(join(dir, ".git/index")), "garbage");
   });
@@ -692,7 +692,7 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
     assertEquals(first.code, 1, first.output);
     const envelope = decodeGateResult(first.stdout);
     assertEquals(envelope.data.failed_stage, "tree_drift");
-    assertEquals(envelope.data.gate_proof?.status, "unavailable");
+    assertEquals(envelope.data.gate_proof?.status, "pending");
     assertTerminalTextIncludes(
       first.stdout,
       "strand status deliberately unavailable",

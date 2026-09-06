@@ -7,7 +7,9 @@
  * cap, which deliberately separates check from test when enabled.
  */
 
-import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { join } from "@std/path";
+import { targetExists } from "../src/shared/fs_presence.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -24,7 +26,12 @@ import {
  * against the abort.
  */
 function failFastConfig(
-  opts: { failFast: boolean; stream?: boolean; sleepS?: number },
+  opts: {
+    failFast?: boolean;
+    stream?: boolean;
+    sleepS?: number;
+    ready?: string;
+  },
 ): string {
   return [
     "[project]",
@@ -34,77 +41,67 @@ function failFastConfig(
     'trunk = "main"',
     "",
     "[jobs]",
-    // Both commands share the check stage; the first fails immediately.
-    `lint = "exit 1"`,
+    // A ready marker makes the failure wait until its sibling actually starts.
+    `lint = ${
+      JSON.stringify(
+        opts.ready === undefined
+          ? "exit 1"
+          : `while [ ! -s '${opts.ready}' ]; do sleep 0.01; done; exit 1`,
+      )
+    }`,
     "[jobs.sibling]",
     'stage = "check"',
-    `run = "sleep ${opts.sleepS ?? 5}; echo RAN-TO-END"`,
+    `run = ${
+      JSON.stringify(
+        `${
+          opts.ready === undefined ? "" : `echo started > '${opts.ready}'; `
+        }sleep ${opts.sleepS ?? 5}; echo RAN-TO-END${
+          opts.ready === undefined ? "" : ` > '${opts.ready}.done'`
+        }`,
+      )
+    }`,
     "",
-    "[gate]",
-    `stream = ${opts.stream ? "true" : "false"}`,
-    `fail_fast = ${opts.failFast ? "true" : "false"}`,
+    ...(opts.failFast === undefined ? [] : [
+      "[gate]",
+      `stream = ${opts.stream ? "true" : "false"}`,
+      `fail_fast = ${opts.failFast ? "true" : "false"}`,
+    ]),
     "",
   ].join("\n");
 }
 
-Deno.test("gate fail_fast: a failing job cancels its slow sibling", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, failFastConfig({ failFast: true, sleepS: 30 }));
-    await gitInit(dir);
-
-    const start = SYSTEM_CLOCK.wallNow();
-    const r = await runAgent(dir, ["done"]);
-    const elapsed = SYSTEM_CLOCK.wallNow() - start;
-
-    assertEquals(r.code, 1, r.output);
-    // The slow sibling was cancelled before it could print its marker...
-    assert(
-      !r.output.includes("RAN-TO-END"),
-      "fail_fast should cancel the slow sibling before it completes",
-    );
-    // ...and the gate returned well before the 30s sleep would have elapsed.
-    // The bound stays far under the sleep so the assertions discriminate, and
-    // far over a loaded machine's engine startup so they don't flake.
-    assert(elapsed < 20_000, `expected a fast abort, took ${elapsed}ms`);
+for (const failFast of [true, undefined]) {
+  Deno.test(`gate fail_fast ${failFast === undefined ? "defaults on" : "is enabled"}: a failing job cancels its running sibling`, async () => {
+    await withTempDir(async (markers) => {
+      await withTempDir(async (dir) => {
+        const ready = join(markers, "ready");
+        await scaffoldEngine(dir);
+        await writeConfig(
+          dir,
+          failFastConfig({
+            ...(failFast === undefined ? {} : { failFast }),
+            sleepS: 30,
+            ready,
+          }),
+        );
+        await gitInit(dir);
+        const r = await runAgent(dir, ["done", "--json"]);
+        assertEquals(r.code, 1, r.output);
+        assertEquals(await Deno.readTextFile(ready), "started\n");
+        const result = decodeCliResult(r.stdout, "done");
+        assertEquals(
+          result.steps?.find((step) => step.label === "sibling")?.outcome,
+          "cancelled",
+          r.output,
+        );
+        assert(
+          !await targetExists(`${ready}.done`),
+          "the running sibling must be cancelled before normal completion",
+        );
+      });
+    });
   });
-});
-
-Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    // No [gate] section at all — fail_fast defaults on in 1.0.
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[jobs]",
-        'lint = "exit 1"',
-        "[jobs.sibling]",
-        'stage = "check"',
-        'run = "sleep 30; echo RAN-TO-END"',
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-
-    const start = SYSTEM_CLOCK.wallNow();
-    const r = await runAgent(dir, ["done"]);
-    const elapsed = SYSTEM_CLOCK.wallNow() - start;
-
-    assertEquals(r.code, 1, r.output);
-    assert(
-      !r.output.includes("RAN-TO-END"),
-      "fail_fast should be the default and cancel the slow sibling",
-    );
-    assert(elapsed < 20_000, `expected a fast abort, took ${elapsed}ms`);
-  });
-});
+}
 
 Deno.test("gate fail_fast=false: the slow sibling runs to completion", async () => {
   await withTempDir(async (dir) => {

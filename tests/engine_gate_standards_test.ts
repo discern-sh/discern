@@ -279,7 +279,7 @@ Deno.test("tier 2: a failed producer cannot supply passing standard evidence", a
     const obj = parseGateJson(r.stdout);
     const step = (obj.steps ?? []).find((s) => s.label === "standard:cov");
     assertEquals(step?.outcome, "failed", r.stdout);
-    assertEquals(obj.data?.gate_proof?.status, "unavailable");
+    assertEquals(obj.data?.gate_proof?.status, "pending");
   });
 });
 

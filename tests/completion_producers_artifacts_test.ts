@@ -316,7 +316,16 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         e.artifacts.every((a) => audit.has(artifactKey(a)))
       ),
     );
-    for (const kind of ["standards", "pin", "proposal"] as const) {
+    assertEquals(
+      evaluator.plan(after, {
+        kind: "standards",
+        context: "local",
+        mode: "strict",
+        requirements: snap.requirements,
+      }, snap.candidate_id).producers.length,
+      1,
+    );
+    for (const kind of ["pin", "proposal"] as const) {
       assertEquals(
         evaluator.plan(after, {
           kind,

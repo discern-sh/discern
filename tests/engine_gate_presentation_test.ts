@@ -53,6 +53,7 @@ import {
 import {
   GATE_PROOF_CHECK_STATUSES,
   type GateData,
+  GateDataSchema,
   type GateStandard,
   type Proof,
   STANDARD_MEASUREMENTS,
@@ -218,15 +219,7 @@ Deno.test("Gate presentation mappings cover every closed typed state", () => {
   assertKeys(GATE_LANDING_AUTHORITY_PRESENTATION, LANDING_AUTHORITY_KINDS);
   assertKeys(
     GATE_PROOF_RECORD_PRESENTATION,
-    [
-      "recorded",
-      "skipped_dirty",
-      "skipped_head_moved",
-      "unavailable",
-      "record_failed",
-      "cleared",
-      "clear_failed",
-    ] satisfies GateProofRecord["status"][],
+    GateDataSchema.shape.gate_proof.unwrap().shape.status.options,
   );
 });
 

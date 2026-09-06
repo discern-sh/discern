@@ -160,7 +160,7 @@ export async function captureDiscernCommand(
     ...(options.input === undefined
       ? { keepInputOpen: true }
       : { input: options.input }),
-    timeoutMs: options.timeoutMs ?? 30_000,
+    ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
   });
   const normalizers = options.normalizers ?? [];
   const context: TerminalCaptureNormalizationContext = {

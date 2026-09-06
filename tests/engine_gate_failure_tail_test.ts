@@ -88,9 +88,11 @@ function gotchasMapCommand(output: string): {
   line: string;
   command: string;
 } {
-  const line = output.split("\n").find((candidate) =>
-    candidate.includes("Read the full page with")
-  );
+  // The presenter may wrap the command after its introduction. Preserve the
+  // authored argument spacing while joining only the terminal line breaks.
+  const line = /Read the full page with\s+`discern map [^`]+`/u.exec(output)
+    ?.[0]
+    .replaceAll(/\n\s*/gu, " ");
   assert(line !== undefined, `expected a gotchas map reference in ${output}`);
   const command = /`(discern map [^`]+)`/.exec(line)?.[1];
   assert(command !== undefined, `expected a quoted map fetch in ${line}`);
@@ -574,10 +576,10 @@ Deno.test("gate failure: a gotchas doc outside the map keeps the path pointer", 
       candidate.includes("known gate failures and fixes")
     );
     assert(line !== undefined, failure.stderr);
-    assertStringIncludes(line, join(dir, doc));
+    assertTerminalTextIncludes(failure.stderr, join(dir, doc));
     assert(
-      !line.includes("discern map"),
-      `an out-of-map doc must keep the path fallback: ${line}`,
+      !failure.stderr.includes("discern map"),
+      `an out-of-map doc must keep the path fallback: ${failure.stderr}`,
     );
   });
 });

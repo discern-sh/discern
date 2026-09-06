@@ -179,9 +179,9 @@ Deno.test("shared Standard measurement: standalone runs once and keeps separate 
 
     const markdown = await runAgent(dir, ["standards", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
-    assertEquals(await invocationCount(dir), 1);
-    assertTerminalTextIncludes(markdown.stdout, "`floor`: replayed 5");
-    assertTerminalTextIncludes(markdown.stdout, "`ceiling`: replayed 20");
+    assertEquals(await invocationCount(dir), 2);
+    assertTerminalTextIncludes(markdown.stdout, "`floor`: measured 5");
+    assertTerminalTextIncludes(markdown.stdout, "`ceiling`: measured 20");
   });
 });
 

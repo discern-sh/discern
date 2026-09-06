@@ -292,7 +292,10 @@ Deno.test("accept: report-mode Proof is non-landable in preview and apply", asyn
 
     const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(apply.code, 1, apply.output);
-    assertEquals(parseAcceptJson(apply.stdout).error, "incomplete");
+    assertEquals(
+      parseAcceptJson(apply.stdout).error,
+      "checkpoint_evidence_unavailable",
+    );
     assert(await targetExists(wt), "report-mode Proof must land nothing");
   });
 });

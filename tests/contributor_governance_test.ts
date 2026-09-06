@@ -34,6 +34,9 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { handler } from "../site/serve.ts";
+import { runShell } from "../src/shared/subprocess.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { DISCERN_URL } from "../src/shared/brand.ts";
 
 const ClaAssistantMetadataSchema = z.object({
@@ -64,7 +67,14 @@ const PROPOSAL_TEMPLATE = join(
   "change_proposal.md",
 );
 const ISSUE_CONFIG = join(ISSUE_TEMPLATE_DIR, "config.yml");
-const GATE_WORKFLOW = join(REPO_ROOT, ".github", "workflows", "gate.yml");
+const POLICY_ACTION = join(
+  REPO_ROOT,
+  ".github",
+  "actions",
+  "policy-base",
+  "action.yml",
+);
+const CI_POLICY_BASE = "refs/discern/ci-policy-base";
 const DISCERN_CONFIG = join(REPO_ROOT, "discern.toml");
 
 /** Resolve a governance link and report its source line when the target is not a file. */
@@ -97,6 +107,14 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Hosted agreement checks use the fetched event policy without redirecting Git. */
+function agreementBaseline(
+  trunk: string,
+  githubActions = Deno.env.get("GITHUB_ACTIONS"),
+): string {
+  return githubActions === "true" ? CI_POLICY_BASE : trunk;
 }
 
 /** Fail with a fetch remedy when the contributor-agreement comparison ref is unavailable. */
@@ -279,9 +297,12 @@ Deno.test("numeric agreement versions pin bytes, immutable once offered", async 
     assertEquals(version.join("."), agreement.version);
   }
 
-  const baseline = parseConfigOrThrow(
-    await Deno.readTextFile(DISCERN_CONFIG),
-  ).repository.trunk;
+  // Hosted validation compares against the immutable event base fetched by
+  // the shared action; the checked-out source branch may already include edits.
+  const baseline = agreementBaseline(
+    parseConfigOrThrow(await Deno.readTextFile(DISCERN_CONFIG)).repository
+      .trunk,
+  );
   await requireBaselineRef(baseline);
   assertEquals(
     await readGitFileAtRef(baseline, ".missing-agreement-control"),
@@ -328,37 +349,60 @@ Deno.test("numeric agreement versions pin bytes, immutable once offered", async 
   );
 });
 
-Deno.test("every CI gate materializes the agreement baseline as the local trunk", async () => {
-  const source = await Deno.readTextFile(GATE_WORKFLOW);
-  const workflow = yamlRecord(source, relative(REPO_ROOT, GATE_WORKFLOW));
-  const jobs = workflow.jobs;
-  assert(jobs !== null && typeof jobs === "object" && !Array.isArray(jobs));
-  for (const name of ["gate", "macos", "standards"]) {
-    const job = (jobs as Record<string, unknown>)[name];
-    assert(job !== null && typeof job === "object" && !Array.isArray(job));
-    const record = job as Record<string, unknown>;
-    const steps = record.steps;
-    assert(Array.isArray(steps), `${name} must declare steps`);
-    const fetchStep = steps.find((step) =>
-      step !== null && typeof step === "object" && !Array.isArray(step) &&
-      String((step as Record<string, unknown>).run).includes(
-        "+refs/heads/main:refs/remotes/origin/main",
-      )
-    );
-    assert(
-      fetchStep !== undefined,
-      `${name} must fetch origin/main for baseline checks`,
-    );
-    assert(
-      !String((fetchStep as Record<string, unknown>).run).includes("|| true"),
-      `${name} must not silently skip a failed baseline fetch`,
-    );
-    assertStringIncludes(
-      String((fetchStep as Record<string, unknown>).run),
-      "git branch --force main refs/remotes/origin/main",
-      `${name} must expose the fetched baseline as the configured local trunk`,
-    );
-  }
+Deno.test("the shared CI action fetches the actual agreement baseline without moving source refs", async () => {
+  assertEquals(agreementBaseline("trunk", "true"), CI_POLICY_BASE);
+  assertEquals(agreementBaseline("trunk", "false"), "trunk");
+  assertEquals(agreementBaseline("trunk", ""), "trunk");
+  const action = z.object({
+    runs: z.object({ steps: z.array(z.object({ run: z.string() })) }),
+  })
+    .parse(parseYaml(await Deno.readTextFile(POLICY_ACTION)));
+  assert(action.runs.steps.length > 0);
+  const script = action.runs.steps.map((step) => step.run).join("\n");
+  assertStringIncludes(script, `git update-ref ${CI_POLICY_BASE}`);
+  assert(!script.includes("|| true"), "a failed policy fetch must fail closed");
+  await withTempDir(async (root) => {
+    const origin = join(root, "origin");
+    await Deno.mkdir(origin);
+    await Deno.writeTextFile(join(origin, "agreement"), "baseline\n");
+    await gitInit(origin);
+    const base = await gitOut(origin, "rev-parse", "HEAD");
+    await Deno.writeTextFile(join(origin, "agreement"), "changed source\n");
+    await git(origin, "commit", "-am", "Change source");
+    const scriptPath = join(root, "policy-base.sh");
+    await Deno.writeTextFile(scriptPath, script);
+    for (const state of ["main", "branch", "detached"]) {
+      const checkout = join(root, state);
+      await git(origin, "clone", "--quiet", origin, checkout);
+      if (state === "branch") await git(checkout, "switch", "-c", "feature");
+      if (state === "detached") await git(checkout, "switch", "--detach");
+      const head = await gitOut(checkout, "rev-parse", "HEAD");
+      const refs = await gitOut(checkout, "show-ref", "--heads");
+      const attachment = await gitOut(
+        checkout,
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
+      );
+      const fetched = await runShell('bash -eu "$POLICY_SCRIPT"', {
+        cwd: checkout,
+        env: { POLICY_SCRIPT: scriptPath, POLICY_BASE: base },
+      });
+      assertEquals(fetched.code, 0, new TextDecoder().decode(fetched.stderr));
+      assertEquals(await gitOut(checkout, "rev-parse", CI_POLICY_BASE), base);
+      assertEquals(
+        await gitOut(checkout, "show", `${CI_POLICY_BASE}:agreement`),
+        "baseline",
+      );
+      assertEquals(await gitOut(checkout, "rev-parse", "HEAD"), head);
+      assertEquals(await gitOut(checkout, "show-ref", "--heads"), refs);
+      assertEquals(
+        await gitOut(checkout, "rev-parse", "--abbrev-ref", "HEAD"),
+        attachment,
+      );
+      assertEquals(await gitOut(checkout, "status", "--short"), "");
+    }
+  });
 });
 
 Deno.test("change proposals arrive before implementation and use the smallest-change ladder", async () => {
