@@ -36,12 +36,12 @@ Parallel work multiplies the things that can look wrong: several checkouts, bran
 
 ## A lifecycle command refuses
 
-`discern start`, `discern update`, and `discern accept` check their preconditions first and refuse with the missing one named. Nothing has changed when you see this — the refusal is the command protecting the states it would otherwise have to guess about. The common ones:
+Lifecycle commands name any condition they cannot satisfy. Acceptance accounts for each task separately: an earlier task may have landed while a later one remains pending. Read those per-task outcomes before retrying. Common conditions include:
 
 - **The worktree has uncommitted changes.** Acceptance lands one exact commit, and discern never creates a work-in-progress commit for you. The agent commits the changes, or discards them as a decision of their own, then reruns.
-- **The branch is behind the trunk.** The agent runs `discern update`, re-reads any overlapping files the result names, reruns `discern done`, and then returns to acceptance.
+- **The branch is behind the trunk.** Acceptance can compose and validate it in an eligible released environment. Without one, the source agent runs `discern update`, reviews the named overlap, runs `discern done`, and returns to acceptance.
 - **The main checkout is busy.** Acceptance moves the trunk _in the main checkout_, so it refuses while that checkout has uncommitted tracked changes or is parked on another branch. It won't move your work for you: commit or stash there, return the checkout to the trunk, and rerun. The worktree branch is untouched and keeps all its commits throughout.
-- **Generated artifacts would change.** A pending refresh effect means the tree about to land isn't final. The agent runs `discern refresh`, commits the result, reruns `discern done`, then accepts.
+- **Generated artifacts would change.** Only regenerated, committed bytes can receive landing Proof. Eligible composition runs the declared generators before validation. If the result instead calls for source repair, the agent refreshes, commits the result, and runs `discern done` again.
 
 One refusal is not a precondition problem: `discern accept` with green Proof but no verified authority changes nothing and re-serves the review moment. That's the design — landing is the owner's decision. [Proof](../20-understand/proof.md#who-supplies-what) explains the authority sources.
 
@@ -49,7 +49,7 @@ One refusal is not a precondition problem: `discern accept` with green Proof but
 
 Acceptance is a sequence (fast-forward the trunk, record the Proof note, tear down the worktree), and an interruption can stop it after an irreversible step. The result reports how far it got. Read that state before acting on anything:
 
-- **If the trunk already landed the commit,** the remaining work is only cleanup. Don't try to land it again.
+- **If the trunk already landed the commit,** a retry reconciles the recorded landing and any remaining note or retirement work. Its authority is not spent again.
 - **Otherwise,** resolve the named failure, run `discern status` to see the current state, and rerun `discern accept`. It recognizes its own interrupted transaction and finishes it rather than starting over.
 
 [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) walks the full recovery, including resuming from a fresh session.

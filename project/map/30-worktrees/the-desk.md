@@ -28,7 +28,7 @@ The compact path starts from the configured trunk and opens the last-used config
 - trunk, a live task, or an unlanded branch as the starting point;
 - an optional one-line brief;
 - each available provider's fresh or continue action;
-- optional landing pre-authorization.
+- source approval after the committed source is available for review.
 
 Preferences remember the last agent and creation path in repository-local Git state. They carry no task fact or authority.
 

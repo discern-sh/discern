@@ -24,15 +24,7 @@ A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/
 }
 ```
 
-The Base64 payload decodes to a UTF-8 JSON claim:
-
-```json
-{
-  "subject": { "commit": "<full commit id>" },
-  "proof": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0 },
-  "presentation": { "line": "…", "markdown": "…" }
-}
-```
+The Base64 payload decodes to the versioned JSON claim. Its `proof.completion` records the immutable candidate, committed source, composition procedure, complete validation evidence and executors. Accepted notes also retain the authority bound to that source and procedure. The [published schema](../../../schema/discern-proof-note.schema.json) is the field authority; a prelaunch payload without complete evidence is stale and cannot establish current authority.
 
 ## Contract
 
@@ -61,7 +53,7 @@ discern neither signs nor verifies today. A later profile chooses the algorithm,
 ## Reading rules
 
 1. Require `subject.commit` and abbreviated `proof.head` to match the noted commit.
-2. Accept additive v1 fields throughout the envelope and payload.
+2. Read the declared payload type and required evidence fields. Preserve original bytes; notes missing complete evidence are stale and cannot supply current completion or authority.
 3. Report an unknown `payloadType` as `data.landed_proof_unsupported`.
 4. Require the envelope, split `proof` and `presentation` blocks, an explicit subject, and `signatures`, including the empty unsigned extension.
 5. Accept standard or Base64url payload alphabets, with or without padding; current writers emit padded standard Base64.

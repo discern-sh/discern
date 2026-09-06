@@ -1,6 +1,6 @@
 # ADR 0378: Landing completion survives checkout retirement
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
 
 ## Context
 

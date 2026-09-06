@@ -23,23 +23,25 @@ Use this guide to make the project's declared gate a required continuous-integra
 ## Starting state
 
 - `discern.toml` already declares the project's gate jobs and standards.
-- The CI runner checks out the candidate commit with enough Git history and a local branch at the configured trunk name. A remote-tracking ref alone is not enough.
+- The CI runner checks out the candidate commit with enough Git history and an explicit local ref for the event’s actual comparison commit.
 - The workflow installs a pinned discern binary and every runtime named by `[jobs]`.
 - Branch protection can require the workflow's result before merging.
 
 ## 1. Recreate the project's declared environment
 
-**Person or platform maintainer:** Pin the discern version and the project's toolchain in the workflow. Fetch the configured trunk into its local branch name (for example, `git fetch origin main:main` when the configured trunk is `main`) and fetch enough history for change classification. Strict and CI gate runs fail closed if that local trunk or its standard limits cannot be read. Restore dependencies from the project's lock files as their own workflow step, before the gate runs: discern runs the commands in `[jobs]` but does not install their toolchain or dependencies, and the gate may start several jobs in parallel, so dependency downloads that race inside the first gate run belong in a serial step ahead of it.
+**Person or platform maintainer:** Pin discern and the project's toolchain. Fetch enough history for change classification and fetch the event's actual policy base into a local ref. For a pull request, use its base commit; for a push, use the prior commit. Keep the checked-out source unchanged. Comparing a push with its new tip can hide the policy change being checked.
 
-Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and standards remain the authority, so local agents and CI run the same declaration.
+Install locked dependencies before the gate. The gate may run several commands at once, so dependency setup belongs in a preceding serial step. Do not restate each project check in workflow YAML. `[jobs]`, scope gates, and standards remain the authority, so local agents and CI run the same declaration.
 
 ## 2. Run the report-only Gate
 
 **CI runner:** From the repository root, run:
 
 ```sh
-discern done --ci --markdown
+discern done --ci --standalone --context linux --policy-base refs/discern/ci-policy-base --markdown
 ```
+
+Replace `linux` with the context this workflow supplies, and fetch `refs/discern/ci-policy-base` before invoking the command.
 
 Keep the Markdown result in the job log or summary. Use `--json` when another step consumes exact fields.
 
@@ -55,15 +57,11 @@ git diff --exit-code
 
 A diff means the candidate did not commit the tree its configured commands produce. The agent should run `discern prepare`, review the output, commit it, and send a new commit.
 
-## 4. Schedule deferred Standards
+## 4. Include required measurements
 
-`measure = "on-demand"` keeps a slow measurement out of every gate run. If CI is the chosen schedule for that metric, add a separate named job:
+Every required standard runs through the completion planner. Standards can share an instrumented test producer, and valid captured evidence can be reused. There is no setting to defer a required measurement while reporting completion as green.
 
-```sh
-discern standards standard-name --markdown
-```
-
-Make its cadence and required status visible. A report that omits deferred measurements must not be described as having measured them.
+Declare the contexts each requirement needs. A required remote context needs its own matching evidence; a skipped check or local report cannot stand in for it. A report-only workflow remains a report even when all of its measurements pass.
 
 ## 5. Route failures back to the task
 

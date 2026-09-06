@@ -73,7 +73,8 @@ The gate can pass while telling you it recorded no Proof. The checks ran; what's
 
 - **The tree was dirty.** Uncommitted edits mean there's no single commit for the evidence to bind to. This is normal mid-iteration — `discern prepare` and `discern test` are the faster loop there. Before handoff, the agent commits the final tree and reruns `discern done` on the clean commit.
 - **The commit moved during the run.** Something amended or committed while the gate ran, so the passing result describes a tree that's no longer HEAD. Rerun on the final commit.
-- **Proof couldn't be written.** Rare, and the result says so. The green run still happened; rerun `discern done` later to record the evidence — until then, `discern accept` will rerun the gate itself.
+- **Proof couldn't be written.** The result identifies the storage or recovery failure. Preserve the recorded evidence and follow that diagnosis. Acceptance can refresh stale evidence only in an eligible released environment; otherwise the source agent follows the printed `update`, `done`, and acceptance steps.
+- **The run was standalone.** `discern done --standalone` provides complete diagnostics without queue admission or landing Proof. Run ordinary `discern done` on the final clean commit when the task is ready for review.
 - **It was a CI run.** `discern done --ci` produces report-only evidence and reports open checkpoint questions without answering them. That's its job; report-only Proof can never be used to land. [Run the gate in CI](../10-guides/run-the-gate-in-ci.md) covers the setup.
 
 ## Proof was current and went stale

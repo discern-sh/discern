@@ -35,7 +35,7 @@ git notes --ref=discern show <commit>
 
 The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-Readers accept additive fields inside the current split v1 envelope. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
+Current v1 records carry complete candidate, source, composition procedure, component evidence, authority, and executor facts. Prelaunch notes missing complete evidence are stale for current completion and never become authority through conversion. Unknown payload types report unsupported; bare and pre-split private formats are not Proof notes. [Proof note format](../70-reference/proof-note-format.md) defines the contract and reading rules.
 
 ## Replay keeps the first presentation
 
@@ -45,7 +45,7 @@ The write identity is the explicit subject commit plus the stable machine-readab
 
 The notes commit uses `discern <done@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The Proof still records.
 
-The note write and fetch-configuration reconciliation both fail open. `data.proof_note.write` and `data.proof_note.fetch` carry their status and any cause. A transport or recording problem cannot roll the trunk back or turn the completed landing red.
+The landing record survives a failed note write. Its prefix remains landed while `note: recovery` identifies the pending publication. A retry uses the retained complete Proof and settled authority; it does not move trunk or spend the grant again. Fetch transport still reports its own result.
 
 ## Carry notes between clones
 
@@ -97,5 +97,5 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 - Direct Git inspection shows a Base64 payload. Use `discern status --verbose` for the rendered Proof.
 - A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
 - Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
-- An older marker may lack structured data. Acceptance honors its commit identity but reports `missing_proof`.
+- An older marker without complete evidence is stale. It cannot authorize a current landing.
 - A note with a different stable claim on the same commit fails open. Inspect the cause in `data.proof_note.write`.

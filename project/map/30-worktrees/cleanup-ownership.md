@@ -20,6 +20,12 @@ A fully merged branch is not owned merely because deletion would preserve its co
 
 An explicit `discern worktree drop <worktree>` can select a foreign checkout by exact id, path, local branch, or full local ref. It keeps a branch that discern cannot prove it owns. Merge status, cleanliness, containment, locks, and current worktree use remain independent safety checks; none can replace ownership.
 
+## Retirement after acceptance
+
+Landing and retirement have separate durable records in Git's common metadata. An actor may retire another source checkout only after its owner releases it and the engine proves current ownership, cleanliness, resource inventory and exclusion. A changed source branch, an uncertain resource, or an active child process keeps the checkout. Recovery receipts and pending Proof notes remain available outside the disposable checkout.
+
+A note or cleanup failure reports the candidate as landed with recovery pending. Retrying settles that record; it cannot publish the candidate again or spend authority twice. [Interrupted landing recovery](acceptance-recovery.md) describes the current states and next actions.
+
 ## Prove absence before reporting success
 
 Lifecycle commands stop their command-owned shell, hook, Git, and background descendants before removal. The shared teardown then validates the resolved target and refuses broad or uncertain paths: a filesystem root, the home directory, the main checkout, Git's common metadata, a symbolic link, an unreadable object, or an object replaced after inspection.

@@ -19,11 +19,11 @@ A Proof that contains a standard limit proposal also needs separate owner approv
 
 ## Authority sources
 
-| Source         | Evidence                                                                                               | Lifetime               |
-| -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------- |
-| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | One call.              |
-| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing. |
-| Effort grant   | **Pre-authorize landing once green** at [the desk](the-desk.md).                                       | That worktree.         |
+| Source         | Evidence                                                                                               | Lifetime                   |
+| -------------- | ------------------------------------------------------------------------------------------------------ | -------------------------- |
+| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | One call.                  |
+| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.     |
+| Effort grant   | A recorded approval of the exact source and composition procedure at [the desk](the-desk.md).          | That source and procedure. |
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
@@ -31,7 +31,7 @@ Fresh setup's standing-grant example names `docs`, whose seed contains the map a
 
 ## How discern resolves coverage
 
-`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Effort grants bind to their branch.
+`start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Effort grants bind to the exact source revision and composition procedure. A source edit or changed procedure needs another review; an old incomplete grant is stale.
 
 When a grant exists, `data.landing_authority` carries the result:
 
@@ -46,9 +46,9 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-When `accept` has no landing authority, it changes nothing. Every supported result says what would have landed, confirms that the worktree, branch, and trunk remain untouched, and routes the change to review. After the owner approves the change in the current conversation, run `discern accept --confirmed`. On success, `data.consent`, the Proof line, and the logbook name the permission source: current conversation, standing grant, or effort grant.
+Each prefix needs its own current authority. A caller's `--confirmed` applies only to that caller's reviewed source; it cannot approve predecessors. An earlier authorized prefix can land before a later entry reports missing authority. The result retains both outcomes.
 
-An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
+`accept --dry-run` reports each predecessor's candidate, preview commands, recorded authority, and pending decisions without applying a claim. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
 ## Approve a Standard limit proposal
 

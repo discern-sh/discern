@@ -32,7 +32,7 @@ When unresolved later distinct failures coincide with long-running or queued val
 
 The gate records whether a measured or replayed standard is mechanically eligible to pin and the exact target under its margin. Patterns reads that authority; it does not repeat direction, rounding, or margin arithmetic. Eligibility remains visible even when no pin is recommended.
 
-A recommendation additionally requires a current active standard, measured or replayed evidence, Gate eligibility across the latest 3 comparable readings, and no direction reversal or same-Standard regression in the latest 5. A deferred on-demand reading routes to `discern standards`. Missing current fields stay historical or stale. A retired standard remains a trajectory without a live pin action.
+A recommendation additionally requires a current active standard, measured or replayed evidence, Gate eligibility across the latest 3 comparable readings, and no direction reversal or same-Standard regression in the latest 5. A deferred reading is stale evidence for current completion. Missing current fields stay historical or stale. A retired standard remains a trajectory without a live pin action.
 
 When current mechanical eligibility instead coincides with recent comparable reversals or failures, the additive standard-variance investigation replaces no finding and offers no pin advice. It directs the owner to test whether the headroom is durable ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 

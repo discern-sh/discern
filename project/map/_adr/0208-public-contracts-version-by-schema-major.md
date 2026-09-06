@@ -2,7 +2,6 @@
 
 > **Amendments.**
 >
-> - **Tagged publication baseline ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md), [ADR 0219](0219-public-install-schema-starts-at-one.md)):** Renaming the manual result from `help` to `docs` first applied this record's breaking-major rule, starting result schema v2 beside the frozen v1 publication while configuration stayed at schema v1 — the compatibility domains version independently. Before the first release tag, that publication was squashed back to one live v1 and the retired v2 path was deleted. Version tags, never ordinary trunk commits, publish contracts. Work compares with the highest valid `v<SemVer>` predecessor tag; a candidate tag at `HEAD` excludes itself, and no predecessor leaves the guard unarmed. Untagged trunk may therefore stage coordinated contract work until a release tag freezes what users receive.
 > - **[ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md) — durable channel:** The landing receipt note carries a schema-fragment URI in-band as its DSSE `payloadType`. A Git note has no schema-selection channel, so the authenticated payload type names its compatibility major and published definition. The no-payload-version rule for negotiated result and configuration channels is unchanged.
 
 **Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0097](0097-publish-json-result-contracts.md), and applies the closed-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md)
@@ -14,6 +13,10 @@ External callers need stable contract identities for authored configuration, CLI
 The result envelope already has one generated JSON Schema identity. Adding a second version fact to every payload would duplicate that authority without telling a caller which schema to validate against.
 
 ## Decision
+
+Version tags, never ordinary trunk commits, publish contracts. Work compares with the highest valid `v<SemVer>` predecessor tag; a candidate tag at `HEAD` excludes itself. When no predecessor publication exists, every public contract uses major 1 and its root `schema/` artifact. Untagged trunk may stage coordinated contract changes in place before that first publication. The first tagged candidate also starts at major 1. This incorporates the tagged-publication decisions of [ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) and [ADR 0219](0219-public-install-schema-starts-at-one.md).
+
+The same-major compatibility rules below apply once a predecessor publication exists. Before publication, required-field and meaning changes do not create a second public major or a retained historical publication.
 
 Public config and result schemas use `https://discern.sh/schema/v1/…` identities. The path major tracks breaking contract compatibility, not the discern package version.
 
@@ -45,7 +48,7 @@ For configuration, the comparison proves that documents accepted by the tagged p
 - Generators and tests must preserve the deliberate difference between strict runtime schemas and additive public validation.
 - A same-major schema change must pass comparison with the last tagged publication. Untagged trunk changes are provisional; breaking changes after publication move to a new public major.
 - Configuration tools may cache the version-1 schema, but must refresh it before validating configuration that uses keys introduced by a newer discern release.
-- Breaking changes require an additional served schema path, retention of earlier major routes, and an explicit consumer migration.
+- After publication, breaking changes require an additional served schema path, retention of earlier major routes, and an explicit consumer migration.
 - The known-slug extension is discovery metadata, not a public enum that closes validation.
 
 ## Alternatives considered

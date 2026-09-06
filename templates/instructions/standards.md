@@ -1,6 +1,6 @@
 {{#if has_standards}}## Quality standards
 
-Standards are **numbers that can never get worse**: metrics held at a `limit` that may only improve versus `{{main_branch}}` — a floor may only rise (`up`), a ceiling only fall (`down`). Every **`discern_done`** run verifies no limit loosened versus `{{main_branch}}` and measures each standard alongside the tests — untouched `inputs` replay the recorded value for free; `measure = "on-demand"` defers a standard to **`discern_standards`**.
+Standards hold a **limit that may only improve**: floors rise (`up`), ceilings fall (`down`). **`discern_done`** verifies protected definitions and limits against the candidate’s predecessor and requires every standard in every required context. Producers may be shared; reuse requires unchanged applicable evidence. **`discern_standards`** measures separately. `prepare` requests no measurement.
 
 **Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
 

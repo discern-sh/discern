@@ -1,6 +1,6 @@
 # ADR 0376: Active commands advance an authorized landing queue
 
-**Status**: accepted on 2026-09-05; implementation pending. Extends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) and [ADR 0375](0375-source-authority-survives-declared-composition.md). Amends the transaction scope of [ADR 0366](0366-landing-is-one-exact-repository-transaction.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0374](0374-complete-proof-is-independent-of-measurement-scheduling.md) and [ADR 0375](0375-source-authority-survives-declared-composition.md). Amends the transaction scope of [ADR 0366](0366-landing-is-one-exact-repository-transaction.md).
 
 ## Context
 

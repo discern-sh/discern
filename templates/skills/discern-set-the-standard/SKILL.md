@@ -19,7 +19,7 @@ Driving a legacy pattern out of the codebase entirely? That migration mode — t
 A standard blocks pushes, so the number behind it must be _defendable_:
 
 - **Deterministic** — the same tree always yields the same number. Timing, network, and anything sampling-based will fire false alarms until the standard gets deleted, which is worse than never adding it.
-- **Affordable in the gate** — the gate measures every standard alongside the tests on each `discern done`. For a slower metric, climb the relief ladder smallest-hammer-first: declare `inputs` (the paths the metric reads) so a change touching none of them replays the recorded value for free; give the one job its own `timeout` instead of a slower global; and only for a metric genuinely too slow for every gate run, set `measure = "on-demand"` to defer it to `discern standards` — its never-loosen limit check still runs on every gate.
+- **Affordable in the gate** — completion requires every standard. Share expensive production through `producer`, and declare complete input, toolchain and environment facts so valid evidence can be reused. Give the producer a justified `timeout`. Omitted inputs bind evidence to its candidate and require a fresh run for another candidate. `discern prepare` remains free of measurement.
 - **Meaningful** — it moves when the quality it stands for moves, and is hard to satisfy by gaming. "Count of `TODO` markers" is honest; "count of files containing the word test" is theatre.
 - **Owned** — the user is willing to be _blocked_ on this number. Confirm that before wiring; an unwanted standard teaches people to bypass standards.
 

@@ -31,19 +31,19 @@ The measurement command reports its value on stdout:
 DISCERN_METRIC coverage 91.4
 ```
 
-`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. The command's own exit status does not decide a standard: a usable marker may hold after a nonzero exit, while a clean exit without the marker fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
+`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. A failed producer fails its consumers even if it prints a usable marker. A clean exit without the required marker also fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
 ## Keep its meaning stable
 
 An existing standard holds three field roles:
 
-| Role                 | Fields                                                            | Branch policy                                                          |
-| -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Enforcement meaning  | `metric`, `direction`, `run`, `per`, `scale`, `measure`, `inputs` | Must match normalized trunk; controls the claim or evidence freshness. |
-| Monotonic bound      | `limit`                                                           | May only tighten: floors rise; ceilings fall.                          |
-| Execution or pinning | `margin`, `timeout`                                               | May change without redefining the claim.                               |
+| Role                 | Fields                                                                      | Branch policy                                                                        |
+| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Enforcement meaning  | Metric, extraction, producer dependency graph, inputs and required contexts | Equivalent recipes may share a producer; observed inputs and contexts cannot weaken. |
+| Monotonic bound      | `limit`                                                                     | May only tighten: floors rise; ceilings fall.                                        |
+| Execution or pinning | `margin`, `timeout`                                                         | May change without redefining the claim.                                             |
 
-Comparison applies schema defaults and equivalent scalar/list command forms, so omitted historical defaults match explicit current spelling. The policy is keyed by `StandardConfig`; new fields require a code policy and normalization.
+Comparison resolves producer aliases through the execution graph. The same command can move to a shared producer without redefining a held metric. Required contexts and observed environment/toolchain facts may be added, while declared input sets may widen. Omitted inputs bind evidence to its candidate. A referenced job cannot change a standard’s command or dependency meaning. The policy is keyed by `StandardConfig`; new fields require a code policy and normalization.
 
 `margin` changes only a future pin target. `timeout` bounds the same command; a timeout records no green evidence. Neither changes the measured claim.
 
@@ -67,7 +67,7 @@ The `detached_promise_boundaries` Standard follows the same validate-then-measur
 
 ## What the Gate does
 
-The gate checks normalized definitions and limits, then measures with checks and tests. Reusable evidence binds the measured value to the complete normalized standard definition and to the original measured commit. It replays only when declared `inputs` and that definition fingerprint are unchanged. Replay preserves that original provenance and writes no fresh measurement record at the current `HEAD`. `measure = "on-demand"` stays with `discern standards`; definition and limit checks never defer. A standard with a live proposed limit measures fresh even when ordinary policy would replay or defer it. The reading must equal the proposal. `discern prepare` skips measurement.
+The gate checks protected definitions and limits against the candidate's expected predecessor, then assembles all required evidence. Reuse verifies the complete applicability tuple, including context, policy, producer dependencies, inputs, toolchain, environment and seed. A newer failed attempt for the same subject blocks an older success. Every standard is required; measurement deferrals are refused. `discern prepare` requests no measurement. See [Complete evidence](complete-evidence.md).
 
 Package StandardMeter views retain each reading, limit, headroom, trajectory, measurement source, margin, and pin eligibility. Deferred and skipped facts invent no value. [`presentation.ts`](../../../src/engine/gate/presentation.ts) only maps `GateStandard` facts; the gate still decides comparisons and pin eligibility.
 
@@ -75,9 +75,9 @@ One pure gate function decides mechanical pin eligibility from direction, measur
 
 ## Run standards directly
 
-`discern standards` freshly measures every standard, including `measure = "on-demand"`. Positional names narrow an ordinary run and a pin to the validated named set; no names selects every standard, and an unknown name refuses before measurement. `data.standards` contains the selected set. A partial run never creates the reusable full-project measurement cache. First the command still checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid selected measurements.
+`discern standards` requests every standard through the shared dependency planner. Positional names narrow an ordinary run and a pin to the validated named set; no names selects every standard, and an unknown name refuses before measurement. `data.standards` contains the selected set. A partial run never creates the reusable full-project measurement cache. First the command still checks branch definitions, limits, and trunk-only entries from one trunk snapshot. A redefined or loosened standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid selected measurements.
 
-Runnable measurements share one parallel group without fail-fast. Standards with the same command, checkout root, and timeout use one process, then select their metrics and receive independent verdicts and evidence. Replayed and deferred standards stay outside the group. A missing metric fails only its consumer; a process failure fails every consumer.
+Runnable measurements share the canonical producer graph. Consumers can read captured output or use `extract` on a declared immutable artifact. Each extractor becomes eligible when its own producer settles. Valid component receipts may be reused for pin and proposal operations. A missing metric fails its consumer; a process failure fails every consumer.
 
 Coverage shares one run across its aggregate rate, zero-ceiling module failures, and ratcheted exception count. Diagnostics preserve the failed set that a minimum percentage would hide ([ADR 0342](../_adr/0342-git-elects-module-coverage-membership.md)).
 
@@ -118,7 +118,7 @@ A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool r
 | The branch redefined an existing Standard  | Restore the trunk definition. For an intentional change, ask the owner to change trunk, then update the worktree.                                                                                                      |
 | The branch weakened or deleted a limit     | Restore the trunk value. Tell the owner if the old limit is no longer valid.                                                                                                                                           |
 | The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                                                                                                                                  |
-| The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate.                                                                                                      |
+| The measurement is too slow                | Share a declared producer, reuse complete input evidence, and set justified producer and outer-job budgets.                                                                                                            |
 
 An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
@@ -137,7 +137,7 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 | Shared trunk definition and limit check     | [`standard_limits.ts`](../../../src/engine/gate/standard_limits.ts)                                                                                                                                                                               |
 | Proposed limit plan, state, and transaction | [`standard_proposal_plan.ts`](../../../src/engine/gate/standard_proposal_plan.ts), [`standard_proposal_state.ts`](../../../src/engine/gate/standard_proposal_state.ts), [`standard_proposals.ts`](../../../src/engine/gate/standard_proposals.ts) |
 | Shared measurement and pin execution        | [`standards.ts`](../../../src/engine/gate/standards.ts)                                                                                                                                                                                           |
-| Gate replay and deferral policy             | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                                                                                                                 |
+| Read-only standard preview                  | [`standards_gate.ts`](../../../src/engine/gate/standards_gate.ts)                                                                                                                                                                                 |
 | Human Standard presentation                 | [`presentation.ts`](../../../src/engine/gate/presentation.ts)                                                                                                                                                                                     |
 | Parallel scheduling and process-tree kill   | [`runner.ts`](../../../src/engine/jobs/runner.ts)                                                                                                                                                                                                 |
 | Built-in write probes                       | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)                                                                                                                                                                                    |

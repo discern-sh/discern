@@ -14,7 +14,7 @@ aliases:
 
 _Finish the intended commit, report what changed, end with its Proof line, and wait for the owner to decide whether it lands._
 
-A green gate starts review. Landing remains the owner's decision. Keep the worktree and branch in place until that decision arrives, because they hold the commit, Proof, and local resources under review.
+A green gate starts review. Landing remains the owner's decision. Keep the source branch available until that decision arrives. Complete evidence and recovery records live in common Git administration; the worktree holds the authoring checkout and its local resources.
 
 ## Finish the branch
 
@@ -39,9 +39,9 @@ Stop after the Proof line and wait. An uncommitted edit dirties the tree. A late
 
 Every landing needs [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from [the desk](the-desk.md). The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. A valid Proof lets acceptance reuse the earlier gate result. A missing or stale Proof makes acceptance run the full gate again for the commit it plans to land.
+Acceptance requires a tracked-clean main checkout sitting on the trunk. It reads the queue plan and checks each prefix against its own complete Proof and recorded authority. Stale evidence can be refreshed only in an eligible released execution environment. Without one, follow the forward `update → done → accept` recovery action in the source worktree.
 
-On success, the acceptance result, one-line Proof, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit, converges the main checkout, and tears down the worktree. If another line of work moves the trunk first, acceptance keeps this worktree for `update → done → accept`. [Start, update, and accept](lifecycle.md) carries every landing precondition. [Interrupted landing recovery](acceptance-recovery.md) explains journals and `partial_acceptance` results.
+For each authorized prefix, discern advances the exact expected trunk to the proven candidate and settles that prefix's authority. Retirement follows separately and requires release, positive ownership, current cleanliness and exclusion. Changed branches and uncertain resources remain available. A failed note or cleanup cannot repeat landing or spend authority again. [Start, update, and accept](lifecycle.md) explains the states; [interrupted landing recovery](acceptance-recovery.md) covers partial progress and retry.
 
 You can also supervise a ready branch from [the desk](the-desk.md). Its accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
@@ -65,4 +65,4 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 ## Current state & gotchas
 
 - Any tracked, staged, or untracked change in the worktree blocks acceptance. The main checkout blocks on tracked changes.
-- The handoff Proof stays valid only for its clean, committed `HEAD`.
+- The handoff Proof binds the exact source, candidate, expected predecessor and complete evidence.

@@ -27,7 +27,7 @@ The safe action depends on what already happened. Observe first, then resume the
 ## Starting state
 
 - Run from the task's existing worktree when it still exists. Run from the main checkout when status says the worktree is gone.
-- Preserve any returned result, branch name, worktree path, recovery ref, or `data.landing` fields.
+- Preserve any returned result, branch name, worktree path, recovery ref, or `data.queue` fields.
 - Do not create a replacement worktree for the same effort until status proves the original is gone and the recovery route calls for one.
 
 ## Resume an unfinished worktree
@@ -50,51 +50,39 @@ Acceptance can move the trunk before later checkout convergence or cleanup fails
 
 ### 1. Read the surviving location and effects
 
-**Coding agent:** Inspect the failed result's `data.root` and `data.landing`:
+**Coding agent:** Inspect the result's `data.root` and `data.queue`. Each queue row names one task and accounts for its own landing:
 
-| Field                | What it establishes                                            |
-| -------------------- | -------------------------------------------------------------- |
-| `recovery_performed` | This call reconciled an earlier acceptance transaction.        |
-| `trunk_landed`       | The trunk reached the accepted commit and was not rolled back. |
-| `worktree_removed`   | The checkout and Git worktree registration are gone.           |
-| `branch_deleted`     | The merged local branch is gone.                               |
+| Field                      | What it establishes                                            |
+| -------------------------- | -------------------------------------------------------------- |
+| `state`                    | Whether this task landed or is still pending.                  |
+| `expected_trunk`, `target` | The exact before-and-after commits for this landing.           |
+| `authority_settlement`     | Whether the landing's recorded authority was consumed.         |
+| `retirement`               | Whether its checkout was retired, retained, or needs recovery. |
+| `pending`                  | The conditions preventing further progress.                    |
 
-Do not assume the original worktree still exists. When cleanup removed it, continue from the main checkout path returned in `data.root`.
+Do not assume the original worktree still exists. Continue from the surviving path returned in `data.root`; recovery evidence remains in the repository's shared Git storage after checkout removal.
 
-### 2. Choose recovery from the recorded landing state
+### 2. Preview and follow the recorded recovery
 
-When `worktree_removed` is false, return to the original worktree and follow the result's recovery. If it calls for a retry, rerun acceptance there:
-
-```sh
-discern accept
-```
-
-discern reads that worktree's journal, marker, current refs, authority, and checkout state before acting. It reuses consent only when it is bound to the interrupted transaction. A standard proposal or an authority record that cannot be verified still requires the person to supply the served approval.
-
-When `worktree_removed` is true, do not rerun acceptance: `data.root` is the main checkout, the worktree-local journal is gone, and the trunk has already landed. From `data.root`, verify that the trunk still names the exact landed SHA reported by the Proof:
+**Coding agent:** Review the remaining work from that location:
 
 ```sh
-git rev-parse --verify '<trunk>^{commit}'
+discern accept --dry-run
 ```
 
-If Git still registers the removed checkout, run `discern worktree prune`. If `branch_deleted` is false, first verify that the retained branch still names the landed SHA, then delete it with Git's merged-only form:
+Resolve the condition named by the result. When it calls for a retry, run `discern accept` again. The engine reads the recorded transition, current refs, authority settlement and checkout state before acting. Note publication and checkout retirement can resume after the source checkout is gone; neither repeats the landing nor spends its authority again.
 
-```sh
-git rev-parse --verify 'refs/heads/<branch>^{commit}'
-git branch -d '<branch>'
-```
+From the main checkout, acceptance can also advance later ready tasks that each have their own current Proof and authority. Review each row in the preview. **Person:** Supply any new landing decision, standard-proposal approval or checkpoint variance the result requires. A recorded grant cannot supply those last two decisions.
 
-Run the deletion only when the first command prints the exact landed SHA. This post-removal cleanup neither needs nor replays landing consent.
+If another actor owns the operation, wait for it to finish before retrying. If recovery reports that a ref, checkout or resource changed unexpectedly, preserve that state and follow the named diagnosis. Do not force refs or delete a retained branch to make the result look complete.
 
-If another acceptance owns the repository lock, the refusal says that this call changed nothing. Wait for that operation to finish, then retry.
+### 3. Distinguish landed from retired
 
-### 3. Distinguish landed from cleaned up
+A result can report a failure after an earlier task landed. A later note or retirement failure cannot undo that trunk transition.
 
-A result can be `ok: false` after `trunk_landed: true`. Later ensure, smoke, materialization, or deletion failures cannot undo the trunk move.
+**Person and coding agent:** Treat each task as landed when its row says so. Continue the named recovery action without asking for a second decision on the same recorded landing. A task still awaiting evidence, judgment or authority remains pending independently.
 
-**Person and coding agent:** Treat the commit as landed when the result says so. Continue only the named convergence or cleanup action. Do not ask for a second landing decision or rerun the gate for a commit already on the trunk.
-
-Recovery is complete when status shows the trunk at the accepted commit and the result accounts for any checkout or branch that remains.
+Recovery is complete when the result accounts for every recorded landing and any checkout, branch or resource that remains. A retained checkout can be the correct result.
 
 ## Recover a dropped branch
 

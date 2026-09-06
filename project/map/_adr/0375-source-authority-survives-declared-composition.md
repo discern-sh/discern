@@ -1,6 +1,6 @@
 # ADR 0375: Source authority survives declared composition
 
-**Status**: accepted on 2026-09-05; implementation pending. Amends [ADR 0110](0110-the-landing-model.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0247](0247-generated-artifacts-regenerate-never-merge.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0110](0110-the-landing-model.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0247](0247-generated-artifacts-regenerate-never-merge.md).
 
 ## Context
 

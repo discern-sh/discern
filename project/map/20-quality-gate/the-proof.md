@@ -35,7 +35,7 @@ Proof binds the full committed `HEAD`, a clean tree, checkpoint declaration evid
 
 ## Proposal-bearing Proof
 
-A live standard limit proposal lets the gate explain one otherwise-forbidden limit change. The gate forces a fresh measurement for that standard, including `measure = "on-demand"` and replay-eligible entries. The measured value must equal the proposal. Proof carries the standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
+A live standard limit proposal lets the gate explain one otherwise-forbidden limit change. The shared evaluator supplies a current applicable measurement for that standard. The measured value must equal the proposal; changed producer dependencies or context make the proposal stale. Proof carries the standard, trunk and proposed limits, measurement, signed delta, verbatim reason, responsible paths, definition fingerprint, immutable proposal commit and measured parent, and the current descendant commit to which renewed evidence is bound ([ADR 0354](../_adr/0354-standard-proposals-renew-descendant-evidence.md)).
 
 The Proof line states the open proposal as awaiting the owner's exact approval. The page presents the proposal before routine standard results. Compact JSON, Markdown, Model Context Protocol results, status, and Proof notes retain the structured proposal. A green proposal-bearing Proof establishes gate success for that committed tree; it grants neither landing authority nor proposal approval.
 

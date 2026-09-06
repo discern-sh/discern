@@ -1,6 +1,6 @@
 # ADR 0377: Execution environments declare reuse and recovery
 
-**Status**: accepted on 2026-09-05; implementation pending. Extends [ADR 0025](0025-worktree-resources.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md), and [ADR 0368](0368-local-durable-formats-declare-forward-skew.md).
+**Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Extends [ADR 0025](0025-worktree-resources.md), [ADR 0367](0367-worktree-local-state-records-intent-before-effects.md), and [ADR 0368](0368-local-durable-formats-declare-forward-skew.md).
 
 ## Context
 

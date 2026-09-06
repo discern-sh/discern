@@ -56,7 +56,7 @@ run = "tools/count-suppressions"
 inputs = ["src/**", "tests/**"]
 ```
 
-Declare `inputs` only for every path the metric reads. A narrow list can replay an old measurement after a relevant change. Use `measure = "on-demand"` only when input replay and a per-Standard timeout cannot make the measurement affordable inside the gate.
+Declare `inputs` only for every path the metric reads. A narrow list can replay an old measurement after a relevant change. Share an expensive producer with the jobs or standards that already need it. Declare its full input closure and applicable toolchain and environment facts, and give it a justified time budget. Every standard remains required for completion.
 
 ### 3. Exercise both outcomes
 
