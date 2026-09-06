@@ -1,3 +1,4 @@
+import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 /** Git/resource adapter. Its caller must supply the exclusive lifetime capability. */
 import { globToRegExp } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
@@ -513,9 +514,15 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       );
     }
     if (plan.action === "source-tip") {
-      if (current.status !== "" || current.head !== candidate.head) {
+      if (current.status !== "") {
         throw new Error(
-          "Source-tip validation changed authoring files; inspect the preserved drift and finish the source work before retrying. No source changes were removed.",
+          checkoutChangesMessage(current.status) +
+            " No source changes were removed.",
+        );
+      }
+      if (current.head !== candidate.head) {
+        throw new Error(
+          "Source HEAD changed during validation; preserve the checkout and reconcile the intended revision before retrying.",
         );
       }
       return;
@@ -528,7 +535,8 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       current.status !== ""
     ) {
       throw new Error(
-        "Unfamiliar authoring writes are present on the source branch; preserve them and reconcile with its owner before recovery. No source writes were removed.",
+        checkoutChangesMessage(current.status) +
+          " Reconcile with the source owner before recovery. No source writes were removed.",
       );
     }
     if (

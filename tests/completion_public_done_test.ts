@@ -155,3 +155,41 @@ Deno.test("E10 public done requires an explicit rerun after a failed unchanged s
     assertEquals((await inspectGateProof(path)).status, "honored");
   });
 });
+
+Deno.test("public completion names unexpected output and preserves it without Proof", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      "",
+      "printf scratch > 'unrelated output.ts'; printf 'DISCERN_METRIC coverage 93\\n'",
+    );
+    const result = await runAgent(path, ["done", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    const decoded = decodeCliResult(result.stdout, "done");
+    const diagnostics = JSON.stringify(decoded.diagnostics);
+    assert(diagnostics.includes("unrelated output.ts"), diagnostics);
+    assert(diagnostics.includes("git status"), diagnostics);
+    assert(
+      decoded.diagnostics?.some((entry) =>
+        entry.tool === "test" && entry.message.includes("unrelated output.ts")
+      ),
+      diagnostics,
+    );
+    assertEquals(
+      await Deno.readTextFile(`${path}/unrelated output.ts`),
+      "scratch",
+    );
+    assert(
+      !(await Deno.readTextFile(`${path}/.gitignore`)).includes(
+        "unrelated output.ts",
+      ),
+    );
+    assertEquals((await inspectGateProof(path)).status, "missing");
+    assert(
+      !(await observeCompletionRecords(path)).records.some((entry) =>
+        entry.selector.kind === "proof"
+      ),
+    );
+  });
+});

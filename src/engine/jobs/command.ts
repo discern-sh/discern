@@ -58,6 +58,8 @@ export interface SpawnOptions {
   keepOutput?: boolean;
   /** Observe decoded child text without changing capture or static streaming. */
   outputObserver?: JobOutputObserver;
+  /** Retain exact stdout for extraction while the ordinary diagnostic keeps both streams. */
+  stdoutRecorder?: JobOutputRecorder;
   /** Drain all child output but retain at most this many raw bytes, bypassing
    * line presentation/diagnostic feeds. For bounded line protocols. */
   protocolOutputMaxBytes?: number;
@@ -148,6 +150,7 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 async function* readChunks(
   stream: ReadableStream<Uint8Array>,
   readers: Set<ReadableStreamDefaultReader<Uint8Array>>,
+  recorder?: JobOutputRecorder,
 ): AsyncGenerator<Uint8Array> {
   const reader = stream.getReader();
   readers.add(reader);
@@ -157,6 +160,7 @@ async function* readChunks(
       if (done || value === undefined) {
         return;
       }
+      await recorder?.write(value);
       yield value;
     }
   } finally {
@@ -411,8 +415,11 @@ export async function spawnJob(
       DECODER.decode(concat(tailBuf))
     }`;
   };
-  const drain = async (s: ReadableStream<Uint8Array>): Promise<void> => {
-    const source = readChunks(s, readers);
+  const drain = async (
+    s: ReadableStream<Uint8Array>,
+    recorder?: JobOutputRecorder,
+  ): Promise<void> => {
+    const source = readChunks(s, readers, recorder);
     if (protocolLimit !== undefined) {
       for await (const chunk of source) retainProtocol(chunk);
       return;
@@ -436,7 +443,10 @@ export async function spawnJob(
       outputFeed.finish();
     }
   };
-  const drained = Promise.all([drain(child.stdout), drain(child.stderr)]);
+  const drained = Promise.all([
+    drain(child.stdout, opts.stdoutRecorder),
+    drain(child.stderr),
+  ]);
   const status = await child.status;
   // `sh -c '... &'` can report 0 while its background descendant keeps this
   // detached group alive. Cancel that command-owned writer before a successful

@@ -1,7 +1,6 @@
 /** Complete stdout capture for producer protocols through the supervised job runner. */
 import { quoteCommandWord } from "../../shared/command_evidence.ts";
 import { toCommand } from "../../shared/config_schema.ts";
-import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
 import { spawnJob } from "./command.ts";
 import { JobOutputRecorder } from "./output_record.ts";
@@ -43,7 +42,7 @@ export async function readCompleteCapture(
   }
 }
 
-/** Stdout alone supplies extraction input; stderr stays in the job reproduction artifact. */
+/** Exact stdout supplies extraction; the ordinary job diagnostic retains both streams. */
 export async function runCapturedCommands(input: {
   readonly root: string;
   readonly label: string;
@@ -57,11 +56,10 @@ export async function runCapturedCommands(input: {
     readonly result: JobResult;
     readonly stdout: Uint8Array;
     readonly capture_complete: boolean;
-    readonly output_path: string;
+    readonly output_path?: string;
   }
 > {
   const scope = await tempArtifactScopeFor(input.root);
-  const output = await makeTempArtifact("job", scope);
   let redirect = "";
   if (input.stdin !== undefined) {
     const recorder = await JobOutputRecorder.create(scope);
@@ -72,9 +70,9 @@ export async function runCapturedCommands(input: {
     }
     redirect = ` < ${quoteCommandWord(recorded.outputPath)}`;
   }
-  const command = `(\n${toCommand([...input.commands]) || ":"}\n) > ${
-    quoteCommandWord(output)
-  }${redirect}`;
+  const command = `(\n${toCommand([...input.commands]) || ":"}\n)${redirect}`;
+  const stdoutRecorder = await JobOutputRecorder.create(scope);
+  let output: string | undefined;
   const settled = await spawnJob({ label: input.label, command }, {
     cwd: input.root,
     stream: false,
@@ -83,8 +81,14 @@ export async function runCapturedCommands(input: {
     env: input.environment,
     timeout: { seconds: input.timeout, key: input.label },
     keepOutput: true,
+    stdoutRecorder,
+  }).finally(async () => {
+    output = (await stdoutRecorder.finish()).outputPath;
   });
   try {
+    if (output === undefined) {
+      throw new Error("producer stdout capture is unavailable");
+    }
     return {
       result: settled.result,
       stdout: await readCompleteCapture(output),
@@ -101,7 +105,7 @@ export async function runCapturedCommands(input: {
       },
       stdout: new Uint8Array(),
       capture_complete: false,
-      output_path: output,
+      ...(output === undefined ? {} : { output_path: output }),
     };
   }
 }

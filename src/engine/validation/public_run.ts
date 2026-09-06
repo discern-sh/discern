@@ -302,6 +302,28 @@ export async function executePublicValidation(input: {
   } finally {
     hold?.release();
   }
+  // A process may exit clean while its evidence fails checkout or claim verification.
+  for (const obligation of snapshot.obligations) {
+    if (obligation.requirement.kind === "standard") continue;
+    const component = outcome.evidence.find((entry) =>
+      entry.applicability.protected_definitions ===
+        obligation.applicability.protected_definitions
+    );
+    if (component === undefined || !("reason" in component.outcome)) continue;
+    const label = producerLabel(obligation.producer);
+    const prior = results.get(label);
+    if (prior?.status === "failed") continue;
+    results.set(label, {
+      label,
+      durationS: 0,
+      outputLines: 0,
+      errorLikeLines: 0,
+      ...prior,
+      status: "failed",
+      code: 1,
+      failureMessage: component.outcome.reason,
+    });
+  }
   const standards: GateStandard[] = [];
   const verdicts = new Map<string, StandardVerdict>();
   for (const standard of buildStandardPlan(config).standards) {

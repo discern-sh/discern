@@ -1,3 +1,4 @@
+import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
 import { join } from "@std/path";
@@ -210,7 +211,7 @@ function runtime(
         reason: `${
           result.result.failureMessage ??
             `command failed (${result.result.code})`
-        }; stdout: ${result.output_path}; diagnostics: ${
+        }; stdout: ${result.output_path ?? "unavailable"}; diagnostics: ${
           result.result.outputPath ?? "unavailable"
         }`,
       }),
@@ -277,13 +278,18 @@ function runtime(
         JSON.stringify(candidate.record.data) !==
           JSON.stringify(CandidateSchema.parse(execution.candidate))
       ) throw new Error("validation claim was lost or superseded");
-      if (
-        !head.success || head.stdout.trim() !== execution.candidate.head ||
-        !status.success || status.stdout !== ""
-      ) {
+      if (!head.success || !status.success) {
         throw new Error(
-          "candidate checkout changed; preserve mutations and prepare a new immutable candidate with the complete requirement set",
+          "Cannot verify the candidate checkout; preserve it and inspect Git before retrying validation.",
         );
+      }
+      if (head.stdout.trim() !== execution.candidate.head) {
+        throw new Error(
+          "Candidate HEAD changed during validation; preserve the checkout and prepare the intended committed revision before retrying.",
+        );
+      }
+      if (status.stdout !== "") {
+        throw new Error(checkoutChangesMessage(status.stdout));
       }
       await options.verifyConditions();
       const effective = {

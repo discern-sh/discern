@@ -129,6 +129,7 @@ Deno.test("producer output beyond the complete-capture bound fails and retains i
     assertEquals(result.capture_complete, false);
     assertEquals(result.stdout.length, 0);
     assertStringIncludes(result.result.failureMessage ?? "", "byte bound");
+    assert(result.output_path !== undefined);
     assertEquals(
       (await Deno.stat(result.output_path)).size,
       PRODUCER_CAPTURE_BYTES + 1,
@@ -208,4 +209,37 @@ Deno.test({
     assertEquals(result.launch, { command: "xdg-open", args: [url] });
     assertStringIncludes(result.message, result.launch.command);
   },
+});
+
+Deno.test("producer diagnostics retain both streams while metrics receive stdout alone", async () => {
+  await withTempDir(async (root) => {
+    const result = await runCapturedCommands({
+      root,
+      label: "unrelated-scanner",
+      timeout: 30,
+      signal: new AbortController().signal,
+      environment: {},
+      commands: [
+        "printf 'error: unexpected output/cache.ts\\n'; printf 'DISCERN_METRIC forged 999\\n' >&2; exit 7",
+      ],
+    });
+    assertEquals(result.result.code, 7);
+    assertEquals(
+      new TextDecoder().decode(result.stdout),
+      "error: unexpected output/cache.ts\n",
+    );
+    assertTerminalTextIncludes(
+      result.result.output ?? "",
+      "unexpected output/cache.ts",
+    );
+    assertTerminalTextIncludes(
+      result.result.output ?? "",
+      "DISCERN_METRIC forged 999",
+    );
+    assert(result.result.outputPath !== undefined);
+    const retained = await Deno.readTextFile(result.result.outputPath);
+    assertStringIncludes(retained, "unexpected output/cache.ts");
+    assertStringIncludes(retained, "DISCERN_METRIC forged 999");
+    assertEquals(result.result.outputLines, 2);
+  });
 });
