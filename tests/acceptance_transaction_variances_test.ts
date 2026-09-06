@@ -14,7 +14,7 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { addWorktree, gitInit } from "./engine_helpers.ts";
+import { addWorktree, gitInit, gitOut } from "./engine_helpers.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   inspectInterruptedAcceptance,
@@ -243,5 +243,69 @@ Deno.test("journal readers diagnose and preserve every newer transaction version
       assertStringIncludes(refusal.message, "Update discern");
       assertEquals(await Deno.readTextFile(path), bytes);
     }
+  });
+});
+
+Deno.test("journal inspection preserves malformed authority and identity evidence without moving refs", async () => {
+  await withTempDir(async (dir) => {
+    const { wt, path } = await journaledWorktree(dir);
+    const head = await gitOut(wt, "rev-parse", "HEAD");
+    const corruptions: Record<string, unknown>[] = [
+      { consent: null },
+      { consent: { source: "invented-authority" } },
+      { consent: { source: "conversation", scopes: ["scope"] } },
+      { consent: { source: "standing-grant", scopes: "scope" } },
+      { consent: { source: "standing-grant", scopes: [null] } },
+      { variances: null },
+      { variances: [null] },
+      { standard_proposals: null },
+      { worktree_branch: "" },
+      { trunk: "main\nother-ref" },
+      { expected_trunk: "not-an-object-id" },
+      { target: null },
+      { main_repo: "." },
+      { effort_claim: true },
+      { id: "not-a-transaction-id" },
+    ];
+    for (
+      const bytes of [
+        "{",
+        "[]",
+        ...corruptions.map((value) => journal(dir, value)),
+      ]
+    ) {
+      await Deno.writeTextFile(path, bytes);
+      await assertRejects(
+        () => inspectInterruptedAcceptance(wt, "main"),
+        WorktreeGitError,
+        "invalid",
+        bytes,
+      );
+      assertEquals(await Deno.readTextFile(path), bytes);
+    }
+    for (
+      const change of [{ trunk: "another-trunk" }, {
+        main_repo: join(dir, "another-main"),
+      }]
+    ) {
+      const bytes = journal(dir, change);
+      await Deno.writeTextFile(path, bytes);
+      await assertRejects(
+        () => inspectInterruptedAcceptance(wt, "main"),
+        WorktreeGitError,
+        "preserved",
+      );
+      assertEquals(await Deno.readTextFile(path), bytes);
+    }
+    await Deno.remove(path);
+    await Deno.mkdir(path);
+    await assertRejects(
+      () => inspectInterruptedAcceptance(wt, "main"),
+      WorktreeGitError,
+      "invalid",
+    );
+    assert((await Deno.stat(path)).isDirectory);
+    assertEquals(await gitOut(wt, "rev-parse", "HEAD"), head);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), head);
   });
 });

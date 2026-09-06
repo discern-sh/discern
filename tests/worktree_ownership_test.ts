@@ -2,9 +2,12 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import {
   branchWithoutOwnershipReason,
   classifyAutomaticBranchOwnership,
+  deleteAutomaticallyOwnedBranch,
 } from "../src/engine/worktree/ownership.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -179,4 +182,59 @@ Deno.test("automatic branch deletion and worktree removal stay enrolled in their
     ],
     "raw ref deletion belongs only to owned-branch CAS or exact failed-commit rollback",
   );
+});
+
+Deno.test("owned branch deletion preserves the ref when evidence, inspection, or publication fails", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, "seed"), "seed\n");
+    await gitInit(root);
+    const branch = "agent/retained";
+    const head = await gitOut(root, "rev-parse", "HEAD");
+    await git(root, "branch", branch);
+    const options = {
+      repoRoot: root,
+      branch,
+      expectedCommit: head,
+      ownership: {
+        kind: "worktree",
+        id: "retained",
+        branch,
+        settings: SETTINGS,
+        source: "registered",
+      },
+    } as const;
+    for (
+      const { change, refusal } of [
+        { change: { expectedCommit: "" }, refusal: "unavailable" },
+        { change: { branch: "agent/someone-else" }, refusal: "ownership" },
+        {
+          change: { repoRoot: join(root, "absent-directory") },
+          refusal: "unavailable",
+        },
+        { change: { mergedInto: "absent-trunk" }, refusal: "unavailable" },
+      ] as const
+    ) {
+      const result = await deleteAutomaticallyOwnedBranch({
+        ...options,
+        ...change,
+      });
+      assert(result.kind === "refused", JSON.stringify(result));
+      assertEquals(result.refusal, refusal);
+      assertEquals(await gitOut(root, "rev-parse", branch), head);
+    }
+    const lock = join(root, ".git/refs/heads", `${branch}.lock`);
+    await Deno.writeTextFile(lock, "owned test lock\n");
+    const locked = await deleteAutomaticallyOwnedBranch(options);
+    assert(locked.kind === "refused");
+    assertEquals(locked.refusal, "unavailable");
+    assertEquals(await gitOut(root, "rev-parse", branch), head);
+    await Deno.remove(lock);
+    assertEquals(
+      await deleteAutomaticallyOwnedBranch({ ...options, mergedInto: "main" }),
+      { kind: "deleted" },
+    );
+    assertEquals(await deleteAutomaticallyOwnedBranch(options), {
+      kind: "absent",
+    });
+  });
 });

@@ -46,15 +46,6 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
       "Exercise the remaining proposal reconciliation states through public results.",
   },
   {
-    path: "src/engine/jobs/interrupt.ts",
-    measuredPct: 79.7,
-    owner: "job execution",
-    reason:
-      "Signal escalation retains platform-specific timing and cleanup branches.",
-    recovery:
-      "Cover the remaining graceful and forced interruption outcomes behaviorally.",
-  },
-  {
     path: "src/engine/worktree/effort_grant_cleanup.ts",
     measuredPct: 63.3,
     owner: "worktree lifecycle",
@@ -62,15 +53,6 @@ export const MODULE_COVERAGE_EXCEPTIONS = [
       "Grant cleanup spans Git-admin absence and corruption recovery states.",
     recovery:
       "Plant each missing, malformed, retained, and successfully reaped grant state.",
-  },
-  {
-    path: "src/engine/worktree/ownership.ts",
-    measuredPct: 73,
-    owner: "worktree lifecycle",
-    reason:
-      "Ownership inference spans incomplete identity and branch-shape states.",
-    recovery:
-      "Add table-driven cases for every ownership evidence combination.",
   },
   {
     path: "src/lib/docs_search.js",
