@@ -12,6 +12,11 @@ import { addWorktree, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { OPERATION_EFFECTS } from "../src/shared/operation_effects.ts";
+import {
+  withCompletionPublication,
+  withOperationLock,
+} from "../src/engine/operation_lock.ts";
 
 /** Resolve Git's possibly relative admin path against the command checkout. */
 function absoluteFrom(cwd: string, path: string): string {
@@ -134,5 +139,36 @@ Deno.test("the --git-path guard enrolls a fresh caller in any authored tree", as
       await gitPathInvokers(dir, await gitPathGuardFiles(dir), []),
       ["scripts/fresh_probe.ts"],
     );
+  });
+});
+
+Deno.test("common-only operation boundaries never discover checkout administration", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const commands = Object.entries(OPERATION_EFFECTS).filter(([, policy]) =>
+      policy.lock === "common" &&
+      !policy.effects.includes("discern-checkout-mutation")
+    );
+    assert(commands.length > 0);
+    const Command = Deno.Command;
+    let checkoutQueries = 0;
+    Deno.Command = class extends Command {
+      /** Observe actual Git discovery without replacing its behavior. */
+      constructor(command: string | URL, options?: Deno.CommandOptions) {
+        super(command, options);
+        if (options?.args?.includes("--git-path")) checkoutQueries += 1;
+      }
+    };
+    try {
+      for (const [command] of commands) {
+        await withOperationLock(dir, { command }, () => Promise.resolve());
+        assertEquals(checkoutQueries, 0, command);
+      }
+      await withCompletionPublication(dir, () => Promise.resolve());
+      assertEquals(checkoutQueries, 0, "completion publication");
+    } finally {
+      Deno.Command = Command;
+    }
   });
 });
