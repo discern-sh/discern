@@ -125,7 +125,8 @@
     "proseWrap": "never",
     "exclude": [
       ".claude/",
-      ".discern-bundled-docs/",
+      ".discern-bundled-manual/",
+      ".deno_compile_bundle_*.mjs",
       ".idea/",
       "AGENTS.md",
       "CLAUDE.md",
@@ -175,7 +176,8 @@
     },
     "exclude": [
       ".claude/",
-      ".discern-bundled-docs/",
+      ".discern-bundled-manual/",
+      ".deno_compile_bundle_*.mjs",
       "dist/",
       "site/build.ts",
       "site/page-src/",
@@ -186,7 +188,8 @@
   "test": {
     "exclude": [
       ".claude/",
-      ".discern-bundled-docs/",
+      ".discern-bundled-manual/",
+      ".deno_compile_bundle_*.mjs",
       "dist/",
       "templates/",
       "tests/fixtures/"

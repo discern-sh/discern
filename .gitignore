@@ -9,7 +9,9 @@
 
 # Transient public-docs staging dir `deno task build` embeds for `discern docs`
 # (removed after each build; ignored so an interrupted build can't dirty the tree).
-/.discern-bundled-docs/
+/.discern-bundled-manual/
+# `deno compile --bundle` writes its intermediate module beside the entry tree.
+/.deno_compile_bundle_*.mjs
 
 # Coverage and scratch output.
 /coverage/

@@ -6,15 +6,28 @@
  * Guards: boundary:offline-owned-engine, boundary:production-dependency-closure
  */
 
-import { assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
+import { decodeWith } from "./decode_cli_result.ts";
+import { globToRegExp, join } from "@std/path";
 import {
   authoredDistributionFiles,
   compileArguments,
   distributionExclusions,
+  stageBundledManual,
 } from "../scripts/build.ts";
-import { git, gitInit } from "./engine_helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { BUNDLED_MANUAL_STAGE_DIR } from "../src/lib/paths.ts";
+import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
+import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
+import { BUILD_TARGETS } from "../scripts/build_targets.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import {
+  authoredTextFiles,
+  REPO_AUTHORED_PATHS,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
 
 Deno.test("binary inputs include authored files and exclude ignored or host metadata", async () => {
   await withTempDir(async (root) => {
@@ -82,7 +95,7 @@ Deno.test("compile arguments bound distribution roots with exact exclusions", ()
       runner: "fixture",
     },
     "dist/discern-aarch64-apple-darwin",
-    ".discern-bundled-docs",
+    BUNDLED_MANUAL_STAGE_DIR,
     ["templates", "src/lib/tidy_plugins"],
     ["templates/.DS_Store", "templates/local.machine-state"],
   );
@@ -92,7 +105,7 @@ Deno.test("compile arguments bound distribution roots with exact exclusions", ()
   assertEquals(includes, [
     "templates",
     "src/lib/tidy_plugins",
-    ".discern-bundled-docs",
+    BUNDLED_MANUAL_STAGE_DIR,
   ]);
   const excludes = args.flatMap((arg, index) =>
     arg === "--exclude" ? [args[index + 1]] : []
@@ -116,7 +129,7 @@ Deno.test("compile arguments embed only npm packages in the product graph", () =
       runner: "fixture",
     },
     "dist/discern-x86_64-unknown-linux-gnu",
-    ".discern-bundled-docs",
+    BUNDLED_MANUAL_STAGE_DIR,
     ["templates", "src/lib/tidy_plugins"],
     [],
   );
@@ -136,4 +149,98 @@ Deno.test("compile arguments embed only npm packages in the product graph", () =
     true,
     "an npm dependency used only by an unrelated development tool must stay outside the binary",
   );
+});
+
+Deno.test("live binary scratch stays outside source scans and inside the environment declaration", async () => {
+  await withTempDir(async (root) => {
+    await Deno.copyFile(
+      join(REPO_ROOT, ".gitignore"),
+      join(root, ".gitignore"),
+    );
+    await gitInit(root);
+    const staged = await stageBundledManual(
+      REPO_AUTHORED_PATHS.manual,
+      join(root, BUNDLED_MANUAL_STAGE_DIR, "docs"),
+    );
+    const compilerScratch = `.deno_compile_bundle_${crypto.randomUUID()}.mjs`;
+    const outputs = [
+      ...staged.map((path) => `${BUNDLED_MANUAL_STAGE_DIR}/docs/${path}`),
+      compilerScratch,
+      ...BUILD_TARGETS.map((target) => `dist/${target.output}`),
+    ];
+    for (
+      const path of [
+        compilerScratch,
+        ...outputs.filter((path) => path.startsWith("dist/")),
+      ]
+    ) {
+      await Deno.mkdir(join(root, path, ".."), { recursive: true });
+      await Deno.writeTextFile(join(root, path), "temporary build output\n");
+    }
+    // The scan completes while every output still exists; cleanup cannot mask overlap.
+    assertEquals(await authoredTextFiles(root), [".gitignore"]);
+    assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
+    const config = await loadConfig(REPO_ROOT);
+    const exclusions = z.object({ exclude: z.array(z.string()) });
+    const deno = decodeWith(
+      z.object({ fmt: exclusions, lint: exclusions, test: exclusions }),
+      await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
+    );
+    for (const section of [deno.fmt, deno.lint, deno.test]) {
+      const excludes = section.exclude.map((pattern) =>
+        globToRegExp(pattern.endsWith("/") ? `${pattern}**` : pattern)
+      );
+      assertEquals(
+        outputs.filter((path) =>
+          !excludes.some((pattern) => pattern.test(path))
+        ),
+        [],
+      );
+    }
+    assert(
+      EDITOR_PATH_POLICIES.some((entry) =>
+        entry.path === BUNDLED_MANUAL_STAGE_DIR
+      ),
+    );
+    assert(
+      (await Deno.readTextFile(join(REPO_ROOT, ".idea/discern.iml"))).includes(
+        BUNDLED_MANUAL_STAGE_DIR,
+      ),
+    );
+    const implicit = await observeValidationInputs(root);
+    assertEquals(Object.keys(implicit.files), [".gitignore"]);
+    const declared = await observeValidationInputs(root, [compilerScratch]);
+    assert(declared.files[compilerScratch] !== undefined && declared.complete);
+    await Deno.writeTextFile(
+      join(root, compilerScratch),
+      "changed toolchain identity\n",
+    );
+    assert(
+      (await observeValidationInputs(root, [compilerScratch]))
+        .files[compilerScratch]?.digest !==
+        declared.files[compilerScratch]?.digest,
+    );
+    const ignored = config.execution.local?.ignored.map((pattern) =>
+      globToRegExp(pattern)
+    );
+    assert(ignored !== undefined);
+    assertEquals(
+      outputs.filter((path) => !ignored.some((pattern) => pattern.test(path))),
+      [],
+    );
+    for (const path of outputs) {
+      assert((await Deno.stat(join(root, path))).isFile);
+    }
+
+    await Deno.mkdir(join(root, "unrelated_workspace"));
+    await Deno.writeTextFile(
+      join(root, "unrelated_workspace/future.ts"),
+      "authored\n",
+    );
+    await git(root, "add", "-f", compilerScratch);
+    assertEquals(
+      await authoredTextFiles(root),
+      [".gitignore", compilerScratch, "unrelated_workspace/future.ts"].sort(),
+    );
+  });
 });

@@ -1,4 +1,5 @@
 /** Repository files whose membership carries publication or editor policy. */
+import { BUNDLED_MANUAL_STAGE_DIR } from "../src/lib/paths.ts";
 
 export interface EditorPathPolicy {
   readonly path: string;
@@ -19,9 +20,9 @@ export const EDITOR_PATH_POLICIES: readonly EditorPathPolicy[] = [
     reason: "discern refresh materializes the Claude Code skill projection",
   },
   {
-    path: ".discern-bundled-docs",
+    path: BUNDLED_MANUAL_STAGE_DIR,
     kind: "generated-output",
-    reason: "the bundled manual extractor owns this local cache",
+    reason: "the binary build owns this transient manual include tree",
   },
   {
     path: ".scratch",
@@ -142,6 +143,11 @@ export const REPOSITORY_COMMUNITY_FILE_POLICIES:
       path: ".github/actions/macos-gate/action.yml",
       state: "tracked",
       reason: "repository-owned hosted gate action",
+    },
+    {
+      path: ".github/actions/policy-base/action.yml",
+      state: "tracked",
+      reason: "the hosted gate resolves the event's immutable policy base",
     },
     {
       path: ".github/actions/wsl-gate/action.yml",

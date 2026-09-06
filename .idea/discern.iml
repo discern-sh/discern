@@ -4,7 +4,7 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.agents/skills" />
       <excludeFolder url="file://$MODULE_DIR$/.claude/skills" />
-      <excludeFolder url="file://$MODULE_DIR$/.discern-bundled-docs" />
+      <excludeFolder url="file://$MODULE_DIR$/.discern-bundled-manual" />
       <excludeFolder url="file://$MODULE_DIR$/.scratch" />
       <excludeFolder url="file://$MODULE_DIR$/.vale/Microsoft" />
       <excludeFolder url="file://$MODULE_DIR$/.vale/proselint" />
