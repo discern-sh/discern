@@ -6,6 +6,7 @@ import {
 } from "./test_preflight.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { fromFileUrl } from "@std/path";
+import type { EnvReader } from "../src/shared/env.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -78,6 +79,16 @@ export function testCommandArgs(
   ];
 }
 
+/** Bound macOS fork contention while preserving an explicit caller allocation. */
+export function testWorkerEnvironment(
+  os: typeof Deno.build.os,
+  env: EnvReader = Deno.env,
+): Record<string, string> {
+  const requested = env.get("DENO_JOBS");
+  if (requested !== undefined) return { DENO_JOBS: requested };
+  return os === "darwin" ? { DENO_JOBS: "3" } : {};
+}
+
 if (import.meta.main) {
   const preflight = preflightTestRuntime();
   if (!preflight.ok) {
@@ -91,6 +102,7 @@ if (import.meta.main) {
   );
   const child = await runOwnedChild(Deno.execPath(), {
     args: testCommandArgs(identitySeed, Deno.args),
+    env: testWorkerEnvironment(Deno.build.os),
   });
   Deno.exit(child.status.code);
 }

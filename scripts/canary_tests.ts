@@ -13,6 +13,7 @@ import {
   testCommandArgs,
   testIdentitySeed,
   testSeedAnnouncement,
+  testWorkerEnvironment,
 } from "./run_tests.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 
@@ -46,6 +47,7 @@ if (import.meta.main) {
   );
   const child = await runOwnedChild(Deno.execPath(), {
     args: canaryCommandArgs(identitySeed, files, Deno.args),
+    env: testWorkerEnvironment(Deno.build.os),
   });
   Deno.exit(child.status.code);
 }

@@ -13,6 +13,7 @@ import {
   explicitShuffleSeed,
   testCommandArgs,
   testSeedAnnouncement,
+  testWorkerEnvironment,
 } from "../scripts/run_tests.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
@@ -53,7 +54,7 @@ function assertHostedSuiteFitsBudget(
   );
 }
 
-Deno.test("the repository admits parallel suites without partitioning Deno workers", async () => {
+Deno.test("the repository admits parallel suites with a separate internal worker policy", async () => {
   const parsed = parseToml(
     await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
   );
@@ -79,14 +80,28 @@ Deno.test("the repository admits parallel suites without partitioning Deno worke
   const source = await Deno.readTextFile(
     join(REPO_ROOT, "scripts/run_tests.ts"),
   );
-  assert(
-    !source.includes("DENO_JOBS"),
-    "the whole-suite admission cap must not rewrite Deno's internal worker count",
+  assertStringIncludes(
+    source,
+    "env: testWorkerEnvironment(Deno.build.os)",
   );
-  assert(
-    !source.includes("hardwareConcurrency"),
-    "the repository runner must not derive a static worker allocation",
+  const canarySource = await Deno.readTextFile(
+    join(REPO_ROOT, "scripts/canary_tests.ts"),
   );
+  assertStringIncludes(
+    canarySource,
+    "env: testWorkerEnvironment(Deno.build.os)",
+  );
+  for (const os of ["darwin", "linux", "windows"] as const) {
+    assertEquals(
+      testWorkerEnvironment(os, { get: () => undefined }),
+      os === "darwin" ? { DENO_JOBS: "3" } : {},
+    );
+    for (const supplied of ["1", "6", "18", "", "invalid"]) {
+      assertEquals(testWorkerEnvironment(os, { get: () => supplied }), {
+        DENO_JOBS: supplied,
+      }, "explicit input remains Deno's decision");
+    }
+  }
 
   const forwarded = ["--filter", "probe"];
   const identitySeed = 314159;
