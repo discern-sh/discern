@@ -23,11 +23,11 @@ Fresh projects default to `1`, so their test stages cannot race one another acro
 
 ## What the cap counts
 
-A slot covers a test-stage group: `done`, `test`, a `standards` measurement, or acceptance's landing-checkout smoke. Runner workers remain unchanged. Fix and check stages never wait, so a broken check fails before admission ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
+A validation run acquires one slot when its first demanded test or measurement producer is ready to execute. Independent checks can run while that demand waits; a failing check cancels queued work when fail-fast is enabled. Dependencies come from the producer graph, so the capacity cap cannot make an unrelated check block extraction. A check that explicitly observes the accounting marker also needs admission. `prepare` requests no measurement. The shared gate and queue adapters retain the host-cap policy ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
 
 ## Wrap direct test invocations
 
-Gate verbs acquire automatically. Wrap the project's canonical test command so direct full and targeted runs also count:
+Gate verbs acquire automatically. Environment capacity is a separate constraint: a standalone measurement waits for a live execution to return, while expired claims or incomplete recovery produce a pending diagnostic. Wrap the project's canonical test command so direct full and targeted runs also count:
 
 ```sh
 discern queue -- <command> [args...]
@@ -69,7 +69,7 @@ Waited 1m 10s for a test-run slot.
 
 ## Slot release after process exit
 
-Slots are OS advisory locks under the shared git directory. Process death releases them without a daemon or cleanup ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
+Slots are OS advisory locks under the shared git directory. Public validation retains process-signal ownership through child shutdown, source restoration and claim settlement. Process death releases the advisory slot without a daemon or cleanup ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
 
 ## Where it lives in code
 
@@ -77,7 +77,7 @@ Slots are OS advisory locks under the shared git directory. Process death releas
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Slot primitive and wait policy     | [`test_run_slots.ts`](../../../src/engine/test_run_slots.ts)                                                                           |
 | Gate and wrapper presentation      | [`test_slots.ts`](../../../src/engine/gate/test_slots.ts), [`queue.ts`](../../../src/engine/queue.ts)                                  |
-| Plan split and the enrollment seam | [`plan.ts`](../../../src/engine/gate/plan.ts), [`execute.ts`](../../../src/engine/gate/execute.ts)                                     |
+| Plan split and the enrollment seam | [`public_run.ts`](../../../src/engine/validation/public_run.ts), [`execute.ts`](../../../src/engine/gate/execute.ts)                   |
 | The config key                     | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                             |
 | Behavioral coverage                | [`engine_gate_slots_test.ts`](../../../tests/engine_gate_slots_test.ts), [`engine_queue_test.ts`](../../../tests/engine_queue_test.ts) |
 
