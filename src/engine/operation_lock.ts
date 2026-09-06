@@ -189,11 +189,15 @@ async function operationBoundaryWrites(
   policy: OperationEffectPolicy,
   projectRoot: string | undefined,
 ): Promise<PlannedWriteTarget[]> {
+  const writesCheckout = policy.effects.includes("discern-checkout-mutation");
   const [commonAnchor, checkoutAnchor] = await Promise.all([
     gitAdminStatePath(cwd, "resources"),
-    gitAdminStatePath(cwd, "gateProof"),
+    writesCheckout ? gitAdminStatePath(cwd, "gateProof") : undefined,
   ]);
-  if (commonAnchor === undefined || checkoutAnchor === undefined) {
+  if (
+    commonAnchor === undefined ||
+    (writesCheckout && checkoutAnchor === undefined)
+  ) {
     return [];
   }
   const targets: PlannedWriteTarget[] = [
@@ -203,9 +207,7 @@ async function operationBoundaryWrites(
       description: "this discern operation's common Git administration",
     },
   ];
-  if (
-    policy.effects.includes("discern-checkout-mutation")
-  ) {
+  if (checkoutAnchor !== undefined) {
     targets.push({
       kind: "directory-entry",
       path: dirname(dirname(checkoutAnchor)),

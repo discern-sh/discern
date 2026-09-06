@@ -491,3 +491,33 @@ Deno.test("mixed observation forms and previews do not take writer locks", async
     await first;
   });
 });
+
+Deno.test("common-only operation boundaries never discover checkout administration", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const commands = Object.entries(OPERATION_EFFECTS).filter(([, policy]) =>
+      policy.lock === "common" &&
+      !policy.effects.includes("discern-checkout-mutation")
+    );
+    assert(commands.length > 0);
+    const Command = Deno.Command;
+    let checkoutQueries = 0;
+    Deno.Command = class extends Command {
+      /** Observe actual Git discovery without replacing its behavior. */
+      constructor(command: string | URL, options?: Deno.CommandOptions) {
+        super(command, options);
+        if (options?.args?.includes("--git-path")) checkoutQueries += 1;
+      }
+    };
+    try {
+      for (const [command] of commands) {
+        await withOperationLock(dir, { command }, () => Promise.resolve());
+        assertEquals(checkoutQueries, 0, command);
+      }
+      await withCompletionPublication(dir, () => Promise.resolve());
+      assertEquals(checkoutQueries, 0, "completion publication");
+    } finally {
+      Deno.Command = Command;
+    }
+  });
+});

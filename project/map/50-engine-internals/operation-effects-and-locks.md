@@ -47,7 +47,7 @@ Command classification does not decide the sequencing of promise-returning calls
 
 ## Git writers prove authority at the shared boundary
 
-Every applied Git writer crosses one real-operation preflight while its lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) asks Git for the common administration directory and exercises create, write, rename, and remove there. A checkout mutator also probes its Git administration and project root. Denial returns `write_access`, naming the path and retry before the command body runs.
+Every applied Git writer crosses one real-operation preflight while its lock is held. [`withOperationLock`](../../../src/engine/operation_lock.ts) asks Git for the common administration directory and exercises create, write, rename, and remove there. A checkout mutator also resolves and probes its Git administration and project root. Common-only writers do not resolve an unused checkout path. Denial returns `write_access`, naming the path and retry before the command body runs.
 
 `gitWriteAuthority` distinguishes the broad boundary alone from a boundary supplemented by an exact effect plan. Gate, Standards, setup, and worktree creation add precise targets; central enrollment stays mandatory.
 
