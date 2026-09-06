@@ -176,7 +176,7 @@ export async function measureDeclaredStandards(
       declaration: null,
       workspace,
       lifetime,
-      leaseMs: completionLease(config),
+      leaseMs: await completionLease(config),
       reserveAttempt: (plan, actor) => reserveQueueAttempt(root, plan, actor),
       validationOutcome: (value) =>
         typeof value === "object" && value !== null && "outcome" in value &&

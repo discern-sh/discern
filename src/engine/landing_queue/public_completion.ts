@@ -4,6 +4,7 @@ import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { retainExecutionCandidate } from "../execution/validation_binding.ts";
 /** One active completion invocation selects, composes, validates and admits its immutable candidate. */
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -98,23 +99,32 @@ export interface CompletedCandidate<T> {
   readonly blockers: readonly CompletionBlocker[];
 }
 
-/** Lease time bounds the whole producer graph; each producer retains its own watchdog. */
-export function completionLease(config: DiscernConfig): number {
-  const commands = Object.values(config.jobs).map((job) =>
-    typeof job === "object" && !Array.isArray(job)
-      ? job.timeout ?? config.gate.timeout
-      : config.gate.timeout
+/** The lease covers the canonical graph, composition, and both environment procedures. */
+export async function completionLease(config: DiscernConfig): Promise<number> {
+  const graph = await configuredValidation(config, Object.keys(config.scopes));
+  const seconds = (timeout: number | undefined): number => {
+    const value = timeout ?? config.gate.timeout;
+    return value > 0 ? value : 86_400;
+  };
+  const producers = Object.values(graph.producers).reduce(
+    (total, producer) => total + seconds(producer.timeout),
+    0,
   );
-  const standards = Object.values(config.standards).map((standard) =>
-    standard.timeout ?? config.gate.timeout
+  // Generators can run once during composition and again during validation.
+  const generators = resolveGeneratedGroups(config).reduce(
+    (total, group) => total + seconds(group.timeout),
+    0,
   );
-  return Math.max(
-    60_000,
-    [...commands, ...standards].reduce(
-      (total, timeout) => total + (timeout > 0 ? timeout : 86_400) * 1000,
-      60_000,
-    ),
+  const extraction = graph.obligations.reduce(
+    (total, obligation) =>
+      total +
+      (obligation.input.extract === undefined ? 0 : seconds(
+        graph.timeouts.get(`standards.${obligation.requirement.id}`)?.seconds,
+      )),
+    0,
   );
+  const procedures = 2 * Math.max(1, config.gate.timeout);
+  return 60_000 + (producers + generators + extraction + procedures) * 1000;
 }
 
 /** Compiled obligations are computed on the candidate after generated convergence. */
@@ -317,6 +327,7 @@ export async function withPublicCompletion<T>(
     const rerunOf = options.rerun
       ? finishedValidationAttempts(records)[0]?.id ?? null
       : null;
+    const leaseMs = await completionLease(config);
     queue = await requireQueue(root);
     const claim = await claimQueueWork({
       root,
@@ -327,7 +338,7 @@ export async function withPublicCompletion<T>(
       environment_id: environmentId,
       executor: actor,
       policy: config.completion,
-      lease_ms: completionLease(config),
+      lease_ms: leaseMs,
       rerun_of: rerunOf,
       mode: options.mode,
     });
@@ -340,7 +351,7 @@ export async function withPublicCompletion<T>(
       declaration,
       workspace,
       lifetime,
-      leaseMs: completionLease(config),
+      leaseMs,
       signal,
       reserveAttempt: (plan, executor) =>
         reserveQueueAttempt(root, plan, executor, rerunOf),
@@ -421,7 +432,7 @@ export async function withPublicCompletion<T>(
           await withQueueLock(root, async () => {
             if (!await checkQueueClaim(root, claim, candidate)) {
               throw new Error(
-                "Queue work was superseded before component publication.",
+                "Queue work expired or was superseded before component publication.",
               );
             }
             const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
