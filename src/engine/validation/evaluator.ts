@@ -15,7 +15,7 @@ export function createProducerEvaluator(options: {
   readonly snapshot: ValidationSnapshot;
   readonly root: string;
   readonly observe: () => Promise<CompletionObservation>;
-  readonly runtime: ValidationRuntime;
+  readonly runtime?: ValidationRuntime;
   readonly rerun_of?: string;
   readonly clock?: Clock;
 }): ProducerEvaluator {
@@ -49,6 +49,11 @@ export function createProducerEvaluator(options: {
       );
     },
     execute: (plan, execution) => {
+      if (options.runtime === undefined) {
+        throw new Error(
+          "Read-only candidate assessment cannot execute producers. Claim an eligible released environment before validation.",
+        );
+      }
       if (execution.attempt.identity.rerun_of !== (options.rerun_of ?? null)) {
         throw new Error("execution does not bind the explicit rerun decision");
       }

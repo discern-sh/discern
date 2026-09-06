@@ -1,5 +1,11 @@
+import {
+  emitCompletionEvent,
+  emitCompletionProgress,
+  executionEvent,
+} from "../completion/events.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Environment scheduling owns no queue order, evidence verdict, or authority. */
-import type { EnvironmentDeclaration } from "../completion/configuration.ts";
+import type { EnvironmentDeclaration } from "../../shared/config_schema.ts";
 import { applicabilitySubject } from "../completion/evidence.ts";
 import {
   type CompletionAttempt,
@@ -29,7 +35,9 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
-import { withOperationLock } from "../operation_lock.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
+import { validationPurpose } from "../completion/protocol.ts";
+import { restoreValidationBinding } from "./validation_binding.ts";
 import { saveEnvironmentArtifact } from "./artifacts.ts";
 import {
   type ExecutionIntent,
@@ -68,6 +76,8 @@ export interface EnvironmentExecutorOptions {
   readonly validationOutcome: (
     value: unknown,
   ) => "passed" | "failed" | "cancelled";
+  /** Preserve an existing release only after the frozen return contract and quiescence pass. */
+  readonly preserveReleaseOnReturn?: boolean;
   readonly leaseMs: number;
   readonly signal?: AbortSignal;
   readonly clock?: Clock;
@@ -226,11 +236,14 @@ class ExecutorImplementation implements EnvironmentExecutor {
         identity,
         environment_id: plan.environment_id,
         subjects,
-        purpose: plan.validation.demand.kind === "diagnostic"
-          ? "diagnostic"
-          : "completion",
+        purpose: validationPurpose(plan.validation.demand),
         mode: plan.validation.demand.mode,
-        state: { kind: "claimed", claim },
+        state: {
+          kind: plan.validation.demand.kind === "compose"
+            ? "composing"
+            : "claimed",
+          claim,
+        },
       };
       const intent = ExecutionIntentSchema.parse({
         format: "execution-intent-v1",
@@ -253,7 +266,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
         "intent",
         intent,
       );
-      return await withOperationLock(root, { command: "accept" }, async () => {
+      return await withCompletionPublication(root, async () => {
         const current = await requireEnvironment(root, plan.environment_id);
         if (
           current.stamp !== plan.expected_stamp ||
@@ -286,7 +299,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
         const written = await writeCompletionRecord(
           root,
           {
-            version: 1,
+            version: ON_DISK_FORMATS.completionRecord.version,
             kind: "attempt",
             id: identity.id,
             revision: 1,
@@ -370,6 +383,12 @@ class ExecutorImplementation implements EnvironmentExecutor {
       ...current.record.data,
       state: { ...current.record.data.state, phase },
     }, this.clock);
+    emitCompletionProgress({
+      phase: "environment",
+      state: phase,
+      candidate_id: execution.candidate_id,
+      reason: `Environment ${execution.environment_id}: ${phase}.`,
+    });
     await this.options.afterPhase?.(phase, execution);
   }
 
@@ -388,7 +407,8 @@ class ExecutorImplementation implements EnvironmentExecutor {
     }
     if (current.record.data.state.kind === "finished") return;
     if (
-      current.record.data.state.kind === "claimed" &&
+      (current.record.data.state.kind === "claimed" ||
+        current.record.data.state.kind === "composing") &&
       current.record.data.state.claim.token !== execution.fence.token
     ) {
       throw new Error(
@@ -548,7 +568,8 @@ class ExecutorImplementation implements EnvironmentExecutor {
       const current = await this.current(execution, true);
       const environment = {
         ...current.record.data,
-        release: execution.environment.ownership.kind === "borrowed"
+        release: execution.environment.ownership.kind === "borrowed" &&
+            !this.options.preserveReleaseOnReturn
           ? { kind: "held" as const }
           : current.record.data.release,
         state: disposable
@@ -556,8 +577,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
           : { kind: "idle" as const },
       };
       if (
-        !disposable && environment.ownership.kind === "isolated" &&
-        environment.release.kind === "released"
+        !disposable && environment.release.kind === "released"
       ) {
         environment.release = {
           ...environment.release,
@@ -638,7 +658,8 @@ class ExecutorImplementation implements EnvironmentExecutor {
       JSON.stringify(execution.environment.ownership) !==
         JSON.stringify(intent.environment.ownership) ||
       execution.environment.path !== intent.environment.path ||
-      intent.attempt.state.kind !== "claimed" ||
+      (intent.attempt.state.kind !== "claimed" &&
+        intent.attempt.state.kind !== "composing") ||
       execution.fence.token !== intent.attempt.state.claim.token
     ) {
       return {
@@ -656,7 +677,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
     }
     const controller = new AbortController();
     const signal = AbortSignal.any([execution.signal, controller.signal]);
-    const active = { ...execution, signal };
+    let active = { ...execution, signal };
     const state = execution.environment.state;
     const timer = this.scheduler.scheduleTimeout(
       () => controller.abort(),
@@ -731,6 +752,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
               ),
             });
           }
+          active = await restoreValidationBinding(this.options.root, active);
           const returned = await this.returnEnvironment(active, intent);
           if (returned.kind !== "recovery-incomplete") {
             await this.settleAttempt(active, {
@@ -742,20 +764,34 @@ class ExecutorImplementation implements EnvironmentExecutor {
           return returned;
         },
       );
+      emitCompletionEvent(
+        executionEvent(
+          active,
+          `${active.attempt.identity.id}:return`,
+          this.clock.wallNow(),
+          { kind: "restoration", outcome: returned.kind },
+        ),
+      );
       return { validation, returned };
     } catch (error) {
-      return {
-        validation,
-        returned: await this.unfinished(
-          active,
-          recoveryFor(
-            "validate",
-            errorReason(error),
-            active.environment.path,
-            cleanupCommands(intent),
-          ),
+      const returned = await this.unfinished(
+        active,
+        recoveryFor(
+          "validate",
+          errorReason(error),
+          active.environment.path,
+          cleanupCommands(intent),
         ),
-      };
+      );
+      emitCompletionEvent(
+        executionEvent(
+          active,
+          `${active.attempt.identity.id}:return`,
+          this.clock.wallNow(),
+          { kind: "restoration", outcome: returned.kind },
+        ),
+      );
+      return { validation, returned };
     } finally {
       this.scheduler.cancelTimeout(timer);
     }
@@ -872,7 +908,8 @@ class ExecutorImplementation implements EnvironmentExecutor {
         ...execution,
         fence: {
           attempt_id: state.attempt_id,
-          token: intent.attempt.state.kind === "claimed"
+          token: (intent.attempt.state.kind === "claimed" ||
+              intent.attempt.state.kind === "composing")
             ? intent.attempt.state.claim.token
             : "",
         },
@@ -889,7 +926,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
         environment.path,
         execution.fence,
         async () => {
-          const returned = await this.returnEnvironment(execution, intent);
+          const bound = await restoreValidationBinding(
+            this.options.root,
+            execution,
+          );
+          const returned = await this.returnEnvironment(bound, intent);
           if (returned.kind !== "recovery-incomplete") {
             await this.settleAttempt(execution, {
               kind: "finished",
@@ -897,6 +938,14 @@ class ExecutorImplementation implements EnvironmentExecutor {
               finished_at: this.clock.wallNow(),
             });
           }
+          emitCompletionEvent(
+            executionEvent(
+              execution,
+              `${execution.attempt.identity.id}:return`,
+              this.clock.wallNow(),
+              { kind: "restoration", outcome: returned.kind },
+            ),
+          );
           return returned;
         },
       );

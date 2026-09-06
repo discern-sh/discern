@@ -1,9 +1,10 @@
+import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
 import { join } from "@std/path";
 import type {
-  ClaimedExecution,
   CompletionObservation,
   ProducerDemand,
+  ValidationSubject,
 } from "../completion/protocol.ts";
 import {
   COMPLETION_FAMILIES,
@@ -18,9 +19,9 @@ import { AttemptSchema, EnvironmentSchema } from "../completion/environment.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
-import { sha256Hex } from "../../shared/sha256.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
-import { resolveContainedProjectWritePath } from "../../shared/project_path.ts";
+import { lstatIfExists } from "../../shared/fs_presence.ts";
+import { containedFile } from "../execution/snapshot.ts";
 import { readCompleteCapture, runCapturedCommands } from "../jobs/captured.ts";
 import {
   commands,
@@ -30,11 +31,12 @@ import {
 } from "./catalog.ts";
 import {
   artifactStamp,
-  bytesDigest,
   captureProducedArtifact,
+  protocolOutputPath,
   readArtifact,
   retainArtifact,
 } from "./artifacts.ts";
+import type { JobResult } from "../jobs/types.ts";
 import type { ProducerCapture, ValidationRuntime } from "./execute.ts";
 
 /** Read-only inventory preserves unavailable/newer readings for fail-closed planning. */
@@ -79,12 +81,18 @@ export async function observeCompletionRecords(
   };
 }
 
-/** Read the committed checkout's complete file universe plus explicit identity files. */
+/** Observe present checkout bytes, including literal names and link text, plus identity files. */
 export async function observeValidationInputs(
   root: string,
   toolchain: readonly string[] = [],
 ): Promise<ValidationInputs> {
-  const listed = await runGit(["ls-files", "-z"], { cwd: root });
+  const listed = await runGit([
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "-z",
+  ], { cwd: root });
   if (!listed.success) {
     throw new Error("cannot enumerate declared validation inputs");
   }
@@ -94,28 +102,34 @@ export async function observeValidationInputs(
       ...new Set([...listed.stdout.split("\0").filter(Boolean), ...toolchain]),
     ].sort()
   ) {
-    const safe = await resolveContainedProjectWritePath(
-      root,
-      path,
-      "validation input",
+    const safe = await containedFile(root, path);
+    const stat = await lstatIfExists(safe);
+    if (stat === undefined) continue;
+    if (!stat.isFile && !stat.isSymlink) {
+      throw new Error(
+        `Validation input is not a regular file or link: ${path}`,
+      );
+    }
+    const bytes = stat.isSymlink
+      ? new TextEncoder().encode(await Deno.readLink(safe))
+      : await readCompleteCapture(safe);
+    files[path] = await validationInputFile(
+      bytes,
+      stat.isSymlink
+        ? "120000"
+        : ((stat.mode ?? 0) & 0o111) === 0
+        ? "100644"
+        : "100755",
     );
-    const stat = await Deno.stat(safe);
-    const bytes = await readCompleteCapture(safe);
-    const text = new TextDecoder().decode(bytes);
-    files[path] = {
-      digest: await sha256Hex(
-        JSON.stringify([stat.mode, await bytesDigest(bytes)]),
-      ),
-      bytes: bytes.length,
-      lines: text.split("\n").length - 1,
-      words: text.split(/\s+/u).filter(Boolean).length,
-    };
   }
-  return { files, complete: true };
+  return {
+    files,
+    complete: toolchain.every((path) => Object.hasOwn(files, path)),
+  };
 }
 
 /** A validation adapter never installs, restores or changes an environment checkout. */
-export function createValidationRuntime(options: {
+export interface ValidationRuntimeOptions {
   readonly root: string;
   readonly conditions: ValidationConditions;
   readonly environment: Readonly<Record<string, string>>;
@@ -124,11 +138,32 @@ export function createValidationRuntime(options: {
   /** Re-observe applicable toolchain, environment, resource and input identity at effects. */
   readonly verifyConditions: () => Promise<void>;
   readonly clock?: Clock;
-}): ValidationRuntime {
+  readonly onResult?: (label: string, result: JobResult) => void;
+}
+
+/** A durable runtime verifies the live candidate, environment and attempt at every effect. */
+export function createValidationRuntime(
+  options: ValidationRuntimeOptions,
+): ValidationRuntime {
+  return runtime(options);
+}
+
+/** Standalone feedback shares capture and extraction but cannot publish completion evidence. */
+export function createDiagnosticValidationRuntime(
+  options: ValidationRuntimeOptions,
+): ValidationRuntime {
+  return runtime(options, true);
+}
+
+/** Captured producer and extraction effects share the same explicit execution-subject boundary. */
+function runtime(
+  options: ValidationRuntimeOptions,
+  diagnostic = false,
+): ValidationRuntime {
   const clock = options.clock ?? SYSTEM_CLOCK;
   const context = options.conditions.context;
   const subject = (
-    execution: ClaimedExecution,
+    execution: ValidationSubject,
   ): { attempt_id: string; candidate_id: string; context: string } => ({
     attempt_id: execution.attempt.identity.id,
     candidate_id: execution.candidate_id,
@@ -138,7 +173,7 @@ export function createValidationRuntime(options: {
     label: string,
     runCommands: readonly string[],
     timeout: number,
-    execution: ClaimedExecution,
+    execution: ValidationSubject,
     stdin?: Uint8Array,
   ): Promise<ProducerCapture> => {
     const result = await runCapturedCommands({
@@ -150,12 +185,13 @@ export function createValidationRuntime(options: {
       environment: options.environment,
       ...(stdin === undefined ? {} : { stdin }),
     });
+    options.onResult?.(label, result.result);
     const artifacts = result.capture_complete
       ? [
         await retainArtifact(
           options.root,
           subject(execution),
-          `output/${await sha256Hex(label)}/stdout.log`,
+          await protocolOutputPath(label),
           result.stdout,
         ),
       ]
@@ -167,6 +203,7 @@ export function createValidationRuntime(options: {
         ? "passed"
         : "failed",
       complete: result.capture_complete,
+      result: result.result,
       output: result.stdout,
       artifacts,
       ...(result.result.status === "ok" ? {} : {
@@ -180,12 +217,30 @@ export function createValidationRuntime(options: {
     };
   };
   return {
-    verify: async (execution): Promise<void> => {
-      if (execution.signal.aborted) throw new Error("validation cancelled");
+    verify: async (execution, verification): Promise<void> => {
+      if (execution.signal.aborted && !verification?.allowCancelled) {
+        throw new Error("validation cancelled");
+      }
       if (
         await Deno.realPath(options.root) !==
           await Deno.realPath(execution.environment.path)
       ) throw new Error("validation environment path differs from its claim");
+      if (diagnostic) {
+        if (
+          !("diagnostic" in execution) ||
+          execution.attempt.purpose !== "diagnostic"
+        ) {
+          throw new Error(
+            "Standalone execution cannot supply completion evidence.",
+          );
+        }
+        return;
+      }
+      if (!("fence" in execution)) {
+        throw new Error(
+          "Completion validation requires a durable execution claim.",
+        );
+      }
       const [attempt, environment, candidate, head, status] = await Promise.all(
         [
           readCompletionRecord(options.root, {

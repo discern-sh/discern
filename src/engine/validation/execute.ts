@@ -6,10 +6,13 @@ import {
 } from "../completion/evidence.ts";
 import type {
   ClaimedExecution,
+  DiagnosticExecution,
   ProducerDemand,
   ValidationExecution,
   ValidationPlan,
+  ValidationSubject,
 } from "../completion/protocol.ts";
+import { validationPurpose } from "../completion/protocol.ts";
 import {
   commands,
   requirementKey,
@@ -17,6 +20,7 @@ import {
   type ValidationSnapshot,
 } from "./catalog.ts";
 import { readMetrics, standardHeld, standardReading } from "./metrics.ts";
+import type { JobResult } from "../jobs/types.ts";
 
 export interface ProducerCapture {
   readonly outcome: "passed" | "failed" | "cancelled";
@@ -24,19 +28,35 @@ export interface ProducerCapture {
   readonly output: Uint8Array;
   readonly artifacts: readonly ComponentEvidence["artifacts"][number][];
   readonly reason?: string;
+  /** Transient process diagnostics, never serialized as component evidence. */
+  readonly result?: JobResult;
+}
+
+/** Gate observers can hold a logical dependency boundary until its checks settle. */
+export interface ProducerBoundary {
+  before(producer: ProducerDemand, plan: ValidationPlan): Promise<void>;
+  after(producer: ProducerDemand, capture: ProducerCapture): Promise<void>;
 }
 
 /** Host effects are supplied separately from the pure demand/evidence decisions. */
 export interface ValidationRuntime {
-  verify(execution: ClaimedExecution): Promise<void>;
+  verify(
+    execution: ValidationSubject,
+    options?: { readonly allowCancelled?: boolean },
+  ): Promise<void>;
+  /** Observe each logical producer after physical coalescing, without executing it again. */
+  onCapture?(
+    producer: ProducerDemand,
+    capture: ProducerCapture,
+  ): void | Promise<void>;
   produce(
     producer: ProducerDemand,
-    execution: ClaimedExecution,
+    execution: ValidationSubject,
   ): Promise<ProducerCapture>;
   extract(
     obligation: ResolvedObligation,
     capture: ProducerCapture,
-    execution: ClaimedExecution,
+    execution: ValidationSubject,
   ): Promise<ProducerCapture>;
 }
 
@@ -63,9 +83,7 @@ export function verifyValidationClaim(
     attempt.environment_id !== execution.environment_id ||
     attempt.mode !== plan.demand.mode ||
     attempt.purpose !==
-      (plan.demand.kind === "test" || plan.demand.kind === "diagnostic"
-        ? "diagnostic"
-        : "completion") ||
+      validationPurpose(plan.demand) ||
     attempt.state.kind !== "claimed" ||
     attempt.state.claim.token !== execution.fence.token ||
     attempt.state.claim.expires_at <= clock.wallNow() ||
@@ -75,6 +93,45 @@ export function verifyValidationClaim(
     execution.environment.state.candidate_id !== plan.candidate_id ||
     execution.environment.state.claim.token !== execution.fence.token
   ) throw new Error("validation plan does not match a live candidate claim");
+  verifyValidationBinding(snapshot, plan, execution);
+}
+
+/** All executions bind the exact immutable plan, regardless of publication capability. */
+function verifyValidationBinding(
+  snapshot: ValidationSnapshot,
+  plan: ValidationPlan,
+  execution: ValidationSubject,
+): void {
+  const attempt = execution.attempt;
+  if (
+    plan.blockers.length > 0 || plan.candidate_id !== snapshot.candidate_id ||
+    execution.candidate_id !== plan.candidate_id ||
+    JSON.stringify(plan.candidate) !== JSON.stringify(snapshot.candidate) ||
+    JSON.stringify(execution.candidate) !== JSON.stringify(plan.candidate) ||
+    attempt.identity.candidate_id !== plan.candidate_id ||
+    attempt.mode !== plan.demand.mode ||
+    attempt.purpose !== validationPurpose(plan.demand)
+  ) {
+    throw new Error("validation plan differs from its execution subject");
+  }
+  const planned = new Set(plan.producers.map((producer) => producer.selector));
+  const visit = (selector: string, trail: ReadonlySet<string>): void => {
+    if (trail.has(selector)) {
+      throw new Error(
+        "producer dependencies conflict with gate stage ordering",
+      );
+    }
+    const dependencies = [
+      ...(snapshot.producers.get(selector)?.dependencies ?? []),
+      ...(snapshot.ordering?.get(selector) ?? []).filter((dependency) =>
+        planned.has(dependency)
+      ),
+    ];
+    for (const dependency of dependencies) {
+      visit(dependency, new Set([...trail, selector]));
+    }
+  };
+  for (const selector of planned) visit(selector, new Set());
   const expectedSubjects: string[] = [];
   for (const producer of plan.producers) {
     const node = snapshot.producers.get(producer.selector);
@@ -126,7 +183,7 @@ function physicalKey(
   snapshot: ValidationSnapshot,
   selector: string,
   plan: ValidationPlan,
-  execution: ClaimedExecution,
+  execution: ValidationSubject,
 ): string {
   const node = snapshot.producers.get(selector);
   if (node === undefined) throw new Error(`missing producer '${selector}'`);
@@ -136,6 +193,7 @@ function physicalKey(
     execution.candidate_id,
     plan.demand.context,
     snapshot.conditions.find((c) => c.context === plan.demand.context),
+    [...(snapshot.ordering?.get(selector) ?? [])].sort(),
     {
       ...node.recipe,
       run: commands(node.recipe.run),
@@ -155,6 +213,35 @@ export async function executeValidation(
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<ValidationExecution> {
   verifyValidationClaim(snapshot, plan, execution, clock);
+  return await executeProducerGraph(snapshot, plan, execution, runtime, clock);
+}
+
+/** Diagnostic execution cannot acquire a publication fence, even on a clean checkout. */
+export async function executeDiagnosticValidation(
+  snapshot: ValidationSnapshot,
+  plan: ValidationPlan,
+  execution: DiagnosticExecution,
+  runtime: ValidationRuntime,
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<ValidationExecution> {
+  if (
+    !execution.diagnostic || "fence" in execution ||
+    validationPurpose(plan.demand) !== "diagnostic" || plan.reused.length > 0
+  ) {
+    throw new Error("standalone execution cannot supply completion evidence");
+  }
+  verifyValidationBinding(snapshot, plan, execution);
+  return await executeProducerGraph(snapshot, plan, execution, runtime, clock);
+}
+
+/** Both execution boundaries use the same physical producer and consumer evaluator. */
+async function executeProducerGraph(
+  snapshot: ValidationSnapshot,
+  plan: ValidationPlan,
+  execution: ValidationSubject,
+  runtime: ValidationRuntime,
+  clock: Clock,
+): Promise<ValidationExecution> {
   await runtime.verify(execution);
   const physical = new Map<string, Promise<ProducerCapture>>();
   const captures = new Map<string, Promise<ProducerCapture>>();
@@ -175,7 +262,18 @@ export async function executeValidation(
         const node = snapshot.producers.get(producer.selector);
         if (node === undefined) throw new Error("producer disappeared");
         const dependencies = await Promise.all(
-          node.dependencies.map((selector) => {
+          [
+            ...new Set([
+              ...node.dependencies,
+              ...(snapshot.ordering?.get(producer.selector) ?? []).filter((
+                selector,
+              ) =>
+                plan.producers.some((producer) =>
+                  producer.selector === selector
+                )
+              ),
+            ]),
+          ].map((selector) => {
             const dependency = plan.producers.find((p) =>
               p.selector === selector
             );
@@ -196,8 +294,12 @@ export async function executeValidation(
       })().catch(failure);
       physical.set(key, work);
     }
-    captures.set(producer.selector, work);
-    return work;
+    const logical = work.then(async (capture) => {
+      await runtime.onCapture?.(producer, capture);
+      return capture;
+    }).catch(failure);
+    captures.set(producer.selector, logical);
+    return logical;
   };
   const evidence: ComponentEvidence[] = [];
   const blockers: ValidationExecution["blockers"][number][] = [];
@@ -291,14 +393,16 @@ export async function executeValidation(
     }
   }
   try {
-    await runtime.verify(execution);
+    await runtime.verify(execution, { allowCancelled: true });
   } catch (error) {
     return {
-      evidence: evidence.map((component) => ({
-        ...component,
-        outcome: { kind: "stale", reason: errorText(error) },
-      })),
-      blockers: [{
+      evidence: evidence.map((component) =>
+        component.outcome.kind !== "passed" ? component : ({
+          ...component,
+          outcome: { kind: "stale", reason: errorText(error) },
+        })
+      ),
+      blockers: [...blockers, {
         kind: "stale-evidence",
         evidence_ids: [],
         reason: "inputs-changed",

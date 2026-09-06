@@ -110,6 +110,7 @@ export async function collectPaths(
   root: string,
   mainBranch: string,
   headRef = "HEAD",
+  includeWorkingTree = true,
 ): Promise<string[] | null> {
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
@@ -125,6 +126,9 @@ export async function collectPaths(
   );
   if (!committed.success) {
     return null;
+  }
+  if (!includeWorkingTree) {
+    return stripRepoPathPrefix(splitNulRecords(committed.stdout), prefix);
   }
   const pending = await runGit(
     ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
@@ -282,6 +286,8 @@ export interface ScopeImpact {
 export async function classifyScopeImpact(
   root: string,
   cfg?: DiscernConfig,
+  predecessor?: string,
+  head?: string,
 ): Promise<ScopeImpact> {
   const config = cfg ?? await loadConfig(root);
   const scopes = config.scopes;
@@ -289,7 +295,7 @@ export async function classifyScopeImpact(
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
   const mainBranch = integrationBranch(config.repository.trunk);
-  const paths = await collectPaths(root, mainBranch);
+  const paths = await collectPaths(root, predecessor ?? mainBranch, head);
   if (paths === null) {
     // Fail open: cannot tell what changed → report every scope/marker.
     return {

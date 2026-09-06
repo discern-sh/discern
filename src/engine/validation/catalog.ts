@@ -7,7 +7,7 @@ import {
   ProducerSelectorSchema,
   type StandardInput,
   type StandardInputPlan,
-} from "../completion/configuration.ts";
+} from "../../shared/config_schema.ts";
 import {
   ApplicabilitySchema,
   applicabilitySubject,
@@ -52,6 +52,8 @@ export interface ValidationConditions {
   readonly environment: Readonly<Record<string, string | undefined>>;
   /** Caller-defined execution contract, including resources and runtime identity. */
   readonly identity: string;
+  /** Remote contexts retain only per-value digests from their producing invocation. */
+  readonly environment_digests?: Readonly<Record<string, string>>;
 }
 export interface ResolvedProducer {
   readonly selector: string;
@@ -68,6 +70,7 @@ export interface ResolvedObligation {
   readonly subject: string;
 }
 export interface ValidationSnapshot {
+  readonly ordering?: ReadonlyMap<string, readonly string[]>;
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly requirements: readonly Requirement[];
@@ -243,6 +246,7 @@ function selectedFiles(
 
 /** Freeze applicability from the complete candidate input closure, never change-path scope. */
 export async function prepareValidationSnapshot(source: {
+  readonly ordering?: ReadonlyMap<string, readonly string[]>;
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly producers: Readonly<Record<string, ProducerDeclaration>>;
@@ -367,9 +371,17 @@ export async function prepareValidationSnapshot(source: {
       environment: await sha256Hex(
         JSON.stringify([
           condition.identity,
-          environment.map((
-            name,
-          ) => [name, condition.environment[name] ?? null]),
+          await Promise.all(
+            environment.map(async (
+              name,
+            ) => [
+              name,
+              condition.environment_digests?.[name] ??
+                await sha256Hex(
+                  JSON.stringify(condition.environment[name] ?? null),
+                ),
+            ]),
+          ),
         ]),
       ),
       seed: condition.seed,
@@ -395,6 +407,7 @@ export async function prepareValidationSnapshot(source: {
     candidate,
     requirements,
     producers: graph.producers,
+    ...(input.ordering === undefined ? {} : { ordering: input.ordering }),
     obligations,
     conditions: structuredClone(input.conditions),
   };

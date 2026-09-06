@@ -1,0 +1,257 @@
+import { emitComponentUse } from "../completion/events.ts";
+import { producerLabel } from "./public_run.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+import { runGit } from "../../shared/subprocess.ts";
+/** Standalone standards retain component receipts without any queue claim, admission or queue success. */
+import { loadConfig } from "../../shared/config_schema.ts";
+import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { DISCERN_VERSION } from "../../lib/version.ts";
+import { withCompletionCheckout } from "../operation_lock.ts";
+import { resolveIdentity } from "../worktree/identity.ts";
+import { integrationBranch } from "../worktree/git.ts";
+import { pinValidatedTree } from "../gate/proof.ts";
+import { configuredValidation } from "./configuration.ts";
+import { requirementSetIdentity } from "./catalog.ts";
+import { standaloneValidation } from "./diagnostics.ts";
+import {
+  executePublicValidation,
+  type PublicValidationRun,
+} from "./public_run.ts";
+import { observeCompletionRecords } from "./runtime.ts";
+import type { Candidate } from "../completion/candidate.ts";
+import type { ValidationPlan } from "../completion/protocol.ts";
+import {
+  readCompletionRecord,
+  writeCompletionRecord,
+} from "../completion/store.ts";
+import { ownValidationEnvironment } from "../execution/public_environment.ts";
+import { createEnvironmentExecutor } from "../execution/executor.ts";
+import { completionLease } from "../landing_queue/public_completion.ts";
+import {
+  composeCandidate,
+  gitValue,
+  observeSource,
+  retainMeasurementCandidate,
+} from "../landing_queue/composition.ts";
+import { compositionRecipe } from "../landing_queue/generation.ts";
+import { predecessorPolicyIdentity } from "../landing_queue/policy.ts";
+import {
+  initializeQueue,
+  observedRecords,
+  REPOSITORY_QUEUE_ID,
+  reserveQueueAttempt,
+} from "../landing_queue/repository.ts";
+
+/** The environment attempt records only its demanded subjects. The queue supplies sequence numbers, never a passed queue claim. */
+export async function measureDeclaredStandards(
+  root: string,
+  names: readonly string[],
+  kind: "standards" | "pin" | "proposal",
+  signal?: AbortSignal,
+): Promise<PublicValidationRun> {
+  root = await Deno.realPath(root);
+  return await withCompletionCheckout(root, async () => {
+    const config = await loadConfig(root);
+    const pin = await pinValidatedTree(root);
+    const branch = await runGit(["symbolic-ref", "--quiet", "HEAD"], {
+      cwd: root,
+    });
+    if (!branch.success && branch.code !== 1) {
+      throw new Error(
+        branch.stderr ||
+          "Git could not observe the measurement checkout attachment.",
+      );
+    }
+    if (!pin.clean || pin.head === undefined || !branch.success) {
+      return await standaloneValidation({
+        root,
+        config,
+        scopes: [],
+        kind: "standalone",
+        standards: names,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    }
+    const identity = await resolveIdentity(root, root);
+    const source = await observeSource(
+      root,
+      identity.id,
+      branch.stdout.trim(),
+    );
+    const predecessor = {
+      head: await gitValue(root, [
+        "rev-parse",
+        `${integrationBranch(config.repository.trunk)}^{commit}`,
+      ]),
+      candidate_id: null,
+    };
+    const actor = {
+      operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
+      originating_effort: identity.id,
+      started_at: SYSTEM_CLOCK.wallNow(),
+    };
+    const configured = await configuredValidation(config, [], false);
+    const requirementSet = await requirementSetIdentity(
+      configured.obligations.map((entry) => entry.requirement),
+    );
+    const recipe = await compositionRecipe(
+      root,
+      config,
+      DISCERN_VERSION,
+      Math.max(1, config.gate.timeout),
+      {},
+    );
+    const policy = await predecessorPolicyIdentity(root, predecessor.head);
+    const prior = observedRecords(await observeCompletionRecords(root)).find((
+      record,
+    ) =>
+      record.kind === "candidate" && record.data.source.head === source.head &&
+      record.data.source.effort_id === source.effort_id &&
+      record.data.head === source.head &&
+      record.data.expected_predecessor.head === predecessor.head &&
+      record.data.requirement_set === requirementSet &&
+      record.data.policy === policy &&
+      record.data.composition.procedure === recipe.identity.procedure
+    );
+    const candidateId = prior?.kind === "candidate"
+      ? prior.id
+      : SYSTEM_SECURE_ENTROPY.uuid();
+    let candidate: Candidate = prior?.kind === "candidate" ? prior.data : {
+      attempt_id: SYSTEM_SECURE_ENTROPY.uuid(),
+      source,
+      dependencies: [],
+      expected_predecessor: predecessor,
+      head: source.head,
+      tree: source.tree,
+      policy,
+      requirement_set: requirementSet,
+      composition: {
+        ...recipe.identity,
+        merge_commit: null,
+        regeneration_commit: null,
+      },
+    };
+    const { environmentId, workspace, lifetime } =
+      await ownValidationEnvironment(root, config, source, actor, null);
+    if (
+      (await readCompletionRecord(root, {
+        kind: "queue",
+        id: REPOSITORY_QUEUE_ID,
+      })).kind === "missing"
+    ) await initializeQueue(root, predecessor.head);
+    const executor = createEnvironmentExecutor({
+      root,
+      environmentId,
+      declaration: null,
+      workspace,
+      lifetime,
+      leaseMs: completionLease(config),
+      reserveAttempt: (plan, actor) => reserveQueueAttempt(root, plan, actor),
+      validationOutcome: (value) =>
+        typeof value === "object" && value !== null && "outcome" in value &&
+          typeof value.outcome === "object" && value.outcome !== null &&
+          "blockers" in value.outcome &&
+          Array.isArray(value.outcome.blockers) &&
+          value.outcome.blockers.length === 0
+          ? "passed"
+          : "failed",
+      ...(signal === undefined ? {} : { signal }),
+    });
+    const empty: ValidationPlan = {
+      candidate_id: candidateId,
+      candidate,
+      demand: { kind: "compose", context: "local", mode: "strict" },
+      producers: [],
+      reused: [],
+      blockers: [],
+    };
+    const plan = executor.plan(await observeCompletionRecords(root), empty);
+    if ("kind" in plan) throw new Error(JSON.stringify(plan));
+    const claimed = await executor.claim(plan, actor);
+    if ("kind" in claimed) throw new Error(JSON.stringify(claimed));
+    let failure: unknown;
+    const returned = await executor.execute(claimed, async (execution) => {
+      try {
+        if (prior === undefined) {
+          const composed = await composeCandidate({
+            root,
+            execution,
+            prepare: () =>
+              workspace.run(execution, plan, "prepare", execution.signal),
+            recipe,
+            dependencies: [],
+            predecessor,
+            policy,
+            requirement_set: requirementSet,
+          });
+          if ("kind" in composed) throw new Error(JSON.stringify(composed));
+          candidate = composed;
+          await retainMeasurementCandidate(
+            root,
+            candidateId,
+            candidate,
+            execution.fence,
+          );
+        }
+        const validation = await executePublicValidation({
+          root,
+          config,
+          scopes: [],
+          claimed: { ...execution, candidate },
+          stageDependencies: false,
+          bindComposition: true,
+          demand: {
+            kind,
+            context: "local",
+            mode: "strict",
+            requirements: configured.obligations.filter((entry) =>
+              entry.requirement.kind === "standard" &&
+              names.includes(entry.requirement.id)
+            ).map((entry) => entry.requirement),
+          },
+        });
+        for (const component of validation.outcome.evidence) {
+          const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
+          const written = await writeCompletionRecord(
+            root,
+            {
+              version: ON_DISK_FORMATS.completionRecord.version,
+              kind: "evidence",
+              id: evidenceId,
+              revision: 1,
+              data: component,
+            },
+            null,
+            execution.fence,
+          );
+          if (written.kind !== "written") {
+            throw new Error(`Measurement receipt publication ${written.kind}.`);
+          }
+          emitComponentUse(
+            { ...execution, candidate },
+            component,
+            evidenceId,
+            "executed",
+            (validation.results.get(
+              producerLabel(component.applicability.producer),
+            )?.durationS ?? 0) * 1000,
+            component.finished_at,
+          );
+        }
+        return validation;
+      } catch (error) {
+        failure = error;
+        throw error;
+      }
+    });
+    if (returned.returned.kind === "recovery-incomplete") {
+      throw new Error(JSON.stringify(returned.returned));
+    }
+    if (returned.validation === null) {
+      throw failure ??
+        new Error("Measurement execution did not return evidence.");
+    }
+    return returned.validation;
+  });
+}

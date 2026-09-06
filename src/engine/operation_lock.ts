@@ -3,7 +3,8 @@
  *
  * A common-repository lock is always acquired before a checkout lock. Nested
  * calls may reuse a lock already held by their async call chain, but may not
- * widen from checkout-only to common or acquire a second checkout. That rule,
+ * widen from checkout-only to common or acquire a second checkout. The explicit
+ * setup probe alone adds its newly created checkout under the same common lock. That rule,
  * plus non-blocking OS locks, prevents nested deadlock while preserving
  * parallelism across linked worktrees. While the lock is held, every classified
  * discern-owned Git writer also proves its broad Git-admin boundary before its
@@ -97,6 +98,7 @@ function concreteBoundaries(
     case "common":
       return ["common"];
     case "common-and-checkout":
+    case "phased":
       return ["common", "checkout"];
   }
 }
@@ -133,7 +135,7 @@ async function resolveLockSpecs(
       concrete === "common" ? "resources" : "gateProof",
     );
     if (anchor === undefined) return undefined;
-    const adminDirectory = dirname(dirname(anchor));
+    const adminDirectory = await Deno.realPath(dirname(dirname(anchor)));
     specs.push(await hostLockSpec(concrete, `git-admin:${adminDirectory}`));
   }
   return specs;
@@ -396,7 +398,150 @@ export async function withOperationLock<T>(
         "This call made no change. Retry after the command is classified.",
     );
   }
+  return await withPolicyLock(cwd, invocation, policy, operation, entropy);
+}
+
+/** Version-one journal recovery holds exclusion for its whole transaction. */
+export async function withAcceptanceRecoveryBoundary<T>(
+  cwd: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return await withPolicyLock(
+    cwd,
+    { command: "accept" },
+    {
+      effects: [
+        "discern-checkout-mutation",
+        "discern-common-mutation",
+        "discern-git-mutation",
+      ],
+      lock: "common-and-checkout",
+      preview: "required",
+      gitWriteAuthority: "boundary-plan",
+    },
+    operation,
+    SYSTEM_SECURE_ENTROPY,
+  );
+}
+
+/** Concurrent local publications share a FIFO; the OS lock still excludes other processes. */
+const completionPublications = new Map<string, Promise<void>>();
+
+/** Completion publications own only the short shared boundary. */
+export async function withCompletionPublication<T>(
+  cwd: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const run = (): Promise<T> =>
+    withPolicyLock(
+      cwd,
+      { command: "accept" },
+      {
+        effects: ["discern-common-mutation", "discern-git-mutation"],
+        lock: "common",
+        preview: "required",
+        gitWriteAuthority: "boundary-plan",
+      },
+      operation,
+      SYSTEM_SECURE_ENTROPY,
+    );
+  const held = currentOperationLocks();
+  const spec = (await resolveLockSpecs(cwd, "common"))?.[0];
+  if (
+    spec === undefined || held?.leases.has(spec.key) ||
+    (held?.boundaries.has("checkout") && held.completionExecution !== true)
+  ) return await run();
+  const previous = completionPublications.get(spec.key) ?? Promise.resolve();
+  const finished = Promise.withResolvers<void>();
+  completionPublications.set(spec.key, finished.promise);
+  try {
+    await previous;
+    return await run();
+  } finally {
+    finished.resolve();
+    if (completionPublications.get(spec.key) === finished.promise) {
+      completionPublications.delete(spec.key);
+    }
+  }
+}
+
+/** Native execution retains the same OS checkout lock across short common publications. */
+export async function withCompletionCheckout<T>(
+  cwd: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return await withPolicyLock(cwd, { command: "done" }, {
+    effects: ["discern-checkout-mutation", "project-command"],
+    lock: "checkout",
+    preview: "required",
+    gitWriteAuthority: "opaque",
+  }, async () => {
+    const held = currentOperationLocks();
+    if (held === undefined) {
+      throw new Error("Completion checkout exclusion was not acquired.");
+    }
+    return await runWithOperationLocks(
+      { ...held, completionExecution: true },
+      operation,
+    );
+  }, SYSTEM_SECURE_ENTROPY);
+}
+
+/** A newly created setup probe runs under its parent's already-held common transaction.
+ * The second checkout is acquired non-blockingly and cannot widen into another repository.
+ */
+export async function withSetupProbeCheckout<T>(
+  parent: string,
+  probe: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const parentSpecs = await resolveLockSpecs(parent, "common-and-checkout");
+  const probeSpecs = await resolveLockSpecs(probe, "common-and-checkout");
+  const common = parentSpecs?.find((spec) => spec.boundary === "common");
+  const checkout = probeSpecs?.find((spec) => spec.boundary === "checkout");
+  const held = currentOperationLocks();
+  if (
+    common === undefined || checkout === undefined ||
+    parentSpecs?.some((spec) => !held?.leases.has(spec.key)) ||
+    probeSpecs?.find((spec) => spec.boundary === "common")?.key !==
+      common.key ||
+    parentSpecs?.some((spec) => spec.key === checkout.key)
+  ) {
+    throw refusal(
+      { command: "setup done" },
+      "The setup probe requires its parent's live common and checkout transaction in the same repository.",
+    );
+  }
+  return await withPolicyLock(
+    probe,
+    { command: "done" },
+    {
+      effects: ["discern-checkout-mutation", "project-command"],
+      lock: "checkout",
+      preview: "required",
+      gitWriteAuthority: "opaque",
+    },
+    operation,
+    SYSTEM_SECURE_ENTROPY,
+    { common: common.key, checkout: checkout.key },
+  );
+}
+
+/** Acquire the declared boundary and recheck exact Git-write preconditions around the effect. */
+async function withPolicyLock<T>(
+  cwd: string,
+  invocation: OperationInvocation,
+  policy: OperationEffectPolicy,
+  operation: () => Promise<T>,
+  entropy: SecureEntropy,
+  setupProbe?: { readonly common: string; readonly checkout: string },
+): Promise<T> {
   if (policy.lock === "none") return await operation();
+  if (policy.lock === "phased") {
+    // The concrete publisher/executor owns exclusion. Preserve the invocation's write-access proof.
+    await preflightOperationBoundary(cwd, invocation, policy, entropy);
+    return await operation();
+  }
 
   let specs = await resolveLockSpecs(cwd, policy.lock);
   if (specs === undefined) {
@@ -422,7 +567,7 @@ export async function withOperationLock<T>(
   const acquiringCheckout = missing.some((spec) =>
     spec.boundary === "checkout"
   );
-  if (heldCheckout && acquiringCommon) {
+  if (heldCheckout && acquiringCommon && held?.completionExecution !== true) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would acquire the common repository boundary after a checkout boundary. " +
@@ -446,7 +591,12 @@ export async function withOperationLock<T>(
       );
     }
   }
-  if (heldCheckout && acquiringCheckout) {
+  const serializedProbe = setupProbe !== undefined &&
+    held?.leases.has(setupProbe.common) === true &&
+    missing.every((spec) =>
+      spec.boundary === "checkout" && spec.key === setupProbe.checkout
+    );
+  if (heldCheckout && acquiringCheckout && !serializedProbe) {
     throw refusal(
       invocation,
       "discern refused a nested operation that would hold two checkout boundaries. " +
@@ -468,7 +618,13 @@ export async function withOperationLock<T>(
       leases.set(lease.key, lease);
       boundaries.add(lease.boundary);
     }
-    const next: HeldOperationLocks = { leases, boundaries };
+    const next: HeldOperationLocks = {
+      leases,
+      boundaries,
+      ...(held?.completionExecution === true
+        ? { completionExecution: true }
+        : {}),
+    };
     return await runWithOperationLocks(next, async () => {
       await preflightOperationBoundary(cwd, invocation, policy, entropy);
       return await operation();

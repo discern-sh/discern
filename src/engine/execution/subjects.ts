@@ -2,7 +2,7 @@
 import {
   type EnvironmentDeclaration,
   EnvironmentDeclarationSchema,
-} from "../completion/configuration.ts";
+} from "../../shared/config_schema.ts";
 import type { ExecutionEnvironment } from "../completion/environment.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import type { WorkspaceSnapshot } from "./snapshot_schema.ts";

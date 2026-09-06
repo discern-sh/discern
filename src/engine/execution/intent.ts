@@ -1,6 +1,6 @@
 /** Frozen attempt artifacts supplement the canonical environment phase record. */
 import { z } from "@zod/zod";
-import { EnvironmentDeclarationSchema } from "../completion/configuration.ts";
+import { EnvironmentDeclarationSchema } from "../../shared/config_schema.ts";
 import { AttemptSchema, EnvironmentSchema } from "../completion/environment.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { NameSchema, RecordIdSchema } from "../completion/identity.ts";

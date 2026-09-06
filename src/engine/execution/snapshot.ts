@@ -6,8 +6,8 @@ import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import type { Scheduler } from "../../shared/scheduler.ts";
-import { ArtifactPathSchema } from "../completion/evidence.ts";
 import {
+  CheckoutPathSchema,
   type FileSchema,
   type GitSnapshot,
   GitSnapshotSchema,
@@ -64,7 +64,7 @@ export async function containedFile(
   root: string,
   path: string,
 ): Promise<string> {
-  ArtifactPathSchema.parse(path);
+  CheckoutPathSchema.parse(path);
   let parent = dirname(path);
   while (parent !== ".") {
     try {

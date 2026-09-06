@@ -1,5 +1,5 @@
 /** Required host capabilities; none can infer release from a clean checkout. */
-import type { EnvironmentDeclaration } from "../completion/configuration.ts";
+import type { EnvironmentDeclaration } from "../../shared/config_schema.ts";
 import type {
   CompletionRecovery,
   ExecutionEnvironment,

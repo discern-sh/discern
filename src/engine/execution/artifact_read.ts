@@ -12,6 +12,7 @@ export async function artifactPath(
   attemptId: string,
   path: string,
 ): Promise<string> {
+  root = await Deno.realPath(root);
   RecordIdSchema.parse(attemptId);
   const directory = await gitAdminStatePath(root, "completionArtifacts");
   if (directory === undefined) {

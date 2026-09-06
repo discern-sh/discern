@@ -4,7 +4,7 @@ import { atomicReplaceText } from "../../shared/atomic_write.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { ArtifactSchema } from "../completion/evidence.ts";
-import { withOperationLock } from "../operation_lock.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import type { EnvironmentArtifact } from "./types.ts";
 import { artifactPath } from "./artifact_read.ts";
 
@@ -26,7 +26,7 @@ export async function saveEnvironmentArtifact(
     digest: await sha256Hex(raw),
     bytes: new TextEncoder().encode(raw).length,
   });
-  await withOperationLock(root, { command: "accept" }, async () => {
+  await withCompletionPublication(root, async () => {
     const path = await artifactPath(root, artifact.attempt_id, artifact.path);
     const old = await readTextIfExists(path);
     if (old !== undefined && old !== raw) {

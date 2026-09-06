@@ -5,6 +5,7 @@ import type {
   ValidationDemand,
   ValidationPlan,
 } from "../completion/protocol.ts";
+import { validationPurpose } from "../completion/protocol.ts";
 import { requirementKey, type ValidationSnapshot } from "./catalog.ts";
 import { selectEvidence } from "./selection.ts";
 import { standardHeld } from "./metrics.ts";
@@ -25,7 +26,7 @@ export function planValidation(
     reused: [] as ValidationPlan["reused"][number][],
     blockers: [] as ValidationPlan["blockers"][number][],
   };
-  if (demand.kind === "prepare") return plan;
+  if (demand.kind === "prepare" || demand.kind === "compose") return plan;
   if (
     !snapshot.conditions.some((condition) =>
       condition.context === demand.context
@@ -50,7 +51,8 @@ export function planValidation(
   );
   if (
     demand.kind === "done" || demand.kind === "standards" ||
-    demand.kind === "pin" || demand.kind === "proposal"
+    demand.kind === "pin" || demand.kind === "proposal" ||
+    demand.kind === "standalone"
   ) {
     const requested = new Set(demand.requirements.map(requirementKey));
     if (
@@ -106,7 +108,7 @@ export function planValidation(
     selected = selected.filter((o) => producers.has(o.producer));
   }
   for (const obligation of selected) {
-    if (demand.kind !== "test" && demand.kind !== "diagnostic") {
+    if (validationPurpose(demand) === "completion") {
       const prior = selectEvidence(
         obligation,
         snapshot.candidate_id,
@@ -127,7 +129,6 @@ export function planValidation(
             kind: "validation-failed",
             evidence_ids: [prior.record.id],
           });
-          continue;
         }
         plan.reused.push({
           requirement: obligation.requirement,
@@ -137,6 +138,7 @@ export function planValidation(
       }
       if (
         prior.kind === "blocked" && prior.blocker.kind !== "stale-evidence" &&
+        prior.blocker.kind !== "report-only" &&
         (prior.attempt_id !== rerunOf ||
           prior.blocker.kind === "waiting-for-operation")
       ) {

@@ -7,13 +7,14 @@ import { readTextIfExists, statIfExists } from "../../shared/fs_presence.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import {
   deriveIdentity,
+  deriveTrunkIdentity,
   type IdentitySettings,
   resolveWorktreeId,
   resourceForId,
   worktreeBase,
 } from "../worktree/identity.ts";
 import {
-  entriesForWorktree,
+  captureWorktreeResourceLedger,
   inspectResourceEntry,
   resourceCommandEnv,
 } from "../worktree/resources.ts";
@@ -26,7 +27,7 @@ import {
 import { spawnJob } from "../jobs/command.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
-import type { EnvironmentDeclaration } from "../completion/configuration.ts";
+import type { EnvironmentDeclaration } from "../../shared/config_schema.ts";
 import type { ExecutionEnvironment } from "../completion/environment.ts";
 import type { ClaimedExecution } from "../completion/protocol.ts";
 import {
@@ -133,25 +134,35 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       throw new Error("The checkout belongs to another repository.");
     }
     const gitKey = await worktreeGitKey(environment.path);
-    if (gitKey === undefined || git.git_dir === common) {
+    const sourceTipMain = declaration === null && borrowed !== null &&
+      git.git_dir === common;
+    if (!sourceTipMain && (gitKey === undefined || git.git_dir === common)) {
       throw new Error(
         "A temporary environment must be a positively identified linked checkout.",
       );
     }
     const ledger = [];
     if (borrowed !== null) {
-      const actual = await resolveWorktreeId(
-        settings,
-        environment.path,
-        { get: () => undefined },
-        this.options.root,
-      );
-      if (actual !== id || identity.seed !== borrowed.identity.seed) {
+      const actual = sourceTipMain
+        ? deriveTrunkIdentity(settings).id
+        : await resolveWorktreeId(
+          settings,
+          environment.path,
+          { get: () => undefined },
+          this.options.root,
+        );
+      if (
+        actual !== id ||
+        (sourceTipMain ? deriveTrunkIdentity(settings).seed : identity.seed) !==
+          borrowed.identity.seed
+      ) {
         throw new Error(
           "Worktree identity or seed changed; preserve the frozen source environment.",
         );
       }
-      const entries = await entriesForWorktree(common, gitKey);
+      const entries = gitKey === undefined
+        ? []
+        : await captureWorktreeResourceLedger(common, gitKey, environment.path);
       for (const name of declaration?.resources ?? []) {
         const item = entries.find(({ entry }) => entry.resource_name === name);
         if (
@@ -165,16 +176,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
           );
         }
       }
-      for (const { path, entry } of entries) {
-        if (entry.worktree_path !== environment.path) {
-          throw new Error("Resource ledger path belongs to another checkout.");
-        }
-        const raw = await readTextIfExists(path);
-        if (raw === undefined) {
-          throw new Error("Resource ownership changed during inspection.");
-        }
-        ledger.push({ path, raw });
-      }
+      for (const { path, raw } of entries) ledger.push({ path, raw });
     }
     return { ...base, git, ledger };
   }
@@ -620,13 +622,15 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         original.git === null || git.head !== original.git.head ||
         git.branch !== original.git.branch ||
         git.index_entries !== original.git.index_entries ||
-        git.index !== original.git.index ||
+        (plan.action !== "source-tip" && git.index !== original.git.index) ||
         JSON.stringify(current.ledger) !== JSON.stringify(original.ledger)
       ) {
         throw new Error(
           "The returned source, index, or frozen resource ownership does not match its original state.",
         );
       }
+      // Ordinary source-tip execution leaves its own ignored outputs in place; no temporary state was installed.
+      if (plan.action === "source-tip") return;
       const declared = (plan.declaration?.ignored ?? []).map((pattern) =>
         globToRegExp(pattern)
       );

@@ -13,6 +13,7 @@
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
+import { planExecutionChild } from "../../shared/execution_child_context.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
@@ -253,6 +254,14 @@ export async function spawnJob(
   const artifactScope = protocolLimit === undefined
     ? await tempArtifactScopeFor(opts.cwd)
     : undefined;
+  const environment = {
+    ...await jobEnvironment(opts.cwd, opts.env),
+    ...spawnedByEnv(),
+  };
+  const outputRecorder = protocolLimit === undefined
+    ? await JobOutputRecorder.create(artifactScope)
+    : undefined;
+  const ticket = await planExecutionChild();
   const start = clock.monotonicNow();
 
   const child = new Deno.Command("sh", {
@@ -260,16 +269,21 @@ export async function spawnJob(
     cwd: opts.cwd,
     // `discern` in a job command resolves to the engine running this gate,
     // whatever the ambient PATH holds (self_shim.ts).
-    env: { ...await jobEnvironment(opts.cwd, opts.env), ...spawnedByEnv() },
+    env: environment,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
     detached: true,
   }).spawn();
   const pid = child.pid;
-  const outputRecorder = protocolLimit === undefined
-    ? await JobOutputRecorder.create(artifactScope)
-    : undefined;
+  try {
+    await ticket?.started(pid, true);
+  } catch (error) {
+    killProcessTree(pid, "SIGKILL");
+    await child.status;
+    await Promise.all([child.stdout.cancel(), child.stderr.cancel()]);
+    throw error;
+  }
 
   // The readers draining the child's pipes, registered so the kill path can
   // cancel a read blocked on a pipe the tree-kill could not close.
@@ -452,6 +466,7 @@ export async function spawnJob(
   if (signal) {
     signal.removeEventListener("abort", onAbort);
   }
+  await ticket?.settled();
   const outputSummary = outputRecorder === undefined
     ? { outputLines: 0, errorLikeLines: 0 }
     : await outputRecorder.finish();

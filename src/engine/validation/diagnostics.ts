@@ -1,0 +1,159 @@
+import type { ProducerBoundary } from "./execute.ts";
+/** Standalone work observes the working checkout and never reserves a completion attempt. */
+import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
+import { runGit } from "../../shared/subprocess.ts";
+import type {
+  DiagnosticExecution,
+  ValidationDemand,
+} from "../completion/protocol.ts";
+import { CandidateSchema } from "../completion/candidate.ts";
+import { newAttemptIdentity } from "../completion/identity.ts";
+import { withCompletionCheckout } from "../operation_lock.ts";
+import { resolveIdentity } from "../worktree/identity.ts";
+import { configuredValidation } from "./configuration.ts";
+import { requirementSetIdentity } from "./catalog.ts";
+import {
+  executePublicValidation,
+  type PublicValidationRun,
+} from "./public_run.ts";
+
+/** The reference names committed comparison coordinates; dirty bytes are captured in the snapshot.
+ * No candidate, attempt, environment release, component receipt or Proof is published here.
+ */
+export async function standaloneValidation(input: {
+  readonly root: string;
+  readonly config: DiscernConfig;
+  readonly scopes: readonly string[];
+  readonly context?: string;
+  readonly base?: string;
+  readonly mode?: "strict" | "report";
+  readonly kind: "test" | "standalone";
+  readonly standards?: readonly string[];
+  readonly signal?: AbortSignal;
+  readonly producerBoundary?: ProducerBoundary;
+  readonly onProgress?: Parameters<
+    typeof executePublicValidation
+  >[0]["onProgress"];
+}): Promise<PublicValidationRun> {
+  const root = await Deno.realPath(input.root);
+  return await withCompletionCheckout(root, async () => {
+    const stageDependencies = input.kind === "standalone" &&
+      input.standards === undefined;
+    const configured = await configuredValidation(
+      input.config,
+      input.scopes,
+      stageDependencies,
+    );
+    const context = input.context ?? "local";
+    const mode = input.mode ?? "strict";
+    const identity = await resolveIdentity(root, root);
+    const facts = await runGit(["rev-parse", "HEAD", "HEAD^{tree}"], {
+      cwd: root,
+    });
+    if (!facts.success) {
+      throw new Error(
+        "Standalone validation needs a committed comparison reference; commit the initial project before running this command.",
+      );
+    }
+    const [head, tree] = facts.stdout.trim().split("\n");
+    const branch = await runGit(["symbolic-ref", "--quiet", "HEAD"], {
+      cwd: root,
+    });
+    const candidateId = SYSTEM_SECURE_ENTROPY.uuid();
+    const executor = {
+      operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
+      originating_effort: identity.id,
+      started_at: SYSTEM_CLOCK.wallNow(),
+    };
+    const attempt = newAttemptIdentity({
+      candidate_id: candidateId,
+      executor,
+      sequence: 1,
+      rerun_of: null,
+    });
+    const reference = await sha256Hex(
+      JSON.stringify(["standalone-reference", head]),
+    );
+    const candidate = CandidateSchema.parse({
+      attempt_id: attempt.id,
+      // Detached diagnostics have no authored branch and cannot enter the queue.
+      source: {
+        effort_id: identity.id,
+        branch: branch.success
+          ? branch.stdout.trim()
+          : "refs/heads/discern-diagnostic-reference",
+        head,
+        tree,
+      },
+      dependencies: [],
+      expected_predecessor: {
+        head: input.base === undefined
+          ? head
+          : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {
+            cwd: root,
+          })).stdout.trim(),
+        candidate_id: null,
+      },
+      head,
+      tree,
+      policy: reference,
+      requirement_set: await requirementSetIdentity(
+        configured.obligations.map((obligation) => obligation.requirement),
+      ),
+      composition: {
+        procedure: reference,
+        generated_ownership: reference,
+        generators: reference,
+        merge_commit: null,
+        regeneration_commit: null,
+      },
+    });
+    const execution: DiagnosticExecution = {
+      diagnostic: true,
+      attempt: { identity: attempt, subjects: [], mode, purpose: "diagnostic" },
+      environment_id: SYSTEM_SECURE_ENTROPY.uuid(),
+      environment: { path: root },
+      seed: identity.seed,
+      candidate_id: candidateId,
+      candidate,
+      signal: input.signal ?? new AbortController().signal,
+    };
+    const demand: ValidationDemand = input.kind === "test"
+      ? {
+        kind: "test",
+        context,
+        mode,
+        readings: "already-produced",
+        producers: [...configured.stages].filter(([, stage]) =>
+          stage === "test"
+        ).map(([selector]) => selector),
+      }
+      : {
+        kind: "standalone",
+        context,
+        mode,
+        requirements: configured.obligations.filter((entry) =>
+          input.standards === undefined ||
+          entry.requirement.kind === "standard" &&
+            input.standards.includes(entry.requirement.id)
+        ).map((entry) => entry.requirement),
+      };
+    return await executePublicValidation({
+      root,
+      config: input.config,
+      scopes: input.scopes,
+      claimed: execution,
+      demand,
+      stageDependencies,
+      ...(input.producerBoundary === undefined
+        ? {}
+        : { producerBoundary: input.producerBoundary }),
+      ...(input.onProgress === undefined
+        ? {}
+        : { onProgress: input.onProgress }),
+    });
+  });
+}

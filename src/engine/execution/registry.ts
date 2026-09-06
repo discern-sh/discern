@@ -1,8 +1,9 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Enrollment and release are explicit actions, independent of fleet availability. */
 import {
   type EnvironmentDeclaration,
   EnvironmentDeclarationSchema,
-} from "../completion/configuration.ts";
+} from "../../shared/config_schema.ts";
 import {
   environmentAvailability,
   EnvironmentSchema,
@@ -28,7 +29,7 @@ import {
 } from "../../shared/entropy.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import { registeredWorktreeRecord } from "../worktree/git.ts";
-import { withOperationLock } from "../operation_lock.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import { recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
 import { declarationIdentity, releasedSubject } from "./subjects.ts";
@@ -118,7 +119,7 @@ export async function registerExecutionEnvironment(
     release: { kind: "held" },
     state: { kind: "idle" },
   });
-  await withOperationLock(root, { command: "accept" }, async () => {
+  await withCompletionPublication(root, async () => {
     if (
       data.ownership.kind === "isolated" &&
       (await statIfExists(data.path) !== undefined ||
@@ -160,7 +161,13 @@ export async function registerExecutionEnvironment(
     }
     const written = await writeCompletionRecord(
       root,
-      { kind: "environment", version: 1, revision: 1, id, data },
+      {
+        kind: "environment",
+        version: ON_DISK_FORMATS.completionRecord.version,
+        revision: 1,
+        id,
+        data,
+      },
       null,
       undefined,
       clock,
@@ -183,7 +190,7 @@ export async function retireBorrowedEnrollment(
   lifetime: ExecutionLifetime,
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<RecordedEnvironment> {
-  return await withOperationLock(root, { command: "accept" }, async () => {
+  return await withCompletionPublication(root, async () => {
     const current = await requireEnvironment(root, id);
     const environment = current.record.data;
     if (
@@ -249,7 +256,7 @@ export async function releaseExecutionEnvironment(
   } = {},
 ): Promise<RecordedEnvironment> {
   const clock = options.clock ?? SYSTEM_CLOCK;
-  return await withOperationLock(root, { command: "accept" }, async () => {
+  return await withCompletionPublication(root, async () => {
     const current = await requireEnvironment(root, id);
     const environment = current.record.data;
     if (current.stamp !== expectedStamp || environment.state.kind !== "idle") {

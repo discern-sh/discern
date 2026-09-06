@@ -1,6 +1,6 @@
 /** Recovery byte shapes are data leaves, independent of capture or execution. */
 import { z } from "@zod/zod";
-import { ArtifactPathSchema } from "../completion/evidence.ts";
+import { isAbsolute, normalize, SEPARATOR_PATTERN } from "@std/path";
 import { DigestSchema, ObjectIdSchema } from "../completion/identity.ts";
 
 export const SnapshotSchema = z.strictObject({
@@ -8,8 +8,19 @@ export const SnapshotSchema = z.strictObject({
   value: z.unknown(),
 });
 export type WorkspaceSnapshot = z.infer<typeof SnapshotSchema>;
+/** Native checkout names are literal filesystem data, not portable artifact declarations. */
+export const CheckoutPathSchema = z.string().min(1).refine(
+  (path) =>
+    !isAbsolute(path) && normalize(path) === path &&
+    !/[\0\ufffd]/u.test(path) &&
+    !path.split(SEPARATOR_PATTERN).some((part) =>
+      part === "" || part === "." || part === ".." ||
+      part.toLowerCase() === ".git"
+    ),
+  "checkout file must be a literal relative path outside Git administration",
+);
 export const FileSchema = z.strictObject({
-  path: ArtifactPathSchema,
+  path: CheckoutPathSchema,
   kind: z.enum(["file", "symlink", "missing"]),
   contents: z.string(),
   executable: z.boolean(),

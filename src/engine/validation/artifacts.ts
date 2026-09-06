@@ -1,3 +1,4 @@
+import { sha256Hex } from "../../shared/sha256.ts";
 /** Attempt-owned artifact capture and read-only byte verification. */
 import { dirname, relative } from "@std/path";
 import {
@@ -64,6 +65,11 @@ async function artifactPath(
     }`,
     "attempt artifact",
   );
+}
+
+/** The retained protocol output coordinate shared by capture and diagnostic readers. */
+export async function protocolOutputPath(label: string): Promise<string> {
+  return `output/${await sha256Hex(label)}/stdout.log`;
 }
 
 /** Publish once with createNew: mutable paths never become evidence coordinates. */

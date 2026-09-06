@@ -106,11 +106,11 @@ export function selectEvidence(
   const record = matching[0];
   if (record === undefined) return { kind: "missing" };
   const evidence = record.data;
-  if (evidence.mode === "report" && mode === "strict") {
-    return blocked({ kind: "report-only" });
-  }
   if (evidence.outcome.kind !== "passed") {
     return blocked({ kind: "validation-failed", evidence_ids: [record.id] });
+  }
+  if (evidence.mode === "report" && mode === "strict") {
+    return blocked({ kind: "report-only" });
   }
   const extractionInput = obligation.input.extraction?.input;
   if (
