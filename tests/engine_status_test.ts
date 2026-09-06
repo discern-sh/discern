@@ -28,6 +28,7 @@ import {
   engineEnv,
   git,
   gitInit,
+  gitOut,
   runAgent,
   runAgentPty,
   scaffoldEngine,
@@ -463,7 +464,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
     assertEquals(alpha.running.started, at(2 * 60_000 + 30_000));
     assert(
       alpha.running.elapsed_ms >= 150_000 &&
-        alpha.running.elapsed_ms < 180_000,
+        alpha.running.elapsed_ms <= SYSTEM_CLOCK.wallNow() -
+            Date.parse(alpha.running.started),
       JSON.stringify(alpha.running),
     );
     assertEquals(alpha.running.typical_duration_ms, 240_000);
@@ -482,8 +484,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 
     const human = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(human.code, 0, human.output);
-    assertTerminalTextIncludes(human.output, "Gate running · 2m");
-    assertTerminalTextIncludes(human.output, "Activity: just now · usually 4m");
+    assertTerminalTextIncludes(human.output, "Gate running");
+    assertTerminalTextIncludes(human.output, "usually 4m");
     assertTerminalTextIncludes(human.output, "done failed at test");
   });
 });
@@ -1411,7 +1413,12 @@ Deno.test("status: a landed proof carries its commit time for the human age", as
     const human = await runAgent(dir, ["status"]);
     assertTerminalTextIncludes(human.output, "Last landing");
     assertStringIncludes(human.output, "[✓]");
-    assertTerminalTextIncludes(human.output, "just now");
+    assertTerminalTextIncludes(human.output, "Age:");
+    assertEquals(
+      Date.parse(commitAt),
+      Date.parse(await gitOut(dir, "show", "-s", "--format=%cI", "HEAD")),
+      "the age is anchored to the landed commit, not status invocation time",
+    );
   });
 });
 

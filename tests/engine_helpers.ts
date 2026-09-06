@@ -567,7 +567,8 @@ export async function runAgentPty(
  * Run the real engine on a PTY with readiness-gated input phases. Use this for
  * journeys such as Ctrl-C where input must arrive only after product output
  * proves the Gate is active; ordinary non-interactive PTY cases use
- * {@link runAgentPty}.
+ * {@link runAgentPty}. Whole-command completion uses the shared process allowance;
+ * tests of timeout behavior belong at the lower-level PTY driver.
  */
 export async function runAgentPtyJourney(
   dir: string,
@@ -576,7 +577,6 @@ export async function runAgentPtyJourney(
     readonly input: readonly PtyInputPhase[];
     readonly env?: Record<string, string>;
     readonly geometry?: { readonly columns: number; readonly rows: number };
-    readonly timeoutMs?: number;
   },
 ): Promise<PtyProcessResult> {
   if (Deno.build.os === "windows") {
@@ -589,7 +589,6 @@ export async function runAgentPtyJourney(
     env: await engineEnv({ TERM: "xterm-256color", ...opts.env }),
     input: opts.input,
     ...(opts.geometry === undefined ? {} : { geometry: opts.geometry }),
-    ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
   });
 }
 
@@ -615,7 +614,6 @@ export async function runAgentPtyWithViewport(
       readonly whenPath?: string;
     };
     readonly env?: Record<string, string>;
-    readonly timeoutMs?: number;
   },
 ): Promise<ViewportRunResult> {
   if (Deno.build.os === "windows") {
@@ -650,7 +648,6 @@ export async function runAgentPtyWithViewport(
       cwd: dir,
       env: await engineEnv({ TERM: "xterm-256color", ...options.env }),
       keepInputOpen: true,
-      timeoutMs: options.timeoutMs ?? 8_000,
     });
     const raw = await Deno.readTextFile(resultPath);
     const decoded = decodeWith(

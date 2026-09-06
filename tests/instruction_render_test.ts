@@ -16,6 +16,7 @@ import {
   renderAgentFiles,
 } from "../src/engine/instruction_render.ts";
 import { providerFor } from "../src/lib/providers.ts";
+import { OPERATING_POLICIES } from "../src/shared/operating_policies.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { defaultMapPath } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
@@ -521,12 +522,15 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
         "a configured project omits the resources adoption seed",
       );
 
-      assert(
-        bareBody.includes(
-          "explicit conversation consent or recorded grants for each proven predecessor",
-        ),
-        "acceptance requires conversation consent or checked recorded authority",
+      const acceptance = OPERATING_POLICIES.find((policy) =>
+        policy.id === "accept-on-handoff"
       );
+      assert(acceptance !== undefined);
+      for (const body of [bareBody, richBody]) {
+        for (const probe of acceptance.probes) {
+          assert(probe.test(body), `acceptance policy is preserved: ${probe}`);
+        }
+      }
       assert(
         bareBody.includes("authority-aware hint: report the Proof and stop"),
         "the runtime result, not static prose, chooses the landing route",

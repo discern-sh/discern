@@ -16,6 +16,10 @@ import {
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { withTempDir } from "./helpers.ts";
+import {
+  runAgentPtyJourney,
+  runAgentPtyWithViewport,
+} from "./engine_helpers.ts";
 
 interface PtyPrimitiveSite {
   readonly path: string;
@@ -345,4 +349,20 @@ Deno.test("real PTY declarations are literal and retain every OS-boundary canary
     }
   }
   assertEquals(findings.sort(), []);
+});
+
+Deno.test("public-command PTYs cannot override the shared completion allowance", () => {
+  const futureConsumer = (): void => {
+    void runAgentPtyJourney("/synthetic/project", ["done"], {
+      input: [],
+      // @ts-expect-error — product journeys do not own infrastructure deadlines
+      timeoutMs: 12_000,
+    });
+    void runAgentPtyWithViewport("/synthetic/project", ["test"], {
+      size: { columns: 80, rows: 24 },
+      // @ts-expect-error — timeout behavior is tested at the transport boundary
+      timeoutMs: 8_000,
+    });
+  };
+  assertEquals(typeof futureConsumer, "function");
 });

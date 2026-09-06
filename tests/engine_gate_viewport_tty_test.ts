@@ -215,7 +215,6 @@ async function runObservedResize(
         CI: "false",
         [RESIZE_MARKER_ENV]: markerPath,
       },
-      timeoutMs: 15_000,
     });
   }, { prefix: "discern-viewport-ready-" });
 }
@@ -230,7 +229,6 @@ realPtyTest({
       const result = await runAgentPtyWithViewport(root, args, {
         size: { columns: 80, rows: 4 },
         env: { NO_COLOR: "1", CI: "false" },
-        timeoutMs: 15_000,
       });
       assertEquals(result.code, 0, result.output);
       assertEquals(result.terminal.childCode, 0, result.output);

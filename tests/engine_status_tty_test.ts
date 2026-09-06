@@ -1009,29 +1009,24 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   assert(!(hints[0] ?? "").includes("git diff"));
   assertStringIncludes(hints[0] ?? "", "The owner reviews");
   assert(!(hints[0] ?? "").includes("data.fleet"));
-  const output = render(
-    data([mainEntry(), ready], {
-      landed_proof: {
-        commit: "abcdef1234567890",
-        commit_at: "2026-08-03T11:00:00.000Z",
-        ref: "refs/notes/discern",
-        proof: {
-          branch: "agent/landed-123abc",
-          trunk: "main",
-          head: "abcdef123456",
-          files_total: 6,
-          insertions: 20,
-          deletions: 4,
-          line: "Proof: passed",
-          markdown: "### Proof\n\nStored table row that may remain copyable.",
-        },
+  const value = data([mainEntry(), ready], {
+    landed_proof: {
+      commit: "abcdef1234567890",
+      commit_at: "2026-08-03T11:00:00.000Z",
+      ref: "refs/notes/discern",
+      proof: {
+        branch: "agent/landed-123abc",
+        trunk: "main",
+        head: "abcdef123456",
+        files_total: 6,
+        insertions: 20,
+        deletions: 4,
+        line: "Proof: passed",
+        markdown: "### Proof\n\nStored table row that may remain copyable.",
       },
-    }),
-    72,
-    false,
-    hints,
-    true,
-  );
+    },
+  });
+  const output = render(value, 72, false, hints, true);
   assertStringIncludes(output, "1 needs attention");
   assertStringIncludes(output, "git diff main...<branch>");
   assertStringIncludes(output, "discern status --verbose");
@@ -1044,6 +1039,30 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   assert(!output.includes("refs/notes/discern"));
   assert(!output.includes("data.fleet"));
   assertLinesFit(output, 72);
+
+  assert(value.landed_proof !== undefined);
+  for (
+    const [elapsed, age] of [
+      [0, "just now"],
+      [60_000, "1m ago"],
+      [3_600_000, "1h ago"],
+    ] as const
+  ) {
+    const aged = render(
+      {
+        ...value,
+        landed_proof: {
+          ...value.landed_proof,
+          commit_at: new Date(NOW - elapsed).toISOString(),
+        },
+      },
+      72,
+      false,
+      undefined,
+      true,
+    );
+    assertStringIncludes(squash(aged), `Age: ${age}`);
+  }
 
   const verbose = render(
     data([mainEntry(), ready], {

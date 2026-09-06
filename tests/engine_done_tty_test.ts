@@ -1,7 +1,6 @@
 import { project as completionProject } from "./completion_public_fixture.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
-import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
 /**
  * Black-box coverage for `done`'s human presentation boundary. A real
  * pseudo-terminal gets the live compact table and proof panel; a pipe keeps
@@ -150,7 +149,6 @@ realPtyTest({
           },
           steps: [{}],
         }],
-        timeoutMs: 12_000,
       });
       assertEquals(result.code, 0, result.transcript);
       const active = result.keyframes["active-tail"] ?? "";
@@ -209,7 +207,6 @@ realPtyTest({
           },
           steps: [{ bytes: "\x03" }],
         }],
-        timeoutMs: 8_000,
       });
       assert(result.code !== 0, result.transcript);
       assertTerminalTextIncludes(
@@ -358,7 +355,6 @@ restore = 'true'
           },
           steps: [{}],
         }],
-        timeoutMs: TEST_PROCESS_TIMEOUT_MS,
       });
       assertEquals(accepted.code, 0, accepted.transcript);
       const frame = accepted.keyframes.validating ?? "";

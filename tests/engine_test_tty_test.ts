@@ -74,7 +74,6 @@ realPtyTest({
       const result = await runAgentPtyWithViewport(dir, ["test"], {
         size: { columns: 80, rows: 12 },
         env: { NO_COLOR: "1", CI: "false" },
-        timeoutMs: 15_000,
       });
       assertEquals(result.code, 1, result.output);
       const output = testOutput(result.stdout);
@@ -102,7 +101,6 @@ realPtyTest({
       const noColor = await runAgentPtyWithViewport(dir, ["test"], {
         size: { columns: 80, rows: 60 },
         env: { NO_COLOR: "1", FORCE_COLOR: "", CI: "false" },
-        timeoutMs: 10_000,
       });
       const color = await runAgentPtyWithViewport(dir, ["test"], {
         size: { columns: 80, rows: 60 },
@@ -112,7 +110,6 @@ realPtyTest({
           COLORTERM: "truecolor",
           CI: "false",
         },
-        timeoutMs: 10_000,
       });
       for (const result of [noColor, color]) {
         assertEquals(result.code, 0, result.output);
