@@ -1,3 +1,5 @@
+import { configuredValidation } from "../src/engine/validation/configuration.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { assert, assertEquals } from "@std/assert";
 import { applyConfigDoc, configDocFillPaths } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
@@ -211,4 +213,29 @@ Deno.test("public producer declarations preserve omitted facts without leaking r
     }
   }
   assertEquals(ProducerDeclarationSchema.parse({ run: "produce" }).needs, []);
+});
+
+Deno.test("test capacity never invents dependencies between independent check and measurement producers", async () => {
+  for (const cap of [0, 1]) {
+    const jobs = Object.entries(KNOWN_JOBS).filter(([, stage]) =>
+      stage === "check" || stage === "test"
+    ).map(([name]) => `${name} = "echo ${name}"`).join("\n");
+    const parsed = parseConfig(
+      `[gate]\nconcurrent_test_runs = ${cap}\n[jobs]\n${jobs}\n[jobs.independent_inspection]\nrun = 'echo inspect'\nstage = 'check'\n[jobs.future_verification]\nrun = 'echo verify'\nstage = 'test'\n[standards.reading]\nrun = 'echo DISCERN_METRIC reading 0'\ndirection = 'down'\nlimit = 0\n`,
+    );
+    assert(parsed.config !== undefined);
+    const graph = await configuredValidation(parsed.config, []);
+    const checks = [...graph.stages].filter(([, stage]) => stage === "check")
+      .map(([selector]) => selector);
+    for (const [selector, stage] of graph.stages) {
+      if (stage !== "test" && stage !== "standards") continue;
+      for (const check of checks) {
+        assertEquals(
+          graph.ordering.get(selector)?.includes(check) ?? false,
+          false,
+          `${selector} after ${check}, cap ${cap}`,
+        );
+      }
+    }
+  }
 });

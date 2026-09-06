@@ -43,7 +43,12 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { waitForPendingCondition, waitUntil } from "./waiting.ts";
+import {
+  settlePending,
+  TEST_PROCESS_TIMEOUT_MS,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 import {
   assertResultDataKey,
   type CliResultEnvelope,
@@ -632,7 +637,7 @@ Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
   });
 });
 
-Deno.test("gate slots: a check failure fails fast without ever waiting for a slot", async () => {
+Deno.test("gate slots: a check failure cancels queued tests while the slot remains held", async () => {
   await withTempDir(async (dir) => {
     await withTempDir(async (aux) => {
       const logPath = join(aux, "markers.log");
@@ -656,28 +661,31 @@ Deno.test("gate slots: a check failure fails fast without ever waiting for a slo
         ].join("\n"),
       );
       await gitInit(dir);
-      // The only slot stays held for the WHOLE run: if the check stage (or the
-      // run as a whole) queued before failing, `done` would hang here instead
-      // of returning red.
+      // Capacity stays occupied until done returns. Independent checks must
+      // still execute and their failure must cancel the pending test demand.
       const release = await holdSlot(dir);
+      const pending = runAgent(dir, ["done", "--json"]);
       try {
-        const r = await runAgent(dir, ["done", "--json"]);
+        const r = await settlePending(
+          pending,
+          "a failing check to return while test capacity remains held",
+          { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+        );
         const envelope = parseEnvelope(r.stdout, "done");
         assertEquals(r.code, 1, r.output);
         assertEquals(envelope.ok, false);
-        // Under a cap the plan splits check from test, so the red stage is the
-        // check stage itself — the fail-fast happened before any slot wait.
+        // A queued test does not hide the failing check or start after it.
         assertResultDataKey(envelope, "failed_stage");
         assertEquals(envelope.data.failed_stage, "check");
-        assertEquals(envelope.waited_ms, undefined);
+        assertEquals(envelope.data.producer_executions, { "jobs.lint": 1 });
         assertEquals(
           await logLines(logPath),
           [],
           "the test job never ran behind the failed check",
         );
-        assertEquals(hasQueuedHint(envelope), false, "no wait was narrated");
       } finally {
         release();
+        await pending;
       }
     }, { prefix: "discern-slots-aux-" });
   });

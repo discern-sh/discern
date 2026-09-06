@@ -9,6 +9,7 @@ import {
 import { dirname, join } from "@std/path";
 import {
   OperationLockError,
+  withCompletionPublication,
   withOperationLock,
 } from "../src/engine/operation_lock.ts";
 import { withAcceptanceTransactionLock } from "../src/engine/worktree/acceptance_transaction.ts";
@@ -172,7 +173,7 @@ Deno.test("common-only Git writers do not demand linked-checkout administration"
   });
 });
 
-Deno.test("acceptance from two worktrees shares one common-repository exclusion", async () => {
+Deno.test("phased acceptance planning remains concurrent across worktrees", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);
     const firstWorktree = await addWorktree(dir, "first-acceptance");
@@ -185,36 +186,29 @@ Deno.test("acceptance from two worktrees shares one common-repository exclusion"
       heldOperation(entered.resolve, release.promise),
     );
     await entered.promise;
-
-    let secondRan = false;
-    const refusal = await assertRejects(
-      () =>
-        withOperationLock(secondWorktree, { command: "accept" }, () => {
-          secondRan = true;
-          return Promise.resolve();
-        }),
-      OperationLockError,
-    );
-    assertEquals(secondRan, false);
-    assertStringIncludes(refusal.message, "common repository boundary");
-    assertStringIncludes(refusal.message, "This call made no change");
-    assertStringIncludes(refusal.message, "Retry after");
-
-    release.resolve();
-    await first;
+    try {
+      let secondRan = false;
+      await withOperationLock(secondWorktree, { command: "accept" }, () => {
+        secondRan = true;
+        return Promise.resolve();
+      });
+      assertEquals(secondRan, true);
+    } finally {
+      release.resolve();
+      await first;
+    }
   });
 });
 
-Deno.test("accept holds every competing common-repository mutation outside its body", async () => {
+Deno.test("completion publication holds every competing common-repository mutation outside its body", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);
     const accepting = await addWorktree(dir, "accept-lock-owner");
     const contender = await addWorktree(dir, "common-lock-contender");
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const held = withOperationLock(
+    const held = withCompletionPublication(
       accepting,
-      { command: "accept" },
       heldOperation(entered.resolve, release.promise),
     );
     await entered.promise;
@@ -332,7 +326,7 @@ Deno.test("an orphaned lock path is not treated as ownership", async () => {
   });
 });
 
-Deno.test("every pre-repository boundary falls back without masking the command body", async () => {
+Deno.test("pre-repository common publication excludes common writers without masking their body", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
@@ -340,20 +334,22 @@ Deno.test("every pre-repository boundary falls back without masking the command 
     );
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const first = withOperationLock(dir, { command: "accept" }, async () => {
-      entered.resolve();
-      await release.promise;
-    });
-    await entered.promise;
-
-    await assertRejects(
-      () => withOperationLock(dir, { command: "accept" }, async () => {}),
-      OperationLockError,
-      "common repository boundary",
+    const first = withCompletionPublication(
+      dir,
+      heldOperation(entered.resolve, release.promise),
     );
-
-    release.resolve();
-    await first;
+    await entered.promise;
+    try {
+      await assertRejects(
+        () =>
+          withOperationLock(dir, { command: "setup begin" }, async () => {}),
+        OperationLockError,
+        "common repository boundary",
+      );
+    } finally {
+      release.resolve();
+      await first;
+    }
   });
 });
 
@@ -416,12 +412,11 @@ Deno.test("nested locking cannot invert common-before-checkout order", async () 
     await initializeRepo(dir);
     const refusal = await assertRejects(
       () =>
-        withOperationLock(dir, { command: "prepare" }, () =>
-          withOperationLock(
-            dir,
-            { command: "accept" },
-            () => Promise.resolve(),
-          )),
+        withOperationLock(
+          dir,
+          { command: "prepare" },
+          () => withCompletionPublication(dir, () => Promise.resolve()),
+        ),
       OperationLockError,
     );
     assertStringIncludes(refusal.message, "common repository boundary after");

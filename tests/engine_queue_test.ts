@@ -4,7 +4,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { parseQueueInvocation } from "../src/engine/queue.ts";
@@ -676,6 +676,12 @@ Deno.test("a capped gate exports the marker after its slots fail open", async ()
         "",
       ].join("\n"),
     );
+    await gitInit(dir);
+    // Validation has a committed reference; only the host slot directory is
+    // unavailable. A file at its coordinate exercises fail-open directly.
+    const slots = join(dir, ".git", GIT_ADMIN_STATE.testSlots.path);
+    await Deno.mkdir(dirname(slots), { recursive: true });
+    await Deno.writeTextFile(slots, "not a directory");
     const result = await runAgent(dir, ["test", "--json"], {
       env: { [TEST_RUN_SLOT_ENV]: "" },
     });

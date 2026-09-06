@@ -1,7 +1,10 @@
 /** Native checkout exclusion stays held while unrelated common publication can proceed. */
 import { assertEquals, assertRejects } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
-import { addWorktree, gitInit } from "./engine_helpers.ts";
+import { fromFileUrl, join } from "@std/path";
+import { exists } from "@std/fs";
+import { waitForPendingCondition } from "./waiting.ts";
+import { addWorktree, gitInit, repoSourceRunArgs } from "./engine_helpers.ts";
 import {
   OperationLockError,
   withCompletionCheckout,
@@ -163,5 +166,50 @@ Deno.test("setup probes require the exact parent transaction and keep both check
         await withCompletionCheckout(root, () => Promise.resolve());
       });
     });
+  });
+});
+
+Deno.test("separate completion publishers wait before effects and execute once after exclusion", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(`${root}/seed`, "seed\n");
+    await gitInit(root);
+    const waiting = join(root, "waiting");
+    const published = join(root, "published");
+    const driver = fromFileUrl(
+      new URL("fixtures/completion_publication_wait.ts", import.meta.url),
+    );
+    let output: Promise<Deno.CommandOutput> | undefined;
+    let child: Deno.ChildProcess | undefined;
+    try {
+      await withCompletionPublication(root, async () => {
+        child = new Deno.Command(Deno.execPath(), {
+          args: repoSourceRunArgs(driver, [root, waiting, published]),
+          cwd: root,
+          stdout: "piped",
+          stderr: "piped",
+        }).spawn();
+        output = child.output();
+        await waitForPendingCondition(
+          output,
+          () => exists(waiting),
+          "a separate publisher to observe the held boundary",
+        );
+        assertEquals(await exists(published), false);
+      });
+      const result = await output;
+      assertEquals(
+        result?.code,
+        0,
+        result === undefined
+          ? "missing child"
+          : new TextDecoder().decode(result.stderr),
+      );
+      assertEquals(await Deno.readTextFile(published), "published");
+    } finally {
+      try {
+        child?.kill("SIGKILL");
+      } catch { /* Already exited. */ }
+      await output;
+    }
   });
 });
