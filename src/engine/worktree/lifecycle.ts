@@ -1,3 +1,4 @@
+import { acceptQueueResult } from "../landing_queue/public_accept.ts";
 /**
  * The worktree lifecycle entry points — worktree setup, ensure, accept,
  * teardown, and prune. These compose the identity, resource, and git layers into
@@ -24,40 +25,135 @@ import {
   relative,
   resolve,
 } from "@std/path";
-import { type Logger, loggerSink } from "../../lib/log.ts";
-import { terminalLine } from "../../lib/terminal.ts";
 import { renderResultSummaryCli } from "discern-design-system/cli";
 import { adrIndexState } from "../../lib/adr_index.ts";
+import { type Logger, loggerSink } from "../../lib/log.ts";
+import { terminalLine } from "../../lib/terminal.ts";
 import {
   canInteract,
   confirmDestructiveAction,
-  plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
-import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
-import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
-import { commandEvidence } from "../../shared/command_evidence.ts";
+import { uniqueCheckpointDrops } from "../../shared/checkpoint_drops.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { commandEvidence } from "../../shared/command_evidence.ts";
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import {
+  AWAITING_CONSENT_SLUG,
+  type LandingConsent,
+} from "../../shared/consent.ts";
+import { emitResult } from "../../shared/emit.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
-  directoryExists,
   fileExists,
   pathExists,
   readTextIfExists,
   realPathIfExists,
 } from "../../shared/fs_presence.ts";
-import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
-import {
-  type CheckpointDrop,
-  checkpointDropAccounts,
-  isIndeterminateStopDrop,
-  uniqueCheckpointDrops,
-} from "../../shared/checkpoint_drops.ts";
 import {
   generatedGroupForPath,
   type ResolvedGeneratedGroup,
   resolveGeneratedGroups,
 } from "../../shared/generated_artifacts.ts";
+import { DROP_RECOVERY_REF_PREFIX } from "../../shared/git_conventions.ts";
+import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
+import { parsePorcelainZ } from "../../shared/git_paths.ts";
+import {
+  fire,
+  type FiredHint,
+  hasRegisteredActionableHint,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+  mergeHintTexts,
+} from "../../shared/hints.ts";
+import {
+  appliedResult,
+  BUILT_IN_STEP_LABELS,
+  type Diagnostic,
+  type DiscernResult,
+  type EnginePlan,
+  previewResult,
+  renderPlan,
+  renderStepResults,
+  type StepOutcome,
+  type StepResult,
+  verbatimStepLabel,
+} from "../../shared/result.ts";
+import { observeResult } from "../../shared/result_capture.ts";
+import type {
+  AcceptData,
+  AcceptLandingState,
+  AcceptProofNoteData,
+  StartData,
+  TaskRenameData,
+  UpdateData,
+} from "../../shared/result_schemas.ts";
+import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
+import { plannedGitMutationWrites } from "../../shared/setup_effects.ts";
+import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import {
+  type ParkedTaskMetadata,
+  recordedTaskMetadataData,
+  type StoredTaskMetadata,
+  TASK_METADATA_SCHEMA_VERSION,
+  validateTaskText,
+} from "../../shared/task_metadata.ts";
+import {
+  preflightPlannedWrites,
+  writePreflightFailureResult,
+} from "../../shared/write_preflight.ts";
+import {
+  gateRunContext,
+  resolveGateRunPolicy,
+  runJobGroups,
+} from "../gate/execute.ts";
+import { type JobGroup, serializeJobSteps } from "../gate/plan.ts";
+import { configEpoch } from "../logbook/epoch.ts";
+import { readFleetLogbookActivity } from "../logbook/read.ts";
+import {
+  type ContainedWorktree,
+  containmentIdleCheck,
+  scanContainedWorktrees,
+  treeProvablyClean,
+} from "./containment.ts";
+import {
+  addWorktree,
+  assertOpSide,
+  assertResolvedTrunkMerged,
+  commitUpdateRegeneration,
+  ensureWorktreeBranch,
+  hasAnyCommit,
+  inheritMainEnvVars,
+  inLinkedWorktree,
+  integrationBranch,
+  integrationDelta,
+  listWorktreeFleet,
+  liveWorktreeGitKeys,
+  liveWorktreePaths,
+  localBranchExists,
+  overlapPaths,
+  pruneGitWorktrees,
+  pruneStaleWorktreeMetadata,
+  readySentinelPath,
+  refMergedState,
+  registeredWorktreeOwnershipEvidence,
+  removeWorktreeSafely,
+  repoToplevel,
+  resolveCommitRef,
+  resolveCommonGitDir,
+  resolveIntegrationAnchors,
+  scanGitWorktreesForPrune,
+  scanOrphanWorktreesForSweep,
+  sweepOrphanWorktrees,
+  updateMain,
+  WorktreeGitError,
+  worktreeGitKey,
+  WorktreeResultError,
+  worktreeSetupComplete,
+  writeWorktreeEnvVar,
+} from "./git.ts";
 import {
   deriveIdentity,
   deriveTrunkIdentity,
@@ -72,67 +168,17 @@ import {
   type WorktreeField,
   type WorktreeIdentity,
 } from "./identity.ts";
+import { recordIgnoredFileBaseline } from "./ignored.ts";
 import {
-  hasIgnoredFileChanges,
-  inspectIgnoredFileChanges,
-  recordIgnoredFileBaseline,
-} from "./ignored.ts";
-import { runShellRouted } from "./shell.ts";
+  classifyAutomaticBranchOwnership,
+  deleteAutomaticallyOwnedBranch,
+} from "./ownership.ts";
+import { worktreeParkResult } from "./park.ts";
 import {
-  configuredSetupSteps,
-  preflightSetupStepJournal,
-  recoverSetupStep,
-  runJournaledSetupSteps,
-  SetupStepJournalError,
-  type SetupStepRecoveryDecision,
-  type SetupStepRecoveryResult,
-} from "./setup_step_journal.ts";
+  readParkedTaskMetadata,
+  removeParkedTaskMetadata,
+} from "./parked_task_metadata.ts";
 import {
-  type JobGroup,
-  planStageJobs,
-  serializeJobSteps,
-} from "../gate/plan.ts";
-import {
-  gateRunContext,
-  resolveGateRunPolicy,
-  runJobGroups,
-} from "../gate/execute.ts";
-import { type GitResult, runGit } from "../../shared/subprocess.ts";
-import { parsePorcelainZ } from "../../shared/git_paths.ts";
-import {
-  AWAITING_CONSENT_SLUG,
-  type LandingConsent,
-} from "../../shared/consent.ts";
-import {
-  AWAITING_DECLARATION_SLUG,
-  AWAITING_VARIANCE_SLUG,
-} from "../../shared/declarations.ts";
-import { markdownCodeSpan } from "../../shared/markdown_code.ts";
-import { checkpointServingText } from "../checkpoints/serving_text.ts";
-import {
-  type AcceptanceCheckpointState,
-  inspectAcceptanceCheckpoints,
-  resolveVarianceInterlock,
-  type StandingUnmetConclusion,
-  varianceBinding,
-} from "./acceptance_checkpoints.ts";
-import {
-  classifyOrphans,
-  createResources,
-  destroyResources,
-  ensureResources,
-  entriesForWorktree,
-  gcPlannedOrphanResources,
-  type GcResult,
-  type LedgerItem,
-  listEntries,
-  readResourceSpecs,
-  recordResourceEnv,
-  WorktreeResourceError,
-} from "./resources.ts";
-import {
-  type AcceptPlan,
-  acceptPlanToEngine,
   dropPlanToEngine,
   FULL_REFRESH_STEP_NOTE,
   type PrunePlan,
@@ -151,202 +197,84 @@ import {
   updatePlanToEngine,
 } from "./plan.ts";
 import {
-  appliedResult,
-  BUILT_IN_STEP_LABELS,
-  type BuiltInStepLabel,
-  type Diagnostic,
-  dimBlock,
-  type DiscernResult,
-  type EnginePlan,
-  previewResult,
-  renderPlan,
-  renderStepResults,
-  type StepOutcome,
-  type StepResult,
-  verbatimStepLabel,
-} from "../../shared/result.ts";
-import { plannedGitMutationWrites } from "../../shared/setup_effects.ts";
+  preserveDropRecoveryCommit,
+  preserveDropRecoveryRef,
+} from "./recovery_refs.ts";
+import { buildRemovalPlan } from "./removal_plan.ts";
 import {
-  preflightPlannedWrites,
-  writePreflightFailureResult,
-} from "../../shared/write_preflight.ts";
-import {
-  observeCheckpointActivity,
-  observeResult,
-} from "../../shared/result_capture.ts";
-import {
-  declarationIsCurrent,
-  readOpenQuestions,
-} from "../checkpoints/open_questions.ts";
-import type {
-  AcceptData,
-  AcceptLandingState,
-  AcceptProofNoteData,
-  AuthorizedVarianceData,
-  GateData,
-  Proof,
-  StandardLimitApprovalRequestData,
-  StandardLimitProposalData,
-  StartData,
-  TaskRenameData,
-  UpdateData,
-} from "../../shared/result_schemas.ts";
-import { AppliedAcceptDataSchema } from "../../shared/result_schemas.ts";
-import { sha256Hex } from "../../shared/sha256.ts";
-import {
-  type ParkedTaskMetadata,
-  recordedTaskMetadataData,
-  type StoredTaskMetadata,
-  TASK_METADATA_SCHEMA_VERSION,
-  validateTaskText,
-} from "../../shared/task_metadata.ts";
-import { buildStandardPlan } from "../gate/standard_plan.ts";
-import {
-  cloneStandardLimitProposal,
-  inspectActiveStandardLimitProposals,
-  sameStandardLimitProposalSet,
-} from "../gate/standard_proposal_state.ts";
-import { emitResult } from "../../shared/emit.ts";
-import {
-  fire,
-  type FiredHint,
-  hasRegisteredActionableHint,
-  HINTS,
-  hintTexts,
-  interactiveHintTexts,
-  mergeHintTexts,
-} from "../../shared/hints.ts";
-import {
-  addWorktree,
-  assertOpSide,
-  assertResolvedTrunkMerged,
-  commitUpdateRegeneration,
-  ensureWorktreeBranch,
-  hasAnyCommit,
-  hasUncommittedTrackedChanges,
-  inheritMainEnvVars,
-  inLinkedWorktree,
-  inspectGitOperation,
-  integrationBranch,
-  integrationDelta,
-  listWorktreeFleet,
-  liveWorktreeGitKeys,
-  liveWorktreePaths,
-  localBranchExists,
-  mainRepoPath,
-  missingIntegrationBranchWarning,
-  overlapPaths,
-  pruneGitWorktrees,
-  pruneStaleWorktreeMetadata,
-  readySentinelPath,
-  refMergedState,
-  registeredWorktreeOwnershipEvidence,
-  registeredWorktreeRecord,
-  removeWorktreeSafely,
-  repoToplevel,
-  resolveCommitRef,
-  resolveCommonGitDir,
-  resolveIntegrationAnchors,
-  scanGitWorktreesForPrune,
-  scanOrphanWorktreesForSweep,
-  sweepOrphanWorktrees,
-  updateMain,
-  WorktreeGitError,
-  worktreeGitKey,
-  WorktreeResultError,
-  worktreeSetupComplete,
-  writeWorktreeEnvVar,
-} from "./git.ts";
-import {
-  type ContainedWorktree,
-  containmentIdleCheck,
-  scanContainedWorktrees,
-  treeProvablyClean,
-} from "./containment.ts";
-import { readFleetLogbookActivity } from "../logbook/read.ts";
-import { configEpoch } from "../logbook/epoch.ts";
+  classifyOrphans,
+  createResources,
+  destroyResources,
+  ensureResources,
+  entriesForWorktree,
+  gcPlannedOrphanResources,
+  type GcResult,
+  type LedgerItem,
+  listEntries,
+  readResourceSpecs,
+  recordResourceEnv,
+  WorktreeResourceError,
+} from "./resources.ts";
 import {
   pruneReappearedWorktreePaths,
   type ReappearedWorktreePathPruneResult,
   scanReappearedWorktreePaths,
 } from "./retired_paths.ts";
 import {
-  preserveDropRecoveryCommit,
-  preserveDropRecoveryRef,
-} from "./recovery_refs.ts";
-import { DROP_RECOVERY_REF_PREFIX } from "../../shared/git_conventions.ts";
+  configuredSetupSteps,
+  preflightSetupStepJournal,
+  recoverSetupStep,
+  runJournaledSetupSteps,
+  SetupStepJournalError,
+  type SetupStepRecoveryDecision,
+  type SetupStepRecoveryResult,
+} from "./setup_step_journal.ts";
+import { runShellRouted } from "./shell.ts";
 import {
-  classifyAutomaticBranchOwnership,
-  deleteAutomaticallyOwnedBranch,
-} from "./ownership.ts";
+  resolveWorktreeTarget,
+  WorktreeTargetError,
+} from "./target_resolution.ts";
 import { taskLabel } from "./task_label.ts";
 import {
   readStoredTaskMetadata,
   TaskMetadataStoreError,
   writeStoredTaskMetadata,
 } from "./task_metadata.ts";
-import {
-  readParkedTaskMetadata,
-  removeParkedTaskMetadata,
-} from "./parked_task_metadata.ts";
-import { buildRemovalPlan } from "./removal_plan.ts";
-import { worktreeParkResult } from "./park.ts";
-import {
-  resolveWorktreeTarget,
-  WorktreeTargetError,
-} from "./target_resolution.ts";
 export { worktreeParkPlan } from "./park.ts";
 
 // worktree setup recompiles the agent instructions as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
+import { renderAgentFiles } from "../instruction_render.ts";
 import {
   compileInstructions,
   instructionRefreshErrors,
   type InstructionsResult,
-  materializeLocalRefreshArtifacts,
 } from "../instructions.ts";
-import { renderAgentFiles } from "../instruction_render.ts";
-import {
-  planTrackedRefresh,
-  type TrackedRefreshPlan,
-} from "../tracked_refresh.ts";
-import { resolveTemplatesDir } from "../../lib/paths.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate proof when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
-import { finishResult } from "../gate/finish.ts";
-import {
-  gateProofHasCompleteEvidence,
-  inspectGateProof,
-  pinValidatedTree,
-} from "../gate/proof.ts";
+import { inspectGateProof } from "../gate/proof.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
-import { renderProofLineCli } from "../gate/presentation.ts";
 import {
   cloneLandingConsent,
   recordLandingProofNote,
-  runLandingSmoke,
 } from "./accept_proof_recording.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
 import {
+  inspectInterruptedAcceptance,
+  recoverInterruptedAcceptance,
+  withAcceptanceTransactionLock,
+} from "./acceptance_transaction.ts";
+import {
   inspectLandingAuthority,
-  landingAuthorityDetail,
-  landingAuthorityExpiry,
   type LandingAuthorityResolution,
   prospectiveLandingAuthorityProjection,
   uncoveredLandingAuthorityDetails,
 } from "./landing_authority.ts";
-import { clearEffortGrant } from "./effort_grant_cleanup.ts";
-import {
-  inspectInterruptedAcceptance,
-  performAcceptanceTransition,
-  recoverInterruptedAcceptance,
-  withAcceptanceTransactionLock,
-} from "./acceptance_transaction.ts";
 
 /**
  * Worktree lifecycle verbs that require discern's project root to be the Git
@@ -735,25 +663,6 @@ function ensureFailureDiagnostic(
     message:
       `The ${scope} convergence command ${failure} in ${cwd}. Fix the command or its prerequisites, then run it again from that checkout.`,
     reproduce_cmd: command,
-  };
-}
-
-/** Record every planned command as failed when the runner itself throws. */
-function failedEnsureCommandRun(
-  commands: readonly string[],
-  opts: {
-    cwd: string;
-    scope: "repository" | "worktree";
-    failure: string;
-  },
-): EnsureCommandRun {
-  const diagnostics = commands.map((command) =>
-    ensureFailureDiagnostic(opts.scope, command, opts.cwd, opts.failure)
-  );
-  return {
-    outcomes: commands.map(() => "failed"),
-    diagnostics,
-    hints: ensureRecoveryHints(diagnostics),
   };
 }
 
@@ -1469,6 +1378,7 @@ export type EnsureResult =
  */
 export async function worktreeEnsure(
   ctx: LifecycleContext,
+  options: { readonly required?: boolean } = {},
 ): Promise<EnsureResult> {
   // Skip when not inside a linked worktree (including the main checkout).
   if (!(await inLinkedWorktree(ctx.cwd))) {
@@ -1481,9 +1391,9 @@ export async function worktreeEnsure(
     // best-effort here — a convergence hiccup must never break session start. Cheap
     // and silent when neither is declared.
     const { identity, settings } = await resolveContextIdentity(ctx);
-    await ensureResources(ctx, identity, settings);
-    await runRepositoryEnsureSteps(ctx, { fatal: false });
-    await runWorktreeEnsureSteps(ctx, { fatal: false });
+    await ensureResources(ctx, identity, settings, options);
+    await runRepositoryEnsureSteps(ctx, { fatal: options.required ?? false });
+    await runWorktreeEnsureSteps(ctx, { fatal: options.required ?? false });
     return { kind: "already" };
   }
   ctx.log.warn(
@@ -1800,262 +1710,10 @@ export async function worktreePark(
 /** A bound git runner for the acceptance flow (defaults to the worktree cwd). */
 type GitRunner = (args: string[], cwd?: string) => Promise<GitResult>;
 
-/** Preserve Git's useful failure text at lifecycle refusal boundaries. */
-function gitFailureDetail(result: GitResult): string {
-  return result.stderr.trim() || result.stdout.trim() ||
-    `git exited with status ${result.code}`;
-}
-
 /** The git runner acceptance uses — the shared runner bound to the worktree cwd. */
 function makeGitRunner(ctx: LifecycleContext): GitRunner {
   return (args: string[], cwd: string = ctx.cwd) =>
     runGit(args, { cwd, quiesceDescendants: true });
-}
-
-/**
- * The read-only diagnosis an acceptance acts on — the plan-build half. Asserts the
- * preconditions (in a worktree, not the main repo, branch contains main, main is
- * clean AND sitting on the trunk — acceptance fast-forwards the trunk there and
- * never silently switches a parked checkout), throwing the same
- * `WorktreeGitError`s as before so a plan only exists for an acceptance that may
- * proceed. Resolves the branch name read-only for display; the authoritative
- * branch (created if the worktree is detached) is ensured by the executor, so
- * building a plan — and `--dry-run` — never mutates.
- */
-async function buildAcceptPlan(
-  ctx: LifecycleContext,
-  run: GitRunner,
-  trunkBranch: string,
-): Promise<AcceptPlan> {
-  // diagnose
-  if (!(await run(["rev-parse", "--is-inside-work-tree"])).success) {
-    throw new WorktreeGitError(
-      "discern accept needs a Git worktree, but this directory is outside a Git " +
-        "repository. Move into the worktree that holds the finished branch, then re-run.",
-    );
-  }
-  const gitDir = (await run(["rev-parse", "--absolute-git-dir"])).stdout.trim();
-  const commonRaw = (await run(["rev-parse", "--git-common-dir"])).stdout
-    .trim();
-  const gitCommonDir = await realPathOrLifecycle(commonRaw, ctx.cwd);
-  if (gitDir === gitCommonDir) {
-    throw new WorktreeGitError(
-      "discern accept runs inside a worktree — a separate checkout and branch for " +
-        "one effort — but this is the main checkout. Move into the finished worktree " +
-        "path shown by `discern status`, then re-run.",
-    );
-  }
-  const worktreePath = (await run(["rev-parse", "--show-toplevel"])).stdout
-    .trim();
-
-  // resolve the branch name read-only (the executor ensures/creates it)
-  const settings = await loadIdentitySettings(ctx.root);
-  const id = await resolveWorktreeId(settings, ctx.cwd);
-  const identity = deriveIdentity(id, settings);
-  const current = (await run(["branch", "--show-current"])).stdout.trim();
-  const worktreeBranch = current !== "" ? current : identity.branch;
-
-  const mainRepo = await mainRepoPath(ctx.cwd);
-  if (mainRepo === undefined) {
-    throw new WorktreeGitError(
-      "discern could not find the main checkout from Git's worktree records. Run " +
-        "`git worktree repair`, then re-run `discern accept`.",
-    );
-  }
-  if (mainRepo === worktreePath) {
-    throw new WorktreeGitError(
-      "Git identifies this path as the main checkout, so there is no worktree branch " +
-        "to accept. Move into the finished worktree shown by `discern status`, then " +
-        "re-run `discern accept`.",
-    );
-  }
-
-  // Acceptance ends by REMOVING this worktree, and a `git worktree lock`ed one
-  // cannot be removed (git refuses; discern honors the lock). Refuse at plan
-  // time — before the gate runs and long before the trunk fast-forwards — so a
-  // locked worktree never strands a half-landed acceptance.
-  if (
-    (await registeredWorktreeRecord(worktreePath, mainRepo))?.locked === true
-  ) {
-    throw new WorktreeGitError(
-      `This worktree is locked (git worktree lock), and acceptance removes ` +
-        `the worktree after landing. Unlock it first ` +
-        `(git worktree unlock ${worktreePath}), then re-run discern accept.`,
-    );
-  }
-
-  // require the branch contains the latest integration branch
-  ctx.log.info(`Checking the branch contains the latest ${trunkBranch}…`);
-  const merged = await assertResolvedTrunkMerged(ctx.cwd, trunkBranch);
-  if (merged.kind === "behind") {
-    throw new WorktreeGitError(
-      `This branch is behind the trunk (${trunkBranch}). Run \`discern update\` to ` +
-        `bring it in, then \`discern done\`, then re-run \`discern accept\`.`,
-    );
-  }
-  if (merged.kind === "missing") {
-    throw new WorktreeGitError(
-      `${missingIntegrationBranchWarning(merged.branch)} ` +
-        "Acceptance will not remove this worktree until the merge check can run.",
-    );
-  }
-  ctx.log.ok(`Branch contains the latest ${trunkBranch}.`);
-
-  // capture worktree state
-  const worktreeStatus = await run(["status", "--porcelain", "-z"]);
-  if (!worktreeStatus.success) {
-    throw new WorktreeGitError(
-      `discern could not read the worktree status at ${worktreePath}. ` +
-        `Nothing was landed. Repair the Git checkout, then re-run \`discern accept\`. ` +
-        `Git said: ${gitFailureDetail(worktreeStatus)}`,
-    );
-  }
-  const worktreeDirty = worktreeStatus.stdout.trim() !== "";
-  if (worktreeDirty) {
-    throw new WorktreeGitError(
-      "This worktree has uncommitted changes, so acceptance cannot land a stable " +
-        "commit. Commit or stash them, then re-run `discern accept`; discern never " +
-        "creates a work-in-progress commit for you.",
-    );
-  }
-  const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
-  if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
-    throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
-  }
-  const ignoredFileChanges = await inspectIgnoredFileChanges(
-    ctx.cwd,
-    ctx.config.worktree.ignored_file_drift,
-  );
-  // Refuse to move the main checkout only for tracked changes. Untracked local
-  // provider/session scratch does not participate in the fast-forward and is
-  // left in place.
-  const mainStatus = await run(
-    ["status", "--porcelain", "-z", "--untracked-files=no"],
-    mainRepo,
-  );
-  if (!mainStatus.success) {
-    throw new WorktreeGitError(
-      `discern could not read tracked status in the main checkout at ${mainRepo}. ` +
-        `Nothing was landed and the worktree is intact. Repair that checkout, ` +
-        `then re-run \`discern accept\`. Git said: ${
-          gitFailureDetail(mainStatus)
-        }`,
-    );
-  }
-  const mainDirty = parsePorcelainZ(mainStatus.stdout).length > 0;
-  const operation = await inspectGitOperation(mainRepo);
-  if (operation.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `discern could not inspect in-progress Git operations in the main checkout ` +
-        `at ${mainRepo}. Nothing was landed and the worktree is intact. ` +
-        `Repair that checkout, then re-run \`discern accept\`. Git said: ${operation.detail}`,
-    );
-  }
-  if (operation.kind === "active") {
-    throw new WorktreeGitError(
-      inProgressMainCheckoutRefusal(mainRepo, operation.operation),
-    );
-  }
-  const mainBranchRun = await run(["branch", "--show-current"], mainRepo);
-  if (!mainBranchRun.success) {
-    throw new WorktreeGitError(
-      `discern could not read the current branch in the main checkout at ${mainRepo}. ` +
-        `Nothing was landed and the worktree is intact. Repair that checkout, ` +
-        `then re-run \`discern accept\`. Git said: ${
-          gitFailureDetail(mainBranchRun)
-        }`,
-    );
-  }
-  const mainBranch = mainBranchRun.stdout.trim() !== ""
-    ? mainBranchRun.stdout.trim()
-    : "(detached)";
-
-  // gate: refuse to touch a dirty main checkout
-  if (mainDirty) {
-    throw new WorktreeGitError(
-      `Main checkout at ${mainRepo} has uncommitted tracked changes on '${mainBranch}'. ` +
-        `Commit or stash them, then re-run \`discern accept\`; acceptance will not move ` +
-        `your main-checkout work for you. ` +
-        `Your worktree branch '${worktreeBranch}' is untouched and still holds all its commits.`,
-    );
-  }
-
-  // gate: acceptance fast-forwards the trunk IN the main checkout, so the main
-  // checkout must be sitting on the trunk — never silently switch it off whatever
-  // branch someone parked it on.
-  if (mainBranch !== trunkBranch) {
-    throw new WorktreeGitError(
-      offTrunkAcceptRefusal(mainRepo, mainBranch, trunkBranch),
-    );
-  }
-
-  return {
-    worktreeBranch,
-    worktreePath,
-    mainRepo,
-    trunk: trunkBranch,
-    proofNotes: ctx.config.repository.proof_notes,
-    repositoryEnsureSteps: ctx.config.repository.ensure,
-    smokeSteps: planStageJobs(ctx.config, "test")
-      .filter((job) =>
-        job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)
-      )
-      .map((job) => ({
-        label: job.label,
-        command: job.command,
-        ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
-      })),
-    hasResources: readResourceSpecs(ctx.config).length > 0,
-    ignoredFileChanges,
-  };
-}
-
-/** The accept refusal when the main checkout is parked on a branch other than
- * the trunk (detached included). Acceptance lands by fast-forwarding the trunk in
- * the main checkout, so switching it back is the user's one clear next step —
- * never something accept does silently to a checkout someone parked
- * deliberately. */
-function offTrunkAcceptRefusal(
-  mainRepo: string,
-  mainBranch: string,
-  trunk: string,
-): string {
-  const switchCommand = commandEvidence([
-    "git",
-    "-C",
-    mainRepo,
-    "switch",
-    trunk,
-  ]);
-  return `The main checkout at ${mainRepo} is on '${mainBranch}', not ` +
-    `'${trunk}' (the trunk). Acceptance lands by fast-forwarding the trunk ` +
-    `there, so return it first — \`${switchCommand}\` — ` +
-    `then re-run \`discern accept\`. Your branch keeps all its commits.`;
-}
-
-/** Refuse a checkout whose sequencer owns HEAD, with runnable recovery choices. */
-function inProgressMainCheckoutRefusal(
-  mainRepo: string,
-  operation: "rebase" | "merge" | "cherry-pick",
-): string {
-  const finish = commandEvidence([
-    "git",
-    "-C",
-    mainRepo,
-    operation,
-    "--continue",
-  ]);
-  const abort = commandEvidence([
-    "git",
-    "-C",
-    mainRepo,
-    operation,
-    "--abort",
-  ]);
-  return `The main checkout at ${mainRepo} has an in-progress ${operation}. ` +
-    `Acceptance will not move its trunk or switch branches. Finish it with ` +
-    `\`${finish}\` or abort it with \`${abort}\`, then re-run \`discern accept\`. ` +
-    `Nothing was landed and the worktree is intact.`;
 }
 
 /** The relay-and-recovery sentence the consent refusal serves on every surface
@@ -2113,306 +1771,6 @@ function acceptAwaitingConsentResult(
   };
 }
 
-/** The shared no-effects clause every pre-effect acceptance refusal ends with. */
-const ACCEPT_NOTHING_LANDED =
-  "Nothing has been landed — the worktree, its branch, and the trunk are untouched.";
-
-/**
- * The precondition refusal when a governing stop checkpoint's conclusion is
- * missing or stale at acceptance: the declaration is recorded at
- * `done`, so the refusal routes back there. Shares the interlock's slug — the
- * thing awaited is the agent's own conclusion; the envelope's verb
- * disambiguates the act.
- */
-function acceptDeclarationsStaleResult(
-  ids: readonly string[],
-): DiscernResult<AcceptData> {
-  return {
-    ok: false,
-    verb: "accept",
-    error: AWAITING_DECLARATION_SLUG,
-    message:
-      `Landing needs a current conclusion for every governing checkpoint, and ${
-        ids.length === 1 ? "one is" : `${ids.length} are`
-      } missing or no longer current: ${ids.join(", ")}. Run \`discern ` +
-      "done` — it serves each question with its evidence and records your " +
-      `conclusion — then re-run \`discern accept\`. ${ACCEPT_NOTHING_LANDED}`,
-    hints: hintTexts([
-      fire(HINTS["accept-declarations-stale"], { ids: [...ids] }),
-    ]),
-  };
-}
-
-/** One declared-unmet conclusion's serving text in the variance refusal.
- * This message renders verbatim on the --markdown surface — the owner's
- * consent moment — so the agent's opaque rationale and the working-tree
- * path names travel inside the code-span escaping boundary, never as live
- * Markdown. */
-function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
-  const evidence = checkpointServingText(unmet);
-  const lines = [
-    `${unmet.id} — declared unmet at ${unmet.declaredAt}`,
-    `  Question: ${unmet.question.trim()}`,
-    ...(evidence.questionSource === undefined ? [] : [evidence.questionSource]),
-    `  Changed: ${evidence.matched}`,
-    ...evidence.related,
-    `  Rationale: ${markdownCodeSpan(unmet.why)}`,
-    ...evidence.notes,
-  ];
-  return lines.join("\n");
-}
-
-/**
- * The read-only refusal `accept` serves while a current declared-unmet
- * conclusion stands without the owner's complete decision: every such
- * checkpoint batched with its question, evidence, and the agent's rationale,
- * and ONE recovery — the owner accepts the landing and each named variance in
- * the current conversation (`--confirmed` plus one `--variance <id>` each).
- * Standing and effort grants never authorize a variance. Its own typed
- * contract, distinct from awaiting_consent: consent accepts the landing; a
- * variance additionally authorizes landing a question the agent judged
- * unmet.
- */
-function acceptAwaitingVarianceResult(
-  unmet: readonly StandingUnmetConclusion[],
-  missing: readonly string[],
-  confirmed: boolean,
-): DiscernResult<AcceptData> {
-  const ids = unmet.map((entry) => entry.id);
-  const decision = confirmed
-    ? `The landing decision must also cover every declared-unmet checkpoint; ` +
-      `missing: ${missing.join(", ")}.`
-    : `Landing is the owner's decision, and ${
-      unmet.length === 1
-        ? "one declared-unmet conclusion additionally requires"
-        : `${unmet.length} declared-unmet conclusions additionally require`
-    } the owner to authorize a variance.`;
-  const command = `discern accept --confirmed ${
-    ids.map((id) => `--variance ${id}`).join(" ")
-  }`;
-  return {
-    ok: false,
-    verb: "accept",
-    error: AWAITING_VARIANCE_SLUG,
-    message:
-      `${decision}\n\n${
-        unmet.map(serveUnmetConclusion).join("\n\n")
-      }\n\nRelay each question and rationale to the owner. Once the owner ` +
-      `accepts this landing AND each named variance in the current ` +
-      `conversation, re-run \`${command}\`. Recorded standing and effort ` +
-      `grants never authorize a variance. ${ACCEPT_NOTHING_LANDED}`,
-    hints: hintTexts([
-      fire(HINTS["accept-authorize-variance"], { ids }),
-      fire(HINTS["accept-review-via-status"]),
-    ]),
-  };
-}
-
-/**
- * Enforce the checkpoint side of acceptance before any effect: verify every
- * required declaration is current (missing or stale routes back to `done`),
- * then resolve the variance interlock. Returns the exact authorized variance
- * set (possibly empty); throws the typed refusal or error otherwise.
- */
-function enforceAcceptanceCheckpoints(
-  state: AcceptanceCheckpointState,
-  request: { confirmed: boolean; varianceIds: readonly string[] },
-): AuthorizedVarianceData[] {
-  const interlock = resolveVarianceInterlock(state, request);
-  switch (interlock.kind) {
-    case "declarations-stale": {
-      const result = acceptDeclarationsStaleResult(interlock.ids);
-      throw new WorktreeResultError(result.message ?? "", result);
-    }
-    case "invalid-variances":
-      throw new WorktreeResultError(
-        `${interlock.message} ${ACCEPT_NOTHING_LANDED}`,
-        {
-          ok: false,
-          verb: "accept",
-          error: "invalid_value",
-          message: `${interlock.message} ${ACCEPT_NOTHING_LANDED}`,
-        },
-      );
-    case "awaiting": {
-      const result = acceptAwaitingVarianceResult(
-        interlock.unmet,
-        interlock.missing,
-        interlock.confirmed,
-      );
-      throw new WorktreeResultError(result.message ?? "", result);
-    }
-    case "authorized":
-      return interlock.variances;
-  }
-}
-
-/** Exact owner-facing approval challenge for the tuple the public contract
- * names. The full proposal is recorded in the transaction; this token makes a
- * copied approval command stale when its value or reason changes. */
-async function standardLimitApprovalToken(
-  proposal: StandardLimitProposalData,
-): Promise<string> {
-  const material = JSON.stringify({
-    standard: proposal.standard,
-    proposed_limit: proposal.proposed_limit,
-    reason: proposal.reason,
-  });
-  return await sha256Hex(`standard-limit-approval-v1\n${material}`);
-}
-
-/** Derive one exact token challenge per current proposal. */
-async function standardLimitApprovalRequests(
-  proposals: readonly StandardLimitProposalData[],
-): Promise<StandardLimitApprovalRequestData[]> {
-  return await Promise.all(proposals.map(async (proposal) => ({
-    proposal: cloneStandardLimitProposal(proposal),
-    token: await standardLimitApprovalToken(proposal),
-  })));
-}
-
-/** Serve every exact value/reason tuple at the owner decision boundary. */
-function acceptAwaitingStandardApprovalResult(
-  approvals: readonly StandardLimitApprovalRequestData[],
-  confirmed: boolean,
-  requested: readonly string[],
-): DiscernResult<AcceptData> {
-  const missing = approvals.filter((approval) =>
-    !requested.includes(approval.token)
-  );
-  const detail = approvals.map(({ proposal, token }) =>
-    `${proposal.standard}: ${proposal.trunk_limit} → ${proposal.proposed_limit} ` +
-    `(measured ${proposal.measurement}; delta ${
-      proposal.delta >= 0 ? "+" : ""
-    }${proposal.delta})\n` +
-    `  Reason: ${proposal.reason}\n` +
-    `  Responsible paths: ${proposal.evidence_paths.join(", ")}\n` +
-    `  Approval token: ${token}`
-  ).join("\n\n");
-  const command = `discern accept --confirmed ${
-    approvals.map(({ token }) => `--approve-standard ${token}`).join(" ")
-  }`;
-  const opening = confirmed
-    ? `The owner approval set is incomplete; missing: ${
-      missing.map(({ proposal }) => proposal.standard).join(", ")
-    }.`
-    : "This Proof contains a standard limit proposal that requires a separate, exact owner decision.";
-  return {
-    ok: false,
-    verb: "accept",
-    error: "awaiting_standard_approval",
-    message:
-      `${opening}\n\n${detail}\n\nRelay every value and reason to the owner. ` +
-      `Only after they approve these exact tuples, re-run \`${command}\`. ` +
-      `If they decline, leave acceptance stopped, restore the trunk limit in ` +
-      `this branch, and run \`discern done\` under ordinary enforcement. ` +
-      `Standing grants, effort grants, generic landing consent, prior variances, ` +
-      `and earlier standard approvals never cover this decision. ${ACCEPT_NOTHING_LANDED}`,
-    hints: hintTexts([fire(HINTS["accept-review-via-status"])]),
-    data: {
-      standard_approvals_required: approvals.map(({ proposal, token }) => ({
-        proposal: cloneStandardLimitProposal(proposal),
-        token,
-      })),
-    },
-  };
-}
-
-/** Resolve the current proposal authority and enforce the narrow approval set.
- * A live Proof and the worktree-local record must agree byte-for-byte; a reason
- * edit or revocation routes back through `done` before any landing effect. */
-async function enforceStandardLimitApprovals(
-  ctx: LifecycleContext,
-  proof: Awaited<ReturnType<typeof inspectGateProof>>,
-  trunk: string,
-  request: {
-    readonly confirmed: boolean;
-    readonly names: readonly string[];
-  },
-): Promise<StandardLimitProposalData[]> {
-  const standardPlan = buildStandardPlan(ctx.config);
-  const inspected = await inspectActiveStandardLimitProposals(
-    ctx.cwd,
-    trunk,
-    standardPlan.standards,
-  );
-  const active = [...inspected.active.values()].sort((left, right) =>
-    left.standard.localeCompare(right.standard)
-  );
-  const proofProposals = proof.status === "honored"
-    ? [...(proof.proof_data?.standard_proposals ?? [])].sort((left, right) =>
-      left.standard.localeCompare(right.standard)
-    )
-    : [];
-  if (
-    proof.status === "honored" &&
-    !sameStandardLimitProposalSet(proofProposals, active)
-  ) {
-    throw new WorktreeResultError(
-      "The standard limit proposal record no longer matches the honored Proof. Run `discern done` to revalidate the current exact value and reason; nothing has been landed.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "proposal_stale",
-        message:
-          "The standard limit proposal record no longer matches the honored Proof. A reason change, revocation, or stale record restores ordinary enforcement. Run `discern done` to revalidate the current exact proposal; nothing has been landed.",
-      },
-    );
-  }
-  const expected = proof.status === "honored" ? proofProposals : active;
-  const approvals = await standardLimitApprovalRequests(expected);
-  const uniqueRequested = [...new Set(request.names)].sort();
-  if (uniqueRequested.length !== request.names.length) {
-    throw new WorktreeResultError(
-      "Duplicate --approve-standard names are not an exact approval set.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "invalid_value",
-        message:
-          `Duplicate --approve-standard tokens are not an exact approval set. Expected proposals: ${
-            expected.map((proposal) => proposal.standard).join(", ") || "(none)"
-          }. ${ACCEPT_NOTHING_LANDED}`,
-      },
-    );
-  }
-  const expectedTokens = approvals.map(({ token }) => token).sort();
-  const extras = uniqueRequested.filter((token) =>
-    !expectedTokens.includes(token)
-  );
-  if (extras.length > 0) {
-    throw new WorktreeResultError(
-      "The standard approval set names a proposal that is not current.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "invalid_value",
-        message:
-          `--approve-standard contains a token for no current exact proposal: ${
-            extras.join(", ")
-          }. Current proposals: ${
-            expected.map((proposal) => proposal.standard).join(", ") || "(none)"
-          }. ${ACCEPT_NOTHING_LANDED}`,
-      },
-    );
-  }
-  if (expected.length === 0) {
-    return [];
-  }
-  const missing = expectedTokens.filter((token) =>
-    !uniqueRequested.includes(token)
-  );
-  if (!request.confirmed || missing.length > 0) {
-    const result = acceptAwaitingStandardApprovalResult(
-      approvals,
-      request.confirmed,
-      uniqueRequested,
-    );
-    throw new WorktreeResultError(result.message ?? "", result);
-  }
-  return expected.map(cloneStandardLimitProposal);
-}
-
 /** Resolve the consent this apply lands under, or throw the awaiting-consent
  * refusal. An unreadable committed policy already blocked every recorded
  * source upstream; the conversation attestation never rests on that record —
@@ -2449,27 +1807,6 @@ function availableLandingConsent(
   return undefined;
 }
 
-/** Refuse an acceptance whose declaration binding cannot be read. No consent
- * source can authorize unknown evidence. */
-function refuseUnreadableDeclarationEvidence(
-  drops: readonly CheckpointDrop[],
-): void {
-  if (
-    !drops.some((drop) => drop.reason === "declaration_evidence_unavailable")
-  ) {
-    return;
-  }
-  const result: DiscernResult<AcceptData> = {
-    ok: false,
-    verb: "accept",
-    error: "checkpoint_evidence_unavailable",
-    message:
-      "Acceptance cannot read the checkpoint declaration evidence that the validated Proof must bind to. Nothing was landed and the worktree is intact. Restore the declaration store, run `discern done --rerun`, then retry acceptance.",
-    data: { checkpoint_drops: [...drops] },
-  };
-  throw new WorktreeResultError(result.message ?? "", result);
-}
-
 /** Initialize every durable acceptance effect as not yet performed. */
 function freshAcceptLandingState(): AcceptLandingState {
   return {
@@ -2485,23 +1822,6 @@ function cloneLandingState(
   landing: AcceptLandingState,
 ): AcceptLandingState {
   return { ...landing };
-}
-
-/** Configured scope names matched by the landing's classified paths. Names
- * only: acceptance exposes no path or configuration value to the logbook. */
-function changedLandingScopes(
-  authority: LandingAuthorityResolution,
-): string[] {
-  if (authority.scopeNames !== undefined) {
-    return [...authority.scopeNames];
-  }
-  const scopes = new Set<string>();
-  for (const classification of authority.classifications) {
-    for (const scope of classification.scopes) {
-      scopes.add(scope);
-    }
-  }
-  return [...scopes].sort();
 }
 
 interface AcceptExecutionProgress {
@@ -2606,950 +1926,14 @@ function recoveryStep(outcome: StepOutcome): StepResult {
 // How many of the gate's diagnostics ride inline in an accept refusal before the agent
 // is pointed at `discern done` for the rest — a cap so a gate that failed with many
 // findings can't flood accept's refusal message.
-const ACCEPT_DIAG_CAP = 10;
 
-/**
- * The accept refusal when the branch does NOT pass `done` at the tree it would land
- * (ADR 0067). Leads with the gate's own failed-stage remedy from the envelope,
- * then a capped list of the surfaced diagnostics, then the recovery:
- * run `discern done` to see the full output and fix it. The branch keeps all its commits
- * and the worktree is intact (this precedes every teardown/removal).
- */
-function acceptGateRefusal(
-  branch: string,
-  gate: DiscernResult<GateData>,
-): string {
-  const headline = gate.hints?.[0] ?? "The gate failed.";
-  const diags = gate.diagnostics ?? [];
-  const shown = diags
-    .slice(0, ACCEPT_DIAG_CAP)
-    .map((d) => `  • ${d.message} (reproduce: ${d.reproduce_cmd})`);
-  if (diags.length > shown.length) {
-    shown.push(`  … (+${diags.length - shown.length} more)`);
-  }
-  return `Branch '${branch}' does not pass \`discern done\`, so it cannot land. ` +
-    `${headline} Run \`discern done\` to see the full output and fix it, then commit ` +
-    `and re-run \`discern accept\` — your branch keeps all its commits.` +
-    (shown.length > 0 ? `\n\nWhat failed:\n${shown.join("\n")}` : "");
-}
-
-/** The accept refusal when the branch tip has moved off the commit the gate
- * validated — a commit landed while acceptance was validating (or between the
- * validation and the fast-forward), so the tree that would land is not the tree
- * the gate tested. Nothing has been changed when this fires. */
-function movedDuringAcceptanceRefusal(
-  branch: string,
-  worktreePath: string,
-): string {
-  return `Branch '${branch}' moved while this acceptance was validating it — ` +
-    `a commit landed after the gate run began, so the tree that would land ` +
-    `is not the tree the gate tested. Nothing was changed and the worktree ` +
-    `is intact. Re-run \`discern done\` on the final commit from ` +
-    `${worktreePath}, then \`discern accept\` again.`;
-}
-
-/** Refuse acceptance while refresh still has tracked work to commit. */
-function trackedRefreshAcceptRefusal(plan: TrackedRefreshPlan): string {
-  const paths = plan.changes.map((change) => change.path);
-  const planned = paths.length > 0
-    ? ` Running \`discern refresh\` would change: ${paths.join(", ")}.`
-    : "";
-  const errors = plan.errors.length > 0
-    ? ` The read-only refresh plan also reported: ${plan.errors.join("; ")}.`
-    : "";
-  return "This branch's tracked refresh convergence is not proved." +
-    planned + errors +
-    " Nothing was landed and the worktree is intact. Run `discern refresh`, " +
-    "review and commit the named files, run `discern done`, then re-run " +
-    "`discern accept`.";
-}
-
-/** Refuse removal when the gated branch fell behind or lost its configured trunk. */
-async function assertAcceptBranchStillCurrent(
-  cwd: string,
-  trunkBranch: string,
-): Promise<void> {
-  const merged = await assertResolvedTrunkMerged(cwd, trunkBranch);
-  if (merged.kind === "behind") {
-    throw new WorktreeGitError(
-      `This branch fell behind the trunk (${trunkBranch}) while the gate ran. ` +
-        `Run \`discern update\` from this worktree, then \`discern done\` and ` +
-        `\`discern accept\` again. The worktree has not been removed.`,
-    );
-  }
-  if (merged.kind === "missing") {
-    throw new WorktreeGitError(
-      `${missingIntegrationBranchWarning(merged.branch)} ` +
-        "Acceptance will not remove this worktree until the merge check can run.",
-    );
-  }
-}
-
-/**
- * Apply an acceptance plan — the mutation dance. Ensures the named branch
- * (creating one if the worktree is detached), validates the exact tree against
- * the whole gate (ADR 0067, fast-pathed by a gate proof), fast-forwards the
- * trunk, then refreshes, converges, and smoke-tests the receiving checkout before
- * the cleanup tail tears down resources, removes the worktree, and deletes the
- * merged branch. Returns the per-step results for `--json`.
- */
-async function executeAcceptPlan(
-  ctx: LifecycleContext,
-  run: GitRunner,
-  plan: AcceptPlan,
-  cliModel: CliModelProvider,
-  authority: LandingAuthorityResolution,
-  consent: LandingConsent,
-  progress: AcceptExecutionProgress,
-  variances: readonly AuthorizedVarianceData[],
-  standardProposals: readonly StandardLimitProposalData[],
-  env: Pick<typeof Deno.env, "get"> = Deno.env,
-): Promise<{
-  steps: StepResult[];
-  gateValidation: NonNullable<AcceptData["gate_validation"]>;
-  proofMarkdown: string | undefined;
-  proofLine: string | undefined;
-  proofNote: AcceptProofNoteData;
-  convergenceHints: string[];
-  diagnostics: Diagnostic[];
-  authorityWarnings: string[];
-  checkpointDrops: CheckpointDrop[];
-}> {
-  // ensure a named branch (the one mutating step the read-only diagnosis deferred)
-  const settings = await loadIdentitySettings(ctx.root);
-  const id = await resolveWorktreeId(settings, ctx.cwd);
-  const identity = deriveIdentity(id, settings);
-  const worktreeBranch = await ensureWorktreeBranch(identity.branch, ctx.cwd);
-  if (worktreeBranch === "") {
-    throw new WorktreeGitError(
-      `This worktree is detached from a named branch, and discern could not create ` +
-        `one. Run \`git switch -c ${identity.branch}\` here, then re-run ` +
-        `\`discern accept\`.`,
-    );
-  }
-  const branchOwnership = classifyAutomaticBranchOwnership({
-    kind: "worktree",
-    branch: worktreeBranch,
-    id,
-    settings,
-    source: "registered",
-  });
-  if (!branchOwnership.owned) {
-    throw new WorktreeGitError(
-      `discern can land branch '${worktreeBranch}', but it cannot automatically ` +
-        `delete it because ${branchOwnership.reason}. Rename it to ` +
-        `'${identity.branch}' or land it outside discern; nothing was changed.`,
-    );
-  }
-  const { worktreePath, mainRepo, trunk } = plan;
-
-  // Validation gate (ADR 0067) — the exact tree we are about to land must pass the WHOLE
-  // gate, so a clean-merging but gate-breaking `update` (or any tree never run through
-  // `done` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
-  // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
-  // so a refusal leaves the branch and worktree intact.
-  //   FAST PATH: a gate proof proves the current clean HEAD already passed `done`
-  //   (the common case — nothing changed since the agent finished), so skip the re-run.
-  //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
-  //   created, a new commit, or a dirty tree invalidates the proof, landing us here.
-  const proof = await inspectGateProof(ctx.cwd);
-  if (proof.status === "report_only") {
-    throw new WorktreeResultError(
-      "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` before acceptance.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "report_only_proof",
-        message:
-          "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` before acceptance.",
-        hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
-      },
-    );
-  }
-  const proofDrops = uniqueCheckpointDrops([
-    ...(proof.proof_data?.checkpoint_drops ?? []),
-    ...(proof.checkpoint_drops ?? []),
-  ]);
-  const proofIsComplete = gateProofHasCompleteEvidence(proof);
-  const proofNeedsFreshGate = !proofIsComplete ||
-    proofDrops.some((drop) =>
-      drop.reason === "declaration_evidence_unavailable" ||
-      isIndeterminateStopDrop(drop)
-    );
-  const gateValidation: NonNullable<AcceptData["gate_validation"]> =
-    proofIsComplete && !proofNeedsFreshGate
-      ? { mode: "proof", proof: proof }
-      : { mode: "rerun", proof: proof };
-  progress.gateValidation = gateValidation;
-  // The two proof renderings for the tree that lands: the honored marker
-  // stored both on the fast path; the fresh gate run rendered both on the slow
-  // path. `validatedSha` is the ONE commit this validation vouches for — the
-  // honored proof's recorded sha, or the HEAD pinned before the gate re-run —
-  // and it is the exact rev the fast-forward below lands: a commit made during
-  // the (minutes-long) re-run must never ride along unvalidated.
-  let proofMarkdown: string | undefined;
-  let proofLine: string | undefined;
-  let proofData: Proof | undefined;
-  let validatedSha: string | undefined;
-  if (gateValidation.mode === "proof") {
-    ctx.log.ok(
-      "Branch already passed the gate at this commit — skipping the re-run.",
-    );
-    proofMarkdown = proof.proof;
-    proofLine = proof.proof_line;
-    proofData = proof.proof_data;
-    validatedSha = proof.head;
-  } else {
-    ctx.log.info("Validating the branch against the full gate before landing…");
-    const pin = await pinValidatedTree(ctx.cwd);
-    const gate = await finishResult(ctx.cwd, {
-      cliModel,
-      surface: ctx.log.json
-        ? { kind: "quiet" }
-        : { kind: "human", plain: plainModeEnabled() },
-      ...(proofNeedsFreshGate ? { rerun: true } : {}),
-    });
-    if (!gate.ok) {
-      throw new WorktreeGitError(acceptGateRefusal(worktreeBranch, gate));
-    }
-    const now = await pinValidatedTree(ctx.cwd);
-    if (
-      pin.head === undefined || now.head !== pin.head || !pin.clean ||
-      !now.clean
-    ) {
-      throw new WorktreeGitError(
-        movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
-      );
-    }
-    ctx.log.ok("Gate passed against the tree to be landed.");
-    proofMarkdown = gate.data?.proof?.markdown;
-    proofLine = gate.data?.proof?.line;
-    proofData = gate.data?.proof;
-    validatedSha = pin.head;
-  }
-  if (validatedSha === undefined) {
-    // Defensive: an honored proof always carries its head; refuse rather than
-    // fall back to landing whatever the branch name resolves to at merge time.
-    throw new WorktreeGitError(
-      movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
-    );
-  }
-  const proofStandardProposals = proofData?.standard_proposals ?? [];
-  if (
-    !sameStandardLimitProposalSet(proofStandardProposals, standardProposals)
-  ) {
-    throw new WorktreeResultError(
-      "The validated Proof does not carry exactly the standard limit proposals approved for this landing.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "proposal_stale",
-        message:
-          `The validated Proof does not carry exactly the standard/value/reason tuples approved for this landing. Run \`discern done\`, relay the current proposal-bearing Proof, and obtain exact approval again. ${ACCEPT_NOTHING_LANDED}`,
-      },
-    );
-  }
-
-  // A proof proves the gate implementation that issued it, not a newer
-  // engine's added preconditions. Re-run the cheap current tracked-refresh plan
-  // on BOTH paths so an earlier Proof cannot bypass convergence, and do it before
-  // the fast-forward so refusal is fully non-destructive.
-  const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
-  if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
-    throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
-  }
-
-  // The variance authorization binds to the exact declarations it covered.
-  // The gate validation above can change them (a fresh run reconciles
-  // open questions), so re-verify the live declared-unmet set still equals the
-  // authorized set — an owner's decision must never land onto different
-  // evidence than the one it was given for.
-  const checkpointsNow = await inspectAcceptanceCheckpoints(
-    ctx.cwd,
-    ctx.config,
-  );
-  const accumulatedCheckpointDrops = uniqueCheckpointDrops([
-    ...(proofData?.checkpoint_drops ?? []),
-    ...(proof.checkpoint_drops ?? []),
-    ...checkpointsNow.drops,
-  ]);
-  refuseUnreadableDeclarationEvidence(accumulatedCheckpointDrops);
-  if (
-    accumulatedCheckpointDrops.some(isIndeterminateStopDrop) &&
-    consent.source !== "conversation"
-  ) {
-    const result: DiscernResult<AcceptData> = {
-      ok: false,
-      verb: "accept",
-      error: "awaiting_consent",
-      message:
-        "A stop checkpoint's executable condition was indeterminate, so this landing requires the owner's current-conversation attestation. Recorded grants do not cover it. Nothing was landed and the worktree is intact. Review the checkpoint drop, then re-run `discern accept --confirmed` in this conversation.",
-      data: { checkpoint_drops: accumulatedCheckpointDrops },
-      hints: hintTexts([fire(HINTS["accept-awaiting-confirmation"])]),
-    };
-    throw new WorktreeResultError(result.message ?? "", result);
-  }
-  const bindingKey = (v: AuthorizedVarianceData): string =>
-    [v.checkpoint, v.definition_hash, v.subject, v.why].join("\u0000");
-  const liveBindings = checkpointsNow.unmet
-    .map((unmet) => bindingKey(varianceBinding(unmet)))
-    .sort();
-  const authorizedBindings = variances.map(bindingKey).sort();
-  if (
-    checkpointsNow.stale.length > 0 ||
-    JSON.stringify(liveBindings) !== JSON.stringify(authorizedBindings)
-  ) {
-    throw new WorktreeGitError(
-      "The checkpoint conclusions changed while this acceptance was " +
-        "validating the branch, so the recorded authorization no longer " +
-        "matches the declarations it covered. Nothing was landed and the " +
-        "worktree is intact. Re-run `discern accept` so the decision is " +
-        "made against the current conclusions.",
-    );
-  }
-  // Observation, never a gate: which open questions will end this effort still
-  // awaiting a conclusion. Every governing stop conclusion was verified
-  // current just above, so anything still awaiting sits outside the governing
-  // stop set — a checkpoint edited away or re-moded since its open question opened.
-  // Read here while the worktree's store exists; recorded (with the
-  // authorized variances) only once the landing transition completes below.
-  const abandonedOpenQuestions = await (async (): Promise<{ id: string }[]> => {
-    const read = await readOpenQuestions(ctx.cwd);
-    if (read.status !== "ok") {
-      return []; // fail open: unreadable state observes nothing
-    }
-    return Object.values(read.openQuestions)
-      .filter((openQuestion) =>
-        openQuestion.declaration === undefined ||
-        !declarationIsCurrent(openQuestion)
-      )
-      .map((openQuestion) => ({ id: openQuestion.checkpoint }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  })();
-
-  await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
-  const expired = await landingAuthorityExpiry(
-    ctx.cwd,
-    trunk,
-    worktreeBranch,
-    validatedSha,
-    authority,
-  );
-  if (expired !== undefined) {
-    throw new WorktreeGitError(
-      `Landing authority changed while acceptance was validating the branch: ${expired}. ` +
-        "Nothing was landed and the worktree is intact. Re-run `discern accept` so authority is checked against the final tree.",
-    );
-  }
-  if (proofLine !== undefined) {
-    proofLine = renderLandingProofLine(proofLine, consent, {
-      ...(standardProposals.length > 0 ? { proposals: standardProposals } : {}),
-      ...(variances.length > 0 && proofData?.checkpoints !== undefined
-        ? { checkpoints: proofData.checkpoints }
-        : {}),
-    });
-  }
-  if (proofMarkdown !== undefined) {
-    progress.proofMarkdown = proofMarkdown;
-  }
-  if (proofLine !== undefined) {
-    progress.proofLine = proofLine;
-  }
-
-  const results = progress.steps;
-  const authorityWarnings = progress.authorityWarnings;
-  const done = (
-    kind: StepResult["step"]["kind"],
-    label: BuiltInStepLabel,
-  ): void => {
-    results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
-  };
-  const doneRefresh = (
-    outcome: StepResult["outcome"],
-    note: string,
-  ): void => {
-    results.push({
-      step: {
-        kind: "refresh",
-        label: BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
-        disposition: "run",
-        note,
-      },
-      outcome,
-    });
-  };
-
-  ctx.log.heading("Acceptance plan");
-  ctx.log.detail(`Branch:        ${worktreeBranch}`);
-  ctx.log.detail(`From worktree: ${worktreePath}`);
-  ctx.log.detail(
-    `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`,
-  );
-  ctx.log.detail(
-    `Authority:          ${
-      landingAuthorityDetail(authority, consent.source === "conversation")
-    }`,
-  );
-  for (const warning of authority.warnings) {
-    ctx.log.warn(warning);
-  }
-  const ignoredLine = ignoredFileChangeDetail(plan.ignoredFileChanges);
-  if (ignoredLine !== undefined) {
-    ctx.log.detail(ignoredLine);
-  }
-  const localTemplatesDir = await postLandingLocalTemplatesDir(
-    worktreePath,
-    mainRepo,
-  );
-
-  // Land on the trunk: fast-forward it to the branch tip. The acceptance gate
-  // already proved the branch contains the trunk, so this is always a clean
-  // fast-forward — never a merge commit, never a conflict. The landing runs
-  // BEFORE resource teardown so an acceptance that loses a concurrent-landing
-  // race is refused with its worktree fully intact — resources included — and
-  // the prescribed update → finish → accept recovery actually works.
-  await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
-  const liveProposalInspection = await inspectActiveStandardLimitProposals(
-    ctx.cwd,
-    trunk,
-    buildStandardPlan(ctx.config).standards,
-  );
-  if (
-    !sameStandardLimitProposalSet(
-      [...liveProposalInspection.active.values()],
-      standardProposals,
-    )
-  ) {
-    throw new WorktreeResultError(
-      "The standard limit proposal was changed or revoked after validation.",
-      {
-        ok: false,
-        verb: "accept",
-        error: "proposal_stale",
-        message:
-          `The standard limit proposal was changed, revoked, or made stale after validation. No trunk ref moved. Run \`discern done\` and obtain exact owner approval for the current tuple before retrying. ${ACCEPT_NOTHING_LANDED}`,
-      },
-    );
-  }
-  // Re-verify the main checkout is STILL on the trunk immediately before the
-  // fast-forward (the plan checked it, but the gate re-run above takes real
-  // time) — never compare-and-swap a branch someone switched away from
-  // mid-acceptance.
-  const mainOperation = await inspectGitOperation(mainRepo);
-  if (mainOperation.kind === "unavailable") {
-    throw new WorktreeGitError(
-      `discern could not recheck in-progress Git operations in the main checkout ` +
-        `at ${mainRepo}. Nothing was landed and the worktree is intact. ` +
-        `Git said: ${mainOperation.detail}`,
-    );
-  }
-  if (mainOperation.kind === "active") {
-    throw new WorktreeGitError(
-      inProgressMainCheckoutRefusal(mainRepo, mainOperation.operation),
-    );
-  }
-  const mainNowRun = await run(["branch", "--show-current"], mainRepo);
-  if (!mainNowRun.success) {
-    throw new WorktreeGitError(
-      `discern could not recheck the current branch in the main checkout at ` +
-        `${mainRepo}. Nothing was landed and the worktree is intact. Git said: ` +
-        gitFailureDetail(mainNowRun),
-    );
-  }
-  const mainNow = mainNowRun.stdout.trim();
-  if (mainNow !== trunk) {
-    throw new WorktreeGitError(
-      offTrunkAcceptRefusal(
-        mainRepo,
-        mainNow === "" ? "(detached)" : mainNow,
-        trunk,
-      ),
-    );
-  }
-  // Land the VALIDATED sha, not the branch name: resolving a branch at the ref
-  // transition would let a commit made after validation ride onto the trunk
-  // untested. Re-check the tip still names the validated commit (so the branch
-  // deletion below deletes a fully merged branch), then fast-forward to the sha.
-  const tipNow = (await run(["rev-parse", "--verify", worktreeBranch], ctx.cwd))
-    .stdout.trim();
-  if (tipNow !== validatedSha) {
-    throw new WorktreeGitError(
-      movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
-    );
-  }
-  const standingExpected = authority.kind === "authorized" &&
-      authority.consent.source === "standing-grant"
-    ? authority.trunkCommit
-    : undefined;
-  const currentTrunk = standingExpected === undefined
-    ? await run(
-      ["rev-parse", "--verify", `refs/heads/${trunk}^{commit}`],
-      mainRepo,
-    )
-    : undefined;
-  const expectedTrunk = standingExpected ??
-    (currentTrunk?.success ? currentTrunk.stdout.trim() : "");
-  if (expectedTrunk === "") {
-    throw new WorktreeGitError(
-      `discern could not resolve the current ${trunk} commit at the landing boundary. ` +
-        `Nothing was landed and the worktree is intact. Re-run \`discern accept\`.`,
-    );
-  }
-
-  ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
-  const transition = await performAcceptanceTransition(ctx.cwd, {
-    mainRepo,
-    trunk,
-    worktreeBranch,
-    expectedTrunk,
-    target: validatedSha,
-    effortClaim: consent.source === "effort-grant",
-    consent,
-    variances,
-    standardProposals,
-  });
-  if (transition.kind === "authority-changed") {
-    const detail = transition.claim.status === "invalid" ||
-        transition.claim.status === "newer" ||
-        transition.claim.status === "unavailable"
-      ? `: ${transition.claim.reason}`
-      : "";
-    throw new WorktreeGitError(
-      `Landing authority changed at the fast-forward boundary: the effort ` +
-        `grant could not be claimed${detail}. Nothing was landed and the ` +
-        `worktree is intact. Re-authorize it from the desk, then re-run ` +
-        `\`discern accept\`.`,
-    );
-  }
-  const ff = transition.outcome;
-  const effortSettlement = transition.effortSettlement;
-  const effortSettlementWarning = effortSettlement?.settled === false
-    ? effortSettlement.disposition === "consume"
-      ? "discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
-      : "discern could not restore the effort grant cleanly. Inspect the grant in the desk and re-authorize this worktree before retrying."
-    : undefined;
-  if (effortSettlementWarning !== undefined) {
-    ctx.log.warn(effortSettlementWarning);
-    authorityWarnings.push(effortSettlementWarning);
-  }
-  if (ff.kind !== "updated") {
-    if (ff.kind === "dirty") {
-      const statusCommand = commandEvidence([
-        "git",
-        "-C",
-        mainRepo,
-        "status",
-        "--short",
-      ]);
-      throw new WorktreeGitError(
-        `The main checkout at ${mainRepo} changed or could not be proved clean at ` +
-          `the landing boundary, so discern refused before moving ${trunk}. ` +
-          `Inspect it with \`${statusCommand}\`, preserve or clear the reported ` +
-          `state, then re-run \`discern accept\`. The worktree and its resources ` +
-          `are intact. Git said: ${ff.detail}` +
-          (effortSettlementWarning === undefined
-            ? ""
-            : ` ${effortSettlementWarning}`),
-      );
-    }
-    if (ff.kind === "checkout-failed" && !ff.rolledBack) {
-      progress.landing.trunk_landed = true;
-      throw new WorktreeGitError(
-        `discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
-          `converge the checked-out files and could not restore the old ref. Stop ` +
-          `and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}` +
-          (effortSettlementWarning === undefined
-            ? ""
-            : ` ${effortSettlementWarning}`),
-      );
-    }
-    const checkoutDetail = ff.kind === "checkout-failed"
-      ? " Git restored the old trunk ref after checkout convergence failed."
-      : "";
-    throw new WorktreeGitError(
-      `The trunk (${trunk}) or its checkout changed while this acceptance was ` +
-        `running, so discern's exact-commit compare-and-swap refused the landing.` +
-        `${checkoutDetail} Your worktree is fully intact, resources included, ` +
-        `and your commits are safe on ${worktreeBranch} at ${worktreePath}. ` +
-        `From that worktree, run \`discern update\`, then \`discern done\`, then ` +
-        `\`discern accept\` again. Git said: ${ff.detail}` +
-        (effortSettlementWarning === undefined
-          ? ""
-          : ` ${effortSettlementWarning}`),
-    );
-  }
-  progress.landing.trunk_landed = true;
-  // The landing is now fact, so its checkpoint observations are too: each
-  // owner-authorized variance (id and fingerprints only — the rationale is
-  // Proof evidence, never Logbook metadata) and each open question this effort ends
-  // while it still awaits a conclusion.
-  observeCheckpointActivity({
-    variances: variances.map((variance) => ({
-      id: variance.checkpoint,
-      definition: variance.definition_hash,
-      subject: variance.subject,
-    })),
-    abandoned: abandonedOpenQuestions,
-  });
-  ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
-  done("git", BUILT_IN_STEP_LABELS.fastForwardTrunk);
-
-  // Establish the tracked-checkout baseline immediately after the ref/checkout
-  // transition, before any proof, local materialization, ensure, or smoke
-  // effect can obscure its source. A validated landing should be clean here.
-  let trackedDirtyAfterLanding: boolean | undefined;
-  try {
-    trackedDirtyAfterLanding = await hasUncommittedTrackedChanges(mainRepo) ??
-      undefined;
-  } catch {
-    // discern-best-effort: lifecycle-post-landing-dirty-baseline-fallback
-    trackedDirtyAfterLanding = undefined;
-  }
-
-  // The trunk now names the validated commit. Proof-note recording and its
-  // opt-in fetch transport are deliberately fail-open from this boundary:
-  // neither may roll back a successful landing or turn acceptance red.
-  const proofRecording = await recordLandingProofNote({
-    mainRepo,
-    commit: validatedSha,
-    mode: plan.proofNotes,
-    proof: proofData,
-    checkpointDrops: accumulatedCheckpointDrops,
-    consent,
-    variances,
-    standardProposals,
-    log: ctx.log,
-    env,
-  });
-  const proofNote = proofRecording.proofNote;
-  progress.proofNote = proofNote;
-  results.push(...proofRecording.steps);
-  let convergenceHints = proofRecording.hints;
-
-  // Converge and prove the checkout accept leaves behind BEFORE cleanup. The
-  // trunk has already moved, so every operation in this block is non-fatal and
-  // recorded: no dependency-install or smoke failure may strand the linked
-  // worktree/resources by preventing the cleanup tail from running.
-  const diagnostics = progress.diagnostics;
-  ctx.log.info("Materializing local agent skills in the landing checkout…");
-  let refresh: LifecycleRefreshRun;
-  try {
-    const refreshed = await materializeLocalRefreshForLanding(
-      mainRepo,
-      ctx.log,
-      localTemplatesDir,
-    );
-    refresh = instructionRefreshRun(refreshed, mainRepo);
-    convergenceHints = mergeHintTexts(convergenceHints, refresh.hints);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    refresh = failedRefreshRun([reason], mainRepo);
-    convergenceHints = mergeHintTexts(convergenceHints, refresh.hints);
-    ctx.log.warn(
-      "Local Agent artifact materialization reported an error — continuing.",
-    );
-  }
-  diagnostics.push(...refresh.diagnostics);
-  doneRefresh(
-    refresh.ok ? "ok" : "failed",
-    "materialized only the trunk checkout's local/ignored agent artifacts",
-  );
-  if (!refresh.ok) {
-    convergenceHints = mergeHintTexts(
-      convergenceHints,
-      hintTexts([fire(HINTS["accept-refresh-failed"], { trunk, mainRepo })]),
-    );
-  }
-
-  let landingConfig = ctx.config;
-  try {
-    landingConfig = await loadConfig(mainRepo);
-  } catch {
-    // The gate validated this same tracked config in the worktree. Falling back
-    // keeps cleanup moving if a machine-local read hiccup occurs after the FF.
-    ctx.log.warn(
-      "Could not reload the landed config in the main checkout — using the validated worktree config for convergence.",
-    );
-  }
-
-  let repositoryEnsure: EnsureCommandRun;
-  try {
-    repositoryEnsure = await runEnsureCommands(
-      ctx,
-      plan.repositoryEnsureSteps,
-      { fatal: false, cwd: mainRepo, scope: "repository" },
-    );
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    repositoryEnsure = failedEnsureCommandRun(plan.repositoryEnsureSteps, {
-      cwd: mainRepo,
-      scope: "repository",
-      failure: `could not run: ${reason}`,
-    });
-    ctx.log.warn(
-      "Repository convergence reported an unexpected error — cleanup is continuing.",
-    );
-  }
-  for (const [index, command] of plan.repositoryEnsureSteps.entries()) {
-    results.push({
-      step: {
-        kind: "repository-ensure",
-        label: verbatimStepLabel(command),
-        disposition: "run",
-        note: "converge the trunk checkout on the landed tree",
-      },
-      outcome: repositoryEnsure.outcomes[index] ?? "failed",
-    });
-  }
-  diagnostics.push(...repositoryEnsure.diagnostics);
-  convergenceHints = mergeHintTexts(
-    convergenceHints,
-    repositoryEnsure.hints,
-  );
-
-  try {
-    const smoke = await runLandingSmoke(
-      mainRepo,
-      landingConfig,
-      plan,
-      ctx.log,
-    );
-    results.push(...smoke.steps);
-    diagnostics.push(...smoke.diagnostics);
-    convergenceHints.push(...smoke.hints);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    for (const smoke of plan.smokeSteps) {
-      results.push({
-        step: {
-          kind: "job",
-          label: verbatimStepLabel(smoke.label),
-          disposition: "run",
-          note: smoke.command,
-          group: "Smoke",
-        },
-        outcome: "failed",
-      });
-      diagnostics.push({
-        tool: smoke.label,
-        severity: "error",
-        message:
-          `Landing-checkout smoke could not run in ${mainRepo}: ${reason}. Fix the command or its prerequisites, then run it again from that checkout.`,
-        reproduce_cmd: smoke.command,
-      });
-    }
-    ctx.log.warn(
-      "Landing-checkout smoke could not complete — cleanup is continuing.",
-    );
-  }
-
-  let checkoutClean: boolean | undefined;
-  if (trackedDirtyAfterLanding === true) {
-    checkoutClean = false;
-  } else if (trackedDirtyAfterLanding === false) {
-    try {
-      checkoutClean = !(await hasUncommittedTrackedChanges(mainRepo) ?? true);
-    } catch {
-      // discern-best-effort: lifecycle-post-convergence-clean-check-fallback
-      checkoutClean = false;
-    }
-  }
-  results.push({
-    step: {
-      kind: "checkout-clean-check",
-      label: BUILT_IN_STEP_LABELS.checkTrunkCheckout,
-      disposition: "run",
-      note: checkoutClean === undefined
-        ? "the immediate post-fast-forward tracked baseline was unavailable"
-        : trackedDirtyAfterLanding === true
-        ? "tracked changes existed immediately after the fast-forward checkout"
-        : "report tracked files changed by post-landing convergence",
-    },
-    outcome: checkoutClean === undefined
-      ? "failed"
-      : checkoutClean
-      ? "ok"
-      : "failed",
-    ...(checkoutClean === undefined
-      ? {
-        advisory: {
-          kind: "checkout-clean-observation-unavailable" as const,
-          evidence: [
-            "Git could not establish the tracked checkout baseline after the trunk fast-forward.",
-          ],
-          next_action:
-            `Run \`git status --short\` in ${mainRepo} before relying on post-landing checkout convergence.`,
-        },
-      }
-      : {}),
-  });
-  if (checkoutClean === false) {
-    convergenceHints = mergeHintTexts(
-      convergenceHints,
-      hintTexts([
-        fire(HINTS["accept-convergence-changed-tracked"], {
-          trunk,
-          mainRepo,
-        }),
-      ]),
-    );
-    ctx.log.warn(
-      "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
-    );
-  }
-  if (
-    diagnostics.length > 0 &&
-    !hasRegisteredActionableHint(convergenceHints)
-  ) {
-    convergenceHints = mergeHintTexts(
-      convergenceHints,
-      hintTexts([fire(HINTS["lifecycle-convergence-failed"])]),
-    );
-  }
-  progress.convergenceHints.push(...convergenceHints);
-
-  // tear down external resources (non-fatal, while still in the worktree so
-  // @dir@-bearing destroys resolve, and before removal so no orphan is left)
-  ctx.log.info("Tearing down the worktree's resources…");
-  const resourceTeardown = await teardownResources(ctx);
-  results.push({
-    step: {
-      kind: "resource-destroy",
-      label: BUILT_IN_STEP_LABELS.teardownResources,
-      disposition: "run",
-      note: resourceTeardown.failed.length === 0
-        ? `${resourceTeardown.destroyed.length} resource(s) destroyed`
-        : `resource teardown failed for: ${resourceTeardown.failed.join(", ")}`,
-    },
-    outcome: resourceTeardown.failed.length === 0 ? "ok" : "failed",
-    ...(resourceTeardown.failed.length === 0 ? {} : {
-      advisory: {
-        kind: "acceptance-cleanup-incomplete" as const,
-        evidence: resourceTeardown.failed.map((resource) =>
-          `Worktree resource '${resource}' remains recorded for recovery.`
-        ),
-        next_action:
-          "Run `discern worktree prune` from the main checkout after fixing the failed destroy command or its prerequisites.",
-      },
-    }),
-  });
-
-  // remove the worktree (from the main repo)
-  try {
-    await clearEffortGrant(ctx.cwd);
-  } catch (error) {
-    ctx.log.warn(
-      `Could not clear the consumed effort grant before worktree removal: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-  ctx.log.info(`Removing worktree: ${worktreePath}`);
-  try {
-    await removeWorktreeSafely(worktreePath, mainRepo);
-  } catch (error) {
-    throw new WorktreeGitError(
-      `The branch landed, but removing the worktree at ${worktreePath} failed. ` +
-        `Your commits remain on ${worktreeBranch}. Removal reported: ${
-          error instanceof Error ? error.message : String(error)
-        } Run \`git worktree list\` to inspect its state, fix the named cause, ` +
-        `then run \`discern worktree prune\` from the main checkout.`,
-      { cause: error },
-    );
-  }
-  ctx.log.ok("Worktree directory removed.");
-  done("git", BUILT_IN_STEP_LABELS.removeWorktree);
-  progress.landing.worktree_removed = true;
-
-  // Delete the now-merged branch.
-  const branchDeletion = await deleteAutomaticallyOwnedBranch({
-    repoRoot: mainRepo,
-    branch: worktreeBranch,
-    expectedCommit: validatedSha,
-    ownership: {
-      kind: "worktree",
-      branch: worktreeBranch,
-      id,
-      settings,
-      source: "registered",
-    },
-    mergedInto: trunk,
-  });
-  if (branchDeletion.kind === "refused") {
-    const verifyBranch = commandEvidence([
-      "git",
-      "-C",
-      mainRepo,
-      "rev-parse",
-      "--verify",
-      `refs/heads/${worktreeBranch}^{commit}`,
-    ]);
-    const deleteBranch = commandEvidence([
-      "git",
-      "-C",
-      mainRepo,
-      "branch",
-      "-d",
-      worktreeBranch,
-    ]);
-    throw new WorktreeGitError(
-      `The branch landed on the trunk (${trunk}), but Git could not delete the merged ` +
-        `owned branch ${worktreeBranch}: ${branchDeletion.reason}. From the trunk ` +
-        `checkout, run \`${verifyBranch}\`; only if it still prints ` +
-        `${validatedSha}, clean the already-merged branch with ` +
-        `\`${deleteBranch}\`. Do not rerun acceptance or replay consent.`,
-    );
-  }
-  ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
-  done("git", BUILT_IN_STEP_LABELS.deleteBranch);
-  progress.landing.branch_deleted = true;
-
-  ctx.log.heading("Acceptance complete.");
-  ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
-  if (proofLine !== undefined) {
-    ctx.log.line(renderProofLineCli(proofLine, ctx.log.terminal));
-  }
-  // The landing record: the proof for the tree that just landed, pasteable
-  // into a PR body. Printed unindented so it relays as clean markdown; dimmed
-  // so the quoted page stays visually secondary (dim is display-only — a
-  // terminal copies the plain text).
-  if (proofMarkdown !== undefined) {
-    ctx.log.group("proof");
-    for (
-      const line of dimBlock(proofMarkdown, loggerSink(ctx.log).dim)
-        .split("\n")
-    ) {
-      ctx.log.line(line);
-    }
-  }
-  return {
-    steps: results,
-    gateValidation,
-    proofMarkdown,
-    proofLine,
-    proofNote,
-    convergenceHints,
-    diagnostics,
-    authorityWarnings,
-    checkpointDrops: accumulatedCheckpointDrops,
-  };
-}
-
-/**
- * Accept this worktree's branch onto the trunk — the `discern accept`
- * command, the single PUSH target of the landing model (composition happens on
- * the pull axis: `start --from` / `update --from`). Requires the latest main
- * is present beneath this branch, fast-forwards the trunk to the branch tip,
- * refreshes and converges the receiving checkout, tears down the worktree's
- * external resources, removes the clean worktree directory, and deletes the
- * now-merged branch.
- * Refuses without either a verified recorded grant or the `--confirmed`
- * conversation attestation (ADR 0134, amended by ADR 0194), then dirty
- * worktrees, dirty main checkouts, and a main checkout parked on a branch other
- * than the trunk. `--dry-run` shows the plan (after the read-only preconditions
- * pass) and touches nothing — and needs no authority, since it never lands.
- * Throws `WorktreeGitError` on any unrecoverable error (the branch keeps its
- * commits).
+/** Coordinate the current queue prefix, rechecking each candidate's evidence and authority.
+ * Validation runs in eligible released environments outside short shared publication
+ * locks. Publication advances the exact expected trunk and source refs; retirement
+ * subsequently verifies release, positive ownership, cleanliness and exclusion.
+ * A cleanup or note failure leaves the landing durable and reports recovery.
+ * Conversation attestation covers only the calling source; every predecessor needs
+ * its own authority. Dry-run projects each predecessor without effects.
  */
 export async function accept(
   ctx: LifecycleContext,
@@ -3571,15 +1955,10 @@ export async function accept(
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
 }
 
-/**
- * Perform the acceptance and return its {@link DiscernResult} — the plan (dry-run)
- * or the executed steps — without emitting or exiting. The single source the CLI's
- * `--json` ({@link accept}) and the MCP server both render. NOT pure: on an apply
- * it runs the real git mutations + resource teardown (narrating through `ctx.log`,
- * which the MCP server silences with a quiet logger). The read-only preconditions
- * (in a worktree, main updated, clean main checkout sitting on the trunk) still
- * throw `WorktreeGitError` when they refuse — the caller maps that to an error
- * envelope via {@link worktreeErrorResult}.
+/** The CLI and MCP share this queue acceptance result, including partial progress.
+ * Version-one journals are reconciled through their dedicated transaction boundary
+ * before native queue work can begin. Native publication and retirement each own
+ * their concrete locks and repeat their authority and ownership observations.
  */
 export async function acceptResult(
   ctx: LifecycleContext,
@@ -3591,32 +1970,26 @@ export async function acceptResult(
     cliModel: CliModelProvider;
   },
 ): Promise<DiscernResult<AcceptData>> {
-  const dryRun = opts.dryRun ?? false;
-  const confirmed = opts.confirmed ?? false;
-  const variance = opts.variance ?? [];
-  const approveStandard = opts.approveStandard ?? [];
-  if (!dryRun) {
+  const interrupted = await inspectInterruptedAcceptance(
+    ctx.cwd,
+    integrationBranch(ctx.config.repository.trunk),
+  );
+  if (interrupted.kind === "recorded") {
+    if (opts.dryRun) {
+      return {
+        ok: true,
+        verb: "accept",
+        dry_run: true,
+        message:
+          "An earlier acceptance transaction needs recovery before queue acceptance. This preview made no changes.",
+      };
+    }
     return await withAcceptanceTransactionLock(
       ctx.cwd,
-      () =>
-        executeAcceptResult(
-          ctx,
-          false,
-          confirmed,
-          opts.cliModel,
-          variance,
-          approveStandard,
-        ),
+      () => recoverAcceptanceJournalResult(ctx, opts.confirmed ?? false),
     );
   }
-  return await executeAcceptResult(
-    ctx,
-    true,
-    confirmed,
-    opts.cliModel,
-    variance,
-    approveStandard,
-  );
+  return await acceptQueueResult(ctx, opts);
 }
 
 /**
@@ -3624,353 +1997,140 @@ export async function acceptResult(
  * Dry-runs enter directly because they neither recover nor mutate transaction
  * state.
  */
-async function executeAcceptResult(
+async function recoverAcceptanceJournalResult(
   ctx: LifecycleContext,
-  dryRun: boolean,
   confirmed: boolean,
-  cliModel: CliModelProvider,
-  varianceIds: readonly string[] = [],
-  approvedStandardNames: readonly string[] = [],
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   const trunk = integrationBranch(ctx.config.repository.trunk);
-  const startingProof = await inspectGateProof(ctx.cwd);
-  if (startingProof.status === "report_only") {
-    return {
-      ok: false,
-      verb: "accept",
-      error: "report_only_proof",
-      message:
-        "This Proof records checkpoint review as reported and not enforced. Run ordinary `discern done` in this stateful worktree before acceptance. Nothing has been landed.",
-      hints: hintTexts([fire(HINTS["accept-requires-strict-proof"])]),
-      ...(startingProof.checkpoint_drops === undefined
-        ? {}
-        : { data: { checkpoint_drops: startingProof.checkpoint_drops } }),
-    };
-  }
-  let checkpointDrops = uniqueCheckpointDrops([
-    ...(startingProof.proof_data?.checkpoint_drops ?? []),
-    ...(startingProof.checkpoint_drops ?? []),
-  ]);
   await assertProjectRootIsRepoToplevel(ctx, "accept");
-  if (!dryRun) {
-    refuseUnreadableDeclarationEvidence(checkpointDrops);
-  }
-  // Resolve authority before the ordinary preconditions so an uncovered
-  // flagless call still receives the consent refusal as its outermost contract.
-  // Every read is mutation-free. A dry-run reports authority but needs none.
-  let authority = await inspectLandingAuthority(
-    ctx.cwd,
-    trunk,
-  );
-  const recoverySteps: StepResult[] = [];
-  let authorizedVariances: AuthorizedVarianceData[] = [];
-  let authorizedStandardProposals: StandardLimitProposalData[] = [];
+  const authority = await inspectLandingAuthority(ctx.cwd, trunk);
   let effectRoot: string | undefined;
   let effectConsent: LandingConsent | undefined;
   let effectProgress: AcceptExecutionProgress | undefined;
   try {
-    if (!dryRun) {
-      const interrupted = await inspectInterruptedAcceptance(
+    const interrupted = await inspectInterruptedAcceptance(
+      ctx.cwd,
+      trunk,
+    );
+    if (interrupted.kind === "recorded") {
+      // No recovery effect runs until journal-bound consent, currently
+      // verified standing/effort authority, or this call's explicit
+      // conversation attestation authorizes the recorded transition.
+      const recoveryConsent = interrupted.consent ??
+        availableLandingConsent(authority, confirmed) ??
+        landingConsentForApply(authority, confirmed);
+      const recovered = await recoverInterruptedAcceptance(
         ctx.cwd,
-        trunk,
+        interrupted,
       );
-      if (interrupted.kind === "recorded") {
-        // No recovery effect runs until journal-bound consent, currently
-        // verified standing/effort authority, or this call's explicit
-        // conversation attestation authorizes the recorded transition.
-        const recoveryConsent = interrupted.consent ??
-          availableLandingConsent(authority, confirmed) ??
-          landingConsentForApply(authority, confirmed);
-        const recovered = await recoverInterruptedAcceptance(
-          ctx.cwd,
-          interrupted,
-        );
-        const recoveryProgress = freshAcceptExecutionProgress([
-          recoveryStep(
-            recovered.kind === "ready" || recovered.recoveryPerformed
-              ? "ok"
-              : "failed",
-          ),
-        ]);
-        recoveryProgress.landing.recovery_performed =
-          recovered.recoveryPerformed;
-        if (recovered.kind === "stopped") {
-          recoveryProgress.landing.trunk_landed = recovered.trunkLanded;
-          if (recovered.trunkLanded) {
-            const recoveredProof = await inspectGateProof(ctx.cwd);
-            const matchingProof = recoveredProof.status === "honored" &&
-                recoveredProof.head === interrupted.transaction.target
-              ? recoveredProof.proof_data
-              : undefined;
-            const recoveredDrops = uniqueCheckpointDrops([
-              ...(matchingProof?.checkpoint_drops ?? []),
-              ...(recoveredProof.checkpoint_drops ?? []),
-            ]);
-            const proofRecording = await recordLandingProofNote({
-              mainRepo: interrupted.transaction.main_repo,
-              commit: interrupted.transaction.target,
-              mode: ctx.config.repository.proof_notes,
-              proof: matchingProof,
-              checkpointDrops: recoveredDrops,
-              consent: interrupted.transaction.consent,
-              variances: interrupted.transaction.variances,
-              standardProposals: interrupted.transaction.standard_proposals,
-              log: ctx.log,
-              env,
-            });
-            recoveryProgress.steps.push(...proofRecording.steps);
-            recoveryProgress.proofNote = proofRecording.proofNote;
-            recoveryProgress.convergenceHints.push(...proofRecording.hints);
-            if (
-              recoveredProof.status === "honored" &&
+      const recoveryProgress = freshAcceptExecutionProgress([
+        recoveryStep(
+          recovered.kind === "ready" || recovered.recoveryPerformed
+            ? "ok"
+            : "failed",
+        ),
+      ]);
+      recoveryProgress.landing.recovery_performed = recovered.recoveryPerformed;
+      if (recovered.kind === "stopped") {
+        recoveryProgress.landing.trunk_landed = recovered.trunkLanded;
+        if (recovered.trunkLanded) {
+          const recoveredProof = await inspectGateProof(ctx.cwd);
+          const matchingProof = recoveredProof.status === "honored" &&
               recoveredProof.head === interrupted.transaction.target
-            ) {
-              recoveryProgress.gateValidation = {
-                mode: "proof",
-                proof: recoveredProof,
-              };
-              if (recoveredProof.proof !== undefined) {
-                recoveryProgress.proofMarkdown = recoveredProof.proof;
-              }
-              if (recoveredProof.proof_line !== undefined) {
-                recoveryProgress.proofLine = renderLandingProofLine(
-                  recoveredProof.proof_line,
-                  interrupted.transaction.consent,
-                  {
-                    ...(interrupted.transaction.standard_proposals.length > 0
-                      ? {
-                        proposals: interrupted.transaction.standard_proposals,
-                      }
-                      : {}),
-                    ...(interrupted.transaction.variances.length > 0 &&
-                        matchingProof?.checkpoints !== undefined
-                      ? { checkpoints: matchingProof.checkpoints }
-                      : {}),
-                  },
-                );
-              }
+            ? recoveredProof.proof_data
+            : undefined;
+          const recoveredDrops = uniqueCheckpointDrops([
+            ...(matchingProof?.checkpoint_drops ?? []),
+            ...(recoveredProof.checkpoint_drops ?? []),
+          ]);
+          const proofRecording = await recordLandingProofNote({
+            mainRepo: interrupted.transaction.main_repo,
+            commit: interrupted.transaction.target,
+            mode: ctx.config.repository.proof_notes,
+            proof: matchingProof,
+            checkpointDrops: recoveredDrops,
+            consent: interrupted.transaction.consent,
+            variances: interrupted.transaction.variances,
+            standardProposals: interrupted.transaction.standard_proposals,
+            log: ctx.log,
+            env,
+          });
+          recoveryProgress.steps.push(...proofRecording.steps);
+          recoveryProgress.proofNote = proofRecording.proofNote;
+          recoveryProgress.convergenceHints.push(...proofRecording.hints);
+          if (
+            recoveredProof.status === "honored" &&
+            recoveredProof.head === interrupted.transaction.target
+          ) {
+            recoveryProgress.gateValidation = {
+              mode: "proof",
+              proof: recoveredProof,
+            };
+            if (recoveredProof.proof !== undefined) {
+              recoveryProgress.proofMarkdown = recoveredProof.proof;
+            }
+            if (recoveredProof.proof_line !== undefined) {
+              recoveryProgress.proofLine = renderLandingProofLine(
+                recoveredProof.proof_line,
+                interrupted.transaction.consent,
+                {
+                  ...(interrupted.transaction.standard_proposals.length > 0
+                    ? {
+                      proposals: interrupted.transaction.standard_proposals,
+                    }
+                    : {}),
+                  ...(interrupted.transaction.variances.length > 0 &&
+                      matchingProof?.checkpoints !== undefined
+                    ? { checkpoints: matchingProof.checkpoints }
+                    : {}),
+                },
+              );
             }
           }
         }
+      }
+      if (
+        recovered.recoveryPerformed ||
+        (recovered.kind === "stopped" && recovered.trunkLanded)
+      ) {
+        effectRoot = interrupted.transaction.main_repo;
+        effectConsent = recoveryConsent;
+        effectProgress = recoveryProgress;
+      }
+      if (recovered.kind === "stopped") {
         if (
-          recovered.recoveryPerformed ||
-          (recovered.kind === "stopped" && recovered.trunkLanded)
+          recovered.recoveryPerformed || recovered.trunkLanded
         ) {
-          effectRoot = interrupted.transaction.main_repo;
-          effectConsent = recoveryConsent;
-          effectProgress = recoveryProgress;
-        }
-        if (recovered.kind === "stopped") {
-          if (
-            recovered.recoveryPerformed || recovered.trunkLanded
-          ) {
-            throwPartialAcceptance(
-              interrupted.transaction.main_repo,
-              recoveryConsent,
-              recoveryProgress,
-              recovered.message,
-            );
-          }
-          throw new WorktreeGitError(recovered.message);
-        }
-
-        recoverySteps.push(...recoveryProgress.steps);
-        // A journal-only decision authorizes completion of THAT transaction, not
-        // a fresh transition. Re-read after pre-CAS cleanup: a restored effort
-        // claim or current standing grant can authorize the new attempt; otherwise
-        // stop after the visible recovery effect and ask for current consent.
-        authority = await inspectLandingAuthority(
-          ctx.cwd,
-          trunk,
-        );
-        if (availableLandingConsent(authority, confirmed) === undefined) {
-          const message =
-            "discern reconciled the interrupted acceptance before its trunk " +
-            "transition. Its journal-bound consent covered only that interrupted " +
-            "transaction and was not replayed into a new landing. Re-run " +
-            "`discern accept --confirmed`, or record a standing or effort grant, " +
-            "to authorize the intact branch's new transition.";
           throwPartialAcceptance(
             interrupted.transaction.main_repo,
             recoveryConsent,
             recoveryProgress,
-            message,
+            recovered.message,
           );
         }
-      }
-      // The checkpoint contract precedes ordinary consent: a missing or
-      // stale declaration routes back to `done`, and a current declared-unmet
-      // conclusion serves the owner's ONE complete decision (landing plus
-      // each named variance) instead of a bare consent refusal.
-      authorizedStandardProposals = await enforceStandardLimitApprovals(
-        ctx,
-        startingProof,
-        trunk,
-        { confirmed, names: approvedStandardNames },
-      );
-      const checkpointState = await inspectAcceptanceCheckpoints(
-        ctx.cwd,
-        ctx.config,
-      );
-      checkpointDrops = uniqueCheckpointDrops([
-        ...checkpointDrops,
-        ...checkpointState.drops,
-      ]);
-      refuseUnreadableDeclarationEvidence(checkpointDrops);
-      for (const advisory of checkpointDropAccounts(checkpointState.drops)) {
-        ctx.log.warn(advisory);
-      }
-      authorizedVariances = enforceAcceptanceCheckpoints(checkpointState, {
-        confirmed,
-        varianceIds,
-      });
-      if (
-        authorizedVariances.length === 0 &&
-        authorizedStandardProposals.length === 0
-      ) {
-        landingConsentForApply(authority, confirmed);
+        throw new WorktreeGitError(recovered.message);
       }
     }
-    const run = makeGitRunner(ctx);
-    const plan = await buildAcceptPlan(ctx, run, trunk);
-    // The plan proved the worktree clean. Re-read now so the authority used by
-    // apply is over committed paths only, then bind it through validation to the
-    // fast-forward boundary.
-    authority = await inspectLandingAuthority(
-      ctx.cwd,
-      trunk,
-      { includeScopeEvidence: true },
-    );
-    if (dryRun) {
-      const enginePlan = acceptPlanToEngine(plan);
-      const checkpointState = await inspectAcceptanceCheckpoints(
-        ctx.cwd,
-        ctx.config,
-      );
-      checkpointDrops = uniqueCheckpointDrops([
-        ...checkpointDrops,
-        ...checkpointState.drops,
-      ]);
-      enginePlan.details.push(
-        `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
-        ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
-        ...(checkpointState.stale.length > 0
-          ? [
-            `Checkpoints:   conclusions missing or stale (route to done): ${
-              checkpointState.stale.join(", ")
-            }`,
-          ]
-          : []),
-        ...checkpointState.unmet.map((unmet) =>
-          `Checkpoints:   '${unmet.id}' declared unmet — owner variance required to land`
-        ),
-        ...checkpointDropAccounts(checkpointState.drops).map((advisory) =>
-          `Checkpoint advisory: ${advisory}`
-        ),
-      );
-      const proposalInspection = await inspectActiveStandardLimitProposals(
-        ctx.cwd,
-        trunk,
-        buildStandardPlan(ctx.config).standards,
-      );
-      for (const proposal of proposalInspection.active.values()) {
-        enginePlan.details.push(
-          `Standard owner decision: ${proposal.standard} ${proposal.trunk_limit} → ${proposal.proposed_limit}; reason: ${proposal.reason}`,
-        );
-      }
-      const preview: DiscernResult<AcceptData> = previewResult(
-        "accept",
-        enginePlan,
-      );
-      if (checkpointDrops.length > 0) {
-        preview.data = { checkpoint_drops: checkpointDrops };
-      }
-      return preview;
-    }
-    // A variance forces current-conversation consent — the interlock above
-    // verified the complete decision — so recorded grants are never consulted
-    // when one stands.
-    const consent: LandingConsent =
-      authorizedVariances.length > 0 || authorizedStandardProposals.length > 0
-        ? { source: "conversation" }
-        : landingConsentForApply(authority, confirmed);
-    const progress = freshAcceptExecutionProgress(
-      recoverySteps,
-      changedLandingScopes(authority),
-    );
-    if (recoverySteps.length > 0) {
-      progress.landing.recovery_performed = true;
-    }
-    effectRoot = plan.mainRepo;
-    effectConsent = consent;
-    effectProgress = progress;
-    const executed = await executeAcceptPlan(
-      ctx,
-      run,
-      plan,
-      cliModel,
-      authority,
-      consent,
-      progress,
-      authorizedVariances,
-      authorizedStandardProposals,
-    );
-    const result: DiscernResult<AcceptData> = appliedResult(
-      "accept",
-      executed.steps,
-    );
-    // The branch landed in the main checkout; report it so the MCP server can
-    // re-aim its working root there now the worktree it operated on is gone
-    // (ADR 0062). The plan resolved `mainRepo` before the removal.
-    result.data = AppliedAcceptDataSchema.parse({
-      root: plan.mainRepo,
-      consent: cloneLandingConsent(consent),
-      ...(executed.checkpointDrops.length === 0
-        ? {}
-        : { checkpoint_drops: executed.checkpointDrops }),
-      ...(authorizedVariances.length === 0
-        ? {}
-        : { variances: authorizedVariances.map((v) => ({ ...v })) }),
-      ...(authorizedStandardProposals.length === 0 ? {} : {
-        standard_approvals: authorizedStandardProposals.map(
-          cloneStandardLimitProposal,
-        ),
+    return {
+      ok: false,
+      verb: "accept",
+      error: "incomplete",
+      message:
+        "Earlier acceptance recovery is reconciled. Run done to establish complete current candidate evidence before queue acceptance.",
+      ...(effectProgress === undefined ? {} : {
+        data: {
+          root: effectRoot,
+          landing: cloneLandingState(effectProgress.landing),
+        },
       }),
-      ...(progress.scopesChanged.length === 0
-        ? {}
-        : { scopes_changed: [...progress.scopesChanged] }),
-      landing: cloneLandingState(progress.landing),
-      ...(authority.warnings.length + executed.authorityWarnings.length > 0
-        ? {
-          authority_warnings: [
-            ...authority.warnings,
-            ...executed.authorityWarnings,
-          ],
-        }
-        : {}),
-      gate_validation: executed.gateValidation,
-      ...(executed.proofMarkdown !== undefined
-        ? { proof: executed.proofMarkdown }
-        : {}),
-      ...(executed.proofLine !== undefined
-        ? { proof_line: executed.proofLine }
-        : {}),
-      proof_note: executed.proofNote,
-      ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
-        ? { ignored_file_changes: plan.ignoredFileChanges }
-        : {}),
-    });
-    result.hints = executed.proofLine !== undefined
-      ? mergeHintTexts(
-        hintTexts([fire(HINTS["accept-relay-landing-proof"])]),
-        executed.convergenceHints,
-      )
-      : executed.convergenceHints;
-    if (executed.diagnostics.length > 0) {
-      result.diagnostics = executed.diagnostics;
-    }
-    return result;
+      hints: hintTexts([
+        fire(HINTS["completion-pending"], {
+          action:
+            "Run discern done on the committed source, then retry accept with current recorded authority.",
+        }),
+      ]),
+    };
   } catch (error) {
     if (
       error instanceof WorktreeResultError &&
@@ -3994,29 +2154,8 @@ async function executeAcceptResult(
         error instanceof Error ? error.message : String(error),
       );
     }
-    if (error instanceof WorktreeResultError) {
-      if (checkpointDrops.length > 0 && error.result.data === undefined) {
-        error.result.data = { checkpoint_drops: checkpointDrops };
-      }
-      throw error;
-    }
     throw error;
   }
-}
-
-/** Render bounded ignored-file drift evidence only when acceptance should surface it. */
-function ignoredFileChangeDetail(
-  summary: AcceptPlan["ignoredFileChanges"],
-): string | undefined {
-  if (!hasIgnoredFileChanges(summary)) {
-    return undefined;
-  }
-  const more = summary.truncated
-    ? `, +${summary.changed_total - summary.changed_roots.length} more`
-    : "";
-  return `Ignored files changed since setup: ${
-    summary.changed_roots.join(", ")
-  }${more}`;
 }
 
 /** If local-artifact templates live inside the worktree that accept is about to
@@ -4033,40 +2172,6 @@ export function remapWorktreeLocalTemplatesDir(
     return join(mainRepo, rel);
   }
   return undefined;
-}
-
-/** Remap worktree-local templates into the landed checkout when that directory exists. */
-async function postLandingLocalTemplatesDir(
-  worktreePath: string,
-  mainRepo: string,
-): Promise<string | undefined> {
-  let templatesDir: string | undefined;
-  try {
-    templatesDir = await resolveTemplatesDir();
-  } catch {
-    // discern-best-effort: lifecycle-post-landing-templates-fallback
-    return undefined;
-  }
-  if (templatesDir === undefined) return undefined;
-  const remapped = remapWorktreeLocalTemplatesDir(
-    templatesDir,
-    worktreePath,
-    mainRepo,
-  );
-  const available = remapped !== undefined && await directoryExists(remapped);
-  return available ? remapped : undefined;
-}
-
-/** Materialize the landed checkout from the already-remapped templates directory. */
-async function materializeLocalRefreshForLanding(
-  root: string,
-  logger: Logger,
-  templatesDir: string | undefined,
-): Promise<Awaited<ReturnType<typeof materializeLocalRefreshArtifacts>>> {
-  if (templatesDir === undefined) {
-    return await materializeLocalRefreshArtifacts(root, logger);
-  }
-  return await materializeLocalRefreshArtifacts(root, logger, templatesDir);
 }
 
 // How much integration detail rides inline before an agent is pointed at git for
@@ -5978,19 +4083,6 @@ export function worktreeErrorResult(
     };
   }
   return undefined;
-}
-
-/** Resolve a possibly-relative git-common-dir against `cwd` and canonicalize it. */
-async function realPathOrLifecycle(raw: string, cwd: string): Promise<string> {
-  if (raw === "") {
-    return raw;
-  }
-  const abs = raw.startsWith("/") ? raw : join(cwd, raw);
-  try {
-    return await Deno.realPath(abs);
-  } catch {
-    return abs;
-  }
 }
 
 /** Options for {@link worktreePrune}. */

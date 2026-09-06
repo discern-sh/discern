@@ -6,6 +6,7 @@
  */
 
 import { join } from "@std/path";
+import { z } from "@zod/zod";
 import { lstatIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
 import { removeIfExists } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
@@ -71,11 +72,15 @@ export async function clearEffortGrantPlan(cwd: string): Promise<EnginePlan> {
 async function effortGrantClaimPath(
   cwd: string,
   claimId: string,
+  common = false,
 ): Promise<string | undefined> {
   if (!CLAIM_ID.test(claimId)) {
     return undefined;
   }
-  const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
+  const claimsDir = await gitAdminStatePath(
+    cwd,
+    common ? "completionGrantClaims" : "effortGrantClaims",
+  );
   return claimsDir === undefined ? undefined : join(claimsDir, claimId);
 }
 
@@ -102,13 +107,26 @@ function parseClaim(
   };
 }
 
-/** Read the deterministic claim owned by one acceptance transaction. */
-export async function readEffortGrantClaim(
+const HistoricalEffortGrantSchema = z.strictObject({
+  version: z.literal(ON_DISK_FORMATS.effortGrant.historicalVersions[0]),
+  branch: z.string().min(1),
+  granted_at: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
+});
+
+/** Recovery reads old raw claims only for their already-recorded transition.
+ * These bytes never pass the current grant reader or authorize a new claim. */
+export async function readRecoveryEffortGrantClaim(
   cwd: string,
   branch: string,
   claimId: string,
-): Promise<EffortGrantClaimRead> {
-  const path = await effortGrantClaimPath(cwd, claimId);
+  common = false,
+): Promise<
+  EffortGrantClaimRead | {
+    readonly status: "historical-claim";
+    readonly claim: Pick<EffortGrantClaim, "path" | "raw">;
+  }
+> {
+  const path = await effortGrantClaimPath(cwd, claimId, common);
   if (path === undefined) {
     return {
       status: "unavailable",
@@ -116,7 +134,21 @@ export async function readEffortGrantClaim(
     };
   }
   try {
-    return parseClaim(path, await Deno.readTextFile(path), branch);
+    const raw = await Deno.readTextFile(path);
+    const current = parseClaim(path, raw, branch);
+    if (current.status === "invalid") {
+      let value: unknown;
+      try {
+        value = JSON.parse(raw);
+      } catch {
+        return current;
+      }
+      const historical = HistoricalEffortGrantSchema.safeParse(value);
+      if (historical.success && historical.data.branch === branch) {
+        return { status: "historical-claim", claim: { path, raw } };
+      }
+    }
+    return current;
   } catch (error) {
     return error instanceof Deno.errors.NotFound ? { status: "missing" } : {
       status: "unavailable",
@@ -149,11 +181,15 @@ export async function claimEffortGrant(
   branch: string,
   claimId?: string,
   entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+  common = false,
 ): Promise<EffortGrantClaimRead> {
   const resolvedClaimId = claimId ?? entropy.uuid();
   const marker = await gitAdminStatePath(cwd, "effortGrant");
-  const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
-  const claimPath = await effortGrantClaimPath(cwd, resolvedClaimId);
+  const claimsDir = await gitAdminStatePath(
+    cwd,
+    common ? "completionGrantClaims" : "effortGrantClaims",
+  );
+  const claimPath = await effortGrantClaimPath(cwd, resolvedClaimId, common);
   if (
     marker === undefined || claimsDir === undefined || claimPath === undefined
   ) {
@@ -209,11 +245,6 @@ export async function claimEffortGrant(
   if (parsed.status !== "claimed") {
     await restoreEffortGrantClaim(cwd, {
       path: claimPath,
-      grant: {
-        version: ON_DISK_FORMATS.effortGrant.version,
-        branch: "",
-        granted_at: "",
-      },
       raw,
     });
     return parsed;
@@ -227,7 +258,7 @@ export async function claimEffortGrant(
  */
 export async function restoreEffortGrantClaim(
   cwd: string,
-  claim: EffortGrantClaim,
+  claim: Pick<EffortGrantClaim, "path" | "raw">,
 ): Promise<boolean> {
   const marker = await gitAdminStatePath(cwd, "effortGrant");
   if (marker === undefined) {
@@ -250,7 +281,7 @@ export async function restoreEffortGrantClaim(
  * irreversible ref transition.
  */
 export async function consumeEffortGrantClaim(
-  claim: EffortGrantClaim,
+  claim: Pick<EffortGrantClaim, "path">,
 ): Promise<boolean> {
   let settled = true;
   try {
@@ -267,8 +298,9 @@ export async function consumeEffortGrantClaim(
 export async function consumeEffortGrantClaimById(
   cwd: string,
   claimId: string,
+  common = false,
 ): Promise<boolean> {
-  const path = await effortGrantClaimPath(cwd, claimId);
+  const path = await effortGrantClaimPath(cwd, claimId, common);
   if (path === undefined) {
     return false;
   }
@@ -278,12 +310,6 @@ export async function consumeEffortGrantClaimById(
   if (parsed.status === "newer") return false;
   return await consumeEffortGrantClaim({
     path,
-    grant: {
-      version: ON_DISK_FORMATS.effortGrant.version,
-      branch: "",
-      granted_at: "",
-    },
-    raw: "",
   });
 }
 

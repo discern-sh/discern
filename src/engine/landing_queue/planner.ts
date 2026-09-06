@@ -1,6 +1,7 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Active commands consume per-prefix plans. This port runs no validation or ref transition. */
 import type { Candidate } from "../completion/candidate.ts";
-import type { CompletionPolicy } from "../completion/configuration.ts";
+import type { CompletionPolicy } from "../../shared/config_schema.ts";
 import type { AttemptIdentity, Executor } from "../completion/identity.ts";
 import type { CompletionRecord } from "../completion/records.ts";
 import type {
@@ -116,8 +117,10 @@ function transitionAction(input: {
 }): Extract<QueueAction, { kind: "land" }> | CompletionBlocker {
   const { observation, assessment, authority, expected, executor, attempt } =
     input;
-  const existing = observation.records.find(({ selector }) =>
-    selector.kind === "landing" && selector.id === assessment.candidate_id
+  const existing = observation.records.find(({ reading }) =>
+    reading.kind === "recorded" && reading.record.kind === "landing" &&
+    reading.record.data.candidate_id === assessment.candidate_id &&
+    reading.record.data.outcome.kind !== "not-landed"
   )?.reading;
   if (
     existing !== undefined && existing.kind !== "missing" &&
@@ -187,9 +190,9 @@ function transitionAction(input: {
     kind: "land",
     expected_stamp: null,
     record: {
-      version: 1,
+      version: ON_DISK_FORMATS.completionRecord.version,
       kind: "landing",
-      id: assessment.candidate_id,
+      id: attempt.id,
       revision: 1,
       data: {
         attempt_id: attempt.id,
@@ -263,7 +266,10 @@ export function planQueue(input: {
       ? undefined
       : input.assessments.get(entry.candidate_id);
     const stop = (blocker: CompletionBlocker): QueuePlan => {
-      blockers.push(blocker);
+      const stops = [blocker, ...assessment?.blockers ?? []];
+      blockers.push(
+        ...new Map(stops.map((item) => [JSON.stringify(item), item])).values(),
+      );
       return result;
     };
     if (entry.authority_id === null) {
@@ -306,11 +312,37 @@ export function planQueue(input: {
       expected.head !== assessment.candidate.expected_predecessor.head ||
       entry.invalidation !== null
     ) {
-      return stop({
-        kind: "stale-evidence",
-        evidence_ids: [],
-        reason: entry.invalidation ?? "predecessor-changed",
+      const blocked = assessment.blockers.find((item) =>
+        item.kind !== "missing-evidence" && item.kind !== "stale-evidence"
+      );
+      if (blocked !== undefined) return stop(blocked);
+      const environment = assessment.refresh?.environment;
+      if (
+        environment === undefined || environment.declaration === null ||
+        environment.expected_stamp === null
+      ) {
+        return stop({
+          kind: "environment-unavailable",
+          reason:
+            "The changed predecessor needs composition in a declared, explicitly released environment.",
+        });
+      }
+      const capacity = workCapacity(
+        entries,
+        entry.source.effort_id,
+        input.policy,
+        false,
+        retainedExecutionCount(entries, input.observation),
+      );
+      if (capacity !== undefined) return stop(capacity);
+      actions.push({
+        kind: "compose",
+        source: entry.source,
+        predecessor: expected,
+        environment_id: environment.environment_id,
+        expected_stamp: environment.expected_stamp,
       });
+      return result;
     }
     const blocker = assessment.blockers.find((item) =>
       item.kind !== "missing-evidence" && item.kind !== "stale-evidence"

@@ -10,8 +10,20 @@ import { dirname } from "@std/path";
 import { atomicReplaceJson } from "../../shared/atomic_write.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type EnginePlan, verbatimStepLabel } from "../../shared/result.ts";
-import { type EffortGrant, readEffortGrant } from "./effort_grant.ts";
+import {
+  type EffortGrant,
+  EffortGrantSchema,
+  type EffortGrantSubject,
+  readEffortGrant,
+} from "./effort_grant.ts";
+import { inspectEffortGrantSubject } from "./effort_grant_subject.ts";
+import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+
+export interface EffortGrantPlan extends EnginePlan {
+  readonly subject: EffortGrantSubject;
+}
 
 export type EffortGrantWrite =
   | { readonly status: "granted"; readonly grant: EffortGrant }
@@ -21,7 +33,8 @@ export type EffortGrantWrite =
 export async function effortGrantPlan(
   cwd: string,
   branch: string,
-): Promise<EnginePlan> {
+): Promise<EffortGrantPlan> {
+  const subject = await inspectEffortGrantSubject(cwd, branch);
   const current = await readEffortGrant(cwd);
   if (current.status === "newer") {
     throw new Error(current.reason);
@@ -31,12 +44,16 @@ export async function effortGrantPlan(
     throw new Error("Git could not resolve the effort-grant path.");
   }
   const unchanged = current.status === "granted" &&
-    current.grant.branch === branch;
+    current.grant.branch === branch && sameSubject(current.grant, subject);
   return {
-    title: "Landing pre-authorization plan",
+    title: "Exact source landing grant",
+    subject,
     details: [
       `Task: ${cwd}`,
       `Branch: ${branch}`,
+      `Approved source: ${subject.source.head}`,
+      `Composition procedure: ${subject.composition_procedure}`,
+      "New authored changes require another source grant.",
       `Authority record: ${path}`,
     ],
     steps: [{
@@ -50,36 +67,57 @@ export async function effortGrantPlan(
   };
 }
 
-/**
- * Record a desk-granted landing authority. Repeating the same grant is a no-op;
- * a branch rename replaces stale state with the human's current decision.
- */
+/** Compare canonical source approval coordinates independently of grant metadata. */
+function sameSubject(
+  grant: EffortGrantSubject,
+  subject: EffortGrantSubject,
+): boolean {
+  return JSON.stringify(grant.source) === JSON.stringify(subject.source) &&
+    grant.composition_procedure === subject.composition_procedure;
+}
+
+/** Record the exact source the desk reviewed; unchanged approvals retain their identity. */
 export async function grantEffort(
   cwd: string,
   branch: string,
   grantedAt: string,
+  expected?: EffortGrantSubject,
 ): Promise<EffortGrantWrite> {
-  const current = await readEffortGrant(cwd);
-  if (current.status === "newer") {
-    throw new Error(current.reason);
+  const subject = await inspectEffortGrantSubject(cwd, branch);
+  if (expected !== undefined && !sameSubject(expected, subject)) {
+    throw new Error(
+      "Source changed after the grant preview. Review and approve the current source; no grant was recorded.",
+    );
   }
-  if (current.status === "granted" && current.grant.branch === branch) {
-    return { status: "already_granted", grant: current.grant };
-  }
-  const path = await gitAdminStatePath(cwd, "effortGrant");
-  if (path === undefined) {
-    throw new Error("Git could not resolve the effort-grant path.");
-  }
-  const grant: EffortGrant = {
-    version: ON_DISK_FORMATS.effortGrant.version,
-    branch,
-    granted_at: grantedAt,
-  };
-  await Deno.mkdir(dirname(path), { recursive: true });
-  await atomicReplaceJson(path, grant, {
-    mode: 0o666,
-    sync: false,
-    trailingNewline: true,
+  return await withCompletionPublication(cwd, async () => {
+    const currentSubject = await inspectEffortGrantSubject(cwd, branch);
+    if (!sameSubject(subject, currentSubject)) {
+      throw new Error(
+        "Source changed before grant publication. No grant was recorded.",
+      );
+    }
+    const current = await readEffortGrant(cwd);
+    if (current.status === "newer") throw new Error(current.reason);
+    if (current.status === "granted" && sameSubject(current.grant, subject)) {
+      return { status: "already_granted", grant: current.grant };
+    }
+    const path = await gitAdminStatePath(cwd, "effortGrant");
+    if (path === undefined) {
+      throw new Error("Git could not resolve the effort-grant path.");
+    }
+    const grant = EffortGrantSchema.parse({
+      version: ON_DISK_FORMATS.effortGrant.version,
+      id: SYSTEM_SECURE_ENTROPY.uuid(),
+      branch,
+      granted_at: grantedAt,
+      ...subject,
+    });
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await atomicReplaceJson(path, grant, {
+      mode: 0o600,
+      sync: true,
+      trailingNewline: true,
+    });
+    return { status: "granted", grant };
   });
-  return { status: "granted", grant };
 }

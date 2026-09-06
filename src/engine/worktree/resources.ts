@@ -35,7 +35,7 @@ import { bestEffort } from "../../shared/best_effort.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
-import { readTextIfExists } from "../../shared/fs_presence.ts";
+import { readDirIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   inspectOnDiskJsonVersion,
   newerOnDiskFormatMessage,
@@ -250,6 +250,11 @@ export async function inspectResourceEntry(
 ): Promise<ResourceEntryRead> {
   const text = await readTextIfExists(path);
   if (text === undefined) return { status: "missing" };
+  return parseResourceEntry(text);
+}
+
+/** Decode the same frozen ledger bytes from common recovery without consulting new config. */
+export function parseResourceEntry(text: string): ResourceEntryRead {
   const version = inspectOnDiskJsonVersion("resourceLedger", text);
   if (version.status === "newer") {
     return {
@@ -304,6 +309,43 @@ export async function listEntries(
     }
   }
   return out;
+}
+
+/** Capture every resource owned by one checkout, refusing uncertain bytes or ownership. */
+export async function captureWorktreeResourceLedger(
+  commonGitDir: string,
+  gitKey: string,
+  worktreePath: string,
+): Promise<{ path: string; raw: string; entry: ResourceEntry }[]> {
+  const directory = resourcesDir(commonGitDir);
+  const names: string[] = [];
+  for (const file of await readDirIfExists(directory) ?? []) {
+    if (!file.name.startsWith(`${fsafe(gitKey)}__`)) continue;
+    if (!file.isFile || !file.name.endsWith(".json")) {
+      throw new Error(
+        "Resource ownership inventory contains an uncertain entry.",
+      );
+    }
+    names.push(file.name);
+  }
+  const captured: { path: string; raw: string; entry: ResourceEntry }[] = [];
+  for (const name of names.sort()) {
+    const path = join(directory, name);
+    const raw = await Deno.readTextFile(path);
+    const reading = parseResourceEntry(raw);
+    if (
+      reading.status !== "recorded" || reading.entry.git_key !== gitKey ||
+      reading.entry.worktree_path !== worktreePath
+    ) {
+      throw new Error(
+        "Resource ownership is uncertain or belongs to another checkout.",
+      );
+    }
+    captured.push({ path, raw, entry: reading.entry });
+  }
+  return captured.sort((a, b) =>
+    b.entry.seq - a.entry.seq || a.path.localeCompare(b.path)
+  );
 }
 
 /** Report whether the observed ledger entry was actually removed. */
@@ -729,6 +771,7 @@ export async function ensureResources(
   ctx: ResourceContext,
   identity: WorktreeIdentity,
   settings: IdentitySettings,
+  options: { readonly required?: boolean } = {},
 ): Promise<void> {
   const scheduler = ctx.scheduler ?? SYSTEM_SCHEDULER;
   const specs = readResourceSpecs(ctx.config).filter((s) => s.ensure !== "");
@@ -754,6 +797,11 @@ export async function ensureResources(
       scheduler,
     );
     if (!ok) {
+      if (options.required) {
+        throw new WorktreeGitError(
+          `Required resource '${spec.name}' did not converge; preserve its ownership and repair its ensure command.`,
+        );
+      }
       ctx.log.warn(
         `Worktree resource '${spec.name}' ensure reported an error — continuing.`,
       );

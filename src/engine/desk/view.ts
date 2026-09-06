@@ -1341,7 +1341,7 @@ export function renderDeskStartPreview(
       [
         "Landing authority",
         input.preauthorizeLanding
-          ? "Pre-authorize landing after final checks pass"
+          ? "Approve this committed source after checks pass"
           : "A later conversation must authorize landing",
       ],
       ...(plan.note === undefined ? [] : [["Worktree name", plan.note]]),
@@ -1410,7 +1410,7 @@ export function renderDeskCreatedTask(
       [
         "Landing authority",
         preauthorized
-          ? "Pre-authorized after final checks pass"
+          ? "Committed source approved after checks pass"
           : "A later conversation must authorize landing",
       ],
       ...(started.name_note === undefined

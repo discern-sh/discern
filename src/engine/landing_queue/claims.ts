@@ -1,6 +1,7 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Short work claims fence publication while environment leases own checkout effects. */
 import type { Candidate } from "../completion/candidate.ts";
-import type { CompletionPolicy } from "../completion/configuration.ts";
+import type { CompletionPolicy } from "../../shared/config_schema.ts";
 import type { CompletionAttempt } from "../completion/environment.ts";
 import type { Executor } from "../completion/identity.ts";
 import type {
@@ -105,6 +106,7 @@ export async function claimQueueWork(input: {
   readonly policy: CompletionPolicy;
   readonly lease_ms: number;
   readonly rerun_of: string | null;
+  readonly mode?: "strict" | "report";
   /** An exact source-tip candidate permits ordinary author validation without speculation. */
   readonly candidate?: Candidate;
   readonly clock?: Clock;
@@ -180,7 +182,7 @@ export async function claimQueueWork(input: {
       identity,
       environment_id: input.environment_id,
       subjects: [],
-      mode: "strict",
+      mode: input.mode ?? "strict",
       purpose: "completion",
       state: {
         kind: "claimed",
@@ -210,7 +212,7 @@ export async function claimQueueWork(input: {
     const written = await writeCompletionRecord(
       input.root,
       {
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         kind: "attempt",
         id: identity.id,
         revision: 1,
@@ -360,7 +362,7 @@ export async function claimQueueAssembly(
     const written = await writeCompletionRecord(
       root,
       {
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         kind: "attempt",
         id: identity.id,
         revision: 1,
@@ -379,6 +381,113 @@ export async function claimQueueAssembly(
       effort: claim.effort,
       attempt,
       fence: { attempt_id: identity.id, token },
+    };
+  });
+}
+
+/** Reserve one short publication actor without turning a green entry into validation work. */
+export async function claimLandingAttempt(input: {
+  readonly root: string;
+  readonly candidate_id: string;
+  readonly executor: Executor;
+  readonly lease_ms: number;
+  readonly clock?: Clock;
+  readonly entropy?: SecureEntropy;
+}): Promise<QueueWorkClaim | CompletionBlocker> {
+  const clock = input.clock ?? SYSTEM_CLOCK;
+  const entropy = input.entropy ?? SYSTEM_SECURE_ENTROPY;
+  if (!Number.isSafeInteger(input.lease_ms) || input.lease_ms <= 0) {
+    throw new Error("Landing needs a bounded publication lease.");
+  }
+  return await withQueueLock(input.root, async () => {
+    const queue = await requireQueue(input.root);
+    const entry = queue.record.data.entries.find((item) =>
+      item.candidate_id === input.candidate_id
+    );
+    if (
+      entry === undefined || entry.state === "landed" ||
+      entry.state === "withdrawn"
+    ) return { kind: "missing-evidence", requirements: [] };
+    if (entry.authority_id === null) {
+      return { kind: "missing-authority", sources: [entry.source] };
+    }
+    const records = observedRecords(
+      await observeQueue(input.root, "HEAD", clock),
+    );
+    const active = records.find((record) =>
+      record.kind === "attempt" &&
+      record.data.identity.candidate_id === input.candidate_id &&
+      record.data.state.kind === "claimed" &&
+      record.data.state.claim.expires_at > clock.wallNow()
+    );
+    if (active?.kind === "attempt" && active.data.state.kind === "claimed") {
+      return {
+        kind: "waiting-for-operation",
+        attempt_id: active.id,
+        expires_at: active.data.state.claim.expires_at,
+      };
+    }
+    const proof = records.find((record) =>
+      record.kind === "proof" &&
+      record.data.candidate_id === input.candidate_id &&
+      record.data.mode === "strict"
+    );
+    const owner = proof?.kind === "proof"
+      ? records.find((record) =>
+        record.kind === "attempt" && record.id === proof.data.attempt_id
+      )
+      : undefined;
+    if (owner?.kind !== "attempt" || owner.data.state.kind !== "finished") {
+      return { kind: "missing-evidence", requirements: [] };
+    }
+    const identity = await reserveQueueAttempt(
+      input.root,
+      input,
+      input.executor,
+      null,
+      clock,
+      entropy,
+    );
+    const token = entropy.uuid();
+    const now = clock.wallNow();
+    const attempt: CompletionAttempt = {
+      identity,
+      environment_id: owner.data.environment_id,
+      subjects: [],
+      purpose: "completion",
+      mode: "strict",
+      state: {
+        kind: "claimed",
+        claim: {
+          token,
+          executor: identity.executor,
+          acquired_at: now,
+          expires_at: now + input.lease_ms,
+        },
+      },
+    };
+    const written = await writeCompletionRecord(
+      input.root,
+      {
+        version: ON_DISK_FORMATS.completionRecord.version,
+        kind: "attempt",
+        id: identity.id,
+        revision: 1,
+        data: attempt,
+      },
+      null,
+      undefined,
+      clock,
+    );
+    if (written.kind !== "written") {
+      throw new Error(
+        `Landing actor publication ${written.kind}; observe the queue again.`,
+      );
+    }
+    return {
+      attempt,
+      fence: { attempt_id: identity.id, token },
+      effort: entry.source.effort_id,
     };
   });
 }

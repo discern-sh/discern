@@ -77,6 +77,10 @@ export interface AcceptanceCheckpointState {
 export async function inspectAcceptanceCheckpoints(
   root: string,
   config: DiscernConfig,
+  view: {
+    readonly predecessor?: string;
+    readonly stored?: Awaited<ReturnType<typeof readOpenQuestions>>;
+  } = {},
 ): Promise<AcceptanceCheckpointState> {
   const state: AcceptanceCheckpointState = {
     stale: [],
@@ -84,14 +88,14 @@ export async function inspectAcceptanceCheckpoints(
     met: [],
     drops: [],
   };
-  const policy = await loadGoverningPolicy(root, config);
+  const policy = await loadGoverningPolicy(root, config, view.predecessor);
   state.drops.push(...policy.drops);
   const stops = new Map(
     policy.checkpoints.filter((c) => c.mode === "stop").map(
       (c) => [c.id, c] as const,
     ),
   );
-  const read = await readOpenQuestions(root);
+  const read = view.stored ?? await readOpenQuestions(root);
   if (read.status === "unavailable" || read.status === "newer") {
     state.drops.push(policyCheckpointDrop(
       "open_question_store_unreadable",

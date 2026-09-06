@@ -484,7 +484,7 @@ function authorityFact(
   const warnings = authority.warnings ?? [];
   if (authority.kind === "authorized") {
     const summary = authority.source === "effort-grant"
-      ? "Task landing pre-authorization recorded"
+      ? "Current source approval recorded"
       : authority.source === "standing-grant"
       ? scopes.length === 0
         ? "Standing landing grant recorded"
@@ -1095,7 +1095,7 @@ export const DESK_ACTION_REGISTRY = {
     // point, so a Gate run cannot make this human authority choice unsafe.
     availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
-      "Pre-authorize landing once green",
+      "Approve this committed source",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
@@ -1117,7 +1117,7 @@ export const DESK_ACTION_REGISTRY = {
       isUnhealthy(facts.entry)
         ? "The task is not healthy enough to receive landing authority."
         : facts.effortGranted
-        ? "This task already has landing pre-authorization."
+        ? "This committed source already has landing approval."
         : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },

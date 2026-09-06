@@ -1,3 +1,5 @@
+import { emitCompletionProgress } from "../completion/events.ts";
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Immutable composition in an explicitly claimed checkout; source branches never move. */
 import { type Candidate, CandidateSchema } from "../completion/candidate.ts";
 import {
@@ -143,7 +145,8 @@ export async function requireLiveFence(
   });
   if (
     reading.kind !== "recorded" || reading.record.kind !== "attempt" ||
-    reading.record.data.state.kind !== "claimed" ||
+    (reading.record.data.state.kind !== "claimed" &&
+      reading.record.data.state.kind !== "composing") ||
     reading.record.data.state.claim.token !== fence.token ||
     reading.record.data.state.claim.expires_at <= clock.wallNow()
   ) {
@@ -164,10 +167,14 @@ export async function composeCandidate(input: {
   readonly root: string;
   readonly execution: ClaimedExecution;
   readonly recipe: CompositionRecipe;
+  /** Re-establish the declared environment for merged dependencies before generators execute. */
+  readonly prepare: () => Promise<void>;
   readonly dependencies: readonly SourceRevision[];
   readonly predecessor: Candidate["expected_predecessor"];
   readonly policy: string;
   readonly requirement_set: string;
+  /** Resolve obligations from the fully composed tree before publishing its receipt. */
+  readonly requirements?: (path: string) => Promise<string>;
   readonly clock?: Clock;
 }): Promise<Candidate | CompletionBlocker> {
   const { execution, recipe } = input;
@@ -267,6 +274,16 @@ export async function composeCandidate(input: {
       };
     }
     merge = outcome.after;
+    await requireLiveFence(input.root, execution.fence, clock);
+    emitCompletionProgress({
+      phase: "environment",
+      state: "preparing-composition",
+      candidate_id: execution.candidate_id,
+      reason:
+        "Preparing the merged candidate before generation and validation.",
+    });
+    await input.prepare();
+    await requireLiveFence(input.root, execution.fence, clock);
     const convergence = await convergeGenerated(execution, recipe);
     if (convergence !== undefined) return convergence;
     const changed = splitNulRecords(
@@ -313,7 +330,9 @@ export async function composeCandidate(input: {
     head,
     tree: await gitValue(path, ["rev-parse", `${head}^{tree}`]),
     policy: input.policy,
-    requirement_set: input.requirement_set,
+    requirement_set: input.requirements === undefined
+      ? input.requirement_set
+      : await input.requirements(path),
     composition: {
       ...recipe.identity,
       merge_commit: merge,
@@ -349,13 +368,43 @@ async function compositionReceiptMatches(
       JSON.stringify(candidate);
 }
 
-/** Ref creation is create-only. A crash can leave a retained ref, never a mutable latest alias. */
+/** A source-only measurement retains its exact comparison object without selecting queue work. */
+export async function retainMeasurementCandidate(
+  root: string,
+  id: string,
+  candidate: Candidate,
+  fence: PublicationFence,
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<void> {
+  return await retainCandidate(
+    root,
+    id,
+    candidate,
+    fence,
+    "source-measurement",
+    clock,
+  );
+}
+
+/** Queued composition requires the current queue selection as well as its live execution fence. */
 export async function publishCandidate(
   root: string,
   id: string,
   candidate: Candidate,
   fence: PublicationFence,
   clock: Clock = SYSTEM_CLOCK,
+): Promise<void> {
+  return await retainCandidate(root, id, candidate, fence, "queue", clock);
+}
+
+/** Both retention paths create immutable objects only; neither path issues readiness or Proof. */
+async function retainCandidate(
+  root: string,
+  id: string,
+  candidate: Candidate,
+  fence: PublicationFence,
+  selection: "queue" | "source-measurement",
+  clock: Clock,
 ): Promise<void> {
   CandidateSchema.parse(candidate);
   await withQueueLock(root, async () => {
@@ -371,16 +420,33 @@ export async function publishCandidate(
     if (candidate.attempt_id !== fence.attempt_id) {
       throw new Error("Candidate names another attempt.");
     }
-    const queue = await requireQueue(root);
-    const selected = queue.record.data.entries.find((entry) =>
-      entry.source.effort_id === candidate.source.effort_id
-    );
-    if (
-      selected?.candidate_id !== id || selected.state !== "active" ||
-      selected.invalidation !== null ||
-      !sameSource(selected.source, candidate.source)
+    if (selection === "queue") {
+      const queue = await requireQueue(root);
+      const selected = queue.record.data.entries.find((entry) =>
+        entry.source.effort_id === candidate.source.effort_id
+      );
+      if (
+        selected?.candidate_id !== id || selected.state !== "active" ||
+        selected.invalidation !== null ||
+        !sameSource(selected.source, candidate.source)
+      ) {
+        throw new Error(
+          "Candidate selection was superseded before publication.",
+        );
+      }
+    } else if (
+      candidate.head !== candidate.source.head ||
+      candidate.tree !== candidate.source.tree ||
+      candidate.dependencies.length !== 0 ||
+      candidate.composition.merge_commit !== null ||
+      candidate.composition.regeneration_commit !== null ||
+      await gitValue(root, ["rev-parse", candidate.source.branch]) !==
+        candidate.source.head ||
+      await gitValue(root, ["rev-parse", "HEAD"]) !== candidate.source.head
     ) {
-      throw new Error("Candidate selection was superseded before publication.");
+      throw new Error(
+        "Standalone measurement retention requires the unchanged authored source; update before measuring a composition.",
+      );
     }
     if (!await compositionReceiptMatches(root, candidate)) {
       throw new Error(
@@ -417,7 +483,13 @@ export async function publishCandidate(
     ) return;
     const outcome = await writeCompletionRecord(
       root,
-      { version: 1, kind: "candidate", id, revision: 1, data: candidate },
+      {
+        version: ON_DISK_FORMATS.completionRecord.version,
+        kind: "candidate",
+        id,
+        revision: 1,
+        data: candidate,
+      },
       null,
       fence,
       clock,

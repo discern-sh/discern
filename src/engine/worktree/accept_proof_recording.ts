@@ -1,14 +1,10 @@
+import type { LandedAuthorityEvidence } from "../../shared/completion_proof.ts";
 /** Post-CAS Proof-note recording shared by acceptance and its recovery path. */
 
 import type { Logger } from "../../lib/log.ts";
 import type { CheckpointDrop } from "../../shared/checkpoint_drops.ts";
-import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
-import {
-  BUILT_IN_STEP_LABELS,
-  type Diagnostic,
-  type StepResult,
-} from "../../shared/result.ts";
+import { BUILT_IN_STEP_LABELS, type StepResult } from "../../shared/result.ts";
 import type {
   AcceptanceEvidenceData,
   AcceptProofNoteData,
@@ -20,17 +16,10 @@ import type {
 import { fireOwnerAttention, HINTS, hintTexts } from "../../shared/hints.ts";
 import { cloneStandardLimitProposal } from "../gate/standard_proposal_state.ts";
 import {
-  gateRunContext,
-  resolveGateRunPolicy,
-  runJobGroups,
-} from "../gate/execute.ts";
-import { type JobGroup, serializeJobSteps } from "../gate/plan.ts";
-import {
   proofNotesFetchSucceeded,
   reconcileProofNotesFetch,
   writeProofNote,
 } from "../gate/proof_notes.ts";
-import type { AcceptPlan } from "./plan.ts";
 
 /** Copy consent scopes before exposing them through acceptance result data. */
 export function cloneLandingConsent(
@@ -40,54 +29,6 @@ export function cloneLandingConsent(
     source: consent.source,
     ...(consent.scopes === undefined ? {} : { scopes: [...consent.scopes] }),
   };
-}
-
-/** Prove the receiving checkout's local runtime state after the trunk moves. */
-export async function runLandingSmoke(
-  mainRepo: string,
-  config: DiscernConfig,
-  plan: AcceptPlan,
-  log: Logger,
-): Promise<{
-  steps: StepResult[];
-  diagnostics: Diagnostic[];
-  hints: string[];
-}> {
-  if (plan.smokeSteps.length === 0) {
-    return { steps: [], diagnostics: [], hints: [] };
-  }
-  const group: JobGroup = {
-    stage: "test",
-    mode: "parallel",
-    heading: "Proving the landing checkout is ready...",
-    display: "Smoke",
-    jobs: plan.smokeSteps.map((job) => ({
-      label: job.label,
-      command: job.command,
-      kind: "known",
-      reportStage: "test",
-      willRun: true,
-      ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
-    })),
-  };
-  log.info("Running the smoke job in the landing checkout...");
-  const policy = resolveGateRunPolicy(config.gate.stream, {
-    kind: "quiet-result",
-  });
-  const { runOpts, out, slots } = gateRunContext(mainRepo, config, policy);
-  const { results, failedStage } = await runJobGroups(
-    [group],
-    runOpts,
-    out,
-    slots,
-  );
-  const serialized = await serializeJobSteps(mainRepo, [group], results);
-  if (failedStage === null) {
-    log.ok("Landing-checkout smoke passed.");
-  } else {
-    log.warn("Landing-checkout smoke failed — the landing is kept.");
-  }
-  return { ...serialized, hints: hintTexts(serialized.hints) };
 }
 
 /** Record one already-landed commit's Proof and optional fetch transport. */
@@ -102,6 +43,8 @@ export async function recordLandingProofNote(input: {
   readonly standardProposals: readonly StandardLimitProposalData[];
   readonly log: Logger;
   readonly env: Pick<typeof Deno.env, "get">;
+  readonly authority?: LandedAuthorityEvidence;
+  readonly writeNote?: typeof writeProofNote;
 }): Promise<{
   readonly proofNote: AcceptProofNoteData;
   readonly steps: StepResult[];
@@ -143,11 +86,12 @@ export async function recordLandingProofNote(input: {
     }),
   };
   const acceptanceEvidence: AcceptanceEvidenceData = {
+    ...(input.authority === undefined ? {} : { authority: input.authority }),
     consent: cloneLandingConsent(input.consent),
     variances: input.variances.map((variance) => ({ ...variance })),
     standard_proposals: input.standardProposals.map(cloneStandardLimitProposal),
   };
-  const proofWrite = await writeProofNote(
+  const proofWrite = await (input.writeNote ?? writeProofNote)(
     input.mainRepo,
     input.commit,
     proofForNote,

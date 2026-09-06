@@ -15,6 +15,7 @@ import { parse as parseToml } from "@std/toml";
 import {
   configSchema,
   type DiscernConfig,
+  governingConfigValue,
 } from "../../shared/config_schema.ts";
 import type {
   LandingAuthorityKind,
@@ -29,6 +30,7 @@ import {
   resolveGeneratedGroups,
 } from "../../shared/generated_artifacts.ts";
 import { readEffortGrant } from "./effort_grant.ts";
+import { inspectEffortGrantSubject } from "./effort_grant_subject.ts";
 
 /** One changed path and every configured scope it matches. */
 export interface ClassifiedLandingPath {
@@ -236,7 +238,7 @@ function schemaFailure(
   }
   // Deliberately schema-only: an unknown acceptance scope is not a malformed
   // document here. The pure resolver reports it and gives it zero authority.
-  const parsed = configSchema.safeParse(raw);
+  const parsed = configSchema.safeParse(governingConfigValue(raw));
   if (parsed.success) {
     return { config: parsed.data as DiscernConfig };
   }
@@ -331,16 +333,35 @@ export async function inspectLandingAuthority(
   trunk: string,
   opts: { includeScopeEvidence?: boolean } = {},
 ): Promise<LandingAuthorityResolution> {
-  const [branchRead, effort] = await Promise.all([
+  const [branchRead, effort, headRead, treeRead] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
     readEffortGrant(cwd),
+    runGit(["rev-parse", "HEAD"], { cwd }),
+    runGit(["rev-parse", "HEAD^{tree}"], { cwd }),
   ]);
   const branch = branchRead.success && branchRead.stdout.trim() !== ""
     ? branchRead.stdout.trim()
     : undefined;
-  const effortGranted = effort.status === "granted" &&
-    branch !== undefined && effort.grant.branch === branch;
+  let effortGranted = effort.status === "granted" &&
+    branch !== undefined && effort.grant.branch === branch &&
+    headRead.success && treeRead.success &&
+    effort.grant.source.head === headRead.stdout.trim() &&
+    effort.grant.source.tree === treeRead.stdout.trim();
   const warnings = effortWarnings(effort, branch);
+  if (effortGranted && effort.status === "granted" && branch !== undefined) {
+    try {
+      const subject = await inspectEffortGrantSubject(cwd, branch);
+      effortGranted =
+        subject.composition_procedure === effort.grant.composition_procedure;
+    } catch {
+      effortGranted = false;
+    }
+  }
+  if (effort.status === "granted" && !effortGranted) {
+    warnings.push(
+      "The effort grant is stale for the current source or composition procedure. Review the current committed source before granting it again.",
+    );
+  }
 
   const trunkConfig = await readTrunkConfig(cwd, trunk);
   if (trunkConfig.kind === "unreadable") {
@@ -540,64 +561,4 @@ export function uncoveredLandingAuthorityDetails(
     shown.push(`and ${authority.uncovered.length - shown.length} more`);
   }
   return shown;
-}
-
-/**
- * Re-check the evidence immediately before the fast-forward. Returns the reason
- * authority expired, or undefined while it still names the validated landing.
- */
-export async function landingAuthorityExpiry(
-  cwd: string,
-  trunk: string,
-  branch: string,
-  validatedHead: string,
-  authority: LandingAuthorityResolution,
-): Promise<string | undefined> {
-  if (authority.kind !== "authorized") {
-    return undefined;
-  }
-  if (authority.consent.source === "effort-grant") {
-    const effort = await readEffortGrant(cwd);
-    return effort.status === "granted" && effort.grant.branch === branch
-      ? undefined
-      : "the worktree's effort grant is no longer present for this branch";
-  }
-  if (authority.consent.source === "conversation") {
-    return undefined;
-  }
-  if (
-    authority.trunkCommit === undefined || authority.headCommit === undefined
-  ) {
-    return "the standing grant is missing its pinned tree evidence";
-  }
-  if (
-    authority.headCommit !== validatedHead
-  ) {
-    return "the branch changed after its standing-grant coverage was checked";
-  }
-  const currentTrunk = await runGit(
-    ["rev-parse", "--verify", "--quiet", `${trunk}^{commit}`],
-    { cwd },
-  );
-  if (
-    !currentTrunk.success ||
-    currentTrunk.stdout.trim() !== authority.trunkCommit
-  ) {
-    return "the trunk changed after its standing grant was checked";
-  }
-  return undefined;
-}
-
-/** One concise plan-detail rendering of the resolved authority. */
-export function landingAuthorityDetail(
-  authority: LandingAuthorityResolution,
-  confirmed: boolean,
-): string {
-  if (authority.kind === "authorized") {
-    if (authority.consent.source === "standing-grant") {
-      return `standing grant (${authority.consent.scopes?.join(", ") ?? ""})`;
-    }
-    return "effort grant";
-  }
-  return confirmed ? "conversation consent" : "conversation required on apply";
 }

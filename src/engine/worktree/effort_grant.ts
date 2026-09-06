@@ -8,6 +8,12 @@
  * worktree.
  */
 
+import { z } from "@zod/zod";
+import {
+  DigestSchema,
+  RecordIdSchema,
+  SourceRevisionSchema,
+} from "../completion/identity.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   inspectOnDiskRecordVersion,
@@ -16,11 +22,25 @@ import {
 } from "../../shared/on_disk_formats.ts";
 import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 
-export interface EffortGrant {
-  readonly version: typeof ON_DISK_FORMATS.effortGrant.version;
-  readonly branch: string;
-  readonly granted_at: string;
-}
+/** Source and declared composition are the subject the desk actually previews. */
+export const EffortGrantSubjectSchema = z.strictObject({
+  source: SourceRevisionSchema,
+  composition_procedure: DigestSchema,
+});
+export type EffortGrantSubject = z.infer<typeof EffortGrantSubjectSchema>;
+export const EffortGrantSchema = EffortGrantSubjectSchema.extend({
+  version: z.literal(ON_DISK_FORMATS.effortGrant.version),
+  id: RecordIdSchema,
+  branch: z.string().min(1),
+  granted_at: z.string().refine(
+    (value) => !Number.isNaN(Date.parse(value)),
+    "grant time must be ISO-8601",
+  ),
+}).refine(
+  (value) => value.source.branch === `refs/heads/${value.branch}`,
+  "grant branch must match its approved source",
+);
+export type EffortGrant = z.infer<typeof EffortGrantSchema>;
 
 export type EffortGrantRead =
   | { readonly status: "granted"; readonly grant: EffortGrant }
@@ -59,26 +79,15 @@ export function parseEffortGrant(raw: string): EffortGrantRead {
       reason: newerOnDiskFormatMessage("effortGrant", version.found),
     };
   }
-  if (
-    version.status !== "current" ||
-    typeof record.branch !== "string" || record.branch.trim() === "" ||
-    typeof record.granted_at !== "string" ||
-    Number.isNaN(Date.parse(record.granted_at))
-  ) {
+  const parsed = EffortGrantSchema.safeParse(record);
+  if (version.status !== "current" || !parsed.success) {
     return {
       status: "invalid",
       reason:
-        "the effort-grant record needs the registered version, a branch, and an ISO-8601 grant time",
+        "The effort-grant record does not bind a supported exact source revision and composition procedure. Reconcile any old acceptance claim first; record new source authority from the desk.",
     };
   }
-  return {
-    status: "granted",
-    grant: {
-      version: ON_DISK_FORMATS.effortGrant.version,
-      branch: record.branch,
-      granted_at: record.granted_at,
-    },
-  };
+  return { status: "granted", grant: parsed.data };
 }
 
 /** Read this worktree's effort grant. Unreadable or malformed state fails closed. */

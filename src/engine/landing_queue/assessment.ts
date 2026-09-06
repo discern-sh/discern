@@ -1,3 +1,5 @@
+import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { requirementKey } from "../validation/catalog.ts";
 /** Compose existing machine, source, policy, environment, and judgment evaluators. */
 import type {
   CompletionBlocker,
@@ -31,7 +33,7 @@ import { sameSource } from "./model.ts";
 import type { CandidateAssessment } from "./planner.ts";
 
 /** Walk exact recorded predecessor links and independently settled landing authority. */
-function predecessorChain(
+export function predecessorChain(
   candidate: Candidate,
   records: readonly CompletionRecord[],
 ): {
@@ -105,6 +107,8 @@ function predecessorChain(
 /** Inputs requiring public config/consent adapters remain explicit, bounded observations for 4A. */
 export async function assessQueueCandidate(input: {
   readonly root: string;
+  /** Public review and machine assembly must name the same immutable Proof. */
+  readonly proof_id?: string;
   readonly observation: CompletionObservation;
   readonly candidate_id: string;
   readonly recipe: CompositionRecipe;
@@ -113,8 +117,9 @@ export async function assessQueueCandidate(input: {
   readonly authorized_decisions: CandidateDecisions;
   readonly judgment_blockers: readonly CompletionBlocker[];
   readonly standards: readonly PlannedStandard[];
+  readonly config?: DiscernConfig;
   readonly evaluator: ProducerEvaluator;
-  readonly environment: EnvironmentExecutor;
+  readonly environment: Pick<EnvironmentExecutor, "plan">;
   readonly demand: Extract<ValidationDemand, { kind: "done" }>;
 }): Promise<CandidateAssessment> {
   const records = observedRecords(input.observation);
@@ -206,6 +211,7 @@ export async function assessQueueCandidate(input: {
       root: input.root,
       candidate,
       standards: input.standards,
+      ...(input.config === undefined ? {} : { config: input.config }),
       current: input.current_decisions,
       authorized: input.authorized_decisions,
     }),
@@ -216,12 +222,13 @@ export async function assessQueueCandidate(input: {
   const receipts = new Map(
     plan.reused.map((
       item,
-    ) => [JSON.stringify(item.requirement), item.evidence_id]),
+    ) => [requirementKey(item.requirement), item.evidence_id]),
   );
   const proofs = records.filter((
     proof,
   ): proof is Extract<CompletionRecord, { kind: "proof" }> =>
-    proof.kind === "proof" && proof.data.candidate_id === record.id
+    proof.kind === "proof" && proof.data.candidate_id === record.id &&
+    (input.proof_id === undefined || proof.id === input.proof_id)
   );
   const proof =
     proofs.find((proof) =>
@@ -231,12 +238,12 @@ export async function assessQueueCandidate(input: {
       proof.data.requirement_set === candidate.requirement_set &&
       proof.data.mode === "strict" &&
       JSON.stringify(
-          proof.data.requirements.map((item) => JSON.stringify(item)).sort(),
+          proof.data.requirements.map(requirementKey).sort(),
         ) === JSON.stringify(
-          input.demand.requirements.map((item) => JSON.stringify(item)).sort(),
+          input.demand.requirements.map(requirementKey).sort(),
         ) &&
       proof.data.receipts.every((receipt) =>
-        receipts.get(JSON.stringify(receipt.requirement)) ===
+        receipts.get(requirementKey(receipt.requirement)) ===
           receipt.evidence_id
       ) &&
       plan.producers.length === 0 && plan.blockers.length === 0

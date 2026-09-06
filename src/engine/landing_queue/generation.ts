@@ -1,3 +1,4 @@
+import { runGit } from "../../shared/subprocess.ts";
 /** Use the existing generated ownership, compiler, and supervised command capabilities. */
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
@@ -5,8 +6,12 @@ import {
   resolveGeneratedGroups,
 } from "../../shared/generated_artifacts.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
-import { renderAgentFiles } from "../instruction_render.ts";
-import { adrIndexState } from "../../lib/adr_index.ts";
+import { agentFilePaths } from "../instruction_render.ts";
+import {
+  adrIndexPath,
+  adrIndexState,
+  hasManagedAdrIndex,
+} from "../../lib/adr_index.ts";
 import {
   compileInstructions,
   instructionRefreshErrors,
@@ -38,6 +43,7 @@ export async function compositionRecipe(
   engineIdentity: string,
   timeout: number,
   environment: Readonly<Record<string, string>>,
+  commit?: string,
 ): Promise<CompositionRecipe> {
   if (!Number.isFinite(timeout) || timeout <= 0) {
     throw new Error("Generators need a positive bounded timeout.");
@@ -45,10 +51,37 @@ export async function compositionRecipe(
   const groups = resolveGeneratedGroups(config).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const index = await adrIndexState(root, config.map.dir);
+  let indexPath: string | undefined;
+  if (commit === undefined) {
+    const index = await adrIndexState(root, config.map.dir);
+    if (index.kind !== "absent") indexPath = index.path;
+  } else {
+    const path = adrIndexPath(config.map.dir);
+    const listing = await runGit(["ls-tree", "-z", commit, "--", path], {
+      cwd: root,
+    });
+    if (!listing.success) {
+      throw new Error(
+        "The candidate's generated index ownership is unavailable.",
+      );
+    }
+    if (listing.stdout !== "") {
+      const read = await runGit(["show", `${commit}:${path}`], {
+        cwd: root,
+        timeoutMs: 60_000,
+        maxOutputBytes: 16 * 1024 * 1024,
+      });
+      if (!read.success) {
+        throw new Error(
+          "The candidate's generated index cannot be read completely.",
+        );
+      }
+      if (hasManagedAdrIndex(read.stdout)) indexPath = path;
+    }
+  }
   const builtIn = [
-    ...(await renderAgentFiles(root, config)).keys(),
-    ...(index.kind === "absent" ? [] : [index.path]),
+    ...agentFilePaths(config),
+    ...(indexPath === undefined ? [] : [indexPath]),
   ].sort();
   const ownership = await sha256Hex(
     JSON.stringify([groups.map((group) => [group.name, group.paths]), builtIn]),

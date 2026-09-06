@@ -1,3 +1,4 @@
+import type { DiscernConfig } from "../../shared/config_schema.ts";
 /** Candidate enforcement names the exact expected predecessor, including unlanded pins. */
 import type { Candidate } from "../completion/candidate.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
@@ -31,6 +32,7 @@ export async function predecessorPolicyIdentity(
 /** Check protected limits and separate decisions against the immutable predecessor commit. */
 export async function evaluatePredecessorPolicy(input: {
   readonly root: string;
+  readonly config?: DiscernConfig;
   readonly candidate: Candidate;
   readonly standards: readonly PlannedStandard[];
   readonly current: CandidateDecisions;
@@ -66,6 +68,7 @@ export async function evaluatePredecessorPolicy(input: {
     input.candidate.expected_predecessor.head,
     [...input.standards],
     proposals,
+    input.config,
   );
   return limits.blocking
     ? [{ kind: "validation-failed", evidence_ids: [] }]

@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** One active command drives one claimed validation; shared locks enclose publication only. */
 import type {
   CompletionBlocker,
@@ -74,7 +75,7 @@ export async function driveQueueValidation(input: {
           const written = await writeCompletionRecord(
             input.root,
             {
-              version: 1,
+              version: ON_DISK_FORMATS.completionRecord.version,
               kind: "evidence",
               id: entropy.uuid(),
               revision: 1,

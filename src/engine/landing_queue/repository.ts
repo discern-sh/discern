@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** One repository queue at the registered family coordinate; revisions reserve attempt order. */
 import type { CompletionRecord } from "../completion/records.ts";
 import type { CompletionQueue } from "../completion/outcomes.ts";
@@ -21,7 +22,7 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { withOperationLock } from "../operation_lock.ts";
+import { withCompletionPublication } from "../operation_lock.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 
 /** Fixed UUID selects the singleton within each repository's existing queue family. */
@@ -37,9 +38,7 @@ export async function withQueueLock<T>(
   root: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  return await withOperationLock(await Deno.realPath(root), {
-    command: "accept",
-  }, operation);
+  return await withCompletionPublication(await Deno.realPath(root), operation);
 }
 
 /** Refuse unsupported or missing bytes without creating replacement state. */
@@ -62,7 +61,7 @@ export async function initializeQueue(
   trunk: string,
 ): Promise<CompletionWriteOutcome> {
   return await writeCompletionRecord(root, {
-    version: 1,
+    version: ON_DISK_FORMATS.completionRecord.version,
     kind: "queue",
     id: REPOSITORY_QUEUE_ID,
     revision: 1,

@@ -1,5 +1,8 @@
+import { emitCompletionEvent } from "../completion/events.ts";
+import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
+import { resolveIdentity } from "../worktree/identity.ts";
 /** Owner/source actions change one queue snapshot and fence only affected attempts. */
-import type { SourceRevision } from "../completion/identity.ts";
+import type { Executor, SourceRevision } from "../completion/identity.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
 import type { CompletionQueue } from "../completion/outcomes.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -59,6 +62,7 @@ export async function mutateQueue(input: {
   readonly expected_stamp: string;
   readonly mutation: QueueMutation;
   readonly clock?: Clock;
+  readonly executor?: Executor;
 }): Promise<
   | {
     readonly kind: "changed";
@@ -68,6 +72,12 @@ export async function mutateQueue(input: {
   | { readonly kind: "replan" }
 > {
   const clock = input.clock ?? SYSTEM_CLOCK;
+  const actor = input.executor ??
+    {
+      operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
+      originating_effort: (await resolveIdentity(input.root, input.root)).id,
+      started_at: clock.wallNow(),
+    };
   return await withQueueLock(input.root, async () => {
     const current = await requireQueue(input.root);
     if (current.stamp !== input.expected_stamp) return { kind: "replan" };
@@ -226,8 +236,38 @@ export async function mutateQueue(input: {
       if (fenced.kind !== "written") return { kind: "replan" };
     }
     const written = await replaceQueue(input.root, current, queue, clock);
-    return written.kind === "written"
-      ? { kind: "changed", invalidation }
-      : { kind: "replan" };
+    if (written.kind !== "written") return { kind: "replan" };
+    for (const id of invalidation?.candidate_ids ?? []) {
+      const candidate = candidates.get(id);
+      if (candidate === undefined || invalidation === null) continue;
+      const entry = current.record.data.entries.find((entry) =>
+        entry.candidate_id === id
+      );
+      emitCompletionEvent({
+        id: `${current.record.id}:${
+          current.record.revision + 1
+        }:invalidated:${id}`,
+        effort_id: candidate.source.effort_id,
+        source_head: candidate.source.head,
+        candidate_id: id,
+        environment_id: null,
+        attempt_id: null,
+        executor_operation: actor.operation_id,
+        at: clock.wallNow(),
+        fact: {
+          kind: "invalidated",
+          reason: invalidation.reason,
+          affected_candidate_ids: invalidation.candidate_ids,
+          eligible_prediction: entry !== undefined &&
+            entry.eligible_order !== null &&
+            records.some((record) =>
+              record.kind === "proof" && record.data.candidate_id === id &&
+              record.data.mode === "strict"
+            ) &&
+            candidate.expected_predecessor.candidate_id !== null,
+        },
+      });
+    }
+    return { kind: "changed", invalidation };
   });
 }

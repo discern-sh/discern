@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Full machine assembly and queue admission publish under one short, current subject check. */
 import type { Candidate } from "../completion/candidate.ts";
 import type { Requirement } from "../completion/evidence.ts";
@@ -30,6 +31,8 @@ export async function publishAdmission(input: {
   readonly evaluator: ProducerEvaluator;
   readonly requirements: readonly Requirement[];
   readonly clock?: Clock;
+  readonly mode?: "strict" | "report";
+  readonly review?: import("../execution/types.ts").EnvironmentArtifact;
 }): Promise<
   | { readonly kind: "admitted"; readonly proof_id: string }
   | CompletionBlocker
@@ -91,7 +94,7 @@ export async function publishAdmission(input: {
       candidate,
       input.requirements,
       records,
-      "strict",
+      input.mode ?? "strict",
     );
     if (assembly.kind === "incomplete") {
       return assembly.blockers[0] ??
@@ -104,11 +107,14 @@ export async function publishAdmission(input: {
     const proof = await writeCompletionRecord(
       input.root,
       {
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         kind: "proof",
         id: proofId,
         revision: 1,
-        data: assembly.proof,
+        data: {
+          ...assembly.proof,
+          ...(input.review === undefined ? {} : { review: input.review }),
+        },
       },
       null,
       input.claim.fence,

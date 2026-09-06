@@ -1,3 +1,4 @@
+import type { EffortGrantSubject } from "../worktree/effort_grant.ts";
 /**
  * `desk` — the operator's interactive ingress and surface over the worktree fleet
  * (ADR 0119). Bare `discern`, post-setup on an interactive terminal, opens it;
@@ -145,6 +146,7 @@ import {
   clearEffortGrantPlan,
 } from "../worktree/effort_grant_cleanup.ts";
 import {
+  type EffortGrantPlan,
   effortGrantPlan,
   type EffortGrantWrite,
   grantEffort,
@@ -227,10 +229,14 @@ export interface DeskRuntime {
     message?: string | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  grantEffortPlan(path: string, branch: string): DeskMaybePromise<EnginePlan>;
+  grantEffortPlan(
+    path: string,
+    branch: string,
+  ): DeskMaybePromise<EffortGrantPlan>;
   grantEffort(
     path: string,
     branch: string,
+    subject: EffortGrantSubject,
   ): DeskMaybePromise<EffortGrantWrite>;
   clearEffortGrantPlan(path: string): DeskMaybePromise<EnginePlan>;
   clearEffortGrant(path: string): DeskMaybePromise<boolean>;
@@ -540,8 +546,8 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
   grantEffortPlan: (path, branch) => effortGrantPlan(path, branch),
-  grantEffort: (path, branch) =>
-    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow())),
+  grantEffort: (path, branch, subject) =>
+    grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow()), subject),
   clearEffortGrantPlan: (path) => clearEffortGrantPlan(path),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => {
@@ -1567,9 +1573,6 @@ function isString(value: unknown): value is string {
 }
 
 /** Whether a form answer is a boolean. */
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
-}
 
 /** Launch the chosen provider from the created worktree, with documented brief handling. */
 async function launchCreatedTask(
@@ -1717,23 +1720,6 @@ async function startTask(
           return launches.find((candidate) => candidate.id === value)?.label ??
             "";
         },
-      }, {
-        id: "preauthorize",
-        label: "Landing authority",
-        when: (values) =>
-          options.fixedFrom !== undefined ||
-          values.creation_path === "expanded",
-        run: (_values, previous, requests) =>
-          requests.confirm(
-            "Pre-authorize this task to land after final checks pass?",
-            {
-              defaultTo: typeof previous === "boolean" ? previous : false,
-              noLabel: "Later",
-              yesLabel: "Pre-authorize",
-            },
-          ),
-        summarize: (value) =>
-          value === true ? "Pre-authorized" : "Owner review required",
       }],
     });
   } catch (error) {
@@ -1770,9 +1756,6 @@ async function startTask(
           throw new Error("The selected agent action is no longer available.");
         })(),
     };
-  const preauthorizeLanding = creationPath === "expanded"
-    ? formAnswer(answers, "preauthorize", isBoolean)
-    : false;
   const launch = launchChoice.kind === "launch"
     ? launchChoice.launch
     : undefined;
@@ -1798,33 +1781,26 @@ async function startTask(
     enginePlan: startPlanToEngine(prepared.plan),
     command,
     ...(launch === undefined ? {} : { launch }),
-    preauthorizeLanding,
+    preauthorizeLanding: false,
     viewport,
     terminal,
   });
   out.raw(`${preview.text}\n`);
-  const create = await runtime.confirm(
-    launch === undefined
-      ? `Create ${prepared.plan.title} from ${prepared.plan.from}?`
-      : `Create ${prepared.plan.title} from ${prepared.plan.from} and open ${launch.label}?`,
-    { defaultTo: false, noLabel: "Cancel", yesLabel: "Create" },
-  );
+  let create: boolean;
+  try {
+    create = await runtime.confirm(
+      launch === undefined
+        ? `Create ${prepared.plan.title} from ${prepared.plan.from}?`
+        : `Create ${prepared.plan.title} from ${prepared.plan.from} and open ${launch.label}?`,
+      { defaultTo: false, noLabel: "Cancel", yesLabel: "Create" },
+    );
+  } catch (error) {
+    if (!isInteractionCancelled(error)) throw error;
+    return undefined;
+  }
   if (!create) return undefined;
   echoCommand(out, commandEvidence(command));
   const started = await runtime.start(ctx, prepared);
-  let landingPreauthorized = false;
-  if (preauthorizeLanding) {
-    try {
-      await runtime.grantEffort(started.path, started.branch);
-      landingPreauthorized = true;
-    } catch (error) {
-      out.warn(
-        `Task created. Landing pre-authorization was not recorded: ${
-          error instanceof Error ? error.message : String(error)
-        } Use Pre-authorize landing once green from task detail.`,
-      );
-    }
-  }
   reportPreferenceWrite(
     out,
     await runtime.writePreferences(root, {
@@ -1843,7 +1819,7 @@ async function startTask(
   const createdTask = renderDeskCreatedTask(
     started,
     launch,
-    landingPreauthorized,
+    false,
     createdViewport,
     createdTerminal,
   );
@@ -2043,18 +2019,22 @@ async function dispatchAction(
       return true;
     }
     case "grant": {
+      const plan = await runtime.grantEffortPlan(
+        row.entry.path,
+        row.entry.branch,
+      );
       showActionPlan(
         out,
         row,
         action,
-        await runtime.grantEffortPlan(row.entry.path, row.entry.branch),
+        plan,
         runtime,
       );
       if (
         !(await confirmAction(
           row,
           action,
-          `Allow ${row.entry.branch} to land once green without a further conversation?`,
+          `Approve the displayed committed source of ${row.entry.branch} to land once green?`,
           runtime,
         ))
       ) {
@@ -2063,14 +2043,15 @@ async function dispatchAction(
       const result = await runtime.grantEffort(
         row.entry.path,
         row.entry.branch,
+        plan.subject,
       );
       if (result.status === "already_granted") {
         out.info(
-          `${row.entry.branch} was already pre-authorized to land once green.`,
+          `The displayed source of ${row.entry.branch} is already approved to land once green.`,
         );
       } else {
         out.ok(
-          `${row.entry.branch} may land once green without a further conversation.`,
+          `The displayed source of ${row.entry.branch} may land once green. New source edits require another grant.`,
         );
       }
       await runtime.pause(out);
