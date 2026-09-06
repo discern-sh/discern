@@ -748,9 +748,11 @@ async function runCandidateGate(
     }
     if (validationRun.outcome.blockers.length > 0) {
       failedStage = plan.groups.find((group) =>
-        group.jobs.some((job) =>
-          (results.get(job.label)?.code ?? 0) !== 0
-        )
+        group.jobs.some((job) => {
+          const result = results.get(job.label);
+          return result !== undefined && result.code !== 0 &&
+            result.cancelled !== true;
+        })
       )?.stage ?? "check/test";
     }
     const strands = treeBoundary.strands();
@@ -1006,7 +1008,7 @@ async function runCandidateGate(
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
   const hints: FiredHint[] = [
     ...leadingFailureHints,
-    ...(gateProof.status === "skipped_dirty"
+    ...(failedStage === null && gateProof.status === "skipped_dirty"
       ? [fire(HINTS["gate-proof-skipped-dirty"], { reason: gateProof.reason })]
       : []),
     ...(inProgress !== undefined ? [inProgress] : []),

@@ -11,6 +11,8 @@ import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { observeCheckpointActivity } from "../../shared/result_capture.ts";
+import { declarationIsCurrent } from "../checkpoints/open_questions.ts";
 import type { AcceptData, Proof } from "../../shared/result_schemas.ts";
 import type {
   AttemptIdentity,
@@ -605,6 +607,29 @@ export async function acceptQueueResult(
         }], [
           landed,
         ], finalProof);
+      }
+      // Observe each newly established transition before its source can retire.
+      // The retained review supplies fingerprints even after checkout loss.
+      if (
+        !landingAdvanced(action.record) &&
+        landingAdvanced({ ...action.record, data: landed })
+      ) {
+        const stored = evaluated?.review?.stored;
+        observeCheckpointActivity({
+          variances: landed.claim.kind === "normal"
+            ? landed.claim.decisions.variances.map((variance) => ({
+              id: variance.checkpoint,
+              definition: variance.definition_hash,
+              subject: variance.subject,
+            }))
+            : [],
+          abandoned: stored?.status === "ok"
+            ? Object.values(stored.openQuestions)
+              .filter((question) => !declarationIsCurrent(question))
+              .map((question) => ({ id: question.checkpoint }))
+              .sort((left, right) => left.id.localeCompare(right.id))
+            : [],
+        });
       }
       rows.push({
         ...row,

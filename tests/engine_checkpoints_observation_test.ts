@@ -280,6 +280,18 @@ Deno.test("observation: an authorized landing records its variances by fingerpri
     assert(typeof variance?.definition === "string");
     assert(typeof variance?.subject === "string");
     assertEquals(accept.checkpoints?.abandoned, undefined);
+    const retry = await runAgent(dir, ["accept", "--json"]);
+    assertEquals(retry.code, 0, retry.output);
+    const repeated = await readLogbook(dir);
+    assertEquals(
+      repeated.events.filter((event) =>
+        event.kind === "verb" && event.verb === "accept" &&
+        event.checkpoints?.variances !== undefined
+      ).length,
+      1,
+      "publication and cleanup retries cannot repeat the landing observation",
+    );
+    assert(!repeated.raw.includes(RATIONALE_SENTINEL));
   });
 });
 
