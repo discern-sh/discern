@@ -1,6 +1,6 @@
 /**
- * Canon Editor's mutation suite must remain hermetic under the repository's
- * parallel test runner. Re-run it with write authority limited to a throwaway
+ * Canon Editor's suites must remain hermetic under the repository's
+ * parallel test runner. Re-run them with write authority limited to a throwaway
  * directory: any present or future direct write into the checkout becomes a
  * permission failure, regardless of which path or helper introduced it.
  */
@@ -8,8 +8,21 @@
 import { assert } from "@std/assert";
 import { REPO_ROOT } from "../scripts/canon_editor/root.ts";
 import { withTempDir } from "./helpers.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 
-Deno.test("Canon Editor mutation suite cannot write into the checkout", async () => {
+Deno.test("Canon Editor suites cannot write into the checkout", async () => {
+  const suites = await structuralGuardScope({
+    guard: "tests/canon_editor_isolation_test.ts#checkout-write-isolation",
+    universe: "authored-ts",
+    narrow: {
+      reason:
+        "Every Canon Editor suite runs in the write sandbox; only this recursive driver is excluded.",
+      include: (path) =>
+        /^tests\/canon_editor_.*_test\.ts$/.test(path) &&
+        path !== "tests/canon_editor_isolation_test.ts",
+    },
+  });
+  assert(suites.length > 0);
   await withTempDir(async (sandbox) => {
     const output = await new Deno.Command(Deno.execPath(), {
       args: [
@@ -19,7 +32,7 @@ Deno.test("Canon Editor mutation suite cannot write into the checkout", async ()
         "--allow-env",
         "--allow-run",
         "--no-check",
-        "tests/canon_editor_patch_test.ts",
+        ...suites,
       ],
       cwd: REPO_ROOT,
       env: { TMPDIR: sandbox, NO_COLOR: "1", CI: "1", TERM: "dumb" },
@@ -31,7 +44,7 @@ Deno.test("Canon Editor mutation suite cannot write into the checkout", async ()
       new TextDecoder().decode(output.stderr);
     assert(
       output.success,
-      `the mutation suite escaped its write sandbox or failed:\n${detail}`,
+      `an editor suite escaped its write sandbox or failed:\n${detail}`,
     );
   }, { prefix: "discern-canon-editor-isolation-" });
 });

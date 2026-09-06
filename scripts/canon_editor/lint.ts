@@ -14,6 +14,7 @@ import type { ProseFieldRegister } from "./fields.ts";
 import { countProse, fleschKincaidGrade } from "../plain_reading_grade_lib.ts";
 import { decodeValeReport, type ValeReport } from "../prose_lib.ts";
 import { runVale } from "../vale_lib.ts";
+import { withToolTempDir } from "../temp_dir.ts";
 
 /** One live finding under the editor. */
 export interface LintFinding {
@@ -99,7 +100,7 @@ export function lintFieldText(
   return { findings };
 }
 
-/** Where the Vale probe lives so the register's real section styles apply. */
+/** Relative staged path that selects the register's real section styles. */
 export function valeProbePath(register: ProseFieldRegister): string {
   return register === "brand"
     ? join(".scratch", "canon-editor", "vale", "_internal", "brand", "probe.md")
@@ -116,13 +117,14 @@ export async function valeFindings(
   register: ProseFieldRegister,
   text: string,
 ): Promise<LintFinding[]> {
-  const rel = valeProbePath(register);
-  const path = join(root, rel);
-  await Deno.mkdir(dirname(path), { recursive: true });
-  await Deno.writeTextFile(path, `${text}\n`);
   let output: Deno.CommandOutput;
   try {
-    output = await runVale(root, ["--output=JSON", rel]);
+    output = await withToolTempDir("canon-editor-prose", async (directory) => {
+      const path = join(directory, valeProbePath(register));
+      await Deno.mkdir(dirname(path), { recursive: true });
+      await Deno.writeTextFile(path, `${text}\n`);
+      return await runVale(root, ["--output=JSON", path]);
+    });
   } catch (error) {
     return [{
       rule: "vale",

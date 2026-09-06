@@ -30,6 +30,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "canon-editor-prose": {
+    purpose: "one editor draft staged for Vale with its real register styles",
+    prefix: "discern-canon-editor-prose-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "coverage-profile": {
     purpose: "raw coverage profiles collected for one measurement",
     prefix: "discern-coverage-",
