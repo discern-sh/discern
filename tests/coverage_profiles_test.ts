@@ -115,7 +115,7 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
     for await (const entry of Deno.readDir(dir)) {
       if (entry.isFile) rootNames.push(entry.name);
     }
-    assertEquals(rootNames.sort(), ["cc.json", "notes.txt"]);
+    assertEquals(rootNames.sort(), ["notes.txt"]);
 
     const shardOf = new Map<string, string>();
     for (const shard of summary.shardDirs) {
@@ -167,6 +167,16 @@ Deno.test("identical coverage observations compact while preserving every range 
       }
     }
     assertEquals(profiles.length, 1);
+    const remainingInputs: string[] = [];
+    for await (const entry of Deno.readDir(dir)) {
+      if (entry.isFile) remainingInputs.push(entry.name);
+    }
+    assertEquals(
+      remainingInputs,
+      [],
+      "discard redundant originals while processing owns their metadata",
+    );
+
     assertEquals(decodeWith(RawCoverageProfileSchema, profiles[0] ?? "null"), {
       scriptId: "42",
       url: `file://${REPO}/src/decision.ts`,
@@ -183,54 +193,74 @@ Deno.test("identical coverage observations compact while preserving every range 
 });
 
 Deno.test("failed profile IO settles active siblings before returning to cleanup", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "a.json"), "");
-    await Deno.writeTextFile(join(dir, "b.json"), "");
-    const entered = Promise.withResolvers<void>();
-    const failed = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const read = Deno.readFile;
-    let siblingFinished = false;
-    let settled = false;
-    const fault = new Error("controlled profile read failure");
-    Deno.readFile = async (path, options) => {
-      if (String(path) === join(dir, "a.json")) {
-        await entered.promise;
-        failed.resolve();
-        throw fault;
-      }
-      if (String(path) === join(dir, "b.json")) {
-        entered.resolve();
-        await release.promise;
-        siblingFinished = true;
-        return new TextEncoder().encode(
-          profile(`file://${REPO}/src/decision.ts`),
+  for (const phase of ["read", "remove"]) {
+    await withTempDir(async (dir) => {
+      const body = profile("file:///foreign/module.ts");
+      await Deno.writeTextFile(join(dir, "a.json"), body);
+      await Deno.writeTextFile(join(dir, "b.json"), body);
+      const entered = Promise.withResolvers<void>();
+      const failed = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const read = Deno.readFile;
+      const remove = Deno.remove;
+      let siblingFinished = false;
+      let settled = false;
+      const fault = new Error(`controlled profile ${phase} failure`);
+      const controlled = async <T>(
+        path: string | URL,
+        operation: () => Promise<T>,
+      ): Promise<T> => {
+        if (String(path) === join(dir, "a.json")) {
+          await entered.promise;
+          failed.resolve();
+          throw fault;
+        }
+        if (String(path) === join(dir, "b.json")) {
+          entered.resolve();
+          await release.promise;
+          const value = await operation();
+          siblingFinished = true;
+          return value;
+        }
+        return await operation();
+      };
+      Deno.readFile = (path, options) =>
+        phase === "read"
+          ? controlled(path, () => read(path, options))
+          : read(path, options);
+      Deno.remove = (path, options) =>
+        phase === "remove"
+          ? controlled(path, () => remove(path, options))
+          : remove(path, options);
+      const pending = pruneAndShardProfiles(
+        dir,
+        srcCoverageUrlPrefix(REPO),
+        1,
+        2,
+      )
+        .then(() => undefined, (error: unknown) => error);
+      const observed = pending.then(() => {
+        settled = true;
+      });
+      try {
+        await failed.promise;
+        using time = new FakeTime();
+        await time.tickAsync(0);
+        assertEquals(
+          settled,
+          false,
+          `cleanup cannot start while a profile ${phase} still owns its input`,
         );
+      } finally {
+        release.resolve();
+        await observed;
+        Deno.readFile = read;
+        Deno.remove = remove;
       }
-      return await read(path, options);
-    };
-    const pending = pruneAndShardProfiles(dir, srcCoverageUrlPrefix(REPO), 1, 2)
-      .then(() => undefined, (error: unknown) => error);
-    const observed = pending.then(() => {
-      settled = true;
+      assert(siblingFinished);
+      assert(await pending instanceof Error);
     });
-    try {
-      await failed.promise;
-      using time = new FakeTime();
-      await time.tickAsync(0);
-      assertEquals(
-        settled,
-        false,
-        "cleanup cannot start while a profile reader still owns its input",
-      );
-    } finally {
-      release.resolve();
-      await observed;
-      Deno.readFile = read;
-    }
-    assert(siblingFinished);
-    assert(await pending instanceof Error);
-  });
+  }
 });
 
 Deno.test("profile compaction preserves raw inputs when identities or counts cannot be represented", async () => {

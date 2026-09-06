@@ -194,8 +194,10 @@ function fnv1a(text: string): number {
  * subdirectories of `profileDir`, ready for one report pass each.
  *
  * The directory must be quiescent — the instrumented run that wrote it has
- * exited. Pruned profiles stay in place untouched; only shard directories
- * are handed to report passes, so staying in place excludes them. Any
+ * exited. Foreign inputs are removed during classification; repeated originals
+ * are removed after their weighted representative is written. Each disposal is
+ * awaited while processing owns the input metadata. Only shard directories are
+ * handed to report passes. Any
  * filesystem failure throws: a measurement that cannot account for every
  * profile must fail loudly rather than undercount.
  */
@@ -230,6 +232,7 @@ export async function pruneAndShardProfiles(
       HEAD_DECODER.decode(bytes.subarray(0, HEAD_BYTES)),
     );
     if (isPrunableProfile(head, srcUrlPrefix)) {
+      await Deno.remove(path);
       pruned += 1;
       return;
     }
@@ -278,6 +281,9 @@ export async function pruneAndShardProfiles(
       return;
     }
     await Deno.writeTextFile(group.target, weighted);
+    for (const name of group.duplicates) {
+      await Deno.remove(join(profileDir, name));
+    }
     compacted += group.duplicates.length;
   });
   return {
