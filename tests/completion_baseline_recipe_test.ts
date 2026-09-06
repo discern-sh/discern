@@ -1,8 +1,14 @@
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 /** Count the repository recipe through the landed producer and artifact runtime. */
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join, toFileUrl } from "@std/path";
 import { produceCoverage } from "../scripts/coverage.ts";
+import { runShell } from "../src/shared/subprocess.ts";
 import { srcLineCoverage } from "../scripts/coverage_lib.ts";
 import { sourceModuleUniverse } from "../scripts/source_module_universe.ts";
 import { MODULE_COVERAGE_EXCEPTIONS } from "../scripts/module_coverage_exceptions.ts";
@@ -94,7 +100,6 @@ const lcov = await produceCoverage(root, async (profile) => {
     args: testCommandArgs(42, ['tests', '--coverage=' + profile, '--coverage-raw-data-only']),
     stdout: 'inherit', stderr: 'inherit',
   }).output();
-  if (!suite.success) throw new Error('instrumented fixture failed');
   const reference = await new Deno.Command(Deno.execPath(), {
     args: lcovReportArgs(profile, root), stdout: 'piped', stderr: 'inherit',
   }).output();
@@ -102,6 +107,7 @@ const lcov = await produceCoverage(root, async (profile) => {
   await Deno.mkdir('reports', { recursive: true });
   await Deno.writeFile('reports/unsharded.lcov', reference.stdout);
   await Deno.writeTextFile('reports/profile-path', profile);
+  if (!suite.success) throw new Error('instrumented fixture failed');
 });
 await writeCoverageArtifact(root, 'reports/coverage.lcov', lcov);
 `,
@@ -362,4 +368,35 @@ Deno.test("failed coverage reporting removes its profile scratch before rejectin
   );
   assert(profilePath !== "");
   assertEquals(await pathExists(profilePath), false);
+});
+
+Deno.test("a failed suite reports coverage gaps before cleanup without publishing evidence", async () => {
+  await withTempDir(async (root) => {
+    await seedRecipe(root);
+    await Deno.writeTextFile(
+      join(root, "tests/branch_1_test.ts"),
+      "Deno.test('failed branch', () => { throw new Error('branch failure'); });\n",
+    );
+    const result = await runShell(fixtureCommand("producer.ts"), { cwd: root });
+    const stdout = new TextDecoder().decode(result.stdout);
+    const stderr = new TextDecoder().decode(result.stderr);
+    assertEquals(result.success, false, stderr);
+    assertStringIncludes(stderr, "instrumented fixture failed");
+    assertStringIncludes(
+      stderr,
+      "Coverage from the failed suite is diagnostic only",
+    );
+    assertStringIncludes(stderr, "All measured src/ files");
+    assertStringIncludes(stderr, "MODULE COVERAGE: Module 'src/decision.ts'");
+    assertEquals(stdout.includes("DISCERN_METRIC"), false);
+    assertEquals(stderr.includes("DISCERN_METRIC"), false);
+    assertEquals(await Deno.readTextFile(join(root, "suite-attempts")), "1");
+    assertEquals(await pathExists(join(root, "reports/coverage.lcov")), false);
+    assertEquals(
+      await pathExists(
+        await Deno.readTextFile(join(root, "reports/profile-path")),
+      ),
+      false,
+    );
+  });
 });

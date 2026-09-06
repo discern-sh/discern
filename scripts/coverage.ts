@@ -5,7 +5,9 @@
  * `produce <path>` writes LCOV for the validation engine's attempt-owned artifact
  * capture; `extract` reads captured LCOV on stdin and prints all three readings.
  * Both modes share the Git-derived module universe, parser, and held thresholds.
- * Raw profiles are sharded by module URL before reporting; scratch cleanup is
+ * Failed suites still report diagnostic coverage, then fail without publishing
+ * an artifact or successful metrics. Raw profiles are sharded by module URL
+ * before reporting; scratch cleanup is
  * awaited before success so the producer leaves no detached cleanup process.
  */
 import { dirname, fromFileUrl } from "@std/path";
@@ -122,11 +124,36 @@ export async function produceCoverage(
   let suiteFinished = started;
   let reportsFinished = started;
   const lcov = await withToolTempDir("coverage-profile", async (profile) => {
-    await runSuite(profile);
+    let suiteFailure: { error: unknown } | undefined;
+    try {
+      await runSuite(profile);
+    } catch (error) {
+      suiteFailure = { error };
+    }
     suiteFinished = SYSTEM_CLOCK.monotonicNow();
-    const reports = await shardedLcovReports(profile, repoRoot);
-    reportsFinished = SYSTEM_CLOCK.monotonicNow();
-    return reports.join("\n");
+    let lcov: string;
+    try {
+      const reports = await shardedLcovReports(profile, repoRoot);
+      reportsFinished = SYSTEM_CLOCK.monotonicNow();
+      lcov = reports.join("\n");
+      if (suiteFailure !== undefined && reports.length > 0) {
+        console.error(
+          "Coverage from the failed suite is diagnostic only; no evidence is published.",
+        );
+        await coverageReadings(lcov, repoRoot);
+      }
+    } catch (reportFailure) {
+      if (suiteFailure !== undefined) {
+        throw new AggregateError(
+          [suiteFailure.error, reportFailure],
+          "the instrumented suite and its coverage reporting both failed",
+          { cause: reportFailure },
+        );
+      }
+      throw reportFailure;
+    }
+    if (suiteFailure !== undefined) throw suiteFailure.error;
+    return lcov;
   });
   const finished = SYSTEM_CLOCK.monotonicNow();
   console.error(
