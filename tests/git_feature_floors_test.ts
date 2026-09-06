@@ -22,6 +22,7 @@ function unsupportedFeatureUses(
   const failures: string[] = [];
   for (const [path, source] of sources) {
     const project = new Project({
+      compilerOptions: { noLib: true },
       useInMemoryFileSystem: true,
       skipAddingFilesFromTsConfig: true,
     });

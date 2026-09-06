@@ -141,6 +141,7 @@ function primitiveSitesInSource(
   source: string,
 ): PtyPrimitiveSite[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -247,6 +248,7 @@ function declarationSitesInSourceFile(
 /** Load and parse the complete live guard universe once. */
 async function liveSources(): Promise<ReadonlyMap<string, SourceFile>> {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

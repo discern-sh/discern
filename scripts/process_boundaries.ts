@@ -263,6 +263,7 @@ export function directProcessSitesInSource(
   path = "src/fixture.ts",
 ): DirectProcessSites {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -293,6 +294,7 @@ export async function directProcessSitesInFiles(
   files: readonly string[],
 ): Promise<DirectProcessSites> {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

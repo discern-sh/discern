@@ -2,7 +2,14 @@
 
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
-import { Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type CallExpression,
+  Node,
+  Project,
+  type SourceFile,
+  SyntaxKind,
+  type VariableDeclaration,
+} from "ts-morph";
 import { gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -46,6 +53,7 @@ const REPO_RELATIVE_ROOT =
 /** Parse one module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -63,6 +71,29 @@ function objectProperty(
     return undefined;
   }
   return property.getInitializer();
+}
+
+interface SourceIndex {
+  readonly variables: ReadonlyMap<string, readonly VariableDeclaration[]>;
+  readonly calls: readonly CallExpression[];
+}
+
+const sourceIndexes = new WeakMap<SourceFile, SourceIndex>();
+
+/** Index a parsed module once for recursive local binding and callback tracing. */
+function sourceIndex(file: SourceFile): SourceIndex {
+  let index = sourceIndexes.get(file);
+  if (index === undefined) {
+    index = {
+      variables: Map.groupBy(
+        file.getDescendantsOfKind(SyntaxKind.VariableDeclaration),
+        (node) => node.getName(),
+      ),
+      calls: file.getDescendantsOfKind(SyntaxKind.CallExpression),
+    };
+    sourceIndexes.set(file, index);
+  }
+  return index;
 }
 
 /** Whether a path expression is visibly anchored in this repository. */
@@ -127,9 +158,8 @@ function repoRooted(
     ) {
       return true;
     }
-    const localVariables = expression.getSourceFile()
-      .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
-      .filter((node) => node.getName() === text);
+    const localVariables =
+      sourceIndex(expression.getSourceFile()).variables.get(text) ?? [];
     for (const node of localVariables) {
       const initializer = node.getInitializer();
       if (
@@ -162,9 +192,7 @@ function repoRooted(
         if (name === undefined || index < 0) continue;
         const sourceFile = expression.getSourceFile();
         for (
-          const call of sourceFile.getDescendantsOfKind(
-            SyntaxKind.CallExpression,
-          )
+          const call of sourceIndex(sourceFile).calls
         ) {
           if (call.getExpression().getText() === name) {
             const argument = call.getArguments()[index];
@@ -194,7 +222,7 @@ function repoRooted(
 
 /** Whether a module has the source-inspection half of the class predicate. */
 function inspectsSource(sourceFile: SourceFile): boolean {
-  return sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression).some((
+  return sourceIndex(sourceFile).calls.some((
     call,
   ) =>
     /(?:readTextFile|readFile|runPlugin|createSourceFile)$/.test(
@@ -240,7 +268,7 @@ function scopeFindings(
 
   if (inspectsSource(sourceFile)) {
     for (
-      const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+      const call of sourceIndex(sourceFile).calls
     ) {
       const expression = call.getExpression().getText();
       const argument = call.getArguments()[0];
@@ -271,7 +299,7 @@ function scopeFindings(
       }
     }
     for (
-      const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+      const call of sourceIndex(sourceFile).calls
     ) {
       const callee = call.getExpression();
       const callback = call.getArguments()[0];
@@ -292,7 +320,7 @@ function scopeFindings(
   }
 
   for (
-    const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+    const call of sourceIndex(sourceFile).calls
   ) {
     if (call.getExpression().getText() !== "structuralGuardScope") continue;
     const declaration = call.getArguments()[0];
@@ -520,7 +548,7 @@ Deno.test("every live structural guard obtains its scan set from a declaration",
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     const sourceFile = parseModule(rel, source);
     for (
-      const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)
+      const call of sourceIndex(sourceFile).calls
     ) {
       if (call.getExpression().getText() !== "structuralGuardScope") continue;
       const declaration = call.getArguments()[0];

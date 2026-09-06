@@ -20,6 +20,7 @@ function literalText(node: Node | undefined): string | undefined {
 /** Find transport argv and Git-hook mutation spellings in one TypeScript source. */
 function gitBoundaryViolations(source: string, path: string): string[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

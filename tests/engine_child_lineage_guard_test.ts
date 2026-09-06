@@ -83,6 +83,7 @@ function hasLineageOverlay(
 /** Inspect syntax; a local alias of the helper or constructor keeps its meaning. */
 function lineageFindings(source: string, path: string): string[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

@@ -119,6 +119,7 @@ export function directSpawnSitesInSource(
   path = "fixture.ts",
 ): DirectSpawnSite[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -152,18 +153,11 @@ export async function directSpawnSitesInFiles(
   root: string,
   files: readonly string[],
 ): Promise<DirectSpawnSite[]> {
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    skipAddingFilesFromTsConfig: true,
-  });
   const sites: DirectSpawnSite[] = [];
   for (const path of files) {
     const source = await Deno.readTextFile(join(root, path));
     sites.push(
-      ...directSpawnSitesInSourceFile(
-        path,
-        project.createSourceFile(path, source),
-      ),
+      ...directSpawnSitesInSource(source, path),
     );
   }
   return sites;

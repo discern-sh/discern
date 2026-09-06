@@ -85,7 +85,10 @@ async function developmentConfigs(): Promise<ConfigEntry[]> {
 function unmanagedSiteServerStarts(
   sources: readonly AuthoredSource[],
 ): string[] {
-  const project = new Project({ useInMemoryFileSystem: true });
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  });
   const offenders: string[] = [];
   for (const source of sources) {
     if (source.path === "site/main.ts") continue;
@@ -460,7 +463,10 @@ function normalizedTaskEntry(entry: string): string {
 function previewRuntimeModules(
   sources: readonly AuthoredSource[],
 ): Set<string> {
-  const project = new Project({ useInMemoryFileSystem: true });
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  });
   const importsOf = new Map<string, readonly string[]>();
   for (const source of sources) {
     const file = project.createSourceFile(source.path, source.text, {
@@ -631,7 +637,10 @@ function handRolledPreviewEnvGrants(
   sources: readonly AuthoredSource[],
   runtimeModules: ReadonlySet<string>,
 ): string[] {
-  const project = new Project({ useInMemoryFileSystem: true });
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  });
   const offenders: string[] = [];
   for (const source of sources) {
     const file = project.createSourceFile(source.path, source.text, {

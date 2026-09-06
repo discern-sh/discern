@@ -30,6 +30,7 @@ interface ToolTempDirCallSite {
 /** Parse one TypeScript module without resolving its imports. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

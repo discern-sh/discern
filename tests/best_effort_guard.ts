@@ -47,6 +47,7 @@ export async function bestEffortSources(
 /** Parse one authored module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

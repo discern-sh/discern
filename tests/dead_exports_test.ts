@@ -131,3 +131,39 @@ Deno.test("the authored repository has no declaration kept alive only by export"
   );
   assertEquals(findings, []);
 });
+
+Deno.test("dead-export syntax retains merged declarations and conservative alias uses", () => {
+  assertEquals(
+    deadExportsInSources([
+      {
+        path: "merged.ts",
+        source: "export interface Joined {}\ninterface Joined {}",
+      },
+      {
+        path: "overload.ts",
+        source:
+          "export function call(value: string): string;\nexport function call(value: string) { return value; }",
+      },
+      {
+        path: "aliases.ts",
+        source: "function local() {}\nexport { local as renamed };",
+      },
+      {
+        path: "default.ts",
+        source: "class Local {}\nexport { Local as default };",
+      },
+      {
+        path: "merged_default.ts",
+        source: "export default class Visible {}\nnamespace Visible {}",
+      },
+      {
+        path: "shadow.ts",
+        source:
+          "export const name = 1;\nfunction local(name: string) { return name; }",
+      },
+    ]),
+    [
+      { file: "overload.ts", line: 1, name: "call", kind: "value" },
+    ],
+  );
+});

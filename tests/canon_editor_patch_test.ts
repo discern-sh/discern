@@ -369,7 +369,10 @@ Deno.test("a patch replaces exactly one literal and nothing else", async () => {
     JSON.stringify(value).length - JSON.stringify(oldValue).length,
     "the byte delta is exactly the literal's own delta",
   );
-  const reparsed = new Project({ useInMemoryFileSystem: true })
+  const reparsed = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  })
     .createSourceFile("probe.ts", outcome.text);
   const literal = reparsed
     .getDescendants()

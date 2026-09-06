@@ -145,6 +145,7 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
 /** Parse one module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

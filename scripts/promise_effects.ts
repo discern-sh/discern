@@ -460,7 +460,7 @@ function packageJson(path: string): Record<string, unknown> | undefined {
 async function externalModuleSpecifiers(root: string): Promise<string[]> {
   const syntax = new Project({
     skipAddingFilesFromTsConfig: true,
-    compilerOptions: { allowImportingTsExtensions: true },
+    compilerOptions: { noLib: true, allowImportingTsExtensions: true },
   });
   const names = new Set<string>();
   for (const path of await productionPromiseEffectFiles(root)) {
@@ -886,7 +886,7 @@ function detachedPromiseCalls(
   const project = new Project({
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
-    compilerOptions: { allowImportingTsExtensions: true },
+    compilerOptions: { noLib: true, allowImportingTsExtensions: true },
   });
   const calls: DetachedPromiseCall[] = [];
   const findings: string[] = [];

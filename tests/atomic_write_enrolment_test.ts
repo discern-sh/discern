@@ -21,6 +21,7 @@ const ATOMIC_WRITE_MODULE = "src/shared/atomic_write.ts";
 /** Parse one module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

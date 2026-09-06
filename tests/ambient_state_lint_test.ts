@@ -331,6 +331,7 @@ function parseModule(
   source: string,
 ): import("ts-morph").SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

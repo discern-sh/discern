@@ -45,6 +45,7 @@ function discernCommitCallSites(
   source: string,
 ): CommitCallSite[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

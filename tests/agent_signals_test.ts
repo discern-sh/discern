@@ -55,6 +55,7 @@ const RAW_IDENTITY_FIELD_OWNERS = new Set([
 /** Parse one production module without resolving its dependency graph. */
 function parseModule(path: string, source: string): SourceFile {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

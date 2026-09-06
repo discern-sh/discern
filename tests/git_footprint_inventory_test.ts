@@ -93,6 +93,7 @@ Deno.test("Git-config mutation sites stay behind the registered owners", async (
   for (const path of files) {
     const source = await Deno.readTextFile(join(REPO_ROOT, path));
     const project = new Project({
+      compilerOptions: { noLib: true },
       useInMemoryFileSystem: true,
       skipAddingFilesFromTsConfig: true,
     });

@@ -380,7 +380,10 @@ function preReadinessAwaits(source: string): ReadinessViolation[] {
 }
 
 Deno.test("test harness: pending operations participate in readiness", async () => {
-  const project = new Project({ useInMemoryFileSystem: true });
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  });
   const syntheticCore = [
     "const pendingObservation = " + "awaitResult(root, { trunkMoved: true });",
     "await " + "letClockPass(WAIT_WINDOW);",
@@ -532,7 +535,10 @@ Deno.test("test harness: pending operations participate in readiness", async () 
 });
 
 Deno.test("job-runner behavior clocks start after observable readiness", async () => {
-  const project = new Project({ useInMemoryFileSystem: true });
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+  });
   const early = project.createSourceFile(
     "early.ts",
     [

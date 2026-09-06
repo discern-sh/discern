@@ -116,6 +116,7 @@ export function typeAssertionsInSource(
   file = "fixture.ts",
 ): TypeAssertionFinding[] {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -138,6 +139,7 @@ export async function typeAssertionsInFiles(
   files: readonly string[],
 ): Promise<TypeAssertionFinding[]> {
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });

@@ -176,6 +176,7 @@ export interface FieldLeaf {
  */
 export function openRegistryProject(root: string): Project {
   const project = new Project({
+    compilerOptions: { noLib: true },
     skipAddingFilesFromTsConfig: true,
     skipFileDependencyResolution: true,
     skipLoadingLibFiles: true,

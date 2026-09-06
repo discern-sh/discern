@@ -229,7 +229,7 @@ function declaration(
 function directExports(sourceFile: SourceFile): DirectExportDeclaration[] {
   const declarations: DirectExportDeclaration[] = [];
   for (const statement of sourceFile.getStatements()) {
-    if (Node.isVariableStatement(statement) && statement.isExported()) {
+    if (Node.isVariableStatement(statement) && statement.hasExportKeyword()) {
       for (const variable of statement.getDeclarations()) {
         const found = declaration(sourceFile, variable.getNameNode(), "value");
         if (found !== undefined) declarations.push(found);
@@ -242,7 +242,9 @@ function directExports(sourceFile: SourceFile): DirectExportDeclaration[] {
       Node.isEnumDeclaration(statement) ||
       Node.isModuleDeclaration(statement)
     ) {
-      if (!statement.isExported() || statement.isDefaultExport()) continue;
+      if (!statement.hasExportKeyword() || statement.hasDefaultKeyword()) {
+        continue;
+      }
       const found = declaration(sourceFile, statement.getNameNode(), "value");
       if (found !== undefined) declarations.push(found);
       continue;
@@ -251,7 +253,9 @@ function directExports(sourceFile: SourceFile): DirectExportDeclaration[] {
       Node.isInterfaceDeclaration(statement) ||
       Node.isTypeAliasDeclaration(statement)
     ) {
-      if (!statement.isExported() || statement.isDefaultExport()) continue;
+      if (!statement.hasExportKeyword() || statement.hasDefaultKeyword()) {
+        continue;
+      }
       const found = declaration(sourceFile, statement.getNameNode(), "type");
       if (found !== undefined) declarations.push(found);
     }
@@ -261,7 +265,7 @@ function directExports(sourceFile: SourceFile): DirectExportDeclaration[] {
 
 /** Whether a declaration name has any other identifier occurrence in its file. */
 function usedLocally(
-  sourceFile: SourceFile,
+  identifiers: ReadonlyMap<string, readonly number[]>,
   declarations: readonly DirectExportDeclaration[],
 ): boolean {
   const name = declarations[0]?.name;
@@ -269,8 +273,8 @@ function usedLocally(
   const declarationStarts = new Set(
     declarations.map((candidate) => candidate.nameStart),
   );
-  return sourceFile.getDescendantsOfKind(SyntaxKind.Identifier).some((node) =>
-    node.getText() === name && !declarationStarts.has(node.getStart())
+  return (identifiers.get(name) ?? []).some((start) =>
+    !declarationStarts.has(start)
   );
 }
 
@@ -287,6 +291,7 @@ export function deadExportsInSources(
     throw new Error("dead-export census received duplicate source paths");
   }
   const project = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   });
@@ -306,8 +311,17 @@ export function deadExportsInSources(
       directExports(sourceFile),
       (candidate) => candidate.name,
     );
+    const identifiers = Map.groupBy(
+      sourceFile.getDescendantsOfKind(SyntaxKind.Identifier),
+      (node) => node.getText(),
+    );
+    const positions = new Map(
+      [...identifiers].map(([name, nodes]) =>
+        [name, nodes.map((node) => node.getStart())] as const
+      ),
+    );
     for (const [name, declarations] of grouped) {
-      if (usedLocally(sourceFile, declarations)) continue;
+      if (usedLocally(positions, declarations)) continue;
       const external = uses.get(file);
       if (external === "*" || external?.has(name) === true) continue;
       const first = declarations[0];

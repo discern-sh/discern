@@ -62,6 +62,7 @@ export function importSpecifiers(
   source: string,
 ): { specifiers: string[]; unwalkableDynamicImport: boolean } {
   const parsed = new Project({
+    compilerOptions: { noLib: true },
     useInMemoryFileSystem: true,
     skipAddingFilesFromTsConfig: true,
   })
