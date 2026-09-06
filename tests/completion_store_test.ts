@@ -1,3 +1,4 @@
+import { RetirementEffectsSchema } from "../src/shared/accept_landing_state.ts";
 import { assert, assertEquals } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
@@ -9,6 +10,7 @@ import {
   COMPLETION_FAMILIES,
   type CompletionRecord,
   CompletionRecordSchema,
+  recordTransitionAllowed,
 } from "../src/engine/completion/records.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
@@ -440,4 +442,53 @@ Deno.test("completion aliases share the publication lock before any family is cr
       1,
     );
   });
+});
+
+Deno.test("every recorded retirement effect is monotonic without changing ownership or landing", () => {
+  const fixture = completionFixtures().retirement;
+  assert(fixture.kind === "retirement");
+  const previous = {
+    ...fixture,
+    data: {
+      ...fixture.data,
+      effects: { worktree_removed: true, branch_deleted: true },
+    },
+  };
+  for (const field of Object.keys(RetirementEffectsSchema.shape)) {
+    const next = {
+      ...previous,
+      revision: previous.revision + 1,
+      data: {
+        ...previous.data,
+        effects: { ...previous.data.effects, [field]: false },
+      },
+    };
+    assertEquals(recordTransitionAllowed(previous, next), false, field);
+  }
+  assertEquals(
+    recordTransitionAllowed(previous, {
+      ...previous,
+      revision: previous.revision + 1,
+      data: { ...previous.data, ownership: "changed" },
+    }),
+    false,
+  );
+  assertEquals(
+    recordTransitionAllowed(previous, {
+      ...previous,
+      revision: previous.revision + 1,
+      data: {
+        ...previous.data,
+        outcome: {
+          kind: "recovery",
+          recovery: {
+            ...COMPLETION_RECOVERY,
+            retained_paths: [...COMPLETION_RECOVERY.retained_paths],
+            frozen_cleanup: [...COMPLETION_RECOVERY.frozen_cleanup],
+          },
+        },
+      },
+    }),
+    true,
+  );
 });

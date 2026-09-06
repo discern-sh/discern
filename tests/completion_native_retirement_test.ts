@@ -70,6 +70,7 @@ async function landed(
       actor,
       null,
     );
+    assert(!("kind" in environmentPorts), JSON.stringify(environmentPorts));
     const current = await requireEnvironment(
       root,
       environmentPorts.environmentId,
@@ -113,6 +114,16 @@ for (const boundary of RETIREMENT_BOUNDARIES) {
       const recovered = await retireQueueLanding(f.runtime, f.landing);
       assertEquals(recovered.kind, "retired", JSON.stringify(recovered));
       assertEquals(await statIfExists(f.path), undefined);
+      const retirement = observedRecords(await observeQueue(root, "main")).find(
+        (record) =>
+          record.kind === "retirement" &&
+          record.data.landing_id === f.landing.id,
+      );
+      assert(retirement?.kind === "retirement");
+      assertEquals(retirement.data.effects, {
+        worktree_removed: true,
+        branch_deleted: true,
+      });
       assertEquals(
         await gitOut(
           root,

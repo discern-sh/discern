@@ -1,7 +1,7 @@
 /**
  * Engine tests for the long-job ergonomics (ADR 0006): `[gate].stream` (live
  * line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings on
- * first failure). These drive `agent finish` with two `lint` commands in the
+ * first failure). These drive `agent finish` with two independent commands in the
  * same parallel check stage: one fails fast and its sibling would otherwise
  * run for seconds. The fixture stays independent of the repository-wide test
  * cap, which deliberately separates check from test when enabled.
@@ -18,7 +18,7 @@ import {
 } from "./engine_helpers.ts";
 
 /**
- * A config with two commands in the same parallel `lint` stage. `sleepS` sets
+ * A config with two jobs in the same parallel check stage. `sleepS` sets
  * how long the slow sibling would run uncancelled — a cancellation test needs a
  * window wide enough that a loaded machine cannot let the sleep win the race
  * against the abort.
@@ -35,7 +35,10 @@ function failFastConfig(
     "",
     "[jobs]",
     // Both commands share the check stage; the first fails immediately.
-    `lint = ["exit 1", "sleep ${opts.sleepS ?? 5}; echo RAN-TO-END"]`,
+    `lint = "exit 1"`,
+    "[jobs.sibling]",
+    'stage = "check"',
+    `run = "sleep ${opts.sleepS ?? 5}; echo RAN-TO-END"`,
     "",
     "[gate]",
     `stream = ${opts.stream ? "true" : "false"}`,
@@ -81,7 +84,10 @@ Deno.test("gate fail_fast is ON by default (no [gate] section)", async () => {
         'trunk = "main"',
         "",
         "[jobs]",
-        'lint = ["exit 1", "sleep 30; echo RAN-TO-END"]',
+        'lint = "exit 1"',
+        "[jobs.sibling]",
+        'stage = "check"',
+        'run = "sleep 30; echo RAN-TO-END"',
         "",
       ].join("\n"),
     );

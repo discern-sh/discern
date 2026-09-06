@@ -84,9 +84,11 @@ interface ApprovalChallenge {
 
 /** Read the exact structured approval challenge from an accept refusal. */
 function approvalChallenge(stdout: string): ApprovalChallenge {
-  const challenge = (decodeCliResult(stdout, "accept").data as {
-    standard_approvals_required?: ApprovalChallenge[];
-  }).standard_approvals_required?.[0];
+  const result = decodeCliResult(stdout, "accept");
+  assert(result.data !== undefined && "queue" in result.data);
+  const challenge = result.data.queue?.flatMap((row) =>
+    row.approval_requests ?? []
+  )[0];
   assert(challenge !== undefined);
   return challenge;
 }
@@ -467,7 +469,7 @@ Deno.test("proposal-bearing Gate Proof is green and prominent while accept needs
       "The feature adds one source file required by the product.",
     );
     assertStringIncludes(
-      String(refusal.message),
+      (refusal.hints ?? []).join("\n"),
       `--approve-standard ${approval.token}`,
     );
     assertEquals(
@@ -528,14 +530,10 @@ Deno.test("accept lands the already-proved proposal commit after exact approval"
       "--json",
     ]);
     assertEquals(accepted.code, 0, accepted.output);
-    const data = decodeCliResult(accepted.stdout, "accept").data as {
-      proof_line?: string;
-      standard_approvals?: {
-        standard: string;
-        proposed_limit: number;
-        reason: string;
-      }[];
-    };
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assert(result.data !== undefined && "queue" in result.data);
+    const data = result.data.queue?.find((row) => row.state === "landed");
+    assert(data !== undefined, accepted.stdout);
     // The landed line states the proposal in its resolved state — the
     // awaiting-decision segment never survives next to its own resolution.
     assertStringIncludes(
@@ -857,7 +855,7 @@ Deno.test("trunk movement and changed fresh measurement stale a proposal", async
     assertEquals(changed.code, 1, changed.output);
     assertTerminalTextIncludes(
       changed.stdout,
-      "proposed limit records 2",
+      "sources 3 exceeds the ceiling 2",
     );
     const stale = await runAgent(worktree, ["standards", "--json"]);
     assertEquals(stale.code, 1, stale.output);

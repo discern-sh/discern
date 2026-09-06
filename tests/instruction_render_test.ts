@@ -484,12 +484,12 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
       );
       assert(
         !bareBody.includes(
-          "Standards are **numbers that can never get worse**",
+          "Standards hold a **limit that may only improve**",
         ),
         "an unconfigured project omits the configured standards instructions",
       );
       assert(
-        richBody.includes("Standards are **numbers that can never get worse**"),
+        richBody.includes("Standards hold a **limit that may only improve**"),
         "a configured project gets the standards instructions",
       );
       assert(
@@ -523,17 +523,17 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
 
       assert(
         bareBody.includes(
-          "explicit consent from this conversation or machine-verified authority",
+          "explicit conversation consent or recorded grants for each proven predecessor",
         ),
         "acceptance requires conversation consent or checked recorded authority",
       );
       assert(
-        bareBody.includes("follow its authority-aware hint"),
+        bareBody.includes("authority-aware hint: report the Proof and stop"),
         "the runtime result, not static prose, chooses the landing route",
       );
       assert(
         bareBody.includes(
-          "either report the one-line Proof and stop, or land under the verified grant",
+          "report the Proof and stop, or accept under the verified grant",
         ),
         "a green finish still needs one verified source of landing authority",
       );
@@ -585,11 +585,11 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
           ],
           [
             "atomic history survives acceptance",
-            "commit each logical step. Acceptance lands your branch history as-is",
+            "commit each logical step. Acceptance validates and lands the selected candidate",
           ],
           [
             "the gate Proof belongs to the final clean commit",
-            "run `discern_done` once on the clean HEAD — acceptance reuses that Proof",
+            "Run **`discern_done`** on clean HEAD",
           ],
           [
             "another effort's clean worktree remains off limits",

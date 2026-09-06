@@ -32,7 +32,8 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
-import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import { observedRecords } from "../src/engine/landing_queue/repository.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import {
   type CliResultForCommand,
@@ -170,19 +171,19 @@ Deno.test("replay: unchanged input evidence does not cross a changed Standard de
 Deno.test("replay: an unchanged measurement retains its original provenance record", async () => {
   await withTempDir(async (dir) => {
     await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
-    const path = join(
-      dir,
-      ".git",
-      GIT_ADMIN_STATE.standardMeasurements.path,
-    );
-    const before = await Deno.readTextFile(path);
+    const before = observedRecords(await observeCompletionRecords(dir)).filter((
+      record,
+    ) => record.kind === "evidence");
+    assert(before.length > 0);
     await commitDocsChange(dir);
 
     const result = await runAgent(dir, ["done", "--json"]);
     assertEquals(result.code, 0, result.output);
     assertEquals(await measurementRuns(dir), 1);
     assertEquals(
-      await Deno.readTextFile(path),
+      observedRecords(await observeCompletionRecords(dir)).filter((record) =>
+        before.some((original) => original.id === record.id)
+      ),
       before,
       "replay must not rewrite a measurement as if it occurred at the new HEAD",
     );
@@ -243,7 +244,7 @@ Deno.test("replay: a DIRTY rename of an input file counts as touched on both sid
   });
 });
 
-Deno.test("replay: a dirty (uncommitted) edit to an input counts as touched — dirty runs measure as-is, so they replay as-is too", async () => {
+Deno.test("replay: dirty runs measure the current working tree without reusable Proof", async () => {
   await withTempDir(async (dir) => {
     await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
     await Deno.writeTextFile(join(dir, "src/metric-input.txt"), "dirty\n");
@@ -252,15 +253,19 @@ Deno.test("replay: a dirty (uncommitted) edit to an input counts as touched — 
     assertEquals(r.code, 0, r.output);
     assertEquals(await measurementRuns(dir), 2, "a dirty input must measure");
 
-    // The inverse: a dirty NON-input path still replays.
+    // Dirty non-input paths also require standalone feedback without reusable Proof.
     await git(dir, "checkout", "--", "src/metric-input.txt");
     await Deno.writeTextFile(join(dir, "scratch.txt"), "not an input\n");
     const replay = await runAgent(dir, ["done", "--json"]);
     assertEquals(replay.code, 0, replay.output);
     assertEquals(
       await measurementRuns(dir),
-      2,
-      "a dirty non-input path must still replay",
+      3,
+      "dirty diagnostic runs measure their current working tree",
+    );
+    assertEquals(
+      parseGate(replay.stdout).data.gate_proof?.status,
+      "skipped_dirty",
     );
   });
 });
@@ -295,15 +300,15 @@ Deno.test("replay: the standalone `standards` verb never replays", async () => {
   });
 });
 
-Deno.test("replay: a replayed value the branch's own tightened limit now fails is a genuine gate failure", async () => {
+Deno.test("replay: a tightened policy requires fresh measurement and enforces the new limit", async () => {
   await withTempDir(async (dir) => {
-    const baseline = await setUpMeasuredBaseline(dir, {
+    await setUpMeasuredBaseline(dir, {
       inputs: '"src/**"',
       limit: 80,
     });
     // Tighten the floor past the recorded value (90 → 95) and commit — a legal
-    // tightening; the config file is not an input, so the value replays and
-    // must FAIL against the current limit.
+    // tightening; policy is bound independently of inputs and requires a fresh
+    // reading against the current limit.
     await writeConfig(dir, replayConfig({ inputs: '"src/**"', limit: 95 }));
     await git(dir, "commit", "-aqm", "tighten the floor", "--no-gpg-sign");
 
@@ -311,25 +316,22 @@ Deno.test("replay: a replayed value the branch's own tightened limit now fails i
     assertEquals(r.code, 1, r.output);
     assertEquals(
       await measurementRuns(dir),
-      1,
-      "the value replays — no re-run",
+      2,
+      "the changed policy invalidates the previous applicability",
     );
     const obj = parseGate(r.stdout);
     assertEquals(obj.data?.failed_stage, "test");
     const diag = (obj.diagnostics ?? []).find((d) => d.tool === "standard:cov");
     assert(diag !== undefined, r.stdout);
     assertStringIncludes(diag.message, "below the floor 95");
-    assertStringIncludes(diag.message, baseline.slice(0, 7));
+    assertEquals(obj.data.standards?.[0]?.measurement, "measured");
   });
 });
 
-Deno.test("replay: a fresh worktree replays from the TRUNK checkout's recorded measurement", async () => {
+Deno.test("replay: a fresh worktree cannot reuse evidence with a different declared seed", async () => {
   await withTempDir(async (dir) => {
-    // The trunk checkout measures once (recording its proof); a fresh
-    // worktree has no proof of its own, so the baseline chain falls through
-    // to the trunk's — a new branch touching no inputs pays seconds, not a
-    // measurement, from its very first gate run.
-    const baseline = await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
+    // Identical inputs alone cannot substitute a different execution seed.
+    await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
     const wt = await addWorktree(dir, "replay-from-trunk");
     await commitDocsChange(wt);
 
@@ -339,14 +341,14 @@ Deno.test("replay: a fresh worktree replays from the TRUNK checkout's recorded m
       (await readTextIfExists(join(wt, "runs.count"))) ?? "";
     assertEquals(
       measuredInWorktree,
-      "",
-      "the worktree must replay the trunk's measurement, not re-run it",
+      "x\n",
+      "the worktree needs its own declared execution conditions",
     );
     const entry = parseGate(r.stdout).data?.standards?.find(
       (s) => s.name === "cov",
     );
-    assertEquals(entry?.measurement, "replayed");
-    assertEquals(entry?.replayed_from, baseline);
+    assertEquals(entry?.measurement, "measured");
+    assertEquals(entry?.replayed_from, undefined);
   });
 });
 

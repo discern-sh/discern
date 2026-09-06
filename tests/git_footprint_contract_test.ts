@@ -106,6 +106,12 @@ const FROZEN_V1_GIT_CONVENTIONS = {
 } as const;
 
 const FROZEN_V1_GIT_ADMIN_STATE = {
+  completionGrantClaims: [
+    "discern/completion/grant-claims",
+    "common",
+    "directory",
+    false,
+  ],
   completionRecords: [
     "discern/completion/records",
     "common",

@@ -3,8 +3,8 @@
  * may mutate the tree — the fix stage by design, a build/test/scope gate by accident
  * of wiring — but a GREEN finish must not hide uncommitted gate output: a stage that
  * touches a file the agent already COMMITTED leaves a change a clean gate would
- * otherwise conceal until `discern accept` scoops it up staged-but-uncommitted in the
- * main checkout.
+ * otherwise conceal. Completion checks each producer boundary before evidence or
+ * Proof can authorize the committed candidate.
  *
  * Four layers: the pure stranded-by-stage decision (and the shared porcelain parser
  * it rests on), the wired gate behaviour driven across EVERY stage a project can wire
@@ -15,6 +15,7 @@
  * full end-of-run feedback.
  */
 
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
@@ -23,6 +24,7 @@ import {
   addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -489,7 +491,7 @@ const RESTORER = [
   "",
 ].join("\n");
 
-Deno.test("done: a fixer edit the build stage restores does not trip the checkpoint — the gate runs on and passes", async () => {
+Deno.test("prepare permits fixer/regeneration convergence; clean completion stops at the first producer drift", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -503,8 +505,11 @@ Deno.test("done: a fixer edit the build stage restores does not trip the checkpo
         "",
         "[jobs]",
         'format = "sh mutate.sh"',
-        'build = "sh restore.sh"',
         'lint = "sh sentinel.sh"',
+        "",
+        "[generated.data]",
+        'paths = ["data.txt"]',
+        'run = "sh restore.sh"',
         "",
       ].join("\n"),
     );
@@ -514,19 +519,44 @@ Deno.test("done: a fixer edit the build stage restores does not trip the checkpo
     await Deno.writeTextFile(join(dir, "data.txt"), "committed\n");
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
-
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, true);
-    assertEquals(obj.data.failed_stage, null);
-    // The fixer ran (so the file WAS dirty between the pre-groups), the build
-    // restored it, and the checkpoint judged their combined result: no strand,
-    // no abort — the later work proceeded.
-    assertEquals(stepFor(obj, "format")?.outcome, "ok");
+    const prepared = await runAgent(dir, ["prepare", "--json"]);
+    assertEquals(prepared.code, 0, prepared.output);
+    const preparation = decodeCliResult(prepared.stdout, "prepare");
+    assertEquals(
+      preparation.steps?.find((step) => step.label === "format")?.outcome,
+      "ok",
+    );
+    assertEquals(
+      preparation.steps?.find((step) => step.label === "generated:data")
+        ?.outcome,
+      "ok",
+    );
     assertEquals(await Deno.readTextFile(join(dir, "data.txt")), "committed\n");
-    assertEquals(stepFor(obj, "lint")?.outcome, "ok");
     assertEquals(await targetExists(join(dir, "check-ran.txt")), true);
+    await Deno.remove(join(dir, "check-ran.txt"));
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "Prepare the generated source",
+      "--no-gpg-sign",
+    );
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    const obj = decodeGateResult(r.stdout);
+    assertEquals(obj.data.failed_stage, "tree_drift", r.stdout);
+    assertEquals(stepFor(obj, "format").outcome, "failed", r.stdout);
+    assertEquals(stepFor(obj, "generated:data").outcome, "skipped");
+    assertEquals(await targetExists(join(dir, "check-ran.txt")), false);
+    assertStringIncludes(
+      obj.diagnostics?.map((item) => item.message).join("\n") ?? "",
+      "data.txt",
+    );
+    assertEquals(obj.data.gate_proof?.status, "unavailable");
   });
 });
 
@@ -594,7 +624,7 @@ const INDEX_BREAKING_MUTATOR = [
   "",
 ].join("\n");
 
-Deno.test("done: refresh planning fails closed when a fixer corrupts the index", async () => {
+Deno.test("done: the producer boundary fails closed when a fixer corrupts the index", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -607,11 +637,10 @@ Deno.test("done: refresh planning fails closed when a fixer corrupts the index",
 
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, "refresh_drift");
-    assertEquals(diagFor(obj, "tree-drift"), undefined);
-    const refresh = diagFor(obj, "refresh");
-    assert(refresh !== undefined, r.stdout);
-    assertTerminalTextIncludes(refresh.output ?? "", "git ls-files");
+    assertEquals(obj.data.failed_stage, "fix");
+    assertEquals(obj.data.gate_proof?.status, "unavailable");
+    assertStringIncludes(r.stdout, "index");
+    assertEquals(await Deno.readTextFile(join(dir, ".git/index")), "garbage");
   });
 });
 
@@ -660,29 +689,38 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
     const first = await runAgent(dir, ["done", "--json"], {
       env: { GIT_BIN: gitWrapper },
     });
-    assertEquals(first.code, 0, first.output);
+    assertEquals(first.code, 1, first.output);
     const envelope = decodeGateResult(first.stdout);
-    assertEquals(envelope.data.failed_stage, null);
-    const checkpoints = envelope.data.checkpoints;
-    assert(checkpoints !== undefined, first.output);
-    assertEquals(
-      checkpoints.drops?.some((entry) =>
-        entry.reason === "strand_check_unavailable"
-      ),
-      true,
+    assertEquals(envelope.data.failed_stage, "tree_drift");
+    assertEquals(envelope.data.gate_proof?.status, "unavailable");
+    assertTerminalTextIncludes(
+      first.stdout,
+      "strand status deliberately unavailable",
     );
-    assertTerminalTextIncludes(first.stdout, "Restore Git status access");
-    assertEquals(envelope.data.gate_proof?.status, "recorded");
-
+    assert(
+      envelope.data.completion?.pending?.some((item) =>
+        item.kind === "recovery-incomplete"
+      ),
+    );
     const second = await runAgent(dir, ["done", "--json"], {
       env: { GIT_BIN: gitWrapper },
     });
     assertEquals(second.code, 1, second.output);
-    assertStringIncludes(second.stdout, "unchanged_tree_rerun");
+    const retried = decodeGateResult(second.stdout);
+    assert(
+      retried.data.completion?.pending?.some((item) =>
+        item.kind === "recovery-incomplete"
+      ),
+    );
+    assertTerminalTextIncludes(
+      second.stdout,
+      "strand status deliberately unavailable",
+    );
     assert(
       !second.stdout.includes("reused the current green Proof"),
       second.output,
     );
+    assert(!second.stdout.includes('"status":"recorded"'), second.output);
   });
 });
 
@@ -741,12 +779,9 @@ Deno.test("done: the checkpoint keeps post-pre-group scope classification — th
 });
 
 // ── wired: the accept boundary (ADR 0061) ─────────────────────────────────────
-// The same fixed-point property `done` enforces, brought to `accept` — so a branch an
-// agent committed WITHOUT a clean `done` (e.g. running only a scope gate on a docs edit,
-// never the formatter) cannot fast-forward unformatted Markdown onto the trunk LOCALLY,
-// where CI's trailing `git diff --exit-code` never runs.
+// Acceptance requires complete evidence; missing Proof cannot run a fixer or land source.
 
-Deno.test("accept: refuses (non-destructively) when the fix stage would reformat a committed file", async () => {
+Deno.test("accept: refuses (non-destructively) an unproven committed file without executing its fixer", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -761,8 +796,10 @@ Deno.test("accept: refuses (non-destructively) when the fix stage would reformat
 
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 1, r.output);
-    assertStringIncludes(r.output, "doc.md");
-    assertTerminalTextIncludes(r.output, "fix stage");
+    assertTerminalTextIncludes(
+      r.output,
+      "Required validation evidence is missing",
+    );
     // Non-destructive: the worktree survives and the unformatted doc never reached main.
     assertEquals(
       await targetExists(wt),
@@ -774,8 +811,8 @@ Deno.test("accept: refuses (non-destructively) when the fix stage would reformat
       false,
       "the unformatted doc must not reach main",
     );
-    // The fixer's reformat is left applied in the worktree, ready for the agent to commit.
-    assertEquals(await Deno.readTextFile(join(wt, "doc.md")), "hello\n");
+    // Missing completion cannot run a producer or rewrite the authored file.
+    assertEquals(await Deno.readTextFile(join(wt, "doc.md")), "hello   \n");
   });
 });
 
@@ -792,6 +829,8 @@ Deno.test("accept: a fix-stage-clean branch lands normally", async () => {
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "docs: add note", "--no-gpg-sign");
 
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
     const r = await runAgent(wt, ["accept", "--confirmed"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(

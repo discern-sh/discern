@@ -10,11 +10,13 @@
  * `accept` honors), then the wired behaviour — the regression itself (a gate-breaking
  * update is refused), the proof FAST PATH (a fresh `done` lets accept skip the
  * re-run — the perf property that makes running the gate at the boundary affordable), and
- * the airtight SLOW PATH (no/stale proof → accept runs the gate itself).
+ * released-environment refresh and refusal of uncompleted authored sources.
  *
  * Guards: boundary:local-git-landing
  */
 
+import { recordCompleteGateFixture } from "./complete_gate_fixture.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import {
   assert,
   assertEquals,
@@ -24,14 +26,13 @@ import {
 import { join } from "@std/path";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
   git,
   gitInit,
   runAgent,
-  runAgentPty,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -42,7 +43,7 @@ import {
   inspectGateProof,
   pinValidatedTree,
   preflightAdminStateWrites,
-  recordGateOutcome,
+  type recordGateOutcome,
 } from "../src/engine/gate/proof.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { Proof } from "../src/shared/result_schemas.ts";
@@ -53,7 +54,6 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
-import { realPtyTest } from "./real_pty.ts";
 import { declarationEvidenceIdentity } from "../src/engine/checkpoints/evidence.ts";
 
 type AcceptWireData = Exclude<
@@ -64,7 +64,7 @@ type AcceptWireData = Exclude<
 type AppliedAcceptEnvelope = Omit<CliResultForCommand<"accept">, "data"> & {
   data: AcceptWireData & {
     root: string;
-    consent: NonNullable<AcceptWireData["consent"]>;
+    queue: NonNullable<AcceptWireData["queue"]>;
   };
 };
 
@@ -87,15 +87,18 @@ async function proofAuthority(
   return preflight.authority;
 }
 
-/** Record only current-tree marker state, without a reusable Proof result. */
-async function recordTreeMarkerNow(
-  dir: string,
-): ReturnType<typeof recordGateOutcome> {
-  return await recordGateOutcome(
-    dir,
-    await proofAuthority(dir),
-    true,
-    await pinValidatedTree(dir),
+/** Plant an incomplete pre-cutover marker to verify that it cannot bypass validation. */
+async function recordTreeMarkerNow(dir: string): Promise<void> {
+  const path = await gitAdminStatePath(dir, "gateProof");
+  assert(path !== undefined);
+  await Deno.mkdir(join(path, ".."), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    JSON.stringify({
+      version: ON_DISK_FORMATS.gateProof.version,
+      head: (await pinValidatedTree(dir)).head,
+      mode: "strict",
+    }),
   );
 }
 
@@ -117,7 +120,7 @@ async function recordGreenNow(
   };
   const evidence = await declarationEvidenceIdentity(dir);
   assert(evidence.status === "ok");
-  return await recordGateOutcome(
+  return await recordCompleteGateFixture(
     dir,
     await proofAuthority(dir),
     true,
@@ -144,6 +147,7 @@ const CONFIG_CHECK = [
 /** The check command: exit non-zero iff a `taboo.txt` is present in the tree. */
 const CHECK_NO_TABOO = [
   "#!/usr/bin/env sh",
+  "printf x >> .check-count",
   "test ! -e taboo.txt",
   "",
 ].join("\n");
@@ -153,13 +157,14 @@ function parseAppliedAcceptJson(stdout: string): AppliedAcceptEnvelope {
   const result = decodeCliResult(stdout, "accept");
   assertResultDataKey(result, "root");
   assert(typeof result.data.root === "string");
-  assert(result.data.consent !== undefined);
+  assert(result.data.queue !== undefined);
+  assert(result.data.queue.some((row) => row.state === "landed"));
   return {
     ...result,
     data: {
       ...result.data,
       root: result.data.root,
-      consent: result.data.consent,
+      queue: result.data.queue,
     },
   };
 }
@@ -185,9 +190,27 @@ function assertLandingProofRelay(
 }
 
 /** Scaffold a main repo wired with the taboo check, committed clean (gate green). */
-async function mainWithCheck(dir: string): Promise<void> {
+async function mainWithCheck(dir: string, reusable = false): Promise<void> {
   await scaffoldEngine(dir);
-  await writeConfig(dir, CONFIG_CHECK);
+  await writeConfig(
+    dir,
+    CONFIG_CHECK + (reusable
+      ? `
+[execution.local]
+kind = "borrowed"
+capacity = 1
+reusable = true
+inputs = ["discern.toml"]
+ignored = [".check-count"]
+resources = []
+prepare = "true"
+restore = "true"
+`
+      : ""),
+  );
+  await Deno.writeTextFile(join(dir, ".gitignore"), "\n.check-count\n", {
+    append: true,
+  });
   await writeExecutable(join(dir, "check.sh"), CHECK_NO_TABOO);
   await gitInit(dir);
 }
@@ -257,7 +280,7 @@ Deno.test("proof: a pre-correction marker drops runtime telemetry", async () => 
       orbit_delay: 42,
     } as Proof & { waited_ms: number; orbit_delay: number };
 
-    const recorded = await recordGateOutcome(
+    const recorded = await recordCompleteGateFixture(
       dir,
       await proofAuthority(dir),
       true,
@@ -280,7 +303,7 @@ Deno.test("proof: a failed stamp is visible to the caller", async () => {
     const authority = await proofAuthority(dir);
     await Deno.mkdir(proofPath);
 
-    const proof = await recordGateOutcome(
+    const proof = await recordCompleteGateFixture(
       dir,
       authority,
       true,
@@ -327,7 +350,7 @@ Deno.test("proof: a failed finish clears an existing proof (fail-closed)", async
     await gitInit(dir);
     await recordGreenNow(dir);
     assertEquals(await gateProofHonored(dir), true);
-    await recordGateOutcome(
+    await recordCompleteGateFixture(
       dir,
       await proofAuthority(dir),
       false,
@@ -361,7 +384,7 @@ Deno.test("proof: a commit made while the gate ran is never stamped (the pin cat
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "mid-run", "--no-gpg-sign");
     // The green outcome describes the PINNED tree, not the new HEAD — no vouch.
-    const rec = await recordGateOutcome(
+    const rec = await recordCompleteGateFixture(
       dir,
       await proofAuthority(dir),
       true,
@@ -385,7 +408,7 @@ Deno.test("proof: a mid-run commit leaves a prior clean vouch intact (still trut
     const pin = await pinValidatedTree(dir); // a gate re-run pins C…
     await git(dir, "commit", "-q", "--allow-empty", "-m", "D", "--no-gpg-sign");
     // …and a mid-run commit D refuses the stamp, WITHOUT clearing C's vouch.
-    const rec = await recordGateOutcome(
+    const rec = await recordCompleteGateFixture(
       dir,
       await proofAuthority(dir),
       true,
@@ -406,7 +429,7 @@ Deno.test("proof: a tree that was dirty when the gate began is not stamped even 
     const pin = await pinValidatedTree(dir);
     await Deno.remove(join(dir, "wip.txt")); // cleaned mid-run (checkout/stash)
     // The gate read the dirty tree, which is NOT the tree HEAD names — no vouch.
-    const rec = await recordGateOutcome(
+    const rec = await recordCompleteGateFixture(
       dir,
       await proofAuthority(dir),
       true,
@@ -417,327 +440,178 @@ Deno.test("proof: a tree that was dirty when the gate began is not stamped even 
   });
 });
 
-// ── the regression: a gate-breaking update cannot land ────────────────────────
+// Current acceptance selects complete candidates and never adopts a new authored source.
 
-Deno.test("accept: refuses an update that merges cleanly but breaks the gate (the stale-finish hole)", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "gamma");
-    await commitBranchWork(wt);
-
-    // The agent finishes green as the branch stands (records a proof at this HEAD).
-    const green = await runAgent(wt, ["done", "--json"]);
-    assertEquals(green.code, 0, green.output);
-
-    // Meanwhile main advances with a change that breaks the branch's gate but merges
-    // cleanly — a brand-new file the branch never touched (no textual conflict).
-    await advanceMain(dir, "taboo.txt");
-
-    // The agent updates: a clean merge, but the proof is now stale (new merge commit).
-    const integ = await runAgent(wt, ["update"]);
-    assertEquals(integ.code, 0, integ.output);
-    await commitCurrentWorktree(wt);
-
-    // Accepting MUST refuse — the merged tree was never validated, and it fails the gate.
-    const grad = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(grad.code, 1, grad.output);
-    assertTerminalTextIncludes(grad.output, "does not pass");
-    // Non-destructive: the worktree survives and the branch's work never reached the trunk.
-    assertEquals(
-      await targetExists(wt),
-      true,
-      `worktree must survive\n${grad.output}`,
-    );
-    assertEquals(
-      await targetExists(join(dir, "feature.txt")),
-      false,
-      "the branch's work must not fast-forward onto the trunk unvalidated",
-    );
-  });
-});
-
-Deno.test("accept: an update that still passes the gate lands normally", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "delta");
-    await commitBranchWork(wt);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
-
-    // Main advances with a BENIGN file — the merged tree still passes the gate.
-    await advanceMain(dir, "notes.txt");
-    assertEquals((await runAgent(wt, ["update"])).code, 0);
-    await commitCurrentWorktree(wt);
-
-    const grad = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(grad.code, 0, grad.output);
-    // The proof was stale (merge commit), so accept validated the merged tree itself…
-    assertTerminalTextIncludes(
-      grad.output,
-      "Validating the branch against the full gate",
-    );
-    // …and, green, landed it: the worktree is gone and the branch's work is on the trunk.
-    assertEquals(
-      await targetExists(wt),
-      false,
-      `should have landed\n${grad.output}`,
-    );
-    assert(
-      await targetExists(join(dir, "feature.txt")),
-      "branch work should be on the trunk",
-    );
-  });
-});
-
-realPtyTest({
-  name: "accept TTY: a proofless validation shows the full gate moving live",
-  contracts: ["platform-transport"],
-  canary: false,
-  fn: async () => {
-    await withTempDir(async (dir) => {
-      await mainWithCheck(dir);
-      const wt = await addWorktree(dir, "visible-validation");
-      await commitBranchWork(wt);
-      await writeConfig(
-        wt,
-        CONFIG_CHECK.replace(
-          'lint = "sh check.sh"',
-          'format = "sleep 1"\ntest = "true"',
-        ),
-      );
-      await commitCurrentWorktree(wt, "Wire a delayed validation gate");
-
-      const accepted = await runAgentPty(wt, ["accept", "--confirmed"], {
-        env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      });
-      assertEquals(accepted.code, 0, accepted.output);
-
-      const validation = accepted.stdout.indexOf(
-        "Validating the branch against the full gate",
-      );
-      const initialFrame = accepted.stdout.indexOf("\x1b[?25l", validation);
-      const firstRedraw = accepted.stdout.indexOf("\x1b[1G", initialFrame);
-      const restored = accepted.stdout.indexOf("\x1b[?25h", firstRedraw);
-      const passed = accepted.stdout.indexOf(
-        "Gate passed against the tree to be landed",
-      );
-      assert(
-        validation >= 0 && initialFrame > validation &&
-          firstRedraw > initialFrame && restored > firstRedraw &&
-          passed > restored,
-        accepted.output,
-      );
-      const frame = accepted.stdout.slice(initialFrame, restored);
-      assertTerminalTextIncludes(frame, "format started");
-      assertTerminalTextIncludes(frame, "format passed");
-      assertTerminalTextIncludes(frame, "test started");
-      assertTerminalTextIncludes(frame, "test passed");
-      assertEquals(frame.includes("Gate progress"), false);
-    });
-  },
-});
-
-// ── the fast path: a fresh finish makes accept cheap ───────────────────────────
-
-Deno.test("accept: a fresh `done` lets accept skip the gate re-run (proof fast path)", async () => {
+Deno.test("accept: a fresh complete candidate lands without running a producer twice", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
     const wt = await addWorktree(dir, "epsilon");
     await commitBranchWork(wt);
-
-    // The agent finishes (records a proof at this exact, clean HEAD)…
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
-
-    // …so accept trusts it and does NOT re-run the gate (the no-double-run guarantee).
-    const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(grad.code, 0, grad.output);
-    const obj = parseAppliedAcceptJson(grad.stdout);
-    assertExists(obj.data.gate_validation);
-    assertEquals(obj.data.gate_validation.mode, "proof");
-    assertEquals(obj.data.gate_validation.proof.status, "honored");
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    const result = parseAppliedAcceptJson(accepted.stdout);
     assertEquals(
-      grad.output.includes("Validating the branch against the full gate"),
-      false,
-      `the gate must NOT re-run when the proof is valid\n${grad.output}`,
+      result.data.queue.map((row) => [row.state, row.authority_settlement]),
+      [["landed", "consumed"]],
     );
-    // The landing record: both forms from the honored marker ride the envelope,
-    // with the verbatim relay instruction beside them.
-    assertLandingProofRelay(obj, "epsilon");
+    assertLandingProofRelay(result, "epsilon");
+    assertEquals(await targetExists(wt), false);
     assertEquals(
-      await targetExists(wt),
-      false,
-      `should have landed\n${grad.output}`,
+      await Deno.readTextFile(join(dir, "feature.txt")),
+      "branch work\n",
     );
   });
 });
 
-Deno.test("accept: an incomplete marker cannot bypass tracked refresh convergence", async () => {
+for (const legacy of [false, true]) {
+  Deno.test(`accept: ${legacy ? "incomplete pre-launch evidence" : "no completion"} cannot enroll or land work`, async () => {
+    await withTempDir(async (dir) => {
+      await mainWithCheck(dir);
+      const wt = await addWorktree(dir, "not-complete");
+      await commitBranchWork(wt);
+      if (legacy) {
+        await recordTreeMarkerNow(wt);
+        assertEquals((await inspectGateProof(wt)).status, "stale");
+      }
+      for (const preview of [true, false]) {
+        const accepted = await runAgent(wt, [
+          "accept",
+          "--confirmed",
+          "--json",
+          ...(preview ? ["--dry-run"] : []),
+        ]);
+        assertEquals(accepted.code, preview ? 0 : 1, accepted.output);
+        const result = decodeCliResult(accepted.stdout, "accept");
+        assertResultDataKey(result, "pending");
+        assert(
+          result.data.pending?.some((item) => item.kind === "missing-evidence"),
+          accepted.output,
+        );
+        assertEquals(await targetExists(join(wt, ".check-count")), false);
+        assertEquals(await targetExists(join(dir, "feature.txt")), false);
+        assertEquals(await targetExists(wt), true);
+      }
+    });
+  });
+}
+
+for (const benign of [true, false]) {
+  Deno.test(`accept: released composition ${benign ? "refreshes and lands" : "fails validation without landing"} after the trunk moves`, async () => {
+    await withTempDir(async (dir) => {
+      await mainWithCheck(dir, true);
+      const wt = await addWorktree(dir, "composed");
+      await commitBranchWork(wt);
+      const done = await runAgent(wt, ["done", "--json"]);
+      assertEquals(done.code, 0, done.output);
+      await advanceMain(dir, benign ? "notes.txt" : "taboo.txt");
+      const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+      assertEquals(accepted.code, benign ? 0 : 1, accepted.output);
+      const result = decodeCliResult(accepted.stdout, "accept");
+      assertResultDataKey(result, "queue");
+      assertEquals(
+        result.data.queue?.at(-1)?.state,
+        benign ? "landed" : "pending",
+      );
+      if (!benign) {
+        assert(
+          result.data.pending?.some((item) =>
+            item.kind === "validation-failed"
+          ),
+          accepted.output,
+        );
+        assertEquals(await targetExists(wt), true);
+      }
+      assertEquals(await targetExists(join(dir, "feature.txt")), benign);
+    });
+  });
+}
+
+Deno.test("accept: stale composition without a declared reusable environment keeps the authored source", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "legacy-refresh-proof");
+    const wt = await addWorktree(dir, "unavailable");
     await commitBranchWork(wt);
-    const refreshed = await runAgent(wt, ["refresh", "--json"]);
-    assertEquals(refreshed.code, 0, refreshed.output);
-    await commitCurrentWorktree(wt, "adopt tracked refresh artifacts");
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+    await advanceMain(dir, "notes.txt");
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 1, accepted.output);
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assertResultDataKey(result, "pending");
+    assert(
+      result.data.pending?.some((item) =>
+        item.kind === "environment-unavailable"
+      ),
+      accepted.output,
+    );
+    assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
+  });
+});
+
+Deno.test("accept: a new authored commit requires completion and new source authority", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir, true);
+    const wt = await addWorktree(dir, "edited");
+    await commitBranchWork(wt);
+    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
+    await Deno.writeTextFile(join(wt, "more.txt"), "more\n");
+    await commitCurrentWorktree(wt);
+    const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    assertEquals(await targetExists(join(dir, "more.txt")), false);
+    assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
+    const completed = await runAgent(wt, ["done", "--json"]);
+    assertEquals(completed.code, 0, completed.output);
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    assertEquals(await Deno.readTextFile(join(dir, "more.txt")), "more\n");
+  });
+});
+
+Deno.test("accept: completion refuses a committed stale refresh artifact before queue admission", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir);
+    const wt = await addWorktree(dir, "stale-refresh");
+    await commitBranchWork(wt);
+    assertEquals((await runAgent(wt, ["refresh", "--json"])).code, 0);
+    await commitCurrentWorktree(wt);
     const mcpPath = join(wt, ".mcp.json");
     const mcp = decodeWith(
       MCP_SETTINGS_SCHEMA,
       await Deno.readTextFile(mcpPath),
     );
-    const discernServer = mcp.mcpServers.discern;
-    assert(discernServer !== undefined);
-    discernServer.command = "wrong-discern";
-    await Deno.writeTextFile(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`);
-    await commitCurrentWorktree(wt, "make a tracked refresh artifact stale");
-
-    // An incomplete current marker does not run a gate. Acceptance must apply
-    // current preconditions and cannot treat the marker as reusable Proof.
-    assertEquals((await recordTreeMarkerNow(wt)).status, "recorded");
-    assertEquals((await inspectGateProof(wt)).status, "honored");
-
-    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-    assertEquals(preview.code, 1, preview.output);
-    assertStringIncludes(preview.output, ".mcp.json");
-    assertEquals(
-      await targetExists(join(dir, "feature.txt")),
-      false,
-      "the read-only plan refusal must not touch the trunk",
-    );
-
-    const accepted = await runAgent(wt, ["accept", "--confirmed"]);
-
-    assertEquals(accepted.code, 1, accepted.output);
-    assertStringIncludes(accepted.output, ".mcp.json");
-    assertTerminalTextIncludes(accepted.output, "discern refresh");
-    assertEquals(
-      await targetExists(wt),
-      true,
-      "the refused worktree must survive",
-    );
-    assertEquals(
-      await targetExists(join(dir, "feature.txt")),
-      false,
-      "the stale tree must not reach the trunk",
-    );
-  });
-});
-
-Deno.test("accept: an incomplete current marker reruns the Gate", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "incomplete-proof");
-    await commitBranchWork(wt);
-    await Deno.writeTextFile(join(wt, "taboo.txt"), "break the gate\n");
-    await commitCurrentWorktree(wt, "add gate-breaking work");
-
-    // A current-format marker can carry tree state without a structured Proof.
-    // It is useful for inspection but cannot authorize the acceptance fast path.
-    assertEquals((await recordTreeMarkerNow(wt)).status, "recorded");
-    assertEquals((await inspectGateProof(wt)).status, "honored");
-
+    assert(mcp.mcpServers.discern !== undefined);
+    mcp.mcpServers.discern.command = "wrong-discern";
+    await Deno.writeTextFile(mcpPath, JSON.stringify(mcp));
+    await commitCurrentWorktree(wt);
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    assertStringIncludes(done.output, ".mcp.json");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 1, accepted.output);
-    assertTerminalTextIncludes(accepted.stdout, "does not pass");
-    assertEquals(await targetExists(wt), true);
     assertEquals(await targetExists(join(dir, "feature.txt")), false);
   });
 });
 
-Deno.test("accept: with no prior `done`, accept runs the gate itself before landing", async () => {
+Deno.test("accept: a producer committing during completion cannot supply landing Proof", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "zeta");
-    await commitBranchWork(wt); // committed, but the agent never ran `done` → no proof
-
-    const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(grad.code, 0, grad.output);
-    const obj = parseAppliedAcceptJson(grad.stdout);
-    assertExists(obj.data.gate_validation);
-    assertEquals(obj.data.gate_validation.mode, "rerun");
-    assertEquals(obj.data.gate_validation.proof.status, "missing");
-    assertEquals(grad.output.includes("JOB"), false);
-    // The slow path's fresh gate run rendered both proof forms — accept still
-    // carries the same landing contract as the fast path.
-    assertLandingProofRelay(obj, "zeta");
-    assertEquals(
-      await targetExists(wt),
-      false,
-      `should have landed\n${grad.output}`,
-    );
-  });
-});
-
-// ── the pin: a commit made DURING validation can never land unvalidated ─────────
-
-Deno.test("accept: refuses to land a commit that appeared while its validation gate ran", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "theta");
+    const wt = await addWorktree(dir, "mid-run-commit");
     await commitBranchWork(wt);
-
-    // Sabotage the check so it COMMITS a new file mid-gate — a deterministic
-    // stand-in for "someone commits in another terminal while the suite runs".
-    // The gate itself stays green (the script exits 0).
     await writeExecutable(
       join(wt, "check.sh"),
-      [
-        "#!/usr/bin/env sh",
-        "if [ ! -f sneaky.txt ]; then",
-        "  echo sneak > sneaky.txt",
-        "  git add sneaky.txt",
-        "  git commit -q -m 'sneak: committed mid-gate' --no-gpg-sign",
-        "fi",
-        "",
-      ].join("\n"),
+      "#!/bin/sh\nprintf sneak > sneaky.txt\ngit add sneaky.txt\ngit commit -qm sneak --no-gpg-sign\n",
     );
-    await commitCurrentWorktree(wt, "chore: wire the mid-gate committer");
-
-    // No proof exists, so accept re-runs the gate (slow path). The gate is
-    // green, but HEAD moved beneath it — landing must refuse, because the tree
-    // at the branch tip is not the tree the gate read.
-    const grad = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(grad.code, 1, grad.output);
-    assertTerminalTextIncludes(grad.output, "moved while this acceptance");
-    // Non-destructive: the worktree survives and nothing reached the trunk.
-    assertEquals(
-      await targetExists(wt),
-      true,
-      `worktree must survive\n${grad.output}`,
-    );
-    assertEquals(
-      await targetExists(join(dir, "feature.txt")),
-      false,
-      "no commit may fast-forward onto the trunk unvalidated",
-    );
-    assertEquals(
-      await targetExists(join(dir, "sneaky.txt")),
-      false,
-      "the mid-gate commit must not land",
-    );
-  });
-});
-
-Deno.test("accept: a commit made after `done` invalidates the proof (gate re-runs)", async () => {
-  await withTempDir(async (dir) => {
-    await mainWithCheck(dir);
-    const wt = await addWorktree(dir, "eta");
-    await commitBranchWork(wt);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0); // proof at C
-
-    // A further commit moves HEAD past the proof — accept must re-validate, not trust it.
-    await Deno.writeTextFile(join(wt, "more.txt"), "more\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "more", "--no-gpg-sign");
-
-    const grad = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(grad.code, 0, grad.output);
-    assertTerminalTextIncludes(
-      grad.output,
-      "Validating the branch against the full gate",
-    );
-    assertEquals(
-      grad.output.includes("already passed the gate at this commit"),
-      false,
-      `a stale proof must not be honored\n${grad.output}`,
-    );
+    await commitCurrentWorktree(wt);
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 1, done.output);
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 1, accepted.output);
+    assertEquals(await targetExists(join(dir, "sneaky.txt")), false);
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
+    assertEquals(await targetExists(wt), true);
   });
 });

@@ -27,6 +27,7 @@ import { assert, assertEquals, assertMatch } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
 import { NETWORK_TOKEN } from "./network_boundary.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
+import { Node, Project, SyntaxKind } from "ts-morph";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -60,21 +61,29 @@ const ALLOWED_EXTERNAL_PREFIXES = [
 export function importSpecifiers(
   source: string,
 ): { specifiers: string[]; unwalkableDynamicImport: boolean } {
+  const parsed = new Project({
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  })
+    .createSourceFile("guard-input.ts", source);
   const specifiers: string[] = [];
-  const staticRe =
-    /(?:^|\n)\s*(?:import|export)\s[^;]*?from\s*["']([^"']+)["']|(?:^|\n)\s*import\s*["']([^"']+)["']/g;
-  for (const m of source.matchAll(staticRe)) {
-    const spec = m[1] ?? m[2];
-    if (spec !== undefined) {
-      specifiers.push(spec);
+  for (const statement of parsed.getStatements()) {
+    if (
+      Node.isImportDeclaration(statement) || Node.isExportDeclaration(statement)
+    ) {
+      const specifier = statement.getModuleSpecifierValue();
+      if (specifier !== undefined) specifiers.push(specifier);
     }
   }
-  const dynamicRe = /\bimport\s*\(\s*(["']([^"']+)["'])?/g;
   let unwalkableDynamicImport = false;
-  for (const m of source.matchAll(dynamicRe)) {
-    const literal = m[2];
-    if (literal !== undefined) {
-      specifiers.push(literal);
+  for (const call of parsed.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
+    const argument = call.getArguments()[0];
+    if (
+      Node.isStringLiteral(argument) ||
+      Node.isNoSubstitutionTemplateLiteral(argument)
+    ) {
+      specifiers.push(argument.getLiteralText());
     } else {
       unwalkableDynamicImport = true;
     }
@@ -223,4 +232,20 @@ const e = await import(pickOne());
     "./d.ts",
   ]);
   assertEquals(unwalkableDynamicImport, true);
+});
+
+Deno.test("no-network guard: comments, strings, and type queries create no runtime import edges", () => {
+  for (
+    const source of [
+      '/** See {@link import("./documentation.ts").Example}. */',
+      '// import("./comment.ts")',
+      `const description = 'import("./example.ts")';`,
+      'type Example = import("./types.ts").Example;',
+    ]
+  ) {
+    assertEquals(importSpecifiers(source), {
+      specifiers: [],
+      unwalkableDynamicImport: false,
+    });
+  }
 });

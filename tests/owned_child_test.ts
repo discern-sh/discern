@@ -7,7 +7,7 @@ import { pinnedTerminal, withTempDir } from "./helpers.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
-import { realDelay } from "./waiting.ts";
+import { realDelay, waitForPendingCondition } from "./waiting.ts";
 
 const DRIVER = fromFileUrl(
   new URL("fixtures/owned_child_driver.ts", import.meta.url),
@@ -115,4 +115,42 @@ Deno.test({
       );
     }, { prefix: "discern-shell-quiesce-" });
   },
+});
+
+Deno.test("request cancellation stops a routed command without killing its owning server", async () => {
+  await withTempDir(async (dir) => {
+    const controller = new AbortController();
+    const ready = join(dir, "ready");
+    const late = join(dir, "late");
+    const command = runShellRouted(
+      'touch "$READY_TARGET"; sleep 2; touch "$LATE_TARGET"',
+      {
+        cwd: dir,
+        env: { READY_TARGET: ready, LATE_TARGET: late },
+        log: new Logger({ json: true, noColor: true }),
+        signal: controller.signal,
+      },
+    );
+    try {
+      await waitForPendingCondition(
+        command,
+        async () => await lstatIfExists(ready) !== undefined,
+        "routed command to start",
+      );
+    } finally {
+      controller.abort();
+      assert(
+        (await command) !== 0,
+        "a cancelled command cannot supply success",
+      );
+    }
+    assertEquals(await lstatIfExists(late), undefined);
+    assertEquals(
+      await runShellRouted("exit 0", {
+        cwd: dir,
+        log: new Logger({ json: true, noColor: true }),
+      }),
+      0,
+    );
+  });
 });

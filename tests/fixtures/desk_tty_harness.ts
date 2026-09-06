@@ -1,3 +1,4 @@
+import { recordCompleteGateFixture } from "../complete_gate_fixture.ts";
 /**
  * Real-terminal contract for the production Desk.
  *
@@ -44,7 +45,6 @@ import {
 import {
   pinValidatedTree,
   preflightAdminStateWrites,
-  recordGateOutcome,
 } from "../../src/engine/gate/proof.ts";
 import { configEpoch } from "../../src/engine/logbook/epoch.ts";
 import { LOGBOOK_SCHEMA_VERSION, type LogbookEvent } from "../../src/engine/logbook/schema.ts";
@@ -491,7 +491,7 @@ async function materialiseProof(
   if (!preflight.ok) {
     throw new Error(`could not preflight Desk fixture Proof at ${preflight.path}`);
   }
-  const recorded = await recordGateOutcome(
+  const recorded = await recordCompleteGateFixture(
     worktree,
     preflight.authority,
     true,

@@ -500,7 +500,9 @@ Deno.test("cold setup composes consent, authoring, Proof replay, landing, activa
         );
         assert(
           outputBytes <= SETUP_RESULT_MAX_CHARS * 8,
-          `cold journey emitted ${outputBytes} bytes across ${harness.invocations.length} calls`,
+          `cold journey emitted ${outputBytes} bytes across ${harness.invocations.length} calls: ${
+            JSON.stringify(harness.invocations)
+          }`,
         );
         assert(
           largestOutputBytes <= SETUP_RESULT_MAX_CHARS,

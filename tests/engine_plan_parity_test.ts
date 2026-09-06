@@ -1,3 +1,4 @@
+import { AcceptDataSchema } from "../src/shared/result_schemas.ts";
 /**
  * The ARCHITECTURAL guard for the plan/apply class (ADR 0027): every command
  * whose canonical operation-effect policy requires a preview, held to the
@@ -365,7 +366,6 @@ const CONFIG_WITH_STANDARD = [
   "run = \"sh -c 'echo DISCERN_METRIC filecount 5'\"",
   "limit = 10",
   'direction = "down"',
-  'measure = "on-demand"',
   "",
 ].join("\n");
 
@@ -599,12 +599,24 @@ const PROBES: Record<string, DryRunProbe> = {
     },
   },
   "accept": {
-    envelope: "engine-plan",
+    envelope: "data-preview",
+    assertPreview: (envelope) => {
+      const data = AcceptDataSchema.parse(envelope.data);
+      assert(data.queue?.length === 1);
+      assert(data.queue[0]?.candidate_id !== null);
+      assert(
+        data.queue[0]?.pending.some((pending) =>
+          pending.kind === "missing-authority"
+        ),
+      );
+    },
     arrange: async (dir) => {
       const wt = await mainWithWorktree(dir, "paritygrad");
       await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
       await git(wt, "add", "-A");
       await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+      const done = await runAgent(wt, ["done", "--json"]);
+      assertEquals(done.code, 0, done.output);
       return {
         cwd: wt,
         dry: ["accept", "--dry-run", "--json"],

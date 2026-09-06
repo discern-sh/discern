@@ -312,9 +312,6 @@ realPtyTest({
           ],
           chunks: [{ keys: ["enter"] }],
         }, {
-          waitFor: ["Pre-authorize this task", "Later", "Pre-authorize"],
-          chunks: [{ keys: ["enter"] }],
-        }, {
           waitFor: ["Creation facts", title, brief, "Base commit"],
           capture: textCapture(
             "creation-preview",

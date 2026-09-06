@@ -129,7 +129,7 @@ Deno.test("scope-gates: a failing gate fails finish and points at the gotchas", 
     const r = await runAgent(dir, ["done"]);
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stdout, "FAILED");
-    assertTerminalTextIncludes(r.stderr, "scope gates failed");
+    assertTerminalTextIncludes(r.stderr, "Changed-scope gates failed");
     // The shared gotchas pointer fires on a gated-phase failure.
     assertTerminalTextIncludes(r.stderr, "gate step failed");
   });

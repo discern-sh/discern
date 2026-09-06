@@ -82,6 +82,8 @@ async function worktreeReadyToLand(dir: string): Promise<string> {
   await Deno.writeTextFile(join(wt, "feature.txt"), "branch work\n");
   await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", "feat: work", "--no-gpg-sign");
+  const done = await runAgent(wt, ["done", "--json"]);
+  assertEquals(done.code, 0, done.output);
   return wt;
 }
 
@@ -187,10 +189,10 @@ const PROBES = {
       env,
       mutated,
       meaning: {
-        act: "Landing is the owner's decision",
-        consequence: "Nothing has been landed",
-        scope: "the worktree, its branch, and the trunk are untouched",
-        continuation: "discern accept --confirmed",
+        act: "separately recorded landing authority",
+        consequence: "0 prefixes landed",
+        scope: "current source",
+        continuation: "confirmed",
       },
       surfaces: {
         json: {
@@ -287,8 +289,7 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
     assertEquals(env.verb, "accept");
     assertEquals(env.error, AWAITING_CONSENT_SLUG);
     assertHasHint(env, HINTS["accept-awaiting-confirmation"]);
-    assertHasHint(env, HINTS["accept-review-via-status"]);
-    assertStringIncludes(env.message, "--confirmed");
+    assertStringIncludes((env.hints ?? []).join("\n"), "--confirmed");
     // Read-only: the worktree survives and nothing reached the trunk.
     assert(await targetExists(wt), `worktree must survive\n${r.output}`);
     assertEquals(
@@ -320,7 +321,7 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
     assert(typeof env.data.proof_line === "string");
     assertEquals(env.ok, true);
     assertEquals(env.verb, "accept");
-    assertEquals(env.data.consent, { source: "conversation" });
+    assertEquals(env.data.queue?.[0]?.consent, { source: "conversation" });
     assertStringIncludes(
       env.data.proof_line,
       "landed with conversation consent",

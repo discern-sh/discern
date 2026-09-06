@@ -461,6 +461,8 @@ Deno.test("drop recovery branch deletion keeps a branch that moved after preserv
       },
     });
     assertEquals(deletion.kind, "refused");
+    assert(deletion.kind === "refused");
+    assertEquals(deletion.refusal, "changed");
     assertEquals(
       await gitOut(dir, "rev-parse", "agent/recovery-race"),
       movedTip,

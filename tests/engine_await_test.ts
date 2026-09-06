@@ -1,3 +1,13 @@
+import {
+  completeNoteAuthority,
+  completeNoteProof,
+} from "./completion_note_fixtures.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { recordCompleteGateFixture } from "./complete_gate_fixture.ts";
+import {
+  pinValidatedTree,
+  preflightAdminStateWrites,
+} from "../src/engine/gate/proof.ts";
 /**
  * `await` engine tests — the blocking fleet-condition verb, driven through the
  * real core against scaffolded repos (fast, in-process) plus the CLI for the
@@ -50,7 +60,6 @@ import {
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import {
   readContinuation,
   saveContinuation,
@@ -119,22 +128,17 @@ async function commitFile(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-/** Stamp an honored-shaped gate proof for the worktree's current HEAD. */
+/** Publish complete current readiness through the same marker writer as done. */
 async function writeHonoredProof(worktree: string): Promise<void> {
-  const path = await gitAdminStatePath(worktree, "gateProof");
-  assert(path !== undefined, "proof path must resolve in a worktree");
-  const head = await gitOut(worktree, "rev-parse", "HEAD");
-  await Deno.mkdir(join(path, ".."), { recursive: true });
-  await Deno.writeTextFile(
-    path,
-    `${
-      JSON.stringify({
-        version: ON_DISK_FORMATS.gateProof.version,
-        head,
-        mode: "strict",
-      })
-    }\n`,
+  const authority = await preflightAdminStateWrites(worktree);
+  assert(authority.ok);
+  const recorded = await recordCompleteGateFixture(
+    worktree,
+    authority.authority,
+    true,
+    await pinValidatedTree(worktree),
   );
+  assertEquals(recorded.status, "recorded");
 }
 
 Deno.test("await --landed tracks the branch tip and survives its deletion", async () => {
@@ -456,16 +460,18 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
     await commitFile(dep, "dep.txt", "work", "dep work");
     const tip = await gitOut(dep, "rev-parse", "HEAD");
     await git(dir, "merge", "-q", "--ff-only", tip);
-    const proof = await writeProofNote(dir, tip, {
-      branch: "agent/dep",
-      trunk: "main",
-      head: tip.slice(0, 12),
-      files_total: 1,
-      insertions: 1,
-      deletions: 0,
-      line: "gate green",
-      markdown: "gate green",
-    });
+    const proof = await writeProofNote(
+      dir,
+      tip,
+      completeNoteProof(tip, "agent/dep"),
+      fakeEnv(),
+      {
+        authority: completeNoteAuthority(completeNoteProof(tip, "agent/dep")),
+        consent: { source: "effort-grant" },
+        variances: [],
+        standard_proposals: [],
+      },
+    );
     assertEquals(proof.status, "recorded");
     await git(dir, "worktree", "remove", "--force", dep);
     await git(dir, "branch", "-D", "agent/dep");
@@ -582,16 +588,20 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
           await git(dir, "worktree", "remove", "--force", dep);
           await git(dir, "branch", "-D", "agent/dep");
           await git(dir, "merge", "-q", "--ff-only", tip);
-          const proof = await writeProofNote(dir, tip, {
-            branch: "agent/dep",
-            trunk: "main",
-            head: tip.slice(0, 12),
-            files_total: 1,
-            insertions: 1,
-            deletions: 0,
-            line: "gate green",
-            markdown: "gate green",
-          });
+          const proof = await writeProofNote(
+            dir,
+            tip,
+            completeNoteProof(tip, "agent/dep"),
+            fakeEnv(),
+            {
+              authority: completeNoteAuthority(
+                completeNoteProof(tip, "agent/dep"),
+              ),
+              consent: { source: "effort-grant" },
+              variances: [],
+              standard_proposals: [],
+            },
+          );
           assert(
             proof.status === "recorded" ||
               proof.status === "already_present",

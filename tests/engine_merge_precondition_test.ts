@@ -1,18 +1,12 @@
 /**
- * Engine coverage for the gate's merge precondition (ADR 0050): `done` checks
- * that the branch contains the latest `main` FIRST and fail-fast, so a branch
- * behind `main` is rejected *before* the expensive fix/build/check/test run — the
- * work the forced re-integration would discard anyway. The regression guard for
- * the ordering: were the check to slip back to the end, the capability would run
- * (its marker would print, its step would be `ok`) and these tests would fail.
- *
- * Each test drives a REAL linked worktree behind a moved `main`, shelling out to
- * the dispatcher so the bytes under test are what an install runs.
+ * A behind-trunk source without a declared composition environment stops before
+ * expensive producers. The same current source runs normally. An eligible
+ * released environment is exercised by the public prefix composition tests.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { GATE_FAILURE_REMEDIES, HINTS } from "../src/shared/hints.ts";
+import { HINTS } from "../src/shared/hints.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -61,7 +55,7 @@ async function worktreeBehindMain(dir: string, name: string): Promise<string> {
   return wt;
 }
 
-Deno.test("done fails fast on the merge precondition when behind main — the capability never runs", async () => {
+Deno.test("done behind trunk without a composition environment stops before the capability", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behind");
 
@@ -79,15 +73,16 @@ Deno.test("done fails fast on the merge precondition when behind main — the ca
     // The tree is unchanged, so the deliberate rerun is explicit.
     const json = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(json.code, 1, json.output);
-    const expected = assertHasHint(
-      decodeCliResult(json.stdout, "done"),
-      GATE_FAILURE_REMEDIES.merge,
-    );
-    assertTerminalTextIncludes(r.output, expected);
+    const result = decodeCliResult(json.stdout, "done");
+    assertHasHint(result, HINTS["completion-pending"], {
+      action:
+        "Make an eligible declared execution environment available, or run discern update to bring the source to the current trunk before running discern done.",
+    });
+    assertTerminalTextIncludes(r.output, "discern update");
   });
 });
 
-Deno.test("done --json behind main: failed_stage is merge and every step is skipped", async () => {
+Deno.test("done --json behind trunk reports unavailable composition environment without running jobs", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeBehindMain(dir, "behindjson");
 
@@ -97,12 +92,20 @@ Deno.test("done --json behind main: failed_stage is merge and every step is skip
     const obj = decodeCliResult(r.stdout, "done");
     assertEquals(obj.ok, false);
     assert(obj.data !== undefined && "failed_stage" in obj.data, r.stdout);
-    assertEquals(obj.data.failed_stage, "merge");
-    // Nothing downstream ran: the planned capability is serialized, but skipped.
-    assert(obj.steps !== undefined, r.stdout);
-    assert(obj.steps.length >= 1, `expected planned steps\n${r.stdout}`);
+    assertEquals(obj.data.failed_stage, null);
+    assertResultDataKey(obj, "completion");
     assert(
-      obj.steps.every((s: { outcome: string }) => s.outcome === "skipped"),
+      obj.data.completion?.pending?.some((item) =>
+        item.kind === "environment-unavailable"
+      ),
+    );
+    assertEquals(obj.data.producer_executions, {});
+    // No producer demand was installed before the environment refusal.
+    assertEquals(obj.data.gate_ran, false);
+    assert(
+      (obj.steps ?? []).every((s: { outcome: string }) =>
+        s.outcome === "skipped"
+      ),
       `every step must be skipped when the merge precondition fails first\n${r.stdout}`,
     );
   });

@@ -187,7 +187,10 @@ Deno.test("logbook: render remains a convenience flag outside the result-format 
 Deno.test("logbook: an effectful verb pairs begin and completion by invocation id", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "true"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "logbook-test"\n[jobs]\ntest = "true"\n`,
+    );
     await gitInit(dir);
 
     const run = await runAgent(dir, ["test", "--json"]);
@@ -553,7 +556,7 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[jobs]\ntest = "sh -c 'echo failing; exit 1'"\n`,
+      `[project]\nslug = "logbook-test"\n[jobs]\ntest = "sh -c 'echo failing; exit 1'"\n`,
     );
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
@@ -601,7 +604,10 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
 Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's original red", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\nformat = "false"\ntest = "true"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "logbook-test"\n[jobs]\nformat = "false"\ntest = "true"\n`,
+    );
     await gitInit(dir);
     await Deno.mkdir(
       join(dir, ".git", "discern", "validation-hmac-key"),
@@ -631,7 +637,10 @@ Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's 
 Deno.test("logbook: Proof reuse and the one deliberate rerun spelling remain distinct", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "echo ok"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "logbook-test"\n[jobs]\ntest = "echo ok"\n`,
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "proof-reuse-logbook");
     await Deno.writeTextFile(join(wt, "feature.txt"), "feature\n");
@@ -664,7 +673,10 @@ Deno.test("logbook: Proof reuse and the one deliberate rerun spelling remain dis
 Deno.test("logbook: every registered validation verb records current evidence", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "true"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "logbook-test"\n[jobs]\ntest = "true"\n`,
+    );
     await gitInit(dir);
     const wt = await addWorktree(dir, "validation-writer-enrollment");
     await Deno.writeTextFile(join(wt, "feature.txt"), "feature\n");
@@ -693,7 +705,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[standards.cov]\ndirection = "up"\nlimit = 10\nmargin = 5\nrun = "echo DISCERN_METRIC cov 50"\n`,
+      `[project]\nslug = "engine-test"\n[standards.cov]\ndirection = "up"\nlimit = 10\nmargin = 5\nrun = "echo DISCERN_METRIC cov 50"\n`,
     );
     await gitInit(dir);
     const check = await runAgent(dir, ["standards", "--json"]);

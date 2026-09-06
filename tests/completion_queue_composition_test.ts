@@ -1,14 +1,18 @@
+import { GITATTRIBUTES_REL } from "../src/lib/agent_gitattributes.ts";
+import { planRefresh } from "../src/engine/tracked_refresh.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { git, gitOut } from "./engine_helpers.ts";
 import { COMPLETION_CLOCK, COMPLETION_DIGEST } from "./completion_fixtures.ts";
-import { loadConfig } from "../src/shared/config_schema.ts";
+import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import {
   composeCandidate,
   discoverSourceDependencies,
   observeSource,
   publishCandidate,
+  retainMeasurementCandidate,
   verifyComposition,
 } from "../src/engine/landing_queue/composition.ts";
 import { compositionRecipe } from "../src/engine/landing_queue/generation.ts";
@@ -185,6 +189,108 @@ Deno.test("queue A01/Q03: source dependencies retain the included revision after
         replaced,
       ]),
       [],
+    );
+  });
+});
+
+Deno.test("standalone measurement retention cannot publish queue composition without its receipt", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await compositionFixture(base, false);
+    const recipe = await compositionRecipe(
+      fixture.slot,
+      await loadConfig(fixture.slot),
+      COMPLETION_DIGEST,
+      TEST_PROCESS_TIMEOUT_MS / 1000,
+      {},
+    );
+    const candidate = {
+      ...fixture.execution.candidate,
+      dependencies: [],
+      expected_predecessor: { head: fixture.predecessor, candidate_id: null },
+      composition: {
+        ...recipe.identity,
+        merge_commit: null,
+        regeneration_commit: null,
+      },
+    };
+    await retainMeasurementCandidate(
+      fixture.slot,
+      fixture.execution.candidate_id,
+      candidate,
+      fixture.execution.fence,
+      COMPLETION_CLOCK,
+    );
+    await assertRejects(
+      () =>
+        publishCandidate(
+          fixture.slot,
+          fixture.execution.candidate_id,
+          candidate,
+          fixture.execution.fence,
+          COMPLETION_CLOCK,
+        ),
+      Error,
+      "composition receipt",
+    );
+    assertEquals(
+      await gitOut(fixture.slot, "rev-parse", "HEAD"),
+      candidate.source.head,
+    );
+  });
+});
+
+Deno.test("composition regenerates owned instructions for every provider while preserving co-managed artifacts", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await compositionFixture(
+      base,
+      false,
+      AGENT_NAMES,
+      async (root) => {
+        // A missing co-managed artifact is authored state, outside owned regeneration.
+        await Deno.remove(join(root, GITATTRIBUTES_REL));
+      },
+    );
+    const recipe = await compositionRecipe(
+      fixture.slot,
+      await loadConfig(fixture.slot),
+      COMPLETION_DIGEST,
+      TEST_PROCESS_TIMEOUT_MS / 1000,
+      {},
+    );
+    const refresh = await planRefresh(fixture.slot, {
+      reconcileProofNotesFetch: false,
+    });
+    const shared = refresh.effects.filter((effect) =>
+      effect.type === "file" && !recipe.built_in_paths.includes(effect.target)
+    );
+    assert(
+      shared.length > 0,
+      "the provider registry must exercise co-managed refresh effects",
+    );
+    const before = await Promise.all(
+      shared.map((effect) =>
+        readTextIfExists(join(fixture.slot, effect.target))
+      ),
+    );
+    const candidate = await composeCandidate({
+      ...fixture,
+      prepare: () => Promise.resolve(),
+      recipe,
+      dependencies: [],
+      predecessor: { head: fixture.predecessor, candidate_id: null },
+      policy: COMPLETION_DIGEST,
+      requirement_set: COMPLETION_DIGEST,
+      clock: COMPLETION_CLOCK,
+    });
+    assert(!("kind" in candidate), JSON.stringify(candidate));
+    assert(await verifyComposition(fixture.root, candidate, recipe));
+    assertEquals(
+      await Promise.all(
+        shared.map((effect) =>
+          readTextIfExists(join(fixture.slot, effect.target))
+        ),
+      ),
+      before,
     );
   });
 });

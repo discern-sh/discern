@@ -18,7 +18,7 @@ import {
 import { claimLandingAttempt } from "../src/engine/landing_queue/claims.ts";
 import { planQueue } from "../src/engine/landing_queue/planner.ts";
 import {
-  type LandingBoundary,
+  LANDING_BOUNDARIES,
   publishQueueLanding,
   type QueueLandingRuntime,
   readLandingProof,
@@ -99,6 +99,17 @@ async function ready(root: string): Promise<{
       mainRepo: root,
       trunk: "main",
       sourceCheckout: () => Promise.resolve(path),
+      converge: () => {
+        assertEquals([...(currentOperationLocks()?.boundaries ?? [])], [
+          "checkout",
+        ], "main convergence never holds the shared publication lock");
+        return Promise.resolve({
+          ok: true,
+          steps: [],
+          diagnostics: [],
+          hints: [],
+        });
+      },
       afterBoundary: (phase) => {
         if (phase === "planned") {
           assertEquals(
@@ -244,15 +255,7 @@ Deno.test("native racing accept actors have one checked-out ref publication", as
   });
 });
 
-for (
-  const boundary of [
-    "planned",
-    "grant",
-    "ref",
-    "authority",
-    "note",
-  ] satisfies LandingBoundary[]
-) {
+for (const boundary of LANDING_BOUNDARIES) {
   Deno.test(`native landing recovery after ${boundary} preserves exactly-once transition and settlement`, async () => {
     await withTempDir(async (root) => {
       const { runtime, record, claim, path } = await ready(root);

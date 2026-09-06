@@ -22,12 +22,9 @@ import { BUNDLED_MANUAL_STAGE_DIR } from "../src/lib/paths.ts";
 import { observeValidationInputs } from "../src/engine/validation/runtime.ts";
 import { EDITOR_PATH_POLICIES } from "../scripts/repository_files.ts";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
-import {
-  authoredTextFiles,
-  REPO_AUTHORED_PATHS,
-  REPO_ROOT,
-} from "./repo_authored_paths.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 Deno.test("binary inputs include authored files and exclude ignored or host metadata", async () => {
   await withTempDir(async (root) => {
@@ -178,7 +175,14 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
       await Deno.writeTextFile(join(root, path), "temporary build output\n");
     }
     // The scan completes while every output still exists; cleanup cannot mask overlap.
-    assertEquals(await authoredTextFiles(root), [".gitignore"]);
+    assertEquals(
+      await structuralGuardScope({
+        guard:
+          "tests/build_distribution_inputs_test.ts#build-output-source-closure",
+        universe: "authored-text",
+      }, root),
+      [".gitignore"],
+    );
     assertEquals(await gitOut(root, "status", "--porcelain=v1"), "");
     const config = await loadConfig(REPO_ROOT);
     const exclusions = z.object({ exclude: z.array(z.string()) });
@@ -239,7 +243,11 @@ Deno.test("live binary scratch stays outside source scans and inside the environ
     );
     await git(root, "add", "-f", compilerScratch);
     assertEquals(
-      await authoredTextFiles(root),
+      await structuralGuardScope({
+        guard:
+          "tests/build_distribution_inputs_test.ts#build-output-authored-changes",
+        universe: "authored-text",
+      }, root),
       [".gitignore", compilerScratch, "unrelated_workspace/future.ts"].sort(),
     );
   });

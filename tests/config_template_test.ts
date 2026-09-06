@@ -138,6 +138,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "acceptance",
     "worktree",
     "worktree.setup",
+    "completion",
     // The shipped built-in checkpoints, active by reference for fresh installs.
     "checkpoints.map-focus",
     "checkpoints.instruction-economy",

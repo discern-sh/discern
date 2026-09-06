@@ -63,7 +63,6 @@ const ANSWERS = JSON.stringify({
       per: { lines: ["src/**", "lib/**"] },
       scale: 100,
       margin: 0.5,
-      measure: "on-demand",
       inputs: ["src/**"],
       timeout: 44,
     },

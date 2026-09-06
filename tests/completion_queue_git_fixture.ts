@@ -1,3 +1,4 @@
+import type { AGENT_NAMES } from "../src/shared/config_schema.ts";
 /** Real Git source/predecessor snapshots with an explicitly simulated environment lease. */
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
@@ -23,6 +24,8 @@ import {
 export async function compositionFixture(
   base: string,
   conflict: boolean,
+  agents: readonly (typeof AGENT_NAMES)[number][] = [],
+  beforeSourceCommit?: (root: string) => Promise<void>,
 ): Promise<
   {
     root: string;
@@ -35,7 +38,9 @@ export async function compositionFixture(
   await Deno.mkdir(root);
   await Deno.writeTextFile(
     join(root, "discern.toml"),
-    '[project]\nslug = "queue-test"\nagents = []\n[generated.data]\npaths = ["generated.txt"]\nrun = "sh generator.sh"\n',
+    `[project]\nslug = "queue-test"\nagents = ${
+      JSON.stringify(agents)
+    }\n[generated.data]\npaths = ["generated.txt"]\nrun = "sh generator.sh"\n`,
   );
   await Deno.writeTextFile(join(root, "a"), "a\n");
   await Deno.writeTextFile(join(root, "b"), "b\n");
@@ -46,6 +51,7 @@ export async function compositionFixture(
   );
   await gitInit(root);
   await compileInstructions(root, new Logger({ json: true, noColor: true }));
+  await beforeSourceCommit?.(root);
   await git(root, "add", ".");
   await git(
     root,

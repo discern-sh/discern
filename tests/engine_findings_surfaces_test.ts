@@ -285,15 +285,11 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     ]);
     assertEquals(acceptRun.code, 0, acceptRun.output);
     const accepted = parse(acceptRun.stdout, "accept");
-    assert(
-      accepted.data !== undefined && "gate_validation" in accepted.data,
-    );
-    const gateValidation = accepted.data.gate_validation;
-    assertEquals(
-      gateValidation?.mode,
-      "proof",
-      "the advisory must leave the proof honor path intact",
-    );
+    assert(accepted.data !== undefined && "queue" in accepted.data);
+    const prefix = accepted.data.queue?.[0];
+    assertEquals(prefix?.state, "landed");
+    assert(prefix?.candidate_id !== null);
+    assertEquals(prefix?.convergence, "passed");
   });
 });
 

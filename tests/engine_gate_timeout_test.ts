@@ -283,6 +283,11 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
         "",
       ].join("\n"),
     );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `\n${TIMEOUT_READY_FILE}\n`,
+      { append: true },
+    );
     await gitInit(dir);
 
     const pending = runAgent(dir, ["done", "--json"]);
@@ -360,6 +365,11 @@ async function assertStageKindTimesOut(opts: {
         "timeout = 1",
         "",
       ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `\n${TIMEOUT_READY_FILE}\n`,
+      { append: true },
     );
     await gitInit(dir);
     if (opts.changedFile !== undefined) {
@@ -559,6 +569,11 @@ async function assertOverrideBoundsOwnJob(opts: {
         "",
       ].join("\n"),
     );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `\n${TIMEOUT_READY_FILE}\n`,
+      { append: true },
+    );
     await gitInit(dir);
 
     const pending = runAgent(dir, ["done", "--json"]);
@@ -649,6 +664,11 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
         "",
       ].join("\n"),
     );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `\n${TIMEOUT_READY_FILE}\n`,
+      { append: true },
+    );
     await gitInit(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
@@ -723,6 +743,11 @@ Deno.test("timeout override: the bare command-or-list capability form parses and
         'test = ["true", "true"]',
         "",
       ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      `\n${TIMEOUT_READY_FILE}\n`,
+      { append: true },
     );
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);

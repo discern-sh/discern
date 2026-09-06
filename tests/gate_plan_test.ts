@@ -95,7 +95,10 @@ Deno.test("the Gate contract documents its registry order, fixed child environme
   const gate = await Deno.readTextFile(
     new URL("../project/map/20-quality-gate/README.md", import.meta.url),
   );
-  assertStringIncludes(gate, "serial `fix`; `build`; `check` and `test`");
+  assertStringIncludes(
+    gate,
+    "Fix and build dependencies precede checks and tests",
+  );
   for (const [name, value] of Object.entries(GATE_JOB_ENVIRONMENT)) {
     assertStringIncludes(gate, `\`${name}=${value}\``);
   }
@@ -109,7 +112,7 @@ Deno.test("the Gate contract documents its registry order, fixed child environme
     new URL("../project/map/20-quality-gate/standards.md", import.meta.url),
   );
   assertStringIncludes(standards, "the last matching marker wins");
-  assertStringIncludes(standards, "exit status does not decide a standard");
+  assertStringIncludes(standards, "A failed producer fails its consumers");
 });
 
 Deno.test("CLI, MCP, and composite done paths share one preamble implementation", async () => {
@@ -143,7 +146,7 @@ Deno.test("CLI, MCP, and composite done paths share one preamble implementation"
   );
   assertEquals(
     calls("src/engine/gate/finish.ts", /await resolveDonePreamble\(/gu),
-    2,
+    3,
   );
 });
 
@@ -152,7 +155,7 @@ Deno.test("gate job labels are unique across the whole plan (results are keyed b
   // report looks each planned job up by label — so the plan's labels must be
   // unique across every job source. Exercise them all, driven off the
   // KNOWN_JOBS / STAGES registries so a new capability, stage, or label
-  // scheme auto-enrols: every capability as a LIST (bare + `#N` labels), a
+  // scheme auto-enrols: every capability as an ordered LIST, a
   // check in every stage, and several scope gates.
   const toml = [
     "[jobs]",
@@ -177,9 +180,9 @@ Deno.test("gate job labels are unique across the whole plan (results are keyed b
   );
 });
 
-Deno.test("planStageJobs: derived stage, array expansion, willRun always true", () => {
+Deno.test("planStageJobs: derived stage, ordered recipes, willRun always true", () => {
   const check = planStageJobs(FULL, "check");
-  assertEquals(check.map((j) => j.label), ["lint", "lint#2", "typecheck"]);
+  assertEquals(check.map((j) => j.label), ["lint", "typecheck"]);
   assert(check.every((j) => j.willRun));
   assert(check.every((j) => j.reportStage === "check"));
   assertEquals(planStageJobs(FULL, "fix").map((j) => j.label), ["format"]);
@@ -213,7 +216,6 @@ Deno.test("buildGatePlan: the fresh cap splits check and test in registry order"
     plan.groups.find((g) => g.stage === "check")?.jobs.map((j) => j.label),
     [
       "lint",
-      "lint#2",
       "typecheck",
     ],
   );
@@ -275,7 +277,6 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
       "format",
       "build",
       "lint",
-      "lint#2",
       "typecheck",
       "test",
       "smoke",
@@ -293,7 +294,7 @@ Deno.test("buildGateResult: serializes plan+results into the DiscernResult envel
   // The job-kind steps are the non-scope jobs in fix→build→check→test order.
   assertEquals(
     steps.filter((s) => s.step.kind === "job").map((s) => s.step.label),
-    ["format", "build", "lint", "lint#2", "typecheck", "test", "smoke"],
+    ["format", "build", "lint", "typecheck", "test", "smoke"],
   );
   // scope-gate steps list every configured gate; the unchanged one is skipped.
   const sg = (scope: string) =>

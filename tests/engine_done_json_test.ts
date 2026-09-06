@@ -76,7 +76,7 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
   });
 });
 
-Deno.test("done --json: trunk advancing during a green gate warns and still records the proof", async () => {
+Deno.test("done --json: trunk advancing during validation prevents stale queue Proof", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -101,17 +101,26 @@ Deno.test("done --json: trunk advancing during a green gate warns and still reco
     const mainBefore = await gitOut(dir, "rev-parse", "main");
 
     const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, true);
+    assertEquals(obj.ok, false);
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_proof?.status, "recorded");
-    assertEquals(await gateProofHonored(wt), true);
+    assertEquals(obj.data.gate_proof?.status, "pending");
+    assertEquals(obj.data.proof, undefined);
+    assert(
+      obj.data.completion?.pending?.some((item) =>
+        item.kind === "stale-evidence"
+      ),
+    );
+    assertEquals(await gateProofHonored(wt), false);
     assert(
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
       "the gate job must advance the shared trunk ref",
     );
-    assertHasHint(obj, HINTS["gate-trunk-advanced"]);
+    assertHasHint(obj, HINTS["completion-pending"], {
+      action:
+        "The candidate or its predecessor changed. Run discern update when the source is behind trunk, then run discern done to establish complete current evidence.",
+    });
   });
 });
 

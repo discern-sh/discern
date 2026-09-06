@@ -119,9 +119,9 @@ Deno.test("producer output beyond the complete-capture bound fails and retains i
         [
           Deno.execPath(),
           "eval",
-          `await Deno.stdout.write(new Uint8Array(${
-            PRODUCER_CAPTURE_BYTES + 1
-          }));`,
+          `const bytes = new Uint8Array(${PRODUCER_CAPTURE_BYTES + 1});
+          let offset = 0;
+          while (offset < bytes.length) offset += await Deno.stdout.write(bytes.subarray(offset));`,
         ].map(quoteCommandWord).join(" "),
       ],
     });

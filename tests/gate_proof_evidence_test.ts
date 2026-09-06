@@ -1,12 +1,13 @@
 /**
  * The gate markers bind to the declaration-evidence identity: a recorded
  * Proof stales at an UNCHANGED HEAD when a conclusion or rationale changes,
- * restores when the identical claim returns, and fails open (stays honored)
- * for markers written before the component existed.
+ * restores when the identical complete claim returns. Pre-cutover markers
+ * without complete receipts remain stale.
  *
  * Guards: boundary:exact-tree-proof, claim:proof-exact-tree
  */
 
+import { recordCompleteGateFixture } from "./complete_gate_fixture.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
@@ -95,7 +96,7 @@ Deno.test("proof marker: a changed conclusion stales the vouch at an unchanged H
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
     const pin = await pinValidatedTree(dir);
-    const recorded = await recordGateOutcome(
+    const recorded = await recordCompleteGateFixture(
       dir,
       preflight.authority,
       true,
@@ -155,23 +156,25 @@ Deno.test("proof marker: a changed conclusion stales the vouch at an unchanged H
   });
 });
 
-Deno.test("proof marker: an incomplete record invents no declaration identity", async () => {
+Deno.test("proof marker: an incomplete record stays stale when declaration evidence changes", async () => {
   await withTempDir(async (dir) => {
     await declaredRepo(dir);
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
-    const recorded = await recordGateOutcome(
-      dir,
-      preflight.authority,
-      true,
-      await pinValidatedTree(dir),
-      // No proof rendering and no evidence: current tree state remains
-      // inspectable, but consumers must run a fresh Gate before reuse.
+    const pin = await pinValidatedTree(dir);
+    assertEquals(
+      (await recordGateOutcome(dir, preflight.authority, true, pin)).status,
+      "unavailable",
     );
-    assertEquals(recorded.status, "recorded");
-    assertEquals((await inspectGateProof(dir)).status, "honored");
-
-    // Evidence changes; the incomplete marker has nothing to compare.
+    const path = await gitAdminStatePath(dir, "gateProof");
+    assert(path !== undefined);
+    const bytes = JSON.stringify({
+      version: ON_DISK_FORMATS.gateProof.version,
+      head: pin.head,
+      mode: "strict",
+    });
+    await Deno.writeTextFile(path, bytes);
+    assertEquals((await inspectGateProof(dir)).status, "stale");
     const unmet = await recordDeclaration(
       dir,
       {
@@ -184,7 +187,8 @@ Deno.test("proof marker: an incomplete record invents no declaration identity", 
       T0,
     );
     assert(unmet.ok);
-    assertEquals((await inspectGateProof(dir)).status, "honored");
+    assertEquals((await inspectGateProof(dir)).status, "stale");
+    assertEquals(await Deno.readTextFile(path), bytes);
   });
 });
 
@@ -220,7 +224,7 @@ Deno.test("proof marker: a proposal without bound_commit is not structured Proof
         evidence_paths: ["src/feature.ts"],
       }],
     });
-    const recorded = await recordGateOutcome(
+    const recorded = await recordCompleteGateFixture(
       dir,
       preflight.authority,
       true,
@@ -282,7 +286,7 @@ Deno.test("proof marker: corrupt and unreadable stores remain honored with durab
     const head = await gitOut(dir, "rev-parse", "--short=12", "HEAD");
     const preflight = await preflightAdminStateWrites(dir);
     assert(preflight.ok);
-    const recorded = await recordGateOutcome(
+    const recorded = await recordCompleteGateFixture(
       dir,
       preflight.authority,
       true,
@@ -380,11 +384,13 @@ Deno.test("gate evidence written by a newer discern is diagnosed and never repla
     assertEquals(proof.status, "read_failed");
     assertStringIncludes(proof.reason ?? "", "written by a newer discern");
     assertEquals(
-      (await recordGateOutcome(dir, preflight.authority, true, pin)).status,
+      (await recordCompleteGateFixture(dir, preflight.authority, true, pin))
+        .status,
       "record_failed",
     );
     assertEquals(
-      (await recordGateOutcome(dir, preflight.authority, false, pin)).status,
+      (await recordCompleteGateFixture(dir, preflight.authority, false, pin))
+        .status,
       "clear_failed",
     );
     assertEquals(await Deno.readTextFile(proofPath), proofBytes);
@@ -477,7 +483,8 @@ Deno.test("the private text Gate marker is missing evidence and a fresh stamp re
     assertEquals(missing.status, "missing");
     assertStringIncludes(missing.reason ?? "", "fresh `discern done`");
     assertEquals(
-      (await recordGateOutcome(dir, preflight.authority, true, pin)).status,
+      (await recordCompleteGateFixture(dir, preflight.authority, true, pin))
+        .status,
       "recorded",
     );
     const replacement = decodeWith(

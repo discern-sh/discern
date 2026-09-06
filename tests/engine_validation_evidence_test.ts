@@ -56,7 +56,9 @@ Deno.test("standalone test records pass/fail outcomes and concurrent execution w
       const sibling = fails ? "sleep 2" : "true";
       await writeConfig(
         dir,
-        `[jobs]\ntest = ["${fails ? "false" : "true"}", "${sibling}"]\n`,
+        `[project]\nslug = "evidence-fixture"\n[jobs]\ntest = "${
+          fails ? "false" : "true"
+        }"\n[jobs.sibling]\nstage = "test"\nrun = "${sibling}"\n`,
       );
       await gitInit(dir);
       const run = await runAgent(dir, ["test", "--json"]);
@@ -96,7 +98,7 @@ Deno.test("done captures after mutating fix/build and before concurrent check/te
     await Deno.writeTextFile(join(dir, "subject.txt"), "committed\n");
     await writeConfig(
       dir,
-      `[jobs]
+      `[project]\nslug = "evidence-fixture"\n[jobs]
 format = "printf 'fixed\\n' > subject.txt"
 build = "printf 'built\\n' > subject.txt"
 lint = "true"
@@ -152,7 +154,7 @@ Deno.test("failing done records the failed test job and cancelled sibling", asyn
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[jobs]\nlint = "sleep 2"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\nlint = "sleep 2"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
     );
     await gitInit(dir);
 
@@ -175,7 +177,10 @@ Deno.test("failing done records the failed test job and cancelled sibling", asyn
 Deno.test("validation-key failure records incompleteness and cannot change a passing verdict", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "true"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\ntest = "true"\n`,
+    );
     await gitInit(dir);
     const key = await gitAdminStatePath(dir, "validationHmacKey");
     assert(key !== undefined);
@@ -201,7 +206,10 @@ Deno.test("validation-key failure records incompleteness and cannot change a pas
 Deno.test("a stalled validation dependency cannot delay or replace the Gate verdict", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "false"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\ntest = "false"\n`,
+    );
     await gitInit(dir);
     const cfg = await loadConfig(dir);
     const validationCaptureOptions = {
@@ -251,7 +259,10 @@ Deno.test("a stalled validation dependency cannot delay or replace the Gate verd
 Deno.test("MCP preserves recorder-only validation metadata while omitting it from structuredContent", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, `[jobs]\ntest = "true"\n`);
+    await writeConfig(
+      dir,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\ntest = "true"\n`,
+    );
     await gitInit(dir);
     const tool = TOOLS.find((candidate) => verbOf(candidate.name) === "test");
     assert(tool !== undefined);

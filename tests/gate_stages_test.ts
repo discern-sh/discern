@@ -1,3 +1,6 @@
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { withTempDir } from "./helpers.ts";
+import { runCapturedCommands } from "../src/engine/jobs/captured.ts";
 import { assertEquals } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { cmdsInStage, jobsInStage } from "../src/engine/gate/stages.ts";
@@ -18,16 +21,19 @@ stage = "build"
 run = ":"
 `;
 
-Deno.test("jobsInStage: known jobs derive stage and arrays expand", () => {
+Deno.test("jobsInStage: known jobs derive stage and arrays stay one ordered recipe", () => {
   const c = parseConfigOrThrow(CFG);
   const check = jobsInStage(c, "check");
   assertEquals(check.map((j) => j.label), [
     "lint",
-    "lint#2",
     "typecheck",
     "selfcheck",
   ]);
   assertEquals(check.find((j) => j.label === "lint")?.kind, "known");
+  assertEquals(
+    check.find((j) => j.label === "lint")?.command,
+    "eslint . && stylelint .",
+  );
   assertEquals(check.find((j) => j.label === "selfcheck")?.kind, "custom");
   assertEquals(jobsInStage(c, "fix").map((j) => j.label), ["format"]);
   assertEquals(jobsInStage(c, "test").map((j) => j.label), ["test"]);
@@ -46,3 +52,33 @@ Deno.test("cmdsInStage joins with && and is ':' when empty", () => {
   );
   assertEquals(cmdsInStage(c, "build"), ":");
 });
+
+for (const [name, stage] of Object.entries(KNOWN_JOBS)) {
+  Deno.test(`known ${name} runs one ordered command recipe and stops on its first failure`, async () => {
+    await withTempDir(async (root) => {
+      const commands = [
+        "printf a >> order",
+        "test $(cat order) = a && printf b >> order",
+        "exit 17",
+        "printf forbidden >> order",
+      ];
+      const config = parseConfigOrThrow(
+        `[jobs]\n${name} = ${JSON.stringify(commands)}\n`,
+      );
+      const jobs = jobsInStage(config, stage);
+      assertEquals(jobs.length, 1);
+      const job = jobs[0];
+      if (job === undefined) throw new Error("Missing known-job recipe");
+      const result = await runCapturedCommands({
+        root,
+        label: name,
+        commands: [job.command],
+        timeout: 10,
+        signal: new AbortController().signal,
+        environment: {},
+      });
+      assertEquals(result.result.code, 17);
+      assertEquals(await Deno.readTextFile(`${root}/order`), "ab");
+    });
+  });
+}

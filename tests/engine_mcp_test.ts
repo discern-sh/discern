@@ -1,3 +1,8 @@
+import { AcceptDataSchema } from "../src/shared/result_schemas.ts";
+import {
+  observedRecords,
+  observeQueue,
+} from "../src/engine/landing_queue/repository.ts";
 /**
  * Engine coverage for `discern mcp` — the MCP stdio server (ADR 0028's third
  * rendering of the result spine). Drives the real JSON-RPC handshake over a
@@ -12,7 +17,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { targetExists } from "../src/shared/fs_presence.ts";
-import { basename, dirname, join } from "@std/path";
+import { basename, join } from "@std/path";
 import {
   AcceptOutputSchema,
   AwaitOutputSchema,
@@ -37,7 +42,11 @@ import {
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
+import {
+  TEST_PROCESS_TIMEOUT_MS,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import { z } from "@zod/zod";
 import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
@@ -644,8 +653,8 @@ Deno.test("MCP logbook recording derives positional targets from the live CLI mo
   });
 });
 
-/** Create a clean accepted HEAD while allowing an empty fixture commit. */
-async function commitWorktreeForAcceptance(
+/** Commit the intended source and establish real complete evidence before acceptance. */
+async function completeWorktreeForAcceptance(
   dir: string,
   message = "prepare acceptance",
 ): Promise<void> {
@@ -659,6 +668,8 @@ async function commitWorktreeForAcceptance(
     message,
     "--no-gpg-sign",
   );
+  const done = await runAgent(dir, ["done", "--json"]);
+  assertEquals(done.code, 0, done.output);
 }
 
 /** A complete, valid `initialize` params object — the handshake a conformant
@@ -744,7 +755,7 @@ Deno.test("mcp: discern_done never reuses green Proof while the branch is behind
       guarded.structuredContent,
     );
     assertEquals(guardedPayload.ok, false);
-    assertEquals(guardedPayload.error, "unchanged_tree_rerun");
+    assertEquals(guardedPayload.error, "incomplete");
 
     const forced = await callDone({
       rerun: true,
@@ -752,7 +763,13 @@ Deno.test("mcp: discern_done never reuses green Proof while the branch is behind
     assertEquals(forced.isError, true, JSON.stringify(forced));
     const forcedPayload = FinishOutputSchema.parse(forced.structuredContent);
     assertResultDataKey(forcedPayload, "failed_stage");
-    assertEquals(forcedPayload.data.failed_stage, "merge");
+    assertEquals(forcedPayload.data.gate_ran, false);
+    assert(
+      forcedPayload.data.completion?.pending?.some((item) =>
+        item.kind === "environment-unavailable"
+      ),
+    );
+    assertStringIncludes(forcedPayload.message ?? "", "discern update");
   });
 });
 
@@ -2318,10 +2335,10 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // From inside a WORKTREE (its branch already contains main): a dry-run returns
-    // the acceptance plan and touches nothing. (accept is always listed now; it
-    // still requires a worktree to act on — the listing test covers visibility.)
+    // The preview reports one complete candidate with its independent authority stop.
     const wt = await addWorktree(dir, "grad");
+    await completeWorktreeForAcceptance(wt);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
     await using wtMcp = await spawnMcp(wt);
     await wtMcp.send({
       jsonrpc: "2.0",
@@ -2340,15 +2357,16 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
     assertEquals(preview.result.isError, false);
     assertEquals(preview.result.structuredContent.verb, "accept");
     assertEquals(preview.result.structuredContent.dry_run, true);
+    const rows = preview.result.structuredContent.data.queue;
+    assertEquals(rows.length, 1);
+    assertEquals(rows[0].branch, "refs/heads/agent/grad");
     assert(
-      preview.result.structuredContent.plan,
-      "an accept preview carries the plan",
+      rows[0].pending.some((item: { kind: string }) =>
+        item.kind === "missing-authority"
+      ),
     );
-    assertStringIncludes(
-      preview.result.content[0].text,
-      "## Current state\n\n**Dry run: nothing changed.**",
-    );
-    assertStringIncludes(preview.result.content[0].text, "Would run");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+    assert(await targetExists(wt));
     assertEquals(await wtMcp.close(), 0);
   });
 });
@@ -2726,9 +2744,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       assert(names.includes(verb), JSON.stringify(names));
     }
 
-    // The defensive refusals are KEPT (ADR 0062): accept is now callable from the
-    // trunk, but its core still refuses — there is no worktree to accept. Visible,
-    // not silent — a clean precondition_failed, the safety boundary the cores own.
+    // Acceptance is available from main; a read-only queue preview grants no progress.
     await main.send({
       jsonrpc: "2.0",
       id: 3,
@@ -2736,10 +2752,10 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
       params: { name: "discern_accept", arguments: { dry_run: true } },
     });
     const gradFromMain = await main.recv();
-    assertEquals(gradFromMain.result.isError, true);
+    assertEquals(gradFromMain.result.isError, false);
     assertEquals(
-      gradFromMain.result.structuredContent.error,
-      "precondition_failed",
+      gradFromMain.result.structuredContent.dry_run,
+      true,
     );
     assertEquals(await main.close(), 0);
 
@@ -2843,6 +2859,10 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
         "",
       ].join("\n"),
     );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      (await Deno.readTextFile(join(dir, ".gitignore"))) + "\ncommand.cwd\n",
+    );
     await gitInit(dir);
     const worktree = await addWorktree(dir, "command-cwd");
 
@@ -2929,7 +2949,7 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
       await targetExists(join(wtPath, "CLAUDE.md")),
       "the created worktree is set up",
     );
-    await commitWorktreeForAcceptance(wtPath);
+    await completeWorktreeForAcceptance(wtPath);
 
     // discern_accept over the SAME connection now operates on the re-aimed working
     // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
@@ -2987,7 +3007,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     const started = await maker.recv();
     const wtPath = started.result.structuredContent.data.path as string;
     assert(await targetExists(join(wtPath, "CLAUDE.md")), "worktree is set up");
-    await commitWorktreeForAcceptance(wtPath);
+    await completeWorktreeForAcceptance(wtPath);
     assertEquals(await maker.close(), 0);
 
     // The accepting server is rooted IN the worktree (spawn root = the worktree).
@@ -3055,9 +3075,7 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     await scaffoldEngine(dir);
     await gitInit(dir);
     const worktree = await addWorktree(dir, "partial-branch-delete");
-    await commitWorktreeForAcceptance(worktree);
     const branch = await gitOut(worktree, "branch", "--show-current");
-    const landedSha = await gitOut(worktree, "rev-parse", "HEAD");
 
     // Let landing and worktree removal complete, then fail only the final branch
     // deletion. A loose-ref lock is Git's deterministic refusal at that seam.
@@ -3068,8 +3086,16 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       "heads",
       `${branch}.lock`,
     );
-    await Deno.mkdir(dirname(branchLock), { recursive: true });
-    await Deno.writeTextFile(branchLock, "held by test\n");
+    await writeConfig(
+      worktree,
+      `[project]\nslug = "engine-test"\n[repository]\ntrunk = "main"\nensure = [${
+        JSON.stringify(`touch '${branchLock}'`)
+      }]\n`,
+    );
+    const refresh = await runAgent(worktree, ["refresh", "--json"]);
+    assertEquals(refresh.code, 0, refresh.output);
+    await completeWorktreeForAcceptance(worktree);
+    const landedSha = await gitOut(worktree, "rev-parse", "HEAD");
 
     const acceptTool = TOOLS.find((tool) => tool.name === "discern_accept");
     const statusTool = TOOLS.find((tool) => tool.name === "discern_status");
@@ -3087,33 +3113,26 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       "unknown-client",
       TEST_CLI_MODEL,
     );
-    assertEquals(partial.isError, true);
-    assertEquals(partial.structuredContent.error, "partial_acceptance");
-    assertStringIncludes(
-      String(partial.structuredContent.message),
-      `refs/heads/${branch}^{commit}`,
+    assertEquals(partial.isError, true, JSON.stringify(partial));
+    assertEquals(
+      partial.structuredContent.error,
+      "partial_acceptance",
+      JSON.stringify(partial),
     );
-    assertStringIncludes(
-      String(partial.structuredContent.message),
-      "branch -d",
-    );
-    assertStringIncludes(String(partial.structuredContent.message), landedSha);
-    const partialData = partial.structuredContent.data as {
-      root?: unknown;
-      consent?: unknown;
-      landing?: unknown;
-    } | undefined;
+    const partialData = AcceptDataSchema.parse(partial.structuredContent.data);
+    const prefix = partialData.queue?.[0];
+    assert(prefix !== undefined);
     const canonicalRoot = await Deno.realPath(dir);
-    assertEquals(partialData?.root, canonicalRoot);
-    assertEquals(partialData?.consent, {
-      source: "conversation",
-    });
-    assertEquals(partialData?.landing, {
-      recovery_performed: false,
-      trunk_landed: true,
+    assertEquals(partialData.root, canonicalRoot);
+    assertEquals(prefix.consent, { source: "conversation" });
+    assertEquals(prefix.target, landedSha);
+    assertEquals(prefix.state, "landed");
+    assertEquals(prefix.retirement, "recovery");
+    assertEquals(prefix.retirement_effects, {
       worktree_removed: true,
       branch_deleted: false,
     });
+    assertStringIncludes(String(partial.structuredContent.message), "landed");
     assertEquals(await targetExists(worktree), false);
     assertEquals(
       working.get(),
@@ -3143,12 +3162,36 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
     assertEquals(event.outcome, "partial");
     assertEquals(
       (event as unknown as { landing?: unknown }).landing,
-      partialData?.landing,
+      {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: true,
+        branch_deleted: false,
+      },
     );
 
     await Deno.remove(branchLock);
     assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
-    await git(dir, "branch", "-d", branch);
+    const settled = observedRecords(await observeQueue(dir, "main")).filter((
+      record,
+    ) => record.kind === "landing" || record.kind === "authority");
+    const resumed = await runTool(
+      acceptTool,
+      working,
+      {},
+      undefined,
+      () => Promise.resolve(undefined),
+      undefined,
+      "unknown-client",
+      TEST_CLI_MODEL,
+    );
+    assertEquals(resumed.isError, false, JSON.stringify(resumed));
+    assertEquals(
+      observedRecords(await observeQueue(dir, "main")).filter((record) =>
+        record.kind === "landing" || record.kind === "authority"
+      ),
+      settled,
+    );
     assertEquals(await gitOut(dir, "branch", "--list", branch), "");
   });
 });
@@ -3186,7 +3229,7 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
     };
     const held = await startFromMain(); // the worktree we keep working in
     const other = await startFromMain(); // the worktree we accept by path
-    await commitWorktreeForAcceptance(other);
+    await completeWorktreeForAcceptance(other);
 
     // A server rooted in `held`, accepting `other` by explicit path.
     await using inHeld = await spawnMcp(held);
@@ -3248,12 +3291,7 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
     });
     await mcp.recv();
 
-    // No discern_start has moved the working root, so it is still the spawn root (the
-    // trunk). accept is visible now (ADR 0062 retired the hiding) but its core
-    // refuses — there is no worktree to accept. `confirmed` is passed so the consent
-    // gate (ADR 0134) is satisfied and the precondition refusal is what fires: a clean
-    // precondition_failed, not a silent false green gating the trunk (the very failure
-    // §2 of the ADR guards).
+    // No current complete candidate or recorded authority exists in this repository.
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
@@ -3268,7 +3306,7 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
     );
     assertEquals(
       refused.result.structuredContent.error,
-      "precondition_failed",
+      "incomplete",
     );
     assertEquals(await mcp.close(), 0);
   });
@@ -3296,7 +3334,7 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
     });
     const started = await mcp.recv();
     const wtPath = started.result.structuredContent.data.path as string;
-    await commitWorktreeForAcceptance(wtPath);
+    await completeWorktreeForAcceptance(wtPath);
 
     // accept WITHOUT confirmed refuses — the same awaiting_consent slug setup begin
     // uses, carrying ≥1 hint, and touching nothing (the worktree survives). This is
@@ -3342,11 +3380,11 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
       JSON.stringify(landed.result),
     );
     assertEquals(landed.result.structuredContent.ok, true);
-    assertEquals(landed.result.structuredContent.data.consent, {
+    assertEquals(landed.result.structuredContent.data.queue[0].consent, {
       source: "conversation",
     });
     assertStringIncludes(
-      landed.result.structuredContent.data.proof_line,
+      landed.result.structuredContent.data.queue[0].proof_line,
       "landed with conversation consent",
     );
     assertEquals(
@@ -5017,6 +5055,10 @@ Deno.test("mcp: a response timeout tree-kills the server's in-flight gate before
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      (await Deno.readTextFile(join(dir, ".gitignore"))) + "\ngate.pid\n",
+    );
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
     const jobPid = await startInFlightFinish(mcp, dir);
@@ -5047,6 +5089,10 @@ Deno.test("mcp: cancelling an in-flight discern_done tree-kills its gate jobs", 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      (await Deno.readTextFile(join(dir, ".gitignore"))) + "\ngate.pid\n",
+    );
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
     const jobPid = await startInFlightFinish(mcp, dir);
@@ -5072,6 +5118,10 @@ Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      (await Deno.readTextFile(join(dir, ".gitignore"))) + "\ngate.pid\n",
+    );
     await gitInit(dir);
     await using mcp = await spawnMcp(dir);
     const jobPid = await startInFlightFinish(mcp, dir);
@@ -5085,5 +5135,99 @@ Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async
       `gate job ${jobPid} to die with the server`,
       { timeoutMs: 10_000, intervalMs: 50 },
     );
+  });
+});
+
+Deno.test("discern mcp: cancellation during main convergence preserves landing and permits cleanup-only recovery", async () => {
+  await withTempDir(async (dir) => {
+    const root = join(dir, "repo");
+    await Deno.mkdir(root);
+    const armed = join(dir, "armed");
+    const ready = join(dir, "ready");
+    const calls = join(dir, "calls");
+    const ensure =
+      `if [ -f '${armed}' ]; then echo run >> '${calls}'; touch '${ready}'; sleep 30; else echo run >> '${calls}'; fi`;
+    await scaffoldEngine(root);
+    await writeConfig(
+      root,
+      `[project]\nslug = "engine-test"\n[repository]\ntrunk = "main"\nensure = [${
+        JSON.stringify(ensure)
+      }]\n`,
+    );
+    await gitInit(root);
+    const worktree = await addWorktree(root, "cancel-convergence");
+    await completeWorktreeForAcceptance(worktree);
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    await Deno.writeTextFile(calls, "");
+    await Deno.writeTextFile(armed, "");
+    const tool = TOOLS.find((item) => item.name === "discern_accept");
+    assert(tool !== undefined);
+    const working = new WorkingRoot(worktree);
+    const controller = new AbortController();
+    const pending = runTool(
+      tool,
+      working,
+      { confirmed: true },
+      controller.signal,
+      () => Promise.resolve(undefined),
+      undefined,
+      "unknown-client",
+      TEST_CLI_MODEL,
+    );
+    try {
+      await waitForPendingCondition(
+        pending,
+        () => targetExists(ready),
+        "main convergence to start",
+      );
+    } finally {
+      controller.abort();
+    }
+    const cancelled = await pending;
+    assertEquals(
+      cancelled.structuredContent.error,
+      "partial_acceptance",
+      JSON.stringify(cancelled),
+    );
+    const prefix = AcceptDataSchema.parse(cancelled.structuredContent.data)
+      .queue?.[0];
+    assertEquals(prefix?.state, "landed");
+    assertEquals(prefix?.convergence, "failed");
+    assertEquals(prefix?.retirement, "retained");
+    assertEquals(await gitOut(root, "rev-parse", "HEAD"), target);
+    assert(await targetExists(worktree));
+    const before = observedRecords(await observeQueue(root, "main"));
+    const authority = before.filter((record) => record.kind === "authority");
+    const landingIds = before.filter((record) => record.kind === "landing").map(
+      (record) => record.id,
+    );
+    await Deno.remove(armed);
+    const resumed = await runTool(
+      tool,
+      working,
+      {},
+      undefined,
+      () => Promise.resolve(undefined),
+      undefined,
+      "unknown-client",
+      TEST_CLI_MODEL,
+    );
+    assertEquals(resumed.isError, false, JSON.stringify(resumed));
+    assertEquals(await targetExists(worktree), false);
+    const after = observedRecords(await observeQueue(root, "main"));
+    assertEquals(
+      after.filter((record) => record.kind === "authority"),
+      authority,
+    );
+    assertEquals(
+      after.filter((record) => record.kind === "landing").map((record) =>
+        record.id
+      ),
+      landingIds,
+    );
+    assertEquals((await Deno.readTextFile(calls)).trim().split("\n"), [
+      "run",
+      "run",
+    ]);
   });
 });

@@ -251,7 +251,7 @@ const PROBES = {
       meaning: [
         "api-review",
         "discern done",
-        "Nothing has been landed",
+        "0 prefixes landed",
       ],
       surfaces: {
         json: {
@@ -361,7 +361,7 @@ Deno.test("variance contract: every declared surface serves the same complete de
       "--confirmed",
       "--variance",
       "never authorize a variance",
-      "Nothing has been landed",
+      "0 prefixes landed",
     ];
     const json = await runAgent(wt, ["accept", "--json"]);
     const markdown = await runAgent(wt, ["accept", "--markdown"]);
@@ -407,7 +407,9 @@ Deno.test("variance contract: every declared surface serves the same complete de
       for (const fact of meaning) {
         assertTerminalTextIncludes(
           observation.evidence,
-          fact,
+          surface === "mcp" && fact.startsWith("--")
+            ? fact.slice(2) + ":"
+            : fact,
           `${surface} omits ${JSON.stringify(fact)}`,
         );
       }

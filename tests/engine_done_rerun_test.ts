@@ -22,8 +22,6 @@ import {
 import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { HINTS } from "../src/shared/hints.ts";
-import { assertHasHint } from "./hint_asserts.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
 import type { GateWireData } from "../src/shared/result_schemas.ts";
 import { z } from "@zod/zod";
@@ -125,11 +123,15 @@ Deno.test("done: an unchanged tree the gate judged RED refuses a bare rerun, and
     assertEquals(rerun.code, 1, rerun.output);
     const env = parseJson(rerun.stdout);
     assertEquals(env.ok, false);
-    assertEquals(env.error, UNCHANGED_TREE_RERUN_SLUG);
-    assertEquals(env.steps, undefined, "a refusal must run nothing");
+    assertEquals(env.error, "incomplete");
+    assertEquals(env.steps ?? [], [], "a refusal must run nothing");
+    assert(
+      parseGateJson(rerun.stdout).data.completion?.pending?.some((item) =>
+        item.kind === "validation-failed"
+      ),
+    );
     assert(typeof env.message === "string");
-    assertStringIncludes(env.message, "--rerun");
-    assertHasHint(env, HINTS["done-unchanged-tree-red"]);
+    assertStringIncludes((env.hints ?? []).join("\n"), "--rerun");
 
     // The attestation re-runs the real gate: the verdict is red again with the
     // job's own diagnostics, not a refusal.
@@ -248,9 +250,10 @@ Deno.test("done: any change to the tree runs the gate normally — commit, edit,
     assertEquals(dirty.code, 0, dirty.output);
     assertEquals(parseJson(dirty.stdout).error, undefined);
 
-    // The same dirty tree unchanged IS a rerun: dirty identity counts too.
+    // Dirty diagnostics remain available; they never reuse or publish queue Proof.
     const dirtyRerun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(parseJson(dirtyRerun.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(dirtyRerun.code, 0, dirtyRerun.output);
+    assertEquals(parseGateJson(dirtyRerun.stdout).data.proof, undefined);
 
     // Committing moves the identity again: no refusal.
     await git(wt, "add", "-A");
@@ -370,13 +373,19 @@ for (
       const result = await runAgent(wt, ["done", "--json"]);
       assertEquals(result.code, 1, result.output);
       const envelope = parseJson(result.stdout);
-      assertEquals(envelope.error, UNCHANGED_TREE_RERUN_SLUG);
-      assertEquals(
-        envelope.data !== undefined && "gate_ran" in envelope.data
-          ? envelope.data.gate_ran
-          : undefined,
-        undefined,
-      );
+      if (evidenceCase.name === "unreadable") {
+        assertEquals(envelope.error, "gate_failed", result.output);
+        assertEquals(
+          parseGateJson(result.stdout).data.failed_stage,
+          "write_access",
+          result.output,
+        );
+        assertEquals(parseGateJson(result.stdout).data.proof, undefined);
+        assert(!(envelope.steps ?? []).some((step) => step.outcome === "ok"));
+      } else {
+        assertEquals(envelope.error, UNCHANGED_TREE_RERUN_SLUG);
+        assertEquals(envelope.steps, undefined);
+      }
     });
   });
 }

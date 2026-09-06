@@ -838,7 +838,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   ]);
   assertStringIncludes(
     menus.join("\n"),
-    "Pre-authorize landing once green",
+    "Approve this committed source",
   );
   assertStringIncludes(
     menus.join("\n"),

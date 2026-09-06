@@ -57,7 +57,7 @@ interface StandardSpec {
   per?: string;
   scale?: string;
   margin?: string;
-  measure?: "gate" | "on-demand";
+  inputs?: string[];
 }
 
 /** A discern.toml with one or more `[standards.<name>]` tables, with a comment above
@@ -81,7 +81,7 @@ function pinConfig(...standards: StandardSpec[]): string {
       ...(r.per ? [`per = ${r.per}`] : []),
       ...(r.scale ? [`scale = ${r.scale}`] : []),
       ...(r.margin ? [`margin = ${r.margin}`] : []),
-      ...(r.measure ? [`measure = "${r.measure}"`] : []),
+      ...(r.inputs ? [`inputs = ${JSON.stringify(r.inputs)}`] : []),
       `run = "${r.run}"`,
     );
   }
@@ -394,7 +394,7 @@ Deno.test("pin: honored Gate Proof narrows named measurement to the selected sta
           name: "selected",
           direction: "up",
           limit: "80",
-          measure: "on-demand",
+          inputs: ["**"],
           run:
             "printf x >> .git/selected-runs; echo 'DISCERN_METRIC selected 95'",
         },
@@ -402,7 +402,7 @@ Deno.test("pin: honored Gate Proof narrows named measurement to the selected sta
           name: "unrelated",
           direction: "down",
           limit: "100",
-          measure: "on-demand",
+          inputs: ["**"],
           run:
             "printf x >> .git/unrelated-runs; echo 'DISCERN_METRIC unrelated 40'",
         },
@@ -448,8 +448,9 @@ Deno.test("pin: honored Gate Proof narrows named measurement to the selected sta
       1,
     );
     assertEquals(
-      await readTextIfExists(join(dir, ".git", "unrelated-runs")),
-      undefined,
+      (await readTextIfExists(join(dir, ".git", "unrelated-runs")))?.length,
+      1,
+      "complete done measured every required standard; pin must not repeat unrelated work",
     );
     const config = await readConfig(dir);
     assertEquals(limitOf(config, "selected"), "95");
@@ -518,8 +519,8 @@ Deno.test("pin: target-only measurement still reports an unselected live-trunk l
     );
     assertEquals(
       (await readTextIfExists(join(dir, ".git", "selected-runs")))?.length,
-      1,
-      "the selected Gate measurement should be reused",
+      2,
+      "a changed policy requires a fresh selected measurement",
     );
     assertEquals(
       (await readTextIfExists(join(dir, ".git", "unselected-runs")))?.length,
@@ -591,7 +592,7 @@ Deno.test("pin: without Gate Proof a named request still validates every Standar
   });
 });
 
-Deno.test("pin: target selection reuses available values and measures only missing targets", async () => {
+Deno.test("pin: target selection reuses available values and measures missing obligations before pinning", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -599,6 +600,7 @@ Deno.test("pin: target selection reuses available values and measures only missi
       pinConfig(
         {
           name: "already_measured",
+          inputs: ["**"],
           direction: "up",
           limit: "80",
           run:
@@ -608,7 +610,7 @@ Deno.test("pin: target selection reuses available values and measures only missi
           name: "missing_target",
           direction: "down",
           limit: "100",
-          measure: "on-demand",
+          inputs: ["**"],
           run:
             "printf x >> .git/missing-runs; echo 'DISCERN_METRIC missing_target 40'",
         },
@@ -616,7 +618,7 @@ Deno.test("pin: target selection reuses available values and measures only missi
           name: "unrelated",
           direction: "down",
           limit: "100",
-          measure: "on-demand",
+          inputs: ["**"],
           run:
             "printf x >> .git/unrelated-runs; echo 'DISCERN_METRIC unrelated 50'",
         },
@@ -632,7 +634,11 @@ Deno.test("pin: target selection reuses available values and measures only missi
       "establish proof subject",
       "--no-gpg-sign",
     );
-    const done = await runAgent(dir, ["done", "--json"]);
+    const done = await runAgent(dir, [
+      "standards",
+      "already_measured",
+      "--json",
+    ]);
     assertEquals(done.code, 0, done.output);
     assertEquals(
       (await readTextIfExists(join(dir, ".git", "already-runs")))?.length,
@@ -658,7 +664,8 @@ Deno.test("pin: target selection reuses available values and measures only missi
     );
     assertEquals(
       await readTextIfExists(join(dir, ".git", "unrelated-runs")),
-      undefined,
+      "x",
+      "without complete gate evidence, an unselected obligation still needs measurement",
     );
     const config = await readConfig(dir);
     assertEquals(limitOf(config, "already_measured"), "95");
@@ -880,9 +887,12 @@ Deno.test("pin: refuses when HEAD moves during measurement and writes nothing", 
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.stderr, "HEAD moved");
+    assertTerminalTextIncludes(
+      r.stderr,
+      "Source HEAD changed during validation",
+    );
     assertStringIncludes(r.stderr, beforeHead);
-    assertTerminalTextIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertTerminalTextIncludes(r.stderr, "Retry recovery for environment");
     assertEquals(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "mid-measure",
@@ -920,9 +930,9 @@ Deno.test("pin: refuses when measurement dirties the worktree and writes nothing
     const r = await runAgent(dir, ["standards", "--pin"]);
 
     assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.stderr, "worktree changed");
+    assertTerminalTextIncludes(r.stderr, "Unexpected checkout changes");
     assertStringIncludes(r.stderr, "mid-measure.txt");
-    assertTerminalTextIncludes(r.stderr, "re-run `discern standards --pin`");
+    assertTerminalTextIncludes(r.stderr, "Retry recovery for environment");
     assertEquals(
       await gitOut(dir, "rev-parse", "HEAD"),
       beforeHead,
@@ -1485,12 +1495,12 @@ Deno.test("proof: a --force check over a dirty tree records nothing", async () =
   });
 });
 
-Deno.test("proof: a commit made while the check measured is never recorded (the pin catches it)", async () => {
+Deno.test("proof: a commit during measurement fails validation and retains recovery", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // The measurement itself commits — a deterministic stand-in for "someone
-    // commits in another terminal while the (slow) measurements run". The check
-    // stays green, but the values describe the PINNED tree, not the new HEAD.
+    // commits in another terminal while the measurements run". The check
+    // must reject values that describe a different committed source.
     await writeConfig(
       dir,
       pinConfig({
@@ -1504,7 +1514,14 @@ Deno.test("proof: a commit made while the check measured is never recorded (the 
     await gitInit(dir);
 
     const check = await runAgent(dir, ["standards", "--json"]);
-    assertEquals(check.code, 0, check.output);
+    assertEquals(check.code, 1, check.output);
+    assertStringIncludes(check.stdout, "recovery-incomplete");
+    assertTerminalTextIncludes(
+      check.stdout,
+      "Source HEAD changed during validation",
+    );
+    assertEquals(limitOf(await readConfig(dir), "coverage"), "80");
+    assertEquals(await gitOut(dir, "log", "-1", "--format=%s"), "mid-measure");
     assertEquals(
       await targetExists(measurementsFile(dir)),
       false,
@@ -1556,11 +1573,8 @@ Deno.test("proof: a reusing pin still re-checks never-loosen against LIVE main",
     assert(step !== undefined);
     assert(step.note !== undefined);
     assert(diagnostic !== undefined);
-    // The verdict came from the proof replay, and it carries the live reason.
-    assertStringIncludes(
-      step.note,
-      "reused from the green check",
-    );
+    // The live never-loosen refusal is evaluated before measuring a rejected selected definition.
+    assert(!step.note.includes("reused"), step.note);
     assertStringIncludes(
       diagnostic.message,
       "the floor only rises",
@@ -1568,8 +1582,12 @@ Deno.test("proof: a reusing pin still re-checks never-loosen against LIVE main",
     assertHasHint(obj, HINTS["standards-pin-blocked"], {
       failingNames: ["coverage"],
     });
-    // No re-measurement, no commit, no edit.
-    assertEquals(await measureCount(dir), 1, "replay must not re-measure");
+    // No producer can repair the forbidden policy change.
+    assertEquals(
+      await measureCount(dir),
+      1,
+      "the rejected policy runs no extra producer",
+    );
     assertEquals(await gitOut(dir, "rev-parse", "HEAD"), before, "no commit");
     assertEquals(limitOf(await readConfig(dir), "coverage"), "80", "no edit");
   });

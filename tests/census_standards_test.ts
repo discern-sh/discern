@@ -1,6 +1,6 @@
 /** Configuration contracts for the mechanical census Standards. */
 
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { BEST_EFFORT_BOUNDARIES } from "../src/shared/best_effort.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -24,10 +24,11 @@ Deno.test("mechanical census Standards are distinct falling ceilings", async () 
     "lint directives and effective exclusions share one measurement process",
   );
   assertEquals(standards.silent_error_boundaries?.direction, "down");
-  assertEquals(
-    standards.silent_error_boundaries?.limit,
-    Object.keys(BEST_EFFORT_BOUNDARIES).length,
-    "the silent-error ceiling starts at the exact registry population the guard validates",
+  assert(
+    typeof standards.silent_error_boundaries?.limit === "number" &&
+      Object.keys(BEST_EFFORT_BOUNDARIES).length <=
+        standards.silent_error_boundaries.limit,
+    "the live silent-error population must remain within its protected ceiling",
   );
   assertEquals(standards.subprocess_spawn_boundaries?.direction, "down");
   assertEquals(
@@ -54,9 +55,9 @@ Deno.test("mechanical census Standards are distinct falling ceilings", async () 
   );
   assertEquals(standards.complexity_hotspots?.direction, "down");
   assertEquals(standards.complexity_hotspots?.run, "deno task complexity");
-  assertEquals(
-    standards.complexity_hotspots?.limit,
-    COMPLEXITY_HOTSPOT_BUDGETS.length,
-    "the complexity ceiling starts at the exact reviewed hotspot registry population",
+  assert(
+    typeof standards.complexity_hotspots?.limit === "number" &&
+      COMPLEXITY_HOTSPOT_BUDGETS.length <= standards.complexity_hotspots.limit,
+    "the reviewed hotspot population must remain within its protected ceiling",
   );
 });

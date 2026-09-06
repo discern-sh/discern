@@ -161,12 +161,12 @@ Deno.test("successful setup done binds Proof and the worktree probe to the marke
       "bootstrapped = true",
     );
     assert(result.data.proof !== undefined);
-    assert(result.data.proof.proof_data !== undefined);
+    assert(result.data.proof.proof !== undefined);
     assertEquals(result.data.marker_committed, true);
     assertEquals(result.data.proof.status, "honored");
     assertEquals(result.data.proof.head, completedHead);
-    assertEquals(result.data.proof.proof_data.head, completedHead.slice(0, 12));
-    assertEquals(result.data.proof_line, result.data.proof.proof_line);
+    assertEquals(result.data.proof.proof.head, completedHead.slice(0, 12));
+    assertEquals(result.data.proof_line, result.data.proof.proof.line);
 
     const heads = (await Deno.readTextFile(observedHeads)).trim().split("\n");
     assert(

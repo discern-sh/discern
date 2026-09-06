@@ -8,11 +8,13 @@
  * Guards: claim:one-instruction-source
  */
 
+import { finishResult } from "../src/engine/gate/finish.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import { HINTS } from "../src/shared/hints.ts";
+import { HINTS, interactiveHintTexts } from "../src/shared/hints.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -151,7 +153,11 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
     // The tree is unchanged, so the deliberate rerun is explicit.
     const human = await runAgent(dir, ["done", "--rerun"]);
     assertEquals(human.code, 0, human.output);
-    for (const hint of obj.hints) {
+    const canonical = await finishResult(dir, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    for (const hint of interactiveHintTexts(canonical.hints)) {
       assertTerminalTextIncludes(human.output, hint);
     }
   });
@@ -607,22 +613,30 @@ Deno.test("done --json: a green worktree gate emits a compact proof and stores t
     const again = decodeGateResult(
       (await runAgent(wt, ["done", "--rerun", "--json"])).stdout,
     );
-    assertEquals(again.data.proof, proof);
+    assertEquals(again.data.proof?.line, proof.line);
+    assertEquals(
+      again.data.proof?.completion?.candidate_id,
+      proof.completion?.candidate_id,
+    );
+    assert(
+      again.data.proof?.completion?.proof_id !== proof.completion?.proof_id,
+      "a deliberate rerun publishes its own complete receipt",
+    );
   });
 });
 
-Deno.test("done --json: no proof on the trunk itself, or over a dirty tree", async () => {
+Deno.test("done --json: the trunk can prove its candidate while dirty runs stay diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
     await gitInit(dir);
 
-    // The trunk: nothing ahead of main to review — no proof, gate still records.
+    // A clean trunk has its own immutable candidate and complete evidence.
     const onMain = decodeGateResult(
       (await runAgent(dir, ["done", "--json"])).stdout,
     );
     assertEquals(onMain.ok, true);
-    assertEquals(onMain.data.proof, undefined);
+    assert(onMain.data.proof?.completion !== undefined);
 
     // A dirty worktree: the diff vs the trunk would describe a different tree than
     // the one the gate validated — no proof, and no relay hint.

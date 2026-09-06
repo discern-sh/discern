@@ -24,14 +24,12 @@ import {
   defaultMapPath,
   git,
   gitInit,
-  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
-import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   type DiscernResult,
   ERROR_SLUGS,
@@ -39,6 +37,8 @@ import {
   STEP_DISPOSITIONS,
   STEP_KINDS,
   STEP_OUTCOMES,
+  stepResultFromJson,
+  stepResultToJson,
   verbatimStepLabel,
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
@@ -103,7 +103,6 @@ import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
 import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 const RETIRED_STATUS_REFRESH_FIELDS = [
   "stale_generated",
@@ -1130,13 +1129,7 @@ const PREPARE_TEST_FAITHFULNESS_CASE = defineFaithfulnessCase(
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Clean no-op scaffold: both pass. They carry no `data`, so they validate
-    // against the strict DatalessEnvelopeSchema (which forbids a `data` key).
-    expectValid(
-      DatalessEnvelopeSchema,
-      await prepareResult(dir),
-      "prepare clean",
-    );
+    // Public schemas carry producer counts without granting completion evidence.
     expectFaithful(
       "prepare",
       await prepareResult(dir),
@@ -1387,25 +1380,16 @@ const AWAIT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     expectFaithful("await", notYet, "await not-yet");
     assert(notYet.ok && notYet.data?.met === false);
 
-    // Met via proof: a sibling worktree with an honored-shaped marker.
+    // Met via complete current evidence from the public gate.
     const dep = await addWorktree(dir, "await-dep");
     await Deno.writeTextFile(join(dep, "dep.txt"), "work");
     await git(dep, "add", "-A");
     await git(dep, "commit", "-q", "-m", "dep work", "--no-gpg-sign");
-    const proofPath = await gitAdminStatePath(dep, "gateProof");
-    assert(proofPath !== undefined);
-    await Deno.mkdir(join(proofPath, ".."), { recursive: true });
-    const depHead = await gitOut(dep, "rev-parse", "HEAD");
-    await Deno.writeTextFile(
-      proofPath,
-      `${
-        JSON.stringify({
-          version: ON_DISK_FORMATS.gateProof.version,
-          head: depHead,
-          mode: "strict",
-        })
-      }\n`,
-    );
+    const finished = await finishResult(dep, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    assert(finished.ok, JSON.stringify(finished));
     const green = await awaitResult(dir, {
       green: "agent/await-dep",
       timeoutSeconds: 0,
@@ -1846,7 +1830,7 @@ const UPDATE_FAITHFULNESS_CASE = defineFaithfulnessCase(
 });
 
 const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
-  "accept result is faithful (dry-run plan and applied gate-validation data)",
+  "accept result is faithful (dry-run plan and complete per-prefix landing data)",
   ["accept"],
 )(async ({ expectFaithful }) => {
   await withTempDir(async (dir) => {
@@ -1878,6 +1862,11 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-rerun");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
+    const finish = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    assert(finish.ok, JSON.stringify(finish));
     const ctx = await lifecycleContext(
       wt,
       new Logger({ json: true, noColor: true }),
@@ -1887,16 +1876,14 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       cliModel: TEST_CLI_MODEL,
     });
     assertEquals(applied.ok, true);
-    assertEquals(applied.data?.gate_validation?.mode, "rerun");
-    assertEquals(
-      (applied.data as unknown as { landing?: unknown } | undefined)?.landing,
-      {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: true,
-        branch_deleted: true,
-      },
-    );
+    const prefix = applied.data?.queue?.[0];
+    assertEquals(prefix?.state, "landed");
+    assertEquals(prefix?.convergence, "passed");
+    assertEquals(prefix?.retirement, "retired");
+    assertEquals(prefix?.retirement_effects, {
+      worktree_removed: true,
+      branch_deleted: true,
+    });
     expectFaithful("accept", applied, "accept applied rerun");
   });
 
@@ -1924,16 +1911,14 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       cliModel: TEST_CLI_MODEL,
     });
     assertEquals(applied.ok, true);
-    assertEquals(applied.data?.gate_validation?.mode, "proof");
-    assertEquals(
-      (applied.data as unknown as { landing?: unknown } | undefined)?.landing,
-      {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: true,
-        branch_deleted: true,
-      },
-    );
+    const prefix = applied.data?.queue?.[0];
+    assertEquals(prefix?.state, "landed");
+    assertEquals(prefix?.convergence, "passed");
+    assertEquals(prefix?.retirement, "retired");
+    assertEquals(prefix?.retirement_effects, {
+      worktree_removed: true,
+      branch_deleted: true,
+    });
     expectFaithful("accept", applied, "accept applied proof");
   });
 });
@@ -2203,5 +2188,28 @@ Deno.test("faithfulness case declarations are unique within their own authority"
       testCase.contractIds.length,
       `${testCase.name} declares a contract more than once`,
     );
+  }
+});
+
+Deno.test("retained step projection preserves outcomes, provenance and diagnostics", () => {
+  for (const outcome of STEP_OUTCOMES) {
+    const step = StepResultJsonSchema.parse({
+      kind: "job",
+      label: "independent recipe",
+      disposition: "run",
+      group: "Main checkout",
+      note: "declared command",
+      outcome,
+      duration_s: 2.3,
+      output_path: "/retained/output",
+      output_lines: 7,
+      error_like_lines: 1,
+      advisory: {
+        kind: "optional-resource-unavailable",
+        evidence: ["captured fact"],
+        next_action: "Inspect the resource",
+      },
+    });
+    assertEquals(stepResultToJson(stepResultFromJson(step)), step);
   }
 });

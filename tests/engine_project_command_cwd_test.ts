@@ -98,6 +98,9 @@ Deno.test("standard measurement executes at the resolved root from a nested CLI 
         "",
       ].join("\n"),
     );
+    await Deno.writeTextFile(join(dir, ".gitignore"), "\nstandard.cwd\n", {
+      append: true,
+    });
     await gitInit(dir);
     const nested = join(dir, "nested");
     await Deno.mkdir(nested);

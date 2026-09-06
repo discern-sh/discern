@@ -86,12 +86,9 @@ Deno.test("done --dry-run --json emits the plan, not a run report", async () => 
   });
 });
 
-Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires its scope gate)", async () => {
-  // Regression guard for the scope-classification TIMING (ADR 0027): scopes are
-  // classified from the working tree AFTER the fix stage runs, so a fix-stage
-  // codemod that creates a file inside a scope makes that scope's gate fire. If
-  // classification moved before the fix stage, the gate would be (wrongly) skipped
-  // — running FEWER gates than the post-fix tree warrants, against fail-open.
+Deno.test("diagnostics cannot pass after a fixer adds an unplanned scope; preparation makes its gate eligible", async () => {
+  // Demand is immutable during one execution. A newly relevant scope requires a
+  // fresh plan; no green diagnostic may silently omit that scope's gate.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -112,7 +109,17 @@ Deno.test("done classifies scopes AFTER the fix stage (a fixer's new file fires 
     );
     await gitInit(dir);
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const changed = await runAgent(dir, ["done", "--standalone", "--json"]);
+    assertEquals(changed.code, 1, changed.output);
+    const refused = decodeCliResult(changed.stdout, "done");
+    assert(
+      refused.diagnostics?.some((item) =>
+        item.tool === "scope-selection" && item.message.includes("gen")
+      ),
+    );
+    const prepared = await runAgent(dir, ["prepare", "--json"]);
+    assertEquals(prepared.code, 0, prepared.output);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = decodeCliResult(r.stdout, "done");
     assertResultDataKey(obj, "scopes_changed");
@@ -288,10 +295,12 @@ Deno.test("accept --dry-run shows the plan after the preconditions pass", async 
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
     const r = await runAgent(wt, ["accept", "--dry-run"]);
     assertEquals(r.code, 0, r.output);
-    assertTerminalTextIncludes(r.stdout, "Acceptance plan");
-    assertStringIncludes(r.stdout, "remove-worktree");
+    assertTerminalTextIncludes(r.stdout, "Read-only queue preview");
+    assertStringIncludes(r.stdout, "refs/heads/agent/gradry");
     // The worktree must still exist — dry-run mutates nothing.
     assertEquals(
       (await runAgent(wt, ["identity", "--branch"])).code,
@@ -308,27 +317,22 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
 
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = decodeCliResult(r.stdout, "accept"); // stdout must be ONLY the JSON object
     assertEquals(obj.ok, true);
     assert(obj.steps !== undefined);
-    assert(
-      obj.steps.some(
-        (s: { label: string }) => s.label === "fast-forward-trunk",
-      ),
-      r.stdout,
-    );
-    // The landing precedes resource teardown, so an acceptance that loses a
-    // concurrent-landing race at the fast-forward leaves its worktree fully
-    // intact — resources included — for the update → finish → accept
-    // recovery the refusal prescribes.
-    const labels = obj.steps.map((s: { label: string }) => s.label);
-    assert(
-      labels.indexOf("fast-forward-trunk") <
-        labels.indexOf(BUILT_IN_STEP_LABELS.teardownResources),
-      `the trunk must land before resources are torn down\n${r.stdout}`,
-    );
+    assertResultDataKey(obj, "queue");
+    const prefix = obj.data.queue?.[0];
+    assertEquals(prefix?.state, "landed");
+    assertEquals(prefix?.authority_settlement, "consumed");
+    assertEquals(prefix?.retirement_effects, {
+      worktree_removed: true,
+      branch_deleted: true,
+    });
+    assert(obj.steps.some((step) => step.kind === "checkout-clean-check"));
     // The work landed on the trunk in main.
     assert(
       await import("../src/shared/fs_presence.ts").then((m) =>
@@ -342,6 +346,8 @@ Deno.test("accept --json performs the acceptance and serializes the steps", asyn
 Deno.test("accept --json reports a precondition failure as a JSON error", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "graderr");
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
     // Dirty a tracked file in main so acceptance refuses.
     const toml = join(dir, "discern.toml");
     await Deno.writeTextFile(
@@ -355,7 +361,7 @@ Deno.test("accept --json reports a precondition failure as a JSON error", async 
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "accept");
     // error is a machine-stable slug; the human sentence rides in `message`.
-    assertEquals(obj.error, "precondition_failed");
+    assertEquals(obj.error, "incomplete");
     assert(obj.message !== undefined);
     assertStringIncludes(obj.message, "uncommitted tracked changes");
   });

@@ -29,6 +29,8 @@ const HOST_ENVIRONMENT_READS: Readonly<Record<string, string>> = {
   CI: "hosted-runner detection",
   EDITOR: "the operator's editor for interactive edits",
   GIT_BIN: "an alternative Git executable",
+  GIT_INDEX_FILE:
+    "reject an alternate Git index when freezing the real checkout state",
   HOME: "the home directory for host configuration paths",
   PAGER: "the operator's pager for long output",
   PATH: "executable lookup",
