@@ -160,13 +160,18 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     });
     const conditions = CONDITIONS[0];
     assert(conditions !== undefined);
+    let verificationQueries = 0;
+    let observedVerificationQueries = 0;
     const runtime = createValidationRuntime({
       root,
       conditions,
       environment: { MODE: "test" },
       inheritedEnvironment: { get: () => undefined },
       timeout: 30,
-      verifyConditions: () => Promise.resolve(),
+      verifyConditions: () => {
+        observedVerificationQueries = verificationQueries;
+        return Promise.resolve();
+      },
       clock: COMPLETION_CLOCK,
     });
     const evaluator = createProducerEvaluator({
@@ -230,6 +235,26 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       )).kind,
       "written",
     );
+    const Command = Deno.Command;
+    Deno.Command = class extends Command {
+      /** Count native administration discovery without replacing its result. */
+      constructor(command: string | URL, options?: Deno.CommandOptions) {
+        super(command, options);
+        if (options?.args?.includes("--git-common-dir")) {
+          verificationQueries += 1;
+        }
+      }
+    };
+    try {
+      await runtime.verify(execution);
+      assertEquals(
+        observedVerificationQueries,
+        1,
+        "one record inventory per verification",
+      );
+    } finally {
+      Deno.Command = Command;
+    }
     const result = await evaluator.execute(plan, execution);
     assertEquals(result.blockers, []);
     assertEquals(result.evidence.length, 2);

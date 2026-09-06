@@ -11,10 +11,7 @@ import {
   COMPLETION_FAMILIES,
   type RecordSelector,
 } from "../completion/records.ts";
-import {
-  openCompletionRecordStore,
-  readCompletionRecord,
-} from "../completion/store.ts";
+import { openCompletionRecordStore } from "../completion/store.ts";
 import { RecordIdSchema } from "../completion/identity.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
@@ -260,17 +257,23 @@ function runtime(
           "Completion validation requires a durable execution claim.",
         );
       }
+      const store = await openCompletionRecordStore(options.root);
+      if (store === undefined) {
+        throw new Error(
+          "Cannot verify completion records; common Git administration is unavailable. Preserve the checkout for recovery.",
+        );
+      }
       const [attempt, environment, candidate, head, status] = await Promise.all(
         [
-          readCompletionRecord(options.root, {
+          store.read({
             kind: "attempt",
             id: execution.fence.attempt_id,
           }),
-          readCompletionRecord(options.root, {
+          store.read({
             kind: "environment",
             id: execution.environment_id,
           }),
-          readCompletionRecord(options.root, {
+          store.read({
             kind: "candidate",
             id: execution.candidate_id,
           }),
