@@ -24,11 +24,13 @@ A live claim is still owned; another actor waits. An expired or interrupted oper
 
 If the main checkout contains unfamiliar data, recovery preserves it and reports the required reconciliation. A valid old or target checkout can converge to the recorded target. Proof-note publication uses retained evidence; it cannot manufacture a new claim from an incomplete historical marker.
 
+Main-checkout convergence runs after the exact transition and authority settlement, under checkout exclusion and outside the common publication lock. It materializes local agent artifacts, runs repository ensure commands, and checks smoke and tracked cleanliness. A retained successful convergence result is reused; a failed or cancelled one is retried on the same target before another prefix advances. Cancellation stops project children and preserves the landed result.
+
 Retirement runs separately after landing. It requires the recorded source release, positive ownership, current cleanliness, a matching resource inventory, and child quiescence under exclusion. Changed resources, branches, or files remain available for inspection. A note or retirement failure never runs the landing transaction again.
 
 ## Read the result before acting
 
-Each `data.queue` row records its source, candidate, transition, authority settlement, note state, retirement result, and pending conditions. `state: landed` remains true when cleanup is retained or the note needs recovery. Earlier landed rows remain visible if a later prefix is blocked. `data.root` names the surviving main checkout.
+Each `data.queue` row records its source, candidate, transition, authority settlement, note state, retirement result, and pending conditions. `state: landed` remains true when cleanup is retained or the note needs recovery. Monotonic `retirement_effects` distinguish worktree removal from branch deletion, including a failure between them. The bounded ignored-file comparison survives cleanup in the common capture; disabling that optional comparison suppresses its scan. Earlier landed rows remain visible if a later prefix is blocked. `data.root` names the surviving main checkout.
 
 Missing judgment, missing authority, missing or stale evidence, unavailable environments, failed validation, and incomplete recovery require different actions. Follow the named condition; do not replace it with a raw ref update or unverified cleanup.
 
@@ -37,3 +39,5 @@ Missing judgment, missing authority, missing or stale evidence, unavailable envi
 [Publication](../../../src/engine/landing_queue/publication.ts) owns exact transition and recovery. [Retirement](../../../src/engine/landing_queue/retirement.ts) owns disposable cleanup. The [active accept actor](../../../src/engine/landing_queue/public_accept.ts) coordinates them and preserves prefix outcomes. [Native publication tests](../../../tests/completion_native_publication_test.ts) and [retirement tests](../../../tests/completion_native_retirement_test.ts) exercise interruption and retained state.
 
 The [legacy transaction reader](../../../src/engine/worktree/acceptance_transaction.ts) remains a recovery boundary for an already-recorded older operation. It is not an alternate path for creating new landing authority.
+
+Branch retirement distinguishes changed ownership or current use from an unavailable Git operation. A lock or failed deletion retains a recovery result and its exact diagnostic; it does not claim the branch moved. The recorded checkout-removal fact survives, so a retry finishes only the outstanding branch cleanup.
