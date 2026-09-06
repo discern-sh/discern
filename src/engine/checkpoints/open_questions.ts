@@ -227,7 +227,7 @@ function parseRelatedPaths(
 }
 
 /** Parse the store's text, or undefined when any part is mis-shaped. */
-function parseStore(
+export function parseOpenQuestionStore(
   raw: string,
 ): Record<string, OpenQuestion> | undefined {
   let value: unknown;
@@ -287,7 +287,7 @@ export async function readOpenQuestions(
       ),
     };
   }
-  const openQuestions = parseStore(raw);
+  const openQuestions = parseOpenQuestionStore(raw);
   return openQuestions === undefined
     ? {
       status: "invalid",

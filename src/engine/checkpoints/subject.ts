@@ -151,6 +151,7 @@ export async function computeSubject(
   related: readonly RelatedCheckpointPath[] = [],
   /** Ordered commit identity only for history-sensitive definitions. */
   historyFingerprint?: string,
+  currentCommit?: string,
 ): Promise<SubjectComputation> {
   const changedPaths = [...new Set(matchedPaths)].sort();
   const paths = [
@@ -198,86 +199,104 @@ export async function computeSubject(
 
   // Current side: identify each on-disk file by git's own content addressing.
   const currentStates = new Map<string, PathStateSide>();
-  const regular: string[] = [];
-  for (const path of paths) {
-    let info: Deno.FileInfo | undefined;
-    try {
-      info = await lstatIfExists(join(root, path));
-    } catch (error) {
-      return {
-        error: `could not read the working state of ${path}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
+  if (currentCommit !== undefined && paths.length > 0) {
+    const listing = await runGit([
+      "ls-tree",
+      "-r",
+      "-z",
+      currentCommit,
+      "--",
+      ...paths.map((path) => `:(top,literal)${prefix}${path}`),
+    ], { cwd: root, timeoutMs: SUBJECT_GIT_TIMEOUT_MS });
+    if (!listing.success) {
+      return { error: "The immutable checkpoint subject could not be read." };
     }
-    if (info === undefined) continue;
-    if (info.isSymlink) {
-      let target: string;
+    for (const [path, side] of parseLsTreeZ(listing.stdout)) {
+      const [rel] = stripRepoPathPrefix([path], prefix);
+      if (rel !== undefined && wanted.has(rel)) currentStates.set(rel, side);
+    }
+  }
+  if (currentCommit === undefined) {
+    const regular: string[] = [];
+    for (const path of paths) {
+      let info: Deno.FileInfo | undefined;
       try {
-        target = await Deno.readLink(join(root, path));
+        info = await lstatIfExists(join(root, path));
       } catch (error) {
         return {
-          error: `could not read the symlink at ${path}: ${
+          error: `could not read the working state of ${path}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         };
       }
-      const hashed = await runGit(
-        ["hash-object", "-t", "blob", "--stdin"],
-        { cwd: root, stdin: target, timeoutMs: SUBJECT_GIT_TIMEOUT_MS },
-      );
+      if (info === undefined) continue;
+      if (info.isSymlink) {
+        let target: string;
+        try {
+          target = await Deno.readLink(join(root, path));
+        } catch (error) {
+          return {
+            error: `could not read the symlink at ${path}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          };
+        }
+        const hashed = await runGit(
+          ["hash-object", "-t", "blob", "--stdin"],
+          { cwd: root, stdin: target, timeoutMs: SUBJECT_GIT_TIMEOUT_MS },
+        );
+        if (!hashed.success) {
+          return { error: `git could not hash the symlink at ${path}` };
+        }
+        currentStates.set(path, { mode: "120000", blob: hashed.stdout.trim() });
+        continue;
+      }
+      if (info.isDirectory) {
+        return {
+          error: `the matched path ${path} is a directory, so its current ` +
+            "Git identity cannot be bound safely",
+        };
+      }
+      if (!info.isFile) {
+        // A FIFO, socket, or device node: git would stall or refuse reading
+        // its "content", so the engine has no honest content identity to bind
+        // a declaration to — a subject error, which the caller fails open on.
+        return {
+          error: `the matched path ${path} is not a regular file, so its ` +
+            `content identity cannot be read`,
+        };
+      }
+      currentStates.set(path, { mode: fileMode(info), blob: "" });
+      regular.push(path);
+    }
+    for (let i = 0; i < regular.length; i += HASH_OBJECT_BATCH) {
+      const batch = regular.slice(i, i + HASH_OBJECT_BATCH);
+      const hashed = await runGit(["hash-object", "--", ...batch], {
+        cwd: root,
+        timeoutMs: SUBJECT_GIT_TIMEOUT_MS,
+      });
       if (!hashed.success) {
-        return { error: `git could not hash the symlink at ${path}` };
+        return {
+          error: `git could not hash the working content: ${
+            hashed.stderr.trim().split("\n")[0] ?? "hash-object failed"
+          }`,
+        };
       }
-      currentStates.set(path, { mode: "120000", blob: hashed.stdout.trim() });
-      continue;
-    }
-    if (info.isDirectory) {
-      return {
-        error: `the matched path ${path} is a directory, so its current ` +
-          "Git identity cannot be bound safely",
-      };
-    }
-    if (!info.isFile) {
-      // A FIFO, socket, or device node: git would stall or refuse reading
-      // its "content", so the engine has no honest content identity to bind
-      // a declaration to — a subject error, which the caller fails open on.
-      return {
-        error: `the matched path ${path} is not a regular file, so its ` +
-          `content identity cannot be read`,
-      };
-    }
-    currentStates.set(path, { mode: fileMode(info), blob: "" });
-    regular.push(path);
-  }
-  for (let i = 0; i < regular.length; i += HASH_OBJECT_BATCH) {
-    const batch = regular.slice(i, i + HASH_OBJECT_BATCH);
-    const hashed = await runGit(["hash-object", "--", ...batch], {
-      cwd: root,
-      timeoutMs: SUBJECT_GIT_TIMEOUT_MS,
-    });
-    if (!hashed.success) {
-      return {
-        error: `git could not hash the working content: ${
-          hashed.stderr.trim().split("\n")[0] ?? "hash-object failed"
-        }`,
-      };
-    }
-    const oids = hashed.stdout.trim().split("\n");
-    if (oids.length !== batch.length) {
-      return { error: "git hash-object answered for the wrong file count" };
-    }
-    for (let j = 0; j < batch.length; j++) {
-      const path = batch[j];
-      const oid = oids[j];
-      const side = path === undefined ? undefined : currentStates.get(path);
-      if (side === undefined || oid === undefined || oid === "") {
-        return { error: "git hash-object answered incompletely" };
+      const oids = hashed.stdout.trim().split("\n");
+      if (oids.length !== batch.length) {
+        return { error: "git hash-object answered for the wrong file count" };
       }
-      side.blob = oid;
+      for (let j = 0; j < batch.length; j++) {
+        const path = batch[j];
+        const oid = oids[j];
+        const side = path === undefined ? undefined : currentStates.get(path);
+        if (side === undefined || oid === undefined || oid === "") {
+          return { error: "git hash-object answered incompletely" };
+        }
+        side.blob = oid;
+      }
     }
   }
-
   const states: PathState[] = paths.map((path) => {
     const base = baseStates.get(path);
     const current = currentStates.get(path);

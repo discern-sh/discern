@@ -1,165 +1,21 @@
-/**
- * The gate-specific side of `[standards]`: decide whether each standard is
- * measured, replayed from a proof, or deferred, then project those decisions
- * into the shared measurement jobs. Tier-1 trunk verification and measurement
- * execution are shared with the standalone verb; this module owns only the
- * gate's replay/defer policy.
- */
-
-import type { GateStandard } from "../../shared/result_schemas.ts";
-import { runGit } from "../../shared/subprocess.ts";
-import { pathMatchesPattern } from "../scopes/glob.ts";
-import { collectPaths } from "../scopes/scopes.ts";
-import { measurementBaselines, type StandardMeasurements } from "./proof.ts";
-import { standardDefinitionFingerprint } from "./standard_limits.ts";
+/** Config-only standard rows for read-only gate and doctor previews. */
 import type { PlannedJob } from "./plan.ts";
-import type { PlannedStandard } from "./standard_plan.ts";
-import {
-  plannedStandardJob,
-  type ResolvedStandard,
-  type StandardAction,
-  type StandardJobs,
-} from "./standards.ts";
+import { type PlannedStandard, standardJobLabel } from "./standard_plan.ts";
 
-// Preserve the established module surface while the implementations live at
-// the shared seams both gate and standalone execution consume.
-export {
-  buildStandardJobs as buildGateStandardJobs,
-  plannedStandardJob,
-} from "./standards.ts";
-export type { ResolvedStandard, StandardAction } from "./standards.ts";
-export { standardJobLabel } from "./standard_plan.ts";
-export {
-  type TrunkLimitsVerification,
-  verifyTrunkLimits,
-} from "./standard_limits.ts";
-
-/** Whether `sha` is an ancestor of (or equal to) HEAD at `root`. */
-async function isAncestorOfHead(root: string, sha: string): Promise<boolean> {
-  const result = await runGit(["merge-base", "--is-ancestor", sha, "HEAD"], {
-    cwd: root,
-  });
-  return result.success;
-}
-
-/**
- * The config-only resolution — measure or defer, never replay — for callers
- * that must stay I/O-free: the dry-run plan and doctor's execution model.
- */
-export function resolveStandardActionsFromConfig(
-  standards: PlannedStandard[],
-): ResolvedStandard[] {
-  return standards.map((standard) => ({
-    standard,
-    action: standard.gateMeasure
-      ? { kind: "measure" as const }
-      : { kind: "defer" as const },
-  }));
-}
-
-/**
- * Resolve each standard's gate action from the tree. Deferred standards remain
- * on demand; an input-keyed proof replays only when every path changed since
- * that proof falls outside the standard's declared inputs; every other
- * standard measures. This runs after the fix stage so fixer edits count.
- */
-export async function resolveStandardActions(
-  root: string,
-  standards: PlannedStandard[],
-  forceMeasure: ReadonlySet<string> = new Set(),
-): Promise<ResolvedStandard[]> {
-  const replayable = standards.filter(
-    (standard) =>
-      standard.gateMeasure && standard.inputs !== undefined &&
-      standard.inputs.length > 0,
-  );
-  const baselines = replayable.length > 0 ? await usableBaselines(root) : [];
-  const changedSince = new Map<string, string[] | null>();
-  const changedPaths = async (sha: string): Promise<string[] | null> => {
-    let paths = changedSince.get(sha);
-    if (paths === undefined) {
-      paths = await collectPaths(root, sha);
-      changedSince.set(sha, paths);
-    }
-    return paths;
-  };
-
-  const resolved: ResolvedStandard[] = [];
-  for (const standard of standards) {
-    if (forceMeasure.has(standard.name)) {
-      resolved.push({ standard, action: { kind: "measure" } });
-      continue;
-    }
-    if (!standard.gateMeasure) {
-      resolved.push({ standard, action: { kind: "defer" } });
-      continue;
-    }
-    const inputs = standard.inputs;
-    if (inputs === undefined || inputs.length === 0) {
-      resolved.push({ standard, action: { kind: "measure" } });
-      continue;
-    }
-    let action: StandardAction = { kind: "measure" };
-    const definition = await standardDefinitionFingerprint(
-      standard.name,
-      standard.spec,
-    );
-    for (const baseline of baselines) {
-      const value = baseline.values[standard.name];
-      const provenance = baseline.provenance[standard.name];
-      if (
-        value === undefined || provenance === undefined ||
-        baseline.definitions[standard.name] !== definition
-      ) {
-        continue;
-      }
-      const paths = await changedPaths(provenance);
-      if (paths === null || paths.some((path) => inputsMatch(inputs, path))) {
-        continue;
-      }
-      action = { kind: "replay", value, from: provenance };
-      break;
-    }
-    resolved.push({ standard, action });
-  }
-  return resolved;
-}
-
-/** Recorded baselines usable from this tree, nearest first. */
-async function usableBaselines(
-  root: string,
-): Promise<StandardMeasurements[]> {
-  const baselines: StandardMeasurements[] = [];
-  for (const baseline of await measurementBaselines(root)) {
-    if (await isAncestorOfHead(root, baseline.head)) {
-      baselines.push(baseline);
-    }
-  }
-  return baselines;
-}
-
-/** Whether one normalized changed path matches a standard's input globs. */
-function inputsMatch(inputs: string[], rawPath: string): boolean {
-  const path = rawPath.trim().replace(/^\//, "");
-  return path !== "" && inputs.some((glob) => pathMatchesPattern(path, glob));
-}
-
-/** The pure, config-only standards job list for I/O-free callers. */
+/** Execution and reuse are decided by the validation planner, never this display projection. */
 export function planStandardJobsFromConfig(
   standards: PlannedStandard[],
 ): PlannedJob[] {
-  return resolveStandardActionsFromConfig(standards).map(
-    ({ standard, action }) => plannedStandardJob(standard, action),
-  );
-}
-
-/** Gate envelope entries in configured order after the shared jobs settle. */
-export function gateStandardsData(
-  resolved: ResolvedStandard[],
-  standards: StandardJobs,
-): GateStandard[] {
-  return resolved.flatMap(({ standard }) => {
-    const outcome = standards.outcomes.get(standard.name);
-    return outcome === undefined ? [] : [outcome];
-  });
+  return standards.map((standard) => ({
+    label: standardJobLabel(standard.name),
+    command: standard.command,
+    kind: "standard",
+    reportStage: "test",
+    willRun: true,
+    ...(standard.spec.producer === undefined ? {} : {
+      note:
+        `Consumes producer ${standard.spec.producer}; dependencies and valid receipts determine execution.`,
+    }),
+    ...(standard.timeout === undefined ? {} : { timeout: standard.timeout }),
+  }));
 }

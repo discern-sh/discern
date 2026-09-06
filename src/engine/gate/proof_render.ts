@@ -24,6 +24,7 @@
  * the gate validated.
  */
 
+import type { CompleteProofEvidence } from "../../shared/completion_proof.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import {
   type GitCount,
@@ -562,13 +563,19 @@ export async function buildGateProof(
   mode: GateMode = "strict",
   drops: readonly CheckpointDropData[] = [],
   standardProposals: readonly StandardLimitProposalData[] = [],
+  completion?: CompleteProofEvidence,
 ): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
   }
   const branchRun = await runGit(["branch", "--show-current"], { cwd: root });
-  const branch = branchRun.stdout.trim();
-  if (!branchRun.success || branch === "" || branch === trunk) {
+  const branch =
+    completion?.candidate.source.branch.slice("refs/heads/".length) ??
+      branchRun.stdout.trim();
+  if (
+    completion === undefined &&
+    (!branchRun.success || branch === "" || branch === trunk)
+  ) {
     return undefined;
   }
   // Abbreviated to a fixed width (not git's repo-scaled default) so the same
@@ -577,22 +584,29 @@ export async function buildGateProof(
   const headRun = await runGit(["rev-parse", "--short=12", "HEAD"], {
     cwd: root,
   });
-  const head = headRun.stdout.trim();
+  const head = completion?.candidate.head.slice(0, 12) ?? headRun.stdout.trim();
   if (!headRun.success || head === "") {
     return undefined;
   }
   const ahead = await commitsAheadCount(root, trunk);
-  if (!isKnownGitCount(ahead) || ahead === 0) {
+  if (completion === undefined && (!isKnownGitCount(ahead) || ahead === 0)) {
     return undefined;
   }
   let delta: Awaited<ReturnType<typeof diffFiles>>;
   try {
-    delta = await diffFiles(root, `${trunk}...HEAD`, 0);
+    delta = await diffFiles(
+      root,
+      completion === undefined
+        ? `${trunk}...HEAD`
+        : `${completion.candidate.expected_predecessor.head}..${completion.candidate.head}`,
+      0,
+    );
   } catch {
     // discern-best-effort: proof-render-diff-fallback
     return undefined;
   }
   const facts: ProofFacts = {
+    ...(completion === undefined ? {} : { completion }),
     branch,
     trunk,
     head,

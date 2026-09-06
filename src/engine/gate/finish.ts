@@ -1,3 +1,21 @@
+import { createGeneratedBuildBoundary } from "./generated_drift.ts";
+import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
+import { captureCandidateReview } from "./candidate_review.ts";
+import type { EnvironmentArtifact } from "../execution/types.ts";
+import type {
+  CompletionSession,
+  ReleasedCompletionExecution,
+} from "../landing_queue/public_completion.ts";
+import { configuredValidation } from "../validation/configuration.ts";
+import { standaloneValidation } from "../validation/diagnostics.ts";
+import {
+  executePublicValidation,
+  type PublicValidationRun,
+} from "../validation/public_run.ts";
+import { runCompleteGate } from "./complete_gate.ts";
+import { retainProofPresentation } from "./proof_presentation.ts";
+import { readCompleteProof } from "./completion_proof.ts";
+import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 /**
  * `done` — the full quality gate. Built on the plan/apply seam (ADR 0027): a
  * pure {@link GatePlan} (the job groups + scope-gates + merge check) is computed
@@ -22,14 +40,9 @@ import type { JobResult } from "../jobs/types.ts";
 import {
   buildGatePlan,
   buildGateResultWithHints,
-  checkTestGroups,
-  composeGatePlan,
   gateLiveAdmissionGroups,
   gatePlanToEngine,
   type JobGroup,
-  planScopeGates,
-  preCheckpointGroups,
-  scopeGatesGroup,
 } from "./plan.ts";
 import {
   gateOutputIsLive,
@@ -37,23 +50,18 @@ import {
   gateOutputTtyWidth,
   gateRunContext,
   type GateRunPolicy,
-  gateTimeoutBudget,
   resolveGateRunPolicy,
-  runGroup,
 } from "./execute.ts";
 import {
   type AdminStateWriteAuthority,
-  clearStandardMeasurements,
   currentTreeIdentity,
   gateProofHasCompleteEvidence,
   inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
-  recordFreshStandardMeasurementEvidence,
   recordGateOutcome,
   recordLastGateRun,
-  recordStandardMeasurements,
   sameTreeIdentity,
   UNCHANGED_TREE_RERUN_SLUG,
 } from "./proof.ts";
@@ -68,45 +76,22 @@ import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
 import { createGateTtyProgress, renderGateTtyTable } from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
-import {
-  buildStandardJobs,
-  fmtRate,
-  type ResolvedStandard,
-} from "./standards.ts";
-import {
-  standardDefinitionFingerprint,
-  verifyTrunkLimits,
-} from "./standard_limits.ts";
+import { fmtRate } from "./standards.ts";
+import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
   sameStandardLimitProposalSet,
   staleProposalDiagnostic,
   standardLimitProposalIdentity,
 } from "./standard_proposal_state.ts";
-import {
-  gateStandardsData,
-  planStandardJobsFromConfig,
-  resolveStandardActions,
-  resolveStandardActionsFromConfig,
-} from "./standards_gate.ts";
+import { planStandardJobsFromConfig } from "./standards_gate.ts";
 import type {
   GateStandard,
   PreviewActionData,
   StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
-import {
-  type StageSnapshot,
-  strandedByStage,
-  treeDriftDiagnostic,
-  worktreeDirtyPaths,
-} from "./tree_drift.ts";
-import {
-  captureGeneratedBuildSnapshot,
-  generatedBuildDrift,
-  generatedBuildDriftDiagnostics,
-} from "./generated_drift.ts";
-import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
+import { treeDriftDiagnostic, worktreeDirtyPaths } from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -135,13 +120,11 @@ import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
 import {
   checkpointDropAccounts,
   isIndeterminateStopDrop,
-  policyCheckpointDrop,
 } from "../../shared/checkpoint_drops.ts";
-import type {
-  GateCheckpointsData,
-  ProofCheckpointsData,
-  ServedCheckpointData,
-} from "../../shared/result_schemas.ts";
+import {
+  gateCheckpointsData,
+  proofCheckpointsData,
+} from "./checkpoint_projection.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
@@ -202,8 +185,101 @@ import {
 } from "../../shared/write_preflight.ts";
 import { planTrackedRefresh } from "../tracked_refresh.ts";
 
-/** Run the gate once: plan, apply, build the result. */
+/** Candidate coordination wraps the gate's existing plan, judgment and validation seams. */
 async function runGate(
+  root: string,
+  surface: GateOutputSurface,
+  signal: AbortSignal | undefined,
+  presentation: Parameters<typeof runCandidateGate>[3],
+): ReturnType<typeof runCandidateGate> {
+  return await runCompleteGate<Awaited<ReturnType<typeof runCandidateGate>>>(
+    root,
+    {
+      context: presentation.context ?? "local",
+      mode: presentation.checkpointRequest?.mode ??
+        presentation.checkpoints?.mode ?? "strict",
+      rerun: presentation.rerun ?? false,
+      ...(presentation.standalone === undefined
+        ? {}
+        : { standalone: presentation.standalone }),
+      ...(presentation.execution ?? {}),
+      ...(presentation.retainCheckout === undefined
+        ? {}
+        : { retainCheckout: presentation.retainCheckout }),
+      ...(signal === undefined ? {} : { signal }),
+    },
+    async (session) => {
+      if (session === undefined) {
+        const gate = await runCandidateGate(
+          root,
+          surface,
+          signal,
+          presentation,
+        );
+        return { value: gate, passed: gate.result.ok };
+      }
+      let checkpoints = presentation.checkpoints;
+      const request = presentation.checkpointRequest;
+      if (request !== undefined) {
+        const preamble = await resolveDonePreamble(root, request, {
+          ...donePreambleOperations(
+            session.execution.candidate.expected_predecessor.head,
+          ),
+          reusableGreenProof: () => Promise.resolve(undefined),
+        });
+        if (preamble.kind !== "proceed") {
+          return {
+            value: await unrunGateResult(root, surface, preamble.result),
+            passed: false,
+            blockers: [{
+              kind: "missing-judgment" as const,
+              subjects: [preamble.result.error ?? "candidate-checkpoints"],
+            }],
+          };
+        }
+        checkpoints = preamble.preflight;
+      }
+      const gate = await runCandidateGate(root, surface, signal, {
+        ...presentation,
+        ...(checkpoints === undefined ? {} : { checkpoints }),
+        completion: session,
+      });
+      return {
+        value: gate,
+        passed: gate.result.ok,
+        ...(gate.review === undefined ? {} : { review: gate.review }),
+        ...(gate.validationRun === undefined
+          ? {}
+          : { validation: gate.validationRun }),
+      };
+    },
+    (result) => unrunGateResult(root, surface, result),
+  );
+}
+
+/** A precondition refusal carries a normal gate result without starting any producer. */
+async function unrunGateResult(
+  root: string,
+  surface: GateOutputSurface,
+  result: DiscernResult<GateData>,
+): ReturnType<typeof runCandidateGate> {
+  const cfg = await loadConfig(root);
+  return {
+    result,
+    failedStage: "check/test",
+    cfg,
+    policy: resolveGateRunPolicy(cfg.gate.stream, surface),
+    out: makeOut(false, { quiet: surface.kind === "quiet-result" }),
+    changed: [],
+    gotchasTail: undefined,
+    outputWithheld: false,
+    presentationWritable: true,
+    finalize: () => Promise.resolve(),
+  };
+}
+
+/** Run the complete gate against the selected immutable candidate and policy base. */
+async function runCandidateGate(
   root: string,
   surface: GateOutputSurface,
   signal: AbortSignal | undefined,
@@ -215,6 +291,19 @@ async function runGate(
      * the rerun guard); the gate carries its conclusions into the envelope,
      * the Proof, and the marker bindings. */
     checkpoints?: CheckpointPreflight;
+    checkpointRequest?: {
+      mode: "strict" | "report";
+      declarations: DeclarationRequest;
+      rerunRequested: boolean;
+      ciRecovery: boolean;
+    };
+    completion?: CompletionSession;
+    execution?: ReleasedCompletionExecution;
+    retainCheckout?: boolean;
+    policyBase?: string;
+    context?: string;
+    standalone?: boolean;
+    rerun?: boolean;
   },
 ): Promise<
   {
@@ -227,6 +316,9 @@ async function runGate(
     gotchasTail: GotchasFailureTail | undefined;
     outputWithheld: boolean;
     presentationWritable: boolean;
+    validationRun?: PublicValidationRun;
+    review?: EnvironmentArtifact;
+    finalize: (pointer: CompletionProofPointer) => Promise<void>;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -239,7 +331,6 @@ async function runGate(
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
-  const generatedGroups = resolveGeneratedGroups(cfg);
   let liveGroups: readonly JobGroup[] | undefined;
   if (gateOutputIsLive(policy)) {
     // Admission remains pure so the merge check below is still the first
@@ -287,7 +378,10 @@ async function runGate(
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
   const mainBranch = integrationBranch(cfg.repository.trunk);
   let mergeWarning: FiredHint | undefined;
-  const merged = await assertMainMerged(root, mainBranch);
+  const merged = await assertMainMerged(
+    root,
+    presentation.policyBase ?? mainBranch,
+  );
   if (merged.kind === "behind") {
     failedStage = "merge";
   } else if (merged.kind === "missing") {
@@ -308,6 +402,9 @@ async function runGate(
   //     product leads with. An unreadable local trunk and an invalid trunk
   //     config both fail closed; a remote-tracking ref never substitutes for
   //     the configured local ref.
+  const policyBase = presentation.policyBase ??
+    presentation.completion?.execution.candidate.expected_predecessor.head ??
+    mainBranch;
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
   let standardLimitProposals: ReadonlyMap<
@@ -321,12 +418,14 @@ async function runGate(
       root,
       mainBranch,
       stdPlan.standards,
+      { predecessor: policyBase },
     );
     const verification = await verifyTrunkLimits(
       root,
-      mainBranch,
+      policyBase,
       stdPlan.standards,
       proposalInspection.active,
+      cfg,
     );
     standardLimitProposals = verification.proposals;
     for (const stale of proposalInspection.stale) {
@@ -528,264 +627,105 @@ async function runGate(
     }
   }
 
-  // 2. Run the declared job stage groups (fix → build → check∥test). These do
-  //    not depend on the changed scopes, so they run before scope classification.
-  //    ANY stage may mutate the tree — the fix stage by design, a build/test/scope
-  //    gate by accident of wiring (a regenerated tracked artifact, a rewritten
-  //    golden file) — so snapshot the working-tree dirty set before any group runs
-  //    and again after each green group. The strand check (the checkpoint at
-  //    2-bis, the final pass at step 5) flags files a
-  //    stage dirtied that were committed-clean at gate start — the uncommitted gate
-  //    output a green result would otherwise hide (ADR 0047, extended by ADR 0148)
-  //    — and the per-group snapshots attribute each strand to the stage that
-  //    produced it. Snapshots are skipped once a stage has failed (the strand
-  //    check only runs on an otherwise-green gate); an unreadable snapshot voids
-  //    that verdict and records an unavailable evidence strand. It must never
-  //    fabricate either a tree-drift failure or a reusable Proof.
-  const preGroups = preCheckpointGroups(cfg);
-  const dirtyAtStart = failedStage === null
-    ? await worktreeDirtyPaths(root)
-    : null;
-  const stageSnapshots: StageSnapshot[] = [];
-  let generatedDiagnostics: Diagnostic[] = [];
-  let generatedFailureRemedies: FiredHint[] | undefined;
-  let snapshotsValid = dirtyAtStart !== null;
-  const snapshotAfter = async (stage: FailedStage): Promise<void> => {
-    if (!snapshotsValid) {
-      return;
-    }
-    const dirty = await worktreeDirtyPaths(root);
-    if (dirty === null) {
-      snapshotsValid = false;
-      return;
-    }
-    stageSnapshots.push({ stage, dirty });
-  };
-  // The one strand verdict (ADR 0047/0148), shared by the checkpoint at 2-bis
-  // and the final pass at step 5 so the two sites cannot diverge: on an
-  // otherwise-green run whose snapshots are trustworthy, fail as `tree_drift`
-  // when a stage left a committed-clean tracked file dirty in the LATEST
-  // snapshot. Only files clean at gate start count — a stage reworking the
-  // agent's own uncommitted edits (the inner loop) never trips — and each
-  // strand names the stage that produced it. The `failedStage` guard makes a
-  // second detection, and so a duplicate diagnostic, structurally impossible.
-  let treeDriftDiag: Diagnostic | undefined;
-  const failOnStrandedTree = async (): Promise<void> => {
-    if (failedStage !== null || dirtyAtStart === null || !snapshotsValid) {
-      return;
-    }
-    const strands = strandedByStage(dirtyAtStart, stageSnapshots);
-    if (strands.length === 0) {
-      return;
-    }
-    failedStage = "tree_drift";
-    treeDriftDiag = await treeDriftDiagnostic(root, strands);
-  };
-  for (const group of preGroups) {
-    if (failedStage !== null) {
-      break;
-    }
-    const generatedBefore = group.stage === "build" &&
-        generatedGroups.length > 0
-      ? await captureGeneratedBuildSnapshot(root, generatedGroups)
-      : undefined;
-    if (!(await runGroup(group, results, runOpts, runOut, slots))) {
-      failedStage = group.stage;
-      break;
-    }
-    if (generatedBefore !== undefined && generatedBefore !== null) {
-      const generatedAfter = await captureGeneratedBuildSnapshot(
-        root,
-        generatedGroups,
-      );
-      if (generatedAfter !== null) {
-        const drift = generatedBuildDrift(
-          generatedGroups,
-          generatedBefore,
-          generatedAfter,
-        );
-        if (drift.groups.length > 0 || drift.unownedPaths.length > 0) {
-          generatedDiagnostics = await generatedBuildDriftDiagnostics(
-            root,
-            drift,
-          );
-          generatedFailureRemedies = [
-            ...drift.groups.map(({ group }) =>
-              fire(HINTS["gate-failure-generated-drift"], {
-                group: group.name,
-                run: group.run,
-              })
-            ),
-            ...(drift.unownedPaths.length > 0
-              ? [
-                fire(HINTS["gate-failure-generated-undercoverage"], {
-                  groups: drift.candidates.map((candidate) => candidate.name),
-                }),
-              ]
-              : []),
-          ];
-          failedStage = "generated_drift";
-          break;
-        }
-      }
-    }
-    await snapshotAfter(group.stage);
-  }
-
-  // 2-bis. The strand checkpoint (ADR 0262): a run that began on a clean,
-  //     committed tree is seeking a proof, and a tracked strand left by the
-  //     pre-groups above already forfeits it — the standards, check∥test, and
-  //     scope-gate work ahead cannot change that verdict, so stop here and
-  //     surface the strands while nothing has been wasted on them. Judged only
-  //     after ALL pre-groups (a later build may consume or restore a fixer's
-  //     edit, and convergence edits belong in one report), and gated on the
-  //     PIN's full cleanliness, never the tracked-dirty snapshot: the pin
-  //     counts untracked files, so an untracked-dirty start — whose tracked
-  //     snapshot is empty — must not read as proof-eligible. A dirty start
-  //     skips the checkpoint entirely: it can earn no proof anyway, and the
-  //     agent running `done` dirty is asking for the full run's feedback,
-  //     which the final pass (step 5) still delivers. A failed pre-group or
-  //     generated-drift verdict above wins outright — the closure yields to
-  //     any recorded failure.
-  const proofEligibleAtStart = treePin.head !== undefined && treePin.clean;
-  if (proofEligibleAtStart) {
-    await failOnStrandedTree();
-  }
-
-  // 2a. Resolve the standards' gate actions AFTER the fix stage — a fixer's
-  //     edits are changes an input-keyed replay must count — and only on the
-  //     live path: when a precondition or an early stage already failed, the
-  //     config-only resolution (measure/defer; replay is a run-time decision)
-  //     keeps the report honest without claiming replays nothing verified.
-  //     Zero cost when [standards] is empty: no jobs, no reads, no fields.
-  const resolved: ResolvedStandard[] = stdPlan.standards.length === 0
-    ? []
-    : failedStage === null
-    ? await resolveStandardActions(
-      root,
-      stdPlan.standards,
-      new Set(standardLimitProposals.keys()),
-    )
-    : resolveStandardActionsFromConfig(stdPlan.standards);
-  const gateStandards = buildStandardJobs(root, resolved, {
-    defaultTimeout: gateTimeoutBudget(cfg),
-    proposals: standardLimitProposals,
-  });
-  const ctGroups = checkTestGroups(cfg, gateStandards.jobs);
+  const impact = await classifyScopeImpact(root, cfg, policyBase);
+  const changed = impact.scopes;
+  const plan = buildGatePlan(
+    cfg,
+    changed,
+    dryRunStandardJobs(cfg),
+    presentation.checkpoints?.mode ?? "strict",
+    impact.previewActions,
+  );
+  progress?.replaceGroups(plan.groups);
   let validation: ValidationStart | undefined;
   if (cfg.project.logbook) {
-    // This is the shared validation boundary: every mutating fix/build group
-    // has settled, and no check/test/measurement job has started. A prior red
-    // records why the boundary was not reached instead of sampling another tree.
     validation = failedStage === null
       ? await captureValidationStart(
         root,
         cfg,
         VALIDATION_RUNS.done,
-        ctGroups,
+        plan.groups,
         presentation.validationCaptureOptions ?? {},
       )
       : await validationBoundaryNotReached(
         root,
         cfg,
         VALIDATION_RUNS.done,
-        ctGroups,
+        plan.groups,
         presentation.validationCaptureOptions ?? {},
       );
   }
-
-  // 2b. The check/test groups — declared jobs AND the standards' measurement
-  //     jobs under one scheduler (fail-fast, buffering, the per-job timeout).
-  //     Uncapped this is the one combined check∥test group; under the fleet
-  //     test-run cap the check stage runs first so it can fail before the test
-  //     group waits for a slot (the split is checkTestGroups' contract).
-  //     Replayed standards settle when their group is reached: their
-  //     synthesized results are seeded so the serialization reads them like any
-  //     other outcome — and a replayed value the branch's own tightened limit
-  //     now fails is a genuine gate failure.
-  let replayFailure = false;
-  for (const group of ctGroups) {
-    if (failedStage !== null) {
-      break;
-    }
-    const holdsStandards = group.jobs.some((j) => j.kind === "standard");
-    if (holdsStandards) {
-      for (const [label, result] of gateStandards.synthesized) {
-        results.set(label, result);
-        if (result.code !== 0) {
-          replayFailure = true;
-        }
-      }
-    }
-    const groupOk = await runGroup(
-      group,
-      results,
-      runOpts,
-      runOut,
-      slots,
-      gateStandards.evaluators,
+  let validationRun: PublicValidationRun | undefined;
+  let treeDriftDiag: Diagnostic | undefined;
+  let generatedDiagnostics: Diagnostic[] = [];
+  let generatedFailureRemedies: FiredHint[] | undefined;
+  if (failedStage === null) {
+    const configured = await configuredValidation(cfg, changed);
+    const generatedBoundary = createGeneratedBuildBoundary(
+      root,
+      resolveGeneratedGroups(cfg),
+      configured.stages,
     );
-    gateStandards.settle(results);
-    const standardFailure = group.jobs.some((job) =>
-      job.kind === "standard" && (results.get(job.label)?.code ?? 0) !== 0
-    );
-    if (!groupOk) {
-      failedStage = group.stage;
-    } else if (holdsStandards && (replayFailure || standardFailure)) {
-      failedStage = group.stage;
-    } else {
-      await snapshotAfter(group.stage);
+    const onProgress = (
+      { producer, state }: { producer: string; state: "running" | "finished" },
+    ): void => {
+      if (state === "running") runOut.info(`Validating ${producer}.`);
+    };
+    validationRun = presentation.completion === undefined
+      ? await standaloneValidation({
+        root,
+        config: cfg,
+        scopes: changed,
+        kind: "standalone",
+        base: policyBase,
+        mode: presentation.checkpoints?.mode ?? "strict",
+        context: presentation.context ?? "local",
+        ...(signal === undefined ? {} : { signal }),
+        onProgress,
+        producerBoundary: generatedBoundary.observer,
+      })
+      : await executePublicValidation({
+        root,
+        config: cfg,
+        scopes: changed,
+        claimed: presentation.completion.execution,
+        demand: {
+          kind: "done",
+          requirements: configured.obligations.map((entry) =>
+            entry.requirement
+          ),
+          context: presentation.completion.context,
+          mode: presentation.completion.mode,
+        },
+        bindComposition: true,
+        ...(presentation.completion.rerun_of === undefined
+          ? {}
+          : { rerun_of: presentation.completion.rerun_of }),
+        onProgress,
+        producerBoundary: generatedBoundary.observer,
+      });
+    generatedDiagnostics = generatedBoundary.diagnostics;
+    generatedFailureRemedies = generatedBoundary.hints;
+    for (const [label, result] of validationRun.results) {
+      results.set(label, result);
     }
-  }
-  const stageGroups = [...preGroups, ...ctGroups];
-
-  // 3. Classify the changed scopes AFTER the stage groups — preserving the gate's
-  //    original timing, so a fix-stage edit is reflected and scope selection keeps
-  //    its fail-open bias (it never runs FEWER gates than the post-fix tree warrants).
-  //    Computed even when the merge precondition failed, so the result still lists the
-  //    scopes (their gates serialize as skipped, like every other downstream step).
-  const impact = await classifyScopeImpact(root, cfg);
-  const changed = impact.scopes;
-  const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
-  const plan = composeGatePlan(
-    stageGroups,
-    sgGroup,
-    changed,
-    presentation.checkpoints?.mode ?? "strict",
-    impact.previewActions,
-  );
-  progress?.replaceGroups(plan.groups);
-
-  // 4. Scope gates (only when the stage groups passed).
-  if (failedStage === null && sgGroup !== undefined) {
-    if (!(await runGroup(sgGroup, results, runOpts, runOut, slots))) {
-      failedStage = "scope_gates";
-    } else {
-      await snapshotAfter("scope_gates");
+    if (validationRun.outcome.blockers.length > 0) {
+      failedStage = plan.groups.find((group) =>
+        group.jobs.some((job) =>
+          (results.get(job.label)?.code ?? 0) !== 0
+        )
+      )?.stage ?? "check/test";
     }
-  }
-
-  // 5. The final strand pass (ADR 0034's sibling; ADR 0047, extended by ADR
-  //     0148): a stage may MUTATE the tree (the fix stage by design, any other by
-  //     accident of wiring), but a clean gate must not hide uncommitted gate
-  //     output. The checkpoint (2-bis) already settled the pre-group half for a
-  //     proof-eligible start; this closing pass catches strands the check∥test
-  //     and scope-gate stages introduced — and, on a dirty start, every stage's.
-  await failOnStrandedTree();
-
-  // Snapshot uncertainty cannot silently erase a checked dimension from a
-  // green result. The gate may still report its job verdict, but Proof and
-  // acceptance retain this bounded account and a later run never treats the
-  // missing observation as if it had succeeded.
-  if (
-    failedStage === null && (dirtyAtStart === null || !snapshotsValid) &&
-    presentation.checkpoints !== undefined
-  ) {
-    presentation.checkpoints.drops.push(policyCheckpointDrop(
-      "strand_check_unavailable",
-      "the gate could not read every working-tree snapshot needed to prove that its stages left no tracked output behind",
-      presentation.checkpoints.policyCommit,
-    ));
+    const dirtyAfter = await worktreeDirtyPaths(root);
+    if (generatedDiagnostics.length > 0) {
+      failedStage = "generated_drift";
+    } else if (treePin.clean && dirtyAfter !== null && dirtyAfter.size > 0) {
+      failedStage = "tree_drift";
+      treeDriftDiag = await treeDriftDiagnostic(root, [{
+        stage: "check/test",
+        paths: [...dirtyAfter],
+      }]);
+    }
   }
 
   // Re-evaluate at the proof boundary. The early pass is the fast refusal;
@@ -824,10 +764,16 @@ async function runGate(
   //     the Tier-1 verification, plus the measured value patched into each
   //     measured step's note — the proof renders FROM these, never a second
   //     computation.
-  const standardsData: GateStandard[] = gateStandardsData(
-    resolved,
-    gateStandards,
-  );
+  const standardsData: GateStandard[] = [
+    ...(validationRun?.standards ??
+      stdPlan.standards.map((standard): GateStandard => ({
+        name: standard.name,
+        direction: standard.direction,
+        limit: standard.limit,
+        margin: standard.margin,
+        measurement: "skipped",
+      }))),
+  ];
   if (result.data !== undefined) {
     if (standardsData.length > 0) {
       result.data.standards = standardsData;
@@ -906,151 +852,26 @@ async function runGate(
       diagnostics: result.diagnostics ?? [],
     })
     : undefined;
-  // The proof (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
-  // renders the compact review summary from this very envelope — the artifact the
-  // agent relays to its owner at the review moment. Built before the marker write so
-  // the marker can store the markdown beside the sha it vouches for.
-  const proof = failedStage === null
-    ? await buildGateProof(
-      root,
-      mainBranch,
-      result.steps ?? [],
-      standardsData,
-      standardsLimits,
-      checkpointPreflight === undefined
-        ? undefined
-        : proofCheckpointsData(checkpointPreflight),
-      checkpointPreflight?.mode ?? "strict",
-      checkpointPreflight?.drops ?? [],
-      [...standardLimitProposals.values()],
-    )
-    : undefined;
-  // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
-  // gate over a clean committed tree records only process-backed values. A
-  // replay preserves its original measured provenance and never masquerades as
-  // a new measurement. Durations and definition fingerprints ride with fresh
-  // values so reuse cannot cross a meaning change. Fail-closed on red: a
-  // failing standard's values must not stay reusable.
-  if (writeAuthority !== undefined) {
-    await recordFreshStandardMeasurementEvidence(
-      root,
-      writeAuthority,
-      standardsData,
-      treePin,
-    );
-  }
-  if (failedStage === null) {
-    const values: Record<string, number> = {};
-    const durations: Record<string, number> = {};
-    const definitions: Record<string, string> = {};
-    for (const o of standardsData) {
-      if (o.value !== undefined && o.measurement === "measured") {
-        values[o.name] = o.value;
-        const standard = stdPlan.standards.find((entry) =>
-          entry.name === o.name
-        );
-        if (standard !== undefined) {
-          definitions[o.name] = await standardDefinitionFingerprint(
-            standard.name,
-            standard.spec,
-          );
-        }
-        if (o.duration_s !== undefined) {
-          durations[o.name] = o.duration_s;
-        }
-      }
-    }
-    if (Object.keys(values).length > 0 && writeAuthority !== undefined) {
-      await recordStandardMeasurements(
-        root,
-        writeAuthority,
-        values,
-        definitions,
-        treePin,
-        durations,
-      );
-    }
-  } else if (
-    writeAuthority !== undefined &&
-    standardsData.some(
-      (o) =>
-        o.verdict === "regressed" ||
-        (o.measurement === "measured" && o.value === undefined),
-    )
-  ) {
-    await clearStandardMeasurements(root, writeAuthority);
-  }
-  // Linked worktrees share the trunk ref, so another worktree can advance it
-  // after the fail-fast check. Re-check beside the proof stamp and report the
-  // new state without changing the green verdict or withholding the proof:
-  // the proof vouches for the pinned HEAD, while `accept` retains the final
-  // live-ref check. This observation can race too, so it stays advisory.
-  let trunkAdvanceWarning: FiredHint | undefined;
-  if (failedStage === null) {
-    const stampMerge = await assertMainMerged(root, mainBranch);
-    if (stampMerge.kind === "behind") {
-      trunkAdvanceWarning = fire(HINTS["gate-trunk-advanced"]);
-      runOut.warn(trunkAdvanceWarning.text);
-    }
-  }
-  // Record the gate proof (ADR 0067): a GREEN run over a CLEAN tree stamps the
-  // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
-  // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
-  // fail-fast precondition; the writer remains best-effort only against a later
-  // point-in-time failure, whose outcome rides in `data` for suppressed loggers.
-  const gateProof: NonNullable<GateData["gate_proof"]> =
-    writeAuthority === undefined
-      ? {
-        status: "unavailable",
-        ...(writeAccessFailure !== undefined
-          ? {
-            path: writeAccessFailure.path,
-            reason: writePreflightFailureMessage(writeAccessFailure),
-          }
-          : { reason: "write authority was not established" }),
-      }
-      : await recordGateOutcome(
-        root,
-        writeAuthority,
-        failedStage === null,
-        treePin,
-        proof,
-        checkpointPreflight?.evidence,
-        checkpointPreflight?.mode ?? "strict",
-      );
-  // The last-run marker remembers what this run judged — every verdict, red
-  // included, unlike the proof above — so the next `done` can resist an
-  // unchanged red retry unless it carries `--rerun`.
-  if (writeAuthority !== undefined) {
-    await recordLastGateRun(
-      root,
-      writeAuthority,
-      failedStage === null,
-      await gateRunEvidenceIdentity(root, checkpointPreflight),
-      checkpointPreflight?.mode ?? "strict",
-    );
-  }
-  // A stamp refused because HEAD moved mid-run also suppresses the rendered review
-  // proof: its git facts were gathered AFTER the move, so its markdown describes a
-  // tree the gate never read — the hint tells the agent to re-run on the final commit.
-  const emittedProof = gateProof.status === "skipped_head_moved"
-    ? undefined
-    : proof;
-  const landingAuthority = failedStage === null && emittedProof !== undefined &&
-      checkpointPreflight?.mode !== "report"
-    ? await inspectLandingAuthority(root, mainBranch)
-    : undefined;
+  // Landing evidence is published only after the environment has returned and queue admission succeeds.
+  const gateProof: NonNullable<GateData["gate_proof"]> = {
+    status: presentation.completion === undefined
+      ? "skipped_dirty"
+      : "unavailable",
+    reason: presentation.completion === undefined
+      ? "Standalone feedback does not issue Proof."
+      : "Complete queue admission is pending.",
+  };
   if (result.data !== undefined) {
     result.data.gate_proof = gateProof;
-    if (emittedProof !== undefined) {
-      result.data.proof = emittedProof;
-    }
-    const authorityProjection = landingAuthority === undefined
-      ? undefined
-      : landingAuthorityProjection(landingAuthority);
-    if (authorityProjection !== undefined) {
-      result.data.landing_authority = authorityProjection;
-    }
+    result.data.producer_executions = { ...validationRun?.producer_executions };
+    result.data.completion = {
+      kind: presentation.completion === undefined ? "diagnostic" : "pending",
+      context: presentation.context ?? presentation.completion?.context ??
+        "local",
+      pending_reasons: presentation.completion === undefined
+        ? []
+        : ["Complete queue admission is pending."],
+    };
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
@@ -1065,18 +886,6 @@ async function runGate(
     failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
       ? await couplingGateHints(root)
       : [];
-  // Logbook findings share the coupling advisory's presentation boundary:
-  // green, bootstrapped, best-effort, and at the tail. A branch finding must
-  // also have a real proof to sit beside, and the formatter caps the whole
-  // addition at one line after applying its stricter evidence margin.
-  const logbookHints = failedStage === null && cfg.meta.bootstrapped &&
-      emittedProof !== undefined
-    ? proofFindingHints(
-      (await inlineFindingRoutes(root, cfg)).done,
-      emittedProof.branch,
-    )
-    : [];
-  const proofHint = gateProofHint(gateProof, failedStage);
   // Checkpoint deliveries ride the envelope's one advisory channel: evidence-drop
   // accounts as notices, each fired advise-mode question served in full, and
   // — on a green run with a declared-unmet conclusion standing — the landing
@@ -1118,9 +927,6 @@ async function runGate(
   const reportHints = checkpointPreflight?.mode === "report"
     ? [fire(HINTS["gate-checkpoint-review-reported"])]
     : [];
-  const deferredStandards = standardsData
-    .filter((o) => o.measurement === "deferred")
-    .map((o) => o.name);
   // On failure, the stage remedy leads the envelope: the terminal renderer and
   // accept both read that first hint as their headline.
   const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
@@ -1129,7 +935,6 @@ async function runGate(
     ...leadingFailureHints,
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
-    ...(trunkAdvanceWarning !== undefined ? [trunkAdvanceWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(strandUnavailableHint === undefined ? [] : [strandUnavailableHint]),
@@ -1137,21 +942,18 @@ async function runGate(
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
     ...(slots?.waits ?? []),
-    ...(proofHint !== undefined ? [proofHint] : []),
     ...reportHints,
     ...varianceHints,
     ...buildGateHints(
       plan.previewActions,
       failedStage,
       gotchasTail,
-      emittedProof !== undefined,
-      deferredStandards,
-      landingAuthority,
+      false,
+      undefined,
     ),
     ...adviseHints,
     ...trailingJobHints,
     ...couplingHints,
-    ...logbookHints,
   ];
   if (hints.length > 0) {
     result.hints = hintTexts(hints);
@@ -1180,6 +982,92 @@ async function runGate(
     // excerpt and full-artifact route below the restored frame.
     outputWithheld: gateOutputIsLive(policy),
     presentationWritable: !liveWriteFailed && deferredOutputFlushed,
+    ...(failedStage !== null || presentation.completion === undefined ? {} : {
+      review: await captureCandidateReview(
+        root,
+        presentation.completion,
+        checkpointPreflight === undefined
+          ? undefined
+          : proofCheckpointsData(checkpointPreflight),
+        [...standardLimitProposals.values()],
+      ),
+    }),
+    ...(validationRun === undefined ? {} : { validationRun }),
+    finalize: async (pointer): Promise<void> => {
+      const complete = await readCompleteProof(root, pointer);
+      const proof = await buildGateProof(
+        root,
+        mainBranch,
+        result.steps ?? [],
+        standardsData,
+        standardsLimits,
+        checkpointPreflight === undefined
+          ? undefined
+          : proofCheckpointsData(checkpointPreflight),
+        checkpointPreflight?.mode ?? "strict",
+        checkpointPreflight?.drops ?? [],
+        [...standardLimitProposals.values()],
+        complete,
+      );
+      const recorded = writeAuthority === undefined
+        ? {
+          status: "unavailable" as const,
+          reason: writeAccessFailure === undefined
+            ? "Write authority was not established."
+            : writePreflightFailureMessage(writeAccessFailure),
+        }
+        : await recordGateOutcome(
+          root,
+          writeAuthority,
+          true,
+          { ...treePin, head: complete.candidate.source.head },
+          proof,
+          checkpointPreflight?.evidence,
+          checkpointPreflight?.mode ?? "strict",
+          pointer,
+        );
+      if (recorded.status === "recorded" && proof !== undefined) {
+        await retainProofPresentation(root, pointer, proof);
+      }
+      if (result.data !== undefined) {
+        result.data.gate_proof = recorded;
+        if (proof !== undefined) result.data.proof = proof;
+        const resolution = await inspectLandingAuthority(root, mainBranch);
+        const authority = landingAuthorityProjection(resolution);
+        if (authority !== undefined) result.data.landing_authority = authority;
+        const proofHints = buildGateHints(
+          plan.previewActions,
+          null,
+          undefined,
+          proof !== undefined,
+          resolution,
+        );
+        const recordingHint = gateProofHint(recorded, null);
+        const logbookHints = proof === undefined || !cfg.meta.bootstrapped
+          ? []
+          : proofFindingHints(
+            (await inlineFindingRoutes(root, cfg)).done,
+            proof.branch,
+          );
+        result.hints = [
+          ...new Set([
+            ...(result.hints ?? []),
+            ...hintTexts(proofHints),
+            ...(recordingHint === undefined ? [] : [recordingHint.text]),
+            ...hintTexts(logbookHints),
+          ]),
+        ];
+      }
+      if (writeAuthority !== undefined) {
+        await recordLastGateRun(
+          root,
+          writeAuthority,
+          true,
+          await gateRunEvidenceIdentity(root, checkpointPreflight),
+          checkpointPreflight?.mode ?? "strict",
+        );
+      }
+    },
   };
 }
 
@@ -1226,15 +1114,13 @@ function gateProofHint(
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
  * human success tail. On a failure: the resolved gotchas tail — the matched trap
  * entry or the doc pointer, plus any malformed-matcher warnings (when a
- * `gotchas_doc` is set). On success: update the docs, run any deferred
- * standards, view a previewable change.
+ * `gotchas_doc` is set). On success: update changed documentation and view a previewable change.
  */
 function buildGateHints(
   previewActions: readonly PreviewActionData[],
   failedStage: FailedStage | null,
   gotchasTail: GotchasFailureTail | undefined,
   proofEmitted: boolean,
-  deferredStandards: string[],
   landingAuthority: LandingAuthorityResolution | undefined,
 ): FiredHint[] {
   if (failedStage !== null) {
@@ -1258,13 +1144,6 @@ function buildGateHints(
     ]
     : [];
   hints.push(fire(HINTS["gate-update-docs"]));
-  if (deferredStandards.length > 0) {
-    hints.push(
-      fire(HINTS["gate-deferred-standards"], {
-        names: deferredStandards,
-      }),
-    );
-  }
   for (const action of previewActions) {
     hints.push(fire(HINTS["gate-previewable-change"], action));
   }
@@ -1273,13 +1152,12 @@ function buildGateHints(
 
 const DONE_TTY_ROUTINE_HINT_IDS = new Set([
   HINTS["gate-update-docs"].id,
-  HINTS["gate-deferred-standards"].id,
 ]);
 
 /**
  * Keep exceptional human advisories above the compact proof, while leaving
  * its routine follow-ups in the envelope. The highlighted line already names
- * the full proof, where deferred standards carry their command.
+ * the full proof and every required obligation.
  */
 function doneTtyProofHintTexts(
   texts: readonly string[] | undefined,
@@ -1446,162 +1324,6 @@ async function dryRunGate(
   return 0;
 }
 
-/** Project the one resolved question shape onto public snake-case fields. */
-function checkpointQuestionData(
-  value: {
-    question: string;
-    questionFile?: string;
-    teach?: string;
-    reference?: string;
-  },
-): Pick<
-  ServedCheckpointData,
-  "question" | "question_file" | "teach" | "reference"
-> {
-  return {
-    question: value.question,
-    ...(value.questionFile === undefined
-      ? {}
-      : { question_file: value.questionFile }),
-    ...(value.teach === undefined ? {} : { teach: value.teach }),
-    ...(value.reference === undefined ? {} : { reference: value.reference }),
-  };
-}
-
-/** Project one served checkpoint onto the wire shape. */
-function servedCheckpointData(served: ServedCheckpoint): ServedCheckpointData {
-  return {
-    id: served.id,
-    mode: served.mode,
-    ...checkpointQuestionData(served),
-    matched: [...served.matched],
-    ...(served.related.length === 0
-      ? {}
-      : { related: relatedCheckpointData(served.related) }),
-  };
-}
-
-/** Project the pre-flight onto the envelope's `data.checkpoints` block, or
- * `undefined` when no checkpoint governed and nothing failed open (so a
- * checkpoint-free project's result stays byte-identical to before). */
-function gateCheckpointsData(
-  preflight: CheckpointPreflight,
-): GateCheckpointsData | undefined {
-  const empty = preflight.outstanding.length === 0 &&
-    preflight.declaredMet.length === 0 &&
-    preflight.declaredUnmet.length === 0 &&
-    preflight.advise.length === 0 &&
-    preflight.drops.length === 0 &&
-    preflight.mode === "strict";
-  if (empty) {
-    return undefined;
-  }
-  return {
-    ...(preflight.policyCommit === undefined
-      ? {}
-      : { policy: preflight.policyCommit }),
-    ...(preflight.outstanding.length === 0
-      ? {}
-      : { outstanding: preflight.outstanding.map(servedCheckpointData) }),
-    ...(preflight.declaredMet.length === 0 ? {} : {
-      declared_met: preflight.declaredMet.map((met) => ({
-        id: met.id,
-        ...checkpointQuestionData(met),
-        declared_at: met.declaredAt,
-        matched: [...met.matched],
-        ...(met.related.length === 0
-          ? {}
-          : { related: relatedCheckpointData(met.related) }),
-      })),
-    }),
-    ...(preflight.declaredUnmet.length === 0 ? {} : {
-      declared_unmet: preflight.declaredUnmet.map((unmet) => ({
-        id: unmet.id,
-        ...checkpointQuestionData(unmet),
-        why: unmet.why,
-        declared_at: unmet.declaredAt,
-        matched: [...unmet.matched],
-        ...(unmet.related.length === 0
-          ? {}
-          : { related: relatedCheckpointData(unmet.related) }),
-      })),
-    }),
-    ...(preflight.advise.length === 0
-      ? {}
-      : { advise: preflight.advise.map(servedCheckpointData) }),
-    ...(preflight.mode === "strict" ? {} : {
-      review: {
-        enforcement: "reported" as const,
-        status: preflight.unreviewed.length === 0
-          ? "not_needed" as const
-          : "unreviewed" as const,
-        ...(preflight.unreviewed.length === 0 ? {} : {
-          unreviewed: preflight.unreviewed.map(servedCheckpointData),
-        }),
-      },
-    }),
-    ...(preflight.drops.length === 0
-      ? {}
-      : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
-    ...(preflight.drops.length === 0
-      ? {}
-      : { advisories: checkpointDropAccounts(preflight.drops) }),
-  };
-}
-
-/** The Proof's checkpoint block: the current conclusions plus the policy
- * identity, when checkpoints governed the run. */
-function proofCheckpointsData(
-  preflight: CheckpointPreflight,
-): ProofCheckpointsData | undefined {
-  if (
-    preflight.mode === "strict" &&
-    preflight.declaredMet.length === 0 &&
-    preflight.declaredUnmet.length === 0 &&
-    preflight.drops.length === 0
-  ) {
-    return undefined;
-  }
-  return {
-    ...(preflight.policyCommit === undefined
-      ? {}
-      : { policy: preflight.policyCommit }),
-    declared_met: preflight.declaredMet.map((met) => ({
-      id: met.id,
-      ...checkpointQuestionData(met),
-      declared_at: met.declaredAt,
-      matched: [...met.matched],
-      ...(met.related.length === 0
-        ? {}
-        : { related: relatedCheckpointData(met.related) }),
-    })),
-    declared_unmet: preflight.declaredUnmet.map((unmet) => ({
-      id: unmet.id,
-      ...checkpointQuestionData(unmet),
-      why: unmet.why,
-      declared_at: unmet.declaredAt,
-      matched: [...unmet.matched],
-      ...(unmet.related.length === 0
-        ? {}
-        : { related: relatedCheckpointData(unmet.related) }),
-    })),
-    ...(preflight.mode === "strict" ? {} : {
-      review: {
-        enforcement: "reported" as const,
-        status: preflight.unreviewed.length === 0
-          ? "not_needed" as const
-          : "unreviewed" as const,
-        ...(preflight.unreviewed.length === 0
-          ? {}
-          : { unreviewed: preflight.unreviewed.map(servedCheckpointData) }),
-      },
-    }),
-    ...(preflight.drops.length === 0
-      ? {}
-      : { drops: preflight.drops.map((drop) => ({ ...drop })) }),
-  };
-}
-
 /** One checkpoint's serving text in the batched refusal: id, evidence,
  * question, and any teaching — indented so the batch scans as a list. */
 function serveCheckpointText(served: ServedCheckpoint): string {
@@ -1678,6 +1400,7 @@ async function resolveCheckpointGate(
   mode: "strict" | "report" = "strict",
   ciRecovery = false,
   signal?: AbortSignal,
+  expectedPredecessor?: string,
 ): Promise<CheckpointGateResolution> {
   const cfg = await loadConfig(root);
   if (mode === "report") {
@@ -1695,7 +1418,12 @@ async function resolveCheckpointGate(
     }
     return {
       kind: "proceed",
-      preflight: await runCheckpointReport(root, cfg, signal),
+      preflight: await runCheckpointReport(
+        root,
+        cfg,
+        signal,
+        expectedPredecessor,
+      ),
     };
   }
   const outcome = await runCheckpointPreflight(
@@ -1704,6 +1432,7 @@ async function resolveCheckpointGate(
     request,
     undefined,
     signal,
+    expectedPredecessor,
   );
   if (outcome.kind === "invalid") {
     return {
@@ -1881,6 +1610,15 @@ const DONE_PREAMBLE_OPERATIONS = {
   gateRunEvidenceIdentity,
 } satisfies DonePreambleOperations;
 
+/** Report comparisons name the fetched predecessor before checkpoint inspection. */
+function donePreambleOperations(predecessor?: string): DonePreambleOperations {
+  return predecessor === undefined ? DONE_PREAMBLE_OPERATIONS : {
+    ...DONE_PREAMBLE_OPERATIONS,
+    resolveCheckpointGate: (root, declarations, mode, ci, signal) =>
+      resolveCheckpointGate(root, declarations, mode, ci, signal, predecessor),
+  };
+}
+
 /** The output contract an in-process full-gate caller must choose explicitly. */
 export type FinishResultSurface =
   | { kind: "quiet" }
@@ -1889,6 +1627,12 @@ export type FinishResultSurface =
 /** Options for an in-process full-gate run. The required surface prevents a new
  * composite command from inheriting machine silence while a person waits. */
 export interface FinishResultOptions {
+  /** Internal accept capability names an already released slot and its observed stamp. */
+  execution?: ReleasedCompletionExecution;
+  retainCheckout?: boolean;
+  policyBase?: string;
+  standalone?: boolean;
+  context?: string;
   surface: FinishResultSurface;
   /** Fully attached live command tree, owned and injected by the entry point. */
   cliModel: CliModelProvider;
@@ -1925,6 +1669,16 @@ export async function finishResult(
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
   const mode = opts.ci === true ? "report" as const : "strict" as const;
+  if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
+    const refusal: DiscernResult<GateData> = {
+      ok: false,
+      verb: "done",
+      error: "invalid_arguments",
+      message:
+        "An explicit policy base is available only for standalone CI reports; strict completion always uses its recorded queue predecessor.",
+    };
+    return refusal;
+  }
   if (
     mode === "report" &&
     ((opts.met?.length ?? 0) > 0 || opts.unmet !== undefined)
@@ -1956,7 +1710,9 @@ export async function finishResult(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true;
+  const rerunRequested = opts.rerun === true || opts.standalone === true ||
+    opts.retainCheckout === true ||
+    ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
     root,
@@ -1965,15 +1721,35 @@ export async function finishResult(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
+      deferCheckpoints: !opts.standalone &&
+        (await pinValidatedTree(root)).clean,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
-    DONE_PREAMBLE_OPERATIONS,
+    donePreambleOperations(opts.policyBase),
   );
   if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
       cliModel: opts.cliModel,
-      checkpoints: preamble.preflight,
+      ...(opts.retainCheckout === undefined
+        ? {}
+        : { retainCheckout: opts.retainCheckout }),
+      ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
+      ...("execution" in opts && opts.execution !== undefined
+        ? { execution: opts.execution }
+        : {}),
+      ...(opts.context === undefined ? {} : { context: opts.context }),
+      ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
+      ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
+      ...(preamble.preflight === undefined
+        ? {}
+        : { checkpoints: preamble.preflight }),
+      checkpointRequest: {
+        mode,
+        declarations,
+        rerunRequested,
+        ciRecovery: terminal.ciRequestsStaticOutput,
+      },
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -1989,7 +1765,25 @@ export async function finishResult(
     opts.signal,
     {
       cliModel: opts.cliModel,
-      checkpoints: preamble.preflight,
+      ...(opts.retainCheckout === undefined
+        ? {}
+        : { retainCheckout: opts.retainCheckout }),
+      ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
+      ...("execution" in opts && opts.execution !== undefined
+        ? { execution: opts.execution }
+        : {}),
+      ...(opts.context === undefined ? {} : { context: opts.context }),
+      ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
+      ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
+      ...(preamble.preflight === undefined
+        ? {}
+        : { checkpoints: preamble.preflight }),
+      checkpointRequest: {
+        mode,
+        declarations,
+        rerunRequested,
+        ciRecovery: terminal.ciRequestsStaticOutput,
+      },
       ...(opts.validationCaptureOptions !== undefined
         ? { validationCaptureOptions: opts.validationCaptureOptions }
         : {}),
@@ -2024,11 +1818,23 @@ function dryRunStandardJobs(
   return planStandardJobsFromConfig(buildStandardPlan(cfg).standards);
 }
 
+/** Both author and candidate preconditions preserve the full served question. */
+function renderGateRefusal(out: Out, result: DiscernResult<GateData>): void {
+  out.errorBlock(result.message ?? "The gate refused to run.");
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) out.warn(hint);
+}
+
 /** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
   opts: {
     json: boolean;
+    standalone?: boolean;
+    retainCheckout?: boolean;
+    policyBase?: string;
+    context?: string;
     /** Fully attached live command tree, owned and injected by the entry point. */
     cliModel: CliModelProvider;
     dryRun?: boolean;
@@ -2040,6 +1846,18 @@ export async function runFinish(
   },
 ): Promise<number> {
   const mode = opts.ci === true ? "report" as const : "strict" as const;
+  if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
+    const refusal: DiscernResult<GateData> = {
+      ok: false,
+      verb: "done",
+      error: "invalid_arguments",
+      message:
+        "An explicit policy base is available only for standalone CI reports; strict completion always uses its recorded queue predecessor.",
+    };
+    observeResult(refusal);
+    emitResult(refusal);
+    return 1;
+  }
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json, mode);
   }
@@ -2047,7 +1865,9 @@ export async function runFinish(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true;
+  const rerunRequested = opts.rerun === true || opts.standalone === true ||
+    opts.retainCheckout === true ||
+    ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
     root,
@@ -2056,8 +1876,10 @@ export async function runFinish(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
+      deferCheckpoints: !opts.standalone &&
+        (await pinValidatedTree(root)).clean,
     },
-    DONE_PREAMBLE_OPERATIONS,
+    donePreambleOperations(opts.policyBase),
   );
   if (preamble.kind === "reuse") {
     observeResult(preamble.result);
@@ -2078,16 +1900,7 @@ export async function runFinish(
       emitResult(refusal);
       return 1;
     }
-    const out = makeOut(colorEnabled());
-    // Refusal messages are product-composed and may carry deliberate
-    // paragraphs (the batched checkpoint serving); their newlines are real
-    // structure on the terminal, never visible symbols.
-    out.errorBlock(refusal.message ?? "The gate refused to run.");
-    const hints = interactiveHintTexts(refusal.hints);
-    if (hints.length > 0) out.group("next");
-    for (const hint of hints) {
-      out.warn(hint);
-    }
+    renderGateRefusal(makeOut(colorEnabled()), refusal);
     return 1;
   }
   const preflight = preamble.preflight;
@@ -2100,7 +1913,25 @@ export async function runFinish(
       undefined,
       {
         cliModel: opts.cliModel,
+        ...(opts.retainCheckout === undefined
+          ? {}
+          : { retainCheckout: opts.retainCheckout }),
+        ...(opts.policyBase === undefined
+          ? {}
+          : { policyBase: opts.policyBase }),
+
+        ...(opts.context === undefined ? {} : { context: opts.context }),
+        ...(opts.standalone === undefined
+          ? {}
+          : { standalone: opts.standalone }),
+        ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
         ...(preflight === undefined ? {} : { checkpoints: preflight }),
+        checkpointRequest: {
+          mode,
+          declarations,
+          rerunRequested,
+          ciRecovery: terminal.ciRequestsStaticOutput,
+        },
       },
     );
   const gate = await gateRun();
@@ -2120,6 +1951,10 @@ export async function runFinish(
     return failedStage === null ? 0 : 1;
   }
   if (!presentationWritable) return failedStage === null ? 0 : 1;
+  if (!result.ok && result.data?.gate_ran === false) {
+    renderGateRefusal(out, result);
+    return 1;
+  }
   const ttyWidth = gateOutputTtyWidth(policy);
   const staticTableRendered = ttyWidth !== undefined &&
     policy.output.kind === "static-grouped";

@@ -1,3 +1,4 @@
+import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 /** Read-only authority for persisted Standard limit proposals. Gate, pin,
  * proposal creation, Proof, and acceptance consume this module without
  * depending on the effectful proposal command. */
@@ -224,6 +225,7 @@ async function proposalStaleness(
   byName: ReadonlyMap<string, PlannedStandard>,
   head: string,
   configRel: string,
+  config: DiscernConfig,
 ): Promise<string | undefined> {
   if (proposal.bound_commit !== head) {
     return `it is bound to commit ${
@@ -255,7 +257,7 @@ async function proposalStaleness(
     return "the direction, proposed limit, measurement, or delta changed";
   }
   if (
-    await standardDefinitionFingerprint(standard.name, standard.spec) !==
+    await standardDefinitionFingerprint(standard.name, config) !==
       proposal.definition_fingerprint
   ) {
     return "the standard definition changed";
@@ -278,14 +280,21 @@ export async function inspectActiveStandardLimitProposals(
   root: string,
   mainBranch: string,
   standards: readonly PlannedStandard[],
+  subject: {
+    readonly head?: string;
+    readonly predecessor?: string;
+    readonly config?: DiscernConfig;
+  } = {},
 ): Promise<ActiveStandardLimitProposals> {
   const read = await readProposalStore(root);
   if (read.status !== "ok") {
     return { active: new Map(), stale: [] };
   }
   const [head, trunk] = await Promise.all([
-    gitValue(root, ["rev-parse", "HEAD"]),
-    readTrunkConfig(root, mainBranch),
+    subject.head === undefined
+      ? gitValue(root, ["rev-parse", "HEAD"])
+      : Promise.resolve(subject.head),
+    readTrunkConfig(root, subject.predecessor ?? mainBranch),
   ]);
   if (head === undefined) {
     return {
@@ -296,6 +305,7 @@ export async function inspectActiveStandardLimitProposals(
       })),
     };
   }
+  const config = subject.config ?? await loadConfig(root);
   const configRel = (await installedConfigRel(root)) ?? CONFIG_REL;
   const byName = new Map(
     standards.map((standard) => [standard.name, standard]),
@@ -315,6 +325,7 @@ export async function inspectActiveStandardLimitProposals(
       byName,
       head,
       configRel,
+      config,
     );
     const refreshedValue = freshEvidence.status === "honored"
       ? freshEvidence.evidence.values[proposal.standard]

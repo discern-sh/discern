@@ -66,7 +66,6 @@ import {
 import {
   type AdminStateWriteAuthority,
   clearGateProof,
-  inspectFreshStandardMeasurementEvidence,
   isWorktreeFullyClean,
   preflightAdminStateWrites,
 } from "./proof.ts";
@@ -515,14 +514,6 @@ async function proposalMeasurement(
   authority: StandardProposalWriteAuthority,
   signal?: AbortSignal,
 ): Promise<ProposalMeasurement> {
-  const fresh = await inspectFreshStandardMeasurementEvidence(root);
-  const recorded = fresh.status === "honored" &&
-      !fresh.evidence.failed.includes(standard.name)
-    ? fresh.evidence.values[standard.name]
-    : undefined;
-  if (recorded !== undefined) {
-    return { ok: true, value: recorded };
-  }
   const measured = await measureStandardEvidence(
     root,
     cfg,
@@ -532,7 +523,8 @@ async function proposalMeasurement(
     signal,
   );
   const reading = measured.readings.find((entry) =>
-    entry.name === standard.name && entry.measurement === "measured"
+    entry.name === standard.name &&
+    (entry.measurement === "measured" || entry.measurement === "replayed")
   );
   if (!measured.evidenceRecorded) {
     const pinned = measured.pin.head === undefined
@@ -793,7 +785,7 @@ export async function standardsProposeResult(
   }
   const definitionFingerprint = await standardDefinitionFingerprint(
     standard.name,
-    standard.spec,
+    cfg,
   );
   const changedPaths = await collectPaths(root, trunk.commit, head);
   if (changedPaths === null) {

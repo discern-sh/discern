@@ -189,8 +189,15 @@ function projectedOpenQuestionState(
 export async function inspectCheckpointObligations(
   root: string,
   config: DiscernConfig,
+  view: {
+    readonly predecessor?: string;
+    readonly currentCommit?: string;
+    readonly stored?: Awaited<ReturnType<typeof readOpenQuestions>>;
+    /** The retained preflight already ran every when command on this exact subject. */
+    readonly whenSettled?: boolean;
+  } = {},
 ): Promise<CheckpointInspection> {
-  const policy = await loadGoverningPolicy(root, config);
+  const policy = await loadGoverningPolicy(root, config, view.predecessor);
   const drops: CheckpointDrop[] = [...policy.drops];
 
   let outcomes: ReadonlyMap<string, StructuralTriggerOutcome> = new Map();
@@ -202,6 +209,7 @@ export async function inspectCheckpointObligations(
       policy.policyCommit,
       policy.generatedGroups,
       policy.checkpoints,
+      view.currentCommit,
     );
     if (diff === undefined) {
       for (const definition of policy.checkpoints) {
@@ -235,7 +243,7 @@ export async function inspectCheckpointObligations(
     }
   }
 
-  const stored = await readOpenQuestions(root);
+  const stored = view.stored ?? await readOpenQuestions(root);
   const openQuestions = stored.status === "ok" ? stored.openQuestions : {};
   const storeReadable = stored.status === "ok" || stored.status === "missing";
   if (stored.status === "invalid") {
@@ -281,7 +289,11 @@ export async function inspectCheckpointObligations(
         unknown: "subject_unavailable",
       };
     } else if (openQuestion === undefined) {
-      if (outcome === undefined || (outcome.holds && outcome.whenPending)) {
+      if (view.whenSettled && outcome?.holds && outcome.whenPending) {
+        obligation = { state: "none", matched: [], related: [] };
+      } else if (
+        outcome === undefined || (outcome.holds && outcome.whenPending)
+      ) {
         obligation = {
           state: "unknown",
           matched: outcome?.holds ? [...outcome.matched] : [],
@@ -300,7 +312,7 @@ export async function inspectCheckpointObligations(
         };
       }
     } else if (
-      outcome?.holds && outcome.whenPending &&
+      !view.whenSettled && outcome?.holds && outcome.whenPending &&
       persistedState !== "awaiting_declaration" &&
       persistedState !== "reopened"
     ) {
@@ -342,6 +354,7 @@ export async function inspectCheckpointObligations(
           collectedHistory?.status !== "available"
           ? undefined
           : collectedHistory.fingerprint,
+        view.currentCommit,
       );
       if ("error" in subject) {
         drops.push(entryDrop(

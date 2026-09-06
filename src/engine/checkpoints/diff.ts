@@ -464,6 +464,7 @@ export async function collectEffortDiff(
   mergeBase: string,
   generatedGroups: readonly ResolvedGeneratedGroup[] = [],
   definitions: readonly ResolvedCheckpoint[] = [],
+  currentCommit?: string,
 ): Promise<EffortDiff | undefined> {
   const prefix = await repoPathPrefix(root);
   if (prefix === undefined) {
@@ -473,14 +474,28 @@ export async function collectEffortDiff(
   // Tracked changes, merge-base → working tree, in one pass each for kind and
   // line stats. The two listings share flags, so they enumerate the same set.
   const nameStatus = await runGit(
-    ["diff", "--name-status", "--no-renames", "-z", mergeBase],
+    [
+      "diff",
+      "--name-status",
+      "--no-renames",
+      "-z",
+      mergeBase,
+      ...(currentCommit === undefined ? [] : [currentCommit]),
+    ],
     { cwd: root },
   );
   if (!nameStatus.success) {
     return undefined;
   }
   const numstat = await runGit(
-    ["diff", "--numstat", "--no-renames", "-z", mergeBase],
+    [
+      "diff",
+      "--numstat",
+      "--no-renames",
+      "-z",
+      mergeBase,
+      ...(currentCommit === undefined ? [] : [currentCommit]),
+    ],
     { cwd: root },
   );
   if (!numstat.success) {
@@ -490,7 +505,14 @@ export async function collectEffortDiff(
     return undefined;
   }
   const raw = await runGit(
-    ["diff", "--raw", "--no-renames", "-z", mergeBase],
+    [
+      "diff",
+      "--raw",
+      "--no-renames",
+      "-z",
+      mergeBase,
+      ...(currentCommit === undefined ? [] : [currentCommit]),
+    ],
     { cwd: root },
   );
   if (!raw.success) return undefined;
@@ -530,33 +552,34 @@ export async function collectEffortDiff(
 
   // Untracked files are invisible to `git diff`; enumerate them individually
   // and inspect them once below. Unreadable/special paths remain unknown.
-  const pending = await runGit(
-    ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
-    { cwd: root },
-  );
-  if (!pending.success) {
-    return undefined;
-  }
-  for (const entry of parsePorcelainZ(pending.stdout)) {
-    if (entry.status !== "??") {
-      continue; // tracked pending changes already arrived via `git diff`
+  if (currentCommit === undefined) {
+    const pending = await runGit(
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+      { cwd: root },
+    );
+    if (!pending.success) {
+      return undefined;
     }
-    const [path] = stripRepoPathPrefix([entry.path], prefix);
-    if (path === undefined || path === "" || seen.has(path)) {
-      continue;
+    for (const entry of parsePorcelainZ(pending.stdout)) {
+      if (entry.status !== "??") {
+        continue; // tracked pending changes already arrived via `git diff`
+      }
+      const [path] = stripRepoPathPrefix([entry.path], prefix);
+      if (path === undefined || path === "" || seen.has(path)) {
+        continue;
+      }
+      seen.add(path);
+      untracked.add(path);
+      files.push({
+        path,
+        generated: generatedGroupForPath(generatedGroups, path) !== undefined,
+        kind: "added",
+        insertions: 0,
+        deletions: 0,
+        binary: "unknown",
+      });
     }
-    seen.add(path);
-    untracked.add(path);
-    files.push({
-      path,
-      generated: generatedGroupForPath(generatedGroups, path) !== undefined,
-      kind: "added",
-      insertions: 0,
-      deletions: 0,
-      binary: "unknown",
-    });
   }
-
   const baseTree = await runGit(
     ["ls-tree", "-r", "-z", "--name-only", mergeBase],
     { cwd: root },
@@ -578,7 +601,12 @@ export async function collectEffortDiff(
     )
   ) {
     const listed = await runGit(
-      ["rev-list", "--reverse", "--topo-order", `${mergeBase}..HEAD`],
+      [
+        "rev-list",
+        "--reverse",
+        "--topo-order",
+        `${mergeBase}..${currentCommit ?? "HEAD"}`,
+      ],
       { cwd: root, maxOutputBytes: HISTORY_OUTPUT_BYTES },
     );
     if (!listed.success) {
@@ -715,6 +743,7 @@ export async function collectEffortDiff(
         "--unified=0",
         "--no-color",
         mergeBase,
+        ...(currentCommit === undefined ? [] : [currentCommit]),
         "--",
         `:(top,literal)${prefix}${file.path}`,
       ],

@@ -184,8 +184,15 @@ export async function runCheckpointReport(
   root: string,
   config: DiscernConfig,
   signal?: AbortSignal,
+  expectedPredecessor?: string,
 ): Promise<CheckpointPreflight> {
-  const inspection = await inspectCheckpointObligations(root, config);
+  const inspection = await inspectCheckpointObligations(
+    root,
+    config,
+    expectedPredecessor === undefined
+      ? {}
+      : { predecessor: expectedPredecessor },
+  );
   const drops: CheckpointDrop[] = [...inspection.drops];
   const report: CheckpointPreflight = {
     mode: "report",
@@ -337,9 +344,16 @@ export async function runCheckpointPreflight(
   request: DeclarationRequest,
   now?: string,
   signal?: AbortSignal,
+  expectedPredecessor?: string,
 ): Promise<CheckpointPreflightOutcome> {
   const at = now ?? wallTimeIso(SYSTEM_CLOCK.wallNow());
-  const inspection = await inspectCheckpointObligations(root, config);
+  const inspection = await inspectCheckpointObligations(
+    root,
+    config,
+    expectedPredecessor === undefined
+      ? {}
+      : { predecessor: expectedPredecessor },
+  );
   const drops: CheckpointDrop[] = [...inspection.drops];
   const preflight: CheckpointPreflight = {
     mode: "strict",

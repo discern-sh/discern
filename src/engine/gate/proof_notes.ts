@@ -18,12 +18,18 @@ import {
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
+import { z } from "@zod/zod";
+import {
+  CompleteProofEvidenceSchema,
+  LandedAuthorityEvidenceSchema,
+} from "../../shared/completion_proof.ts";
 import {
   type AcceptanceEvidenceData,
   type DurableProofClaim,
   type Proof,
   type ProofIssuer,
   type ProofNotePayload,
+  ProofNotePayloadSchema,
   type ProofNotesFetchData,
   type ProofNoteWriteData,
   type ProofPresentation,
@@ -419,6 +425,7 @@ export function proofNotesFetchSucceeded(
 /** Project only stable structured facts into the durable proof claim. */
 function canonicalProofClaim(proof: Proof): DurableProofClaim {
   return {
+    completion: CompleteProofEvidenceSchema.parse(proof.completion),
     branch: proof.branch,
     trunk: proof.trunk,
     head: proof.head,
@@ -453,6 +460,9 @@ function canonicalAcceptanceEvidence(
   acceptance: AcceptanceEvidenceData,
 ): AcceptanceEvidenceData {
   return {
+    ...(acceptance.authority === undefined ? {} : {
+      authority: LandedAuthorityEvidenceSchema.parse(acceptance.authority),
+    }),
     consent: {
       source: acceptance.consent.source,
       ...(acceptance.consent.scopes === undefined
@@ -480,14 +490,14 @@ export function canonicalProofNotePayload(
   commit: string,
   acceptance?: AcceptanceEvidenceData,
 ): string {
-  const payload: ProofNotePayload = {
+  const payload: ProofNotePayload = ProofNotePayloadSchema.parse({
     subject: { commit },
     proof: canonicalProofClaim(proof),
     presentation: canonicalProofPresentation(proof),
     ...(acceptance === undefined
       ? {}
       : { acceptance: canonicalAcceptanceEvidence(acceptance) }),
-  };
+  });
   return JSON.stringify(payload);
 }
 
@@ -516,10 +526,17 @@ type ParsedProofNote =
     kind: "proof";
     proof: Proof;
     subject: string;
+    acceptance?: AcceptanceEvidenceData;
     issuer?: ProofIssuer;
     brief?: string;
   }
-  | { kind: "unsupported"; format: string };
+  | { kind: "unsupported"; format: string }
+  | {
+    kind: "stale";
+    reason: string;
+    subject: string;
+    head: string;
+  };
 
 /** Project the durable reader's tolerant issuer block onto the strict runtime
  * shape, dropping any additive fields a newer writer recorded. */
@@ -541,6 +558,7 @@ function proofFromProofPayload(
   payload: ReturnType<typeof TolerantProofNotePayloadSchema.parse>,
 ): Proof | undefined {
   return {
+    completion: payload.proof.completion,
     branch: payload.proof.branch,
     trunk: payload.proof.trunk,
     head: payload.proof.head,
@@ -584,10 +602,54 @@ function decodeDsseBase64(value: string): Uint8Array | undefined {
   }
 }
 
+/** Project additive durable fields from the canonical schema without maintaining a second fact list. */
+function knownPayloadFields(schema: z.ZodType, value: unknown): unknown {
+  if (
+    schema instanceof z.ZodOptional || schema instanceof z.ZodNullable ||
+    schema instanceof z.ZodDefault
+  ) {
+    return value === undefined || value === null
+      ? value
+      : knownPayloadFields(schema.unwrap() as z.ZodType, value);
+  }
+  if (
+    schema instanceof z.ZodObject && value !== null &&
+    typeof value === "object" && !Array.isArray(value)
+  ) {
+    const source = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(schema.shape).filter(([key]) => Object.hasOwn(source, key))
+        .map((
+          [key, child],
+        ) => [key, knownPayloadFields(child as z.ZodType, source[key])]),
+    );
+  }
+  if (schema instanceof z.ZodArray && Array.isArray(value)) {
+    return value.map((item) =>
+      knownPayloadFields(schema.element as z.ZodType, item)
+    );
+  }
+  if (
+    schema instanceof z.ZodRecord && value !== null &&
+    typeof value === "object" && !Array.isArray(value)
+  ) {
+    return Object.fromEntries(
+      Object.entries(value).map((
+        [key, item],
+      ) => [key, knownPayloadFields(schema.valueType as z.ZodType, item)]),
+    );
+  }
+  if (schema instanceof z.ZodUnion) {
+    for (const option of schema.options) {
+      const projected = knownPayloadFields(option as z.ZodType, value);
+      if ((option as z.ZodType).safeParse(projected).success) return projected;
+    }
+  }
+  return value;
+}
+
 /** Decode the envelope once and parse the same bytes a future verifier checks. */
-function parseProofNotePayload(
-  encoded: string,
-): ReturnType<typeof TolerantProofNotePayloadSchema.parse> | undefined {
+function decodeProofNotePayload(encoded: string): unknown {
   const bytes = decodeDsseBase64(encoded);
   if (bytes === undefined) {
     return undefined;
@@ -606,9 +668,16 @@ function parseProofNotePayload(
     if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
-  const payload = TolerantProofNotePayloadSchema.safeParse(parsed);
-  return payload.success ? payload.data : undefined;
+  return parsed;
 }
+
+/** Recognize an incomplete prelaunch claim without publishing another payload contract. */
+const IncompleteProofNotePayloadSchema = TolerantProofNotePayloadSchema.extend({
+  proof: TolerantProofNotePayloadSchema.shape.proof.omit({ completion: true }),
+  acceptance: TolerantProofNotePayloadSchema.shape.acceptance.unwrap().omit({
+    authority: true,
+  }).optional(),
+});
 
 /**
  * Parse one note body. `payloadType` is the in-band format identity: the current
@@ -640,10 +709,32 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   if (!envelope.success) {
     return undefined;
   }
-  const payload = parseProofNotePayload(envelope.data.payload);
-  if (payload === undefined) {
-    return undefined;
+  const decoded = decodeProofNotePayload(envelope.data.payload);
+  const incomplete = IncompleteProofNotePayloadSchema.safeParse(decoded);
+  if (
+    incomplete.success && (
+      !Object.hasOwn(incomplete.data.proof, "completion") ||
+      (incomplete.data.acceptance !== undefined &&
+        !Object.hasOwn(incomplete.data.acceptance, "authority"))
+    )
+  ) {
+    return {
+      kind: "stale",
+      reason:
+        "This Proof note lacks complete candidate evidence or settled source authority and cannot supply current completion or landing authority.",
+      subject: incomplete.data.subject.commit,
+      head: incomplete.data.proof.head,
+    };
   }
+  const reading = TolerantProofNotePayloadSchema.safeParse(
+    knownPayloadFields(TolerantProofNotePayloadSchema, decoded),
+  );
+  if (!reading.success) return undefined;
+  const payload = reading.data;
+  const canonical = ProofNotePayloadSchema.safeParse(
+    knownPayloadFields(ProofNotePayloadSchema, payload),
+  );
+  if (!canonical.success) return undefined;
   const proof = proofFromProofPayload(payload);
   if (proof === undefined) {
     return undefined;
@@ -652,6 +743,9 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
     kind: "proof",
     proof,
     subject: payload.subject.commit,
+    ...(canonical.data.acceptance === undefined
+      ? {}
+      : { acceptance: canonical.data.acceptance }),
     ...(payload.issuer !== undefined
       ? { issuer: knownIssuerFields(payload.issuer) }
       : {}),
@@ -707,13 +801,13 @@ export async function writeProofNote(
    * owner-authorized variance — recorded inside the DSSE payload boundary. */
   acceptance?: AcceptanceEvidenceData,
 ): Promise<ProofNoteWriteData> {
-  if (proof === undefined) {
+  if (proof === undefined || proof.completion === undefined) {
     return {
       status: "missing_proof",
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: [],
-      reason: "the validated gate marker carried no structured Proof",
+      reason: "the validated gate marker carried no complete candidate Proof",
     };
   }
   if (proof.mode === "report") {
@@ -739,6 +833,19 @@ export async function writeProofNote(
     };
   }
 
+  let body: string;
+  try {
+    body = canonicalProofNote(proof, commit, acceptance);
+  } catch {
+    return {
+      status: "record_failed",
+      ref: PROOF_NOTES_REF,
+      commit,
+      merged_refs: [],
+      reason:
+        "Complete Proof or settled acceptance authority does not match the landed subject.",
+    };
+  }
   const identity = proofNoteAuthorEnvironment(env);
   const mergedRefs: string[] = [];
   for (const ref of await proofTrackingRefs(root)) {
@@ -765,13 +872,21 @@ export async function writeProofNote(
     mergedRefs.push(ref);
   }
 
-  const body = canonicalProofNote(proof, commit, acceptance);
   const existing = await runGit(
     ["notes", `--ref=${PROOF_NOTES_SHORT_REF}`, "show", commit],
     { cwd: root },
   );
   if (existing.success) {
     const parsed = parseProofNote(existing.stdout);
+    if (parsed?.kind === "stale") {
+      return {
+        status: "record_failed",
+        ref: PROOF_NOTES_REF,
+        commit,
+        merged_refs: mergedRefs,
+        reason: parsed.reason,
+      };
+    }
     if (parsed?.kind === "unsupported") {
       return {
         status: "record_failed",
@@ -791,6 +906,16 @@ export async function writeProofNote(
     if (
       parsed !== undefined &&
       comparableClaim(parsed.proof) === comparableClaim(proof) &&
+      JSON.stringify(
+          parsed.acceptance === undefined
+            ? null
+            : canonicalAcceptanceEvidence(parsed.acceptance),
+        ) ===
+        JSON.stringify(
+          acceptance === undefined
+            ? null
+            : canonicalAcceptanceEvidence(acceptance),
+        ) &&
       (parsed.subject === undefined || parsed.subject === commit)
     ) {
       return {
@@ -854,6 +979,7 @@ export interface LandedProofNote {
   readonly commit: string;
   readonly ref: string;
   readonly proof: Proof;
+  readonly acceptance?: AcceptanceEvidenceData;
   /** The payload's issuer assertion, when present. This read path does not
    * verify a signature or bind the assertion to a trusted identity. */
   readonly issuer?: ProofIssuer;
@@ -875,6 +1001,12 @@ export type LandedProofReading =
     readonly commit: string;
     readonly ref: string;
     readonly format: string;
+  }
+  | {
+    readonly status: "stale";
+    readonly commit: string;
+    readonly ref: string;
+    readonly reason: string;
   }
   | { readonly status: "missing" };
 
@@ -953,6 +1085,20 @@ export async function readProofNoteAt(
     if (parsed === undefined) {
       continue;
     }
+    if (parsed.kind === "stale") {
+      if (
+        parsed.subject === commit &&
+        abbreviatedObjectIdMatches(parsed.head, commit)
+      ) {
+        unsupported ??= {
+          status: "stale",
+          commit,
+          ref,
+          reason: parsed.reason,
+        };
+      }
+      continue;
+    }
     if (parsed.kind === "unsupported") {
       unsupported ??= {
         status: "unsupported",
@@ -968,6 +1114,9 @@ export async function readProofNoteAt(
         commit,
         ref,
         proof: parsed.proof,
+        ...(parsed.acceptance === undefined
+          ? {}
+          : { acceptance: parsed.acceptance }),
         ...(parsed.issuer !== undefined ? { issuer: parsed.issuer } : {}),
         ...(parsed.brief !== undefined ? { brief: parsed.brief } : {}),
       };

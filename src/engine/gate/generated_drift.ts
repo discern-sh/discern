@@ -1,3 +1,5 @@
+import type { ProducerBoundary } from "../validation/execute.ts";
+import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { join } from "@std/path";
 import {
   generatedGroupForPath,
@@ -251,4 +253,81 @@ export async function generatedBuildDriftDiagnostics(
     diagnostics.push(await undercoverageDiagnostic(root, drift));
   }
   return diagnostics;
+}
+
+/** Keep generator attribution at the Build barrier, before dependent checks can write files. */
+export function createGeneratedBuildBoundary(
+  root: string,
+  groups: readonly ResolvedGeneratedGroup[],
+  stages: ReadonlyMap<string, string>,
+): {
+  observer: ProducerBoundary;
+  diagnostics: Diagnostic[];
+  hints: FiredHint[];
+} {
+  const diagnostics: Diagnostic[] = [];
+  const hints: FiredHint[] = [];
+  let before: Promise<GeneratedBuildSnapshot | null> | undefined;
+  const remaining = new Set<string>();
+  let failed = false;
+  return {
+    diagnostics,
+    hints,
+    observer: {
+      before: async (producer, plan): Promise<void> => {
+        if (groups.length === 0 || stages.get(producer.selector) !== "build") {
+          return;
+        }
+        if (before === undefined) {
+          for (const member of plan.producers) {
+            if (stages.get(member.selector) === "build") {
+              remaining.add(member.selector);
+            }
+          }
+          before = captureGeneratedBuildSnapshot(root, groups);
+        }
+        if (await before === null) {
+          throw new Error(
+            "Generated input capture is unavailable; no Build result can establish currency.",
+          );
+        }
+      },
+      after: async (producer, capture): Promise<void> => {
+        if (!remaining.delete(producer.selector) || before === undefined) {
+          return;
+        }
+        failed ||= capture.outcome !== "passed" || !capture.complete;
+        if (remaining.size > 0 || failed) return;
+        const initial = await before;
+        const after = await captureGeneratedBuildSnapshot(root, groups);
+        if (initial === null || after === null) {
+          throw new Error(
+            "Generated output capture is unavailable; preserve the checkout for diagnosis.",
+          );
+        }
+        const drift = generatedBuildDrift(groups, initial, after);
+        diagnostics.push(...await generatedBuildDriftDiagnostics(root, drift));
+        hints.push(
+          ...drift.groups.map(({ group }) =>
+            fire(HINTS["gate-failure-generated-drift"], {
+              group: group.name,
+              run: group.run,
+            })
+          ),
+        );
+        if (drift.unownedPaths.length > 0) {
+          hints.push(
+            fire(HINTS["gate-failure-generated-undercoverage"], {
+              groups: drift.candidates.map((group) => group.name),
+            }),
+          );
+        }
+        if (diagnostics.length > 0) {
+          throw new Error(
+            "Generated output changed at the Build boundary; review its owning group and commit the regeneration.",
+          );
+        }
+      },
+    },
+  };
 }

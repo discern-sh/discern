@@ -28,8 +28,8 @@ import {
   gateRunContext,
   type GateRunPolicy,
   resolveGateRunPolicy,
-  runJobGroups,
 } from "./execute.ts";
+import { standaloneValidation } from "../validation/diagnostics.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -79,7 +79,7 @@ async function runTestGate(
   const cfg = await loadConfig(root);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const group = stageGroup(cfg, "test");
-  const { runOpts, out, runOut, flushDeferredOutput, slots } = gateRunContext(
+  const { runOpts, out, flushDeferredOutput, slots } = gateRunContext(
     root,
     cfg,
     policy,
@@ -150,12 +150,17 @@ async function runTestGate(
       [group],
     );
   }
-  const { results, failedStage } = await runJobGroups(
-    [group],
-    runOpts,
-    runOut,
-    slots,
-  );
+  const validationRun = await standaloneValidation({
+    root,
+    config: cfg,
+    scopes: [],
+    kind: "test",
+    ...(signal === undefined ? {} : { signal }),
+  });
+  const results = new Map(validationRun.results);
+  const failedStage = validationRun.outcome.blockers.length === 0
+    ? null
+    : "test";
   const { steps, diagnostics, hints } = await serializeJobSteps(
     root,
     [group],
@@ -177,6 +182,11 @@ async function runTestGate(
     ok: failedStage === null,
     verb: "test",
     steps,
+    data: {
+      standards: validationRun.standards,
+      producer_executions: validationRun.producer_executions,
+      completion: { kind: "diagnostic", context: "local", proof: "not-issued" },
+    },
     ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     ...(

@@ -8,10 +8,21 @@
  */
 
 import {
+  type DiscernConfig,
   EXTENTS,
+  loadConfig,
+  parseGoverningConfig,
   type StandardConfig,
   toCommandList,
 } from "../../shared/config_schema.ts";
+import {
+  type ProtectedProducerDefinition,
+  protectedStandardProducers,
+  retainsFacts,
+  retainsInputClosure,
+  retainsProducerDefinition,
+} from "../validation/protected_definitions.ts";
+import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
 import { RawConfig } from "../../shared/config_read.ts";
 import type { Diagnostic } from "../../shared/result.ts";
 import type {
@@ -67,14 +78,42 @@ export const STANDARD_DEFINITION_POLICIES = {
     reason:
       "changes only a future pin target, not today's measurement or verdict",
   },
-  measure: {
-    kind: "enforcement-meaning",
-    reason: "decides whether every gate refreshes the measurement evidence",
-  },
   inputs: {
     kind: "enforcement-meaning",
     reason:
       "decides when recorded evidence may be replayed instead of refreshed",
+  },
+  producer: {
+    kind: "enforcement-meaning",
+    reason: "selects the shared measurement producer",
+  },
+  extract: {
+    kind: "enforcement-meaning",
+    reason: "interprets captured producer evidence",
+  },
+  artifact: {
+    kind: "enforcement-meaning",
+    reason: "selects immutable producer output",
+  },
+  needs: {
+    kind: "enforcement-meaning",
+    reason: "defines prerequisite production",
+  },
+  artifacts: {
+    kind: "enforcement-meaning",
+    reason: "defines captured production",
+  },
+  environment: {
+    kind: "enforcement-meaning",
+    reason: "defines effective process conditions",
+  },
+  toolchain: {
+    kind: "enforcement-meaning",
+    reason: "defines applicable runtime identity",
+  },
+  contexts: {
+    kind: "enforcement-meaning",
+    reason: "defines required execution lanes",
   },
   timeout: {
     kind: "execution-or-pinning",
@@ -119,11 +158,20 @@ function normalizeBranchStandard(
     metric: spec.metric ?? name,
     direction: spec.direction,
     limit: spec.limit,
-    run: toCommandList(spec.run),
+    run: toCommandList(spec.run ?? []),
     per,
     scale: spec.scale,
     margin: spec.margin,
-    measure: spec.measure,
+    producer: spec.producer,
+    extract: spec.extract === undefined
+      ? undefined
+      : toCommandList(spec.extract),
+    artifact: spec.artifact,
+    needs: spec.needs ?? [],
+    artifacts: spec.artifacts ?? [],
+    environment: spec.environment ?? [],
+    toolchain: spec.toolchain ?? [],
+    contexts: spec.contexts,
     inputs: spec.inputs === undefined ? undefined : [...spec.inputs],
     timeout: spec.timeout,
   } satisfies NormalizedStandardConfig;
@@ -135,9 +183,13 @@ function normalizeBranchStandard(
  * share an approval. */
 export async function standardDefinitionFingerprint(
   name: string,
-  spec: StandardConfig,
+  config: DiscernConfig,
 ): Promise<string> {
-  const normalized = normalizeBranchStandard(name, spec);
+  const producer = (await protectedStandardProducers(config)).get(name);
+  if (producer === undefined) {
+    throw new Error(`Missing governing producer for ${name}.`);
+  }
+  const normalized = effectiveStandardDefinition(config, name, producer);
   const material = {
     metric: normalized.metric,
     direction: normalized.direction,
@@ -145,11 +197,18 @@ export async function standardDefinitionFingerprint(
     per: normalized.per,
     scale: normalized.scale,
     margin: normalized.margin,
-    measure: normalized.measure,
+    producer: normalized.producer,
+    extract: normalized.extract,
+    artifact: normalized.artifact,
+    needs: normalized.needs,
+    artifacts: normalized.artifacts,
+    environment: normalized.environment,
+    toolchain: normalized.toolchain,
+    contexts: normalized.contexts,
     inputs: normalized.inputs,
     timeout: normalized.timeout,
   };
-  return await sha256Hex(`standard-definition-v1\n${JSON.stringify(material)}`);
+  return await sha256Hex(`standard-definition-v2\n${JSON.stringify(material)}`);
 }
 
 /** Normalize one optional or defaulted numeric field from the raw trunk. */
@@ -204,12 +263,136 @@ function normalizeTrunkStandard(
     per: normalizeTrunkPer(config, `${prefix}.per`),
     scale: rawNumber(config, `${prefix}.scale`, 1),
     margin: rawNumber(config, `${prefix}.margin`, 0),
-    measure: config.has(`${prefix}.measure`)
-      ? config.get(`${prefix}.measure`)
-      : "gate",
+    producer: config.has(`${prefix}.producer`)
+      ? config.get(`${prefix}.producer`)
+      : undefined,
+    extract: config.has(`${prefix}.extract`)
+      ? config.array(`${prefix}.extract`)
+      : undefined,
+    artifact: config.has(`${prefix}.artifact`)
+      ? config.get(`${prefix}.artifact`)
+      : undefined,
+    needs: config.array(`${prefix}.needs`),
+    artifacts: config.array(`${prefix}.artifacts`),
+    environment: config.array(`${prefix}.environment`),
+    toolchain: config.array(`${prefix}.toolchain`),
+    contexts: config.has(`${prefix}.contexts`)
+      ? config.array(`${prefix}.contexts`)
+      : undefined,
     inputs: config.has(inputsKey) ? config.array(inputsKey) : undefined,
     timeout: rawNumber(config, `${prefix}.timeout`, undefined),
   } satisfies NormalizedStandardConfig;
+}
+
+/** Equivalent inline and referenced producers protect their resolved operation. */
+function effectiveStandardDefinition(
+  config: DiscernConfig,
+  name: string,
+  producer: ProtectedProducerDefinition,
+): NormalizedStandardConfig {
+  const spec = config.standards[name];
+  if (spec === undefined) throw new Error(`Missing standard '${name}'.`);
+  return {
+    ...normalizeBranchStandard(name, spec),
+    ...producer,
+    producer: undefined,
+    inputs: {
+      consumer: spec.inputs?.map((path) =>
+        expandSourcePathReferences(path, config)
+      ),
+      producer: producer.inputs,
+    },
+    contexts: spec.contexts ?? config.completion.required_contexts,
+  };
+}
+
+/** Field policies allow only mechanically established strengthening. */
+function retainsDefinitionField(
+  field: keyof StandardConfig,
+  before: unknown,
+  after: unknown,
+): boolean {
+  if (sameNormalizedValue(before, after)) return true;
+  if (
+    field === "environment" || field === "toolchain" || field === "contexts"
+  ) {
+    return Array.isArray(before) && Array.isArray(after) &&
+      retainsFacts(before, after);
+  }
+  if (
+    field === "inputs" && typeof before === "object" && before !== null &&
+    typeof after === "object" && after !== null && "consumer" in before &&
+    "consumer" in after && "producer" in before && "producer" in after
+  ) {
+    const oldInputs = before as { consumer?: string[]; producer?: string[] };
+    const newInputs = after as { consumer?: string[]; producer?: string[] };
+    return retainsInputClosure(oldInputs.consumer, newInputs.consumer) &&
+      retainsInputClosure(oldInputs.producer, newInputs.producer);
+  }
+  if (
+    field === "needs" && Array.isArray(before) && Array.isArray(after) &&
+    before.length === after.length
+  ) {
+    return before.every((node: unknown, index) =>
+      typeof node === "object" && node !== null &&
+      typeof after[index] === "object" &&
+      after[index] !== null && retainsProducerDefinition(
+        node as ProtectedProducerDefinition,
+        after[index] as ProtectedProducerDefinition,
+      )
+    );
+  }
+  return false;
+}
+
+/** A branch cannot remove a required context or relax an existing return contract. */
+function completionPolicyChanges(
+  before: DiscernConfig,
+  after: DiscernConfig,
+): string[] {
+  const changes: string[] = [];
+  if (
+    !retainsFacts(
+      before.completion.required_contexts,
+      after.completion.required_contexts,
+    )
+  ) {
+    changes.push("completion.required_contexts");
+  }
+  for (const [name, declaration] of Object.entries(before.execution)) {
+    const current = after.execution[name];
+    if (current === undefined) {
+      changes.push(`execution.${name}`);
+      continue;
+    }
+    const { capacity: oldCapacity, ...oldContract } = declaration;
+    const { capacity: newCapacity, ...newContract } = current;
+    void oldCapacity;
+    void newCapacity;
+    if (!sameNormalizedValue(oldContract, newContract)) {
+      changes.push(`execution.${name}`);
+    }
+  }
+  for (const family of ["jobs", "scopes"] as const) {
+    for (const [name, oldValue] of Object.entries(before[family])) {
+      const nextValue = after[family][name];
+      const contexts = (
+        value: unknown,
+        cfg: DiscernConfig,
+      ): readonly string[] =>
+        typeof value === "object" && value !== null && "contexts" in value &&
+          Array.isArray(value.contexts)
+          ? value.contexts
+          : cfg.completion.required_contexts;
+      if (
+        nextValue !== undefined &&
+        !retainsFacts(contexts(oldValue, before), contexts(nextValue, after))
+      ) {
+        changes.push(`${family}.${name}.contexts`);
+      }
+    }
+  }
+  return changes;
 }
 
 interface StandardDefinitionChange {
@@ -237,7 +420,7 @@ function changedDefinitionFields(
     if (STANDARD_DEFINITION_POLICIES[field].kind !== "enforcement-meaning") {
       continue;
     }
-    if (!sameNormalizedValue(trunk[field], branch[field])) {
+    if (!retainsDefinitionField(field, trunk[field], branch[field])) {
       changes.push({ field, trunk: trunk[field], branch: branch[field] });
     }
   }
@@ -335,7 +518,15 @@ export async function readTrunkConfig(
       };
     }
   }
-  return { kind: "absent", commit };
+  const entry = await runGit(["ls-tree", "-z", commit, "--", `./${rel}`], {
+    cwd: root,
+  });
+  return entry.success && entry.stdout === "" ? { kind: "absent", commit } : {
+    kind: "unreadable",
+    reason: `the committed policy file ${commit}:./${rel} could not be read: ${
+      out.stderr.trim() || entry.stderr.trim()
+    }`,
+  };
 }
 
 /** The shared Tier-1 outcome. `blockedStandards` names configured standards
@@ -369,6 +560,7 @@ export async function verifyTrunkLimits(
   mainBranch: string,
   standards: PlannedStandard[],
   proposals: ReadonlyMap<string, StandardLimitProposalData> = new Map(),
+  branchConfig?: DiscernConfig,
 ): Promise<TrunkLimitsVerification> {
   const trunk = await readTrunkConfig(root, mainBranch);
   if (trunk.kind === "unreadable") {
@@ -425,6 +617,36 @@ export async function verifyTrunkLimits(
   const blockedStandards = new Set<string>();
   const acceptedProposals = new Map<string, StandardLimitProposalData>();
   const branchNames = new Set(standards.map((standard) => standard.name));
+  const branch = branchConfig ?? await loadConfig(root);
+  const parsedTrunk = parseGoverningConfig(trunk.text).config;
+  const effective = parsedTrunk === undefined ? undefined : {
+    trunk: await protectedStandardProducers(parsedTrunk),
+    branch: await protectedStandardProducers(branch),
+  };
+  if (parsedTrunk !== undefined) {
+    for (const field of completionPolicyChanges(parsedTrunk, branch)) {
+      diagnostics.push({
+        tool: "standards",
+        severity: "error",
+        message:
+          `${field} weakens or changes protected completion policy versus ${mainBranch}. ${REDEFINITION_NEXT_STEP}`,
+        reproduce_cmd: "discern standards --dry-run",
+      });
+    }
+  } else if (
+    Object.keys(branch.execution).length > 0 ||
+    trunk.config.subsections("execution").length > 0 ||
+    trunk.config.has("completion.required_contexts") ||
+    standards.some((standard) => standard.spec.producer !== undefined)
+  ) {
+    diagnostics.push({
+      tool: "standards",
+      severity: "error",
+      message:
+        "The committed producer or completion policy cannot be resolved; restore valid governing configuration before validation.",
+      reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
+    });
+  }
 
   for (const standard of standards) {
     const mainValue = trunk.config.getNumber(standard.limitKey);
@@ -434,14 +656,15 @@ export async function verifyTrunkLimits(
     if (mainValue === undefined) {
       continue;
     }
-    const trunkDefinition = normalizeTrunkStandard(
-      trunk.config,
-      standard.name,
-    );
-    const branchDefinition = normalizeBranchStandard(
-      standard.name,
-      standard.spec,
-    );
+    const oldProducer = effective?.trunk.get(standard.name);
+    const newProducer = effective?.branch.get(standard.name);
+    const trunkDefinition =
+      parsedTrunk !== undefined && oldProducer !== undefined
+        ? effectiveStandardDefinition(parsedTrunk, standard.name, oldProducer)
+        : normalizeTrunkStandard(trunk.config, standard.name);
+    const branchDefinition = newProducer !== undefined
+      ? effectiveStandardDefinition(branch, standard.name, newProducer)
+      : normalizeBranchStandard(standard.name, standard.spec);
     const definitionChanges = changedDefinitionFields(
       trunkDefinition,
       branchDefinition,

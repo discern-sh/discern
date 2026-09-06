@@ -1,3 +1,5 @@
+import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
+import { readCompleteProof } from "./completion_proof.ts";
 /**
  * The **proof marker** — a tiny per-worktree file recording the commit `done`
  * last validated GREEN over a CLEAN tree, so `accept` can prove the exact tree it
@@ -31,7 +33,7 @@
  * re-checks that half live.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname } from "@std/path";
 import { z } from "@zod/zod";
 import { declarationEvidenceIdentity } from "../checkpoints/evidence.ts";
 import {
@@ -360,6 +362,7 @@ export async function recordGateOutcome(
    * new commit would. */
   evidence?: string,
   mode: GateMode = "strict",
+  completion?: CompletionProofPointer,
 ): Promise<GateProofRecordData> {
   const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
@@ -369,6 +372,30 @@ export async function recordGateOutcome(
   }
 
   if (passed) {
+    if (completion === undefined) {
+      return proofRecord("unavailable", {
+        path,
+        reason:
+          "Complete candidate evidence and queue admission are required before recording Proof.",
+      });
+    }
+    try {
+      const complete = await readCompleteProof(cwd, completion);
+      if (
+        complete.candidate.source.head !== pin.head ||
+        complete.validation.mode !== mode
+      ) {
+        return proofRecord("record_failed", {
+          path,
+          reason: "Complete evidence names another source or enforcement mode.",
+        });
+      }
+    } catch (error) {
+      return proofRecord("record_failed", {
+        path,
+        reason: failureReason(error),
+      });
+    }
     if (pin.head === undefined) {
       return proofRecord("unavailable", {
         path,
@@ -429,6 +456,7 @@ export async function recordGateOutcome(
       const record: GateProofFile = {
         version: ON_DISK_FORMATS.gateProof.version,
         head: pin.head,
+        completion,
         mode: proof?.mode === "report" || mode === "report"
           ? "report"
           : "strict",
@@ -624,6 +652,37 @@ export async function inspectGateProof(
   if (parsedFile.status !== "recorded") {
     return { status: "read_failed", path, reason: parsedFile.reason };
   }
+  if (parsedFile.record.completion === undefined) {
+    return {
+      status: "stale",
+      path,
+      recorded: parsedFile.record.head,
+      reason:
+        "This record predates complete candidate evidence; run discern done on the committed tree.",
+    };
+  }
+  let complete;
+  try {
+    complete = await readCompleteProof(cwd, parsedFile.record.completion);
+  } catch (error) {
+    return {
+      status: "stale",
+      path,
+      recorded: parsedFile.record.head,
+      reason: failureReason(error),
+    };
+  }
+  if (
+    complete.candidate.source.head !== parsedFile.record.head ||
+    complete.validation.mode !== parsedFile.record.mode
+  ) {
+    return {
+      status: "stale",
+      path,
+      recorded: parsedFile.record.head,
+      reason: "The complete evidence does not bind this source and mode.",
+    };
+  }
   const recorded = parsedFile.record.head;
   const proofData = parsedFile.record.proof;
   const line = proofData?.line ?? "";
@@ -647,7 +706,7 @@ export async function inspectGateProof(
   }
   if (
     proofData !== undefined &&
-    !abbreviatedObjectIdMatches(proofData.head, recorded)
+    !abbreviatedObjectIdMatches(proofData.head, complete.candidate.head)
   ) {
     return {
       status: "read_failed",
@@ -1266,45 +1325,4 @@ function parseMeasurements(
     definitions: parsedDefinitions,
     provenance: parsedProvenance,
   };
-}
-
-/**
- * The recorded measurement baselines reachable from this worktree, nearest
- * first: its OWN measurement proof, then the main checkout's (via the shared
- * git common dir) — the trunk's last recorded measurement, which gives a fresh
- * worktree a baseline before it has measured anything itself. Unlike
- * {@link inspectStandardMeasurements} (the pin's strict same-HEAD honor rule),
- * these are candidates for the gate's input-keyed replay: the CALLER must
- * verify each `head` is an ancestor of the current HEAD and that the standard's
- * declared inputs are untouched since. Best-effort: unreadable or malformed
- * files are simply absent.
- */
-export async function measurementBaselines(
-  cwd: string,
-): Promise<StandardMeasurements[]> {
-  const own = await gitAdminStatePath(cwd, "standardMeasurements");
-  const common = await runGit(["rev-parse", "--git-common-dir"], { cwd });
-  const commonDir = common.success ? common.stdout.trim() : "";
-  const trunk = commonDir === "" ? undefined : join(
-    commonDir.startsWith("/") ? commonDir : join(cwd, commonDir),
-    GIT_ADMIN_STATE.standardMeasurements.path,
-  );
-  const paths = [own, trunk].filter((p): p is string => p !== undefined);
-  const out: StandardMeasurements[] = [];
-  const seen = new Set<string>();
-  for (const path of paths) {
-    if (seen.has(path)) {
-      continue; // the main checkout: its own admin file IS the common-dir file
-    }
-    seen.add(path);
-    const raw = await readTextIfExists(path);
-    if (raw === undefined) {
-      continue;
-    }
-    const parsed = parseMeasurements(raw);
-    if (parsed !== undefined) {
-      out.push(parsed);
-    }
-  }
-  return out;
 }

@@ -27,7 +27,9 @@ import { parse as parseToml } from "@std/toml";
 import {
   type ConfigIssue,
   type DiscernConfig,
-  parseConfig,
+  governingConfigValue,
+  type parseConfig,
+  parseGoverningConfig,
   validateConfigValue,
 } from "../../shared/config_schema.ts";
 import {
@@ -242,7 +244,9 @@ function recoverHistoricalQuestionSources(
   if (drops.length === 0) {
     return undefined;
   }
-  const validated = validateConfigValue({ ...raw, checkpoints });
+  const validated = validateConfigValue(
+    governingConfigValue({ ...raw, checkpoints }),
+  );
   return validated.config === undefined ? undefined : {
     config: validated.config,
     drops,
@@ -488,9 +492,11 @@ export async function policyMergeBase(
 export async function loadGoverningPolicy(
   root: string,
   config: DiscernConfig,
+  expectedPredecessor?: string,
 ): Promise<GoverningPolicy> {
   const trunk = integrationBranch(config.repository.trunk);
-  const policyCommit = await policyMergeBase(root, trunk);
+  const policyCommit = expectedPredecessor ??
+    await policyMergeBase(root, trunk);
   if (policyCommit === undefined) {
     return {
       checkpoints: [],
@@ -546,7 +552,7 @@ export async function loadGoverningPolicy(
   let sourceDrops: UnresolvedCheckpointDrop[] = [];
   let checkpointOrder: string[] | undefined;
   try {
-    parsed = parseConfig(shown.stdout);
+    parsed = parseGoverningConfig(shown.stdout);
   } catch {
     parsed = { config: undefined, issues: [] };
   }

@@ -34,7 +34,7 @@ export type EvidenceIdentity =
   | { status: "unavailable"; reason: string };
 
 /** One declaration's identity material — the claim, never its timestamp. */
-function declarationMaterial(
+export function declarationMaterial(
   declaration: CheckpointDeclaration | undefined,
 ): string {
   if (declaration === undefined) {

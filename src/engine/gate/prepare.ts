@@ -197,6 +197,20 @@ async function runPrepareGate(
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
   }
+  const producerExecutions: Record<string, number> = {};
+  runOpts.observer = {
+    started: (job): void => {
+      const label = job.label.replace(/#[0-9]+$/u, "");
+      const selector = label.startsWith("generated:")
+        ? `jobs.discern-generated-${label.slice("generated:".length)}`
+        : `jobs.${label}`;
+      producerExecutions[selector] = 1;
+      progress?.started(job);
+    },
+    settled: (result): void => {
+      progress?.settled(result);
+    },
+  };
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
@@ -287,6 +301,7 @@ async function runPrepareGate(
   const result: DiscernResult = {
     ok: failedStage === null,
     verb: "prepare",
+    data: { producer_executions: producerExecutions, measurement: "none" },
     steps,
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     ...(() => {

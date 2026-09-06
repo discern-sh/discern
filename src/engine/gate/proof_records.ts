@@ -1,3 +1,7 @@
+import {
+  type CompletionProofPointer,
+  CompletionProofPointerSchema,
+} from "../../shared/completion_proof.ts";
 /** Registered JSON codecs for Gate-local durable evidence. */
 
 import { z } from "@zod/zod";
@@ -19,6 +23,7 @@ const GateProofFileSchema = z.strictObject({
   mode: z.enum(["strict", "report"]),
   proof: z.unknown().optional(),
   evidence: z.string().min(1).optional(),
+  completion: CompletionProofPointerSchema.optional(),
 });
 
 export interface GateProofFile {
@@ -27,6 +32,7 @@ export interface GateProofFile {
   readonly mode: GateMode;
   readonly proof?: Proof;
   readonly evidence?: string;
+  readonly completion?: CompletionProofPointer;
 }
 
 export type GateProofFileRead =
@@ -76,6 +82,9 @@ export function parseGateProofFile(content: string): GateProofFileRead {
     record: {
       version: ON_DISK_FORMATS.gateProof.version,
       head: parsed.data.head,
+      ...(parsed.data.completion === undefined
+        ? {}
+        : { completion: parsed.data.completion }),
       mode: parsed.data.mode,
       ...(proof === undefined || !proof.success
         ? {}

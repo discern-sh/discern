@@ -14,7 +14,7 @@ export type CheckpointGateResolution =
 export type DonePreamble =
   | { kind: "reuse"; result: DiscernResult<GateData> }
   | { kind: "refuse"; result: DiscernResult<GateData> }
-  | { kind: "proceed"; preflight: CheckpointPreflight };
+  | { kind: "proceed"; preflight?: CheckpointPreflight };
 
 export interface DonePreambleOperations {
   readonly reusableGreenProof: (
@@ -46,6 +46,7 @@ export async function resolveDonePreamble(
     declarations: DeclarationRequest;
     rerunRequested: boolean;
     ciRecovery: boolean;
+    deferCheckpoints?: boolean;
     signal?: AbortSignal;
   },
   operations: DonePreambleOperations,
@@ -58,6 +59,7 @@ export async function resolveDonePreamble(
     const reused = await operations.reusableGreenProof(root);
     if (reused !== undefined) return { kind: "reuse", result: reused };
   }
+  if (options.deferCheckpoints) return { kind: "proceed" };
   const checkpoints = await operations.resolveCheckpointGate(
     root,
     options.declarations,
