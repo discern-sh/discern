@@ -1,92 +1,70 @@
+/** An active accept actor advances one audited, separately authorized prefix at a time. */
+import { emitCompletionProgress } from "../completion/events.ts";
+import { landingAdvanced } from "../completion/records.ts";
 import type { FinishResultSurface } from "../gate/finish.ts";
 import { inspectLandingAuthority } from "../worktree/landing_authority.ts";
-import { landingAdvanced } from "../completion/records.ts";
-import { observeCompletionRecords } from "../validation/runtime.ts";
-import { ignoredFileDetails } from "../worktree/ignored.ts";
-import { RetirementCaptureSchema } from "./retirement.ts";
-import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import {
-  type LandingConvergenceResult,
   type LandingConverger,
   readLandingConvergenceResult,
 } from "./convergence.ts";
-import { readProofPresentation } from "../gate/proof_presentation.ts";
-import { renderLandingProofLine } from "../gate/proof_render.ts";
-import { readCompletionRecord } from "../completion/store.ts";
-import { emitCompletionProgress } from "../completion/events.ts";
-import { evaluateResultCompletion } from "../../shared/result_completion.ts";
-import {
-  fire,
-  hasRegisteredActionableHint,
-  HINTS,
-  hintTexts,
-  mergeHintTexts,
-} from "../../shared/hints.ts";
-/** An active accept actor advances one audited, separately authorized prefix at a time. */
-import { type StepResult, stepResultFromJson } from "../../shared/result.ts";
+import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { AcceptData, Proof } from "../../shared/result_schemas.ts";
-import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
-import { SYSTEM_CLOCK } from "../../shared/clock.ts";
-import type { LifecycleContext } from "../worktree/lifecycle.ts";
+import type {
+  AttemptIdentity,
+  Executor,
+  SourceRevision,
+} from "../completion/identity.ts";
+import type { CompletionObservation } from "../completion/protocol.ts";
+import { requireEnvironment } from "../execution/registry.ts";
+import { pinValidatedTree } from "../gate/proof.ts";
+import { OperationLockError } from "../operation_lock.ts";
+import { inspectAcceptanceCheckpoints } from "../worktree/acceptance_checkpoints.ts";
 import {
   integrationBranch,
   mainRepoPath,
   worktreePathForBranch,
 } from "../worktree/git.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
-import { pinValidatedTree } from "../gate/proof.ts";
-import type {
-  CompletionBlocker,
-  CompletionObservation,
-} from "../completion/protocol.ts";
-import type {
-  AttemptIdentity,
-  Executor,
-  SourceRevision,
-} from "../completion/identity.ts";
+import type { LifecycleContext } from "../worktree/lifecycle.ts";
+import {
+  claimLandingAttempt,
+  type QueueWorkClaim,
+  settleQueueClaim,
+} from "./claims.ts";
+import { observeSource } from "./composition.ts";
+import { orderedEntries, sameSource } from "./model.ts";
+import { mutateQueue } from "./mutations.ts";
+import { type CandidateAssessment, createQueuePlanner } from "./planner.ts";
+import {
+  assessPublicCandidate,
+  type CandidateDecisionRequest,
+  type PublicCandidateAssessment,
+} from "./public_assessment.ts";
+import { synchronizeQueueAuthorities } from "./public_authority.ts";
+import {
+  type AcceptancePending,
+  acceptancePending,
+  type AcceptancePrefix,
+  acceptancePrefix,
+  queueAcceptanceResult,
+} from "./public_result.ts";
+import {
+  type LandingRecord,
+  publishQueueLanding,
+  type QueueLandingRuntime,
+  readLandingProof,
+  recoverQueueLanding,
+} from "./publication.ts";
 import {
   observedRecords,
   observeQueue,
   requireQueue,
   withQueueLock,
 } from "./repository.ts";
-import { orderedEntries, type QueueEntry, sameSource } from "./model.ts";
-import { mutateQueue } from "./mutations.ts";
-import { synchronizeQueueAuthorities } from "./public_authority.ts";
-import {
-  assessPublicCandidate,
-  type CandidateDecisionRequest,
-  type PublicCandidateAssessment,
-} from "./public_assessment.ts";
-import { type CandidateAssessment, createQueuePlanner } from "./planner.ts";
-import {
-  claimLandingAttempt,
-  type QueueWorkClaim,
-  settleQueueClaim,
-} from "./claims.ts";
-import {
-  type LandingRecord,
-  publishQueueLanding,
-  type QueueLandingRuntime,
-  readLandingNoteResult,
-  readLandingProof,
-  recoverQueueLanding,
-} from "./publication.ts";
-import { OperationLockError } from "../operation_lock.ts";
 import { retireQueueLanding } from "./retirement.ts";
-import { observeSource } from "./composition.ts";
-
-type PrefixRow = NonNullable<AcceptData["queue"]>[number];
-import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
-import { requireEnvironment } from "../execution/registry.ts";
-import {
-  type CheckpointDrop,
-  uniqueCheckpointDrops,
-} from "../../shared/checkpoint_drops.ts";
-import { inspectAcceptanceCheckpoints } from "../worktree/acceptance_checkpoints.ts";
-import { checkpointServingText } from "../checkpoints/serving_text.ts";
-import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
@@ -97,453 +75,6 @@ export interface PublicAcceptOptions {
   readonly confirmed?: boolean;
   readonly variance?: string[];
   readonly approveStandard?: string[];
-}
-
-/** Preserve the exact pending dimension alongside every earlier completed transition. */
-type Pending = CompletionBlocker | NonNullable<AcceptData["pending"]>[number];
-/** Keep the semantic pending kind and its explanation in every public projection. */
-function pending(blocker: Pending): { kind: string; reason: string } {
-  if (blocker.kind === "stale-evidence") {
-    const reason = "reason" in blocker ? blocker.reason : undefined;
-    return {
-      kind: blocker.kind,
-      reason: reason === "source-replaced"
-        ? "The authored source changed after completion. Run discern done on the intended clean committed source and obtain authority for that source."
-        : `Validation evidence is stale${
-          reason === undefined ? "" : ` (${reason})`
-        }. Acceptance needs current evidence in an eligible released environment.`,
-    };
-  }
-  if (blocker.kind === "recovery-incomplete" && "recovery" in blocker) {
-    return { kind: blocker.kind, reason: blocker.recovery.reason };
-  }
-  if ("reason" in blocker && blocker.reason !== undefined) {
-    return { kind: blocker.kind, reason: blocker.reason };
-  }
-  let reason: string;
-  switch (blocker.kind) {
-    case "missing-evidence":
-      reason =
-        "Required validation evidence is missing. Run discern done from the intended effort's clean committed worktree, then retry acceptance.";
-      break;
-    case "missing-authority":
-      reason =
-        "The next prefix needs separately recorded landing authority for its current source.";
-      break;
-    case "missing-judgment":
-      reason = `A checkpoint or Standard decision is still required${
-        "subjects" in blocker ? ": " + blocker.subjects.join(", ") : "."
-      }`;
-      break;
-    case "validation-failed":
-      reason =
-        "Required validation failed. Resolve its diagnostics and deliberately rerun completion before acceptance.";
-      break;
-    default:
-      reason = JSON.stringify(blocker);
-  }
-  return { kind: blocker.kind, reason };
-}
-
-/** The same per-predecessor evidence appears in a preview and an active stop. */
-function prefixRow(
-  entry: QueueEntry,
-  evaluated?: PublicCandidateAssessment,
-): PrefixRow {
-  const assessment = evaluated?.assessment;
-  return {
-    effort: entry.source.effort_id,
-    branch: entry.source.branch,
-    source_head: entry.source.head,
-    candidate_id: entry.candidate_id,
-    expected_trunk: assessment?.candidate.expected_predecessor.head ?? null,
-    target: assessment?.candidate.head ?? null,
-    state: assessment?.proof !== undefined && assessment.proof !== null &&
-        assessment.blockers.length === 0
-      ? "ready"
-      : "pending",
-    authority_id: entry.authority_id,
-    retirement: "retained",
-    ...(evaluated?.ignored_file_changes === undefined
-      ? {}
-      : { ignored_file_changes: evaluated.ignored_file_changes }),
-    preview_actions: evaluated?.preview_actions ?? [],
-    ...(evaluated?.consent === undefined ? {} : { consent: evaluated.consent }),
-    scopes_changed: [...evaluated?.scopes_changed ?? []],
-    approval_requests: [...evaluated?.approval_requests ?? []],
-    checkpoint_drops: [...evaluated?.checkpoint_drops ?? []],
-    ...((evaluated?.review?.checkpoints === undefined ||
-        evaluated.review.checkpoints === null)
-      ? {}
-      : { checkpoint_review: evaluated.review.checkpoints }),
-    pending: assessment?.blockers.map((blocker) => {
-      const item = pending(blocker);
-      return blocker.kind === "missing-authority" &&
-          evaluated?.authority_details.length
-        ? {
-          ...item,
-          reason: `${item.reason} Uncovered authority: ${
-            evaluated.authority_details.join("; ")
-          }`,
-        }
-        : item;
-    }) ?? [],
-  };
-}
-
-/** A grant refusal must not hide the owner's separately pending variance decision. */
-function pendingReviewText(rows: readonly PrefixRow[]): string {
-  return rows.filter((row) => row.state !== "landed").flatMap((row) =>
-    (row.checkpoint_review?.declared_unmet ?? []).map((question) => {
-      const evidence = checkpointServingText({
-        matched: question.matched ?? [],
-        related: (question.related ?? []).map((path) => ({
-          ...path,
-          forPath: path.for_path,
-        })),
-        ...(question.question_file === undefined
-          ? {}
-          : { questionFile: question.question_file }),
-        ...(question.teach === undefined ? {} : { teach: question.teach }),
-        ...(question.reference === undefined
-          ? {}
-          : { reference: question.reference }),
-      });
-      return [
-        `Checkpoint ${markdownCodeSpan(question.id)} is declared unmet for ${
-          markdownCodeSpan(row.branch)
-        }.`,
-        `Changed: ${evidence.matched}`,
-        ...evidence.related,
-        `Question: ${question.question}`,
-        ...(evidence.questionSource === undefined
-          ? []
-          : [evidence.questionSource]),
-        ...evidence.notes,
-        `Rationale: ${markdownCodeSpan(question.why)}`,
-      ].join("\n");
-    })
-  ).join("\n\n");
-}
-
-/** Project prefix outcomes without losing independently pending decisions. */
-async function result(
-  root: string,
-  rows: PrefixRow[],
-  pendingBlockers: readonly Pending[],
-  proof?: Proof,
-  dryRun = false,
-  checkpointDrops: readonly CheckpointDrop[] = [],
-): Promise<DiscernResult<AcceptData>> {
-  const blockers = [
-    ...new Map(
-      pendingBlockers.map((blocker) => [JSON.stringify(blocker), blocker]),
-    ).values(),
-  ];
-  const convergenceSteps: StepResult[] = [];
-  const convergenceDiagnostics: LandingConvergenceResult["diagnostics"] = [];
-  const stopped = rows.at(-1);
-  if (
-    blockers.length > 0 && stopped !== undefined && stopped.state !== "landed"
-  ) {
-    stopped.state = "pending";
-    stopped.pending = blockers.map((blocker) =>
-      blocker.kind === "missing-authority"
-        ? stopped.pending.find((item) => item.kind === "missing-authority") ??
-          pending(blocker)
-        : pending(blocker)
-    );
-  }
-  const noteHints: string[] = [];
-  for (const row of rows) {
-    if (row.landing_id === undefined) continue;
-    try {
-      const landing = await readCompletionRecord(root, {
-        kind: "landing",
-        id: row.landing_id,
-      });
-      if (landing.kind !== "recorded" || landing.record.kind !== "landing") {
-        continue;
-      }
-      const retirements = observedRecords(await observeCompletionRecords(root))
-        .filter((record) =>
-          record.kind === "retirement" &&
-          record.data.landing_id === landing.record.id
-        );
-      for (const retirement of retirements) {
-        if (retirement.kind !== "retirement") continue;
-        if (retirement.data.effects !== undefined) {
-          row.retirement_effects = retirement.data.effects;
-        }
-        row.retirement = retirement.data.outcome.kind === "retired"
-          ? "retired"
-          : retirement.data.outcome.kind === "recovery"
-          ? "recovery"
-          : "retained";
-        if (retirement.data.capture !== undefined) {
-          const ignored = RetirementCaptureSchema.parse(
-            await readEnvironmentArtifact(root, retirement.data.capture),
-          ).ignored_file_changes;
-          if (ignored !== undefined) row.ignored_file_changes = ignored;
-        }
-      }
-      const convergence = await readLandingConvergenceResult(
-        root,
-        landing.record.data,
-      );
-      row.convergence = convergence === undefined
-        ? "pending"
-        : convergence.ok
-        ? "passed"
-        : "failed";
-      if (convergence !== undefined) {
-        convergenceSteps.push(...convergence.steps.map(stepResultFromJson));
-        convergenceDiagnostics.push(...convergence.diagnostics);
-        noteHints.push(...convergence.hints);
-      }
-      if (row.convergence !== "passed") {
-        blockers.push({
-          kind: "convergence-incomplete",
-          reason:
-            `Landing is recorded for ${row.branch}; main checkout convergence is ${row.convergence}. Resolve the retained diagnostics and retry acceptance from the main checkout. Landing and its authority do not repeat.`,
-        });
-      }
-      if (row.retirement === "recovery") {
-        blockers.push({
-          kind: "retirement-incomplete",
-          reason: row.retirement_reason ??
-            "Retirement recovery is incomplete; preserve its retained state.",
-        });
-      }
-      const claim = landing.record.data.claim;
-      if (claim.kind === "normal") {
-        const authority = await readCompletionRecord(root, {
-          kind: "authority",
-          id: claim.authority_id,
-        });
-        if (
-          authority.kind === "recorded" &&
-          authority.record.kind === "authority" &&
-          authority.record.data.state.kind === "consumed" &&
-          authority.record.data.state.landing_id === landing.record.id
-        ) {
-          const consent = authority.record.data.source;
-          const recordedConsent = {
-            source: consent.source,
-            ...(consent.scopes.length ? { scopes: [...consent.scopes] } : {}),
-          };
-          row.consent = recordedConsent;
-          row.variances = [...claim.decisions.variances];
-          row.standard_approvals = [...claim.decisions.proposals];
-          const presentation = await readProofPresentation(root, {
-            candidate_id: landing.record.data.candidate_id,
-            proof_id: claim.proof_id,
-          });
-          row.proof_line = renderLandingProofLine(
-            presentation.line,
-            recordedConsent,
-            {
-              ...(presentation.checkpoints === undefined
-                ? {}
-                : { checkpoints: presentation.checkpoints }),
-              ...(claim.decisions.proposals.length
-                ? { proposals: claim.decisions.proposals }
-                : {}),
-            },
-          );
-          if (proof?.completion?.candidate_id === row.candidate_id) {
-            proof = { ...proof, line: row.proof_line };
-          }
-        }
-      }
-      const note = await readLandingNoteResult(root, landing.record.data);
-      if (note === undefined) continue;
-      if (note.proof_note !== undefined) row.proof_note = note.proof_note;
-      const reason = note.reason ?? note.proof_note?.write.reason;
-      if (reason !== undefined) row.note_reason = reason;
-      noteHints.push(...note.hints);
-    } catch (error) {
-      row.note_reason = `Retained note diagnostics are unavailable: ${
-        error instanceof Error ? error.message : String(error)
-      }`;
-      noteHints.push(...hintTexts([
-        fire(HINTS["completion-pending"], {
-          action:
-            "Preserve the common landing record and restore its note-diagnostic artifact; landing itself does not need to repeat.",
-        }),
-      ]));
-    }
-  }
-  for (const blocker of blockers) {
-    emitCompletionProgress({
-      phase: "pending",
-      state: blocker.kind,
-      candidate_id: rows.at(-1)?.candidate_id ?? null,
-      reason: pending(blocker).reason,
-    });
-  }
-  const landed = rows.filter((row) => row.state === "landed").length;
-  const standardApproval = blockers.some((blocker) =>
-    blocker.kind === "missing-judgment" && "subjects" in blocker &&
-    blocker.subjects.some((subject) => subject.startsWith("standard-proposal:"))
-  );
-  const judgmentSubjects = blockers.flatMap((blocker) =>
-    blocker.kind === "missing-judgment" && "subjects" in blocker
-      ? [...blocker.subjects]
-      : []
-  );
-  const variances = [
-    ...new Set(
-      judgmentSubjects.filter((subject) => subject.startsWith("variance:")).map(
-        (subject) => subject.slice("variance:".length),
-      ),
-    ),
-  ];
-  const invalidDecision = judgmentSubjects.some((subject) =>
-    subject.startsWith("invalid-variances:") ||
-    subject.startsWith("invalid-standard-approvals:")
-  );
-  const checkpointUnavailable = judgmentSubjects.includes(
-    "checkpoint-evidence-unavailable",
-  );
-  const staleDeclarations = judgmentSubjects.filter((subject) =>
-    subject.startsWith("declaration-stale:")
-  ).map((subject) => subject.slice("declaration-stale:".length));
-  const proposalChanged =
-    judgmentSubjects.includes("standard-proposal-changed") ||
-    judgmentSubjects.includes("standard-proposal-store-unavailable");
-  const judgmentChanged = judgmentSubjects.some((subject) =>
-    subject === "checkpoint-declaration-changed" ||
-    subject === "checkpoint-reading-changed"
-  );
-  const authority = blockers.some((blocker) =>
-    blocker.kind === "missing-authority"
-  );
-  const fields = {
-    verb: "accept",
-    ...(dryRun
-      ? { dry_run: true as const }
-      : { steps: convergenceSteps, diagnostics: convergenceDiagnostics }),
-    message:
-      (dryRun
-        ? "Read-only queue preview; each prefix has its own evidence and authority."
-        : `${landed} prefix${landed === 1 ? "" : "es"} landed.${
-          blockers.length
-            ? " Acceptance is pending: " + blockers.map((blocker) =>
-              pending(blocker).reason
-            ).join("; ")
-            : ""
-        }`) +
-      (rows.length === 0
-        ? ""
-        : "\n\n" + rows.map((row) =>
-          `${row.branch}: ${row.state}${
-            row.state === "landed" ? `; checkout ${row.retirement}` : ""
-          }${
-            row.pending.length
-              ? "; " + row.pending.map((item) => item.reason).join("; ")
-              : ""
-          }`
-        ).join("\n")) +
-      rows.flatMap((row) =>
-        row.ignored_file_changes === undefined
-          ? []
-          : ignoredFileDetails(row.ignored_file_changes).map((detail) =>
-            `\n\n${row.branch}: ${detail}`
-          )
-      ).join("") +
-      (pendingReviewText(rows) === "" ? "" : `\n\n${pendingReviewText(rows)}`) +
-      rows.filter((row) => row.state !== "landed").flatMap((row) =>
-        (row.approval_requests ?? []).map(({ proposal }) =>
-          `\n\nStandard proposal ${markdownCodeSpan(proposal.standard)} for ${
-            markdownCodeSpan(row.branch)
-          }: ${proposal.trunk_limit} → ${proposal.proposed_limit}. Reason: ${
-            markdownCodeSpan(proposal.reason)
-          }`
-        )
-      ).join(""),
-    data: {
-      root,
-      queue: rows,
-      checkpoint_drops: uniqueCheckpointDrops([
-        ...checkpointDrops,
-        ...rows.flatMap((row) =>
-          row.checkpoint_drops ?? row.checkpoint_review?.drops ?? []
-        ),
-      ]),
-      ...(rows.length === 1 && rows[0]?.proof_note !== undefined
-        ? { proof_note: rows[0].proof_note }
-        : {}),
-      pending: blockers.map(pending),
-      ...(proof === undefined
-        ? {}
-        : { proof: proof.markdown, proof_line: proof.line }),
-    },
-    hints: mergeHintTexts(
-      noteHints,
-      variances.length === 0 ? [] : hintTexts([
-        fire(HINTS["accept-authorize-variance"], { ids: variances }),
-      ]),
-      staleDeclarations.length === 0 ? [] : hintTexts([
-        fire(HINTS["accept-declarations-stale"], { ids: staleDeclarations }),
-      ]),
-      hintTexts(
-        rows.filter((row) =>
-          row.state !== "landed" && (row.approval_requests?.length ?? 0) > 0
-        ).map((row) =>
-          fire(HINTS["accept-authorize-standard-proposals"], {
-            branch: row.branch,
-            tokens: (row.approval_requests ?? []).map((item) => item.token),
-          })
-        ),
-      ),
-      proof === undefined
-        ? []
-        : hintTexts([fire(HINTS["accept-relay-landing-proof"])]),
-      blockers.length === 0 ? [] : hintTexts([
-        authority
-          ? fire(HINTS["accept-awaiting-confirmation"])
-          : fire(HINTS["completion-pending"], {
-            action:
-              "Resolve the named pending condition, then run discern accept again. Earlier landed prefixes and spent authority remain in common recovery records.",
-          }),
-      ]),
-    ),
-  };
-  const evaluated = evaluateResultCompletion<AcceptData>(
-    dryRun || blockers.length === 0 ? { ok: true, ...fields } : {
-      ok: false,
-      ...fields,
-      error: landed > 0
-        ? "partial_acceptance"
-        : checkpointUnavailable
-        ? "checkpoint_evidence_unavailable"
-        : invalidDecision
-        ? "invalid_value"
-        : proposalChanged
-        ? "proposal_stale"
-        : staleDeclarations.length > 0 || judgmentChanged
-        ? "awaiting_declaration"
-        : variances.length > 0
-        ? "awaiting_variance"
-        : standardApproval
-        ? "awaiting_standard_approval"
-        : authority
-        ? "awaiting_consent"
-        : "incomplete",
-    },
-  );
-  return evaluated.ok || hasRegisteredActionableHint(evaluated.hints)
-    ? evaluated
-    : {
-      ...evaluated,
-      hints: hintTexts([
-        fire(HINTS["completion-pending"], {
-          action:
-            "Resolve the named pending condition, then run discern accept again; preserve every recorded landing.",
-        }),
-      ]),
-    };
 }
 
 /** Public entry points share this actor; status and dry-run never instantiate a publication claim. */
@@ -591,7 +122,7 @@ export async function acceptQueueResult(
   const attempts = new Map<string, AttemptIdentity>();
   const claims = new Map<string, QueueWorkClaim>();
   const refreshed = new Set<string>();
-  const rows: PrefixRow[] = [];
+  const rows: AcceptancePrefix[] = [];
   let finalProof: Proof | undefined;
   const details = new Map<string, PublicCandidateAssessment>();
   const assess = async (
@@ -664,7 +195,7 @@ export async function acceptQueueResult(
       item.reading.kind !== "recorded" && item.reading.kind !== "missing"
     );
     if (unreadable !== undefined) {
-      return result(root, rows, [{
+      return queueAcceptanceResult(root, rows, [{
         kind: "environment-unavailable",
         reason:
           `Completion ${unreadable.selector.kind}/${unreadable.selector.id} is ${unreadable.reading.kind}; preserve it for recovery.`,
@@ -677,7 +208,7 @@ export async function acceptQueueResult(
       const authority = await inspectLandingAuthority(ctx.cwd, trunk, {
         includeScopeEvidence: true,
       });
-      const missing = await result(
+      const missing = await queueAcceptanceResult(
         root,
         rows,
         [{ kind: "missing-evidence", requirements: [] }],
@@ -713,7 +244,7 @@ export async function acceptQueueResult(
         attempt?.kind === "attempt" && attempt.data.state.kind === "claimed" &&
         attempt.data.state.claim.expires_at > observation.observed_at
       ) {
-        return result(root, rows, [{
+        return queueAcceptanceResult(root, rows, [{
           kind: "waiting-for-operation",
           attempt_id: attempt.id,
           expires_at: attempt.data.state.claim.expires_at,
@@ -723,9 +254,11 @@ export async function acceptQueueResult(
         `Recovering the recorded landing for ${recorded.data.source.branch}.`,
       );
       const recovered = await recoverQueueLanding(runtime, recorded.id);
-      if ("kind" in recovered) return result(root, rows, [recovered]);
+      if ("kind" in recovered) {
+        return queueAcceptanceResult(root, rows, [recovered]);
+      }
       if (recovered.outcome.kind === "recovery") {
-        return result(root, rows, [{
+        return queueAcceptanceResult(root, rows, [{
           kind: "recovery-incomplete",
           record_id: recorded.id,
           recovery: recovered.outcome.recovery,
@@ -781,7 +314,7 @@ export async function acceptQueueResult(
         finalProof = await readLandingProof(runtime, landing);
       }
     }
-    const recoveredResult = await result(
+    const recoveredResult = await queueAcceptanceResult(
       root,
       rows,
       [],
@@ -790,11 +323,11 @@ export async function acceptQueueResult(
     );
     if (!recoveredResult.ok) return recoveredResult;
     if (requested === undefined) {
-      return result(root, rows, [], finalProof, options.dryRun);
+      return queueAcceptanceResult(root, rows, [], finalProof, options.dryRun);
     }
     while (true) {
       if (options.signal?.aborted) {
-        return result(root, rows, [{
+        return queueAcceptanceResult(root, rows, [{
           kind: "cancelled",
           reason:
             "Acceptance was cancelled. Recorded landings remain settled; retry from the main checkout to inspect and finish pending work.",
@@ -811,7 +344,7 @@ export async function acceptQueueResult(
             mutation: { kind: "trunk-moved" },
           });
           if (changed.kind !== "changed") {
-            return result(root, rows, [{
+            return queueAcceptanceResult(root, rows, [{
               kind: "stale-evidence",
               evidence_ids: [],
               reason: "external-trunk",
@@ -860,10 +393,16 @@ export async function acceptQueueResult(
             finalProof = await readLandingProof(runtime, landing);
           }
         }
-        return result(root, rows, [], finalProof, options.dryRun);
+        return queueAcceptanceResult(
+          root,
+          rows,
+          [],
+          finalProof,
+          options.dryRun,
+        );
       }
       if (target === undefined) {
-        return result(
+        return queueAcceptanceResult(
           root,
           rows,
           [{ kind: "missing-evidence", requirements: [] }],
@@ -873,7 +412,7 @@ export async function acceptQueueResult(
       }
       const entry = ordered[0];
       if (entry === undefined) {
-        return result(
+        return queueAcceptanceResult(
           root,
           rows,
           [{ kind: "missing-authority", sources: [target.source] }],
@@ -885,12 +424,12 @@ export async function acceptQueueResult(
         ? undefined
         : details.get(entry.candidate_id);
       const assessment = evaluated?.assessment;
-      const row = prefixRow(entry, evaluated);
+      const row = acceptancePrefix(entry, evaluated);
       if (options.dryRun) {
         rows.push(row);
         for (const peer of ordered.slice(1, ordered.indexOf(target) + 1)) {
           rows.push(
-            prefixRow(
+            acceptancePrefix(
               peer,
               peer.candidate_id === null
                 ? undefined
@@ -898,7 +437,7 @@ export async function acceptQueueResult(
             ),
           );
         }
-        return result(root, rows, [], undefined, true);
+        return queueAcceptanceResult(root, rows, [], undefined, true);
       }
       if (
         entry.invalidation === null &&
@@ -913,7 +452,12 @@ export async function acceptQueueResult(
           lease_ms: 60_000,
         });
         if ("kind" in claim) {
-          return result(root, [...rows, row], [claim], finalProof);
+          return queueAcceptanceResult(
+            root,
+            [...rows, row],
+            [claim],
+            finalProof,
+          );
         }
         claims.set(entry.candidate_id, claim);
         attempts.set(entry.candidate_id, claim.attempt.identity);
@@ -941,7 +485,7 @@ export async function acceptQueueResult(
         const refreshKey =
           `${entry.source.head}:${observation.trunk}:${entry.candidate_id}`;
         if (selected.expected_stamp === null || refreshed.has(refreshKey)) {
-          return result(root, [...rows, row], [{
+          return queueAcceptanceResult(root, [...rows, row], [{
             kind: "missing-evidence",
             requirements: action.kind === "validate"
               ? action.plan.demand.kind === "done"
@@ -958,7 +502,7 @@ export async function acceptQueueResult(
           environment.stamp !== selected.expected_stamp ||
           environment.record.data.release.kind !== "released"
         ) {
-          return result(root, [...rows, row], [{
+          return queueAcceptanceResult(root, [...rows, row], [{
             kind: "environment-unavailable",
             reason:
               "The planned environment release changed before validation.",
@@ -992,7 +536,7 @@ export async function acceptQueueResult(
         if (!validation.ok) {
           const reasons = validation.data?.completion?.pending_reasons ??
             [validation.message ?? "Validation is incomplete."];
-          const blockers: readonly Pending[] =
+          const blockers: readonly AcceptancePending[] =
             validation.data?.completion?.pending ?? (
               validation.error === "awaiting_declaration" ||
                 validation.error === "checkpoint_evidence_unavailable"
@@ -1005,9 +549,9 @@ export async function acceptQueueResult(
                   reason: reasons.join("; "),
                 }]
             );
-          return result(
+          return queueAcceptanceResult(
             root,
-            [...rows, { ...row, pending: blockers.map(pending) }],
+            [...rows, { ...row, pending: blockers.map(acceptancePending) }],
             blockers,
             finalProof,
           );
@@ -1027,13 +571,13 @@ export async function acceptQueueResult(
         rows.push({
           ...row,
           pending: blockers.map((blocker) => {
-            const detail = pending(blocker);
+            const detail = acceptancePending(blocker);
             return detail.kind === "missing-authority"
               ? row.pending.find((item) => item.kind === detail.kind) ?? detail
               : detail;
           }),
         });
-        return result(root, rows, blockers, finalProof);
+        return queueAcceptanceResult(root, rows, blockers, finalProof);
       }
       const claim = claims.get(action.record.data.candidate_id);
       if (claim === undefined) {
@@ -1055,7 +599,10 @@ export async function acceptQueueResult(
           root,
           () => settleQueueClaim(root, claim, "cancelled"),
         );
-        return result(root, [...rows, { ...row, pending: [pending(landed)] }], [
+        return queueAcceptanceResult(root, [...rows, {
+          ...row,
+          pending: [acceptancePending(landed)],
+        }], [
           landed,
         ], finalProof);
       }
@@ -1069,14 +616,14 @@ export async function acceptQueueResult(
         authority_settlement: landed.authority_settlement,
       });
       if (landed.outcome.kind === "recovery") {
-        return result(root, rows, [{
+        return queueAcceptanceResult(root, rows, [{
           kind: "recovery-incomplete",
           record_id: action.record.id,
           recovery: landed.outcome.recovery,
         }], finalProof);
       }
       if (landed.outcome.kind !== "landed") {
-        return result(root, rows, [{
+        return queueAcceptanceResult(root, rows, [{
           kind: "environment-unavailable",
           reason: landed.outcome.kind === "not-landed"
             ? landed.outcome.reason
@@ -1087,7 +634,7 @@ export async function acceptQueueResult(
         ...action.record,
         data: landed,
       });
-      const converged = await result(root, rows, [], finalProof);
+      const converged = await queueAcceptanceResult(root, rows, [], finalProof);
       if (options.signal?.aborted) return converged;
       const retirement = await retireQueueLanding({
         ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -1111,12 +658,12 @@ export async function acceptQueueResult(
           last.retirement_reason = retirement.recovery.reason;
         }
       }
-      const completed = await result(root, rows, [], finalProof);
+      const completed = await queueAcceptanceResult(root, rows, [], finalProof);
       if (!completed.ok) return completed;
     }
   } catch (error) {
     if (error instanceof OperationLockError) {
-      return result(root, rows, [{
+      return queueAcceptanceResult(root, rows, [{
         kind: "environment-unavailable",
         reason: error.message,
       }], finalProof);

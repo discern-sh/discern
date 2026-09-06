@@ -36,7 +36,7 @@ Missing judgment, missing authority, missing or stale evidence, unavailable envi
 
 ## Where it lives in code
 
-[Publication](../../../src/engine/landing_queue/publication.ts) owns exact transition and recovery. [Retirement](../../../src/engine/landing_queue/retirement.ts) owns disposable cleanup. The [active accept actor](../../../src/engine/landing_queue/public_accept.ts) coordinates them and preserves prefix outcomes. [Native publication tests](../../../tests/completion_native_publication_test.ts) and [retirement tests](../../../tests/completion_native_retirement_test.ts) exercise interruption and retained state.
+[Publication](../../../src/engine/landing_queue/publication.ts) owns exact transition and recovery. [Retirement](../../../src/engine/landing_queue/retirement.ts) owns disposable cleanup. The [active accept actor](../../../src/engine/landing_queue/public_accept.ts) coordinates them. The [result reader](../../../src/engine/landing_queue/public_result.ts) projects each prefix from retained landing, authority, convergence and retirement facts, so a later stop preserves earlier outcomes. [Native publication tests](../../../tests/completion_native_publication_test.ts) and [retirement tests](../../../tests/completion_native_retirement_test.ts) exercise interruption and retained state.
 
 The [legacy transaction reader](../../../src/engine/worktree/acceptance_transaction.ts) remains a recovery boundary for an already-recorded older operation. It is not an alternate path for creating new landing authority.
 
