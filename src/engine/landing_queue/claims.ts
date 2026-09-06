@@ -3,6 +3,7 @@ import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type { CompletionPolicy } from "../../shared/config_schema.ts";
 import type { CompletionAttempt } from "../completion/environment.ts";
+import { finishedValidationAttempts } from "../validation/selection.ts";
 import type { Executor } from "../completion/identity.ts";
 import type {
   CompletionBlocker,
@@ -155,7 +156,12 @@ export async function claimQueueWork(input: {
     );
     if (entry === undefined) return { kind: "replan" };
     if (entry.state === "failed" && input.rerun_of === null) {
-      return { kind: "validation-failed", evidence_ids: [] };
+      return {
+        kind: "validation-failed",
+        evidence_ids: [],
+        reason:
+          "The selected candidate has a failed validation attempt. Resolve its failure, then use discern done --rerun for a deliberate retry.",
+      };
     }
     if (input.rerun_of !== null) {
       const previous = await readCompletionRecord(input.root, {
@@ -164,8 +170,7 @@ export async function claimQueueWork(input: {
       });
       if (
         previous.kind !== "recorded" || previous.record.kind !== "attempt" ||
-        previous.record.data.identity.candidate_id !== entry.candidate_id ||
-        previous.record.data.state.kind !== "finished"
+        finishedValidationAttempts([previous.record]).length !== 1
       ) return { kind: "replan" };
     }
     const identity = await reserveQueueAttempt(

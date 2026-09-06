@@ -37,6 +37,19 @@ export type EvidenceSelection =
     readonly blocker: CompletionBlocker;
   };
 
+/** Explicit retry records a finished validation predecessor in reservation order.
+ * Its sequence bounds earlier failed subjects; it never authorizes live work or landing.
+ */
+export function finishedValidationAttempts(
+  records: readonly CompletionRecord[],
+): AttemptRecord[] {
+  return records.filter((record): record is AttemptRecord =>
+    CompletionRecordSchema.safeParse(record).success &&
+    record.kind === "attempt" && record.data.purpose === "completion" &&
+    record.data.subjects.length > 0 && record.data.state.kind === "finished"
+  ).sort((a, b) => b.data.identity.sequence - a.data.identity.sequence);
+}
+
 /** Canonical byte-audit coordinate, scoped to the immutable producing attempt. */
 export function artifactKey(
   artifact: ComponentEvidence["artifacts"][number],
@@ -87,13 +100,32 @@ export function selectEvidence(
   const blocked = (blocker: CompletionBlocker): EvidenceSelection => ({
     kind: "blocked",
     attempt_id: latest.id,
-    blocker,
+    blocker: blocker.kind === "validation-failed"
+      ? {
+        ...blocker,
+        requirement: obligation.requirement,
+        attempt_id: latest.id,
+        reason:
+          `${obligation.requirement.kind} '${obligation.requirement.id}' in context '${obligation.requirement.context}' has no passing evidence from attempt ${latest.id} (${
+            attempt.state.kind === "finished"
+              ? attempt.state.outcome
+              : attempt.state.kind
+          }). Resolve the failure, then use discern done --rerun for a deliberate retry.`,
+      }
+      : blocker,
   });
   if (attempt.state.kind === "claimed") {
     return blocked({
       kind: "waiting-for-operation",
       attempt_id: latest.id,
       expires_at: attempt.state.claim.expires_at,
+    });
+  }
+  if (attempt.state.kind === "recovery") {
+    return blocked({
+      kind: "recovery-incomplete",
+      record_id: latest.id,
+      recovery: attempt.state.recovery,
     });
   }
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.

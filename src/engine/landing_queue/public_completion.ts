@@ -21,6 +21,7 @@ import {
   writeCompletionRecord,
 } from "../completion/store.ts";
 import { configuredValidation } from "../validation/configuration.ts";
+import { finishedValidationAttempts } from "../validation/selection.ts";
 import { requirementSetIdentity } from "../validation/catalog.ts";
 import type { PublicValidationRun } from "../validation/public_run.ts";
 import { createEnvironmentExecutor } from "../execution/executor.ts";
@@ -301,17 +302,8 @@ export async function withPublicCompletion<T>(
         );
     observation = await observeCompletionRecords(root);
     records = observedRecords(observation);
-    const priorAttempt = records.filter((record) =>
-      record.kind === "attempt" &&
-      record.data.identity.candidate_id === candidateId &&
-      record.data.subjects.length > 0
-    ).sort((a, b) =>
-      a.kind === "attempt" && b.kind === "attempt"
-        ? b.data.identity.sequence - a.data.identity.sequence
-        : 0
-    )[0];
-    const rerunOf = options.rerun && priorAttempt?.kind === "attempt"
-      ? priorAttempt.id
+    const rerunOf = options.rerun
+      ? finishedValidationAttempts(records)[0]?.id ?? null
       : null;
     queue = await requireQueue(root);
     const claim = await claimQueueWork({

@@ -7,7 +7,7 @@ import type {
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
 import { requirementKey, type ValidationSnapshot } from "./catalog.ts";
-import { selectEvidence } from "./selection.ts";
+import { finishedValidationAttempts, selectEvidence } from "./selection.ts";
 import { standardHeld } from "./metrics.ts";
 
 /** Resolve required consumers and dependency demand before producer execution. */
@@ -87,6 +87,8 @@ export function planValidation(
       throw new Error("unknown diagnostic requirement");
     }
   }
+  const finished = finishedValidationAttempts(records);
+  const boundary = finished.find((attempt) => attempt.id === rerunOf);
   const producers = new Map<string, ProducerDemand>();
   const demandProducer = (selector: string): ProducerDemand => {
     const existing = producers.get(selector);
@@ -118,7 +120,8 @@ export function planValidation(
         audited,
       );
       if (
-        prior.kind === "selected" && prior.record.data.attempt_id !== rerunOf
+        prior.kind === "selected" &&
+        prior.record.data.attempt_id !== boundary?.id
       ) {
         if (
           obligation.standard !== null && prior.reading !== null &&
@@ -139,8 +142,11 @@ export function planValidation(
       if (
         prior.kind === "blocked" && prior.blocker.kind !== "stale-evidence" &&
         prior.blocker.kind !== "report-only" &&
-        (prior.attempt_id !== rerunOf ||
-          prior.blocker.kind === "waiting-for-operation")
+        (boundary === undefined ||
+          !finished.some((attempt) =>
+            attempt.id === prior.attempt_id &&
+            attempt.data.identity.sequence <= boundary.data.identity.sequence
+          ))
       ) {
         plan.blockers.push(prior.blocker);
         continue;

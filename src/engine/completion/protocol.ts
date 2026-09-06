@@ -44,6 +44,9 @@ export type CompletionBlocker =
   | {
     readonly kind: "validation-failed";
     readonly evidence_ids: readonly string[];
+    readonly requirement?: Requirement;
+    readonly attempt_id?: string;
+    readonly reason?: string;
   }
   | { readonly kind: "environment-unavailable"; readonly reason: string }
   | {
