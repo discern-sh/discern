@@ -59,6 +59,10 @@ function mcpAliases(identity: AgentIdentityDefinition): string[] {
   ];
 }
 
+/** Compile the release catalogue once; observations never rebuild aliases. */
+const MCP_ALIASES = AGENT_CATALOGUE.filter((entry) => entry.id !== "custom")
+  .map((entry) => ({ agent: entry.id, aliases: mcpAliases(entry) }));
+
 /** Merge equivalent effective evidence while preserving first-seen order. */
 function addEffectiveSignal(
   signals: EffectiveAgentSignal[],
@@ -99,12 +103,7 @@ export function classifyMcpClient(
     ? undefined
     : normalizeMcpAlias(client.title);
   const signals: CatalogueAgentSignal[] = [];
-  for (const catalogueEntry of AGENT_CATALOGUE) {
-    if (catalogueEntry.id === "custom") {
-      continue;
-    }
-    const identity: AgentIdentityDefinition = catalogueEntry;
-    const aliases = mcpAliases(identity);
+  for (const { agent, aliases } of MCP_ALIASES) {
     const markers = [
       aliases.includes(normalizedName) ? "clientInfo.name" : undefined,
       normalizedTitle !== undefined && aliases.includes(normalizedTitle)
@@ -113,7 +112,7 @@ export function classifyMcpClient(
     ].filter((marker): marker is string => marker !== undefined);
     if (markers.length > 0) {
       signals.push({
-        agent: catalogueEntry.id,
+        agent,
         source: "mcp-client",
         markers,
       });
