@@ -11,7 +11,10 @@ import {
   COMPLETION_FAMILIES,
   type RecordSelector,
 } from "../completion/records.ts";
-import { readCompletionRecord } from "../completion/store.ts";
+import {
+  openCompletionRecordStore,
+  readCompletionRecord,
+} from "../completion/store.ts";
 import { RecordIdSchema } from "../completion/identity.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
@@ -19,7 +22,6 @@ import { jobEnvironment } from "../jobs/command.ts";
 import { AttemptSchema, EnvironmentSchema } from "../completion/environment.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { containedFile } from "../execution/snapshot.ts";
@@ -50,8 +52,8 @@ export async function observeCompletionRecords(
   root: string,
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<CompletionObservation> {
-  const directory = await gitAdminStatePath(root, "completionRecords");
-  if (directory === undefined) {
+  const store = await openCompletionRecordStore(root);
+  if (store === undefined) {
     throw new Error("completion record storage is unavailable");
   }
   const selectors: RecordSelector[] = [];
@@ -61,7 +63,7 @@ export async function observeCompletionRecords(
     ) as (keyof typeof COMPLETION_FAMILIES)[]
   ) {
     try {
-      for await (const entry of Deno.readDir(join(directory, kind))) {
+      for await (const entry of Deno.readDir(join(store.directory, kind))) {
         if (entry.name.endsWith(".json")) {
           selectors.push({
             kind,
@@ -79,7 +81,7 @@ export async function observeCompletionRecords(
     records: await Promise.all(
       selectors.map(async (selector) => ({
         selector,
-        reading: await readCompletionRecord(root, selector),
+        reading: await store.read(selector),
       })),
     ),
     trunk: trunk.stdout.trim(),

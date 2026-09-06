@@ -62,47 +62,74 @@ export async function parseCompletionRecord(
   return { kind: "recorded", record: parsed.data, stamp: await sha256Hex(raw) };
 }
 
+/** Read fresh records through a directory resolved for one operation. */
+export interface CompletionRecordStore {
+  readonly directory: string;
+  readonly path: (selector: RecordSelector, revision?: number) => string;
+  readonly read: (
+    selector: RecordSelector,
+    revision?: number,
+  ) => Promise<CompletionRecordReading>;
+}
+
+/** Validate coordinates before they can contribute any path segment. */
+function recordRelativePath(
+  selector: RecordSelector,
+  revision?: number,
+): string {
+  RecordIdSchema.parse(selector.id);
+  if (!Object.hasOwn(COMPLETION_FAMILIES, selector.kind)) {
+    throw new TypeError("unknown completion family");
+  }
+  if (
+    revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)
+  ) {
+    throw new TypeError("record revision must be a positive integer");
+  }
+  return revision === undefined
+    ? join(selector.kind, `${selector.id}.json`)
+    : join(selector.kind, selector.id, `${revision}.json`);
+}
+
+/** Resolve the common lifetime once per inventory or lock-held publication.
+ * Only the directory is retained; every read observes current bytes. Callers
+ * open another store after a lifecycle transition or for another operation. */
+export async function openCompletionRecordStore(
+  root: string,
+): Promise<CompletionRecordStore | undefined> {
+  const directory = await gitAdminStatePath(
+    await Deno.realPath(root),
+    "completionRecords",
+  );
+  if (directory === undefined) return undefined;
+  const path = (selector: RecordSelector, revision?: number): string =>
+    join(directory, recordRelativePath(selector, revision));
+  return {
+    directory,
+    path,
+    read: (selector, revision) => readStoredRecord(path, selector, revision),
+  };
+}
+
 /** Resolve family and UUID under the registered common lifetime. */
 export async function completionRecordPath(
   root: string,
   selector: RecordSelector,
   revision?: number,
 ): Promise<string | undefined> {
-  RecordIdSchema.parse(selector.id);
-  if (!Object.hasOwn(COMPLETION_FAMILIES, selector.kind)) {
-    throw new TypeError("unknown completion family");
-  }
-  const directory = await gitAdminStatePath(
-    await Deno.realPath(root),
-    "completionRecords",
-  );
-  if (
-    revision !== undefined && (!Number.isSafeInteger(revision) || revision < 1)
-  ) {
-    throw new TypeError("record revision must be a positive integer");
-  }
-  return directory === undefined
-    ? undefined
-    : revision === undefined
-    ? join(directory, selector.kind, `${selector.id}.json`)
-    : join(directory, selector.kind, selector.id, `${revision}.json`);
+  const relative = recordRelativePath(selector, revision);
+  const store = await openCompletionRecordStore(root);
+  return store === undefined ? undefined : join(store.directory, relative);
 }
 
-/** Observe the record without repairing state or creating storage. */
-export async function readCompletionRecord(
-  root: string,
+/** Read bytes and validate their coordinate on each observation. */
+async function readStoredRecord(
+  path: CompletionRecordStore["path"],
   selector: RecordSelector,
   revision?: number,
 ): Promise<CompletionRecordReading> {
   try {
-    const path = await completionRecordPath(root, selector, revision);
-    if (path === undefined) {
-      return {
-        kind: "unavailable",
-        reason: "common Git administration is unavailable",
-      };
-    }
-    const raw = await readTextIfExists(path);
+    const raw = await readTextIfExists(path(selector, revision));
     if (raw === undefined) return { kind: "missing" };
     const reading = await parseCompletionRecord(raw, selector);
     return revision !== undefined && reading.kind === "recorded" &&
@@ -112,6 +139,29 @@ export async function readCompletionRecord(
         reason: "record does not match its historical revision",
       }
       : reading;
+  } catch (error) {
+    return {
+      kind: "unavailable",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** Observe the record without repairing state or creating storage. */
+export async function readCompletionRecord(
+  root: string,
+  selector: RecordSelector,
+  revision?: number,
+): Promise<CompletionRecordReading> {
+  try {
+    const store = await openCompletionRecordStore(root);
+    if (store === undefined) {
+      return {
+        kind: "unavailable",
+        reason: "common Git administration is unavailable",
+      };
+    }
+    return await store.read(selector, revision);
   } catch (error) {
     return {
       kind: "unavailable",
@@ -134,15 +184,12 @@ export type CompletionWriteOutcome =
 
 /** Retain the exact previous document before replacing its current snapshot. */
 async function preserveRevision(
-  root: string,
+  store: CompletionRecordStore,
   record: CompletionRecord,
   stamp: string,
 ): Promise<string | undefined> {
-  const path = await completionRecordPath(root, record);
-  const archive = await completionRecordPath(root, record, record.revision);
-  if (path === undefined || archive === undefined) {
-    return "record location is unavailable";
-  }
+  const path = store.path(record);
+  const archive = store.path(record, record.revision);
   const raw = await readTextIfExists(path);
   if (raw === undefined || await sha256Hex(raw) !== stamp) {
     return "record changed before history capture";
@@ -160,7 +207,7 @@ async function preserveRevision(
 
 /** Evidence publication must belong to the live attempt, including its candidate. */
 async function checkFence(
-  root: string,
+  store: CompletionRecordStore,
   record: CompletionRecord,
   fence: PublicationFence | undefined,
   now: number,
@@ -172,7 +219,7 @@ async function checkFence(
       ? "candidate and evidence publication require a current attempt claim"
       : undefined;
   }
-  const reading = await readCompletionRecord(root, {
+  const reading = await store.read({
     kind: "attempt",
     id: fence.attempt_id,
   });
@@ -252,7 +299,14 @@ export async function writeCompletionRecord(
     return await withCompletionPublication(
       canonicalRoot,
       async () => {
-        const current = await readCompletionRecord(root, record);
+        const store = await openCompletionRecordStore(canonicalRoot);
+        if (store === undefined) {
+          return {
+            kind: "unavailable",
+            reason: "common Git administration is unavailable",
+          };
+        }
+        const current = await store.read(record);
         if (current.kind !== "missing" && current.kind !== "recorded") {
           return current;
         }
@@ -274,7 +328,7 @@ export async function writeCompletionRecord(
           };
         }
         const lost = await checkFence(
-          root,
+          store,
           parsed.data,
           fence,
           clock.wallNow(),
@@ -282,7 +336,7 @@ export async function writeCompletionRecord(
         if (lost !== undefined) return { kind: "claim-lost", reason: lost };
         if (current.kind === "recorded") {
           const blocked = await preserveRevision(
-            root,
+            store,
             current.record,
             current.stamp,
           );

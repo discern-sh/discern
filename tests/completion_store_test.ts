@@ -1,8 +1,10 @@
+import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { RetirementEffectsSchema } from "../src/shared/accept_landing_state.ts";
 import { assert, assertEquals } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
   completionRecordPath,
+  openCompletionRecordStore,
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
@@ -491,4 +493,113 @@ Deno.test("every recorded retirement effect is monotonic without changing owners
     }),
     true,
   );
+});
+
+/** Count physical Git administration requests during one isolated operation. */
+async function countedAdminQueries<T>(
+  operation: () => Promise<T>,
+): Promise<{ readonly value: T; readonly queries: number }> {
+  const Command = Deno.Command;
+  let queries = 0;
+  Deno.Command = class extends Command {
+    /** Count the administration query while retaining the native command. */
+    constructor(command: string | URL, options?: Deno.CommandOptions) {
+      super(command, options);
+      if (options?.args?.includes("--git-common-dir")) queries += 1;
+    }
+  };
+  try {
+    return { value: await operation(), queries };
+  } finally {
+    Deno.Command = Command;
+  }
+}
+
+Deno.test("completion inventory discovers its administration directory once across every family", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    await git(
+      root,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.test",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "fixture",
+    );
+    const fixtures = Object.values(completionFixtures());
+    for (const fixture of fixtures) {
+      const path = await completionRecordPath(root, fixture);
+      assert(path !== undefined);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      await Deno.writeTextFile(path, JSON.stringify(fixture));
+    }
+    const observed = await countedAdminQueries(() =>
+      observeCompletionRecords(root)
+    );
+    assertEquals(observed.value.records.length, fixtures.length);
+    assert(
+      observed.value.records.every((entry) =>
+        entry.reading.kind === "recorded"
+      ),
+    );
+    assertEquals(observed.queries, 1);
+  });
+});
+
+Deno.test("completion revision history adds no administration discovery to publication", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const fixture = completionFixtures().queue;
+    const initial = await countedAdminQueries(() =>
+      writeCompletionRecord(root, fixture, null, undefined, COMPLETION_CLOCK)
+    );
+    const published = initial.value;
+    assert(published.kind === "written");
+    const revised = await countedAdminQueries(() =>
+      writeCompletionRecord(
+        root,
+        { ...fixture, revision: 2 },
+        published.stamp,
+        undefined,
+        COMPLETION_CLOCK,
+      )
+    );
+    assertEquals(revised.value.kind, "written");
+    assertEquals(revised.queries, initial.queries);
+    const historic = await readCompletionRecord(root, fixture, 1);
+    assert(historic.kind === "recorded");
+    assertEquals(historic.record, fixture);
+  });
+});
+
+Deno.test("a resolved completion store keeps reads fresh and later operations follow repository aliases", async () => {
+  await withTempDir(async (root) => {
+    const first = join(root, "first");
+    const second = join(root, "second");
+    const alias = join(root, "alias");
+    await Deno.mkdir(first);
+    await Deno.mkdir(second);
+    await initializeRepository(first);
+    await initializeRepository(second);
+    await Deno.symlink(first, alias);
+    const store = await openCompletionRecordStore(alias);
+    assert(store !== undefined);
+    const fixture = completionFixtures().queue;
+    assertEquals((await store.read(fixture)).kind, "missing");
+    const path = store.path(fixture);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(path, JSON.stringify(fixture));
+    assertEquals((await store.read(fixture)).kind, "recorded");
+    await Deno.writeTextFile(path, "{");
+    assertEquals((await store.read(fixture)).kind, "invalid");
+    await Deno.remove(alias);
+    await Deno.symlink(second, alias);
+    assertEquals((await readCompletionRecord(alias, fixture)).kind, "missing");
+    const reopened = await openCompletionRecordStore(alias);
+    assert(reopened !== undefined);
+    assert(reopened.directory !== store.directory);
+  });
 });

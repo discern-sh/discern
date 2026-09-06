@@ -31,3 +31,5 @@ Setup completion and setup acceptance publish the same compact Proof reading as 
 A human `accept` call that refreshes stale evidence uses the gate’s live producer display. JSON and MCP retain quiet protocol output; MCP progress travels through the existing operation observer.
 
 A diagnostic demand stays fixed during execution. If a project command introduces a new changed scope, the result stops and names it; preparation and a fresh diagnostic or committed completion run include its gate. Dirty feedback names the uncommitted paths. A standalone clean run and pending queue admission have their own Proof states; neither is reported as a storage failure.
+
+Completion record inventories resolve the common Git directory once. Each publication resolves its record store inside the publication lock, then uses that store for current records, claim checks, revision history, and the destination. [`store.ts`](../../../src/engine/completion/store.ts) retains only the directory during that operation; reads still validate current bytes, and later operations resolve storage again. This avoids repeated Git discovery without caching evidence or extending its validity.
