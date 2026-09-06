@@ -130,6 +130,23 @@ async function captureFile(
   };
 }
 
+/** Combined commands retain the original byte ceiling for every observation. */
+function checkObservationBytes(
+  command: string,
+  observations: readonly string[],
+  bounds: CaptureBounds,
+): void {
+  if (
+    observations.some((value) =>
+      new TextEncoder().encode(value).length > bounds.maxBytes
+    )
+  ) {
+    throw new Error(
+      `Git ${command} exceeded the output limit ${bounds.maxBytes} bytes. Preserve the environment for recovery.`,
+    );
+  }
+}
+
 /** Keep raw index and staged binary patches as well as present working bytes. */
 async function captureOnce(
   root: string,
@@ -137,18 +154,58 @@ async function captureOnce(
 ): Promise<GitSnapshot> {
   const git = (args: string[]): Promise<string> =>
     executionGit(root, args, bounds);
-  const head = (await git(["rev-parse", "HEAD"])).trim();
-  const tree = (await git(["rev-parse", "HEAD^{tree}"])).trim();
-  const branch = (await executionGit(
-    root,
-    ["symbolic-ref", "-q", "HEAD"],
+  const identity = await executionGit(root, [
+    "rev-parse",
+    "HEAD",
+    "HEAD^{tree}",
+    "--symbolic-full-name",
+    "HEAD",
+  ], {
+    ...bounds,
+    maxBytes: Math.min(Number.MAX_SAFE_INTEGER, bounds.maxBytes * 3),
+  });
+  const fields = identity.split("\n");
+  const [rawHead, rawTree, rawBranch, terminator] = fields;
+  if (
+    fields.length !== 4 || rawHead === undefined || rawTree === undefined ||
+    rawBranch === undefined || terminator !== ""
+  ) {
+    throw new Error(
+      "Git returned incomplete checkout identity fields. Preserve the environment for recovery.",
+    );
+  }
+  checkObservationBytes(
+    "rev-parse",
+    fields.slice(0, 3).map((value) => `${value}\n`),
     bounds,
-    { allowedExitCodes: [1] },
-  )).trim();
+  );
+  const head = rawHead.trim();
+  const tree = rawTree.trim();
+  const branch = rawBranch === "HEAD" ? "" : rawBranch.trim();
   const gitDir = (await git(["rev-parse", "--absolute-git-dir"])).trim();
   const indexPath = join(gitDir, "index");
-  const indexEntries = await git(["ls-files", "--stage", "-z"]);
-  const indexFlags = await git(["ls-files", "-v", "-z"]);
+  const taggedIndex = await executionGit(root, [
+    "ls-files",
+    "--stage",
+    "-v",
+    "-z",
+  ], {
+    ...bounds,
+    maxBytes: Math.min(Number.MAX_SAFE_INTEGER, bounds.maxBytes * 2),
+  });
+  const entries = splitNulRecords(taggedIndex);
+  if (
+    entries.some((entry) => !/^[A-Za-z?] \d+ [0-9a-f]+ [0-3]\t/u.test(entry))
+  ) {
+    throw new Error(
+      "Git returned incomplete index fields. Preserve the environment for recovery.",
+    );
+  }
+  const indexEntries = entries.map((entry) => `${entry.slice(2)}\0`).join("");
+  const indexFlags = entries.map((entry) =>
+    `${entry.slice(0, 2)}${entry.slice(entry.indexOf("\t") + 1)}\0`
+  ).join("");
+  checkObservationBytes("ls-files", [indexEntries, indexFlags], bounds);
   if (
     splitNulRecords(indexFlags).some((entry) => /^[a-zS] /u.test(entry)) ||
     (await git(["rev-parse", "--shared-index-path"])).trim() !== ""

@@ -10,7 +10,7 @@ import { CheckoutPathSchema } from "../src/engine/execution/snapshot_schema.ts";
 import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
 import { SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 import { GIT_OUTPUT_LIMIT_EXCEEDED } from "../src/shared/subprocess.ts";
-import { git, gitInit } from "./engine_helpers.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { TEST_PROCESS_TIMEOUT_MS } from "./waiting.ts";
 
@@ -81,6 +81,7 @@ Deno.test("V08 checkout capture preserves literal native filenames and rejects t
     const names = Deno.build.os === "windows" ? ["with space", "café"] : [
       "*bold*.txt",
       "line\nbreak",
+      "tab\tname",
       " leading",
       "trailing ",
       "café",
@@ -97,11 +98,63 @@ Deno.test("V08 checkout capture preserves literal native filenames and rejects t
       snapshot.files.map((file) => file.path).sort(),
       [...names].sort(),
     );
+    assertEquals(
+      snapshot.index_entries,
+      await gitOut(root, "ls-files", "--stage", "-z"),
+    );
+    assertEquals(snapshot.head, await gitOut(root, "rev-parse", "HEAD"));
+    assertEquals(snapshot.tree, await gitOut(root, "rev-parse", "HEAD^{tree}"));
     for (const file of snapshot.files) {
       assertEquals(
         await Deno.readTextFile(await containedFile(root, file.path)),
         file.path,
       );
+    }
+    const tracked = names[0];
+    if (tracked === undefined) throw new Error("native-name fixture is empty");
+    const capture = () =>
+      captureGitSnapshot(root, {
+        maxFiles: 100,
+        maxBytes: 1024 * 1024,
+        gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+      });
+    for (const flag of ["assume-unchanged", "skip-worktree"]) {
+      await git(root, "update-index", `--${flag}`, "--", tracked);
+      try {
+        await assertRejects(
+          capture,
+          Error,
+          "require their own restoration contract",
+        );
+      } finally {
+        await git(root, "update-index", `--no-${flag}`, "--", tracked);
+      }
+    }
+    await git(root, "update-index", "--split-index");
+    try {
+      await assertRejects(
+        capture,
+        Error,
+        "require their own restoration contract",
+      );
+    } finally {
+      await git(root, "update-index", "--no-split-index");
+    }
+    await git(
+      root,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${snapshot.head},submodule`,
+    );
+    try {
+      await assertRejects(
+        capture,
+        Error,
+        "Submodules or unresolved index stages",
+      );
+    } finally {
+      await git(root, "update-index", "--force-remove", "submodule");
     }
     for (
       const name of [
@@ -126,5 +179,65 @@ Deno.test("V08 checkout capture preserves literal native filenames and rejects t
       Error,
       "non-directory ancestor",
     );
+  });
+});
+
+Deno.test("Git capture batches native observations without changing fields or bounds", async () => {
+  await withTempDir(async (root) => {
+    await git(root, "init", "-q", "-b", "main");
+    await git(
+      root,
+      "-c",
+      "user.name=Snapshot",
+      "-c",
+      "user.email=fixture@example.test",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "--allow-empty",
+      "-qm",
+      "empty",
+    );
+    const bounds = {
+      maxFiles: 100,
+      maxBytes: Math.max(
+        96,
+        new TextEncoder().encode(
+          await gitOut(root, "rev-parse", "--absolute-git-dir"),
+        ).length + 1,
+      ),
+      gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+    };
+    const Command = Deno.Command;
+    let calls = 0;
+    Deno.Command = class extends Command {
+      /** Count real Git work in the complete two-observation capture. */
+      constructor(command: string | URL, options?: Deno.CommandOptions) {
+        super(command, options);
+        if (command === "git") calls += 1;
+      }
+    };
+    try {
+      const snapshot = await captureGitSnapshot(root, bounds);
+      assertEquals(snapshot.branch, "refs/heads/main");
+      assertEquals(snapshot.index_entries, "");
+      assertEquals(
+        calls,
+        16,
+        "eight native queries in each of two complete observations",
+      );
+    } finally {
+      Deno.Command = Command;
+    }
+    await git(root, "switch", "--detach", "HEAD");
+    assertEquals((await captureGitSnapshot(root, bounds)).branch, null);
+    await assertRejects(
+      () => captureGitSnapshot(root, { ...bounds, maxBytes: 40 }),
+      Error,
+      "output limit 40 bytes",
+    );
+  }, {
+    ...(Deno.build.os === "windows" ? {} : { parent: "/tmp" }),
+    prefix: "discern-snapshot-",
   });
 });
