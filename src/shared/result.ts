@@ -1025,6 +1025,25 @@ export function stepResultToJson(r: StepResult): StepResultJson {
   };
 }
 
+/** Restore a schema-validated retained result without re-executing its operation. */
+export function stepResultFromJson(r: StepResultJson): StepResult {
+  return {
+    step: {
+      kind: r.kind,
+      label: verbatimStepLabel(r.label),
+      disposition: r.disposition,
+      note: r.note,
+      group: r.group,
+    },
+    outcome: r.outcome,
+    advisory: r.advisory,
+    durationS: r.duration_s,
+    outputPath: r.output_path,
+    outputLines: r.output_lines,
+    errorLikeLines: r.error_like_lines,
+  };
+}
+
 /** The JSON-friendly shape of a whole plan (the `--dry-run` payload). */
 export interface PlanJson {
   title: string;

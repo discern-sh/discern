@@ -1865,6 +1865,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const consent = object(data.consent);
   const landing = object(data.landing);
+  const prefixes = records(data.queue);
   return {
     state: defaultState(
       result,
@@ -1876,6 +1877,22 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       text(data.root) === undefined
         ? undefined
         : `Main checkout: ${code(data.root)}.`,
+      ...prefixes.map((row) =>
+        `${code(text(row.branch) ?? "candidate")}: ${
+          text(row.state) ?? "pending"
+        }; authority ${
+          text(row.authority_settlement) ?? text(row.authority) ?? "pending"
+        }; convergence ${text(row.convergence) ?? "pending"}; retirement ${
+          text(row.retirement) ?? "pending"
+        }.`
+      ),
+      ...prefixes.flatMap((row) =>
+        records(row.pending).map((item) =>
+          `${code(text(row.branch) ?? "candidate")}: ${
+            text(item.reason) ?? text(item.kind) ?? "pending"
+          }.`
+        )
+      ),
       listFact("Landed scopes", strings(data.scopes_changed)),
       landing === undefined
         ? undefined
@@ -1906,8 +1923,21 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       }),
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
-    supportingMarkdown: uniqueVerbatim([text(data.proof_line)]),
-    boundary: consent === undefined
+    supportingMarkdown: uniqueVerbatim(
+      prefixes.length === 0
+        ? [text(data.proof_line)]
+        : prefixes.map((row) => text(row.proof_line)),
+    ),
+    boundary: prefixes.length > 0
+      ? prefixes.flatMap((row) => {
+        const authority = object(row.consent);
+        return authority === undefined ? [] : [
+          `${code(text(row.branch) ?? "candidate")} uses ${
+            code(text(authority.source) ?? "recorded")
+          } consent.`,
+        ];
+      })
+      : consent === undefined
       ? []
       : [`Landing used ${code(text(consent.source) ?? "recorded")} consent.`],
   };

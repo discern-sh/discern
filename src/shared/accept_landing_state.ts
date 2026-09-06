@@ -22,6 +22,13 @@ export const ACCEPT_LANDING_STATE_SHAPE = {
 export const AcceptLandingStateSchema = z.strictObject(
   ACCEPT_LANDING_STATE_SHAPE,
 );
+/** Monotonic cleanup effects recorded separately from landing and authority. */
+export const RetirementEffectsSchema = AcceptLandingStateSchema.pick({
+  worktree_removed: true,
+  branch_deleted: true,
+});
+export type RetirementEffects = z.infer<typeof RetirementEffectsSchema>;
+
 export type AcceptLandingState = z.infer<typeof AcceptLandingStateSchema>;
 
 /** Canonical field names derived from {@link ACCEPT_LANDING_STATE_SHAPE}. */

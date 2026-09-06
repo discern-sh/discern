@@ -404,12 +404,21 @@ export const projectAcceptResult: ResultWireProjector = (
     };
   });
 
+/** Setup keeps the same compact marker reading as status and acceptance. */
+const projectSetupProofResult: ResultWireProjector = (result) =>
+  projectData(result, (data) => {
+    const proof = gateProofSummary(data.proof);
+    return proof === undefined ? data : { ...data, proof };
+  });
+
 /** The closed set of verbs whose compact form drops redundant presentation data. */
 const RESULT_WIRE_PROJECTORS: Readonly<Record<string, ResultWireProjector>> =
   Object.freeze({
     done: projectGateResult,
     status: projectStatusResult,
     accept: projectAcceptResult,
+    "setup done": projectSetupProofResult,
+    "setup accept": projectSetupProofResult,
   });
 
 /** Resolve the compacting projection for one result discriminator. */

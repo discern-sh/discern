@@ -1,3 +1,5 @@
+import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
+import { RetirementEffectsSchema } from "./accept_landing_state.ts";
 import {
   CompleteProofEvidenceSchema,
   CompletionProofPointerSchema,
@@ -1239,6 +1241,8 @@ export const GateDataSchema = z.strictObject({
   gate_proof: z.strictObject({
     status: z.enum([
       "recorded",
+      "diagnostic",
+      "pending",
       "skipped_dirty",
       "skipped_head_moved",
       "unavailable",
@@ -1556,9 +1560,17 @@ export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
  * when the server was launched from the trunk). */
 /** Per-prefix facts remain separate so later pending work cannot hide an earlier landing. */
 export const AcceptancePrefixSchema = z.strictObject({
+  ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
+  retirement_effects: RetirementEffectsSchema.optional(),
+  consent: LandingConsentDataSchema.optional(),
+  scopes_changed: z.array(z.string()).optional(),
+  proof_line: z.string().optional(),
+  variances: z.array(AuthorizedVarianceSchema).optional(),
+  standard_approvals: z.array(StandardLimitProposalSchema).optional(),
   preview_actions: z.array(PreviewActionDataSchema).optional(),
   approval_requests: z.array(StandardLimitApprovalRequestSchema).optional(),
   checkpoint_review: ProofCheckpointsSchema.optional(),
+  checkpoint_drops: z.array(CheckpointDropSchema).optional(),
   effort: z.string(),
   branch: z.string(),
   source_head: z.string(),
@@ -1574,6 +1586,7 @@ export const AcceptancePrefixSchema = z.strictObject({
   authority_settlement: z.enum(["pending", "consumed", "restored"]).optional(),
   retirement: z.enum(["retained", "retired", "recovery"]),
   retirement_reason: z.string().optional(),
+  convergence: z.enum(["pending", "passed", "failed"]).optional(),
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
@@ -1616,20 +1629,7 @@ export const AcceptDataSchema = z.strictObject({
   /** Repository-resident proof recording and its optional fetch transport.
    * Both run after the trunk moves and therefore fail open. */
   proof_note: AcceptProofNoteSchema.optional(),
-  ignored_file_changes: z.strictObject({
-    status: z.enum([
-      "disabled",
-      "baseline_missing",
-      "newer",
-      "unavailable",
-      "unchanged",
-      "changed",
-    ]),
-    changed_roots: z.array(z.string()),
-    changed_total: z.number(),
-    truncated: z.boolean(),
-    reason: z.string().optional(),
-  }).optional(),
+  ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
 });
 export type AcceptData = z.infer<typeof AcceptDataSchema>;
 
@@ -2709,7 +2709,7 @@ export type SetupDoneSuccessKind = typeof SETUP_DONE_SUCCESS_KINDS[number];
  * the ready-to-relay completion message a courier agent hands its human — carried
  * verbatim in every representation, never flattened into fields (ADR 0086).
  */
-export const SetupDoneDataSchema = z.strictObject({
+const SetupDoneBaseSchema = z.strictObject({
   bootstrapped: z.literal(true),
   /** Whether this invocation created, replayed, validated, or recorded without Proof
    * the marker-bearing completion state. */
@@ -2729,9 +2729,6 @@ export const SetupDoneDataSchema = z.strictObject({
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
   marker_commit_error: z.string().optional(),
-  /** Canonical inspection of the current Gate Proof. Present only after a
-   * proven completion proves the committed marker-bearing HEAD. */
-  proof: GateProofCheckSchema.optional(),
   /** The ready-to-relay one-line rendering from that honored Proof. */
   proof_line: z.string().optional(),
   leftover: z.array(z.string()),
@@ -2785,6 +2782,10 @@ export const SetupDoneDataSchema = z.strictObject({
       message: "improvement requires the preceding activation handoff",
     });
   }
+});
+/** In-process completion retains the complete current marker inspection. */
+export const SetupDoneDataSchema = SetupDoneBaseSchema.safeExtend({
+  proof: GateProofCheckSchema.optional(),
 });
 export type SetupDoneData = z.infer<typeof SetupDoneDataSchema>;
 
@@ -3308,13 +3309,13 @@ export const FinishOutputSchema = resultOutputSchema(
   GateWireDataSchema,
 );
 
-/** `prepare` output: envelope only (except top-level config parse errors). */
+/** `prepare` output: producer executions and explicit measurement-free feedback. */
 export const PrepareOutputSchema = resultOutputSchema(
   "prepare",
   StandaloneValidationDataSchema,
 );
 
-/** `test` output: envelope only (except top-level config parse errors). */
+/** `test` output: declared producer executions and already-supplied readings, without Proof. */
 export const TestOutputSchema = resultOutputSchema(
   "test",
   StandaloneValidationDataSchema,
@@ -3458,13 +3459,20 @@ export const SetupVerifyOutputSchema = resultOutputSchema(
  * here so tests and published consumers validate against one source (ADR 0041). */
 export const SetupDoneOutputSchema = resultOutputSchema(
   "setup done",
-  SetupDoneResultDataSchema,
+  z.union([
+    SetupDoneBaseSchema.safeExtend({ proof: GateProofWireSchema.optional() }),
+    SetupDoneFailureDataSchema,
+  ]),
 );
 
 /** `setup accept` output: envelope + the landing preview/result `data`. */
 export const SetupAcceptOutputSchema = resultOutputSchema(
   "setup accept",
-  SetupAcceptResultDataSchema,
+  z.union([
+    SetupAcceptDataSchema.extend({ proof: GateProofWireSchema }),
+    SetupAcceptNoOpDataSchema,
+    SetupNextActionOnlyDataSchema,
+  ]),
 );
 
 /** `config` output: envelope + applied/planned TOML edits. */

@@ -2383,6 +2383,29 @@ export const HINTS = {
       }. Recorded standing and effort grants never authorize a variance.`,
   }),
 
+  "accept-authorize-standard-proposals": defineHint<
+    { branch: string; tokens: string[] }
+  >({
+    id: "accept-authorize-standard-proposals",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A queue prefix has current measured Standard proposals awaiting the owner's exact approval.",
+    example: { branch: "agent/example", tokens: ["approval-token"] },
+    template: ({ branch, tokens }): string =>
+      `Relay the proposed values and reasons for ${
+        markdownCodeSpan(branch)
+      } to the owner. ` +
+      `After the owner approves that landing and every exact proposal, run ${
+        discernCommand(
+          "accept",
+          flag("confirmed"),
+          ...tokens.map((token) => flag("approve-standard", token)),
+        )
+      } ` +
+      "from that effort's worktree. Recorded grants cannot approve Standard proposals.",
+  }),
+
   "checkpoints-declare": defineHint<{ ids: string[] }>({
     id: "checkpoints-declare",
     category: "next-step",
