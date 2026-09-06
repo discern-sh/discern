@@ -558,3 +558,73 @@ Deno.test("E13: compatible partial contexts assemble; missing, substituted and r
     "complete",
   );
 });
+
+Deno.test("explicit retry bounds all earlier terminal failures while retaining unrelated green and live work", async () => {
+  const names = ["amber", "birch", "cedar"];
+  const first = obligations()[0];
+  assert(first !== undefined);
+  const declarations = names.map((id) => ({
+    requirement: { ...first.requirement, id },
+    input: { producer: `jobs.${id}` },
+  }));
+  const snap = await snapshot({
+    producers: Object.fromEntries(names.map((id) => [
+      `jobs.${id}`,
+      { ...PRODUCER_RECIPE, run: id },
+    ])),
+    obligations: declarations,
+  });
+  const green = await passing(snap);
+  const records = [...green.records];
+  const failed = [];
+  for (const [index, id] of names.slice(0, 2).entries()) {
+    const plan = planValidation(snap, observation(), {
+      kind: "standards",
+      context: "local",
+      mode: "strict",
+      requirements: snap.requirements.filter((r) => r.id === id),
+    });
+    const execution = claimed(snap, plan, index + 2);
+    // Reusable subjects remain the same even when an earlier source candidate differs.
+    execution.attempt.identity.candidate_id = completionId(80 + index);
+    records.push(...recorded(execution, [], "failed"));
+    failed.push(execution.attempt.identity.id);
+  }
+  const boundary = failed[1];
+  assert(boundary !== undefined);
+  const blocked = planValidation(snap, observation(records), green.plan.demand);
+  assertEquals(blocked.blockers.length, 2);
+  const retry = planValidation(
+    snap,
+    observation(records),
+    green.plan.demand,
+    new Set(),
+    boundary,
+  );
+  assertEquals(retry.blockers, []);
+  assertEquals(retry.producers.map((p) => p.selector).sort(), [
+    "jobs.amber",
+    "jobs.birch",
+  ]);
+  assertEquals(retry.reused.map((r) => r.requirement.id), ["cedar"]);
+  const later = claimed(snap, retry, 4, boundary);
+  const active = CompletionRecordSchema.parse({
+    version: ON_DISK_FORMATS.completionRecord.version,
+    revision: 1,
+    kind: "attempt",
+    id: later.attempt.identity.id,
+    data: later.attempt,
+  });
+  for (const extra of [[active], recorded(later, [], "failed")]) {
+    const protectedPlan = planValidation(
+      snap,
+      observation([...records, ...extra]),
+      green.plan.demand,
+      new Set(),
+      boundary,
+    );
+    assertEquals(protectedPlan.blockers.length, 2);
+    assertEquals(protectedPlan.producers, []);
+    assertEquals(protectedPlan.reused.map((r) => r.requirement.id), ["cedar"]);
+  }
+});

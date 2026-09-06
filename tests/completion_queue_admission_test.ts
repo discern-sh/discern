@@ -39,6 +39,7 @@ Deno.test("queue Q01/Q06: complete demand admits once without preflight and surv
         trunk,
         expected_stamp: (await requireQueue(root)).stamp,
         mutation: { kind: "select", source: f.source, dependencies: [] },
+        executor: f.actor,
         clock: f.clock,
       });
       const tip = {
@@ -159,6 +160,7 @@ Deno.test("queue Q01/Q06: complete demand admits once without preflight and surv
             },
             dependencies: [],
           },
+        executor: f.actor,
         clock: f.clock,
       });
       assertEquals(change.kind, "changed");

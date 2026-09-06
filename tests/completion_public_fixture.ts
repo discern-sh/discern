@@ -11,6 +11,7 @@ export async function project(
   contexts: readonly string[],
   extra = "",
   testRun = "printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'",
+  testInputs: readonly string[] = ["**"],
 ): Promise<string> {
   await scaffoldEngine(root, { agents: [] });
   await writeConfig(
@@ -22,7 +23,9 @@ logbook = false
 [completion]
 required_contexts = ${JSON.stringify(contexts)}
 [jobs]
-test = { run = ${JSON.stringify(testRun)}, inputs = ['**'] }
+test = { run = ${JSON.stringify(testRun)}, inputs = ${
+      JSON.stringify(testInputs)
+    } }
 [standards.coverage]
 producer = 'jobs.test'
 direction = 'up'
