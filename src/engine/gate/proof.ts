@@ -942,11 +942,11 @@ export type StandardMeasurementsCheck =
  * with a readable HEAD that still matches the pin earns a proof (a dirty check —
  * `--force` — records nothing, since the values describe a tree no pin will ever
  * see; a mid-measurement commit records nothing, since the values describe the
- * pinned tree, not the commit now at HEAD). A PARTIAL record (the gate with a
- * deferred standard) MERGES into an existing same-HEAD proof rather than
- * clobbering a fuller one, so check → done → pin still measures once.
- * `durations` (whole seconds per standard) ride along so a defer/replay decision
- * can be made from data. The caller preflights `authority` before measuring; a
+ * pinned tree, not the commit now at HEAD). A named standalone check merges
+ * its measured values into existing same-HEAD evidence without discarding other
+ * applicable readings. Complete completion requires every configured standard.
+ * `durations` (whole seconds per standard) retain measurement cost. The caller
+ * preflights `authority` before measuring; a
  * later I/O hiccup remains best-effort. Returns whether a proof was written.
  */
 export async function recordStandardMeasurements(

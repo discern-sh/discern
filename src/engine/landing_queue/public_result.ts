@@ -73,7 +73,7 @@ export function acceptancePending(
         "The next prefix needs separately recorded landing authority for its current source.";
       break;
     case "missing-judgment":
-      reason = `A checkpoint or Standard decision is still required${
+      reason = `A checkpoint or standard decision is still required${
         "subjects" in blocker ? ": " + blocker.subjects.join(", ") : "."
       }`;
       break;

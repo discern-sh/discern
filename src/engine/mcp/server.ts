@@ -629,10 +629,10 @@ export const TOOLS: McpTool[] = orderTools([
       "Measure the selected configured standards and compare each value with its " +
       "limit. Pass names to narrow both measurement and pin candidates; omit it " +
       "for every standard. The comparison uses the selected project's configured " +
-      "trunk. This call always measures; discern_done already measures ordinary " +
-      "standards with the tests and verifies their limits. Use this tool for an " +
-      "standard, an explicit remeasurement, " +
-      "or a pin. Non-dry-run calls require a clean worktree unless force is set " +
+      "trunk. A plain call requests fresh readings; pin can reuse applicable " +
+      "evidence. discern_done already requires every configured standard. Use " +
+      "this tool for an explicit remeasurement or a pin. Non-dry-run calls " +
+      "require a clean worktree unless force is set " +
       "for authoring or diagnosis. dry_run previews without measuring. pin captures " +
       "measured improvements, commits only the tighter limits, and carries the " +
       "Proof forward. Pinning requires a clean worktree and refuses while any " +

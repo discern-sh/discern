@@ -2390,7 +2390,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "A queue prefix has current measured Standard proposals awaiting the owner's exact approval.",
+      "A queue prefix has current measured standard proposals awaiting the owner's exact approval.",
     example: { branch: "agent/example", tokens: ["approval-token"] },
     template: ({ branch, tokens }): string =>
       `Relay the proposed values and reasons for ${
@@ -2403,7 +2403,7 @@ export const HINTS = {
           ...tokens.map((token) => flag("approve-standard", token)),
         )
       } ` +
-      "from that effort's worktree. Recorded grants cannot approve Standard proposals.",
+      "from that effort's worktree. Recorded grants cannot approve standard proposals.",
   }),
 
   "checkpoints-declare": defineHint<{ ids: string[] }>({
