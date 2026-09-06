@@ -8,13 +8,24 @@
  */
 
 import { format as formatBytes } from "@std/fmt/bytes";
-import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
-import { markdownCodeSpan } from "./markdown_code.ts";
 import { checkpointDropMarkdown } from "./checkpoint_drops.ts";
-import { productSentence } from "./product_sentence.ts";
-import { notApplicableCountLabel } from "./setup_assurance.ts";
-import * as view from "./docs_presentation.ts";
 import { withConfigExplanation } from "./config_explain.ts";
+import * as view from "./docs_presentation.ts";
+import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
+import { productSentence } from "./product_sentence.ts";
+import {
+  boolean,
+  code,
+  number,
+  object,
+  records,
+  strings,
+  text,
+  unique,
+  uniqueVerbatim,
+  verbatimText,
+} from "./result_markdown_values.ts";
+import { notApplicableCountLabel } from "./setup_assurance.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -43,13 +54,6 @@ const MAX_DIAGNOSTIC_OUTPUT = 2_400;
 /** The state lead shared by every effectful Markdown preview. */
 export const RESULT_MARKDOWN_DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 
-/** Narrow one unknown serialized value to a plain object. */
-function object(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
 /** Read the result's data object, or an empty object for a data-less result. */
 function dataOf(
   result: Readonly<Record<string, unknown>>,
@@ -66,56 +70,10 @@ function configIssuesOf(
     : [];
 }
 
-/** Read and trim a non-empty string. */
-function text(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() !== ""
-    ? value.trim()
-    : undefined;
-}
-
-/** Read non-empty content without changing whitespace-significant bytes. */
-function verbatimText(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() !== "" ? value : undefined;
-}
-
-/** Read one finite numeric value. */
-function number(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
-/** Read one boolean value. */
-function boolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined;
-}
-
-/** Keep the plain-object members of one unknown array. */
-function records(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.flatMap((entry) => {
-      const row = object(entry);
-      return row === undefined ? [] : [row];
-    })
-    : [];
-}
-
-/** Keep the string members of one unknown array. */
-function strings(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
 /** Render the canonical CLI name for a serialized verb. */
 function commandName(result: Readonly<Record<string, unknown>>): string {
   const verb = text(result.verb) ?? "result";
   return verb === "discern" ? "discern" : `discern ${verb}`;
-}
-
-/** Render an unknown dynamic value as a safe Markdown code span. */
-function code(value: unknown): string {
-  return markdownCodeSpan(String(value));
 }
 
 /** Render a counted noun with its singular or plural form. */
@@ -144,37 +102,6 @@ function duration(ms: number): string {
     return `${Math.round(minutes)} min`;
   }
   return `${Math.round(minutes / 60 * 10) / 10} h`;
-}
-
-/** Remove blank and duplicate presentation items without reordering them. */
-function unique(items: readonly (string | undefined)[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of items) {
-    const normalized = item?.trim();
-    if (normalized === undefined || normalized === "" || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    out.push(normalized);
-  }
-  return out;
-}
-
-/** Remove blank and exactly duplicate content without normalizing either. */
-function uniqueVerbatim(items: readonly (string | undefined)[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const item of items) {
-    if (
-      item === undefined || item.trim() === "" || seen.has(item)
-    ) {
-      continue;
-    }
-    seen.add(item);
-    out.push(item);
-  }
-  return out;
 }
 
 /** Render a bounded comma-separated list of code spans. */
