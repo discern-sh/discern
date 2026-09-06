@@ -145,6 +145,8 @@ concurrent_test_runs = 0
       VALIDATION_RUNS.done,
       checkTestGroups(cfg),
     );
+    assert(validation.state.complete, JSON.stringify(validation.state));
+    assert(postBuild.state.complete, JSON.stringify(postBuild.state));
     assertEquals(validation.state.digest, postBuild.state.digest);
   });
 });
