@@ -210,14 +210,18 @@ Run finishing steps that may change files, then verify the gate — the project'
 
 Usage: `discern done [options]`
 
-| Option              | Description                                                                                                                                                                                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--dry-run`         | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
-| `--rerun`           | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
-| `--ci`              | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
-| `--met <id>`        | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
-| `--unmet <id>`      | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
-| `--why <rationale>` | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
+| Option                | Description                                                                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--dry-run`           | Show the gate plan (the jobs and scope-gates that would run); touch nothing.                                                                                                                                                                                    |
+| `--policy-base <ref>` | Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.                                                                                                                                          |
+| `--retain-checkout`   | Keep authoring control after completion; do not release this checkout for later validation or retirement.                                                                                                                                                       |
+| `--standalone`        | Run complete standalone feedback without queue admission or Proof.                                                                                                                                                                                              |
+| `--context <name>`    | Supply evidence only for this declared execution context (default: local).                                                                                                                                                                                      |
+| `--rerun`             | Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.                                                                                                                    |
+| `--ci`                | Run the machine gate and report checkpoint questions without enforcing or recording review. The resulting Proof cannot be accepted.                                                                                                                             |
+| `--met <id>`          | Declare a served checkpoint's question met (repeatable). Valid only for a checkpoint with an active open question here; the declaration is recorded as your judgment, and the gate runs in the same invocation once every awaiting checkpoint has a conclusion. |
+| `--unmet <id>`        | Declare a served checkpoint's question unmet (one per invocation; requires --why). The gate still runs; landing then needs the owner to authorize a variance for it.                                                                                            |
+| `--why <rationale>`   | The required rationale for --unmet: one paragraph, 1-500 characters, no newlines or control characters. Recorded opaquely as Proof evidence for the owner's landing decision.                                                                                   |
 
 ### `discern test`
 
@@ -500,15 +504,21 @@ Set a gate job. Known names (format, build, lint, typecheck, test, smoke) derive
 
 Usage: `discern config set-job <name> [command] [options]`
 
-| Option                | Description                                                       |
-| --------------------- | ----------------------------------------------------------------- |
-| `--stage <stage>`     | Custom jobs only: when it runs (fix\|build\|check\|test).         |
-| `--run <command>`     | Literal command; repeat to preserve order.                        |
-| `--provides <label>`  | Custom jobs only: free-text label.                                |
-| `--timeout <seconds>` | Custom jobs only: command budget in seconds; 0 removes the bound. |
-| `--not-applicable`    | Known jobs: exclude an absent lifecycle from setup assurance.     |
-| `--applicable`        | Known jobs: restore lifecycle applicability.                      |
-| `--dry-run`           | Print the edit and write nothing.                                 |
+| Option                  | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `--stage <stage>`       | Custom jobs only: when it runs (fix\|build\|check\|test).             |
+| `--run <command>`       | Literal command; repeat to preserve order.                            |
+| `--provides <label>`    | Custom jobs only: free-text label.                                    |
+| `--timeout <seconds>`   | Command budget in seconds; 0 removes the bound.                       |
+| `--not-applicable`      | Known jobs: exclude an absent lifecycle from setup assurance.         |
+| `--applicable`          | Known jobs: restore lifecycle applicability.                          |
+| `--inputs <value>`      | Complete input glob; repeat for every input.                          |
+| `--needs <value>`       | Required producer selector; repeat for every dependency.              |
+| `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
+| `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
+| `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
+| `--contexts <value>`    | Required execution context; repeat for every context.                 |
+| `--dry-run`             | Print the edit and write nothing.                                     |
 
 #### `discern config set-scope`
 
@@ -516,13 +526,19 @@ Set a scope — a named region of the repository a change can touch.
 
 Usage: `discern config set-scope <name> <globs...> [options]`
 
-| Option                | Description                                                    |
-| --------------------- | -------------------------------------------------------------- |
-| `--neutral`           | Changes here need no gate.                                     |
-| `--preview <cmd>`     | A read-only command an agent can run to preview changes here.  |
-| `--gate <cmd>`        | A command to run when this scope changed.                      |
-| `--timeout <seconds>` | Per-scope gate-command budget in seconds; 0 removes the bound. |
-| `--dry-run`           | Print the edit and write nothing.                              |
+| Option                  | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `--neutral`             | Changes here need no gate.                                            |
+| `--preview <cmd>`       | A read-only command an agent can run to preview changes here.         |
+| `--gate <cmd>`          | A command to run when this scope changed.                             |
+| `--timeout <seconds>`   | Per-scope gate-command budget in seconds; 0 removes the bound.        |
+| `--inputs <value>`      | Complete input glob; repeat for every input.                          |
+| `--needs <value>`       | Required producer selector; repeat for every dependency.              |
+| `--artifacts <value>`   | Output artifact path to capture; repeat for every artifact.           |
+| `--environment <value>` | Environment variable name to bind to evidence; repeat for every name. |
+| `--toolchain <value>`   | Toolchain identity file; repeat for every file.                       |
+| `--contexts <value>`    | Required execution context; repeat for every context.                 |
+| `--dry-run`             | Print the edit and write nothing.                                     |
 
 #### `discern config set-standard`
 
@@ -536,12 +552,19 @@ Usage: `discern config set-standard <name> [options]`
 | `--metric <name>`          | Metric name the run emits (default: <name>).                                                             |
 | `--direction <dir>`        | Either "up" or "down".                                                                                   |
 | `--run <cmd>`              | The command that emits the metric line.                                                                  |
+| `--producer <selector>`    | Existing producer to consume; mutually exclusive with --run.                                             |
+| `--extract <cmd>`          | Read metrics from captured producer output or an artifact on stdin.                                      |
+| `--artifact <path>`        | Declared producer artifact supplied to --extract.                                                        |
 | `--per <metric-or-extent>` | Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>. |
 | `--scale <n>`              | Multiply a rate into human units.                                                                        |
 | `--margin <n>`             | Headroom left when pinning the limit.                                                                    |
-| `--measure <mode>`         | Measurement mode: "gate" or "on-demand".                                                                 |
-| `--inputs <glob>`          | Metric input glob; repeat to preserve every input.                                                       |
 | `--timeout <seconds>`      | Measurement-command budget in seconds; 0 removes the bound.                                              |
+| `--inputs <value>`         | Complete input glob; repeat for every input.                                                             |
+| `--needs <value>`          | Required producer selector; repeat for every dependency.                                                 |
+| `--artifacts <value>`      | Output artifact path to capture; repeat for every artifact.                                              |
+| `--environment <value>`    | Environment variable name to bind to evidence; repeat for every name.                                    |
+| `--toolchain <value>`      | Toolchain identity file; repeat for every file.                                                          |
+| `--contexts <value>`       | Required execution context; repeat for every context.                                                    |
 | `--dry-run`                | Print the edit and write nothing.                                                                        |
 
 #### `discern config set`

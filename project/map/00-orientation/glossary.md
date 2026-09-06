@@ -244,7 +244,7 @@ The scheduling bucket gate work runs in: `fix`, `build`, `check`, or `test`. Der
 
 ### Standard
 
-A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Untouched `inputs` replay the recorded value, while `measure = "on-demand"` defers measurement to `discern standards`; the never-loosen limit check alone is unconditional. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
+A quality number that can never get worse: a floor or ceiling declared under `[standards]` and held against the [trunk](#trunk) on every gate run ([ADR 0003](../_adr/0003-named-metric-standards.md), [ADR 0133](../_adr/0133-standards-join-the-gate.md)). Completion requires each standard in every declared context. Complete applicable evidence can be reused; otherwise its producer runs. `discern prepare` requests no measurements. `discern standards --pin` captures a gain. Covered in [standards](../20-quality-gate/standards.md).
 
 ### Stop / advise
 

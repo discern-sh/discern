@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 139 detailed entries · 11 statements of benefit · 77 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 139 detailed entries · 11 statements of benefit · 79 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -67,7 +67,7 @@ _Quality limits move in one direction only. A minimum may only rise, a maximum m
 - **Rates instead of bare totals** — `per` divides the measurement by a second measurement, or by a size discern counts itself — files, lines, words, or bytes in a chosen part of the project — and `scale` presents the rate in comfortable units. _A number adjusted for the project's size does not get worse merely because the project grew, so the rule survives healthy growth._
 - **Leaving a little breathing room** — `margin` is the spare room a pin leaves when tightening a limit to a newly measured value, for measurements that drift a little on unrelated changes.
 - **Reusing a measurement when nothing it reads has changed** — `inputs` names the files a measurement reads. When nothing under them has changed since the last recorded measurement, the check reuses the recorded value instead of measuring again. _A change that only touches written instructions pays seconds for a trial-coverage rule, and the check against weakening still runs._
-- **Measuring only when asked** — `measure = "on-demand"` moves a measurement too slow for every run into `discern standards`; the check that a limit was not weakened has no off switch.
+- **Requiring every measurement** — Completion requires all configured measurements. Tests and measurements share work, and valid recorded results can be reused.
 - **Saving an improvement** — `discern standards --pin` tightens each improved limit and saves that change on its own, carrying Proof across the save. It reuses available values from the same clean version and runs any selected measurements still missing. Named measurement narrows after the full version has passed its checks. _Tightening is mechanical and provable; a hand-edited number cannot show whether it was a real gain or a quiet weakening._
 - **When the work itself crosses a limit** — When the work itself crosses a limit, the person responsible decides whether it should move. After the intended version is saved as a change, discern measures that quality again and carries the value, reason, and responsible files into the final review.
 
@@ -278,7 +278,9 @@ Every member of the product's official fixed lists appears below beside the feat
 
 - `acceptance` — consent-attestations
 - `checkpoints` — checkpoints
+- `completion` — gate
 - `coupling` — insight
+- `execution` — worktrees
 - `gate` — gate
 - `generated` — generated-artifact-declarations
 - `instructions` — instructions

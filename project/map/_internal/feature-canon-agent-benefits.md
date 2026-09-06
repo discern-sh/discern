@@ -129,9 +129,9 @@ A coding agent can distinguish iteration from completion and return Proof, judgm
 ### Retain earned quality
 
 - **Agent value:** A coding agent can improve a measurable quality limit knowing later work cannot weaken the gain, and can ask the owner to make a measured improvement the new baseline.
-- **Why it follows:** Standards declare direction and metric protocols, normalize rates and margins, replay untouched measures, defer expensive measures explicitly, pin gains, and route genuine growth to owner escalation instead of weakening a limit.
+- **Why it follows:** Standards declare direction and metric protocols, normalize rates and margins, reuse complete applicable evidence, share expensive producers, pin gains, and route genuine growth to owner escalation instead of weakening a limit.
 - **Boundary:** A Standard preserves its declared metric. Other aspects of quality remain outside that measure, and changing a limit when the work legitimately grows the number remains an owner decision.
-- **Direct product basis:** Standards · Floors and ceilings · One-line metric protocol · Rates, not raw counts · Pin headroom · Input-keyed replay · On-demand measurement · Capturing a gain · Breach escalation.
+- **Direct product basis:** Standards · Floors and ceilings · One-line metric protocol · Rates, not raw counts · Pin headroom · Input-keyed replay · Complete measurement evidence · Capturing a gain · Breach escalation.
 - **Public claims:** `standards-cannot-loosen` · `pin-measured-gains`.
 
 ## Act inside explicit authority

@@ -15,15 +15,15 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 34      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
 | [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 65      | —                | —                           |
-| [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 10      | —                | node `worktrees`            |
+| [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 9       | —                | node `worktrees`            |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
-| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 23      | —                | —                           |
+| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 22      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
-| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 23      | —                | —                           |
+| [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 24      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
 | [`contributor-intake-surfaces`](#contributor-intake-surfaces--contributor-intake-surfaces)                            | `scripts/repository_files.ts#CONTRIBUTOR_INTAKE_SURFACES`                         | 8       | —                | —                           |
 | [`checkpoint-entry-fields`](#checkpoint-entry-fields--checkpoint-entry-fields)                                        | `src/shared/checkpoints.ts#CHECKPOINT_FIELD_ROLES`                                | 21      | —                | node `checkpoints`          |
@@ -37,7 +37,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 16      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 33      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 34      | —                | —                           |
 | [`on-disk-formats`](#on-disk-formats--local-durable-formats)                                                          | `src/shared/on_disk_formats.ts#ON_DISK_FORMATS`                                   | 27      | —                | —                           |
 | [`git-footprint`](#git-footprint--clone-local-git-footprint)                                                          | `src/engine/git_footprint.ts#DISCERN_GIT_FOOTPRINT`                               | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
@@ -45,7 +45,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 20      | —                | node `doctor`               |
 | [`built-in-step-labels`](#built-in-step-labels--built-in-step-labels)                                                 | `src/shared/result.ts#BUILT_IN_STEP_LABELS`                                       | 34      | —                | node `plan-apply`           |
-| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 17      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 19      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 10      | "Skill"          | surface `skill`             |
 | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 14      | —                | —                           |
@@ -64,10 +64,10 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
-| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 18      | —                | —                           |
+| [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 190     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 191     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -109,7 +109,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 369     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 371     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -134,9 +134,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 184     | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 181     | —                | —                           |
 | [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
-| [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 11      | —                | —                           |
+| [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 12      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 128     | —                | node `canonical-sets`       |
@@ -547,7 +547,7 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
 Every worktree-lifecycle operation restricted to either the main checkout or a linked worktree, including the derived command-line refusal projection when one exists.
 
 - Source: `src/engine/worktree/side_restrictions.ts` — `SIDE_RESTRICTED_OPS`
-- Members: 10
+- Members: 9
   - `worktree-setup`
   - `worktree-teardown`
   - `worktree-rename`
@@ -556,7 +556,6 @@ Every worktree-lifecycle operation restricted to either the main checkout or a l
   - `worktree-prune`
   - `update`
   - `start`
-  - `accept`
   - `worktree-probe`
 - Guards: `tests/engine_worktree_test.ts`
 - Glossary: not enrolled — the Worktree term defines the boundary; these operation keys are internal lifecycle identifiers
@@ -712,7 +711,7 @@ Every native binary the release builds, executes, documents, checksums, attests,
 Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.
 
 - Source: `scripts/repository_literal_policy.ts` — `REPOSITORY_LITERAL_POLICIES`
-- Members: 23
+- Members: 22
   - `CLA.md`
   - `README.md`
   - `SECURITY.md`
@@ -730,7 +729,6 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `project/manual/40-troubleshooting/crashes-and-local-state.md`
   - `project/map/10-getting-started/quickstart.md`
   - `project/map/10-getting-started/upgrade-discern.md`
-  - `project/map/20-quality-gate/ci.md`
   - `project/map/70-reference/crash-reports.md`
   - `project/map/70-reference/platforms-and-prereqs.md`
   - `project/map/_internal/registry-atlas.md`
@@ -748,7 +746,7 @@ Every absent generated output shared editor configuration may exclude, plus priv
 - Members: 15
   - `generated-output: .agents/skills`
   - `generated-output: .claude/skills`
-  - `generated-output: .discern-bundled-docs`
+  - `generated-output: .discern-bundled-manual`
   - `generated-output: .scratch`
   - `generated-output: .vale/Microsoft`
   - `generated-output: .vale/proselint`
@@ -770,7 +768,7 @@ Every absent generated output shared editor configuration may exclude, plus priv
 Every root community contract and every GitHub configuration file, including recorded omissions, so a new intake or automation surface must declare its role.
 
 - Source: `scripts/repository_files.ts` — `REPOSITORY_COMMUNITY_FILE_POLICIES`
-- Members: 23
+- Members: 24
   - `tracked: CCLA.md`
   - `tracked: CLA.md`
   - `tracked: CODE_OF_CONDUCT.md`
@@ -784,6 +782,7 @@ Every root community contract and every GitHub configuration file, including rec
   - `tracked: .github/ISSUE_TEMPLATE/setup_failure.md`
   - `tracked: .github/PULL_REQUEST_TEMPLATE.md`
   - `tracked: .github/actions/macos-gate/action.yml`
+  - `tracked: .github/actions/policy-base/action.yml`
   - `tracked: .github/actions/wsl-gate/action.yml`
   - `tracked: .github/cla-assistant/README.md`
   - `tracked: .github/cla-assistant/metadata`
@@ -1017,7 +1016,7 @@ The desk's per-worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 33
+- Members: 34
   - `completionRecords`
   - `completionArtifacts`
   - `resources`
@@ -1046,6 +1045,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `checkpointOpenQuestions`
   - `effortGrant`
   - `effortGrantClaims`
+  - `completionGrantClaims`
   - `acceptanceTransaction`
   - `setupMachineryCommitEvidence`
   - `worktreeSetupSteps`
@@ -1233,7 +1233,7 @@ The stable kebab-case operation labels discern authors in plans and applied resu
 Every top-level table in the config schema.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 17
+- Members: 19
   - `project`
   - `repository`
   - `map`
@@ -1246,6 +1246,8 @@ Every top-level table in the config schema.
   - `acceptance`
   - `worktree`
   - `standards`
+  - `completion`
+  - `execution`
   - `checkpoints`
   - `gate`
   - `coupling`
@@ -1772,7 +1774,9 @@ The shipped capability modules whose importers are restricted: attributed commit
 Every authored Deno rename outside the atomic replacement capability, identified by source path and enclosing function with the reason its move semantics are intentional.
 
 - Source: `tests/atomic_write_renames.ts` — `REGISTERED_RENAMES`
-- Members: 18
+- Members: 20
+  - `tests/completion_public_diagnostics_test.ts#Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records")`
+  - `tests/engine_effort_grant_test.ts#Deno.test("old one-shot claims can only settle their existing transaction")`
   - `scripts/build.ts#stageBundledManual`
   - `scripts/cli_install.ts#writeExecutableSync`
   - `scripts/coverage_profiles.ts#worker`
@@ -1831,7 +1835,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 190
+- Members: 191
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1911,6 +1915,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-test-run-queued`
   - `gate-test-slots-unavailable`
   - `gate-standards-limits-unverified`
+  - `completion-pending`
   - `gate-strand-check-unavailable`
   - `gate-proof-skipped-dirty`
   - `gate-proof-head-moved`
@@ -1929,6 +1934,7 @@ The advisory hint registry: every hint string enters results through it.
   - `accept-declarations-stale`
   - `accept-requires-strict-proof`
   - `accept-authorize-variance`
+  - `accept-authorize-standard-proposals`
   - `checkpoints-declare`
   - `checkpoints-variance-review`
   - `gate-failure-gotchas`
@@ -1959,7 +1965,6 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-land-under-verified-authority`
   - `gate-relay-uncovered-authority`
   - `gate-update-docs`
-  - `gate-deferred-standards`
   - `gate-previewable-change`
   - `standards-pin-empty`
   - `standards-pin-dry-run`
@@ -2054,7 +2059,7 @@ The desk tip registry: every teaching line the desk can show enters through it, 
   - `done-records-proof`
   - `checkpoints-read-surface`
   - `standards-first-rule`
-  - `standards-on-demand`
+  - `standards-complete-evidence`
   - `standards-pin-gain`
   - `config-validates-edits`
   - `refresh-publishes-instructions`
@@ -2513,7 +2518,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `standards-rates`
   - `standards-margin`
   - `standards-replay`
-  - `standards-on-demand`
+  - `standards-complete-evidence`
   - `standards-pin`
   - `standards-escalation`
   - `worktrees`
@@ -3342,7 +3347,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 369
+- Members: 371
   - `0003`
   - `0005`
   - `0006`
@@ -3688,6 +3693,8 @@ The numbered decision records in the map, including records later superseded.
   - `0377`
   - `0378`
   - `0379`
+  - `0380`
+  - `0381`
   - `0001`
   - `0002`
   - `0004`
@@ -4264,7 +4271,7 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 184
+- Members: 181
   - `acceptance-transaction-temp-cleanup`
   - `adr-duplicate-scan-fallback`
   - `agent-gitignore-template-fallback`
@@ -4337,9 +4344,6 @@ Every named production error discard, with its exact module, enclosing function,
   - `job-output-record-finish-close`
   - `lifecycle-drop-identity-settings-fallback`
   - `lifecycle-live-port-identity-fallback`
-  - `lifecycle-post-convergence-clean-check-fallback`
-  - `lifecycle-post-landing-dirty-baseline-fallback`
-  - `lifecycle-post-landing-templates-fallback`
   - `lifecycle-ready-sentinel-write`
   - `lifecycle-refresh-adr-target-fallback`
   - `lifecycle-refresh-agent-targets-fallback`
@@ -4478,8 +4482,9 @@ Every registered promise effect transferred beyond its caller's sequence, with i
 Every callback-scoped scratch directory used by a standalone repository tool, with its stable id, secure prefix, purpose, and cleanup policy.
 
 - Source: `scripts/temp_dir.ts` — `TOOL_TEMP_DIR_KINDS`
-- Members: 11
+- Members: 12
   - `agent-surface-stage`
+  - `canon-editor-prose`
   - `coverage-profile`
   - `fta-analysis`
   - `map-prose-stage`

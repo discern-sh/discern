@@ -27,19 +27,19 @@ The `discern_status` fleet isn't a pool. Never adopt another effort's worktree b
 - **`discern_start`** — only for an effort without a worktree. From the main checkout, create one (branch prefix `agent/`, forked from `main`) and re-root into the returned path using your native worktree-entering tool when available; otherwise cd in, or start a session there. Continue in the worktree throughout the entire effort. Already there? Stay there. If you can't change your working root, prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Starting re-aims the discern tools at the new worktree, but your own file operations move only when you move them — edits made from the old root land on the trunk while the gate runs in the worktree, and the two quietly diverge.
 - **`discern_update`** brings `main` into your branch when behind and reports upstream overlap — re-read any of your files it names, since a merge that applies cleanly can still conflict in meaning. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
 - **`discern_await`** watches a sibling or the trunk in one longest-safe call. Do not surface progress updates until it returns. If `data.met: false`, continue with `data.resume` without surfacing an update. Repeat without a fixed limit until the condition holds, or until stopped or unnecessary. An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input. On success, follow its `start`/`update` hint.
-- **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. A green gate is evidence your work is ready, but the owner decides what to do with it. After a green `discern done`, follow its authority-aware hint: either report the one-line Proof and stop, or land under the verified grant. Landing fast-forwards `main` and removes the worktree and branch.
+- **`discern_accept`** checks explicit conversation consent or machine-verified authority for each predecessor. Green means ready for review; it grants no authority. Follow `done`'s authority-aware hint: report the Proof and stop, or accept under the verified grant. Acceptance retires only released, positively owned, clean checkouts. Judgment, authority, evidence, unavailable environments and recovery remain separate conditions.
 
-Use `discern_test` when the complete test stage is the intended standalone result. While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Acceptance lands your branch history as-is.
+Use `discern_test` when the complete test stage is the intended standalone result. While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Acceptance validates and lands the selected candidate, which may compose the committed source with earlier ready work.
 
 **Finishing an effort.** Proof binds to one exact commit, so the order matters:
 
 1. Run `discern_prepare` and commit everything, so the final tree is committed and the fixers have nothing left to rewrite.
-2. Then run `discern_done` once on the clean HEAD — acceptance reuses that Proof. A later edit invalidates it, and `done` runs again on the new tree.
-3. Report completion in your own words — what changed and why, plus anything the gate did not cover (a deferred standard, a decision the owner still holds) — and end with the Proof line verbatim. Never paste the full Proof page; the owner retrieves it with `discern status --verbose`.
+2. Run **`discern_done`** on clean HEAD. Passing completion admits the candidate and releases the checkout for eligible validation and retirement. Use `retain_checkout: true` (CLI `--retain-checkout`) to retain authoring control. `--standalone` gives diagnostics without landing Proof. Later edits require a new complete gate.
+3. Report completion in your own words — what changed and why, plus anything the gate did not cover (a required context still missing, a decision the owner still holds) — and end with the Proof line verbatim. Never paste the full Proof page; the owner retrieves it with `discern status --verbose`.
 
 ## Quality standards
 
-Standards are **numbers that can never get worse**: metrics held at a `limit` that may only improve versus `main` — a floor may only rise (`up`), a ceiling only fall (`down`). Every **`discern_done`** run verifies no limit loosened versus `main` and measures each standard alongside the tests — untouched `inputs` replay the recorded value for free; `measure = "on-demand"` defers a standard to **`discern_standards`**.
+Standards hold a **limit that may only improve**: floors rise (`up`), ceilings fall (`down`). **`discern_done`** verifies protected definitions and limits against the candidate’s predecessor and requires every standard in every required context. Producers may be shared; reuse requires unchanged applicable evidence. **`discern_standards`** measures separately. `prepare` requests no measurement.
 
 **Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
 
@@ -134,7 +134,7 @@ One vocabulary **is** gated, because it's structural rather than open-ended: **i
 ## The gate
 
 - `discern prepare` — fast inner loop: fix + regenerate + refresh + check, no tests. Run it after your last edit, before the final commit, so `done` has nothing left to rewrite.
-- `discern done` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check` (check) ∥ `deno task test` (test). This is the repo running its **own** TS engine, so a regression in the engine surfaces here.
+- `discern done` — full gate (run from the repo root): `deno fmt` (fix) → `deno lint` + `deno check` (check) ∥ `deno task coverage` (instrumented tests), with every required measurement including the local binary-size recipe. This is the repo running its **own** TS engine, so a regression in the engine surfaces here.
 
 ## Running discern from source
 

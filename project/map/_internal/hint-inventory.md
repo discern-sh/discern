@@ -8,6 +8,17 @@ Entries follow id order. Emitting context states when an entry fires. Each examp
 
 Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: the interactive terminal presentation drops it, while JSON, Markdown, and Model Context Protocol (MCP) results always carry it.
 
+## `accept-authorize-standard-proposals`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: A queue prefix has current measured standard proposals awaiting the owner's exact approval.
+
+Rendered example:
+
+> Relay the proposed values and reasons for `agent/example` to the owner. After the owner approves that landing and every exact proposal, run `discern accept --confirmed --approve-standard approval-token` from that effort's worktree. Recorded grants cannot approve standard proposals.
+
 ## `accept-authorize-variance`
 
 - Category: `next-step`
@@ -287,6 +298,17 @@ Rendered example:
 
 > A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each question and rationale above to the owner; the decision is served at `discern accept`.
 
+## `completion-pending`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: Complete candidate validation or its execution environment has a pending obligation.
+
+Rendered example:
+
+> Resolve the failed validation, then use discern done --rerun to request a new attempt.
+
 ## `config-correct-validation`
 
 - Category: `next-step`
@@ -539,17 +561,6 @@ Rendered example:
 Rendered example:
 
 > Checkpoint review was reported and was not enforced. Run `discern done` in a stateful worktree before `discern accept`.
-
-## `gate-deferred-standards`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: —
-- Emitting context: A successful gate leaves one or more standards deferred.
-
-Rendered example:
-
-> Measure 2 deferred standards with `discern standards` as needed: coverage, binary_size. Their measurements are on demand, but the never-loosen limit check still ran.
 
 ## `gate-failure-adr-index`
 

@@ -250,17 +250,17 @@ Rendered line:
 
 > A standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
 
-## `standards-on-demand`
+## `standards-complete-evidence`
 
 - Relevance: Evergreen — the third quality lesson.
 - Predicate: —
 - Since: —
-- Teaches: `standards-on-demand`
+- Teaches: `standards-complete-evidence`
 - Follow-through: `verb-run-after-tip` (`standards`)
 
 Rendered line:
 
-> Rules marked `measure = "on-demand"` skip routine measurement; `discern standards` measures them when you ask.
+> Completion requires every standard. Share a producer with complete declared inputs to reuse valid evidence; `discern standards` runs standalone measurements.
 
 ## `standards-pin-gain`
 

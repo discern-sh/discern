@@ -225,6 +225,12 @@
         "kind": "directory",
         "validation": false
       },
+      "completionGrantClaims": {
+        "path": "discern/completion/grant-claims",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
       "acceptanceTransaction": {
         "path": "discern/acceptance-transaction.json",
         "scope": "worktree",
@@ -420,7 +426,7 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 1,
+      "version": 2,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
@@ -508,14 +514,15 @@
       }
     },
     "effort-grant": {
-      "version": 1,
+      "version": 2,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
         "kind": "git-admin",
         "keys": [
           "effortGrant",
-          "effortGrantClaims"
+          "effortGrantClaims",
+          "completionGrantClaims"
         ]
       }
     },

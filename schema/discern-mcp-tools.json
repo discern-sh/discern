@@ -145,6 +145,22 @@
           "path": {
             "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
             "type": "string"
+          },
+          "policy_base": {
+            "description": "Fetched policy base for a standalone CI report only.",
+            "type": "string"
+          },
+          "retain_checkout": {
+            "description": "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
+            "type": "boolean"
+          },
+          "standalone": {
+            "description": "Run complete standalone feedback without queue admission or Proof.",
+            "type": "boolean"
+          },
+          "context": {
+            "description": "The declared execution context this invocation supplies; defaults to local.",
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -289,7 +305,7 @@
     {
       "name": "discern_standards",
       "title": "Check the standards",
-      "description": "Measure the selected configured standards and compare each value with its limit. Pass names to narrow both measurement and pin candidates; omit it for every standard. The comparison uses the selected project's configured trunk. This call always measures; discern_done already measures ordinary standards with the tests and verifies their limits. Use this tool for an on-demand (`measure = \"on-demand\"`) standard, an explicit remeasurement, or a pin. Non-dry-run calls require a clean worktree unless force is set for authoring or diagnosis. dry_run previews without measuring. pin captures measured improvements, commits only the tighter limits, and carries the Proof forward. Pinning requires a clean worktree and refuses while any selected standard fails. Never hand-edit a limit to make the gate pass.",
+      "description": "Measure the selected configured standards and compare each value with its limit. Pass names to narrow both measurement and pin candidates; omit it for every standard. The comparison uses the selected project's configured trunk. A plain call requests fresh readings; pin can reuse applicable evidence. discern_done already requires every configured standard. Use this tool for an explicit remeasurement or a pin. Non-dry-run calls require a clean worktree unless force is set for authoring or diagnosis. dry_run previews without measuring. pin captures measured improvements, commits only the tighter limits, and carries the Proof forward. Pinning requires a clean worktree and refuses while any selected standard fails. Never hand-edit a limit to make the gate pass.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",

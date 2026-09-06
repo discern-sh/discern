@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
-10 pillars · 139 nodes · 11 benefit statements · 9 agent-benefit clusters · 77 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 139 nodes · 11 benefit statements · 9 agent-benefit clusters · 79 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -81,7 +81,7 @@ _Quality limits move in one direction. A floor may only rise, a ceiling may only
 - **Rates, not raw counts** — `per` divides the metric by a second metric or by a built-in extent discern measures itself — files, lines, words, or bytes over a pathspec — and `scale` makes the rate read in human units. _A number normalized to project size doesn't rise because the project grew, so the standard survives legitimate growth._
 - **Pin headroom** — `margin` is the headroom a pin leaves when tightening a limit, for metrics that drift on unrelated commits.
 - **Input-keyed replay** — `inputs` names the paths a metric reads. When nothing under them changed since the last recorded measurement, the gate replays the recorded value instead of re-measuring. _A docs-only change pays seconds for a coverage standard, and the never-loosen check still runs._
-- **On-demand measurement** — `measure = "on-demand"` defers a metric too slow for every gate run to `discern standards`; the limit check itself has no off switch.
+- **Complete measurement evidence** — `done` requires each declared measurement context. Shared producers and applicable recorded evidence avoid repeated work; standalone `standards` uses the same planner.
 - **Capturing a gain** — `discern standards --pin` tightens each improved limit and commits the change on its own, carrying Proof across the pin commit. It reuses available values from the same clean commit and runs missing selected measurements. Named measurement narrows after Gate Proof validates the complete tree. _Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening._
 - **Breach escalation** — A limit the work itself breached becomes a visible owner decision. After the intended tree is committed, the proposal command measures that Standard and records the value, reason, and responsible paths for Proof and acceptance.
 
@@ -292,7 +292,9 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 - `acceptance` — consent-attestations
 - `checkpoints` — checkpoints
+- `completion` — gate
 - `coupling` — insight
+- `execution` — worktrees
 - `gate` — gate
 - `generated` — generated-artifact-declarations
 - `instructions` — instructions

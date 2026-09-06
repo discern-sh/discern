@@ -363,6 +363,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0377 — Execution environments declare reuse and recovery](0377-execution-environments-declare-reuse-and-recovery.md)
 - [0378 — Landing completion survives checkout retirement](0378-landing-completion-survives-checkout-retirement.md)
 - [0379 — Emergency landings record an explicit Proof exception](0379-emergency-landings-record-an-explicit-proof-exception.md)
+- [0380 — Bind validation demand after composition within one execution lease](0380-bind-validation-demand-after-composition.md)
+- [0381 — Stage complete completion in place before publication](0381-stage-complete-completion-in-place-before-publication.md)
 
 <!-- END GENERATED: current ADR records -->
 

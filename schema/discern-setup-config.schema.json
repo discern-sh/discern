@@ -64,6 +64,175 @@
       },
       "additionalProperties": false
     },
+    "completion": {
+      "type": "object",
+      "properties": {
+        "required_contexts": {
+          "default": [
+            "local"
+          ],
+          "description": "Execution contexts required for each obligation unless it declares its own contexts.",
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "concurrency": {
+          "default": 1,
+          "description": "Maximum live candidate executions across the repository queue.",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "lookahead": {
+          "default": 0,
+          "description": "Maximum speculative positions beyond the next authorized source; requires an eligible released environment.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false,
+      "description": "Complete evidence and repository queue capacity."
+    },
+    "execution": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "borrowed",
+              "isolated"
+            ],
+            "description": "Borrow a released source checkout or execute in separately owned isolation."
+          },
+          "prepare": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ],
+            "description": "Prepare the candidate state and declared resources before validation."
+          },
+          "restore": {
+            "description": "Restore the source state and resources after borrowed execution; required for borrowing.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "reset": {
+            "description": "Reset reusable isolation before another execution.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "dispose": {
+            "description": "Dispose of owned isolated resources after execution; required for isolation.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "reusable": {
+            "type": "boolean",
+            "description": "Whether the environment supports reuse after its verified return procedure."
+          },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "description": "Declared worktree resource names affected by preparation and return."
+          },
+          "ignored": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Ignored artifact paths whose changes the return procedure restores."
+          },
+          "inputs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Complete input closure of the environment procedures."
+          },
+          "capacity": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Maximum simultaneous executions supported by this declaration."
+          }
+        },
+        "required": [
+          "kind",
+          "prepare",
+          "reusable",
+          "resources",
+          "ignored",
+          "inputs",
+          "capacity"
+        ],
+        "additionalProperties": false,
+        "description": "Project procedures for candidate execution and return."
+      }
+    },
     "jobs": {
       "description": "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
       "allOf": [
@@ -111,6 +280,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -153,6 +373,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -195,6 +466,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -237,6 +559,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -279,6 +652,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -321,6 +745,57 @@
                       "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
                       "type": "number",
                       "minimum": 0
+                    },
+                    "inputs": {
+                      "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "needs": {
+                      "description": "Producer selectors that must finish successfully before this producer runs.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                      }
+                    },
+                    "artifacts": {
+                      "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "environment": {
+                      "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                      }
+                    },
+                    "toolchain": {
+                      "description": "Project-relative identity files for the applicable toolchain.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                      }
+                    },
+                    "contexts": {
+                      "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     }
                   },
                   "required": [
@@ -357,6 +832,57 @@
                   }
                 ],
                 "description": "The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+              },
+              "inputs": {
+                "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "needs": {
+                "description": "Producer selectors that must finish successfully before this producer runs.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+                }
+              },
+              "artifacts": {
+                "description": "Project-relative outputs captured into immutable attempt storage after production.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                }
+              },
+              "environment": {
+                "description": "Environment variable names whose effective values enter evidence identity as digests.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
+              },
+              "toolchain": {
+                "description": "Project-relative identity files for the applicable toolchain.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+                }
+              },
+              "contexts": {
+                "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                }
               },
               "provides": {
                 "description": "A free-text label for humans and audit.",
@@ -413,6 +939,57 @@
                 }
               }
             ]
+          },
+          "inputs": {
+            "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "needs": {
+            "description": "Producer selectors that must finish successfully before this producer runs.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+            }
+          },
+          "artifacts": {
+            "description": "Project-relative outputs captured into immutable attempt storage after production.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+            }
+          },
+          "environment": {
+            "description": "Environment variable names whose effective values enter evidence identity as digests.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            }
+          },
+          "toolchain": {
+            "description": "Project-relative identity files for the applicable toolchain.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+            }
+          },
+          "contexts": {
+            "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
           },
           "gate": {
             "description": "A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
@@ -517,18 +1094,99 @@
             "description": "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall."
           },
           "run": {
+            "description": "This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.",
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               {
+                "minItems": 1,
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 1
                 }
               }
-            ],
-            "description": "The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched."
+            ]
+          },
+          "producer": {
+            "description": "Consume an existing job, scope gate, or standard producer instead of running a separate producer.",
+            "type": "string",
+            "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+          },
+          "extract": {
+            "description": "Extract readings from captured producer output on stdin; this is a separate operation from run.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            ]
+          },
+          "artifact": {
+            "description": "Declared producer artifact supplied on stdin to extract; requires extract.",
+            "type": "string",
+            "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+          },
+          "inputs": {
+            "description": "Complete input closure as scope globs; omission binds evidence to the candidate.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "needs": {
+            "description": "Producer selectors that must finish successfully before this producer runs.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:jobs\\.[A-Za-z0-9_-]+|scopes\\.[A-Za-z0-9_-]+\\.gate|standards\\.[A-Za-z0-9_-]+)$"
+            }
+          },
+          "artifacts": {
+            "description": "Project-relative outputs captured into immutable attempt storage after production.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+            }
+          },
+          "environment": {
+            "description": "Environment variable names whose effective values enter evidence identity as digests.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            }
+          },
+          "toolchain": {
+            "description": "Project-relative identity files for the applicable toolchain.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+            }
+          },
+          "contexts": {
+            "description": "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
           },
           "per": {
             "description": "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = \"${map.dir}**\" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
@@ -612,22 +1270,6 @@
             "type": "number",
             "minimum": 0
           },
-          "measure": {
-            "default": "gate",
-            "description": "\"gate\" measures inside every `discern done`, beside the tests. \"on-demand\" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.",
-            "type": "string",
-            "enum": [
-              "gate",
-              "on-demand"
-            ]
-          },
-          "inputs": {
-            "description": "The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "timeout": {
             "description": "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
             "type": "number",
@@ -636,8 +1278,7 @@
         },
         "required": [
           "direction",
-          "limit",
-          "run"
+          "limit"
         ],
         "additionalProperties": false
       }

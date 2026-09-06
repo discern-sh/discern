@@ -192,8 +192,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Use standards that stay useful as the project grows
 
 - **Value:** Quality measures can remain meaningful without making every small change pay the full measurement cost or treating healthy project growth as regression. A genuine breach caused by the work reaches the person responsible for the limit.
-- **Mechanism:** Rates scale with project size, replay keys measurements to declared inputs, on-demand mode separates expensive measurement from limit verification, any one-line metric can participate, and breach escalation refuses to move the limit automatically.
-- **Product basis:** Rates, not raw counts · Input-keyed replay · On-demand measurement · Breach escalation · One-line metric protocol.
+- **Mechanism:** Rates scale with project size, replay keys measurements to declared inputs, complete evidence joins required measurements and limit verification, any one-line metric can participate, and breach escalation refuses to move the limit automatically.
+- **Product basis:** Rates, not raw counts · Input-keyed replay · Complete measurement evidence · Breach escalation · One-line metric protocol.
 
 ### Remove the cause and guard every instance of the bug class
 

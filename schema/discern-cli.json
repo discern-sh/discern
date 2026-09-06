@@ -2043,7 +2043,7 @@
           "spellings": [
             "--timeout"
           ],
-          "description": "Custom jobs only: command budget in seconds; 0 removes the bound.",
+          "description": "Command budget in seconds; 0 removes the bound.",
           "type_definition": "<seconds:string>",
           "arity": 1,
           "value_types": [
@@ -2073,6 +2073,90 @@
           "type_definition": "",
           "arity": 0,
           "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--inputs"
+          ],
+          "description": "Complete input glob; repeat for every input.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--needs"
+          ],
+          "description": "Required producer selector; repeat for every dependency.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--artifacts"
+          ],
+          "description": "Output artifact path to capture; repeat for every artifact.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--environment"
+          ],
+          "description": "Environment variable name to bind to evidence; repeat for every name.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--toolchain"
+          ],
+          "description": "Toolchain identity file; repeat for every file.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--contexts"
+          ],
+          "description": "Required execution context; repeat for every context.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
           "default": null,
           "hidden": false,
           "global": false
@@ -2234,6 +2318,90 @@
           ],
           "description": "Per-scope gate-command budget in seconds; 0 removes the bound.",
           "type_definition": "<seconds:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--inputs"
+          ],
+          "description": "Complete input glob; repeat for every input.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--needs"
+          ],
+          "description": "Required producer selector; repeat for every dependency.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--artifacts"
+          ],
+          "description": "Output artifact path to capture; repeat for every artifact.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--environment"
+          ],
+          "description": "Environment variable name to bind to evidence; repeat for every name.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--toolchain"
+          ],
+          "description": "Toolchain identity file; repeat for every file.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--contexts"
+          ],
+          "description": "Required execution context; repeat for every context.",
+          "type_definition": "<value:string>",
           "arity": 1,
           "value_types": [
             "string"
@@ -2406,6 +2574,48 @@
         },
         {
           "spellings": [
+            "--producer"
+          ],
+          "description": "Existing producer to consume; mutually exclusive with --run.",
+          "type_definition": "<selector:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--extract"
+          ],
+          "description": "Read metrics from captured producer output or an artifact on stdin.",
+          "type_definition": "<cmd:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--artifact"
+          ],
+          "description": "Declared producer artifact supplied to --extract.",
+          "type_definition": "<path:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
             "--per"
           ],
           "description": "Denominator metric, or one built-in extent as files=<glob>, lines=<glob>, words=<glob>, or bytes=<glob>.",
@@ -2448,10 +2658,10 @@
         },
         {
           "spellings": [
-            "--measure"
+            "--timeout"
           ],
-          "description": "Measurement mode: \"gate\" or \"on-demand\".",
-          "type_definition": "<mode:string>",
+          "description": "Measurement-command budget in seconds; 0 removes the bound.",
+          "type_definition": "<seconds:string>",
           "arity": 1,
           "value_types": [
             "string"
@@ -2464,8 +2674,8 @@
           "spellings": [
             "--inputs"
           ],
-          "description": "Metric input glob; repeat to preserve every input.",
-          "type_definition": "<glob:string>",
+          "description": "Complete input glob; repeat for every input.",
+          "type_definition": "<value:string>",
           "arity": 1,
           "value_types": [
             "string"
@@ -2476,10 +2686,66 @@
         },
         {
           "spellings": [
-            "--timeout"
+            "--needs"
           ],
-          "description": "Measurement-command budget in seconds; 0 removes the bound.",
-          "type_definition": "<seconds:string>",
+          "description": "Required producer selector; repeat for every dependency.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--artifacts"
+          ],
+          "description": "Output artifact path to capture; repeat for every artifact.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--environment"
+          ],
+          "description": "Environment variable name to bind to evidence; repeat for every name.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--toolchain"
+          ],
+          "description": "Toolchain identity file; repeat for every file.",
+          "type_definition": "<value:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--contexts"
+          ],
+          "description": "Required execution context; repeat for every context.",
+          "type_definition": "<value:string>",
           "arity": 1,
           "value_types": [
             "string"
@@ -3306,6 +3572,58 @@
           "type_definition": "",
           "arity": 0,
           "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--policy-base"
+          ],
+          "description": "Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.",
+          "type_definition": "<ref:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--retain-checkout"
+          ],
+          "description": "Keep authoring control after completion; do not release this checkout for later validation or retirement.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--standalone"
+          ],
+          "description": "Run complete standalone feedback without queue admission or Proof.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--context"
+          ],
+          "description": "Supply evidence only for this declared execution context (default: local).",
+          "type_definition": "<name:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
           "default": null,
           "hidden": false,
           "global": false

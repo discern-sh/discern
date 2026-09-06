@@ -36,6 +36,12 @@ aliases:
   - "jobs.<name>"
   - "jobs.<name>.stage"
   - "jobs.<name>.run"
+  - "jobs.<name>.inputs"
+  - "jobs.<name>.needs"
+  - "jobs.<name>.artifacts"
+  - "jobs.<name>.environment"
+  - "jobs.<name>.toolchain"
+  - "jobs.<name>.contexts"
   - "jobs.<name>.provides"
   - "jobs.<name>.timeout"
   - "setup.not_applicable"
@@ -44,6 +50,12 @@ aliases:
   - "scopes.<name>.paths"
   - "scopes.<name>.neutral"
   - "scopes.<name>.preview"
+  - "scopes.<name>.inputs"
+  - "scopes.<name>.needs"
+  - "scopes.<name>.artifacts"
+  - "scopes.<name>.environment"
+  - "scopes.<name>.toolchain"
+  - "scopes.<name>.contexts"
   - "scopes.<name>.gate"
   - "scopes.<name>.timeout"
   - "generated"
@@ -75,12 +87,35 @@ aliases:
   - "standards.<name>.direction"
   - "standards.<name>.limit"
   - "standards.<name>.run"
+  - "standards.<name>.producer"
+  - "standards.<name>.extract"
+  - "standards.<name>.artifact"
+  - "standards.<name>.inputs"
+  - "standards.<name>.needs"
+  - "standards.<name>.artifacts"
+  - "standards.<name>.environment"
+  - "standards.<name>.toolchain"
+  - "standards.<name>.contexts"
   - "standards.<name>.per"
   - "standards.<name>.scale"
   - "standards.<name>.margin"
-  - "standards.<name>.measure"
-  - "standards.<name>.inputs"
   - "standards.<name>.timeout"
+  - "completion"
+  - "completion.required_contexts"
+  - "completion.concurrency"
+  - "completion.lookahead"
+  - "execution"
+  - "execution.<name>"
+  - "execution.<name>.kind"
+  - "execution.<name>.prepare"
+  - "execution.<name>.restore"
+  - "execution.<name>.reset"
+  - "execution.<name>.dispose"
+  - "execution.<name>.reusable"
+  - "execution.<name>.resources"
+  - "execution.<name>.ignored"
+  - "execution.<name>.inputs"
+  - "execution.<name>.capacity"
   - "checkpoints.<name>"
   - "checkpoints.<name>.scope"
   - "checkpoints.<name>.paths"
@@ -126,7 +161,7 @@ Look up every public `discern.toml` table, key, type, default, placeholder, and 
 
 Prerequisite: a `discern.toml` file or a planned configuration. A **Default** is the value discern uses when a key is absent. An em dash means the key has no schema default; it does not mean an empty value. Unknown top-level tables and keys are not supported unless the table is explicitly named with `<name>`.
 
-The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[execution.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 The published [JSON Schema](https://discern.sh/schema/v1/discern-config.schema.json) is the external machine-readable contract. For editing and validation recovery, see [Configuration and setup troubleshooting](../40-troubleshooting/setup-and-integrations.md).
 
@@ -210,12 +245,18 @@ your coding agent fill these from repository evidence.
 
 A custom job. Its name is open, but its stage and command are explicit.
 
-| Key        | Type                                  | Default | Description                                                                                                                                                                                                                             |
-| ---------- | ------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stage`    | `fix` \| `build` \| `check` \| `test` | —       | The gate stage this job runs in: fix, build, check, or test.                                                                                                                                                                            |
-| `run`      | string \| string[]                    | —       | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
-| `provides` | string                                | —       | A free-text label for humans and audit.                                                                                                                                                                                                 |
-| `timeout`  | number                                | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                            |
+| Key           | Type                                  | Default | Description                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`       | `fix` \| `build` \| `check` \| `test` | —       | The gate stage this job runs in: fix, build, check, or test.                                                                                                                                                                            |
+| `run`         | string \| string[]                    | —       | The command(s) to run. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
+| `inputs`      | string[]                              | —       | Complete input closure as scope globs; omission binds evidence to the candidate.                                                                                                                                                        |
+| `needs`       | string[]                              | —       | Producer selectors that must finish successfully before this producer runs.                                                                                                                                                             |
+| `artifacts`   | string[]                              | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                      |
+| `environment` | string[]                              | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                   |
+| `toolchain`   | string[]                              | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                           |
+| `contexts`    | string[]                              | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                            |
+| `provides`    | string                                | —       | A free-text label for humans and audit.                                                                                                                                                                                                 |
+| `timeout`     | number                                | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                            |
 
 A custom job: any name, an explicit stage, and its command:
 
@@ -243,13 +284,19 @@ discern config set-job build --applicable       restore it
 
 Named regions of the repository. A change inside a scope can skip the gate, run its own gate, or offer a preview. A path that matches no scope counts as code and runs every stage.
 
-| Key       | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                           |
-| --------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paths`   | string[]           | —       | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
-| `neutral` | boolean            | `false` | true: changes here need no gate, as for documentation and agent instructions.                                                                                                                                                                                                                                                                                                         |
-| `preview` | string \| string[] | —       | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                        |
-| `gate`    | string \| string[] | —       | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                                    |
-| `timeout` | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                          |
+| Key           | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------- | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paths`       | string[]           | —       | The globs that define the scope: a directory prefix (src/**), a standard glob (src/**/_.ext, src/_), a *.ext suffix at any depth, a /seg/ segment, or an exact path. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
+| `neutral`     | boolean            | `false` | true: changes here need no gate, as for documentation and agent instructions.                                                                                                                                                                                                                                                                                                         |
+| `preview`     | string \| string[] | —       | A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                        |
+| `inputs`      | string[]           | —       | Complete input closure as scope globs; omission binds evidence to the candidate.                                                                                                                                                                                                                                                                                                      |
+| `needs`       | string[]           | —       | Producer selectors that must finish successfully before this producer runs.                                                                                                                                                                                                                                                                                                           |
+| `artifacts`   | string[]           | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                                                                                                                                                                    |
+| `environment` | string[]           | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                                                                                                                                                                 |
+| `toolchain`   | string[]           | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                                                                                                                                                                         |
+| `contexts`    | string[]           | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                                                                                                                                                                          |
+| `gate`        | string \| string[] | —       | A command `discern done` runs when this scope changed: a sub-component's own self-contained gate. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                                    |
+| `timeout`     | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                          |
 
 A sub-component with its own self-contained gate and a read-only preview:
 
@@ -350,26 +397,35 @@ Commands that ready a linked worktree. `steps` run once at creation. `ensure` ru
 
 ## `[standards.<name>]`
 
-Quality numbers that can never get worse. Every `discern done` measures each standard beside the tests and refuses a limit looser than the trunk's, so a branch can neither regress a metric nor lower its bar. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.
+Quality numbers that can never get worse. Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, environment, and execution context. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.
 
 ```text
-A run reports its number with one line: DISCERN_METRIC <name> <number>
+A producer or extractor reports a number: DISCERN_METRIC <name> <number>
+Set run for an inline producer, or producer for an existing selector.
+An extract command receives captured output or the named artifact on stdin.
 Lock in a gain with `discern standards --pin`; a hand-edited limit cannot
 tell a gain from a loosening.
 ```
 
-| Key         | Type                  | Default  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------- | --------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `metric`    | string                | —        | The metric name the run emits. Defaults to the standard's name.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `direction` | `up` \| `down`        | —        | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                                                                                                                                                                                                                                                                                                                                                                                    |
-| `limit`     | number                | —        | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `run`       | string \| string[]    | —        | The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                                                                                                                                                                  |
-| `per`       | string \| object      | —        | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = "${map.dir}**" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
-| `scale`     | number                | `1`      | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `margin`    | number                | `0`      | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.                                                                                                                                                                                                                                             |
-| `measure`   | `gate` \| `on-demand` | `"gate"` | "gate" measures inside every `discern done`, beside the tests. "on-demand" defers only the measurement to `discern standards`, for a metric too slow for every run; the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.                                                                                                                                                                                                                                   |
-| `inputs`    | string[]              | —        | The paths this metric reads, as scope globs. When nothing under them changed since the last recorded measurement, the gate replays that value instead of re-measuring and names the source commit. Omit to measure every time. Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched.                                                     |
-| `timeout`   | number                | —        | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                                                        |
+| Key           | Type               | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------- | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metric`      | string             | —       | The metric name the run emits. Defaults to the standard's name.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `direction`   | `up` \| `down`     | —       | "up" when the value should rise, so the limit is a floor; "down" when it should fall, so the limit is a ceiling.                                                                                                                                                                                                                                                                                                                                                                                    |
+| `limit`       | number             | —       | The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `run`         | string \| string[] | —       | This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.                                                                                                                                                                                                                                                                                                                                                                                                |
+| `producer`    | string             | —       | Consume an existing job, scope gate, or standard producer instead of running a separate producer.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `extract`     | string \| string[] | —       | Extract readings from captured producer output on stdin; this is a separate operation from run.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `artifact`    | string             | —       | Declared producer artifact supplied on stdin to extract; requires extract.                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `inputs`      | string[]           | —       | Complete input closure as scope globs; omission binds evidence to the candidate.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `needs`       | string[]           | —       | Producer selectors that must finish successfully before this producer runs.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `artifacts`   | string[]           | —       | Project-relative outputs captured into immutable attempt storage after production.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `environment` | string[]           | —       | Environment variable names whose effective values enter evidence identity as digests.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `toolchain`   | string[]           | —       | Project-relative identity files for the applicable toolchain.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `contexts`    | string[]           | —       | Required execution contexts for this obligation; omission uses completion.required_contexts.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `per`         | string \| object   | —       | Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: a second metric the run emits, or a built-in extent discern measures itself, per = { words = "${map.dir}**" } (files, lines, words, or bytes over a git pathspec). Registered path references (${map.dir}, ${skills.dir}, ${scripts.dir}, ${project.todo}, ${project.gotchas_doc}) resolve from this config before matching or execution; unregistered braced forms stay untouched. |
+| `scale`       | number             | `1`     | Multiply the rate so the limit reads in human units; scale = 1000 reads as per 1,000.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `margin`      | number             | `0`     | Headroom `discern standards --pin` leaves when it tightens the limit to the measured value. Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, a margin so a pinned limit is not tripped by ordinary fluctuation.                                                                                                                                                                                                                                             |
+| `timeout`     | number             | —       | Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.                                                                                                                                                                                                                                                                                                                                                                        |
 
 Line coverage at or above a rising floor:
 
@@ -400,6 +456,47 @@ per       = { lines = "src/**" }   # discern counts the lines itself
 scale     = 1000                   # warnings per 1,000 lines
 limit     = 5
 run       = "your-linter --count"  # DISCERN_METRIC warnings <count>
+```
+
+## `[completion]`
+
+Complete evidence and repository queue capacity. Completion requires every declared obligation in its required contexts for an immutable candidate. Queue capacity and speculative depth bound active execution; an environment declaration and source-owner release establish eligibility independently.
+
+| Key                 | Type     | Default     | Description                                                                                                 |
+| ------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `required_contexts` | string[] | `["local"]` | Execution contexts required for each obligation unless it declares its own contexts.                        |
+| `concurrency`       | number   | `1`         | Maximum live candidate executions across the repository queue.                                              |
+| `lookahead`         | number   | `0`         | Maximum speculative positions beyond the next authorized source; requires an eligible released environment. |
+
+## `[execution.<name>]`
+
+Project procedures for candidate execution and return. Composition can change a checkout's source, generated files, ignored artifacts, and resources. These declarations identify preparation and return procedures; eligibility also requires verified ownership, release, and execution exclusion.
+
+| Key         | Type                     | Default | Description                                                                              |
+| ----------- | ------------------------ | ------- | ---------------------------------------------------------------------------------------- |
+| `kind`      | `borrowed` \| `isolated` | —       | Borrow a released source checkout or execute in separately owned isolation.              |
+| `prepare`   | string \| string[]       | —       | Prepare the candidate state and declared resources before validation.                    |
+| `restore`   | string \| string[]       | —       | Restore the source state and resources after borrowed execution; required for borrowing. |
+| `reset`     | string \| string[]       | —       | Reset reusable isolation before another execution.                                       |
+| `dispose`   | string \| string[]       | —       | Dispose of owned isolated resources after execution; required for isolation.             |
+| `reusable`  | boolean                  | —       | Whether the environment supports reuse after its verified return procedure.              |
+| `resources` | string[]                 | —       | Declared worktree resource names affected by preparation and return.                     |
+| `ignored`   | string[]                 | —       | Ignored artifact paths whose changes the return procedure restores.                      |
+| `inputs`    | string[]                 | —       | Complete input closure of the environment procedures.                                    |
+| `capacity`  | number                   | —       | Maximum simultaneous executions supported by this declaration.                           |
+
+A borrowed checkout with project-owned preparation and restoration:
+
+```toml
+[execution.local]
+kind = "borrowed"
+prepare = "project-prepare-candidate"
+restore = "project-restore-source"
+reusable = true
+resources = []
+ignored = ["build/**"]
+inputs = ["**"]
+capacity = 1
 ```
 
 ## `[checkpoints.<name>]`
