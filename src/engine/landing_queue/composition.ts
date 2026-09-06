@@ -448,7 +448,11 @@ async function retainCandidate(
         "Standalone measurement retention requires the unchanged authored source; update before measuring a composition.",
       );
     }
-    if (!await compositionReceiptMatches(root, candidate)) {
+    // Queue candidates must reproduce composition; source-only measurements prove
+    // their unchanged authored coordinates above and never claim generated convergence.
+    if (
+      selection === "queue" && !await compositionReceiptMatches(root, candidate)
+    ) {
       throw new Error(
         "Candidate lacks the exact completed composition receipt.",
       );

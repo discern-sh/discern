@@ -526,20 +526,6 @@ async function proposalMeasurement(
     entry.name === standard.name &&
     (entry.measurement === "measured" || entry.measurement === "replayed")
   );
-  if (!measured.evidenceRecorded) {
-    const pinned = measured.pin.head === undefined
-      ? "the starting HEAD could not be read"
-      : !measured.pin.clean
-      ? "the worktree was not clean when measurement began"
-      : "HEAD or the worktree changed while the measurement ran";
-    return {
-      ok: false,
-      result: proposalFailure(
-        "precondition_failed",
-        `standard '${standard.name}' produced no renewable exact-HEAD evidence because ${pinned}. Restore a clean committed tree, then retry the same proposal command.`,
-      ),
-    };
-  }
   if (reading?.value === undefined || !Number.isFinite(reading.value)) {
     const diagnostic = measured.diagnostics.find((entry) =>
       entry.tool === standard.name
@@ -552,6 +538,20 @@ async function proposalMeasurement(
           diagnostic === undefined ? "" : `: ${diagnostic.message}`
         }. Fix the command or emitted metric, then retry this proposal command; it measures only the named standard.`,
         diagnostic,
+      ),
+    };
+  }
+  if (!measured.evidenceRecorded) {
+    const pinned = measured.pin.head === undefined
+      ? "the starting HEAD could not be read"
+      : !measured.pin.clean
+      ? "the worktree was not clean when measurement began"
+      : "HEAD or the worktree changed while the measurement ran";
+    return {
+      ok: false,
+      result: proposalFailure(
+        "precondition_failed",
+        `standard '${standard.name}' produced no renewable exact-HEAD evidence because ${pinned}. Restore a clean committed tree, then retry the same proposal command.`,
       ),
     };
   }

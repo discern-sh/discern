@@ -25,7 +25,7 @@ import type {
   JobTimeout,
   StageRunResult,
 } from "./types.ts";
-import { spawnJob, type SpawnOptions } from "./command.ts";
+import { type SpawnedJob, spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 import {
   type TerminalContext,
@@ -177,6 +177,15 @@ function chainExternal(
   return (): void => external.removeEventListener("abort", onAbort);
 }
 
+/** One settled physical job shares the static transcript used by every scheduler. */
+export function presentJobResult(settled: SpawnedJob, opts: RunOptions): void {
+  if (opts.quiet) return;
+  const write = opts.write ?? defaultWrite;
+  const terminal = opts.terminal ?? terminalPresentationContext(opts.color);
+  write(banner(settled.result, terminal));
+  if (!opts.stream && settled.output.length > 0) write(settled.output);
+}
+
 /**
  * Run labelled jobs concurrently. With fail-fast, the moment one job fails the
  * rest are cancelled (tree-killed). Their non-zero exit keeps the stage red,
@@ -188,7 +197,6 @@ export async function runParallel(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
-  const terminal = opts.terminal ?? terminalPresentationContext(opts.color);
   // Quiet (--json): withhold every write and force buffered capture so spawnJob
   // can't stream-write either. Failure output is still captured for diagnostics.
   const quiet = opts.quiet ?? false;
@@ -219,10 +227,7 @@ export async function runParallel(
     );
     if (!quiet) {
       for (const s of settled) {
-        write(banner(s.result, terminal));
-        if (!stream && s.output.length > 0) {
-          write(s.output);
-        }
+        presentJobResult(s, opts);
       }
     }
     const results = settled.map((s) => s.result);
@@ -247,7 +252,6 @@ export async function runSerial(
   opts: RunOptions,
 ): Promise<StageRunResult> {
   const write = opts.write ?? defaultWrite;
-  const terminal = opts.terminal ?? terminalPresentationContext(opts.color);
   const quiet = opts.quiet ?? false;
   const stream = quiet ? false : opts.stream;
   const controller = new AbortController();
@@ -271,10 +275,7 @@ export async function runSerial(
       const result = await evaluateResult(job, s.result);
       opts.observer?.settled(result);
       if (!quiet) {
-        write(banner(result, terminal));
-        if (!stream && s.output.length > 0) {
-          write(s.output);
-        }
+        presentJobResult({ ...s, result }, opts);
       }
       results.push(result);
       if (result.code !== 0) {

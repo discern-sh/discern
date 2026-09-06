@@ -48,7 +48,7 @@ import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./proof.ts";
-import { fmtRate } from "./standards.ts";
+import { fmtRate } from "../validation/metrics.ts";
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { markdownBlockquote } from "../../shared/markdown_blockquote.ts";
 

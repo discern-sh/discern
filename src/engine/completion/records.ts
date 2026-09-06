@@ -145,9 +145,10 @@ function fixedRecordIdentity(record: CompletionRecord): unknown {
         authority_settlement: undefined,
         note: undefined,
         note_result: undefined,
+        convergence_result: undefined,
       };
     case "retirement":
-      return { ...record.data, outcome: undefined };
+      return { ...record.data, outcome: undefined, effects: undefined };
     case "queue":
       return null;
     default:
@@ -156,7 +157,7 @@ function fixedRecordIdentity(record: CompletionRecord): unknown {
 }
 
 /** A landed transition cannot be made pending by a later cleanup or note failure. */
-function landingAdvanced(record: CompletionRecord): boolean {
+export function landingAdvanced(record: CompletionRecord): boolean {
   return record.kind === "landing" && (record.data.outcome.kind === "landed" ||
     (record.data.outcome.kind === "recovery" &&
       record.data.outcome.ref_advanced));
@@ -173,6 +174,12 @@ export function recordTransitionAllowed(
     COMPLETION_FAMILIES[previous.kind].lifetime === "immutable" ||
     JSON.stringify(fixedRecordIdentity(previous)) !==
       JSON.stringify(fixedRecordIdentity(next))
+  ) return false;
+  if (
+    previous.kind === "retirement" && next.kind === "retirement" &&
+    Object.entries(previous.data.effects ?? {}).some(([field, value]) =>
+      value && Reflect.get(next.data.effects ?? {}, field) !== true
+    )
   ) return false;
   if (landingAdvanced(previous) && !landingAdvanced(next)) return false;
   if (previous.kind === "attempt" && next.kind === "attempt") {

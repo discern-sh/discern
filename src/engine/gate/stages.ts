@@ -1,9 +1,8 @@
 /**
  * Building the gate's jobs for a stage from `discern.toml`.
  *
- *   known jobs    every known `[jobs]` name whose derived stage matches. A list
- *                 expands to one job per element (first labelled with the bare
- *                 name, later ones `name#2`, `name#3`). kind = "known".
+ *   known jobs    every known `[jobs]` name whose derived stage matches. Its
+ *                 ordered command list is one supervised recipe. kind = "known".
  *   custom jobs   every `[jobs.<name>]` whose declared `stage` matches. Its
  *                 `run` list joins into one command. kind = "custom".
  *   generated     every `[generated.<name>]` command in the build stage,
@@ -16,7 +15,6 @@ import {
   commandTimeout,
   type DiscernConfig,
   toCommand,
-  toCommandList,
 } from "../../shared/config_schema.ts";
 import { isKnownJob, jobStage, type Stage } from "../../shared/capabilities.ts";
 import type { JobTimeout } from "../jobs/types.ts";
@@ -58,14 +56,15 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       const timeout: JobTimeout | undefined = timeoutS === undefined
         ? undefined
         : { seconds: timeoutS, key: `[jobs.${name}].timeout` };
-      toCommandList(value).forEach((command, i) => {
+      const command = expandSourcePathReferences(toCommand(value), config);
+      if (command.trim() !== "" && command.trim() !== ":") {
         jobs.push({
-          label: i === 0 ? name : `${name}#${i + 1}`,
-          command: expandSourcePathReferences(command, config),
+          label: name,
+          command,
           kind: "known",
-          ...(timeout !== undefined ? { timeout } : {}),
+          ...(timeout === undefined ? {} : { timeout }),
         });
-      });
+      }
       continue;
     }
     const spec = value;
@@ -79,7 +78,7 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       toCommand(spec.run),
       config,
     );
-    if (run === "") {
+    if (run.trim() === "" || run.trim() === ":") {
       continue;
     }
     jobs.push({

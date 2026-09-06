@@ -165,10 +165,14 @@ export async function assessCandidateReview(
       declaration: await sha256Hex(declarationMaterial(declaration)),
     });
   }
-  // Existing fail-open checkpoint accounts remain explicit; a later reading cannot add new uncertainty.
+  // Runtime predicate accounts stay bound to the retained attempt; this read rechecks structural facts without executing those predicates.
   if (
     JSON.stringify(inspection.drops) !==
-      JSON.stringify(review.checkpoints?.drops ?? [])
+      JSON.stringify(
+        (review.checkpoints?.drops ?? []).filter((drop) =>
+          !drop.reason.startsWith("when_")
+        ),
+      )
   ) {
     blockers.push({
       kind: "missing-judgment",

@@ -1,4 +1,6 @@
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
+import type { CompletionBlocker } from "../completion/protocol.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 /** The caller's own released environment is independent of queue membership or success. */
 import type {
   DiscernConfig,
@@ -11,6 +13,7 @@ import { createNativeExecutionLifetime } from "./lifetime.ts";
 import { createGitExecutionWorkspace } from "./workspace.ts";
 import { declarationIdentity } from "./subjects.ts";
 import {
+  environmentAvailabilityBlocker,
   registerExecutionEnvironment,
   releaseExecutionEnvironment,
   requireEnvironment,
@@ -37,7 +40,7 @@ export async function ownValidationEnvironment(
     environmentId: string;
     workspace: ExecutionWorkspace;
     lifetime: ExecutionLifetime;
-  }
+  } | CompletionBlocker
 > {
   root = await Deno.realPath(root);
   const settings = await loadIdentitySettings(root);
@@ -57,6 +60,17 @@ export async function ownValidationEnvironment(
     record.kind === "environment" && record.data.path === root &&
     record.data.state.kind !== "disposed"
   );
+  if (
+    activeEnvironment?.kind === "environment" &&
+    activeEnvironment.data.state.kind !== "idle"
+  ) {
+    const pending = environmentAvailabilityBlocker(
+      activeEnvironment.id,
+      activeEnvironment.data,
+      SYSTEM_CLOCK.wallNow(),
+    );
+    if (pending !== null) return pending;
+  }
   let environmentId = activeEnvironment?.id ?? SYSTEM_SECURE_ENTROPY.uuid();
   if (
     activeEnvironment?.kind === "environment" &&

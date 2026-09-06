@@ -1,3 +1,4 @@
+import type { ProducerBoundary } from "../validation/execute.ts";
 /**
  * Tree-drift strand detection (ADR 0047, extended to every stage by ADR 0148) —
  * the gate's guard against a GREEN finish that nonetheless leaves uncommitted
@@ -160,5 +161,66 @@ export async function treeDriftDiagnostic(
       `${origin} left ${paths.length} tracked file(s) uncommitted: ${shown}${more}`,
     reproduce_cmd: "git diff",
     ...outputFields,
+  };
+}
+
+/** Observe the same producer dependency boundaries used by the public gate. */
+export async function createTreeDriftBoundary(
+  root: string,
+  stages: ReadonlyMap<string, string>,
+  proofEligible: boolean,
+): Promise<{
+  observer: ProducerBoundary;
+  strands: () => StageStrands[];
+  unavailable: () => boolean;
+}> {
+  const before = await worktreeDirtyPaths(root);
+  const snapshots: StageSnapshot[] = [];
+  let unreadable = before === null;
+  let commandFailed = false;
+  let checkpoint: Promise<void> | undefined;
+  const strands = (): StageStrands[] =>
+    before === null || commandFailed ? [] : strandedByStage(before, snapshots);
+  return {
+    strands,
+    unavailable: () => unreadable,
+    observer: {
+      before: async (producer): Promise<void> => {
+        const stage = stages.get(producer.selector);
+        if (!proofEligible || stage === "fix" || stage === "build") return;
+        checkpoint ??= (async () => {
+          if (unreadable) {
+            throw new Error(
+              "Tracked checkout observation is unavailable; no reusable Proof can be issued.",
+            );
+          }
+          const pending = strands();
+          if (pending.length > 0) {
+            throw new Error((await treeDriftDiagnostic(root, pending)).message);
+          }
+        })();
+        await checkpoint;
+      },
+      after: async (producer, capture): Promise<void> => {
+        if (capture.result === undefined) return;
+        commandFailed ||= capture.result.status !== "ok";
+        const dirty = await worktreeDirtyPaths(root);
+        unreadable ||= dirty === null;
+        if (dirty !== null) {
+          snapshots.push({
+            stage: producer.selector.startsWith("scopes.")
+              ? "scope_gates"
+              : stages.get(producer.selector) === "fix"
+              ? "fix"
+              : stages.get(producer.selector) === "build"
+              ? "build"
+              : stages.get(producer.selector) === "test"
+              ? "test"
+              : "check",
+            dirty,
+          });
+        }
+      },
+    },
   };
 }

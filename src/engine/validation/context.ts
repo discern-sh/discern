@@ -71,6 +71,23 @@ export async function candidateConditions(
   root: string,
 ): Promise<ValidationConditions[]> {
   const result: ValidationConditions[] = current === undefined ? [] : [current];
+  const records = observation.records.flatMap(({ reading }) =>
+    reading.kind === "recorded" ? [reading.record] : []
+  );
+  const proof =
+    records.filter((record) =>
+      record.kind === "proof" && record.data.candidate_id === candidateId
+    )
+      .sort((a, b) =>
+        a.kind === "proof" && b.kind === "proof"
+          ? b.data.assembled_at - a.data.assembled_at
+          : 0
+      )[0];
+  const referenced = new Set(
+    proof?.kind === "proof"
+      ? proof.data.receipts.map((receipt) => receipt.evidence_id)
+      : [],
+  );
   const contexts = [
     ...new Set(
       configured.obligations.map((obligation) =>
@@ -80,15 +97,17 @@ export async function candidateConditions(
   ];
   for (const context of contexts.filter((name) => name !== current?.context)) {
     let found: ValidationConditions | undefined;
-    const evidence = observation.records.flatMap(({ reading }) =>
-      reading.kind === "recorded" && reading.record.kind === "evidence"
-        ? [reading.record.data]
+    // A complete Proof can refer to unchanged-input receipts produced for an earlier
+    // candidate. Their original context facts remain required; the reader supplies none.
+    const evidence = records.flatMap((record) =>
+      record.kind === "evidence" &&
+        (record.data.candidate_id === candidateId ||
+          referenced.has(record.id)) &&
+        record.data.applicability.context === context
+        ? [record.data]
         : []
     )
-      .filter((record) =>
-        record.candidate_id === candidateId &&
-        record.applicability.context === context
-      ).sort((a, b) => b.sequence - a.sequence);
+      .sort((a, b) => b.sequence - a.sequence);
     for (const record of evidence) {
       const artifact = record.artifacts.find((item) =>
         item.path === "context/facts.json"
@@ -100,8 +119,11 @@ export async function candidateConditions(
         ),
       );
       if (
-        facts.candidate_id !== candidateId || facts.context !== context ||
-        artifact.context !== context || artifact.candidate_id !== candidateId
+        facts.candidate_id !== record.candidate_id ||
+        facts.context !== context ||
+        artifact.context !== context ||
+        artifact.candidate_id !== record.candidate_id ||
+        artifact.attempt_id !== record.attempt_id
       ) {
         throw new Error(
           "Context evidence names a substituted lane or candidate.",

@@ -229,6 +229,16 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
     summary: "The Proof was recorded for this committed tree.",
     stamp: "pass",
   },
+  diagnostic: {
+    checkState: "skip",
+    stateLabel: "diagnostic",
+    summary: "Standalone diagnostics do not issue landing Proof.",
+  },
+  pending: {
+    checkState: "skip",
+    stateLabel: "pending",
+    summary: "Completion evidence or queue admission is pending.",
+  },
   skipped_dirty: {
     checkState: "skip",
     stateLabel: "not recorded",

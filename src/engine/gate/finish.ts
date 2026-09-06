@@ -1,3 +1,6 @@
+import { describeDirtyPaths } from "./proof.ts";
+import { GATE_FAILED_STAGE_LABEL } from "./presentation.ts";
+import type { ProducerBoundary } from "../validation/execute.ts";
 import { createGeneratedBuildBoundary } from "./generated_drift.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { captureCandidateReview } from "./candidate_review.ts";
@@ -10,6 +13,7 @@ import { configuredValidation } from "../validation/configuration.ts";
 import { standaloneValidation } from "../validation/diagnostics.ts";
 import {
   executePublicValidation,
+  producerLabel,
   type PublicValidationRun,
 } from "../validation/public_run.ts";
 import { runCompleteGate } from "./complete_gate.ts";
@@ -76,7 +80,7 @@ import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
 import { createGateTtyProgress, renderGateTtyTable } from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
-import { fmtRate } from "./standards.ts";
+import { fmtRate } from "../validation/metrics.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
@@ -91,7 +95,7 @@ import type {
   StandardLimitProposalData,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
-import { treeDriftDiagnostic, worktreeDirtyPaths } from "./tree_drift.ts";
+import { createTreeDriftBoundary, treeDriftDiagnostic } from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { renderGatePlan } from "./presentation.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
@@ -150,6 +154,7 @@ import {
   HINTS,
   hintTexts,
   interactiveHintTexts,
+  mergeHintTexts,
 } from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
@@ -639,24 +644,17 @@ async function runCandidateGate(
   progress?.replaceGroups(plan.groups);
   let validation: ValidationStart | undefined;
   if (cfg.project.logbook) {
-    validation = failedStage === null
-      ? await captureValidationStart(
-        root,
-        cfg,
-        VALIDATION_RUNS.done,
-        plan.groups,
-        presentation.validationCaptureOptions ?? {},
-      )
-      : await validationBoundaryNotReached(
-        root,
-        cfg,
-        VALIDATION_RUNS.done,
-        plan.groups,
-        presentation.validationCaptureOptions ?? {},
-      );
+    validation = await validationBoundaryNotReached(
+      root,
+      cfg,
+      VALIDATION_RUNS.done,
+      plan.groups,
+      presentation.validationCaptureOptions ?? {},
+    );
   }
   let validationRun: PublicValidationRun | undefined;
   let treeDriftDiag: Diagnostic | undefined;
+  let scopeDriftDiag: Diagnostic | undefined;
   let generatedDiagnostics: Diagnostic[] = [];
   let generatedFailureRemedies: FiredHint[] | undefined;
   if (failedStage === null) {
@@ -666,10 +664,47 @@ async function runCandidateGate(
       resolveGeneratedGroups(cfg),
       configured.stages,
     );
+    const treeBoundary = await createTreeDriftBoundary(
+      root,
+      configured.stages,
+      treePin.clean,
+    );
+    let validationCapture: Promise<ValidationStart> | undefined;
+    const producerBoundary: ProducerBoundary = {
+      after: async (producer, capture): Promise<void> => {
+        await treeBoundary.observer.after(producer, capture);
+        await generatedBoundary.observer.after(producer, capture);
+      },
+      before: async (
+        ...args: Parameters<ProducerBoundary["before"]>
+      ): Promise<void> => {
+        await generatedBoundary.observer.before(...args);
+        await treeBoundary.observer.before(...args);
+        const stage = configured.stages.get(args[0].selector);
+        if (cfg.project.logbook && (stage === "check" || stage === "test")) {
+          validationCapture ??= captureValidationStart(
+            root,
+            cfg,
+            VALIDATION_RUNS.done,
+            plan.groups,
+            presentation.validationCaptureOptions ?? {},
+          );
+          validation = await validationCapture;
+        }
+      },
+    };
+    const announcedGroups = new Set<string>();
     const onProgress = (
       { producer, state }: { producer: string; state: "running" | "finished" },
     ): void => {
-      if (state === "running") runOut.info(`Validating ${producer}.`);
+      if (state !== "running") return;
+      const group = plan.groups.find((item) =>
+        item.jobs.some((job) => job.label === producerLabel(producer))
+      );
+      if (group !== undefined && !announcedGroups.has(group.stage)) {
+        announcedGroups.add(group.stage);
+        runOut.heading(group.heading);
+      }
     };
     validationRun = presentation.completion === undefined
       ? await standaloneValidation({
@@ -682,8 +717,8 @@ async function runCandidateGate(
         context: presentation.context ?? "local",
         ...(signal === undefined ? {} : { signal }),
         onProgress,
-        producerBoundary: generatedBoundary.observer,
-        capacity: { slots, out: runOut },
+        producerBoundary,
+        capacity: { slots, out: runOut, runner: runOpts },
       })
       : await executePublicValidation({
         root,
@@ -703,8 +738,8 @@ async function runCandidateGate(
           ? {}
           : { rerun_of: presentation.completion.rerun_of }),
         onProgress,
-        producerBoundary: generatedBoundary.observer,
-        capacity: { slots, out: runOut },
+        producerBoundary,
+        capacity: { slots, out: runOut, runner: runOpts },
       });
     generatedDiagnostics = generatedBoundary.diagnostics;
     generatedFailureRemedies = generatedBoundary.hints;
@@ -718,15 +753,40 @@ async function runCandidateGate(
         )
       )?.stage ?? "check/test";
     }
-    const dirtyAfter = await worktreeDirtyPaths(root);
+    const strands = treeBoundary.strands();
     if (generatedDiagnostics.length > 0) {
       failedStage = "generated_drift";
-    } else if (treePin.clean && dirtyAfter !== null && dirtyAfter.size > 0) {
+    } else if (strands.length > 0) {
       failedStage = "tree_drift";
-      treeDriftDiag = await treeDriftDiagnostic(root, [{
-        stage: "check/test",
-        paths: [...dirtyAfter],
-      }]);
+      treeDriftDiag = await treeDriftDiagnostic(root, strands);
+    } else if (treeBoundary.unavailable() && failedStage === null) {
+      failedStage = "tree_drift";
+      treeDriftDiag = {
+        tool: "tree-drift",
+        severity: "error",
+        message:
+          "Tracked checkout observation is unavailable; no reusable Proof can be issued.",
+        reproduce_cmd: "git status --short",
+      };
+    }
+  }
+
+  if (failedStage === null && presentation.completion === undefined) {
+    const currentScopes =
+      (await classifyScopeImpact(root, cfg, policyBase)).scopes;
+    const missingScopes = currentScopes.filter((scope) =>
+      !changed.includes(scope)
+    );
+    if (missingScopes.length > 0) {
+      failedStage = "scope_gates";
+      scopeDriftDiag = {
+        tool: "scope-selection",
+        severity: "error",
+        message: `Project commands changed the scope selection: ${
+          missingScopes.join(", ")
+        }. These scopes were absent from this run's validation demand. Run discern prepare, review the changed files, then run discern done on the prepared committed source or use --standalone for fresh diagnostics.`,
+        reproduce_cmd: "discern prepare",
+      };
     }
   }
 
@@ -785,14 +845,18 @@ async function runCandidateGate(
     }
   }
   for (const o of standardsData) {
-    if (o.measurement !== "measured" || o.value === undefined) {
+    if (o.value === undefined) {
       continue;
     }
     const step = (result.steps ?? []).find(
       (s) => s.step.label === standardJobLabel(o.name),
     );
     if (step !== undefined && step.step.note !== undefined) {
-      step.step.note = `${step.step.note}, measured ${fmtRate(o.value)}`;
+      step.step.note = o.measurement === "replayed"
+        ? `${step.step.note}, measured ${
+          fmtRate(o.value)
+        }; replayed from ${o.replayed_from} (inputs unchanged)`
+        : `${step.step.note}, measured ${fmtRate(o.value)}`;
     }
   }
   // The fail-fast checks aren't plan-group jobs, so their diagnostics are attached
@@ -842,6 +906,9 @@ async function runCandidateGate(
       ...generatedDiagnostics,
     ];
   }
+  if (scopeDriftDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), scopeDriftDiag];
+  }
   if (treeDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];
   }
@@ -857,10 +924,14 @@ async function runCandidateGate(
   // Landing evidence is published only after the environment has returned and queue admission succeeds.
   const gateProof: NonNullable<GateData["gate_proof"]> = {
     status: presentation.completion === undefined
-      ? "skipped_dirty"
-      : "unavailable",
+      ? treePin.clean ? "diagnostic" : "skipped_dirty"
+      : "pending",
     reason: presentation.completion === undefined
-      ? "Standalone feedback does not issue Proof."
+      ? treePin.clean
+        ? "Standalone feedback does not issue Proof."
+        : `The worktree was not clean when the run began${
+          describeDirtyPaths(treePin.dirtyPaths)
+        }. Standalone feedback does not issue Proof.`
       : "Complete queue admission is pending.",
   };
   if (result.data !== undefined) {
@@ -935,6 +1006,9 @@ async function runCandidateGate(
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
   const hints: FiredHint[] = [
     ...leadingFailureHints,
+    ...(gateProof.status === "skipped_dirty"
+      ? [fire(HINTS["gate-proof-skipped-dirty"], { reason: gateProof.reason })]
+      : []),
     ...(inProgress !== undefined ? [inProgress] : []),
     ...(mergeWarning !== undefined ? [mergeWarning] : []),
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
@@ -1051,14 +1125,17 @@ async function runCandidateGate(
             (await inlineFindingRoutes(root, cfg)).done,
             proof.branch,
           );
-        result.hints = [
-          ...new Set([
-            ...(result.hints ?? []),
-            ...hintTexts(proofHints),
-            ...(recordingHint === undefined ? [] : [recordingHint.text]),
-            ...hintTexts(logbookHints),
-          ]),
-        ];
+        const existingHintIds = new Set(
+          firedHintsFromTexts(result.hints).map((hint) => hint.id),
+        );
+        result.hints = mergeHintTexts(
+          result.hints ?? [],
+          hintTexts([
+            ...proofHints,
+            ...(recordingHint === undefined ? [] : [recordingHint]),
+            ...logbookHints,
+          ].filter((hint) => !existingHintIds.has(hint.id))),
+        );
       }
       if (writeAuthority !== undefined) {
         await recordLastGateRun(
@@ -1081,6 +1158,8 @@ function gateProofHint(
   if (failedStage === null) {
     switch (proof.status) {
       case "recorded":
+      case "diagnostic":
+      case "pending":
         return undefined;
       case "skipped_dirty":
         return fire(HINTS["gate-proof-skipped-dirty"], {
@@ -1973,7 +2052,7 @@ export async function runFinish(
   }
   if (failedStage !== null) {
     const headline = interactiveHintTexts(result.hints)[0] ??
-      "The gate failed.";
+      `${GATE_FAILED_STAGE_LABEL[failedStage]} failed.`;
     renderFailureTail(out, {
       verb: "done",
       headline,

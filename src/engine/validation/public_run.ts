@@ -20,6 +20,7 @@ import type {
   ValidationSubject,
 } from "../completion/protocol.ts";
 import type { JobResult } from "../jobs/types.ts";
+import type { RunOptions } from "../jobs/runner.ts";
 import {
   type ConfiguredValidation,
   configuredValidation,
@@ -48,7 +49,7 @@ import {
   heldVerdict,
   standardPinEvidence,
   type StandardVerdict,
-} from "../gate/standards.ts";
+} from "./metrics.ts";
 import { standardHeld, standardVerdict } from "./metrics.ts";
 
 import {
@@ -64,6 +65,7 @@ import type { ComponentEvidence } from "../completion/evidence.ts";
 export interface PublicValidationCapacity {
   readonly slots: TestRunSlots | undefined;
   readonly out: Out;
+  readonly runner?: RunOptions;
 }
 
 export interface PublicValidationRun {
@@ -89,7 +91,9 @@ export function producerLabel(selector: string): string {
   if (selector.startsWith("scopes.")) {
     return `scope:${selector.slice("scopes.".length, -".gate".length)}`;
   }
-  return standardJobLabel(selector.slice("standards.".length));
+  return selector.startsWith("standards.")
+    ? standardJobLabel(selector.slice("standards.".length))
+    : selector;
 }
 
 /** All process effects remain below the environment lease; diagnostic results stay transient. */
@@ -190,6 +194,11 @@ export async function executePublicValidation(input: {
           : {},
       inheritedEnvironment: hostEnv,
       timeout: config.gate.timeout,
+      timeouts: configured.timeouts,
+      jobLabel: producerLabel,
+      ...(input.capacity?.runner === undefined
+        ? {}
+        : { presentation: input.capacity.runner }),
       verifyConditions: async () => {
         if (
           JSON.stringify(await observeValidationInputs(root, toolchain)) !==
@@ -332,7 +341,10 @@ export async function executePublicValidation(input: {
     if (component === undefined || !("reason" in component.outcome)) continue;
     const label = producerLabel(obligation.producer);
     const prior = results.get(label);
-    if (prior?.status === "failed") continue;
+    if (
+      prior?.status === "failed" ||
+      prior === undefined && (counts[obligation.producer] ?? 0) === 0
+    ) continue;
     results.set(label, {
       label,
       durationS: 0,
@@ -437,7 +449,16 @@ export async function executePublicValidation(input: {
         );
         verdicts.set(standard.name, verdict);
         value = verdict.value;
-        from = selected.data.candidate_id;
+        const origin = records.find((record) =>
+          record.kind === "candidate" &&
+          record.id === selected.data.candidate_id
+        );
+        if (origin?.kind !== "candidate") {
+          throw new Error(
+            "Reused measurement has no retained candidate provenance.",
+          );
+        }
+        from = origin.data.head;
       }
     }
     const producerResult = results.get(producerLabel(obligation.producer));

@@ -37,6 +37,7 @@ import type { EnvReader } from "../shared/env.ts";
 import {
   type DiscernConfig,
   parseConfig,
+  RECORD_ENTRY_SCHEMAS,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import type { ConfigReconcileOperationKind } from "../shared/config_reconcile.ts";
@@ -55,14 +56,7 @@ export interface ConfigReconcileResult {
 /** The user-populated record tables whose named entries are project-owned
  * population — never key-backfilled by scaffold reconciliation, and the families
  * whose shape-doc banners it manages instead (ADR 0138). */
-export const RECORD_CONFIG_PATHS = [
-  "jobs",
-  "scopes",
-  "generated",
-  "standards",
-  "checkpoints",
-  "worktree.resources",
-] as const;
+export const RECORD_CONFIG_PATHS = Object.keys(RECORD_ENTRY_SCHEMAS);
 
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {

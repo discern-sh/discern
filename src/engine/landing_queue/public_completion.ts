@@ -25,7 +25,7 @@ import { finishedValidationAttempts } from "../validation/selection.ts";
 import { requirementSetIdentity } from "../validation/catalog.ts";
 import type { PublicValidationRun } from "../validation/public_run.ts";
 import { createEnvironmentExecutor } from "../execution/executor.ts";
-import { resolveIdentity } from "../worktree/identity.ts";
+import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
 import {
   ownValidationEnvironment,
   releasedValidationEnvironment,
@@ -148,7 +148,18 @@ export async function withPublicCompletion<T>(
   const root = await Deno.realPath(rootInput);
   return await withCompletionCheckout(root, async (signal) => {
     const config = await loadConfig(root);
-    const identity = await resolveIdentity(root, root);
+    let identity;
+    try {
+      identity = await resolveIdentity(root, root);
+    } catch (error) {
+      if (error instanceof IdentityError) {
+        return {
+          kind: "environment-unavailable" as const,
+          reason: error.message,
+        };
+      }
+      throw error;
+    }
     const branch = await gitValue(root, ["symbolic-ref", "--quiet", "HEAD"]);
     const source = options.source ??
       await observeSource(root, identity.id, branch);
@@ -274,7 +285,7 @@ export async function withPublicCompletion<T>(
       return {
         kind: "environment-unavailable",
         reason:
-          `This candidate needs temporary composition. Declare execution.${options.context}, or update the source to the current trunk and run done again.`,
+          `This candidate needs temporary composition. Declare execution.${options.context}, or run discern update in the source worktree and then discern done.`,
       };
     }
     if (declaration?.kind === "isolated") {
@@ -284,22 +295,23 @@ export async function withPublicCompletion<T>(
           "This source checkout cannot be used as an isolated slot. Select an explicitly provisioned execution environment.",
       };
     }
-    const { environmentId, workspace, lifetime } =
-      options.released === undefined
-        ? await ownValidationEnvironment(
-          root,
-          config,
-          source,
-          actor,
-          declaration,
-        )
-        : await releasedValidationEnvironment(
-          root,
-          config,
-          source,
-          declaration,
-          options.released,
-        );
+    const capabilities = options.released === undefined
+      ? await ownValidationEnvironment(
+        root,
+        config,
+        source,
+        actor,
+        declaration,
+      )
+      : await releasedValidationEnvironment(
+        root,
+        config,
+        source,
+        declaration,
+        options.released,
+      );
+    if ("kind" in capabilities) return capabilities;
+    const { environmentId, workspace, lifetime } = capabilities;
     observation = await observeCompletionRecords(root);
     records = observedRecords(observation);
     const rerunOf = options.rerun
@@ -461,7 +473,12 @@ export async function withPublicCompletion<T>(
       const blocker = {
         kind: "recovery-incomplete" as const,
         record_id: environmentId,
-        recovery: returned.returned.recovery,
+        recovery: {
+          ...returned.returned.recovery,
+          reason: executionFailure === undefined
+            ? returned.returned.recovery.reason
+            : `${executionFailure} Environment return also needs recovery: ${returned.returned.recovery.reason}`,
+        },
       };
       return result === null
         ? blocker

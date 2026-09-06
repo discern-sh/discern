@@ -17,8 +17,8 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
 import { withCompletionCheckout } from "../operation_lock.ts";
-import { resolveIdentity } from "../worktree/identity.ts";
-import { integrationBranch } from "../worktree/git.ts";
+import { IdentityError, resolveIdentity } from "../worktree/identity.ts";
+import { integrationBranch, repoToplevel } from "../worktree/git.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
 import { configuredValidation } from "./configuration.ts";
 import { requirementSetIdentity } from "./catalog.ts";
@@ -42,7 +42,6 @@ import { ownValidationEnvironment } from "../execution/public_environment.ts";
 import { createEnvironmentExecutor } from "../execution/executor.ts";
 import { completionLease } from "../landing_queue/public_completion.ts";
 import {
-  composeCandidate,
   gitValue,
   observeSource,
   retainMeasurementCandidate,
@@ -77,7 +76,10 @@ export async function measureDeclaredStandards(
           "Git could not observe the measurement checkout attachment.",
       );
     }
-    if (!pin.clean || pin.head === undefined || !branch.success) {
+    if (
+      !pin.clean || pin.head === undefined || !branch.success ||
+      await repoToplevel(root) !== root
+    ) {
       return await standaloneValidation({
         root,
         config,
@@ -88,7 +90,13 @@ export async function measureDeclaredStandards(
         ...(signal === undefined ? {} : { signal }),
       });
     }
-    const identity = await resolveIdentity(root, root);
+    let identity;
+    try {
+      identity = await resolveIdentity(root, root);
+    } catch (error) {
+      if (error instanceof IdentityError) return unavailable(error.message);
+      throw error;
+    }
     const source = await observeSource(
       root,
       identity.id,
@@ -147,8 +155,15 @@ export async function measureDeclaredStandards(
         regeneration_commit: null,
       },
     };
-    const { environmentId, workspace, lifetime } =
-      await ownValidationEnvironment(root, config, source, actor, null);
+    const capabilities = await ownValidationEnvironment(
+      root,
+      config,
+      source,
+      actor,
+      null,
+    );
+    if ("kind" in capabilities) return capabilities;
+    const { environmentId, workspace, lifetime } = capabilities;
     if (
       (await readCompletionRecord(root, {
         kind: "queue",
@@ -234,19 +249,9 @@ export async function measureDeclaredStandards(
     const returned = await executor.execute(claimed, async (execution) => {
       try {
         if (prior === undefined) {
-          const composed = await composeCandidate({
-            root,
-            execution,
-            prepare: () =>
-              workspace.run(execution, plan, "prepare", execution.signal),
-            recipe,
-            dependencies: [],
-            predecessor,
-            policy,
-            requirement_set: requirementSet,
-          });
-          if ("kind" in composed) throw new Error(JSON.stringify(composed));
-          candidate = composed;
+          // A measurement reports this exact authored source against the current
+          // policy base. It neither composes a landing candidate nor enters the queue.
+          candidate = { ...candidate, attempt_id: execution.fence.attempt_id };
           await retainMeasurementCandidate(
             root,
             candidateId,

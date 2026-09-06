@@ -37,7 +37,12 @@ import {
   readArtifact,
   retainArtifact,
 } from "./artifacts.ts";
-import type { JobResult } from "../jobs/types.ts";
+import {
+  GATE_TIMEOUT_KEY,
+  type JobResult,
+  type JobTimeout,
+} from "../jobs/types.ts";
+import type { RunOptions } from "../jobs/runner.ts";
 import type { ProducerCapture, ValidationRuntime } from "./execute.ts";
 
 /** Read-only inventory preserves unavailable/newer readings for fail-closed planning. */
@@ -140,6 +145,9 @@ export interface ValidationRuntimeOptions {
   ) => Readonly<Record<string, string>>;
   readonly inheritedEnvironment: EnvReader;
   readonly timeout: number;
+  readonly timeouts?: ReadonlyMap<string, JobTimeout>;
+  readonly presentation?: RunOptions;
+  readonly jobLabel?: (selector: string) => string;
   /** Re-observe applicable toolchain, environment, resource and input identity at effects. */
   readonly verifyConditions: () => Promise<void>;
   readonly clock?: Clock;
@@ -177,15 +185,19 @@ function runtime(
   const run = async (
     label: string,
     runCommands: readonly string[],
-    timeout: number,
+    timeout: JobTimeout,
     execution: ValidationSubject,
     stdin?: Uint8Array,
   ): Promise<ProducerCapture> => {
     const result = await runCapturedCommands({
       root: options.root,
-      label,
+      label: options.jobLabel?.(label) ?? label,
       commands: runCommands,
-      timeout,
+      ...(options.presentation === undefined
+        ? {}
+        : { presentation: options.presentation }),
+      timeout: timeout.seconds,
+      timeoutKey: timeout.key,
       signal: execution.signal,
       environment: options.commandEnvironment?.(label) ?? options.environment,
       ...(stdin === undefined ? {} : { stdin }),
@@ -334,7 +346,11 @@ function runtime(
       const capture = await run(
         producer.selector,
         commands(producer.recipe.run),
-        producer.recipe.timeout ?? options.timeout,
+        options.timeouts?.get(producer.selector) ??
+          {
+            seconds: producer.recipe.timeout ?? options.timeout,
+            key: GATE_TIMEOUT_KEY,
+          },
         execution,
       );
       if (capture.outcome !== "passed" || !capture.complete) return capture;
@@ -378,7 +394,8 @@ function runtime(
       const result = await run(
         `extract:${obligation.subject}`,
         extraction.run,
-        options.timeout,
+        options.timeouts?.get(`standards.${obligation.requirement.id}`) ??
+          { seconds: options.timeout, key: GATE_TIMEOUT_KEY },
         execution,
         stdin,
       );

@@ -352,25 +352,15 @@ export async function releaseExecutionEnvironment(
   });
 }
 
-/** One configured executor plans only its own explicitly enrolled slot. */
-export function planEnvironment(
+/** Project the recorded execution state before planning any release or reuse. */
+export function environmentAvailabilityBlocker(
   environmentId: string,
-  declaration: EnvironmentDeclaration | null,
-  observation: CompletionObservation,
-  validation: ValidationPlan,
-): EnvironmentPlan | CompletionBlocker {
-  const reading = observation.records.find(({ selector }) =>
-    selector.kind === "environment" && selector.id === environmentId
-  )?.reading;
-  if (reading?.kind !== "recorded" || reading.record.kind !== "environment") {
-    return unavailable(
-      `Environment ${environmentId} has no readable enrollment and release.`,
-    );
-  }
-  const environment = reading.record.data;
+  environment: ExecutionEnvironment,
+  now: CompletionObservation["observed_at"],
+): CompletionBlocker | null {
   const availability = environmentAvailability(
     environment,
-    observation.observed_at,
+    now,
   );
   if (availability.kind !== "available") {
     if (environment.state.kind === "recovery") {
@@ -409,6 +399,31 @@ export function planEnvironment(
       `Environment ${environmentId} is ${availability.reason}; reconcile or explicitly release it before execution.`,
     );
   }
+  return null;
+}
+
+/** One configured executor plans only its own explicitly enrolled slot. */
+export function planEnvironment(
+  environmentId: string,
+  declaration: EnvironmentDeclaration | null,
+  observation: CompletionObservation,
+  validation: ValidationPlan,
+): EnvironmentPlan | CompletionBlocker {
+  const reading = observation.records.find(({ selector }) =>
+    selector.kind === "environment" && selector.id === environmentId
+  )?.reading;
+  if (reading?.kind !== "recorded" || reading.record.kind !== "environment") {
+    return unavailable(
+      `Environment ${environmentId} has no readable enrollment and release.`,
+    );
+  }
+  const environment = reading.record.data;
+  const blocked = environmentAvailabilityBlocker(
+    environmentId,
+    environment,
+    observation.observed_at,
+  );
+  if (blocked !== null) return blocked;
   const candidate = validation.candidate;
   if (
     validation.demand.kind === "diagnostic" &&

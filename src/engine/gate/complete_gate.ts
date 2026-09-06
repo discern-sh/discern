@@ -17,7 +17,7 @@ import {
   type CompletionSession,
   withPublicCompletion,
 } from "../landing_queue/public_completion.ts";
-import { pinValidatedTree } from "./proof.ts";
+import { pinValidatedTree, preflightAdminStateWrites } from "./proof.ts";
 
 interface CompletionGateResult {
   result: DiscernResult<GateData>;
@@ -40,6 +40,9 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (!pin.clean || pin.head === undefined || options.standalone) {
     return (await run(undefined)).value;
   }
+  if (!(await preflightAdminStateWrites(root)).ok) {
+    return (await run(undefined)).value;
+  }
   const config = await loadConfig(root);
   const trunk = await runGit([
     "rev-parse",
@@ -53,6 +56,8 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (completed.kind !== "completed") {
     const reason = "reason" in completed
       ? completed.reason
+      : completed.kind === "recovery-incomplete"
+      ? completed.recovery.reason
       : JSON.stringify(completed);
     return await unrun({
       ok: false,
@@ -68,6 +73,7 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         failed_stage: null,
         scopes_changed: [],
         gate_ran: false,
+        producer_executions: {},
         completion: {
           kind: "pending",
           context,
@@ -88,10 +94,18 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         : { proof_id: completed.proof_id }),
       pending: completed.blockers.map((blocker) => ({
         kind: blocker.kind,
-        reason: "reason" in blocker ? blocker.reason : JSON.stringify(blocker),
+        reason: blocker.kind === "recovery-incomplete"
+          ? blocker.recovery.reason
+          : "reason" in blocker
+          ? blocker.reason
+          : JSON.stringify(blocker),
       })),
       pending_reasons: completed.blockers.map((blocker) =>
-        "reason" in blocker ? blocker.reason : JSON.stringify(blocker)
+        blocker.kind === "recovery-incomplete"
+          ? blocker.recovery.reason
+          : "reason" in blocker
+          ? blocker.reason
+          : JSON.stringify(blocker)
       ),
     };
   }
@@ -129,10 +143,12 @@ function completionNextAction(blocker: { readonly kind: string }): string {
   switch (blocker.kind) {
     case "missing-authority":
       return "Review the candidate with discern accept --dry-run and obtain a recorded grant covering that exact source before accepting.";
+    case "stale-evidence":
+      return "The candidate or its predecessor changed. Run discern update when the source is behind trunk, then run discern done to establish complete current evidence.";
     case "missing-judgment":
       return "Resolve the served checkpoint or composition judgment, then run discern done again.";
     case "environment-unavailable":
-      return "Make an eligible declared execution environment available, or update the source to the current trunk before running discern done.";
+      return "Make an eligible declared execution environment available, or run discern update to bring the source to the current trunk before running discern done.";
     case "recovery-incomplete":
       return "Preserve the retained execution state and reconcile the reported recovery before any new validation or retirement.";
     case "waiting-for-operation":

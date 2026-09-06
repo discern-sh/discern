@@ -522,7 +522,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       }
       if (current.head !== candidate.head) {
         throw new Error(
-          "Source HEAD changed during validation; preserve the checkout and reconcile the intended revision before retrying.",
+          `Source HEAD changed during validation (expected ${candidate.head}, observed ${current.head}); preserve the checkout and reconcile the intended revision before retrying.`,
         );
       }
       return;

@@ -1,3 +1,4 @@
+import { planRefresh } from "../tracked_refresh.ts";
 import { runGit } from "../../shared/subprocess.ts";
 /** Use the existing generated ownership, compiler, and supervised command capabilities. */
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -12,10 +13,7 @@ import {
   adrIndexState,
   hasManagedAdrIndex,
 } from "../../lib/adr_index.ts";
-import {
-  compileInstructions,
-  instructionRefreshErrors,
-} from "../instructions.ts";
+import { applyRefreshPlan, instructionRefreshErrors } from "../instructions.ts";
 import { Logger } from "../../lib/log.ts";
 import { runCapturedCommands } from "../jobs/captured.ts";
 import type {
@@ -141,12 +139,17 @@ export async function convergeGenerated(
       return { kind: "validation-failed", evidence_ids: [] };
     }
   }
-  const refreshed = await compileInstructions(
-    root,
-    new Logger({ json: true, noColor: true }),
-    { reconcileProofNotesFetch: false },
-  );
-  if (instructionRefreshErrors(refreshed).length > 0) {
+  const refresh = await planRefresh(root, { reconcileProofNotesFetch: false });
+  // Composition can regenerate only its declared, fully owned artifacts.
+  // Co-managed provider settings remain authored input; materialization is local.
+  const refreshed = await applyRefreshPlan({
+    ...refresh,
+    effects: refresh.effects.filter((effect) =>
+      effect.type === "file" &&
+      recipe.built_in_paths.includes(effect.target)
+    ),
+  }, new Logger({ json: true, noColor: true }));
+  if (instructionRefreshErrors(refreshed.summary).length > 0) {
     return { kind: "validation-failed", evidence_ids: [] };
   }
   const after = await compositionRecipe(

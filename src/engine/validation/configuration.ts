@@ -16,6 +16,7 @@ import { expandSourcePathReferences } from "../../shared/source_path_references.
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { buildStandardPlan } from "../gate/standard_plan.ts";
+import { GATE_TIMEOUT_KEY, type JobTimeout } from "../jobs/types.ts";
 import {
   commands,
   type ObligationDeclaration,
@@ -27,6 +28,7 @@ export interface ConfiguredValidation {
   readonly obligations: readonly ObligationDeclaration[];
   readonly ordering: ReadonlyMap<string, readonly string[]>;
   readonly stages: ReadonlyMap<string, Stage | "scope_gates" | "standards">;
+  readonly timeouts: ReadonlyMap<string, JobTimeout>;
 }
 
 /** Resolve source references before identities are computed, without interpreting shell code. */
@@ -56,6 +58,11 @@ export async function configuredValidation(
   const obligations: ObligationDeclaration[] = [];
   const ordering = new Map<string, readonly string[]>();
   const stages = new Map<string, Stage | "scope_gates" | "standards">();
+  const timeouts = new Map<string, JobTimeout>();
+  const budget = (seconds: number | undefined, key: string): JobTimeout => ({
+    seconds: seconds ?? config.gate.timeout,
+    key: seconds === undefined ? GATE_TIMEOUT_KEY : key,
+  });
   const add = async (
     selector: string,
     id: string,
@@ -91,6 +98,10 @@ export async function configuredValidation(
     const table = typeof value === "object" && !Array.isArray(value)
       ? value
       : undefined;
+    timeouts.set(
+      `jobs.${name}`,
+      budget(table?.timeout, `[jobs.${name}].timeout`),
+    );
     const stage = isKnownJob(name)
       ? jobStage(name)
       : (value as CustomJobConfig).stage;
@@ -116,6 +127,10 @@ export async function configuredValidation(
     );
   }
   for (const group of resolveGeneratedGroups(config)) {
+    timeouts.set(
+      `jobs.discern-generated-${group.name}`,
+      budget(group.timeout, `[generated.${group.name}].timeout`),
+    );
     await add(
       `jobs.discern-generated-${group.name}`,
       `discern-generated-${group.name}`,
@@ -133,6 +148,10 @@ export async function configuredValidation(
     if (scope.gate === undefined || toCommandList(scope.gate).length === 0) {
       continue;
     }
+    timeouts.set(
+      `scopes.${name}.gate`,
+      budget(scope.timeout, `[scopes.${name}].timeout`),
+    );
     await add(
       `scopes.${name}.gate`,
       name,
@@ -173,6 +192,10 @@ export async function configuredValidation(
   for (const standard of buildStandardPlan(config).standards) {
     const spec = standard.spec;
     const selector = `standards.${standard.name}`;
+    timeouts.set(
+      selector,
+      budget(spec.timeout, `[standards.${standard.name}].timeout`),
+    );
     if (spec.run !== undefined) {
       producers[selector] = recipe(config, {
         run: spec.run,
@@ -242,5 +265,5 @@ export async function configuredValidation(
     );
   }
   resolveProducerGraph(producers, obligations);
-  return { producers, obligations, stages, ordering };
+  return { producers, obligations, stages, ordering, timeouts };
 }

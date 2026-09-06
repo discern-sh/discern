@@ -264,7 +264,7 @@ const DIRTY_PATHS_SHOWN = 6;
 
 /** Render a dirty-path list for a refusal reason: the first few paths, the rest
  * counted — empty when there is nothing to name (an unreadable status). */
-function describeDirtyPaths(paths: readonly string[]): string {
+export function describeDirtyPaths(paths: readonly string[]): string {
   if (paths.length === 0) {
     return "";
   }
@@ -372,30 +372,6 @@ export async function recordGateOutcome(
   }
 
   if (passed) {
-    if (completion === undefined) {
-      return proofRecord("unavailable", {
-        path,
-        reason:
-          "Complete candidate evidence and queue admission are required before recording Proof.",
-      });
-    }
-    try {
-      const complete = await readCompleteProof(cwd, completion);
-      if (
-        complete.candidate.source.head !== pin.head ||
-        complete.validation.mode !== mode
-      ) {
-        return proofRecord("record_failed", {
-          path,
-          reason: "Complete evidence names another source or enforcement mode.",
-        });
-      }
-    } catch (error) {
-      return proofRecord("record_failed", {
-        path,
-        reason: failureReason(error),
-      });
-    }
     if (pin.head === undefined) {
       return proofRecord("unavailable", {
         path,
@@ -431,6 +407,30 @@ export async function recordGateOutcome(
         reason: `the worktree is not clean${
           describeDirtyPaths(dirtyNow ?? [])
         }`,
+      });
+    }
+    if (completion === undefined) {
+      return proofRecord("unavailable", {
+        path,
+        reason:
+          "Complete candidate evidence and queue admission are required before recording Proof.",
+      });
+    }
+    try {
+      const complete = await readCompleteProof(cwd, completion);
+      if (
+        complete.candidate.source.head !== pin.head ||
+        complete.validation.mode !== mode
+      ) {
+        return proofRecord("record_failed", {
+          path,
+          reason: "Complete evidence names another source or enforcement mode.",
+        });
+      }
+    } catch (error) {
+      return proofRecord("record_failed", {
+        path,
+        reason: failureReason(error),
       });
     }
     if (mode === "report") {

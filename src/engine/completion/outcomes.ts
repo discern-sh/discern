@@ -1,3 +1,4 @@
+import { RetirementEffectsSchema } from "../../shared/accept_landing_state.ts";
 /** Durable queue and terminal outcomes; no executor runs from these definitions. */
 import { z } from "@zod/zod";
 import { CompletionClaimSchema } from "./authority.ts";
@@ -94,6 +95,7 @@ export const LandingSchema = z.strictObject({
   authority_settlement: z.enum(["pending", "consumed", "restored"]),
   note: z.enum(["pending", "published", "recovery"]),
   note_result: ArtifactSchema.optional(),
+  convergence_result: ArtifactSchema.optional(),
 }).refine((landing) => {
   if (
     landing.claim.kind === "exception" &&
@@ -113,6 +115,7 @@ export const LandingSchema = z.strictObject({
 export type CompletionLanding = z.infer<typeof LandingSchema>;
 
 export const RetirementSchema = z.strictObject({
+  effects: RetirementEffectsSchema.optional(),
   landing_id: RecordIdSchema,
   source: SourceRevisionSchema,
   environment_id: RecordIdSchema,

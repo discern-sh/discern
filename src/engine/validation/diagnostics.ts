@@ -12,7 +12,7 @@ import type {
 import { CandidateSchema } from "../completion/candidate.ts";
 import { newAttemptIdentity } from "../completion/identity.ts";
 import { withCompletionCheckout } from "../operation_lock.ts";
-import { resolveIdentity } from "../worktree/identity.ts";
+import { seedForBranch } from "../worktree/identity.ts";
 import { configuredValidation } from "./configuration.ts";
 import { requirementSetIdentity } from "./catalog.ts";
 import {
@@ -51,7 +51,7 @@ export async function standaloneValidation(input: {
     );
     const context = input.context ?? "local";
     const mode = input.mode ?? "strict";
-    const identity = await resolveIdentity(root, root);
+    const effort = `diagnostic-${await sha256Hex(root)}`;
     const facts = await runGit(["rev-parse", "HEAD", "HEAD^{tree}"], {
       cwd: root,
     });
@@ -67,7 +67,7 @@ export async function standaloneValidation(input: {
     const candidateId = SYSTEM_SECURE_ENTROPY.uuid();
     const executor = {
       operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
-      originating_effort: identity.id,
+      originating_effort: effort,
       started_at: SYSTEM_CLOCK.wallNow(),
     };
     const attempt = newAttemptIdentity({
@@ -83,7 +83,7 @@ export async function standaloneValidation(input: {
       attempt_id: attempt.id,
       // Detached diagnostics have no authored branch and cannot enter the queue.
       source: {
-        effort_id: identity.id,
+        effort_id: effort,
         branch: branch.success
           ? branch.stdout.trim()
           : "refs/heads/discern-diagnostic-reference",
@@ -118,7 +118,11 @@ export async function standaloneValidation(input: {
       attempt: { identity: attempt, subjects: [], mode, purpose: "diagnostic" },
       environment_id: SYSTEM_SECURE_ENTROPY.uuid(),
       environment: { path: root },
-      seed: identity.seed,
+      seed: seedForBranch(
+        branch.success
+          ? branch.stdout.trim().replace(/^refs\/heads\//u, "")
+          : head ?? "diagnostic",
+      ),
       candidate_id: candidateId,
       candidate,
       signal,

@@ -58,6 +58,8 @@ export interface OwnedChildResult {
 
 /** Options for {@link superviseSpawn}. */
 export interface SuperviseOptions {
+  /** Cancel this child without interrupting the long-lived calling process. */
+  readonly signal?: AbortSignal;
   /**
    * The child is spawned `detached`, leading its own POSIX process group, so an
    * interrupt is delivered to — and swept from — its whole tree. False for an
@@ -110,6 +112,7 @@ export async function superviseSpawn<T>(
   settle: (child: Deno.ChildProcess, interrupted: AbortSignal) => Promise<T>,
   opts: SuperviseOptions,
 ): Promise<SupervisedRun<T>> {
+  opts.signal?.throwIfAborted();
   const ticket = await planExecutionChild();
   const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let child: Deno.ChildProcess | undefined;
@@ -125,6 +128,15 @@ export async function superviseSpawn<T>(
       signalDirectChild(runningChild, signal);
     }
   };
+  const cancel = (): void => {
+    signalChild("SIGTERM");
+    killTimer ??= scheduler.scheduleTimeout(
+      () => signalChild("SIGKILL"),
+      KILL_GRACE_MS,
+    );
+    interruptController.abort();
+  };
+  opts.signal?.addEventListener("abort", cancel, { once: true });
   const handlers = new Map<Deno.Signal, () => void>();
   for (const signal of INTERRUPT_SIGNALS) {
     const handler = (): void => {
@@ -141,11 +153,13 @@ export async function superviseSpawn<T>(
 
   let value: T;
   try {
+    opts.signal?.throwIfAborted();
     child = spawn();
     await ticket?.started(child.pid, opts.isolatedGroup);
     // A signal that arrived between listener install and the spawn found no
     // child to hit — deliver it now.
     if (interruptedBy !== null) signalChild(interruptedBy);
+    else if (opts.signal?.aborted) cancel();
     value = await settle(child, interruptController.signal);
   } catch (error) {
     if (child !== undefined) {
@@ -154,12 +168,13 @@ export async function superviseSpawn<T>(
     }
     throw error;
   } finally {
+    opts.signal?.removeEventListener("abort", cancel);
     if (killTimer !== undefined) scheduler.cancelTimeout(killTimer);
     // A non-interactive shell can exit from SIGINT while a background child
     // remains in the group with SIGINT ignored. The leader is reaped now, so
     // no cooperative cleanup remains to wait for; remove any group survivors.
     if (opts.isolatedGroup && child !== undefined) {
-      if (interruptedBy !== null) {
+      if (interruptController.signal.aborted) {
         signalProcessGroup(child.pid, "SIGKILL");
       } else {
         await quiesceProcessGroup(child.pid);

@@ -110,7 +110,9 @@ export function planValidation(
     selected = selected.filter((o) => producers.has(o.producer));
   }
   for (const obligation of selected) {
-    if (validationPurpose(demand) === "completion") {
+    if (
+      validationPurpose(demand) === "completion" && demand.kind !== "standards"
+    ) {
       const prior = selectEvidence(
         obligation,
         snapshot.candidate_id,
@@ -121,7 +123,10 @@ export function planValidation(
       );
       if (
         prior.kind === "selected" &&
-        prior.record.data.attempt_id !== boundary?.id
+        prior.record.data.attempt_id !== boundary?.id &&
+        !(demand.kind === "pin" && obligation.standard !== null &&
+          prior.reading !== null &&
+          !standardHeld(obligation.standard, prior.reading))
       ) {
         if (
           obligation.standard !== null && prior.reading !== null &&
