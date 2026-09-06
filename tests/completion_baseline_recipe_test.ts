@@ -59,6 +59,13 @@ function fixtureCommand(file: string): string {
     .map(quoteCommandWord).join(" ");
 }
 
+/** Ignore record ordering while retaining every LCOV count and coordinate. */
+function canonicalLcov(text: string): string[] {
+  return text.split("end_of_record").map((record) =>
+    record.trim().split("\n").sort().join("\n")
+  ).filter(Boolean).sort();
+}
+
 /** Seed a two-isolate instrumented suite, a local build, and artifact extraction. */
 async function seedRecipe(root: string): Promise<void> {
   await Deno.mkdir(join(root, "src"));
@@ -92,6 +99,10 @@ import { produceCoverage, writeCoverageArtifact } from ${
       repositoryModule("scripts/coverage.ts")
     };
 import { testCommandArgs } from ${repositoryModule("scripts/run_tests.ts")};
+import { RawCoverageProfileSchema } from ${
+      repositoryModule("scripts/coverage_profiles.ts")
+    };
+import { decodeWith } from ${repositoryModule("tests/decode_cli_result.ts")};
 import { lcovReportArgs } from ${repositoryModule("scripts/coverage_lib.ts")};
 const root = Deno.cwd();
 const lcov = await produceCoverage(root, async (profile) => {
@@ -100,6 +111,15 @@ const lcov = await produceCoverage(root, async (profile) => {
     args: testCommandArgs(42, ['tests', '--coverage=' + profile, '--coverage-raw-data-only']),
     stdout: 'inherit', stderr: 'inherit',
   }).output();
+  const profileNames = [];
+  for await (const entry of Deno.readDir(profile)) {
+    if (entry.isFile && entry.name.endsWith('.json')) profileNames.push(entry.name);
+  }
+  for (const name of profileNames) {
+    const raw = decodeWith(RawCoverageProfileSchema, await Deno.readTextFile(profile + '/' + name));
+    if (typeof raw.url !== 'string' || !raw.url.startsWith('file://' + root + '/src/')) continue;
+    for (const copy of [1, 2, 3]) await Deno.copyFile(profile + '/' + name, profile + '/' + name + '-copy-' + copy + '.json');
+  }
   const reference = await new Deno.Command(Deno.execPath(), {
     args: lcovReportArgs(profile, root), stdout: 'piped', stderr: 'inherit',
   }).output();
@@ -311,6 +331,10 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
     assert(artifact !== undefined);
     const lcov = new TextDecoder().decode(await readArtifact(root, artifact));
     const modules = await sourceModuleUniverse(root);
+    const unsharded = await Deno.readTextFile(
+      join(root, "reports/unsharded.lcov"),
+    );
+    assertEquals(canonicalLcov(lcov), canonicalLcov(unsharded));
     assertEquals(
       srcLineCoverage(lcov, root, modules),
       srcLineCoverage(

@@ -38,7 +38,7 @@ export const REGISTERED_RENAMES = [
   },
   {
     path: "scripts/coverage_profiles.ts",
-    enclosingFunction: "worker",
+    enclosingFunction: "pruneAndShardProfiles",
     reason:
       "Sharding relocates immutable raw coverage profiles between owned scratch directories, replacing nothing.",
   },

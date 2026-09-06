@@ -1779,7 +1779,7 @@ Every authored Deno rename outside the atomic replacement capability, identified
   - `tests/engine_effort_grant_test.ts#Deno.test("old one-shot claims can only settle their existing transaction")`
   - `scripts/build.ts#stageBundledManual`
   - `scripts/cli_install.ts#writeExecutableSync`
-  - `scripts/coverage_profiles.ts#worker`
+  - `scripts/coverage_profiles.ts#pruneAndShardProfiles`
   - `scripts/vale_toolchain.ts#reclaimStaleLock`
   - `scripts/vale_toolchain.ts#ensureVale`
   - `src/engine/logbook/store.ts#detachLogbook`

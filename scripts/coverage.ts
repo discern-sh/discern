@@ -71,7 +71,8 @@ async function shardedLcovReports(
   console.error(
     `coverage profiles: ${summary.sharded} sharded across ` +
       `${summary.shardDirs.length} report passes; ${summary.pruned} non-src ` +
-      `pruned; ${summary.opaque} unrecognized kept for the report filter`,
+      `pruned; ${summary.compacted} repeated observations compacted; ` +
+      `${summary.opaque} unrecognized kept for the report filter`,
   );
   const settled = await Promise.allSettled(
     summary.shardDirs.map((dir) =>
@@ -123,46 +124,55 @@ export async function produceCoverage(
   const started = SYSTEM_CLOCK.monotonicNow();
   let suiteFinished = started;
   let reportsFinished = started;
-  const lcov = await withToolTempDir("coverage-profile", async (profile) => {
-    let suiteFailure: { error: unknown } | undefined;
-    try {
-      await runSuite(profile);
-    } catch (error) {
-      suiteFailure = { error };
-    }
-    suiteFinished = SYSTEM_CLOCK.monotonicNow();
-    let lcov: string;
-    try {
-      const reports = await shardedLcovReports(profile, repoRoot);
-      reportsFinished = SYSTEM_CLOCK.monotonicNow();
-      lcov = reports.join("\n");
-      if (suiteFailure !== undefined && reports.length > 0) {
-        console.error(
-          "Coverage from the failed suite is diagnostic only; no evidence is published.",
-        );
-        await coverageReadings(lcov, repoRoot);
+  let suiteAttempted = false;
+  try {
+    return await withToolTempDir("coverage-profile", async (profile) => {
+      suiteAttempted = true;
+      let suiteFailure: { error: unknown } | undefined;
+      try {
+        await runSuite(profile);
+      } catch (error) {
+        suiteFailure = { error };
       }
-    } catch (reportFailure) {
-      if (suiteFailure !== undefined) {
-        throw new AggregateError(
-          [suiteFailure.error, reportFailure],
-          "the instrumented suite and its coverage reporting both failed",
-          { cause: reportFailure },
-        );
+      suiteFinished = SYSTEM_CLOCK.monotonicNow();
+      let lcov: string;
+      try {
+        const reports = await shardedLcovReports(profile, repoRoot);
+        lcov = reports.join("\n");
+        if (suiteFailure !== undefined && reports.length > 0) {
+          console.error(
+            "Coverage from the failed suite is diagnostic only; no evidence is published.",
+          );
+          await coverageReadings(lcov, repoRoot);
+        }
+      } catch (reportFailure) {
+        if (suiteFailure !== undefined) {
+          throw new AggregateError(
+            [suiteFailure.error, reportFailure],
+            "the instrumented suite and its coverage reporting both failed",
+            { cause: reportFailure },
+          );
+        }
+        throw reportFailure;
+      } finally {
+        reportsFinished = SYSTEM_CLOCK.monotonicNow();
       }
-      throw reportFailure;
+      if (suiteFailure !== undefined) throw suiteFailure.error;
+      return lcov;
+    });
+  } finally {
+    const finished = SYSTEM_CLOCK.monotonicNow();
+    if (suiteAttempted) {
+      console.error(
+        `coverage producer: 1 instrumented suite; ` +
+          `suite ${((suiteFinished - started) / 1000).toFixed(1)}s; ` +
+          `reports ${
+            ((reportsFinished - suiteFinished) / 1000).toFixed(1)
+          }s; ` +
+          `cleanup ${((finished - reportsFinished) / 1000).toFixed(1)}s`,
+      );
     }
-    if (suiteFailure !== undefined) throw suiteFailure.error;
-    return lcov;
-  });
-  const finished = SYSTEM_CLOCK.monotonicNow();
-  console.error(
-    `coverage producer: 1 instrumented suite; ` +
-      `suite ${((suiteFinished - started) / 1000).toFixed(1)}s; ` +
-      `reports ${((reportsFinished - suiteFinished) / 1000).toFixed(1)}s; ` +
-      `cleanup ${((finished - reportsFinished) / 1000).toFixed(1)}s`,
-  );
-  return lcov;
+  }
 }
 
 /** Extract every coverage reading using the existing LCOV parser and Git census. */

@@ -19,10 +19,13 @@
  *   partitions of one module's profiles, so URL-hash assignment is what
  *   keeps the sharded numbers exact. An opaque head routes by filename
  *   hash; the join's per-line union covers that degraded case.
+ * Identical recognized profiles are weighted before reporting. A bounded
+ * identity budget limits memory; overflow and unfamiliar formats remain raw.
  * Scratch cleanup belongs to the producer's awaited temporary-directory lifetime.
  */
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
+import { z } from "@zod/zod";
 
 /** Leading bytes read from one raw profile for classification. */
 const HEAD_BYTES = 512;
@@ -81,18 +84,99 @@ export interface ProfileShardingSummary {
   readonly pruned: number;
   /** Sharded profiles kept conservatively because their head was opaque. */
   readonly opaque: number;
+  /** Repeated observations represented by weighted range counts. */
+  readonly compacted: number;
 }
 
-/**
- * Read one profile and decode its leading bytes for classification. Whole-file
- * reads cost one operation against these page-sized profiles, so they beat a
- * seek-and-close head read; only {@link HEAD_BYTES} of text is decoded.
- */
-async function readProfileHead(path: string): Promise<string> {
-  const bytes = await Deno.readFile(path);
-  return HEAD_DECODER.decode(
-    bytes.subarray(0, Math.min(HEAD_BYTES, bytes.length)),
-  );
+/** UTF-8 identities preserve byte distinctions, including a leading BOM. */
+const IDENTITY_DECODER = new TextDecoder("utf-8", {
+  fatal: true,
+  ignoreBOM: true,
+});
+
+/** The native single-script profile fields needed for exact count weighting. */
+export const RawCoverageProfileSchema = z.looseObject({
+  scriptId: z.string(),
+  url: z.string(),
+  functions: z.array(z.looseObject({
+    functionName: z.string(),
+    isBlockCoverage: z.boolean(),
+    ranges: z.array(z.looseObject({
+      startOffset: z.number().int().nonnegative(),
+      endOffset: z.number().int().nonnegative(),
+      count: z.number().int().nonnegative(),
+    })),
+  })),
+});
+
+/** Unrecognized encodings stay independent inputs to the native reporter. */
+function profileIdentity(bytes: Uint8Array): string | undefined {
+  try {
+    return IDENTITY_DECODER.decode(bytes);
+  } catch (error) {
+    if (error instanceof TypeError) return undefined;
+    throw error;
+  }
+}
+
+/** Replace repeated identical observations with their exact count sum.
+ * Unknown formats and counts beyond exact integer arithmetic retain every
+ * original observation for the native reporter instead of approximating. */
+function weightedProfile(text: string, copies: number): string | undefined {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+  const parsed = RawCoverageProfileSchema.safeParse(raw);
+  if (!parsed.success) return undefined;
+  for (const fn of parsed.data.functions) {
+    for (const range of fn.ranges) {
+      const count = range.count * copies;
+      if (!Number.isSafeInteger(count)) return undefined;
+      range.count = count;
+    }
+  }
+  return JSON.stringify(parsed.data);
+}
+
+interface ProfileGroup {
+  readonly text: string;
+  readonly target: string;
+  readonly duplicates: string[];
+}
+
+/** Stop claiming work after failure and await every active IO owner. */
+async function profileWorkers<T>(
+  entries: readonly T[],
+  concurrency: number,
+  operation: (entry: T) => Promise<void>,
+): Promise<void> {
+  let cursor = 0;
+  const failures: unknown[] = [];
+  const worker = async (): Promise<void> => {
+    while (failures.length === 0) {
+      const entry = entries[cursor++];
+      if (entry === undefined) return;
+      try {
+        await operation(entry);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+  };
+  await Promise.all(Array.from(
+    { length: Math.max(1, Math.min(concurrency, entries.length)) },
+    () => worker(),
+  ));
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      "profile processing failed after active workers settled",
+    );
+  }
 }
 
 /** Deterministic 32-bit FNV-1a hash for shard assignment. */
@@ -120,6 +204,7 @@ export async function pruneAndShardProfiles(
   srcUrlPrefix: string,
   shardTotal: number,
   concurrency = 256,
+  maxIdentityBytes = 128 * 1024 * 1024,
 ): Promise<ProfileShardingSummary> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(profileDir)) {
@@ -130,45 +215,76 @@ export async function pruneAndShardProfiles(
     { length: Math.max(1, shardTotal) },
     (_, index) => join(profileDir, `shard-${index}`),
   );
-  await Promise.all(dirs.map((dir) => Deno.mkdir(dir)));
+  for (const dir of dirs) await Deno.mkdir(dir);
   const counts = dirs.map(() => 0);
-  let cursor = 0;
+  const groups = new Map<string, ProfileGroup>();
+  let identityBytes = 0;
   let sharded = 0;
   let pruned = 0;
   let opaque = 0;
-  const worker = async (): Promise<void> => {
-    while (true) {
-      const index = cursor;
-      cursor += 1;
-      const name = names[index];
-      if (name === undefined) return;
-      const path = join(profileDir, name);
-      const head = classifyRawProfileHead(await readProfileHead(path));
-      if (isPrunableProfile(head, srcUrlPrefix)) {
-        pruned += 1;
-        continue;
-      }
-      if (head.kind === "opaque") opaque += 1;
-      const slot = fnv1a(head.kind === "single-script" ? head.url : name) %
-        dirs.length;
-      sharded += 1;
-      const target = dirs[slot];
-      if (target === undefined) {
-        throw new Error(`profile shard slot ${slot} has no directory`);
-      }
-      counts[slot] = (counts[slot] ?? 0) + 1;
-      await Deno.rename(path, join(target, name));
+  let compacted = 0;
+  await profileWorkers(names, concurrency, async (name) => {
+    const path = join(profileDir, name);
+    const bytes = await Deno.readFile(path);
+    const head = classifyRawProfileHead(
+      HEAD_DECODER.decode(bytes.subarray(0, HEAD_BYTES)),
+    );
+    if (isPrunableProfile(head, srcUrlPrefix)) {
+      pruned += 1;
+      return;
     }
-  };
-  const workers = Array.from(
-    { length: Math.max(1, Math.min(concurrency, names.length)) },
-    () => worker(),
-  );
-  await Promise.all(workers);
+    if (head.kind === "opaque") opaque += 1;
+    const slot = fnv1a(head.kind === "single-script" ? head.url : name) %
+      dirs.length;
+    const target = dirs[slot];
+    if (target === undefined) {
+      throw new Error(`profile shard slot ${slot} has no directory`);
+    }
+    const destination = join(target, name);
+    const identity = head.kind === "single-script"
+      ? profileIdentity(bytes)
+      : undefined;
+    if (identity !== undefined) {
+      const group = groups.get(identity);
+      if (group !== undefined) {
+        group.duplicates.push(name);
+        return;
+      }
+      // Bounded identity retention affects compression only; overflow reports raw inputs.
+      const size = identity.length * 2;
+      if (identityBytes + size <= maxIdentityBytes) {
+        identityBytes += size;
+        groups.set(identity, {
+          text: identity,
+          target: destination,
+          duplicates: [],
+        });
+      }
+    }
+    sharded += 1;
+    counts[slot] = (counts[slot] ?? 0) + 1;
+    await Deno.rename(path, destination);
+  });
+  await profileWorkers([...groups.values()], concurrency, async (group) => {
+    if (group.duplicates.length === 0) return;
+    const weighted = weightedProfile(group.text, group.duplicates.length + 1);
+    if (weighted === undefined) {
+      for (const name of group.duplicates) {
+        const path = join(profileDir, name);
+        const destination = join(dirname(group.target), name);
+        await Deno.rename(path, destination);
+        sharded += 1;
+      }
+      return;
+    }
+    await Deno.writeTextFile(group.target, weighted);
+    compacted += group.duplicates.length;
+  });
   return {
     shardDirs: dirs.filter((_, index) => (counts[index] ?? 0) > 0),
     sharded,
     pruned,
     opaque,
+    compacted,
   };
 }

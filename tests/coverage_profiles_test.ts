@@ -10,24 +10,27 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { FakeTime } from "@std/testing/time";
 import { join } from "@std/path";
 import {
   classifyRawProfileHead,
   isPrunableProfile,
   pruneAndShardProfiles,
+  RawCoverageProfileSchema,
   reportShardCount,
 } from "../scripts/coverage_profiles.ts";
 import {
   lcovReportArgs,
   srcCoverageUrlPrefix,
 } from "../scripts/coverage_lib.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 
 const REPO = "/repo/checkout";
 
 /** Render one single-script raw profile body for a URL. */
-function profile(url: string): string {
-  return `{"scriptId":"42","url":"${url}","functions":[]}`;
+function profile(url: string, scriptId = "42"): string {
+  return `{"scriptId":"${scriptId}","url":"${url}","functions":[]}`;
 }
 
 Deno.test("profile heads classify single-script records and nothing else", () => {
@@ -92,7 +95,7 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
     const prefix = srcCoverageUrlPrefix(REPO);
     const seeded: Record<string, string> = {
       "aa.json": profile(`file://${REPO}/src/engine/dispatch.ts`),
-      "bb.json": profile(`file://${REPO}/src/engine/dispatch.ts`),
+      "bb.json": profile(`file://${REPO}/src/engine/dispatch.ts`, "43"),
       "cc.json": profile("file:///caches/deno/npm/pkg/index.js"),
       "dd.json": `{"result":[${profile("file:///caches/deno/other.js")}]}`,
       "ee.json": profile(`file://${REPO}/src/shared/config.ts`),
@@ -132,4 +135,148 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
       "profiles for one module URL must share a shard so its range merge stays whole",
     );
   });
+});
+
+Deno.test("identical coverage observations compact while preserving every range count", async () => {
+  await withTempDir(async (dir) => {
+    const body = JSON.stringify({
+      scriptId: "42",
+      url: `file://${REPO}/src/decision.ts`,
+      functions: [{
+        functionName: "choose",
+        isBlockCoverage: true,
+        ranges: [
+          { startOffset: 0, endOffset: 50, count: 2 },
+          { startOffset: 20, endOffset: 30, count: 0 },
+        ],
+      }],
+    });
+    for (const name of ["a", "b", "c"]) {
+      await Deno.writeTextFile(join(dir, `${name}.json`), body);
+    }
+    const summary = await pruneAndShardProfiles(
+      dir,
+      srcCoverageUrlPrefix(REPO),
+      2,
+      2,
+    );
+    const profiles: string[] = [];
+    for (const shard of summary.shardDirs) {
+      for await (const entry of Deno.readDir(shard)) {
+        profiles.push(await Deno.readTextFile(join(shard, entry.name)));
+      }
+    }
+    assertEquals(profiles.length, 1);
+    assertEquals(decodeWith(RawCoverageProfileSchema, profiles[0] ?? "null"), {
+      scriptId: "42",
+      url: `file://${REPO}/src/decision.ts`,
+      functions: [{
+        functionName: "choose",
+        isBlockCoverage: true,
+        ranges: [
+          { startOffset: 0, endOffset: 50, count: 6 },
+          { startOffset: 20, endOffset: 30, count: 0 },
+        ],
+      }],
+    });
+  });
+});
+
+Deno.test("failed profile IO settles active siblings before returning to cleanup", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "a.json"), "");
+    await Deno.writeTextFile(join(dir, "b.json"), "");
+    const entered = Promise.withResolvers<void>();
+    const failed = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const read = Deno.readFile;
+    let siblingFinished = false;
+    let settled = false;
+    const fault = new Error("controlled profile read failure");
+    Deno.readFile = async (path, options) => {
+      if (String(path) === join(dir, "a.json")) {
+        await entered.promise;
+        failed.resolve();
+        throw fault;
+      }
+      if (String(path) === join(dir, "b.json")) {
+        entered.resolve();
+        await release.promise;
+        siblingFinished = true;
+        return new TextEncoder().encode(
+          profile(`file://${REPO}/src/decision.ts`),
+        );
+      }
+      return await read(path, options);
+    };
+    const pending = pruneAndShardProfiles(dir, srcCoverageUrlPrefix(REPO), 1, 2)
+      .then(() => undefined, (error: unknown) => error);
+    const observed = pending.then(() => {
+      settled = true;
+    });
+    try {
+      await failed.promise;
+      using time = new FakeTime();
+      await time.tickAsync(0);
+      assertEquals(
+        settled,
+        false,
+        "cleanup cannot start while a profile reader still owns its input",
+      );
+    } finally {
+      release.resolve();
+      await observed;
+      Deno.readFile = read;
+    }
+    assert(siblingFinished);
+    assert(await pending instanceof Error);
+  });
+});
+
+Deno.test("profile compaction preserves raw inputs when identities or counts cannot be represented", async () => {
+  const common = { scriptId: "42", url: `file://${REPO}/src/future.ts` };
+  const cases = [
+    {
+      body: JSON.stringify({ ...common, functions: "future format" }),
+      budget: 1024,
+    },
+    { body: JSON.stringify({ result: [common] }), budget: 1024 },
+    { body: profile(common.url), budget: 0 },
+    {
+      body: JSON.stringify({
+        ...common,
+        functions: [{
+          functionName: "large",
+          isBlockCoverage: true,
+          ranges: [{
+            startOffset: 0,
+            endOffset: 10,
+            count: Number.MAX_SAFE_INTEGER,
+          }],
+        }],
+      }),
+      budget: 1024,
+    },
+  ];
+  for (const { body, budget } of cases) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(join(dir, "a.json"), body);
+      await Deno.writeTextFile(join(dir, "b.json"), body);
+      const summary = await pruneAndShardProfiles(
+        dir,
+        srcCoverageUrlPrefix(REPO),
+        2,
+        2,
+        budget,
+      );
+      const observed: string[] = [];
+      for (const shard of summary.shardDirs) {
+        for await (const entry of Deno.readDir(shard)) {
+          observed.push(await Deno.readTextFile(join(shard, entry.name)));
+        }
+      }
+      assertEquals(observed, [body, body]);
+      assertEquals(summary.compacted, 0);
+    });
+  }
 });
