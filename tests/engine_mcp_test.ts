@@ -1,8 +1,3 @@
-import { AcceptDataSchema } from "../src/shared/result_schemas.ts";
-import {
-  observedRecords,
-  observeQueue,
-} from "../src/engine/landing_queue/repository.ts";
 /**
  * Engine coverage for `discern mcp` — the MCP stdio server (ADR 0028's third
  * rendering of the result spine). Drives the real JSON-RPC handshake over a
@@ -16,8 +11,45 @@ import {
   assertExists,
   assertStringIncludes,
 } from "@std/assert";
-import { targetExists } from "../src/shared/fs_presence.ts";
 import { basename, join } from "@std/path";
+import { z } from "@zod/zod";
+import { stageBundledManual } from "../scripts/build.ts";
+import {
+  AWAIT_LONG_CALL_SECONDS,
+  AWAIT_STRICT_CALL_SECONDS,
+} from "../src/engine/await/defaults.ts";
+import { MCP_CLIENT_INFO_META_KEY } from "../src/engine/logbook/agent_signals.ts";
+import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
+import {
+  buildInstructions,
+  MCP_CORE_LIFECYCLE,
+  MCP_INSTRUCTIONS_BYTE_LIMIT,
+  mcpStartHint,
+  runTool,
+  TOOLS,
+  verbOf,
+  WorkingRoot,
+} from "../src/engine/mcp/server.ts";
+import { seedForBranch } from "../src/engine/worktree/identity.ts";
+import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
+import { buildManualProjection } from "../src/lib/manual.ts";
+import { providerFor } from "../src/lib/providers.ts";
+import { writeDiscernToml } from "../src/lib/tidy_format.ts";
+import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { DISCERN_VERSION } from "../src/lib/version.ts";
+import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import {
+  AWAIT_WATCH_POLICY,
+  OPERATING_POLICIES,
+} from "../src/shared/operating_policies.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
+import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
 import {
   AcceptOutputSchema,
   AwaitOutputSchema,
@@ -42,54 +74,8 @@ import {
   TestOutputSchema,
   UpdateOutputSchema,
 } from "../src/shared/result_schemas.ts";
-import {
-  TEST_PROCESS_TIMEOUT_MS,
-  waitForPendingCondition,
-  waitUntil,
-} from "./waiting.ts";
-import { configSchema } from "../src/shared/config_schema.ts";
-import { z } from "@zod/zod";
-import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
-import { seedForBranch } from "../src/engine/worktree/identity.ts";
-import {
-  buildInstructions,
-  MCP_CORE_LIFECYCLE,
-  MCP_INSTRUCTIONS_BYTE_LIMIT,
-  mcpStartHint,
-  runTool,
-  TOOLS,
-  verbOf,
-  WorkingRoot,
-} from "../src/engine/mcp/server.ts";
-import { providerFor } from "../src/lib/providers.ts";
-import { TomlEditor } from "../src/lib/toml_edit.ts";
-import { writeDiscernToml } from "../src/lib/tidy_format.ts";
-import { DISCERN_VERSION } from "../src/lib/version.ts";
-import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { HINTS } from "../src/shared/hints.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
-import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
-import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
-import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
-import {
-  AWAIT_WATCH_POLICY,
-  OPERATING_POLICIES,
-} from "../src/shared/operating_policies.ts";
-import type { DiscernResult } from "../src/shared/result.ts";
-import {
-  type LogbookEvent,
-  parseLogbookLine,
-} from "../src/engine/logbook/schema.ts";
-import { MCP_CLIENT_INFO_META_KEY } from "../src/engine/logbook/agent_signals.ts";
-import {
-  AWAIT_LONG_CALL_SECONDS,
-  AWAIT_STRICT_CALL_SECONDS,
-} from "../src/engine/await/defaults.ts";
-import { withTempDir } from "./helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
-import { stageBundledManual } from "../scripts/build.ts";
-import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
-import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
+import { assertResultDataKey, decodeWith } from "./decode_cli_result.ts";
 import {
   addWorktree,
   defaultMapPath,
@@ -102,10 +88,14 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import {
+  completeWorktreeForAcceptance,
+  readMcpVerbEvents,
+} from "./engine_mcp_accept_helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { assertHasMcpHint } from "./mcp_hint_asserts.ts";
-import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
-import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
-import { buildManualProjection } from "../src/lib/manual.ts";
+import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -551,31 +541,6 @@ Deno.test("mcp harness: every live server binding is async-disposed — future c
     "an unmanaged future live-server case must enter the detector",
   );
 });
-
-/** Read the valid verb events written by a spawned MCP server. */
-async function readMcpVerbEvents(
-  dir: string,
-): Promise<Extract<LogbookEvent, { kind: "verb" }>[]> {
-  const events: Extract<LogbookEvent, { kind: "verb" }>[] = [];
-  const logDir = join(dir, ".git", "discern", "logbook");
-  for await (const entry of Deno.readDir(logDir)) {
-    if (!entry.isFile || !entry.name.endsWith(".jsonl")) {
-      continue;
-    }
-    const text = await Deno.readTextFile(join(logDir, entry.name));
-    for (
-      const line of text.split("\n").filter((candidate) => candidate !== "")
-    ) {
-      const parsed = parseLogbookLine(line);
-      assert(parsed.kind === "event", `unparseable MCP logbook line: ${line}`);
-      if (parsed.event.kind === "verb") {
-        events.push(parsed.event);
-      }
-    }
-  }
-  return events;
-}
-
 Deno.test("MCP logbook recording derives positional targets from the live CLI model", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: true });
@@ -652,25 +617,6 @@ Deno.test("MCP logbook recording derives positional targets from the live CLI mo
     }
   });
 });
-
-/** Commit the intended source and establish real complete evidence before acceptance. */
-async function completeWorktreeForAcceptance(
-  dir: string,
-  message = "prepare acceptance",
-): Promise<void> {
-  await git(dir, "add", "-A");
-  await git(
-    dir,
-    "commit",
-    "-q",
-    "--allow-empty",
-    "-m",
-    message,
-    "--no-gpg-sign",
-  );
-  const done = await runAgent(dir, ["done", "--json"]);
-  assertEquals(done.code, 0, done.output);
-}
 
 /** A complete, valid `initialize` params object — the handshake a conformant
  * client sends. The SDK validates `protocolVersion`/`capabilities`/`clientInfo`
@@ -3069,133 +3015,6 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     assertEquals(await inWt.close(), 0);
   });
 });
-
-Deno.test("discern mcp: a partial accept that removed its held worktree still re-aims and records the landed effects", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const worktree = await addWorktree(dir, "partial-branch-delete");
-    const branch = await gitOut(worktree, "branch", "--show-current");
-
-    // Let landing and worktree removal complete, then fail only the final branch
-    // deletion. A loose-ref lock is Git's deterministic refusal at that seam.
-    const branchLock = join(
-      dir,
-      ".git",
-      "refs",
-      "heads",
-      `${branch}.lock`,
-    );
-    await writeConfig(
-      worktree,
-      `[project]\nslug = "engine-test"\n[repository]\ntrunk = "main"\nensure = [${
-        JSON.stringify(`touch '${branchLock}'`)
-      }]\n`,
-    );
-    const refresh = await runAgent(worktree, ["refresh", "--json"]);
-    assertEquals(refresh.code, 0, refresh.output);
-    await completeWorktreeForAcceptance(worktree);
-    const landedSha = await gitOut(worktree, "rev-parse", "HEAD");
-
-    const acceptTool = TOOLS.find((tool) => tool.name === "discern_accept");
-    const statusTool = TOOLS.find((tool) => tool.name === "discern_status");
-    assert(acceptTool !== undefined);
-    assert(statusTool !== undefined);
-    const working = new WorkingRoot(worktree);
-
-    const partial = await runTool(
-      acceptTool,
-      working,
-      { confirmed: true },
-      undefined,
-      () => Promise.resolve(undefined),
-      undefined,
-      "unknown-client",
-      TEST_CLI_MODEL,
-    );
-    assertEquals(partial.isError, true, JSON.stringify(partial));
-    assertEquals(
-      partial.structuredContent.error,
-      "partial_acceptance",
-      JSON.stringify(partial),
-    );
-    const partialData = AcceptDataSchema.parse(partial.structuredContent.data);
-    const prefix = partialData.queue?.[0];
-    assert(prefix !== undefined);
-    const canonicalRoot = await Deno.realPath(dir);
-    assertEquals(partialData.root, canonicalRoot);
-    assertEquals(prefix.consent, { source: "conversation" });
-    assertEquals(prefix.target, landedSha);
-    assertEquals(prefix.state, "landed");
-    assertEquals(prefix.retirement, "recovery");
-    assertEquals(prefix.retirement_effects, {
-      worktree_removed: true,
-      branch_deleted: false,
-    });
-    assertStringIncludes(String(partial.structuredContent.message), "landed");
-    assertEquals(await targetExists(worktree), false);
-    assertEquals(
-      working.get(),
-      canonicalRoot,
-      "the deleted held root must re-aim even though the envelope is partial",
-    );
-
-    const follow = await runTool(
-      statusTool,
-      working,
-      {},
-      undefined,
-      () => Promise.resolve(undefined),
-    );
-    assertEquals(follow.isError, false, JSON.stringify(follow));
-    const followData = follow.structuredContent.data as {
-      location?: unknown;
-      root?: unknown;
-    } | undefined;
-    assertEquals(followData?.location, "main");
-    assertEquals(followData?.root, canonicalRoot);
-
-    const event = (await readMcpVerbEvents(dir)).findLast((candidate) =>
-      candidate.verb === "accept"
-    );
-    assert(event !== undefined);
-    assertEquals(event.outcome, "partial");
-    assertEquals(
-      (event as unknown as { landing?: unknown }).landing,
-      {
-        recovery_performed: false,
-        trunk_landed: true,
-        worktree_removed: true,
-        branch_deleted: false,
-      },
-    );
-
-    await Deno.remove(branchLock);
-    assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
-    const settled = observedRecords(await observeQueue(dir, "main")).filter((
-      record,
-    ) => record.kind === "landing" || record.kind === "authority");
-    const resumed = await runTool(
-      acceptTool,
-      working,
-      {},
-      undefined,
-      () => Promise.resolve(undefined),
-      undefined,
-      "unknown-client",
-      TEST_CLI_MODEL,
-    );
-    assertEquals(resumed.isError, false, JSON.stringify(resumed));
-    assertEquals(
-      observedRecords(await observeQueue(dir, "main")).filter((record) =>
-        record.kind === "landing" || record.kind === "authority"
-      ),
-      settled,
-    );
-    assertEquals(await gitOut(dir, "branch", "--list", branch), "");
-  });
-});
-
 Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -5135,99 +4954,5 @@ Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async
       `gate job ${jobPid} to die with the server`,
       { timeoutMs: 10_000, intervalMs: 50 },
     );
-  });
-});
-
-Deno.test("discern mcp: cancellation during main convergence preserves landing and permits cleanup-only recovery", async () => {
-  await withTempDir(async (dir) => {
-    const root = join(dir, "repo");
-    await Deno.mkdir(root);
-    const armed = join(dir, "armed");
-    const ready = join(dir, "ready");
-    const calls = join(dir, "calls");
-    const ensure =
-      `if [ -f '${armed}' ]; then echo run >> '${calls}'; touch '${ready}'; sleep 30; else echo run >> '${calls}'; fi`;
-    await scaffoldEngine(root);
-    await writeConfig(
-      root,
-      `[project]\nslug = "engine-test"\n[repository]\ntrunk = "main"\nensure = [${
-        JSON.stringify(ensure)
-      }]\n`,
-    );
-    await gitInit(root);
-    const worktree = await addWorktree(root, "cancel-convergence");
-    await completeWorktreeForAcceptance(worktree);
-    const target = await gitOut(worktree, "rev-parse", "HEAD");
-    await Deno.writeTextFile(calls, "");
-    await Deno.writeTextFile(armed, "");
-    const tool = TOOLS.find((item) => item.name === "discern_accept");
-    assert(tool !== undefined);
-    const working = new WorkingRoot(worktree);
-    const controller = new AbortController();
-    const pending = runTool(
-      tool,
-      working,
-      { confirmed: true },
-      controller.signal,
-      () => Promise.resolve(undefined),
-      undefined,
-      "unknown-client",
-      TEST_CLI_MODEL,
-    );
-    try {
-      await waitForPendingCondition(
-        pending,
-        () => targetExists(ready),
-        "main convergence to start",
-      );
-    } finally {
-      controller.abort();
-    }
-    const cancelled = await pending;
-    assertEquals(
-      cancelled.structuredContent.error,
-      "partial_acceptance",
-      JSON.stringify(cancelled),
-    );
-    const prefix = AcceptDataSchema.parse(cancelled.structuredContent.data)
-      .queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assertEquals(prefix?.convergence, "failed");
-    assertEquals(prefix?.retirement, "retained");
-    assertEquals(await gitOut(root, "rev-parse", "HEAD"), target);
-    assert(await targetExists(worktree));
-    const before = observedRecords(await observeQueue(root, "main"));
-    const authority = before.filter((record) => record.kind === "authority");
-    const landingIds = before.filter((record) => record.kind === "landing").map(
-      (record) => record.id,
-    );
-    await Deno.remove(armed);
-    const resumed = await runTool(
-      tool,
-      working,
-      {},
-      undefined,
-      () => Promise.resolve(undefined),
-      undefined,
-      "unknown-client",
-      TEST_CLI_MODEL,
-    );
-    assertEquals(resumed.isError, false, JSON.stringify(resumed));
-    assertEquals(await targetExists(worktree), false);
-    const after = observedRecords(await observeQueue(root, "main"));
-    assertEquals(
-      after.filter((record) => record.kind === "authority"),
-      authority,
-    );
-    assertEquals(
-      after.filter((record) => record.kind === "landing").map((record) =>
-        record.id
-      ),
-      landingIds,
-    );
-    assertEquals((await Deno.readTextFile(calls)).trim().split("\n"), [
-      "run",
-      "run",
-    ]);
   });
 });
