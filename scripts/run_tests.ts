@@ -8,6 +8,7 @@ import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { fromFileUrl } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
+import { runTestPartitions, testPartitionCount } from "./test_partitions.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -100,8 +101,22 @@ if (import.meta.main) {
   console.error(
     testSeedAnnouncement(effectiveTestSeed(identitySeed, Deno.args)),
   );
+  const count = testPartitionCount(
+    Deno.build.os,
+    navigator.hardwareConcurrency,
+    Deno.args,
+  );
+  const args = testCommandArgs(identitySeed, Deno.args);
+  if (count > 1) {
+    console.error(
+      `Test allocation: ${count} native partitions, one worker each.`,
+    );
+    const result = await runTestPartitions(args, count);
+    if (result.report !== undefined) console.log(result.report);
+    Deno.exit(result.code);
+  }
   const child = await runOwnedChild(Deno.execPath(), {
-    args: testCommandArgs(identitySeed, Deno.args),
+    args,
     env: testWorkerEnvironment(Deno.build.os),
   });
   Deno.exit(child.status.code);

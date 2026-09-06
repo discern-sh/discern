@@ -42,7 +42,7 @@
     "terminal:capture-fixtures": "deno run --allow-read --allow-write --allow-env --allow-run scripts/terminal_capture_fixtures.ts",
     "terminal:review": "deno run --allow-read --allow-net=127.0.0.1 scripts/terminal_review.ts",
     "test:preflight": "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
-    "test": "discern queue -- deno run --allow-read --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
+    "test": "discern queue -- deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "ambient-boundaries": "deno run scripts/ambient_state_boundary_counts.ts",

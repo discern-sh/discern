@@ -124,14 +124,14 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
       }
     }
     assertEquals([...shardOf.keys()].sort(), [
-      "aa.json",
-      "bb.json",
-      "dd.json",
-      "ee.json",
+      "0.json",
+      "1.json",
+      "3.json",
+      "4.json",
     ]);
     assertEquals(
-      shardOf.get("aa.json"),
-      shardOf.get("bb.json"),
+      shardOf.get("0.json"),
+      shardOf.get("1.json"),
       "profiles for one module URL must share a shard so its range merge stays whole",
     );
   });
@@ -309,4 +309,30 @@ Deno.test("profile compaction preserves raw inputs when identities or counts can
       assertEquals(summary.compacted, 0);
     });
   }
+});
+
+Deno.test("coverage inputs from independent partitions retain colliding filenames and merge by module", async () => {
+  await withTempDir(async (dir) => {
+    const prefix = srcCoverageUrlPrefix(REPO);
+    const bodies = [
+      profile(`file://${REPO}/src/one.ts`),
+      profile(`file://${REPO}/src/two.ts`),
+    ];
+    for (const [index, body] of bodies.entries()) {
+      await Deno.mkdir(join(dir, `partition-${index}`));
+      await Deno.writeTextFile(
+        join(dir, `partition-${index}`, "same.json"),
+        body,
+      );
+    }
+    const summary = await pruneAndShardProfiles(dir, prefix, 2, 2);
+    const observed: string[] = [];
+    for (const shard of summary.shardDirs) {
+      for await (const entry of Deno.readDir(shard)) {
+        observed.push(await Deno.readTextFile(join(shard, entry.name)));
+      }
+    }
+    assertEquals(summary.sharded, 2);
+    assertEquals(observed.sort(), bodies.sort());
+  });
 });

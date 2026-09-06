@@ -36,6 +36,12 @@ export const TOOL_TEMP_DIR_KINDS = {
     recursiveCleanup: true,
     preserveOnFailure: false,
   },
+  "test-reports": {
+    purpose: "complete native reports from one partitioned test suite",
+    prefix: "discern-test-reports-",
+    recursiveCleanup: true,
+    preserveOnFailure: false,
+  },
   "coverage-profile": {
     purpose: "raw coverage profiles collected for one measurement",
     prefix: "discern-coverage-",

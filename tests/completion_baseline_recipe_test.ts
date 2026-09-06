@@ -66,7 +66,7 @@ function canonicalLcov(text: string): string[] {
   ).filter(Boolean).sort();
 }
 
-/** Seed a two-isolate instrumented suite, a local build, and artifact extraction. */
+/** Seed a two-partition instrumented suite, a local build, and artifact extraction. */
 async function seedRecipe(root: string): Promise<void> {
   await Deno.mkdir(join(root, "src"));
   await Deno.mkdir(join(root, "tests"));
@@ -99,6 +99,9 @@ import { produceCoverage, writeCoverageArtifact } from ${
       repositoryModule("scripts/coverage.ts")
     };
 import { testCommandArgs } from ${repositoryModule("scripts/run_tests.ts")};
+import { runTestPartitions } from ${
+      repositoryModule("scripts/test_partitions.ts")
+    };
 import { RawCoverageProfileSchema } from ${
       repositoryModule("scripts/coverage_profiles.ts")
     };
@@ -107,18 +110,20 @@ import { lcovReportArgs } from ${repositoryModule("scripts/coverage_lib.ts")};
 const root = Deno.cwd();
 const lcov = await produceCoverage(root, async (profile) => {
   await Deno.writeTextFile('suite-attempts', '1', { append: true });
-  const suite = await new Deno.Command(Deno.execPath(), {
-    args: testCommandArgs(42, ['tests', '--coverage=' + profile, '--coverage-raw-data-only']),
-    stdout: 'inherit', stderr: 'inherit',
-  }).output();
+  const suite = await runTestPartitions(testCommandArgs(42, ['tests', '--coverage=' + profile, '--coverage-raw-data-only']), 2, { cwd: root });
   const profileNames = [];
-  for await (const entry of Deno.readDir(profile)) {
-    if (entry.isFile && entry.name.endsWith('.json')) profileNames.push(entry.name);
+  const directories = [profile];
+  for (const directory of directories) {
+    for await (const entry of Deno.readDir(directory)) {
+      const path = directory + '/' + entry.name;
+      if (entry.isDirectory) directories.push(path);
+      else if (entry.isFile && entry.name.endsWith('.json')) profileNames.push(path);
+    }
   }
   for (const name of profileNames) {
-    const raw = decodeWith(RawCoverageProfileSchema, await Deno.readTextFile(profile + '/' + name));
+    const raw = decodeWith(RawCoverageProfileSchema, await Deno.readTextFile(name));
     if (typeof raw.url !== 'string' || !raw.url.startsWith('file://' + root + '/src/')) continue;
-    for (const copy of [1, 2, 3]) await Deno.copyFile(profile + '/' + name, profile + '/' + name + '-copy-' + copy + '.json');
+    for (const copy of [1, 2, 3]) await Deno.copyFile(name, name + '-copy-' + copy + '.json');
   }
   const reference = await new Deno.Command(Deno.execPath(), {
     args: lcovReportArgs(profile, root), stdout: 'piped', stderr: 'inherit',
@@ -127,7 +132,7 @@ const lcov = await produceCoverage(root, async (profile) => {
   await Deno.mkdir('reports', { recursive: true });
   await Deno.writeFile('reports/unsharded.lcov', reference.stdout);
   await Deno.writeTextFile('reports/profile-path', profile);
-  if (!suite.success) throw new Error('instrumented fixture failed');
+  if (suite.code !== 0) throw new Error('instrumented fixture failed');
 });
 await writeCoverageArtifact(root, 'reports/coverage.lcov', lcov);
 `,

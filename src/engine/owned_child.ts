@@ -35,6 +35,8 @@ import {
 } from "../shared/scheduler.ts";
 
 export interface OwnedChildOptions {
+  /** Cancel this child while the caller retains its own lifetime. */
+  readonly signal?: AbortSignal;
   /** Arguments passed to the executable without a shell. */
   readonly args?: readonly string[];
   /** Child working directory. */
@@ -224,6 +226,7 @@ export async function runOwnedChild(
     {
       isolatedGroup,
       resumeAfterInterrupt: opts.resumeAfterInterrupt ?? false,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
   );
   return { status: run.value, interruptedBy: run.interruptedBy };

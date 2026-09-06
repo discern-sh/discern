@@ -145,23 +145,24 @@ function weightedProfile(text: string, copies: number): string | undefined {
 interface ProfileGroup {
   readonly text: string;
   readonly target: string;
-  readonly duplicates: string[];
+  readonly duplicates: number[];
 }
 
 /** Stop claiming work after failure and await every active IO owner. */
 async function profileWorkers<T>(
   entries: readonly T[],
   concurrency: number,
-  operation: (entry: T) => Promise<void>,
+  operation: (entry: T, index: number) => Promise<void>,
 ): Promise<void> {
   let cursor = 0;
   const failures: unknown[] = [];
   const worker = async (): Promise<void> => {
     while (failures.length === 0) {
-      const entry = entries[cursor++];
+      const index = cursor++;
+      const entry = entries[index];
       if (entry === undefined) return;
       try {
-        await operation(entry);
+        await operation(entry, index);
       } catch (error) {
         failures.push(error);
       }
@@ -189,9 +190,24 @@ function fnv1a(text: string): number {
   return hash;
 }
 
+/** Discover every raw input after all test partitions have become quiescent. */
+async function rawProfileNames(profileDir: string): Promise<string[]> {
+  const names: string[] = [];
+  const pending = [""];
+  for (const relative of pending) {
+    for await (const entry of Deno.readDir(join(profileDir, relative))) {
+      const name = join(relative, entry.name);
+      if (entry.isDirectory) pending.push(name);
+      else if (entry.isFile && entry.name.endsWith(".json")) names.push(name);
+    }
+  }
+  names.sort();
+  return names;
+}
+
 /**
- * Prune the profiles no report pass needs and move the rest into shard
- * subdirectories of `profileDir`, ready for one report pass each.
+ * Collect every raw input directory, prune profiles no report pass needs, and
+ * move the rest into report subdirectories with collision-free filenames.
  *
  * The directory must be quiescent — the instrumented run that wrote it has
  * exited. Foreign inputs are removed during classification; repeated originals
@@ -208,11 +224,12 @@ export async function pruneAndShardProfiles(
   concurrency = 256,
   maxIdentityBytes = 128 * 1024 * 1024,
 ): Promise<ProfileShardingSummary> {
-  const names: string[] = [];
-  for await (const entry of Deno.readDir(profileDir)) {
-    if (entry.isFile && entry.name.endsWith(".json")) names.push(entry.name);
-  }
-  names.sort();
+  const names = await rawProfileNames(profileDir);
+  const inputPath = (index: number): string => {
+    const name = names[index];
+    if (name === undefined) throw new Error(`Missing coverage input ${index}`);
+    return join(profileDir, name);
+  };
   const dirs = Array.from(
     { length: Math.max(1, shardTotal) },
     (_, index) => join(profileDir, `shard-${index}`),
@@ -225,7 +242,7 @@ export async function pruneAndShardProfiles(
   let pruned = 0;
   let opaque = 0;
   let compacted = 0;
-  await profileWorkers(names, concurrency, async (name) => {
+  await profileWorkers(names, concurrency, async (name, index) => {
     const path = join(profileDir, name);
     const bytes = await Deno.readFile(path);
     const head = classifyRawProfileHead(
@@ -243,14 +260,14 @@ export async function pruneAndShardProfiles(
     if (target === undefined) {
       throw new Error(`profile shard slot ${slot} has no directory`);
     }
-    const destination = join(target, name);
+    const destination = join(target, `${index}.json`);
     const identity = head.kind === "single-script"
       ? profileIdentity(bytes)
       : undefined;
     if (identity !== undefined) {
       const group = groups.get(identity);
       if (group !== undefined) {
-        group.duplicates.push(name);
+        group.duplicates.push(index);
         return;
       }
       // Bounded identity retention affects compression only; overflow reports raw inputs.
@@ -272,17 +289,17 @@ export async function pruneAndShardProfiles(
     if (group.duplicates.length === 0) return;
     const weighted = weightedProfile(group.text, group.duplicates.length + 1);
     if (weighted === undefined) {
-      for (const name of group.duplicates) {
-        const path = join(profileDir, name);
-        const destination = join(dirname(group.target), name);
+      for (const index of group.duplicates) {
+        const path = inputPath(index);
+        const destination = join(dirname(group.target), `${index}.json`);
         await Deno.rename(path, destination);
         sharded += 1;
       }
       return;
     }
     await Deno.writeTextFile(group.target, weighted);
-    for (const name of group.duplicates) {
-      await Deno.remove(join(profileDir, name));
+    for (const index of group.duplicates) {
+      await Deno.remove(inputPath(index));
     }
     compacted += group.duplicates.length;
   });
