@@ -1,3 +1,4 @@
+import { RecordIdSchema } from "../src/engine/completion/identity.ts";
 /**
  * Structural compatibility checks for generated public JSON Schemas.
  *
@@ -52,7 +53,10 @@ export type {
   JsonValue,
 } from "./public_contract_compatibility_common.ts";
 
-export { publicSchemaBaselineTag } from "./public_schema_release_baseline.ts";
+export {
+  initialPublicationIssues,
+  publicSchemaBaselineTag,
+} from "./public_schema_release_baseline.ts";
 
 type ResultContractReferenceRole =
   keyof typeof RESULT_CONTRACT_REFERENCE_FIELDS;
@@ -103,7 +107,7 @@ const ANNOTATION_KEYS = new Set([
 ]);
 
 /** Build a validator that recognizes every public-schema extension keyword. */
-function publicSchemaAjv(strict: boolean): Ajv2020 {
+export function publicSchemaAjv(strict: boolean): Ajv2020 {
   const ajv = new Ajv2020({
     allErrors: true,
     strict,
@@ -112,6 +116,10 @@ function publicSchemaAjv(strict: boolean): Ajv2020 {
   for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
     ajv.addKeyword(keyword);
   }
+  ajv.addFormat(
+    "uuid",
+    (value: string) => RecordIdSchema.safeParse(value).success,
+  );
   return ajv;
 }
 

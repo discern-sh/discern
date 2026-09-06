@@ -69,6 +69,7 @@ export const AttemptSchema = z.strictObject({
   mode: CompletionModeSchema,
   state: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("planned") }),
+    z.strictObject({ kind: z.literal("composing"), claim: ClaimSchema }),
     z.strictObject({ kind: z.literal("claimed"), claim: ClaimSchema }),
     z.strictObject({
       kind: z.literal("finished"),
@@ -79,10 +80,14 @@ export const AttemptSchema = z.strictObject({
   ]),
 }).refine(
   (attempt) =>
-    attempt.state.kind !== "claimed" ||
+    (attempt.state.kind !== "claimed" && attempt.state.kind !== "composing") ||
     JSON.stringify(attempt.state.claim.executor) ===
       JSON.stringify(attempt.identity.executor),
   "attempt and claim must name the same executor",
+).refine(
+  (attempt) =>
+    attempt.state.kind !== "composing" || attempt.subjects.length === 0,
+  "composition attempts cannot declare validation subjects",
 );
 export type CompletionAttempt = z.infer<typeof AttemptSchema>;
 

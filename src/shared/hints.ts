@@ -2021,6 +2021,19 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
+  "completion-pending": defineHint<{ action: string }>({
+    id: "completion-pending",
+    category: "next-step",
+    audience: "all",
+    when:
+      "Complete candidate validation or its execution environment has a pending obligation.",
+    example: {
+      action:
+        "Resolve the failed validation, then use discern done --rerun to request a new attempt.",
+    },
+    template: ({ action }): string => action,
+  }),
+
   "gate-strand-check-unavailable": defineHint({
     id: "gate-strand-check-unavailable",
     category: "notice",
@@ -2815,21 +2828,6 @@ export const HINTS = {
       "Before reporting completion, compare the changed behavior with the map pages that cover the edited files. Update every page whose facts changed.",
   }),
 
-  "gate-deferred-standards": defineHint<{ names: readonly string[] }>({
-    id: "gate-deferred-standards",
-    category: "next-step",
-    audience: "all",
-    when: "A successful gate leaves one or more standards deferred.",
-    example: { names: ["coverage", "binary_size"] },
-    template: ({ names }): string =>
-      `Measure ${names.length} deferred standard${
-        names.length === 1 ? "" : "s"
-      } with ${discernCommand("standards")} as needed: ${
-        boundedNameSummary(names.length, names)
-      }. Their ` +
-      `measurements are on demand, but the never-loosen limit check still ran.`,
-  }),
-
   "gate-previewable-change": defineHint({
     id: "gate-previewable-change",
     category: "next-step",
@@ -3384,7 +3382,7 @@ export const HINTS = {
     },
     template: ({ source, standingScopes, warnings }): string => {
       if (source === "effort-grant") {
-        return "The owner pre-authorized this effort's landing at the desk. discern will recheck that grant against the final branch before it lands.";
+        return "The owner approved this committed source at the desk. discern rechecks the exact source and composition procedure before landing; later source edits need another grant.";
       }
       if (standingScopes.length > 0) {
         return `Standing landing authority is recorded for ${

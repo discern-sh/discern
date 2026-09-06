@@ -503,9 +503,9 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "standards-on-demand",
+    id: "standards-complete-evidence",
     when: "Evergreen — the third quality lesson.",
-    features: ["standards-on-demand"],
+    features: ["standards-complete-evidence"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -513,8 +513,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      'Rules marked `measure = "on-demand"` skip routine measurement; ' +
-      `${CMD.standards} measures them when you ask.`,
+      "Completion requires every standard. Share a producer with complete declared inputs to reuse valid evidence; " +
+      `${CMD.standards} runs standalone measurements.`,
   }),
 
   defineTip({

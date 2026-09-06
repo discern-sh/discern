@@ -14,6 +14,7 @@
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";
 import {
   type CommandValue,
+  CompletionPolicySchema,
   CONFIG_DOC_BOUNDED_SECTION_SCHEMAS,
   CONFIG_DOC_VERSION,
   configDocRuntimeSchema,
@@ -55,6 +56,8 @@ export const CONFIG_DOC_FIELD_CONSUMERS = {
   generated: "config_fill",
   standards: "config_fill",
   checkpoints: "config_fill",
+  completion: "config_fill",
+  execution: "config_fill",
   setup: "config_fill",
   worktree: "config_fill",
 } as const;
@@ -184,7 +187,14 @@ export function configDocFillPaths(doc: DiscernConfigDoc): string[] {
       );
     }
   }
-  for (const section of ["scopes", "generated", "checkpoints"] as const) {
+  for (
+    const section of [
+      "scopes",
+      "generated",
+      "checkpoints",
+      "execution",
+    ] as const
+  ) {
     for (const [name, spec] of Object.entries(doc[section] ?? {})) {
       paths.push(
         ...recordFillPaths(
@@ -195,6 +205,11 @@ export function configDocFillPaths(doc: DiscernConfigDoc): string[] {
       );
     }
   }
+  paths.push(
+    ...presentSchemaFields(doc.completion ?? {}, CompletionPolicySchema).map((
+      field,
+    ) => `completion.${field}`),
+  );
   for (const [name, spec] of Object.entries(doc.standards ?? {})) {
     paths.push(
       ...recordFillPaths(
@@ -537,8 +552,10 @@ export function applyConfigDoc(
       throw new Error(`standard "${name}": direction must be "up" or "down"`);
     }
     const run = spec.run as CommandOrList | undefined;
-    if (run === undefined) {
-      throw new Error(`standard "${name}": a run command is required`);
+    if ((run === undefined) === (spec.producer === undefined)) {
+      throw new Error(
+        `standard "${name}": exactly one run command or producer selector is required`,
+      );
     }
     const limit = spec.limit as unknown;
     if (limit === undefined) {
@@ -551,6 +568,29 @@ export function applyConfigDoc(
       `standards.${name}`,
       { ...spec, metric: spec.metric ?? name },
       RECORD_ENTRY_SCHEMAS.standards,
+    );
+  }
+
+  for (const [name, spec] of Object.entries(doc.execution ?? {})) {
+    assertName("execution environment", name);
+    writeRecord(`execution.${name}`, spec, RECORD_ENTRY_SCHEMAS.execution);
+  }
+  for (
+    const field of presentSchemaFields(
+      doc.completion ?? {},
+      CompletionPolicySchema,
+    )
+  ) {
+    const path = `completion.${field}`;
+    write(
+      path,
+      editor.hasKey(path),
+      () =>
+        setConfigField(
+          editor,
+          path,
+          doc.completion?.[field as keyof typeof doc.completion],
+        ),
     );
   }
 
@@ -624,13 +664,15 @@ function setCommand(
   if (typeof value === "object" && !Array.isArray(value)) {
     // The known-job table form: rendered as an inline table. JSON string
     // escaping is valid TOML basic-string escaping, so the quoting is shared.
-    const run = Array.isArray(value.run)
-      ? `[${value.run.map((s) => JSON.stringify(s)).join(", ")}]`
-      : JSON.stringify(value.run);
-    const timeout = value.timeout !== undefined
-      ? `, timeout = ${value.timeout}`
-      : "";
-    editor.setLiteral(key, `{ run = ${run}${timeout} }`);
+    const fields = Object.entries(value).filter(([, entry]) =>
+      entry !== undefined
+    ).map(([name, entry]) => {
+      const literal = Array.isArray(entry)
+        ? `[${entry.map((item) => JSON.stringify(item)).join(", ")}]`
+        : JSON.stringify(entry);
+      return `${name} = ${literal}`;
+    });
+    editor.setLiteral(key, `{ ${fields.join(", ")} }`);
     return;
   }
   if (Array.isArray(value)) {

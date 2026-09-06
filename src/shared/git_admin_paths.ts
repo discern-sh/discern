@@ -188,6 +188,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  completionGrantClaims: {
+    path: "discern/completion/grant-claims",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   acceptanceTransaction: {
     path: "discern/acceptance-transaction.json",
     scope: "worktree",

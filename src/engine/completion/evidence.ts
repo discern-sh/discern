@@ -121,6 +121,7 @@ export const CandidateProofSchema = z.strictObject({
   requirements: z.array(RequirementSchema).min(1),
   receipts: z.array(RequirementReceiptSchema).min(1),
   assembled_at: InstantSchema,
+  review: ArtifactSchema.optional(),
 }).refine((value) => {
   const obligations = value.requirements.map((requirement) =>
     JSON.stringify([requirement.kind, requirement.id, requirement.context])

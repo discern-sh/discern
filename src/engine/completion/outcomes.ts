@@ -1,6 +1,7 @@
 /** Durable queue and terminal outcomes; no executor runs from these definitions. */
 import { z } from "@zod/zod";
 import { CompletionClaimSchema } from "./authority.ts";
+import { ArtifactSchema } from "./evidence.ts";
 import { RecoverySchema } from "./environment.ts";
 import {
   DigestSchema,
@@ -92,6 +93,7 @@ export const LandingSchema = z.strictObject({
   ]),
   authority_settlement: z.enum(["pending", "consumed", "restored"]),
   note: z.enum(["pending", "published", "recovery"]),
+  note_result: ArtifactSchema.optional(),
 }).refine((landing) => {
   if (
     landing.claim.kind === "exception" &&
@@ -115,6 +117,9 @@ export const RetirementSchema = z.strictObject({
   source: SourceRevisionSchema,
   environment_id: RecordIdSchema,
   release_id: RecordIdSchema.nullable(),
+  /** Frozen release, complete checkout capture, and exact environment reservation. */
+  capture: ArtifactSchema.optional(),
+  reservation: z.number().int().positive().optional(),
   ownership: DigestSchema,
   frozen_cleanup: z.array(z.string().min(1)),
   outcome: z.discriminatedUnion("kind", [

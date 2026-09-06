@@ -82,10 +82,7 @@ export async function adrIndexState(
     }
     throw err;
   }
-  if (
-    !current.includes(ADR_CURRENT_RECORDS_START) &&
-    !current.includes(ADR_SUPERSEDED_RECORDS_START)
-  ) {
+  if (!hasManagedAdrIndex(current)) {
     return { kind: "absent" };
   }
   try {
@@ -112,4 +109,10 @@ export async function adrIndexState(
       issue: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/** Managed marker presence determines whether the compiler owns this index path. */
+export function hasManagedAdrIndex(text: string): boolean {
+  return text.includes(ADR_CURRENT_RECORDS_START) ||
+    text.includes(ADR_SUPERSEDED_RECORDS_START);
 }

@@ -277,12 +277,37 @@ destroy = "unlink-site @site@"`,
       ensure: { hint: '["ready-worktree-resource"]' },
     },
   },
+  completion: {
+    what: "Complete evidence and repository queue capacity.",
+    why:
+      "Completion requires every declared obligation in its required contexts for an immutable candidate. Queue capacity and speculative depth bound active execution; an environment declaration and source-owner release establish eligibility independently.",
+  },
+  execution: {
+    what: "Project procedures for candidate execution and return.",
+    why:
+      "Composition can change a checkout's source, generated files, ignored artifacts, and resources. These declarations identify preparation and return procedures; eligibility also requires verified ownership, release, and execution exclusion.",
+    examples: [{
+      lead:
+        "A borrowed checkout with project-owned preparation and restoration",
+      toml: `[execution.local]
+kind = "borrowed"
+prepare = "project-prepare-candidate"
+restore = "project-restore-source"
+reusable = true
+resources = []
+ignored = ["build/**"]
+inputs = ["**"]
+capacity = 1`,
+    }],
+  },
   standards: {
     what: "Quality numbers that can never get worse.",
     why:
-      "Every `discern done` measures each standard beside the tests and refuses a limit looser than the trunk's, so a branch can neither regress a metric nor lower its bar. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.",
+      "Every `discern done` requires current readings for each standard and refuses a limit looser than the trunk's. Producers run once for their consumers, and reusable evidence must match the declared inputs, policy, toolchain, environment, and execution context. Hold a raw count for an invariant, a rate through `per` for a quality that scales, and give a total that grows with the product a `margin`.",
     detail: [
-      "A run reports its number with one line: DISCERN_METRIC <name> <number>",
+      "A producer or extractor reports a number: DISCERN_METRIC <name> <number>",
+      "Set run for an inline producer, or producer for an existing selector.",
+      "An extract command receives captured output or the named artifact on stdin.",
       "Lock in a gain with `discern standards --pin`; a hand-edited limit cannot",
       "tell a gain from a loosening.",
     ],

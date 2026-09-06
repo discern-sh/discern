@@ -36,6 +36,9 @@ export const CANDIDATE_REF_PREFIX = "refs/discern/candidates";
 /** Maximum retained recovery refs per repository. */
 export const DROP_RECOVERY_REF_LIMIT = 32;
 
+/** Common marker retaining a queue landing after disposable checkout retirement. */
+export const COMPLETION_LANDING_MARKER_PREFIX = "refs/discern/landings";
+
 /** Per-worktree marker coupled atomically to an acceptance transaction. */
 export const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
   "refs/worktree/discern/acceptance-transactions";

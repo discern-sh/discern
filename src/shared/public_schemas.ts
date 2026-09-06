@@ -182,6 +182,19 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 
+/** Resolve generator paths from the publication identity that owns the bytes. */
+export function publicSchemaArtifact(
+  id: string,
+): PublicSchemaPublication["artifactPath"] {
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((entry) =>
+    entry.id === id
+  );
+  if (publication === undefined) {
+    throw new Error(`No current public schema is registered for ${id}.`);
+  }
+  return publication.artifactPath;
+}
+
 export const PUBLIC_SCHEMA_REFERENCE_START =
   "<!-- BEGIN GENERATED: public schema publications -->";
 export const PUBLIC_SCHEMA_REFERENCE_END =

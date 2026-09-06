@@ -1,11 +1,11 @@
-/** Typed domain ports for the implementation streams. No public dispatcher imports them. */
+/** Shared completion, execution, queue and advisory event contracts. */
 import type { Candidate } from "./candidate.ts";
 import type {
   CompletionPolicy,
   EnvironmentDeclaration,
   ProducerDeclaration,
   StandardInputPlan,
-} from "./configuration.ts";
+} from "../../shared/config_schema.ts";
 import type {
   CompletionAttempt,
   CompletionRecovery,
@@ -85,6 +85,7 @@ export type ValidationDemand =
     readonly mode: ComponentEvidence["mode"];
   }
   & (
+    | { readonly kind: "compose" }
     | { readonly kind: "done"; readonly requirements: readonly Requirement[] }
     | {
       readonly kind: "test";
@@ -92,7 +93,7 @@ export type ValidationDemand =
       readonly readings: "already-produced";
     }
     | {
-      readonly kind: "standards" | "pin" | "proposal";
+      readonly kind: "standards" | "pin" | "proposal" | "standalone";
       readonly requirements: readonly Requirement[];
     }
     | { readonly kind: "prepare"; readonly measurement: "none" }
@@ -103,6 +104,16 @@ export type ValidationDemand =
       readonly base: string;
     }
   );
+
+/** Standalone test and comparison work cannot publish completion authority. */
+export function validationPurpose(
+  demand: ValidationDemand,
+): ComponentEvidence["purpose"] {
+  return demand.kind === "test" || demand.kind === "diagnostic" ||
+      demand.kind === "standalone"
+    ? "diagnostic"
+    : "completion";
+}
 
 export interface ValidationPlan {
   readonly candidate_id: string;
@@ -126,6 +137,26 @@ export interface ClaimedExecution {
   readonly candidate: Candidate;
   readonly signal: AbortSignal;
 }
+
+/** A transient observation of the working checkout; it has no release or publication capability.
+ * The candidate is the committed comparison reference, not a claim about dirty bytes.
+ */
+export interface DiagnosticExecution {
+  readonly diagnostic: true;
+  readonly attempt:
+    & Pick<CompletionAttempt, "identity" | "subjects" | "mode">
+    & {
+      readonly purpose: "diagnostic";
+    };
+  readonly environment_id: string;
+  readonly environment: { readonly path: string };
+  readonly seed: number;
+  readonly candidate_id: string;
+  readonly candidate: Candidate;
+  readonly signal: AbortSignal;
+}
+
+export type ValidationSubject = ClaimedExecution | DiagnosticExecution;
 
 export interface ValidationExecution {
   readonly evidence: readonly ComponentEvidence[];
@@ -208,6 +239,13 @@ export interface EnvironmentExecutor {
 }
 
 export type QueueAction =
+  | {
+    readonly kind: "compose";
+    readonly source: SourceRevision;
+    readonly predecessor: Candidate["expected_predecessor"];
+    readonly environment_id: string;
+    readonly expected_stamp: string;
+  }
   | {
     readonly kind: "validate";
     readonly plan: ValidationPlan;

@@ -229,7 +229,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
       "landing-authority-unverified",
       "proof-recording-unavailable",
     ],
-    noOp: "not-applicable",
+    noOp: "success",
     recoveryOwner: "owner",
   }),
   update: effectPolicy(),
@@ -477,6 +477,25 @@ function requiredFailure(
     }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
+      if (Array.isArray(data?.queue)) {
+        const prefixes = records(data.queue);
+        return prefixes.length === data.queue.length &&
+            Array.isArray(data.pending) && data.pending.length === 0 &&
+            prefixes.every((prefix) =>
+              prefix.state === "landed" &&
+              nonBlank(prefix.landing_id) !== undefined &&
+              nonBlank(prefix.expected_trunk) !== undefined &&
+              nonBlank(prefix.target) !== undefined &&
+              nonBlank(prefix.authority_id) !== undefined &&
+              prefix.authority_settlement === "consumed" &&
+              Array.isArray(prefix.pending) && prefix.pending.length === 0
+            )
+          ? undefined
+          : failed(
+            "partial_acceptance",
+            "Acceptance has pending prefixes or authority settlement; the per-prefix results preserve every completed landing.",
+          );
+      }
       const landing = record(data?.landing);
       if (landing === undefined) {
         return failed(
@@ -621,6 +640,25 @@ function derivedAdvisories(
       ],
       "Repair the reported Proof storage problem, then re-run the command that records or clears Proof.",
     );
+  }
+
+  for (const prefix of records(data?.queue)) {
+    if (prefix.note === "recovery") {
+      add(
+        "proof-recording-unavailable",
+        [`${String(prefix.branch)} landed; its Proof note needs recovery.`],
+        "Run discern accept again to retry the recorded note without repeating landing or spending authority again.",
+      );
+    }
+    if (prefix.retirement === "recovery") {
+      add(
+        "acceptance-cleanup-incomplete",
+        [`${
+          String(prefix.branch)
+        } remains after landing; retirement needs recovery.`],
+        "Resolve the retained cleanup state and run discern accept again; landing is already durable.",
+      );
+    }
   }
 
   const proofNote = record(data?.proof_note);

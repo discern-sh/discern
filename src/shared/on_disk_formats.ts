@@ -32,6 +32,7 @@ export interface OnDiskFormatDefinition {
   readonly location: OnDiskFormatLocation;
   readonly version: number;
   readonly versionField: OnDiskVersionField;
+  readonly historicalVersions?: readonly number[];
   readonly reader: string;
   readonly writers: readonly string[];
   readonly newerVersionPolicy: OnDiskNewerVersionPolicy;
@@ -42,7 +43,7 @@ export const ON_DISK_FORMATS = {
   completionRecord: {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
-    version: 1,
+    version: 2,
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
     writers: ["src/engine/completion/store.ts"],
@@ -116,9 +117,10 @@ export const ON_DISK_FORMATS = {
     id: "effort-grant",
     location: {
       kind: "git-admin",
-      keys: ["effortGrant", "effortGrantClaims"],
+      keys: ["effortGrant", "effortGrantClaims", "completionGrantClaims"],
     },
-    version: 1,
+    version: 2,
+    historicalVersions: [1],
     versionField: "version",
     reader: "src/engine/worktree/effort_grant.ts#readEffortGrant",
     writers: ["src/engine/worktree/effort_grant_writer.ts"],

@@ -1,3 +1,8 @@
+import {
+  CompleteProofEvidenceSchema,
+  CompletionProofPointerSchema,
+  LandedAuthorityEvidenceSchema,
+} from "./completion_proof.ts";
 /**
  * The **typed wire schemas** for every `discern` verb's result — the SSOT spine of
  * the MCP surface (ADR 0041). Where `result.ts` defines the result *vocabulary* as
@@ -488,6 +493,7 @@ export type StandardLimitApprovalRequestData = z.infer<
 >;
 
 const PROOF_SUMMARY_FIELDS = {
+  completion: CompletionProofPointerSchema.optional(),
   ...DURABLE_PROOF_FACT_FIELDS,
   line: z.string(),
   /** Absent on Proof written before the strict/report distinction. */
@@ -587,6 +593,7 @@ export const ProofCheckpointsSchema = z.strictObject({
 export type ProofCheckpointsData = z.infer<typeof ProofCheckpointsSchema>;
 
 const PROOF_FIELDS = {
+  completion: CompleteProofEvidenceSchema.optional(),
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
   /** Strict is implied for Proof written before this additive field existed. */
@@ -622,6 +629,7 @@ export const TolerantProofSchema = z.looseObject(PROOF_FIELDS);
  * fields in one fixed order. Every compatibility reader shares this boundary. */
 export function canonicalProof(proof: Proof): Proof {
   return {
+    ...(proof.completion === undefined ? {} : { completion: proof.completion }),
     branch: proof.branch,
     trunk: proof.trunk,
     head: proof.head,
@@ -675,6 +683,7 @@ export type AuthorizedVarianceData = z.infer<typeof AuthorizedVarianceSchema>;
 /** The structured acceptance evidence a landing records beside its proof:
  * the consent source that landed it plus every owner-authorized variance. */
 export const AcceptanceEvidenceSchema = z.strictObject({
+  authority: LandedAuthorityEvidenceSchema.optional(),
   consent: LandingConsentDataSchema,
   variances: z.array(AuthorizedVarianceSchema),
   standard_proposals: z.array(StandardLimitProposalSchema),
@@ -746,6 +755,7 @@ export const ProofNoteSignatureSchema = z.strictObject({
  * Runtime proof telemetry cannot enter this schema by composition. */
 export const DurableProofClaimSchema = z.strictObject(
   {
+    completion: CompleteProofEvidenceSchema,
     ...DURABLE_PROOF_FACT_FIELDS,
     mode: z.enum(GATE_MODES).optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
@@ -784,14 +794,31 @@ export const ProofNotePayloadSchema = z.strictObject({
   presentation: ProofPresentationSchema,
   /** Present when acceptance recorded structured authorization evidence:
    * the consent source plus every owner-authorized variance. */
-  acceptance: AcceptanceEvidenceSchema.optional(),
+  acceptance: AcceptanceEvidenceSchema.extend({
+    authority: LandedAuthorityEvidenceSchema,
+  }).optional(),
   issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
       "Reserved: a reference to a signed intent artifact. Current writers " +
       "leave it absent.",
   }).optional(),
-}).meta({
+}).refine(
+  (value) => {
+    const complete = value.proof.completion;
+    const authority = value.acceptance?.authority.authority;
+    return value.subject.commit === complete.candidate.head &&
+      (value.proof.mode ?? "strict") === complete.validation.mode &&
+      (authority === undefined || (complete.validation.mode === "strict" &&
+        authority.policy === complete.candidate.policy &&
+        authority.composition_procedure ===
+          complete.candidate.composition.procedure &&
+        authority.sources.some((source) =>
+          JSON.stringify(source) === JSON.stringify(complete.candidate.source)
+        )));
+  },
+  "Proof subject, mode and accepted source authority must agree with the complete candidate",
+).meta({
   description:
     "The Proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
     "commit, structured gate facts, separate human presentation, optional " +
@@ -825,6 +852,7 @@ export const ProofNoteSchema = z.strictObject({
 export const TolerantProofNotePayloadSchema = z.looseObject({
   subject: z.looseObject({ commit: z.string() }),
   proof: z.looseObject({
+    completion: CompleteProofEvidenceSchema,
     ...DURABLE_PROOF_FACT_FIELDS,
     mode: z.enum(GATE_MODES).optional(),
     checkpoint_drops: z.array(CheckpointDropSchema).optional(),
@@ -832,6 +860,7 @@ export const TolerantProofNotePayloadSchema = z.looseObject({
   }),
   presentation: z.looseObject(PROOF_PRESENTATION_FIELDS),
   acceptance: z.looseObject({
+    authority: LandedAuthorityEvidenceSchema,
     consent: z.looseObject({
       source: z.string(),
       scopes: z.array(z.string()).optional(),
@@ -935,7 +964,24 @@ export const StandardLimitProposalResultSchema = z.strictObject({
  * gate carries in `GateData.standards`, so one consumer reads both), and — on a
  * `--pin` that tightened limits — the applied pins. Both optional: a refusal or
  * an empty config carries neither. */
+export const ProducerExecutionsSchema = z.record(
+  z.string(),
+  z.number().int().nonnegative(),
+);
+
+export const StandaloneValidationDataSchema = z.strictObject({
+  producer_executions: ProducerExecutionsSchema,
+  standards: z.array(GateStandardSchema).optional(),
+  measurement: z.literal("none").optional(),
+  completion: z.strictObject({
+    kind: z.literal("diagnostic"),
+    context: z.string(),
+    proof: z.literal("not-issued"),
+  }).optional(),
+});
+
 export const StandardsDataSchema = z.strictObject({
+  producer_executions: ProducerExecutionsSchema.optional(),
   standards: z.array(GateStandardSchema).optional(),
   pinned: z.array(PinnedLimitSchema).optional(),
   proposal: StandardLimitProposalResultSchema.optional(),
@@ -1162,7 +1208,20 @@ export type PreviewActionData = z.infer<typeof PreviewActionDataSchema>;
  * marker file went. `standards`/`standards_limits` are present when `[standards]`
  * is configured: the per-standard measurement outcomes and the never-loosen
  * verification against the trunk. */
+export const CompletionPendingSchema = z.strictObject({
+  kind: z.string(),
+  reason: z.string(),
+});
 export const GateDataSchema = z.strictObject({
+  producer_executions: ProducerExecutionsSchema.optional(),
+  completion: z.strictObject({
+    kind: z.enum(["diagnostic", "complete", "pending"]),
+    context: z.string(),
+    candidate_id: z.string().optional(),
+    proof_id: z.string().optional(),
+    pending_reasons: z.array(z.string()),
+    pending: z.array(CompletionPendingSchema).optional(),
+  }).optional(),
   mode: z.enum(GATE_MODES).optional(),
   /** Whether this invocation executed the Gate. False on exact green Proof
    * reuse and pre-Gate checkpoint serving; optional for older producers. */
@@ -1495,7 +1554,31 @@ export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
  * Codex's app-managed worktree) lands back on the live main checkout, not the grave of
  * the worktree it just landed, instead of the spawn root (which is the trunk only
  * when the server was launched from the trunk). */
+/** Per-prefix facts remain separate so later pending work cannot hide an earlier landing. */
+export const AcceptancePrefixSchema = z.strictObject({
+  preview_actions: z.array(PreviewActionDataSchema).optional(),
+  approval_requests: z.array(StandardLimitApprovalRequestSchema).optional(),
+  checkpoint_review: ProofCheckpointsSchema.optional(),
+  effort: z.string(),
+  branch: z.string(),
+  source_head: z.string(),
+  candidate_id: z.string().nullable(),
+  expected_trunk: z.string().nullable(),
+  target: z.string().nullable(),
+  state: z.enum(["ready", "pending", "landed"]),
+  landing_id: z.string().optional(),
+  note: z.enum(["pending", "published", "recovery"]).optional(),
+  note_reason: z.string().optional(),
+  proof_note: AcceptProofNoteSchema.optional(),
+  authority_id: z.string().nullable().optional(),
+  authority_settlement: z.enum(["pending", "consumed", "restored"]).optional(),
+  retirement: z.enum(["retained", "retired", "recovery"]),
+  retirement_reason: z.string().optional(),
+  pending: z.array(CompletionPendingSchema),
+});
 export const AcceptDataSchema = z.strictObject({
+  queue: z.array(AcceptancePrefixSchema).optional(),
+  pending: z.array(CompletionPendingSchema).optional(),
   /** Present after landing; read-only reviews may carry only checkpoint drops. */
   root: z.string().optional(),
   consent: LandingConsentDataSchema.optional(),
@@ -1876,6 +1959,7 @@ export const StatusDataSchema = z.strictObject({
     commit_at: z.string().optional(),
     ref: z.string(),
     proof: ProofSchema,
+    acceptance: AcceptanceEvidenceSchema.optional(),
     /** The payload's issuer assertion, when present. This field does not mean
      * the signature or the asserted identity has been verified. */
     issuer: ProofIssuerSchema.optional(),
@@ -1885,6 +1969,11 @@ export const StatusDataSchema = z.strictObject({
   /** The trunk tip carries a proof note in a format this binary cannot read
    * (a newer major). Explicit, so a mixed-version clone sees that evidence
    * exists instead of "no proof" (ADR 0242). */
+  landed_proof_stale: z.strictObject({
+    commit: z.string(),
+    ref: z.string(),
+    reason: z.string(),
+  }).optional(),
   landed_proof_unsupported: z.strictObject({
     commit: z.string(),
     ref: z.string(),
@@ -2942,7 +3031,9 @@ export const SetupAcceptResultDataSchema = z.union([
 ]);
 const configEditSchema = z.strictObject({
   key: z.string(),
-  literal: z.string(),
+  literal: z.string().nullable().describe(
+    "TOML value to set, or null to delete this key.",
+  ),
 });
 
 const configEditDataSchema = z.strictObject({
@@ -3218,10 +3309,16 @@ export const FinishOutputSchema = resultOutputSchema(
 );
 
 /** `prepare` output: envelope only (except top-level config parse errors). */
-export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
+export const PrepareOutputSchema = resultOutputSchema(
+  "prepare",
+  StandaloneValidationDataSchema,
+);
 
 /** `test` output: envelope only (except top-level config parse errors). */
-export const TestOutputSchema = datalessResultOutputSchema("test");
+export const TestOutputSchema = resultOutputSchema(
+  "test",
+  StandaloneValidationDataSchema,
+);
 
 /** `await` output: envelope + the observed-condition `data`. */
 export const AwaitOutputSchema = resultOutputSchema("await", AwaitDataSchema);

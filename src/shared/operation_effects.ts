@@ -24,6 +24,8 @@ export type OperationEffectClass = (typeof OPERATION_EFFECT_CLASSES)[number];
 /** The exclusion boundaries an invocation may hold while it performs effects. */
 export const OPERATION_LOCK_BOUNDARIES = [
   "none",
+  // The driver acquires concrete locks for each effect phase.
+  "phased",
   "checkout",
   "common",
   "common-and-checkout",
@@ -139,7 +141,7 @@ export const OPERATION_EFFECTS = {
       "project-command",
       "external-setup",
     ],
-    "common-and-checkout",
+    "phased",
     "required",
   ),
   await: OBSERVATION,

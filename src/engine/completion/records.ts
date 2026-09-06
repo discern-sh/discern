@@ -3,7 +3,11 @@ import { z } from "@zod/zod";
 import { AuthoritySchema } from "./authority.ts";
 import { CandidateSchema } from "./candidate.ts";
 import { AttemptSchema, EnvironmentSchema } from "./environment.ts";
-import { CandidateProofSchema, EvidenceSchema } from "./evidence.ts";
+import {
+  ArtifactSchema,
+  CandidateProofSchema,
+  EvidenceSchema,
+} from "./evidence.ts";
 import { RecordIdSchema } from "./identity.ts";
 import { LandingSchema, QueueSchema, RetirementSchema } from "./outcomes.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
@@ -48,6 +52,20 @@ export const COMPLETION_FAMILIES = {
       ...header,
       kind: z.literal("proof"),
       data: CandidateProofSchema,
+    }),
+  },
+  presentation: {
+    lifetime: "immutable",
+    schema: z.strictObject({
+      ...header,
+      kind: z.literal("presentation"),
+      data: z.strictObject({
+        candidate_id: RecordIdSchema,
+        artifact: ArtifactSchema,
+      }).refine(
+        (value) => value.candidate_id === value.artifact.candidate_id,
+        "presentation receipt must belong to its candidate",
+      ),
     }),
   },
   environment: {
@@ -109,7 +127,6 @@ function fixedRecordIdentity(record: CompletionRecord): unknown {
       return {
         identity: record.data.identity,
         environment_id: record.data.environment_id,
-        subjects: record.data.subjects,
         purpose: record.data.purpose,
         mode: record.data.mode,
       };
@@ -127,6 +144,7 @@ function fixedRecordIdentity(record: CompletionRecord): unknown {
         outcome: undefined,
         authority_settlement: undefined,
         note: undefined,
+        note_result: undefined,
       };
     case "retirement":
       return { ...record.data, outcome: undefined };
@@ -158,6 +176,26 @@ export function recordTransitionAllowed(
   ) return false;
   if (landingAdvanced(previous) && !landingAdvanced(next)) return false;
   if (previous.kind === "attempt" && next.kind === "attempt") {
+    // ADR 0380: one explicit binding precedes producer execution; normal claims remain immutable.
+    const binding = previous.data.state.kind === "composing" &&
+      next.data.state.kind === "claimed" &&
+      previous.data.subjects.length === 0 &&
+      JSON.stringify(previous.data.state.claim) ===
+        JSON.stringify(next.data.state.claim);
+    if (
+      JSON.stringify(previous.data.subjects) !==
+        JSON.stringify(next.data.subjects) && !binding
+    ) return false;
+    if (
+      previous.data.state.kind === "composing" &&
+      next.data.state.kind === "claimed" && !binding
+    ) return false;
+    if (
+      next.data.state.kind === "composing" &&
+      (previous.data.state.kind !== "composing" ||
+        JSON.stringify(previous.data.state.claim) !==
+          JSON.stringify(next.data.state.claim))
+    ) return false;
     if (previous.data.state.kind === "finished") return false;
     if (
       previous.data.state.kind !== "planned" &&

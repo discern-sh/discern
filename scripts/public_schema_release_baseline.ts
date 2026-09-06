@@ -1,5 +1,6 @@
 /** Select the tagged release that anchors public-schema compatibility. */
 
+import type { PublicSchemaPublication } from "../src/shared/public_schemas.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 
 interface ReleaseTag {
@@ -104,4 +105,18 @@ export async function publicSchemaBaselineTag(
     })
     .sort(compareReleaseTags);
   return candidates.at(-1)?.tag;
+}
+
+/** The first published contract starts at one; only a predecessor can justify a later major. */
+export function initialPublicationIssues(
+  predecessor: string | undefined,
+  publications: readonly PublicSchemaPublication[],
+): string[] {
+  return predecessor === undefined
+    ? publications.filter((publication) => publication.major !== 1).map((
+      publication,
+    ) =>
+      `${publication.artifactPath}: the first publication must use major 1; no predecessor publication exists`
+    )
+    : [];
 }

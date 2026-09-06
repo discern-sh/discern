@@ -23,6 +23,8 @@ export interface OperationLockLease {
 
 /** The operation locks held or delegated in one async call chain. */
 export interface HeldOperationLocks {
+  /** Native execution permits short common publications; ordinary and child nesting does not. */
+  readonly completionExecution?: boolean;
   readonly leases: ReadonlyMap<string, OperationLockLease>;
   readonly boundaries: ReadonlySet<OperationLockConcreteBoundary>;
 }

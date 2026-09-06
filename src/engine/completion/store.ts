@@ -12,7 +12,10 @@ import {
   ON_DISK_FORMATS,
 } from "../../shared/on_disk_formats.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
-import { OperationLockError, withOperationLock } from "../operation_lock.ts";
+import {
+  OperationLockError,
+  withCompletionPublication,
+} from "../operation_lock.ts";
 import { RecordIdSchema } from "./identity.ts";
 import { applicabilitySubject } from "./evidence.ts";
 import {
@@ -178,10 +181,25 @@ async function checkFence(
   }
   const attempt = reading.record.data;
   if (
-    attempt.state.kind !== "claimed" ||
+    (attempt.state.kind !== "claimed" && attempt.state.kind !== "composing") ||
     attempt.state.claim.token !== fence.token ||
     attempt.state.claim.expires_at <= now
   ) return "attempt claim was lost, expired, or superseded";
+  if (
+    (record.kind === "proof" || record.kind === "evidence") &&
+    attempt.state.kind !== "claimed"
+  ) {
+    return "Composition cannot publish validation evidence or Proof before demand is bound.";
+  }
+  if (
+    record.kind === "landing" && (record.data.attempt_id !== fence.attempt_id ||
+      record.data.candidate_id !== attempt.identity.candidate_id ||
+      JSON.stringify(record.data.executor) !==
+        JSON.stringify(attempt.identity.executor) ||
+      attempt.mode !== "strict" || attempt.purpose !== "completion")
+  ) {
+    return "landing publication must match its current strict completion actor";
+  }
   if (publishes) {
     if (record.data.attempt_id !== fence.attempt_id) {
       return "publisher does not own the producing attempt";
@@ -231,9 +249,8 @@ export async function writeCompletionRecord(
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
   try {
     const canonicalRoot = await Deno.realPath(root);
-    return await withOperationLock(
+    return await withCompletionPublication(
       canonicalRoot,
-      { command: "accept" },
       async () => {
         const current = await readCompletionRecord(root, record);
         if (current.kind !== "missing" && current.kind !== "recorded") {

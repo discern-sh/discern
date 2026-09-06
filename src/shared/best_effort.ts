@@ -794,38 +794,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Port uniqueness is explicitly best effort and worktree creation still verifies branch and directory identity before mutation.",
   },
-  "lifecycle-post-convergence-clean-check-fallback": {
-    path: "src/engine/worktree/lifecycle.ts",
-    enclosingFunction: "executeAcceptPlan",
-    operation: "fail the post-convergence checkout cleanliness result closed",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "A failed final cleanliness probe becomes a failed convergence step and never erases or rolls back the already durable trunk transition.",
-  },
-  "lifecycle-post-landing-dirty-baseline-fallback": {
-    path: "src/engine/worktree/lifecycle.ts",
-    enclosingFunction: "executeAcceptPlan",
-    operation:
-      "record an unavailable immediate post-landing cleanliness baseline",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The result explicitly marks the checkout-clean step skipped when the baseline cannot be observed, preserving the landed ref as the primary outcome.",
-  },
-  "lifecycle-post-landing-templates-fallback": {
-    path: "src/engine/worktree/lifecycle.ts",
-    enclosingFunction: "postLandingLocalTemplatesDir",
-    operation:
-      "skip optional local materialization when templates cannot resolve",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "Tracked landing has already completed and the ordinary refresh path reports compiler failures, so local materialization cannot alter acceptance.",
-  },
   "lifecycle-ready-sentinel-write": {
     path: "src/engine/worktree/lifecycle.ts",
     enclosingFunction: "worktreeSetup",
@@ -1270,7 +1238,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "resource-ledger-decode-fallback": {
     path: "src/engine/worktree/resources.ts",
-    enclosingFunction: "inspectResourceEntry",
+    enclosingFunction: "parseResourceEntry",
     operation: "treat malformed worktree resource ledger JSON as unavailable",
     kind: "direct",
     shape: "sync",

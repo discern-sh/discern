@@ -207,6 +207,176 @@ const jobTimeout = z.number().min(
   "Time budget in seconds for this job alone, replacing [gate].timeout; 0 removes the bound. Omit to inherit the global budget.",
 );
 
+const completionCommandsSchema = z.union([
+  z.string().min(1),
+  z.array(z.string().min(1)).min(1),
+]);
+export const ProducerSelectorSchema = z.string().regex(
+  /^(?:jobs\.[A-Za-z0-9_-]+|scopes\.[A-Za-z0-9_-]+\.gate|standards\.[A-Za-z0-9_-]+)$/u,
+);
+
+/** A process recipe, including every declared process-affecting input. */
+export const ProducerDeclarationSchema = z.strictObject({
+  run: completionCommandsSchema,
+  inputs: z.array(z.string().min(1)).min(1).optional(),
+  needs: z.array(ProducerSelectorSchema).default([]),
+  artifacts: z.array(projectFilePath).default([]),
+  environment: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/u)).default(
+    [],
+  ),
+  toolchain: z.array(projectFilePath).default([]),
+  timeout: z.number().nonnegative().optional(),
+});
+export type ProducerDeclaration = z.infer<typeof ProducerDeclarationSchema>;
+
+/** `run` always produces. `extract` always consumes captured output or an artifact. */
+export const StandardInputSchema = z.union([
+  z.strictObject({
+    run: completionCommandsSchema,
+    extract: completionCommandsSchema.optional(),
+    artifact: projectFilePath.optional(),
+  }),
+  z.strictObject({
+    producer: ProducerSelectorSchema,
+    extract: completionCommandsSchema.optional(),
+    artifact: projectFilePath.optional(),
+  }),
+]).refine(
+  (source) => source.artifact === undefined || source.extract !== undefined,
+  "artifact consumption requires an extract operation",
+);
+export type StandardInput = z.infer<typeof StandardInputSchema>;
+
+export interface StandardInputPlan {
+  readonly producer: {
+    readonly kind: "inline";
+    readonly run: readonly string[];
+  } | { readonly kind: "reference"; readonly selector: string };
+  readonly extraction: {
+    readonly run: readonly string[];
+    readonly input: { readonly kind: "output" } | {
+      readonly kind: "artifact";
+      readonly path: string;
+    };
+  } | null;
+}
+
+/** Pure normalization retains the semantic operation independently of selection. */
+export function planStandardInput(input: StandardInput): StandardInputPlan {
+  const source = StandardInputSchema.parse(input);
+  return {
+    producer: "run" in source
+      ? {
+        kind: "inline",
+        run: typeof source.run === "string" ? [source.run] : source.run,
+      }
+      : { kind: "reference", selector: source.producer },
+    extraction: source.extract === undefined ? null : {
+      run: typeof source.extract === "string"
+        ? [source.extract]
+        : source.extract,
+      input: source.artifact === undefined
+        ? { kind: "output" }
+        : { kind: "artifact", path: source.artifact },
+    },
+  };
+}
+
+/** Completion policy keeps execution capacity separate from speculative depth. */
+export const CompletionPolicySchema = z.strictObject({
+  required_contexts: z.array(z.string().min(1).regex(NAME_RE)).min(1).default([
+    "local",
+  ]).describe(
+    "Execution contexts required for each obligation unless it declares its own contexts.",
+  ),
+  concurrency: z.number().int().positive().default(1).describe(
+    "Maximum live candidate executions across the repository queue.",
+  ),
+  lookahead: z.number().int().nonnegative().default(0).describe(
+    "Maximum speculative positions beyond the next authorized source; requires an eligible released environment.",
+  ),
+}).refine(
+  (policy) =>
+    new Set(policy.required_contexts).size === policy.required_contexts.length,
+  "required contexts must be distinct",
+).describe(CONFIG_PROSE.completion.what);
+export type CompletionPolicy = z.infer<typeof CompletionPolicySchema>;
+
+/** A project-owned preparation and return contract for an execution environment. */
+export const EnvironmentDeclarationSchema = z.strictObject({
+  kind: z.enum(["borrowed", "isolated"]).describe(
+    "Borrow a released source checkout or execute in separately owned isolation.",
+  ),
+  prepare: completionCommandsSchema.describe(
+    "Prepare the candidate state and declared resources before validation.",
+  ),
+  restore: completionCommandsSchema.optional().describe(
+    "Restore the source state and resources after borrowed execution; required for borrowing.",
+  ),
+  reset: completionCommandsSchema.optional().describe(
+    "Reset reusable isolation before another execution.",
+  ),
+  dispose: completionCommandsSchema.optional().describe(
+    "Dispose of owned isolated resources after execution; required for isolation.",
+  ),
+  reusable: z.boolean().describe(
+    "Whether the environment supports reuse after its verified return procedure.",
+  ),
+  resources: z.array(z.string().min(1).regex(NAME_RE)).describe(
+    "Declared worktree resource names affected by preparation and return.",
+  ),
+  ignored: z.array(z.string().min(1)).describe(
+    "Ignored artifact paths whose changes the return procedure restores.",
+  ),
+  inputs: z.array(z.string().min(1)).min(1).describe(
+    "Complete input closure of the environment procedures.",
+  ),
+  capacity: z.number().int().positive().describe(
+    "Maximum simultaneous executions supported by this declaration.",
+  ),
+}).refine(
+  (environment) =>
+    environment.kind === "borrowed"
+      ? environment.restore !== undefined
+      : environment.dispose !== undefined &&
+        (!environment.reusable || environment.reset !== undefined),
+  "borrowing requires restore; isolation requires disposal and reusable isolation requires reset",
+).describe(CONFIG_PROSE.execution.what);
+export type EnvironmentDeclaration = z.infer<
+  typeof EnvironmentDeclarationSchema
+>;
+
+/** Fields shared by every configured producer. Missing inputs bind reuse to the candidate. */
+const producerFields = {
+  inputs: ProducerDeclarationSchema.shape.inputs.describe(
+    "Complete input closure as scope globs; omission binds evidence to the candidate.",
+  ),
+  needs: ProducerDeclarationSchema.shape.needs.removeDefault().optional()
+    .describe(
+      "Producer selectors that must finish successfully before this producer runs.",
+    ),
+  artifacts: ProducerDeclarationSchema.shape.artifacts.removeDefault()
+    .optional().describe(
+      "Project-relative outputs captured into immutable attempt storage after production.",
+    ),
+  environment: ProducerDeclarationSchema.shape.environment.removeDefault()
+    .optional().describe(
+      "Environment variable names whose effective values enter evidence identity as digests.",
+    ),
+  toolchain: ProducerDeclarationSchema.shape.toolchain.removeDefault()
+    .optional().describe(
+      "Project-relative identity files for the applicable toolchain.",
+    ),
+};
+const requirementContexts = z.array(z.string().min(1).regex(NAME_RE)).min(1)
+  .refine(
+    (values) => new Set(values).size === values.length,
+    "contexts must be distinct",
+  )
+  .optional().describe(
+    "Required execution contexts for this obligation; omission uses completion.required_contexts.",
+  );
+
 /** A known-job value: the bare command-or-list, or the table form
  * `{ run = "…", timeout = N }` when the job needs its own time budget. */
 const knownJobCommand = z.union([
@@ -217,18 +387,17 @@ const knownJobCommand = z.union([
       `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
     ),
     timeout: jobTimeout,
+    ...producerFields,
+    contexts: requirementContexts,
   }),
 ]).describe(
-  'A single command, a list of commands run in order, or a table { run = "…", timeout = N } giving this job its own time budget. ' +
+  'A single command, a list of commands run in order, or a table { run = "…", timeout = N } declaring producer facts and a time budget. ' +
     LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
 );
 
 /** A command-bearing config value in any of its shapes: a bare command, a list, or
  * the known-job table form carrying per-job options. */
-export type CommandValue = string | string[] | {
-  run: string | string[];
-  timeout?: number | undefined;
-};
+export type CommandValue = z.infer<typeof knownJobCommand>;
 
 /** A git pathspec, or a NON-EMPTY list of them — the extent a built-in `per`
  * measures over. The list form requires at least one pathspec: an empty list would
@@ -280,6 +449,8 @@ const customJobValue = z.strictObject({
   run: commandOrList.describe(
     `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
+  ...producerFields,
+  contexts: requirementContexts,
   provides: z.string().optional().describe(
     "A free-text label for humans and audit.",
   ),
@@ -307,6 +478,8 @@ const scopeValue = z.strictObject({
   ).optional().describe(
     `A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
+  ...producerFields,
+  contexts: requirementContexts,
   gate: commandOrList.optional().describe(
     `A command \`discern done\` runs when this scope changed: a sub-component's own self-contained gate. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
@@ -342,9 +515,20 @@ const standardValue = z.strictObject({
   limit: z.number().min(Number.MIN_SAFE_INTEGER).describe(
     "The floor or ceiling, compared with the trunk's: a floor may only rise and a ceiling may only fall.",
   ),
-  run: commandOrList.describe(
-    `The command whose output emits the metric line: DISCERN_METRIC <metric> <number>. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
+  run: completionCommandsSchema.optional().describe(
+    "This standard's producer command. Emits DISCERN_METRIC <metric> <number>; cannot accompany producer.",
   ),
+  producer: ProducerSelectorSchema.optional().describe(
+    "Consume an existing job, scope gate, or standard producer instead of running a separate producer.",
+  ),
+  extract: completionCommandsSchema.optional().describe(
+    "Extract readings from captured producer output on stdin; this is a separate operation from run.",
+  ),
+  artifact: projectFilePath.optional().describe(
+    "Declared producer artifact supplied on stdin to extract; requires extract.",
+  ),
+  ...producerFields,
+  contexts: requirementContexts,
   per: perValue.optional().describe(
     "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: " +
       "a second metric the run emits, or a built-in extent discern measures itself, " +
@@ -363,18 +547,22 @@ const standardValue = z.strictObject({
       "Give a metric that drifts on unrelated changes, such as a size or a coverage percentage, " +
       "a margin so a pinned limit is not tripped by ordinary fluctuation.",
   ),
-  measure: z.enum(["gate", "on-demand"]).default("gate").describe(
-    '"gate" measures inside every `discern done`, beside the tests. ' +
-      '"on-demand" defers only the measurement to `discern standards`, for a metric too slow for every run; ' +
-      "the never-loosen check still runs on every gate. Prefer `inputs` or a longer `timeout` first.",
-  ),
-  inputs: z.array(z.string()).optional().describe(
-    "The paths this metric reads, as scope globs. When nothing under them changed since the last " +
-      "recorded measurement, the gate replays that value instead of re-measuring and names the source commit. " +
-      "Omit to measure every time. " +
-      LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION,
-  ),
   timeout: jobTimeout,
+}).superRefine((value, ctx) => {
+  if ((value.run === undefined) === (value.producer === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "a standard requires exactly one of run or producer",
+      path: ["producer"],
+    });
+  }
+  if (value.artifact !== undefined && value.extract === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      message: "artifact requires a separately named extract operation",
+      path: ["artifact"],
+    });
+  }
 });
 
 /** A `[checkpoints.<name>]` table — one change-triggered review rule: a
@@ -746,6 +934,7 @@ export const RECORD_ENTRY_SCHEMAS = {
   standards: standardValue,
   checkpoints: checkpointValue,
   "worktree.resources": resourceValue,
+  execution: EnvironmentDeclarationSchema,
 } as const;
 
 const worktreeSection = z.strictObject({
@@ -836,6 +1025,9 @@ export const configSchema = z.strictObject({
   acceptance: acceptanceSection,
   worktree: worktreeSection,
   standards: standardsSection,
+  completion: CompletionPolicySchema.prefault({}),
+  execution: z.record(z.string().regex(NAME_RE), EnvironmentDeclarationSchema)
+    .default({}),
   checkpoints: checkpointsSection,
   gate: gateSection,
   coupling: couplingSection,
@@ -943,6 +1135,9 @@ export const configDocSchema = z.strictObject({
   map: mapSection.optional().describe(
     "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
+  completion: CompletionPolicySchema.optional(),
+  execution: z.record(z.string().regex(NAME_RE), EnvironmentDeclarationSchema)
+    .optional(),
   jobs: jobsObject.optional().describe(
     "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
   ),
@@ -1298,6 +1493,34 @@ export function validateConfigValue(
     (issue) => !formOwners.has(issue.path.split(".").slice(0, 2).join(".")),
   );
   return { config: undefined, issues: [...formIssues, ...schemaIssues] };
+}
+
+/** Read committed policy across the measurement cutover without enabling deferrals.
+ * Only the retired enum is removed. Every standard, bound, grant and checkpoint
+ * remains subject to the current schema; unknown values stay invalid. */
+export function governingConfigValue(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.standards)) return value;
+  return {
+    ...value,
+    standards: Object.fromEntries(
+      Object.entries(value.standards).map(([name, spec]) => {
+        if (
+          !isRecord(spec) ||
+          (spec.measure !== "gate" && spec.measure !== "on-demand")
+        ) return [name, spec];
+        const { measure: retired, ...current } = spec;
+        void retired;
+        return [name, current];
+      }),
+    ),
+  };
+}
+
+/** Pinned policy uses current enforcement even when its document predates cutover. */
+export function parseGoverningConfig(
+  text: string,
+): ReturnType<typeof validateConfigValue> {
+  return validateConfigValue(governingConfigValue(parseToml(text)));
 }
 
 /**

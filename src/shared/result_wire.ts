@@ -60,9 +60,13 @@ const PROOF_SUMMARY_FIELDS = [
 /** Remove the review-page rendering while retaining every compact Proof fact. */
 function proofSummary(value: unknown): Record<string, unknown> | undefined {
   const proof = object(value);
-  return proof === undefined
-    ? undefined
-    : copyDefined(proof, PROOF_SUMMARY_FIELDS);
+  if (proof === undefined) return undefined;
+  const out = copyDefined(proof, PROOF_SUMMARY_FIELDS);
+  const complete = object(proof.completion);
+  if (complete !== undefined) {
+    out.completion = copyDefined(complete, ["candidate_id", "proof_id"]);
+  }
+  return out;
 }
 
 const STATUS_AUTHORITY_PATH_LIMIT = 6;
