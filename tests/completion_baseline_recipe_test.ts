@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 /** Count the repository recipe through the landed producer and artifact runtime. */
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join, toFileUrl } from "@std/path";
@@ -5,7 +6,7 @@ import { produceCoverage } from "../scripts/coverage.ts";
 import { srcLineCoverage } from "../scripts/coverage_lib.ts";
 import { sourceModuleUniverse } from "../scripts/source_module_universe.ts";
 import { MODULE_COVERAGE_EXCEPTIONS } from "../scripts/module_coverage_exceptions.ts";
-import { ProducerDeclarationSchema } from "../src/engine/completion/configuration.ts";
+import { ProducerDeclarationSchema } from "../src/shared/config_schema.ts";
 import { CompletionRecordSchema } from "../src/engine/completion/records.ts";
 import { writeCompletionRecord } from "../src/engine/completion/store.ts";
 import type { ObligationDeclaration } from "../src/engine/validation/catalog.ts";
@@ -240,7 +241,7 @@ Deno.test("E08 E16: one demanded instrumented suite supplies every coverage cons
       ] as const
     ) {
       const record = CompletionRecordSchema.parse({
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         revision: 1,
         kind,
         id,

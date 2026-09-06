@@ -11,6 +11,7 @@ import { Ajv2020 } from "ajv-2020";
 import { z } from "@zod/zod";
 import {
   buildCurrentPublicSchema,
+  initialPublicationIssues,
   type JsonObject,
   type JsonValue,
   publicSchemaArtifactEnrollmentIssues,
@@ -2245,9 +2246,57 @@ Deno.test("interim trunk schema churn is provisional but a tagged regression is 
   }, { prefix: "discern-schema-regression-" });
 });
 
+Deno.test("every publication starts at major one before and at its first release tag", async () => {
+  await withTempDir(async (repo) => {
+    await Deno.writeTextFile(`${repo}/publication.txt`, "first publication\n");
+    await gitInit(repo);
+    for (
+      const phase of ["untagged", "first-tag-at-head", "published"] as const
+    ) {
+      if (phase === "first-tag-at-head") await git(repo, "tag", "v1.0.0");
+      if (phase === "published") {
+        await git(
+          repo,
+          "commit",
+          "--allow-empty",
+          "-m",
+          "Continue after publication",
+        );
+      }
+      const predecessor = await publicSchemaBaselineTag(repo);
+      assertEquals(predecessor, phase === "published" ? "v1.0.0" : undefined);
+      assertEquals(
+        initialPublicationIssues(predecessor, PUBLIC_SCHEMA_PUBLICATIONS),
+        [],
+      );
+      for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+        const name = publication.artifactPath.slice(
+          "schema/".length,
+          -".json".length,
+        );
+        const advanced: PublicSchemaPublication = {
+          ...publication,
+          major: 2,
+          id: `https://discern.sh/schema/v2/${name}.json`,
+          artifactPath: `schema/v2/${name}.json`,
+        };
+        assertEquals(
+          initialPublicationIssues(predecessor, [advanced]).length,
+          phase === "published" ? 0 : 1,
+          `${phase}: ${publication.artifactPath} cannot evade the first-publication guard`,
+        );
+      }
+    }
+  });
+});
+
 Deno.test("generated public schemas carry their identities and remain compatible with the last tagged publication", async () => {
   const baselineTag = await publicSchemaBaselineTag(REPO_ROOT);
   if (baselineTag === undefined) {
+    assertEquals(
+      initialPublicationIssues(undefined, PUBLIC_SCHEMA_PUBLICATIONS),
+      [],
+    );
     for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
       const current = buildCurrentPublicSchema(publication);
       assertEquals(
@@ -2279,6 +2328,13 @@ Deno.test("generated public schemas carry their identities and remain compatible
   );
   const baselineArmed = trunkPaths.has(
     "src/shared/public_schemas.ts",
+  );
+  assertEquals(
+    initialPublicationIssues(
+      baselineArmed ? baselineTag : undefined,
+      PUBLIC_SCHEMA_PUBLICATIONS,
+    ),
+    [],
   );
   const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
     path.startsWith("schema/") && path.endsWith(".json")

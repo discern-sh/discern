@@ -9,6 +9,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   STANDARD_DEFINITION_POLICIES,
+  standardDefinitionFingerprint,
   type StandardDefinitionPolicy,
   verifyTrunkLimits,
 } from "../src/engine/gate/standard_limits.ts";
@@ -90,7 +91,6 @@ const DEFINITION_CHANGES: readonly {
   { field: "metric", branchExtra: ['metric = "renamed"'] },
   { field: "per", branchExtra: ['per = "denominator"'] },
   { field: "scale", branchExtra: ["scale = 2"] },
-  { field: "measure", branchExtra: ['measure = "on-demand"'] },
   { field: "inputs", branchExtra: ['inputs = ["src/**"]'] },
 ];
 
@@ -139,7 +139,6 @@ Deno.test("Standard definition: schema-default and command spellings compare equ
     `run = ["${COMMAND}"]`,
     "scale = 1",
     "margin = 0",
-    'measure = "gate"',
   ]);
   const olderTrunk = qualityStandard().filter((line) =>
     !line.startsWith("direction = ")
@@ -247,7 +246,14 @@ Deno.test("Standard definition: every schema field has an explicit policy and re
       per: "enforcement-meaning",
       scale: "enforcement-meaning",
       margin: "execution-or-pinning",
-      measure: "enforcement-meaning",
+      producer: "enforcement-meaning",
+      extract: "enforcement-meaning",
+      artifact: "enforcement-meaning",
+      needs: "enforcement-meaning",
+      artifacts: "enforcement-meaning",
+      environment: "enforcement-meaning",
+      toolchain: "enforcement-meaning",
+      contexts: "enforcement-meaning",
       inputs: "enforcement-meaning",
       timeout: "execution-or-pinning",
     },
@@ -256,6 +262,167 @@ Deno.test("Standard definition: every schema field has an explicit policy and re
     assert(
       policy.reason.length >= 20 && policy.reason.length <= 100,
       `${field} needs a short, substantive policy reason`,
+    );
+  }
+});
+
+Deno.test("Standard definition: an equivalent shared producer keeps the held command and inputs", async () => {
+  const baseline = qualityStandard(['inputs = ["src/**"]']);
+  const shared = [
+    "[jobs.test]",
+    `run = ["${COMMAND}"]`,
+    "timeout = 10800",
+    'environment = ["CI"]',
+    'toolchain = ["runtime.lock"]',
+    ...baseline.filter((line) => !line.startsWith("run = ")),
+    'producer = "jobs.test"',
+  ];
+  await withVerification(config(baseline), config(shared), (verified) => {
+    assertEquals(
+      verified.blocking,
+      false,
+      JSON.stringify(verified.diagnostics),
+    );
+  });
+});
+
+/** A referenced producer with an explicit dependency and observed process facts. */
+function sharedStandard(): string[] {
+  return [
+    "[completion]",
+    'required_contexts = ["local", "remote"]',
+    "[jobs.build]",
+    'run = "build-project"',
+    'inputs = ["build/**"]',
+    'environment = ["BUILD_FLAGS"]',
+    "[jobs.test]",
+    `run = "${COMMAND}"`,
+    'needs = ["jobs.build"]',
+    'inputs = ["src/**", "tests/**"]',
+    'artifacts = ["report.txt"]',
+    'environment = ["CI", "PATH"]',
+    'toolchain = ["runtime.lock"]',
+    "[standards.quality]",
+    'producer = "jobs.test"',
+    'direction = "up"',
+    "limit = 40",
+    'inputs = ["extract/**"]',
+  ];
+}
+
+for (
+  const [field, before, after] of [
+    ["run", COMMAND, "echo DISCERN_METRIC quality 100"],
+    ["inputs", 'inputs = ["src/**", "tests/**"]', 'inputs = ["src/**"]'],
+    ["environment", 'environment = ["CI", "PATH"]', 'environment = ["CI"]'],
+    ["toolchain", 'toolchain = ["runtime.lock"]', "toolchain = []"],
+    ["artifacts", 'artifacts = ["report.txt"]', "artifacts = []"],
+    ["needs", 'needs = ["jobs.build"]', "needs = []"],
+    ["needs", 'run = "build-project"', 'run = "skip-build"'],
+    ["needs", 'environment = ["BUILD_FLAGS"]', "environment = []"],
+    [
+      "contexts",
+      'required_contexts = ["local", "remote"]',
+      'required_contexts = ["local"]',
+    ],
+  ] as const
+) {
+  Deno.test(`Standard definition: referenced ${field} fact cannot be weakened (${before})`, async () => {
+    const baseline = config(sharedStandard());
+    await withVerification(
+      baseline,
+      baseline.replace(before, after),
+      (verified) => {
+        assertEquals(verified.blocking, true);
+        assertStringIncludes(JSON.stringify(verified.diagnostics), field);
+      },
+    );
+  });
+}
+
+Deno.test("Standard definition: added identities, wider inputs, context and alias names preserve protection", async () => {
+  const baseline = config(sharedStandard());
+  const branch = baseline.replaceAll("jobs.test", "jobs.instrumented")
+    .replace(
+      'environment = ["CI", "PATH"]',
+      'environment = ["CI", "PATH", "LANG"]',
+    )
+    .replace(
+      'inputs = ["src/**", "tests/**"]',
+      'inputs = ["src/**", "tests/**", "assets/**"]',
+    )
+    .replace(
+      'required_contexts = ["local", "remote"]',
+      'required_contexts = ["local", "remote", "second"]',
+    )
+    .replace("[jobs.instrumented]", '[jobs.instrumented]\nstage = "test"');
+  await withVerification(baseline, branch, (verified) => {
+    assertEquals(
+      verified.blocking,
+      false,
+      JSON.stringify(verified.diagnostics),
+    );
+  });
+});
+
+Deno.test("Standard definition: an environment return contract cannot be widened or dropped", async () => {
+  const environment = [
+    "[execution.local]",
+    'kind = "borrowed"',
+    'prepare = "prepare-project"',
+    'restore = "restore-project"',
+    'inputs = ["runtime.lock"]',
+    'ignored = ["dist"]',
+    "reusable = true",
+    "resources = []",
+    "capacity = 1",
+  ];
+  const baseline = config([...qualityStandard(), ...environment]);
+  for (
+    const branch of [
+      config(qualityStandard()),
+      baseline.replace('ignored = ["dist"]', 'ignored = ["dist", "private"]'),
+      baseline.replace("restore-project", "skip-restore"),
+    ]
+  ) {
+    await withVerification(baseline, branch, (verified) => {
+      assertEquals(verified.blocking, true);
+      assertStringIncludes(
+        JSON.stringify(verified.diagnostics),
+        "execution.local",
+      );
+    });
+  }
+});
+
+Deno.test("proposal identity resolves the entire producer recipe and ignores selector aliases", async () => {
+  const source = config(sharedStandard());
+  const fingerprint = (text: string): Promise<string> =>
+    standardDefinitionFingerprint("quality", parseConfigOrThrow(text));
+  const original = await fingerprint(source);
+  assertEquals(
+    await fingerprint(
+      source.replaceAll("jobs.test", "jobs.instrumented").replace(
+        "[jobs.instrumented]",
+        '[jobs.instrumented]\nstage = "test"',
+      ),
+    ),
+    original,
+  );
+  for (
+    const [before, after] of [
+      ["build-project", "changed-build"],
+      ['environment = ["BUILD_FLAGS"]', 'environment = ["OTHER_FLAGS"]'],
+      ['inputs = ["src/**", "tests/**"]', 'inputs = ["src/**"]'],
+      [
+        'required_contexts = ["local", "remote"]',
+        'required_contexts = ["local"]',
+      ],
+    ] as const
+  ) {
+    assert(
+      await fingerprint(source.replace(before, after)) !== original,
+      before,
     );
   }
 });

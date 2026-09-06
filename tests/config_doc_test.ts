@@ -323,6 +323,12 @@ const COMPLETE_RECORD_DOC = {
       run: ["tool report", "tool verify-report"],
       provides: "report integrity",
       timeout: 17,
+      inputs: ["**"],
+      needs: ["jobs.format"],
+      artifacts: ["dist/report"],
+      environment: ["CI"],
+      toolchain: ["lockfile"],
+      contexts: ["local"],
     },
   },
   scopes: {
@@ -332,6 +338,12 @@ const COMPLETE_RECORD_DOC = {
       preview: ["tool preview", "tool preview-summary"],
       gate: "tool gate",
       timeout: 18,
+      inputs: ["**"],
+      needs: ["jobs.format"],
+      artifacts: ["dist/report"],
+      environment: ["CI"],
+      toolchain: ["lockfile"],
+      contexts: ["local"],
     },
   },
   generated: {
@@ -351,9 +363,29 @@ const COMPLETE_RECORD_DOC = {
       per: { lines: ["src/**", "lib/**"] },
       scale: 1000,
       margin: 0.1,
-      measure: "on-demand",
-      inputs: ["src/**"],
+      extract: "tool extract",
+      artifact: "dist/report",
+      inputs: ["**"],
+      needs: ["jobs.format"],
+      artifacts: ["dist/report"],
+      environment: ["CI"],
+      toolchain: ["lockfile"],
+      contexts: ["local"],
       timeout: 20,
+    },
+  },
+  execution: {
+    local: {
+      kind: "borrowed",
+      prepare: "prepare",
+      restore: "restore",
+      reset: "reset",
+      dispose: "dispose",
+      reusable: true,
+      resources: ["database"],
+      ignored: ["dist/**"],
+      inputs: ["**"],
+      capacity: 1,
     },
   },
   checkpoints: {
@@ -401,7 +433,10 @@ const RECORD_FAMILY_FIXTURES = {
   jobs: [COMPLETE_RECORD_DOC.jobs.report],
   scopes: [COMPLETE_RECORD_DOC.scopes.application],
   generated: [COMPLETE_RECORD_DOC.generated.api],
-  standards: [COMPLETE_RECORD_DOC.standards.density],
+  standards: [COMPLETE_RECORD_DOC.standards.density, {
+    producer: "jobs.report",
+  }],
+  execution: [COMPLETE_RECORD_DOC.execution.local],
   checkpoints: [
     COMPLETE_RECORD_DOC.checkpoints.inline,
     COMPLETE_RECORD_DOC.checkpoints.file,
@@ -658,6 +693,8 @@ Deno.test("applyConfigDoc on an empty document leaves the config untouched", () 
 /** A document exercising EVERY fill section the config-doc schema declares —
  * the fixture behind the class-level skip-existing guard below. */
 const FULL_FILL_DOC: DiscernConfigDoc = {
+  completion: { required_contexts: ["local"], concurrency: 1, lookahead: 0 },
+  execution: COMPLETE_RECORD_DOC.execution,
   map: { dir: "docs/x/" },
   jobs: {
     lint: "deno lint",
@@ -881,7 +918,7 @@ Deno.test("applyConfigDoc rejects a standard with no run, and a bad direction", 
         },
       }),
     Error,
-    'standard "coverage": a run command is required',
+    'standard "coverage": exactly one run command or producer selector is required',
   );
   assertThrows(
     () =>

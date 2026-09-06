@@ -1,10 +1,11 @@
+import { publicSchemaAjv } from "../scripts/public_schema_compatibility.ts";
 import {
   assert,
   assertEquals,
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { Ajv2020 } from "ajv-2020";
+import type { Ajv2020 } from "ajv-2020";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
@@ -32,7 +33,6 @@ import {
   PROOF_NOTE_PAYLOAD_TYPE,
   PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
-  PUBLIC_SCHEMA_EXTENSION_KEYWORDS,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
@@ -51,19 +51,12 @@ const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
 /** Compile generated public artifacts with every discern extension declared. */
 function strictPublicSchemaValidator(): Ajv2020 {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strict: true,
-    validateSchema: true,
-  });
-  for (const keyword of PUBLIC_SCHEMA_EXTENSION_KEYWORDS) {
-    ajv.addKeyword(keyword);
-  }
-  return ajv;
+  return publicSchemaAjv(true);
 }
 
 const DURABLE_PROOF_FACT_FIELDS = [
   "branch",
+  "completion",
   "deletions",
   "files_total",
   "head",

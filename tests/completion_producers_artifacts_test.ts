@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
@@ -188,14 +189,14 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       environment: { ...fake.environment, path: root },
     };
     const attempt = CompletionRecordSchema.parse({
-      version: 1,
+      version: ON_DISK_FORMATS.completionRecord.version,
       revision: 1,
       kind: "attempt",
       id: execution.attempt.identity.id,
       data: execution.attempt,
     });
     const environment = CompletionRecordSchema.parse({
-      version: 1,
+      version: ON_DISK_FORMATS.completionRecord.version,
       revision: 1,
       kind: "environment",
       id: execution.environment_id,
@@ -217,7 +218,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       (await writeCompletionRecord(
         root,
         CompletionRecordSchema.parse({
-          version: 1,
+          version: ON_DISK_FORMATS.completionRecord.version,
           revision: 1,
           kind: "candidate",
           id: snap.candidate_id,
@@ -237,7 +238,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         (await writeCompletionRecord(
           root,
           CompletionRecordSchema.parse({
-            version: 1,
+            version: ON_DISK_FORMATS.completionRecord.version,
             revision: 1,
             kind: "evidence",
             id: completionId(500 + index),
@@ -297,7 +298,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
       (await writeCompletionRecord(
         root,
         CompletionRecordSchema.parse({
-          version: 1,
+          version: ON_DISK_FORMATS.completionRecord.version,
           revision: 1,
           kind: "proof",
           id: completionId(800),

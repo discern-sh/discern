@@ -28,7 +28,7 @@ import {
   requireQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { createProducerEvaluator } from "../src/engine/validation/evaluator.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
 import {
   readCompletionRecord,
@@ -64,6 +64,7 @@ Deno.test("queue ports: current composition selects evidence refresh and revoked
       ),
     });
     const candidate = await composeCandidate({
+      prepare: () => Promise.resolve(),
       ...f,
       root,
       recipe,

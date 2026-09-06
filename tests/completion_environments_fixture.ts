@@ -12,7 +12,7 @@ import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
 import {
   type EnvironmentDeclaration,
   EnvironmentDeclarationSchema,
-} from "../src/engine/completion/configuration.ts";
+} from "../src/shared/config_schema.ts";
 import type { Candidate } from "../src/engine/completion/candidate.ts";
 import type {
   Executor,

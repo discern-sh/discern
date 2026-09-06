@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { environmentFixture } from "./completion_environments_fixture.ts";
@@ -19,7 +20,7 @@ import {
 import { queueExample } from "./completion_queue_fixture.ts";
 import { driveQueueValidation } from "../src/engine/landing_queue/driver.ts";
 import { mutateQueue } from "../src/engine/landing_queue/mutations.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
@@ -68,7 +69,7 @@ Deno.test("queue Q01/Q06: complete demand admits once without preflight and surv
         (await writeCompletionRecord(
           root,
           {
-            version: 1,
+            version: ON_DISK_FORMATS.completionRecord.version,
             kind: "candidate",
             id: completionId(1),
             revision: 1,

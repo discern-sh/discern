@@ -22,7 +22,6 @@ interface StandardFixture {
   run: string;
   timeout?: number;
   inputs?: string[];
-  measure?: "gate" | "on-demand";
 }
 
 /** Render a minimal project with the supplied Standard tables. */
@@ -52,9 +51,6 @@ function standardsConfig(standards: readonly StandardFixture[]): string {
       ...(standard.inputs === undefined
         ? []
         : [`inputs = ${JSON.stringify(standard.inputs)}`]),
-      ...(standard.measure === undefined
-        ? []
-        : [`measure = "${standard.measure}"`]),
       `run = "${standard.run}"`,
       "",
     );
@@ -183,9 +179,9 @@ Deno.test("shared Standard measurement: standalone runs once and keeps separate 
 
     const markdown = await runAgent(dir, ["standards", "--markdown"]);
     assertEquals(markdown.code, 1, markdown.output);
-    assertEquals(await invocationCount(dir), 2);
-    assertTerminalTextIncludes(markdown.stdout, "`floor`: measured 5");
-    assertTerminalTextIncludes(markdown.stdout, "`ceiling`: measured 20");
+    assertEquals(await invocationCount(dir), 1);
+    assertTerminalTextIncludes(markdown.stdout, "`floor`: replayed 5");
+    assertTerminalTextIncludes(markdown.stdout, "`ceiling`: replayed 20");
   });
 });
 
@@ -342,7 +338,7 @@ Deno.test("shared Standard measurement: pin keeps independent limits after one r
   });
 });
 
-Deno.test("shared Standard measurement: Gate runs once and replay/defer members stay independent", async () => {
+Deno.test("shared Standard measurement: Gate measures every required member and reuses only unchanged declared inputs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const command = twoMetricCommand();
@@ -370,11 +366,10 @@ Deno.test("shared Standard measurement: Gate runs once and replay/defer members 
           run: command,
         },
         {
-          name: "deferred_metric",
+          name: "required_metric",
           metric: "first",
           direction: "up",
           limit: 4,
-          measure: "on-demand",
           run: command,
         },
       ]),
@@ -383,7 +378,7 @@ Deno.test("shared Standard measurement: Gate runs once and replay/defer members 
 
     const first = await runAgent(dir, ["done", "--json"]);
     assertEquals(first.code, 0, first.output);
-    assertEquals(await invocationCount(dir), 1);
+    assertEquals(await invocationCount(dir), 3);
 
     await Deno.writeTextFile(`${dir}/src/code.ts`, "export const x = 1;\n");
     await git(dir, "add", "src/code.ts");
@@ -391,7 +386,7 @@ Deno.test("shared Standard measurement: Gate runs once and replay/defer members 
 
     const second = await runAgent(dir, ["done", "--json"]);
     assertEquals(second.code, 0, second.output);
-    assertEquals(await invocationCount(dir), 2);
+    assertEquals(await invocationCount(dir), 5);
     const result = decodeCliResult(second.stdout, "done");
     assertResultDataKey(result, "standards");
     const readings = result.data?.standards ?? [];
@@ -400,7 +395,7 @@ Deno.test("shared Standard measurement: Gate runs once and replay/defer members 
       [
         ["source_metric", "measured"],
         ["docs_metric", "replayed"],
-        ["deferred_metric", "deferred"],
+        ["required_metric", "measured"],
       ],
     );
   });

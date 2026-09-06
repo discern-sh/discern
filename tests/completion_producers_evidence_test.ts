@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assert, assertEquals } from "@std/assert";
 import type { ComponentEvidence } from "../src/engine/completion/evidence.ts";
 import { CompletionRecordSchema } from "../src/engine/completion/records.ts";
@@ -372,7 +373,7 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
     prior.execution.attempt.identity.id,
   );
   const active = CompletionRecordSchema.parse({
-    version: 1,
+    version: ON_DISK_FORMATS.completionRecord.version,
     revision: 1,
     kind: "attempt",
     id: rerun.attempt.identity.id,
@@ -419,8 +420,24 @@ Deno.test("E10 V08: started/failed/report reruns supersede only matching subject
       prior.plan.demand,
     );
     assertEquals(blocked.reused.length, 2);
-    assertEquals(blocked.producers.length, 0);
-    assertEquals(blocked.blockers.length, 1);
+    assertEquals(
+      blocked.producers.length,
+      capture.outcome === "passed" ? 1 : 0,
+    );
+    assertEquals(blocked.blockers.length, capture.outcome === "passed" ? 0 : 1);
+    if (capture.outcome === "passed") {
+      assertEquals(
+        blocked.producers[0]?.consumers.length,
+        1,
+        "report evidence requires a fresh strict producer, never authority conversion",
+      );
+    } else {
+      assertEquals(
+        blocked.blockers[0]?.kind,
+        "validation-failed",
+        "a failed report remains red and requires an explicit rerun",
+      );
+    }
     const explicit = planValidation(
       snap,
       observation(records),

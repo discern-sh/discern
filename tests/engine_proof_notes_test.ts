@@ -1,3 +1,4 @@
+import { completeNoteProof as syntheticProof } from "./completion_note_fixtures.ts";
 /**
  * Landing proof notes: durable local recording, fetch-only opt-in transport,
  * authorship, divergence repair, and the post-fast-forward fail-open boundary.
@@ -79,9 +80,19 @@ interface Landing {
 }
 
 /** Match the compact Proof carried by JSON/MCP while retaining the durable page elsewhere. */
-function proofWireSummary(proof: Proof): Omit<Proof, "markdown"> {
-  const { markdown: _markdown, ...summary } = proof;
-  return summary;
+function proofWireSummary(
+  proof: Proof,
+): ReturnType<typeof ProofSummarySchema.parse> {
+  const { markdown: _markdown, completion, ...summary } = proof;
+  return {
+    ...summary,
+    ...(completion === undefined ? {} : {
+      completion: {
+        candidate_id: completion.candidate_id,
+        proof_id: completion.proof_id,
+      },
+    }),
+  };
 }
 
 /** Create, gate, and accept one branch, returning both its target commit and parsed proof. */
@@ -287,7 +298,7 @@ Deno.test("accept records matching proof notes without a remote, status reads th
       "--no-gpg-sign",
     );
     const newerCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const newerFormat = PROOF_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
+    const newerFormat = PROOF_NOTE_PAYLOAD_TYPE.replace(/\/v\d+\//u, "/v9/");
     await git(
       dir,
       "notes",
@@ -627,20 +638,6 @@ Deno.test("proof-note fetch reconciliation leaves unrecognized refspecs untouche
   });
 });
 
-/** Build a branch-bound proof with a shortened commit for note verification cases. */
-function syntheticProof(commit: string, branch: string): Proof {
-  return {
-    branch,
-    trunk: "main",
-    head: commit.slice(0, 12),
-    files_total: 1,
-    insertions: 1,
-    deletions: 0,
-    line: `Proof for ${branch}`,
-    markdown: `### Proof for ${branch}`,
-  };
-}
-
 Deno.test("durable proof-note writer refuses report-only checkpoint review", async () => {
   const commit = "a".repeat(40);
   const result = await writeProofNote(".", commit, {
@@ -676,9 +673,11 @@ Deno.test("durable proof projection excludes live proof telemetry", () => {
     canonicalProofNotePayload(proof, commit),
   );
 
+  assert(proof.completion !== undefined);
   assertEquals(payload, {
     subject: { commit },
     proof: {
+      completion: proof.completion,
       branch: "agent/orbit",
       trunk: "main",
       head: commit.slice(0, 12),
@@ -982,6 +981,7 @@ Deno.test("the durable reader accepts additive current notes and rejects retired
     const futurePayload = encodedProofPayload({
       subject: { commit: futureCommit, tree: "0".repeat(40) },
       proof: {
+        completion: futureProof.completion,
         branch: futureProof.branch,
         trunk: futureProof.trunk,
         head: futureProof.head,
@@ -1157,7 +1157,7 @@ Deno.test("the durable reader accepts additive current notes and rejects retired
       "--no-gpg-sign",
     );
     const unreadCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const futureFormat = PROOF_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
+    const futureFormat = PROOF_NOTE_PAYLOAD_TYPE.replace(/\/v\d+\//u, "/v9/");
     await git(
       dir,
       "notes",

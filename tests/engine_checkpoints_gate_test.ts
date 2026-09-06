@@ -45,6 +45,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { CompletionProofPointerSchema } from "../src/shared/completion_proof.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 
 type DoneEnvelope = CliResultForCommand<"done">;
@@ -75,6 +76,7 @@ const ProofMarkerDataSchema = z.object({
 }).passthrough();
 
 const GateProofMarkerSchema = z.strictObject({
+  completion: CompletionProofPointerSchema.optional(),
   version: z.literal(ON_DISK_FORMATS.gateProof.version),
   head: z.string().min(1),
   mode: z.enum(["strict", "report"]),
@@ -410,6 +412,14 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
       "--json",
     ]);
     assertEquals(met.code, 0, met.output);
+    assertEquals(
+      Object.values(
+        parseCheckpointGateJson(met.stdout).data.producer_executions ?? {},
+      )
+        .reduce((sum, count) => sum + count, 0),
+      1,
+      "strict completion must execute after a report-only run",
+    );
     const conclusion = parseCheckpointGateJson(met.stdout).data.checkpoints
       .declared_met?.[0];
     assertEquals(conclusion?.question, FILE_QUESTION);
@@ -445,6 +455,16 @@ Deno.test("file-backed questions are self-contained on read, refusal, CI, and Pr
     assertEquals(acceptance.code, 1, acceptance.output);
     const acceptanceEnvelope = decodeCliResult(acceptance.stdout, "accept");
     assert(typeof acceptanceEnvelope.message === "string");
+    assertResultDataKey(acceptanceEnvelope, "queue");
+    const pending = acceptanceEnvelope.data.pending?.map((item) => item.kind) ??
+      [];
+    assert(pending.includes("missing-authority"), acceptance.output);
+    assert(pending.includes("missing-judgment"), acceptance.output);
+    assertEquals(
+      acceptanceEnvelope.data.queue?.[0]?.checkpoint_review?.declared_unmet[0]
+        ?.question,
+      FILE_QUESTION,
+    );
     assertStringIncludes(acceptanceEnvelope.message, "## Governing review");
     assertStringIncludes(
       acceptanceEnvelope.message,
@@ -1393,11 +1413,18 @@ question = "${QUESTION_NOTES}"
     // omission. The not-yet-governing checkpoint is still absent.
     const before = await runAgent(wt, ["done", "--json"]);
     assertEquals(before.code, 1, before.output);
-    assertEquals(parseJson(before.stdout).error, UNCHANGED_TREE_RERUN_SLUG);
+    assertEquals(parseJson(before.stdout).error, "incomplete");
+    assertEquals(
+      parseGateJson(before.stdout).data.completion?.pending?.[0]?.kind,
+      "environment-unavailable",
+    );
     assert(!before.output.includes("risk-notes"), before.output);
     const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
     assertEquals(forced.code, 1, forced.output);
-    assertEquals(parseGateJson(forced.stdout).data.failed_stage, "merge");
+    assertEquals(
+      parseGateJson(forced.stdout).data.completion?.pending?.[0]?.kind,
+      "environment-unavailable",
+    );
     const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
     assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
     assert(!preUpdate.stdout.includes("risk-notes"), preUpdate.stdout);
@@ -1452,6 +1479,11 @@ question = "${QUESTION_API}"
     await writeExecutable(
       join(dir, "probe.sh"),
       "#!/usr/bin/env sh\necho trunk-probe >> probe-ran.log\nexit 0\n",
+    );
+    await Deno.writeTextFile(
+      join(dir, ".gitignore"),
+      "probe-ran.log\nhijack-ran.log\n",
+      { append: true },
     );
     await gitInit(dir);
     const wt = await addWorktree(dir, "checkpointed");

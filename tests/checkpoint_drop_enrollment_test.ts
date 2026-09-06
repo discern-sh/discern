@@ -5,6 +5,7 @@
  * advisory-only channel beside the typed records.
  */
 
+import { completeNoteProof } from "./completion_note_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
@@ -100,6 +101,11 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     }
 
     const proof = ProofSchema.parse({
+      ...completeNoteProof(
+        "123456789abc" + "0".repeat(28),
+        "agent/review",
+        "report",
+      ),
       branch: "agent/review",
       trunk: "main",
       head: "123456789abc",
@@ -148,6 +154,7 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     assertEquals(statusWire.gate_proof?.proof?.checkpoint_drops, [drop]);
     assertEquals(statusWire.gate_proof?.checkpoint_drops, [liveDrop]);
     DurableProofClaimSchema.parse({
+      completion: proof.completion,
       branch: proof.branch,
       trunk: proof.trunk,
       head: proof.head,
@@ -215,7 +222,10 @@ Deno.test("checkpoint drops: every registered reason survives every public and d
     assertStringIncludes(acceptMarkdown, drop.reason);
     assertStringIncludes(acceptMarkdown, drop.account);
 
-    const payload = canonicalProofNotePayload(proof, "b".repeat(40));
+    const payload = canonicalProofNotePayload(
+      proof,
+      "123456789abc" + "0".repeat(28),
+    );
     assertStringIncludes(payload, `"reason":"${drop.reason}"`);
     assertStringIncludes(payload, `"account":"${drop.account}"`);
   }

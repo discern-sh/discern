@@ -47,6 +47,7 @@ Deno.test("completion baseline: composition refuses dirty, attached, expired, an
         await git(f.slot, "switch", "-c", "agent/attached");
       }
       const input = {
+        prepare: () => Promise.resolve(),
         ...f,
         recipe,
         dependencies: [],
@@ -100,6 +101,7 @@ Deno.test("completion baseline: candidate publication is idempotent only for its
       {},
     );
     const candidate = await composeCandidate({
+      prepare: () => Promise.resolve(),
       ...f,
       recipe,
       dependencies: [],

@@ -27,6 +27,16 @@ Deno.test("queue A03: real Git composition and generation remain separate, with 
       {},
     );
     const candidate = await composeCandidate({
+      prepare: async () => {
+        assertEquals(await Deno.readTextFile(join(fixture.slot, "a")), "A\n");
+        assertEquals(await Deno.readTextFile(join(fixture.slot, "b")), "B\n");
+        assertEquals(
+          await gitOut(fixture.slot, "log", "-1", "--format=%P").then((
+            parents,
+          ) => parents.split(" ").length),
+          2,
+        );
+      },
       ...fixture,
       recipe,
       dependencies: [],
@@ -112,6 +122,7 @@ Deno.test("queue A02: substantive merge conflicts return judgment and preserve t
       {},
     );
     const candidate = await composeCandidate({
+      prepare: () => Promise.resolve(),
       ...fixture,
       recipe,
       dependencies: [],

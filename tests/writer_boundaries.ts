@@ -44,7 +44,7 @@ export const RESTRICTED_WRITER_MODULES = [
     allowedImporters: [
       "src/engine/desk/desk.ts",
       "src/engine/worktree/acceptance_transaction.ts",
-      "src/engine/worktree/lifecycle.ts",
+      "src/engine/landing_queue/publication.ts",
     ],
     authority:
       "the desk may revoke, acceptance may claim or settle, and lifecycle cleanup may clear a grant",

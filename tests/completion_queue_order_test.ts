@@ -14,7 +14,7 @@ import {
 import { workCapacity } from "../src/engine/landing_queue/claims.ts";
 import { queueAuthority, queueExample } from "./completion_queue_fixture.ts";
 import { completionId } from "./completion_fixtures.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 
 Deno.test("queue Q02/Q03: promotion stays stable across 2–5 efforts and atomic reverse-order batches", () => {
   for (const count of [2, 3, 4, 5, 120]) {

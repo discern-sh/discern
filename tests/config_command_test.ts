@@ -478,6 +478,10 @@ Deno.test("record-setting command options stay in parity with their entry schema
       positional: ["paths"],
       commandOnly: ["dry_run"],
     },
+    execution: {
+      command: null,
+      reason: "execution declarations use config set <dotted.key>",
+    },
     generated: {
       command: null,
       reason: "generated groups use config set <dotted.key>",
@@ -579,8 +583,10 @@ Deno.test("record-setting flags write every supported schema knob", async () => 
       "1000",
       "--margin",
       "0.1",
-      "--measure",
-      "on-demand",
+      "--extract",
+      "extract metrics",
+      "--contexts",
+      "local",
       "--inputs",
       "src/**",
       "--inputs",
@@ -612,7 +618,8 @@ Deno.test("record-setting flags write every supported schema knob", async () => 
       per: { lines: "src/**" },
       scale: 1000,
       margin: 0.1,
-      measure: "on-demand",
+      extract: "extract metrics",
+      contexts: ["local"],
       inputs: ["src/**", "tests/**"],
       timeout: 60,
     });
@@ -1283,7 +1290,12 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
     scope: ["src/**"],
     standard: ["--direction", "up", "--limit", "80", "--run", "m"],
   };
-  const EXEMPT = new Set(["generated", "checkpoints", "worktree.resources"]);
+  const EXEMPT = new Set([
+    "generated",
+    "checkpoints",
+    "worktree.resources",
+    "execution",
+  ]);
   const all = recordConfigPaths();
   for (const p of EXEMPT) {
     assert(all.includes(p), `EXEMPT lists "${p}", no longer a record section`);
@@ -1559,7 +1571,7 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
     assertEquals(result.data.operation, "edit");
     assertEquals(result.data.file, "discern.toml");
     assert(
-      result.data.edits.some((e: { key: string; literal: string }) =>
+      result.data.edits.some((e) =>
         e.key === "project.slug" && e.literal === '"renamed"'
       ),
     );

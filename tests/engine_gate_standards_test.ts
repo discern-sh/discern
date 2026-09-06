@@ -265,7 +265,7 @@ Deno.test("tier 2: a regressed metric fails the gate with the standard diagnosti
   });
 });
 
-Deno.test("tier 2: a measurement's exit code is not its verdict — the metric line decides", async () => {
+Deno.test("tier 2: a failed producer cannot supply passing standard evidence", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -275,43 +275,30 @@ Deno.test("tier 2: a measurement's exit code is not its verdict — the metric l
     await gitInit(dir);
 
     const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
     const step = (obj.steps ?? []).find((s) => s.label === "standard:cov");
-    assertEquals(step?.outcome, "ok", r.stdout);
+    assertEquals(step?.outcome, "failed", r.stdout);
+    assertEquals(obj.data?.gate_proof?.status, "unavailable");
   });
 });
 
-Deno.test('tier 2: measure = "on-demand" defers the measurement but never the limit check, and the hints name it', async () => {
+Deno.test("tier 2: measurement deferrals are concretely refused before a producer starts", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    const deferred = (limit: number): string =>
+    await writeConfig(
+      dir,
       covConfig({
-        limit,
+        limit: 80,
         run: "echo should-not-run > measured.flag",
         extra: ['measure = "on-demand"'],
-      });
-    await writeConfig(dir, deferred(80));
-    await gitInit(dir);
-
-    // Deferred: green gate, no measurement side-effect, the deferral named.
-    const green = await runAgent(dir, ["done", "--json"]);
-    assertEquals(green.code, 0, green.output);
-    const obj = parseGateJson(green.stdout);
-    const entry = obj.data?.standards?.find((s) => s.name === "cov");
-    assertEquals(entry?.measurement, "deferred");
-    assertEquals(
-      await targetExists(join(dir, "measured.flag")),
-      false,
-      "a deferred standard must not run its command",
+      }),
     );
-    assertHasHint(obj, HINTS["gate-deferred-standards"], { names: ["cov"] });
-
-    // Tier 1 still covers it: loosening the deferred standard's limit fails.
-    await writeConfig(dir, deferred(70));
-    const red = await runAgent(dir, ["done", "--json"]);
-    assertEquals(red.code, 1, red.output);
-    assertEquals(parseGateJson(red.stdout).data?.failed_stage, "standards");
+    await gitInit(dir);
+    const refusal = await runAgent(dir, ["done", "--json"]);
+    assertEquals(refusal.code, 1, refusal.output);
+    assertStringIncludes(refusal.output, "measure");
+    assertEquals(await targetExists(join(dir, "measured.flag")), false);
   });
 });
 
@@ -352,7 +339,6 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
         'direction = "down"',
         "limit = 5",
         'run = "echo DISCERN_METRIC slow 1"',
-        'measure = "on-demand"',
         "",
       ].join("\n"),
     );
@@ -365,8 +351,7 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
     assertEquals(cov?.disposition, "run");
     assertEquals(cov?.group, "Test & standards");
     const slow = obj.plan?.steps.find((s) => s.label === "standard:slow");
-    assertEquals(slow?.disposition, "skip");
-    assertStringIncludes(slow?.note ?? "", "on-demand");
+    assertEquals(slow?.disposition, "run");
   });
 });
 

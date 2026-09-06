@@ -186,10 +186,16 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
 
     assertEquals(run.code, 1, run.output);
     assert(
-      elapsedMs < 6_000,
-      `the 1s timeout should end promptly, took ${elapsedMs}ms`,
+      elapsedMs < 25_000,
+      `the bounded producer and environment return should finish before the 30s command, took ${elapsedMs}ms`,
     );
     const result = parseStandardsJson(run.stdout);
+    assert(result.data !== undefined && "standards" in result.data, run.output);
+    assert(
+      (result.data.standards?.find((standard) => standard.name === "slow")
+        ?.duration_s ?? Infinity) < 4,
+      "the process budget excludes environment preparation and return",
+    );
     const diagnostic = (result.diagnostics ?? [])[0];
     assertStringIncludes(diagnostic?.message ?? "", "timed out after 1s");
     // A timeout-killed Standard self-identifies as a timeout: the message
@@ -618,7 +624,7 @@ Deno.test("standards: a misconfigured standard (no run command) errors clearly",
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.stderr, "discern.toml is invalid");
-    assertStringIncludes(r.stderr, "standards.coverage.run");
+    assertStringIncludes(r.stderr, "standards.coverage.producer");
   });
 });
 
@@ -714,7 +720,6 @@ Deno.test("standards: a plan/projection length mismatch is a failed integrity st
       run: "echo 'DISCERN_METRIC coverage 80'",
       scale: 1,
       margin: 0,
-      measure: "gate",
     },
     metric: "coverage",
     direction: "up",
@@ -723,7 +728,6 @@ Deno.test("standards: a plan/projection length mismatch is a failed integrity st
     limitKey: "standards.coverage.limit",
     scale: 1,
     margin: 0,
-    gateMeasure: true,
   };
   const failure = standardPlanIntegrityFailure({ standards: [standard] }, []);
   assert(failure !== undefined, "a mismatch must produce a failed step");

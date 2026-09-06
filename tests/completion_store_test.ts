@@ -79,6 +79,13 @@ Deno.test("completion reads are effect-free and every family preserves newer and
             }),
             "newer",
           ],
+          [
+            JSON.stringify({
+              ...fixture,
+              version: ON_DISK_FORMATS.completionRecord.version - 1,
+            }),
+            "older",
+          ],
           [JSON.stringify({ ...fixture, data: {} }), "invalid"],
           [JSON.stringify({ ...fixture, unknown_field: true }), "invalid"],
           ["{", "invalid"],

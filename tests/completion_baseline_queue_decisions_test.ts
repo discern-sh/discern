@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 /** Candidate decisions and queue stops remain separate from machine success. */
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
@@ -15,7 +16,7 @@ import {
   type CompletionRecord,
 } from "../src/engine/completion/records.ts";
 import { RecoverySchema } from "../src/engine/completion/environment.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import { observation } from "./completion_producers_fixtures.ts";
 import { queueExample } from "./completion_queue_fixture.ts";
 import {
@@ -52,7 +53,7 @@ Deno.test("completion baseline: queue planning distinguishes source, predecessor
     planQueue({
       observation: {
         ...observation([{
-          version: 1,
+          version: ON_DISK_FORMATS.completionRecord.version,
           kind: "queue",
           id: REPOSITORY_QUEUE_ID,
           revision: 1,
@@ -88,9 +89,9 @@ Deno.test("completion baseline: queue planning distinguishes source, predecessor
     { kind: "stale-evidence", evidence_ids: [], reason: "source-replaced" },
   );
   assertEquals(plan({ ...base, invalidation: "policy-changed" }).blockers[0], {
-    kind: "stale-evidence",
-    evidence_ids: [],
-    reason: "policy-changed",
+    kind: "environment-unavailable",
+    reason:
+      "The changed predecessor needs composition in a declared, explicitly released environment.",
   });
   const attempt = COMPLETION_FAMILIES.attempt.schema.parse(
     completionFixtures().attempt,

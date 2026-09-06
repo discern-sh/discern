@@ -1,3 +1,4 @@
+import { coverageReporter } from "../scripts/coverage.ts";
 /** Native macOS gates public changes and releases, whose Mac binaries are notarized. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -172,6 +173,8 @@ Deno.test("every hosted Deno setup consumes the one exact .dvmrc version", async
       include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
     },
   });
+  assertEquals(coverageReporter({ get: () => undefined }), "junit");
+  assertEquals(coverageReporter({ get: () => "pretty" }), "pretty");
   const documents = await githubYaml(files);
   const setupSteps = documents.flatMap((document) =>
     document.mappings.filter(({ value }) =>
@@ -315,7 +318,7 @@ Deno.test("local gates default to JUnit and hosted full gates select pretty outp
   const config = parseConfigOrThrow(await Deno.readTextFile(DISCERN_TOML));
   assertEquals(
     toCommand(config.jobs.test),
-    "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}",
+    "deno task coverage",
   );
 
   const documents = await githubYaml(
@@ -397,7 +400,7 @@ runs:
 });
 
 Deno.test("the ordinary native macOS gate starts when the repository is public", () => {
-  const macos = job(gateSource, "macos", "standards");
+  const macos = job(gateSource, "macos", "wsl");
   assertStringIncludes(
     macos,
     "if: github.event.repository.private == false",
@@ -425,11 +428,11 @@ Deno.test("one native release row runs the full gate before compilation", () => 
   );
 
   const build = job(releaseSource, "build", "release");
-  const fetch = build.indexOf("- name: Fetch main for the release gate");
+  const fetch = build.indexOf("- name: Fetch the actual gate policy base");
   const gate = build.indexOf("- name: Run the full gate on native macOS");
   const compile = build.indexOf("- name: Compile");
-  assert(fetch >= 0, "the release gate fetches its main baseline");
-  assert(gate > fetch, "the release gate follows its main fetch");
+  assert(fetch >= 0, "the release gate fetches its event policy baseline");
+  assert(gate > fetch, "the release gate follows its policy fetch");
   assert(compile > gate, "compilation waits for the release gate");
 
   const releaseGate = build.slice(fetch, compile);
@@ -447,7 +450,7 @@ Deno.test("one native release row runs the full gate before compilation", () => 
   );
   assertStringIncludes(
     releaseGate,
-    "git branch --force main refs/remotes/origin/main",
+    "uses: ./.github/actions/policy-base",
   );
 });
 
@@ -515,4 +518,96 @@ Deno.test("the hardened runtime grants only Deno's required JIT entitlement", ()
     enabled.length === 1,
     `expected one enabled entitlement, found ${enabled.length}`,
   );
+});
+
+Deno.test("every hosted full gate declares its report scope and fetched policy base", async () => {
+  const documents = await githubYaml(
+    await structuralGuardScope({
+      guard: "tests/workflow_platform_test.ts#complete-hosted-gates",
+      universe: "authored-text",
+      narrow: {
+        reason:
+          "This gate invocation rule governs GitHub workflow and action YAML.",
+        include: (rel) => rel.startsWith(".github/") && /\.ya?ml$/.test(rel),
+      },
+    }),
+  );
+  for (const document of documents) {
+    for (
+      const { path, value } of document.mappings.filter(({ value }) =>
+        isFullGateCommand(value.run)
+      )
+    ) {
+      const run = String(value.run);
+      for (
+        const flag of [
+          "--ci",
+          "--standalone",
+          "--context local",
+          "--policy-base refs/discern/ci-policy-base",
+        ]
+      ) assertStringIncludes(run, flag, `${document.path}:${path}`);
+    }
+    if (!document.path.startsWith(".github/workflows/")) continue;
+    for (const { path, value } of document.mappings) {
+      if (!Array.isArray(value.steps)) continue;
+      let fetched = false;
+      for (const step of value.steps as Record<string, unknown>[]) {
+        if (step.uses === "./.github/actions/policy-base") {
+          const input = step.with as Record<string, unknown>;
+          assertStringIncludes(
+            String(input.base),
+            "github.event.pull_request.base.sha || github.event.before",
+          );
+          fetched = true;
+        }
+        if (
+          isFullGateCommand(step.run) ||
+          ["./.github/actions/macos-gate", "./.github/actions/wsl-gate"]
+            .includes(String(step.uses))
+        ) {
+          assert(
+            fetched,
+            `${document.path}:${path} fetches policy before validation`,
+          );
+        }
+      }
+    }
+  }
+});
+
+Deno.test("instrumented producer and nested hosted gates fit their containing budgets", () => {
+  const config = parseConfigOrThrow(Deno.readTextFileSync(DISCERN_TOML));
+  assert(
+    typeof config.jobs.test === "object" && !Array.isArray(config.jobs.test),
+  );
+  const producer = config.jobs.test.timeout;
+  assert(producer !== undefined && producer >= 10800);
+  const actions = new Map([
+    ["./.github/actions/macos-gate", parseYaml(macosGateActionSource)],
+    ["./.github/actions/wsl-gate", parseYaml(wslGateActionSource)],
+  ]);
+  for (const source of [gateSource, releaseSource]) {
+    for (const { value } of yamlMappings(parseYaml(source))) {
+      if (!Array.isArray(value.steps)) {
+        continue;
+      }
+      for (const step of value.steps as Record<string, unknown>[]) {
+        if (isFullGateCommand(step.run)) {
+          assert(Number(value["timeout-minutes"]) * 60 > producer);
+        }
+        const action = actions.get(String(step.uses));
+        if (action === undefined) continue;
+        const nested = yamlMappings(action).filter(({ value }) =>
+          isFullGateCommand(value.run)
+        );
+        assert(nested.length > 0);
+        for (const child of nested) {
+          const minutes = Number(child.value["timeout-minutes"]);
+          assert(minutes * 60 > producer);
+          assert(Number(value["timeout-minutes"]) > minutes);
+        }
+      }
+    }
+  }
 });

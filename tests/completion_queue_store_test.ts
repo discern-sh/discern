@@ -19,7 +19,7 @@ import {
   claimQueueWork,
 } from "../src/engine/landing_queue/claims.ts";
 import { mutateQueue } from "../src/engine/landing_queue/mutations.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,

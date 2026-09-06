@@ -1056,3 +1056,33 @@ Deno.test("resource ledger phase and forward-version policy come from the regist
     assertEquals(await Deno.readTextFile(path), futureBytes);
   });
 });
+
+Deno.test("required execution convergence blocks a failed resource ensure without changing ownership", async () => {
+  await withTempDir(async (root) => {
+    await mainRepo(root);
+    const path = await addWorktree(root, "required-ensure");
+    await Deno.writeTextFile(
+      join(path, "discern.toml"),
+      `[project]
+slug = "proj"
+[worktree.resources.thing]
+create = "true"
+ensure = "false"
+destroy = "true"
+`,
+    );
+    const { settings, identity } = await identityOf(path, path);
+    const { common, key } = await commonAndKey(path);
+    const ctx = await ctxFor(path);
+    await createResources(ctx, identity, settings, common, key);
+    const before = await entriesForWorktree(common, key);
+    await assertRejects(
+      () => ensureResources(ctx, identity, settings, { required: true }),
+      Error,
+      "Required resource 'thing'",
+    );
+    assertEquals(await entriesForWorktree(common, key), before);
+    await ensureResources(ctx, identity, settings);
+    assertEquals(await entriesForWorktree(common, key), before);
+  });
+});

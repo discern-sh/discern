@@ -1,7 +1,13 @@
 /** Real bounded Git failures remain actionable in an environment's recovery. */
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { executionGit } from "../src/engine/execution/snapshot.ts";
+import {
+  captureGitSnapshot,
+  containedFile,
+  executionGit,
+} from "../src/engine/execution/snapshot.ts";
+import { CheckoutPathSchema } from "../src/engine/execution/snapshot_schema.ts";
+import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
 import { SYSTEM_SCHEDULER } from "../src/shared/scheduler.ts";
 import { GIT_OUTPUT_LIMIT_EXCEEDED } from "../src/shared/subprocess.ts";
 import { git, gitInit } from "./engine_helpers.ts";
@@ -66,6 +72,59 @@ Deno.test("V06 bounded Git failures retain deadline, output ceiling, and exit ev
         allowedExitCodes: [1],
       }),
       "",
+    );
+  });
+});
+
+Deno.test("V08 checkout capture preserves literal native filenames and rejects traversal", async () => {
+  await withTempDir(async (root) => {
+    const names = Deno.build.os === "windows" ? ["with space", "café"] : [
+      "*bold*.txt",
+      "line\nbreak",
+      " leading",
+      "trailing ",
+      "café",
+      "back\\slash",
+    ];
+    for (const name of names) await Deno.writeTextFile(join(root, name), name);
+    await gitInit(root);
+    const snapshot = await captureGitSnapshot(root, {
+      maxFiles: 100,
+      maxBytes: 1024 * 1024,
+      gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+    });
+    assertEquals(
+      snapshot.files.map((file) => file.path).sort(),
+      [...names].sort(),
+    );
+    for (const file of snapshot.files) {
+      assertEquals(
+        await Deno.readTextFile(await containedFile(root, file.path)),
+        file.path,
+      );
+    }
+    for (
+      const name of [
+        "../outside",
+        "/outside",
+        "a/../outside",
+        "a/./b",
+        "a//b",
+        ".git/index",
+        "a/.GIT/config",
+        "a\0b",
+      ]
+    ) {
+      assertEquals(CheckoutPathSchema.safeParse(name).success, false, name);
+      await assertRejects(() => containedFile(root, name));
+    }
+    assertEquals(CheckoutPathSchema.safeParse("e\u0301").success, true);
+    assertEquals(ArtifactPathSchema.safeParse("*bold*.txt").success, false);
+    await Deno.symlink(root, join(root, "ancestor"), { type: "dir" });
+    await assertRejects(
+      () => containedFile(root, "ancestor/source"),
+      Error,
+      "non-directory ancestor",
     );
   });
 });

@@ -1,10 +1,11 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assert, assertEquals } from "@std/assert";
 import {
   COMPLETION_FAMILIES,
   type CompletionRecord,
   CompletionRecordSchema,
 } from "../src/engine/completion/records.ts";
-import { CompletionPolicySchema } from "../src/engine/completion/configuration.ts";
+import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import {
   type CandidateAssessment,
   planQueue,
@@ -38,7 +39,7 @@ function fixture(count: number): Parameters<typeof planQueue>[0] {
   assert(approvals.kind === "changed");
   const queue = approvals.queue;
   const records: CompletionRecord[] = [{
-    version: 1,
+    version: ON_DISK_FORMATS.completionRecord.version,
     kind: "queue",
     id: REPOSITORY_QUEUE_ID,
     revision: 1,
@@ -178,7 +179,7 @@ Deno.test("queue Q07: planning is read-only and preserves distinct stops", () =>
         blockers: [...evidence, stop],
       });
       const plan = planQueue({ ...input, assessments });
-      assertEquals(plan.blockers, [stop]);
+      assertEquals(plan.blockers, [stop, ...evidence]);
       assertEquals(plan.actions, []);
     }
   }
@@ -213,4 +214,49 @@ Deno.test("queue Q06: two actors coordinate one exact transition and an absent a
     executor: { ...input.executor, operation_id: completionId(5000) },
   });
   assertEquals(expired.blockers[0]?.kind, "recovery-incomplete");
+});
+
+Deno.test("Q07 missing authority preserves every independently assessed pending state", () => {
+  const input = fixture(1);
+  const first = input.assessments.get(completionId(100));
+  assert(first !== undefined);
+  const pending: CompletionBlocker[] = [
+    { kind: "missing-judgment", subjects: ["variance:review"] },
+    { kind: "environment-unavailable", reason: "retained checkout" },
+    { kind: "validation-failed", evidence_ids: [] },
+  ];
+  const assessments = new Map(input.assessments);
+  assessments.set(first.candidate_id, { ...first, blockers: pending });
+  const records = input.observation.records.map((item) => {
+    if (
+      item.reading.kind !== "recorded" || item.reading.record.kind !== "queue"
+    ) return item;
+    const record = item.reading.record;
+    return {
+      ...item,
+      reading: {
+        ...item.reading,
+        record: {
+          ...record,
+          data: {
+            ...record.data,
+            entries: record.data.entries.map((entry) => ({
+              ...entry,
+              authority_id: null,
+            })),
+          },
+        },
+      },
+    };
+  });
+  const plan = planQueue({
+    ...input,
+    assessments,
+    observation: { ...input.observation, records },
+  });
+  assertEquals(plan.actions, []);
+  assertEquals(plan.blockers.map((blocker) => blocker.kind), [
+    "missing-authority",
+    ...pending.map((blocker) => blocker.kind),
+  ]);
 });

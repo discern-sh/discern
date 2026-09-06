@@ -7,15 +7,12 @@
  * `engine_standards_test.ts`; this pins the decision directly.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
-  buildStandardMeasurementPlan,
   buildStandardPlan,
   buildStandardSelectionPlan,
   pinnedLimit,
-  type ResolvedStandard,
-  standardExecutionIdentity,
   standardPinEligibility,
   standardPlanToEngine,
 } from "../src/engine/gate/standard_plan.ts";
@@ -139,94 +136,18 @@ run = "echo x"
   assertEquals(plan.standards.find((r) => r.name === "roomy")?.margin, 5);
 });
 
-Deno.test("buildStandardMeasurementPlan: exact process identities share one run", () => {
-  const cfg = parseConfigOrThrow(`
-[gate]
-timeout = 60
-
-[standards.first]
-metric = "first_metric"
+Deno.test("standards have no configurable deferral", () => {
+  for (const measure of ["gate", "on-demand"]) {
+    assertThrows(() =>
+      parseConfigOrThrow(`
+[standards.quality]
 direction = "up"
 limit = 1
 run = "echo shared"
-
-[standards.second]
-metric = "second_metric"
-direction = "down"
-limit = 10
-timeout = 60
-run = "echo shared"
-
-[standards.different_timeout]
-direction = "up"
-limit = 1
-timeout = 61
-run = "echo shared"
-`);
-  const standards = buildStandardPlan(cfg).standards;
-  const resolved: ResolvedStandard[] = standards.map((standard) => ({
-    standard,
-    action: { kind: "measure" },
-  }));
-  const plan = buildStandardMeasurementPlan("/checkout", resolved, 60);
-
-  assertEquals(plan.measurements.length, 2);
-  assertEquals(
-    plan.measurements.map((measurement) =>
-      measurement.standards.map((standard) => standard.name)
-    ),
-    [["first", "second"], ["different_timeout"]],
-  );
-  assertEquals(plan.measurements[0]?.identity, {
-    command: "echo shared",
-    cwd: "/checkout",
-    timeoutS: 60,
-  });
-});
-
-Deno.test("buildStandardMeasurementPlan: replay and defer never join a measuring sibling", () => {
-  const standards = buildStandardPlan(parseConfigOrThrow(`
-[standards.measured]
-direction = "up"
-limit = 1
-run = "echo shared"
-
-[standards.replayed]
-direction = "up"
-limit = 1
-run = "echo shared"
-
-[standards.deferred]
-direction = "up"
-limit = 1
-run = "echo shared"
-`)).standards;
-  const actions = [
-    { kind: "measure" as const },
-    { kind: "replay" as const, value: 2, from: "a".repeat(40) },
-    { kind: "defer" as const },
-  ];
-  const resolved: ResolvedStandard[] = standards.map((standard, index) => ({
-    standard,
-    action: actions[index] ?? { kind: "defer" },
-  }));
-
-  const plan = buildStandardMeasurementPlan("/checkout", resolved, 30);
-  assertEquals(
-    plan.measurements.flatMap((measurement) =>
-      measurement.standards.map((standard) => standard.name)
-    ),
-    ["measured"],
-  );
-});
-
-Deno.test("standardExecutionIdentity: checkout root is part of sharing identity", () => {
-  const standard = buildStandardPlan(CFG).standards[0];
-  assert(standard !== undefined);
-  assert(
-    JSON.stringify(standardExecutionIdentity("/one", standard, 30)) !==
-      JSON.stringify(standardExecutionIdentity("/two", standard, 30)),
-  );
+measure = "${measure}"
+`)
+    );
+  }
 });
 
 // ── pinnedLimit: the pure decision behind `standards --pin` ──────────────────────

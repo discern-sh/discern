@@ -1,9 +1,10 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 /** Executable producer/extractor recipe for downstream measurement and public wiring. */
 import { CandidateSchema } from "../src/engine/completion/candidate.ts";
 import {
   type ProducerDeclaration,
   ProducerDeclarationSchema,
-} from "../src/engine/completion/configuration.ts";
+} from "../src/shared/config_schema.ts";
 import type { ComponentEvidence } from "../src/engine/completion/evidence.ts";
 import {
   type CompletionRecord,
@@ -235,7 +236,7 @@ export function recorded(
 ): CompletionRecord[] {
   return [
     CompletionRecordSchema.parse({
-      version: 1,
+      version: ON_DISK_FORMATS.completionRecord.version,
       revision: 1,
       kind: "attempt",
       id: execution.attempt.identity.id,
@@ -246,7 +247,7 @@ export function recorded(
     }),
     ...evidence.map((data, index) =>
       CompletionRecordSchema.parse({
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         revision: 1,
         kind: "evidence",
         id: completionId(execution.attempt.identity.sequence * 1000 + index),
@@ -276,7 +277,7 @@ export function assemblyRecord(
   };
   const execution = claimed(snap, plan, 999);
   const record = CompletionRecordSchema.parse({
-    version: 1,
+    version: ON_DISK_FORMATS.completionRecord.version,
     revision: 1,
     kind: "attempt",
     id: execution.attempt.identity.id,

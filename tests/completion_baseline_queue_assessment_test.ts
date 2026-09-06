@@ -1,3 +1,4 @@
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 /** Assessment traverses immutable predecessor records without trusting queue membership alone. */
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
@@ -42,6 +43,7 @@ Deno.test("completion baseline: predecessor chains require matching records and 
     );
     const policy = await predecessorPolicyIdentity(f.root, source.head);
     const candidate = await composeCandidate({
+      prepare: () => Promise.resolve(),
       ...f,
       recipe,
       dependencies: [],
@@ -116,7 +118,7 @@ Deno.test("completion baseline: predecessor chains require matching records and 
       ] as const
     ) {
       const current: CompletionRecord = {
-        version: 1,
+        version: ON_DISK_FORMATS.completionRecord.version,
         kind: "candidate",
         id: f.execution.candidate_id,
         revision: 1,

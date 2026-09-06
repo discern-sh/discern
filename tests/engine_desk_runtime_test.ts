@@ -10,6 +10,10 @@
  * Guards: boundary:agent-runtime-boundary, boundary:invoked-process-lifecycle
  */
 
+import {
+  fixtureEffortGrant,
+  fixtureEffortGrantSubject,
+} from "./effort_grant_fixtures.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../src/shared/brand.ts";
 import {
@@ -67,7 +71,6 @@ import {
 import { renderTipCli, TIPS } from "../src/shared/tips.ts";
 import { DISCERN_VERSION } from "../src/lib/version.ts";
 import { displayWidth, stripAnsi } from "../src/lib/text.ts";
-import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
@@ -334,16 +337,13 @@ function scriptedRuntime(
     mainRepoPath: () => ROOT,
     grantEffortPlan: () => ({
       title: "Landing pre-authorization plan",
+      subject: fixtureEffortGrantSubject("agent/fixture"),
       details: [],
       steps: [],
     }),
     grantEffort: (_path, branch) => ({
       status: "granted",
-      grant: {
-        version: ON_DISK_FORMATS.effortGrant.version,
-        branch,
-        granted_at: "2026-07-11T12:00:00.000Z",
-      },
+      grant: fixtureEffortGrant(branch),
     }),
     clearEffortGrantPlan: () => ({
       title: "Landing pre-authorization revocation plan",
@@ -788,6 +788,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       grantPlans.push({ path, branch });
       return {
         title: "Landing pre-authorization plan",
+        subject: fixtureEffortGrantSubject("agent/fixture"),
         details: [],
         steps: [],
       };
@@ -797,11 +798,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
       granted = true;
       return {
         status: "granted",
-        grant: {
-          version: ON_DISK_FORMATS.effortGrant.version,
-          branch,
-          granted_at: "2026-07-11T12:00:00.000Z",
-        },
+        grant: fixtureEffortGrant(branch),
       };
     },
     clearEffortGrantPlan: (path) => {
@@ -831,7 +828,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   assertEquals(confirmations, [
     {
       message:
-        `Allow ${effort.branch} to land once green without a further conversation?`,
+        `Approve the displayed committed source of ${effort.branch} to land once green?`,
       options: { defaultTo: false, noLabel: "Keep", yesLabel: "Allow" },
     },
     {
@@ -849,7 +846,7 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   );
   assertStringIncludes(
     joined(output),
-    `${effort.branch} may land once green without a further conversation.`,
+    `The displayed source of ${effort.branch} may land once green. New source edits require another grant.`,
   );
   assertStringIncludes(
     joined(output),
@@ -1327,7 +1324,7 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
       BACK,
       QUIT,
     ];
-    const confirmations = [testCase.name === "live task", true];
+    const confirmations = [true];
     const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
     const grants: Array<{ path: string; branch: string }> = [];
     const saved: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
@@ -1368,11 +1365,7 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
         grants.push({ path, branch });
         return {
           status: "granted",
-          grant: {
-            version: ON_DISK_FORMATS.effortGrant.version,
-            branch,
-            granted_at: "2026-07-11T12:00:00.000Z",
-          },
+          grant: fixtureEffortGrant(branch),
         };
       },
       writePreferences: (_root, preferences) => {
@@ -1392,7 +1385,7 @@ Deno.test("expanded creation retains trunk, live-task, and unlanded bases", asyn
     }], testCase.name);
     assertEquals(
       grants.length,
-      testCase.name === "live task" ? 1 : 0,
+      0,
       testCase.name,
     );
     assertEquals(saved, [{
@@ -1514,7 +1507,7 @@ Deno.test("an unavailable preference write leaves creation intact and explains t
   assertStringIncludes(joined(output), "may ask you to choose again");
 });
 
-Deno.test("a failed landing grant keeps the created task and reports actual authority", async () => {
+Deno.test("task creation cannot approve future authored source", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,
@@ -1529,8 +1522,9 @@ Deno.test("a failed landing grant keeps the created task and reports actual auth
     BACK,
     QUIT,
   ];
-  const confirmations = [true, true];
+  const confirmations = [true];
   let created: StartData | undefined;
+  let grants = 0;
   const runtime = scriptedRuntime(output, {
     status: () => ({
       ok: true,
@@ -1547,18 +1541,14 @@ Deno.test("a failed landing grant keeps the created task and reports actual auth
       return created;
     },
     grantEffort: () => {
-      throw new Error("the grant store is unavailable");
+      grants++;
+      throw new Error("creation must not call the grant writer");
     },
   });
 
   assertEquals(await runDesk({}, runtime), 0);
   assert(created !== undefined);
-  assertStringIncludes(joined(output), "Task created.");
-  assertStringIncludes(
-    joined(output),
-    "Landing pre-authorization was not recorded",
-  );
-  assertStringIncludes(joined(output), "the grant store is unavailable");
+  assertEquals(grants, 0);
   assertStringIncludes(
     joined(output),
     "A later conversation must authorize landing",
@@ -1670,7 +1660,7 @@ Deno.test("task creation returns safely from every progressive prompt", async ()
       planned: 0,
     },
     {
-      name: "landing authority",
+      name: "expanded creation confirmation",
       choices: [
         START_TASK,
         "codename",
@@ -1681,7 +1671,7 @@ Deno.test("task creation returns safely from every progressive prompt", async ()
       ],
       cancelInputAt: 0,
       cancelConfirmAt: 1,
-      planned: 0,
+      planned: 1,
     },
     {
       name: "creation confirmation",
@@ -1808,7 +1798,7 @@ Deno.test("an unlanded branch can be inspected or resumed by its exact ref", asy
     QUIT,
   ];
   const inputs = ["Resume orphan work", "Retain the branch's committed base."];
-  const confirmations = [false, true];
+  const confirmations = [true];
   const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
   let created: StartData | undefined;
   assertEquals(
@@ -1870,7 +1860,7 @@ Deno.test("a live task starts a follow-up from its exact branch tip", async () =
     "Follow-up: preserve metadata",
     "Build on the selected task's committed tip.",
   ];
-  const confirmations = [false, true];
+  const confirmations = [true];
   const requests: Array<Parameters<DeskRuntime["startPlan"]>[1]> = [];
   const preferences: Array<Parameters<DeskRuntime["writePreferences"]>[1]> = [];
   let created: StartData | undefined;
@@ -2719,11 +2709,7 @@ Deno.test("every registered Desk action reaches its shared runtime effect", asyn
           effects.push("grant");
           return {
             status: "granted",
-            grant: {
-              version: ON_DISK_FORMATS.effortGrant.version,
-              branch,
-              granted_at: "2026-07-11T12:00:00.000Z",
-            },
+            grant: fixtureEffortGrant(branch),
           };
         },
       }),

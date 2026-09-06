@@ -161,6 +161,17 @@ export function completionFixtures(): Record<
       }],
       assembled_at: 100,
     }),
+    presentation: parse("presentation", 4, {
+      candidate_id: completionId(1),
+      artifact: {
+        attempt_id: completionId(2),
+        candidate_id: completionId(1),
+        context: "local",
+        path: `environment/gate-proof-${completionId(4)}.json`,
+        digest: COMPLETION_DIGEST,
+        bytes: 123,
+      },
+    }),
     environment: parse("environment", 5, {
       path: "/workspace/effort-a",
       declaration: COMPLETION_DIGEST,
