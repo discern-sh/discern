@@ -16,6 +16,10 @@ The protected-definition check resolves aliases through the same graph. An equiv
 
 CI uses the same evaluator with an explicit context and actual event policy base. Report evidence records machine work and checkpoint questions; it cannot replace strict completion evidence or authorize acceptance. This repository's coverage producer runs one instrumented suite in the local and CI gate. Required local binary-size evidence needs no hosted result.
 
+Source scans and candidate-input enumeration follow Git's tracked and non-ignored files; tracked paths remain inputs even if an ignore pattern matches. Ignoring a scratch path does not exempt declared toolchain inputs, captured artifacts or protected restoration state. Project commands must keep transient output outside the authored scan set throughout concurrent execution. Checkout verification names observed changes without inferring which concurrent command wrote them. [`checkout_changes.ts`](../../../src/shared/checkout_changes.ts) owns that diagnostic; the validation and source-return boundaries share it.
+
+Producer stdout feeds extraction separately. The existing supervised pipe drain also retains stdout and stderr together for public failure diagnostics, so measurement capture cannot hide a check's explanation. This does not add another producer execution.
+
 The clean gate retains its original Proof presentation beside the complete evidence in common storage. Acceptance reads that immutable receipt and rechecks its candidate and evidence identity. It does not reconstruct jobs or measurements from the receiving checkout. Missing or corrupt presentation bytes remain a recovery condition, including after source retirement.
 
 Public contracts remain at version 1 until a predecessor release publication exists. Generators update their root `schema/` artifacts in place. Proof-note readers classify prelaunch notes missing complete evidence as stale; the unchanged payload type cannot supply the absent facts or authority. The install schema remains 1 with no migration steps. [ADR 0381](../_adr/0381-stage-complete-completion-in-place-before-publication.md) records this boundary.
