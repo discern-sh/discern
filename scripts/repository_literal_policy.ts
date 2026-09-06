@@ -120,11 +120,6 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "the public Map upgrade procedure repeats the canonical command",
   },
   {
-    path: "project/map/20-quality-gate/ci.md",
-    counts: { "current-repository": 1 },
-    reason: "the CI example demonstrates the current release download base",
-  },
-  {
     path: "project/map/70-reference/crash-reports.md",
     counts: { "current-repository": 2 },
     reason: "the public Map links the current issue tracker",

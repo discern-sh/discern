@@ -858,7 +858,7 @@ export function buildCli(
     .option("--provides <label:string>", "Custom jobs only: free-text label.")
     .option(
       "--timeout <seconds:string>",
-      "Custom jobs only: command budget in seconds; 0 removes the bound.",
+      "Command budget in seconds; 0 removes the bound.",
     )
     .option(
       "--not-applicable",
@@ -867,6 +867,36 @@ export function buildCli(
     .option(
       "--applicable",
       "Known jobs: restore lifecycle applicability.",
+    )
+    .option(
+      "--inputs <value:string>",
+      "Complete input glob; repeat for every input.",
+      { collect: true },
+    )
+    .option(
+      "--needs <value:string>",
+      "Required producer selector; repeat for every dependency.",
+      { collect: true },
+    )
+    .option(
+      "--artifacts <value:string>",
+      "Output artifact path to capture; repeat for every artifact.",
+      { collect: true },
+    )
+    .option(
+      "--environment <value:string>",
+      "Environment variable name to bind to evidence; repeat for every name.",
+      { collect: true },
+    )
+    .option(
+      "--toolchain <value:string>",
+      "Toolchain identity file; repeat for every file.",
+      { collect: true },
+    )
+    .option(
+      "--contexts <value:string>",
+      "Required execution context; repeat for every context.",
+      { collect: true },
     )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
@@ -886,6 +916,13 @@ export function buildCli(
             runMissingValue: runArgv.missingValue,
             provides: options.provides,
             timeout: options.timeout,
+            inputs: options.inputs,
+            needs: options.needs,
+            artifacts: options.artifacts,
+            environment: options.environment,
+            toolchain: options.toolchain,
+            contexts: options.contexts,
+
             notApplicable: options.notApplicable,
             applicable: options.applicable,
           });
@@ -908,6 +945,36 @@ export function buildCli(
       "--timeout <seconds:string>",
       "Per-scope gate-command budget in seconds; 0 removes the bound.",
     )
+    .option(
+      "--inputs <value:string>",
+      "Complete input glob; repeat for every input.",
+      { collect: true },
+    )
+    .option(
+      "--needs <value:string>",
+      "Required producer selector; repeat for every dependency.",
+      { collect: true },
+    )
+    .option(
+      "--artifacts <value:string>",
+      "Output artifact path to capture; repeat for every artifact.",
+      { collect: true },
+    )
+    .option(
+      "--environment <value:string>",
+      "Environment variable name to bind to evidence; repeat for every name.",
+      { collect: true },
+    )
+    .option(
+      "--toolchain <value:string>",
+      "Toolchain identity file; repeat for every file.",
+      { collect: true },
+    )
+    .option(
+      "--contexts <value:string>",
+      "Required execution context; repeat for every context.",
+      { collect: true },
+    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(recordedExit(
       "config set-scope",
@@ -920,6 +987,12 @@ export function buildCli(
           preview: options.preview,
           gate: options.gate,
           timeout: options.timeout,
+          inputs: options.inputs,
+          needs: options.needs,
+          artifacts: options.artifacts,
+          environment: options.environment,
+          toolchain: options.toolchain,
+          contexts: options.contexts,
         });
       },
     ));
@@ -942,7 +1015,18 @@ export function buildCli(
     .option(
       "--run <cmd:string>",
       "The command that emits the metric line.",
-      { required: true },
+    )
+    .option(
+      "--producer <selector:string>",
+      "Existing producer to consume; mutually exclusive with --run.",
+    )
+    .option(
+      "--extract <cmd:string>",
+      "Read metrics from captured producer output or an artifact on stdin.",
+    )
+    .option(
+      "--artifact <path:string>",
+      "Declared producer artifact supplied to --extract.",
     )
     .option(
       "--per <metric-or-extent:string>",
@@ -951,17 +1035,38 @@ export function buildCli(
     .option("--scale <n:string>", "Multiply a rate into human units.")
     .option("--margin <n:string>", "Headroom left when pinning the limit.")
     .option(
-      "--measure <mode:string>",
-      'Measurement mode: "gate" or "on-demand".',
+      "--timeout <seconds:string>",
+      "Measurement-command budget in seconds; 0 removes the bound.",
     )
     .option(
-      "--inputs <glob:string>",
-      "Metric input glob; repeat to preserve every input.",
+      "--inputs <value:string>",
+      "Complete input glob; repeat for every input.",
       { collect: true },
     )
     .option(
-      "--timeout <seconds:string>",
-      "Measurement-command budget in seconds; 0 removes the bound.",
+      "--needs <value:string>",
+      "Required producer selector; repeat for every dependency.",
+      { collect: true },
+    )
+    .option(
+      "--artifacts <value:string>",
+      "Output artifact path to capture; repeat for every artifact.",
+      { collect: true },
+    )
+    .option(
+      "--environment <value:string>",
+      "Environment variable name to bind to evidence; repeat for every name.",
+      { collect: true },
+    )
+    .option(
+      "--toolchain <value:string>",
+      "Toolchain identity file; repeat for every file.",
+      { collect: true },
+    )
+    .option(
+      "--contexts <value:string>",
+      "Required execution context; repeat for every context.",
+      { collect: true },
     )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
@@ -978,12 +1083,19 @@ export function buildCli(
             metric: options.metric,
             direction: options.direction,
             run: options.run,
+            producer: options.producer,
+            extract: options.extract,
+            artifact: options.artifact,
             per: options.per,
             scale: options.scale,
             margin: options.margin,
-            measure: options.measure,
-            inputs: options.inputs,
             timeout: options.timeout,
+            inputs: options.inputs,
+            needs: options.needs,
+            artifacts: options.artifacts,
+            environment: options.environment,
+            toolchain: options.toolchain,
+            contexts: options.contexts,
           });
         },
       ),

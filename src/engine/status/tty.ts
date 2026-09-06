@@ -1365,6 +1365,17 @@ function renderLastLanding(
       ]),
     ];
   }
+  if (data.landed_proof_stale !== undefined) {
+    return [
+      c.presenter.present(renderResultSummaryCli, {
+        state: "blocked",
+        fact: terminalLine(
+          `Landed Proof is stale: ${data.landed_proof_stale.reason}`,
+        ),
+        maxWidth: width,
+      }),
+    ];
+  }
   if (data.landed_proof_unsupported !== undefined) {
     return [c.presenter.present(renderResultSummaryCli, {
       state: "blocked",

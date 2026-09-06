@@ -139,7 +139,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "The result of the project's check decides when the work counts as finished. The coding agent's confidence remains advice rather than evidence.",
     },
-    surfaces: ["verb:done", "verb:queue", "config:jobs", "config:gate"],
+    surfaces: [
+      "verb:done",
+      "verb:queue",
+      "config:jobs",
+      "config:gate",
+      "config:completion",
+    ],
     children: [
       {
         id: "jobs-table",
@@ -668,14 +674,14 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         },
       },
       {
-        id: "standards-on-demand",
-        title: "On-demand measurement",
+        id: "standards-complete-evidence",
+        title: "Complete measurement evidence",
         what:
-          '`measure = "on-demand"` defers a metric too slow for every gate run to `discern standards`; the limit check itself has no off switch.',
+          "`done` requires each declared measurement context. Shared producers and applicable recorded evidence avoid repeated work; standalone `standards` uses the same planner.",
         plain: {
-          title: "Measuring only when asked",
+          title: "Requiring every measurement",
           what:
-            '`measure = "on-demand"` moves a measurement too slow for every run into `discern standards`; the check that a limit was not weakened has no off switch.',
+            "Completion requires all configured measurements. Tests and measurements share work, and valid recorded results can be reused.",
         },
       },
       {
@@ -721,7 +727,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Each simultaneous task has its own project copy, identity, network number, private settings, and supporting services, separate from the copy used by the person in charge.",
     },
-    surfaces: ["config:worktree", "config:repository"],
+    surfaces: ["config:worktree", "config:repository", "config:execution"],
     children: [
       {
         id: "start",
@@ -3041,11 +3047,11 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "Quality measures can remain meaningful without making every small change pay the full measurement cost or treating healthy project growth as regression. A genuine breach caused by the work reaches the person responsible for the limit.",
         whyItFollows:
-          "Rates scale with project size, replay keys measurements to declared inputs, on-demand mode separates expensive measurement from limit verification, any one-line metric can participate, and breach escalation refuses to move the limit automatically.",
+          "Rates scale with project size, replay keys measurements to declared inputs, complete evidence joins required measurements and limit verification, any one-line metric can participate, and breach escalation refuses to move the limit automatically.",
         drawsOn: [
           "standards-rates",
           "standards-replay",
-          "standards-on-demand",
+          "standards-complete-evidence",
           "standards-escalation",
           "standards-metric-protocol",
         ],
@@ -3824,7 +3830,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can improve a measurable quality limit knowing later work cannot weaken the gain, and can ask the owner to make a measured improvement the new baseline.",
         whyItFollows:
-          "Standards declare direction and metric protocols, normalize rates and margins, replay untouched measures, defer expensive measures explicitly, pin gains, and route genuine growth to owner escalation instead of weakening a limit.",
+          "Standards declare direction and metric protocols, normalize rates and margins, reuse complete applicable evidence, share expensive producers, pin gains, and route genuine growth to owner escalation instead of weakening a limit.",
         boundary:
           "A Standard preserves its declared metric. Other aspects of quality remain outside that measure, and changing a limit when the work legitimately grows the number remains an owner decision.",
         drawsOn: [
@@ -3834,7 +3840,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "standards-rates",
           "standards-margin",
           "standards-replay",
-          "standards-on-demand",
+          "standards-complete-evidence",
           "standards-pin",
           "standards-escalation",
         ],

@@ -254,6 +254,22 @@ export function attachEngineCommands(
       "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",
     )
     .option(
+      "--policy-base <ref:string>",
+      "Use the fetched immutable policy base for a standalone CI report. Strict completion selects its own queue predecessor.",
+    )
+    .option(
+      "--retain-checkout",
+      "Keep authoring control after completion; do not release this checkout for later validation or retirement.",
+    )
+    .option(
+      "--standalone",
+      "Run complete standalone feedback without queue admission or Proof.",
+    )
+    .option(
+      "--context <name:string>",
+      "Supply evidence only for this declared execution context (default: local).",
+    )
+    .option(
       "--rerun",
       "Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
     )
@@ -324,6 +340,12 @@ export function attachEngineCommands(
         }
         const { runFinish } = await import("./gate/finish.ts");
         return await runFinish(await requireRoot("done", json), {
+          ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
+          ...(o.retainCheckout === undefined
+            ? {}
+            : { retainCheckout: o.retainCheckout }),
+          ...(o.standalone === undefined ? {} : { standalone: o.standalone }),
+          ...(o.context === undefined ? {} : { context: o.context }),
           json,
           cliModel,
           dryRun: o.dryRun ?? false,

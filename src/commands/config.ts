@@ -47,10 +47,37 @@ export interface ConfigOptions {
   cwd?: string;
 }
 
+/** Producer facts accepted by the dedicated record editors. */
+interface ProducerOptions {
+  inputs?: string[] | undefined;
+  needs?: string[] | undefined;
+  artifacts?: string[] | undefined;
+  environment?: string[] | undefined;
+  toolchain?: string[] | undefined;
+  contexts?: string[] | undefined;
+}
+
+/** Preserve every supplied producer fact in one atomic record edit. */
+function producerEdits(prefix: string, opts: ProducerOptions): Edit[] {
+  return [
+    "inputs",
+    "needs",
+    "artifacts",
+    "environment",
+    "toolchain",
+    "contexts",
+  ].flatMap((key) => {
+    const value = opts[key as keyof ProducerOptions];
+    return value === undefined
+      ? []
+      : [{ key: `${prefix}.${key}`, literal: tomlStringArray(value) }];
+  });
+}
+
 /** One planned edit: the dotted key and the rendered TOML value literal. */
 interface Edit {
   key: string;
-  literal: string;
+  literal: string | null;
 }
 
 /** A complete config mutation decision, computed before the editor changes any
@@ -138,7 +165,8 @@ async function applyEditPlan(
   try {
     const editor = new TomlEditor(text);
     for (const edit of edits) {
-      editor.setLiteral(edit.key, edit.literal);
+      if (edit.literal === null) editor.deleteKey(edit.key);
+      else editor.setLiteral(edit.key, edit.literal);
     }
     result = editor.toString();
   } catch (error) {
@@ -179,9 +207,13 @@ async function applyEditPlan(
     if (opts.json) {
       log.result(envelope);
     } else {
-      log.info("Dry run — would set:");
+      log.info("Dry run — planned edits:");
       for (const edit of edits) {
-        log.line(`  ${edit.key} = ${edit.literal}`);
+        log.line(
+          edit.literal === null
+            ? `  Remove ${edit.key}`
+            : `  ${edit.key} = ${edit.literal}`,
+        );
       }
       for (const hint of interactiveHints(hints)) {
         log.info(hint.text);
@@ -203,7 +235,11 @@ async function applyEditPlan(
   } else {
     log.ok(summary);
     for (const edit of edits) {
-      log.line(`  ${edit.key} = ${edit.literal}`);
+      log.line(
+        edit.literal === null
+          ? `  Remove ${edit.key}`
+          : `  ${edit.key} = ${edit.literal}`,
+      );
     }
     for (const hint of interactiveHints(hints)) {
       log.info(hint.text);
@@ -301,10 +337,43 @@ function knownJobCommandPlan(
   name: string,
   literal: string,
   hints: FiredHint[],
+  facts: Edit[],
 ): EditDecision {
   const state = knownJobEditState(current, name);
   if ("ok" in state) return state;
-  const edits: Edit[] = [{ key: `jobs.${name}`, literal }];
+  const raw = parseToml(current);
+  const jobs = raw.jobs as Record<string, unknown> | undefined;
+  const previous = jobs?.[name];
+  const fields = new Map<string, string>();
+  if (
+    previous !== null && typeof previous === "object" &&
+    !Array.isArray(previous)
+  ) {
+    for (const [key, value] of Object.entries(previous)) {
+      fields.set(
+        key,
+        typeof value === "number"
+          ? tomlNumber(String(value))
+          : Array.isArray(value)
+          ? tomlStringArray(value as string[])
+          : tomlString(String(value)),
+      );
+    }
+  }
+  for (const fact of facts) {
+    if (fact.literal !== null) {
+      fields.set(fact.key.slice(`jobs.${name}.`.length), fact.literal);
+    }
+  }
+  fields.set("run", literal);
+  const edits: Edit[] = [{
+    key: `jobs.${name}`,
+    literal: fields.size === 1
+      ? literal
+      : `{ ${
+        [...fields].map(([key, value]) => `${key} = ${value}`).join(", ")
+      } }`,
+  }];
   if (state.notApplicable.includes(name)) {
     edits.push({
       key: "setup.not_applicable",
@@ -366,7 +435,7 @@ function knownJobApplicabilityPlan(
 export async function runConfigSetJob(
   name: string,
   command: string | undefined,
-  opts: ConfigOptions & {
+  opts: ConfigOptions & ProducerOptions & {
     stage?: string | undefined;
     run?: string | string[] | undefined;
     /** Number of --run occurrences in argv. Cliffy normalizes an explicit empty
@@ -441,22 +510,11 @@ export async function runConfigSetJob(
         `known job "${name}" does not take --provides. Run \`${correction}\`.`,
       );
     }
-    if (opts.timeout !== undefined) {
-      const correction = opts.notApplicable === true
-        ? `discern config set-job ${name} --not-applicable`
-        : opts.applicable === true
-        ? `discern config set-job ${name} --applicable`
-        : runs.length > 0
-        ? orderedJobCommand(name, nonEmptyRuns)
-        : `discern config set-job ${name} ${
-          shellQuoteArgument(command ?? "<command>")
-        }`;
-      return fail(
-        opts,
-        `known job "${name}" inherits [gate].timeout and does not take --timeout. Run \`${correction}\`.`,
-      );
-    }
-    if (applicabilitySelected && (command !== undefined || runs.length > 0)) {
+    if (
+      applicabilitySelected &&
+      (command !== undefined || runs.length > 0 || opts.timeout !== undefined ||
+        producerEdits(`jobs.${name}`, opts).length > 0)
+    ) {
       const correction = command !== undefined
         ? `discern config set-job ${name} ${shellQuoteArgument(command)}`
         : orderedJobCommand(name, nonEmptyRuns);
@@ -511,6 +569,20 @@ export async function runConfigSetJob(
     const literal = Array.isArray(value)
       ? tomlStringArray(value)
       : tomlString(value);
+    const facts = producerEdits(`jobs.${name}`, opts);
+    if (opts.timeout !== undefined) {
+      try {
+        facts.push({
+          key: `jobs.${name}.timeout`,
+          literal: tomlNumber(opts.timeout),
+        });
+      } catch {
+        return fail(
+          opts,
+          `--timeout must be a number (got "${opts.timeout}").`,
+        );
+      }
+    }
     return await applyEditPlan(
       opts,
       (current) =>
@@ -519,6 +591,7 @@ export async function runConfigSetJob(
           name,
           literal,
           deferred ? [fire(HINTS["config-job-deferred"], { name })] : [],
+          facts,
         ),
     );
   }
@@ -591,6 +664,7 @@ export async function runConfigSetJob(
       return fail(opts, `--timeout must be a number (got "${opts.timeout}").`);
     }
   }
+  edits.push(...producerEdits(`jobs.${name}`, opts));
   return await applyEdits(edits, opts, `Set job "${name}".`);
 }
 
@@ -598,7 +672,7 @@ export async function runConfigSetJob(
 export async function runConfigSetScope(
   name: string,
   globs: string[],
-  opts: ConfigOptions & {
+  opts: ConfigOptions & ProducerOptions & {
     neutral?: boolean | undefined;
     preview?: string | undefined;
     gate?: string | undefined;
@@ -645,6 +719,7 @@ export async function runConfigSetScope(
       return fail(opts, `--timeout must be a number (got "${opts.timeout}").`);
     }
   }
+  edits.push(...producerEdits(`scopes.${name}`, opts));
   return await applyEdits(edits, opts, `Set scope "${name}".`);
 }
 
@@ -663,21 +738,22 @@ function standardPerLiteral(value: string): string {
  * `config set-standard <name> --direction <up|down> --limit <n> --run <cmd> [--metric]`
  *
  * Every standard is a `[standards.<name>]` table — `coverage` is just a
- * conventional name, with no special handling. The `run` command emits the
- * metric line: `DISCERN_METRIC <metric> <number>`.
+ * conventional name. A standard produces with `run` or consumes an existing
+ * `producer`; optional extraction receives captured output or an artifact.
  */
 export async function runConfigSetStandard(
   name: string,
-  opts: ConfigOptions & {
+  opts: ConfigOptions & ProducerOptions & {
     limit: string;
-    run: string;
+    run?: string | undefined;
+    producer?: string | undefined;
+    extract?: string | undefined;
+    artifact?: string | undefined;
     metric?: string | undefined;
     direction: string;
     per?: string | undefined;
     scale?: string | undefined;
     margin?: string | undefined;
-    measure?: string | undefined;
-    inputs?: string[] | undefined;
     timeout?: string | undefined;
   },
 ): Promise<number> {
@@ -686,6 +762,9 @@ export async function runConfigSetStandard(
       opts,
       `standard name must be letters, digits, '_' or '-' (got "${name}").`,
     );
+  }
+  if ((opts.run === undefined) === (opts.producer === undefined)) {
+    return fail(opts, "Set exactly one of --run or --producer.");
   }
   const direction = opts.direction;
   if (direction !== "up" && direction !== "down") {
@@ -708,7 +787,14 @@ export async function runConfigSetStandard(
     },
     { key: `standards.${name}.direction`, literal: tomlString(direction) },
     { key: `standards.${name}.limit`, literal: limitLiteral },
-    { key: `standards.${name}.run`, literal: tomlString(opts.run) },
+    {
+      key: `standards.${name}.run`,
+      literal: opts.run === undefined ? null : tomlString(opts.run),
+    },
+    {
+      key: `standards.${name}.producer`,
+      literal: opts.producer === undefined ? null : tomlString(opts.producer),
+    },
   ];
   if (opts.per !== undefined) {
     try {
@@ -740,24 +826,16 @@ export async function runConfigSetStandard(
       return fail(opts, `--${key} must be a number (got "${value}").`);
     }
   }
-  if (opts.measure !== undefined) {
-    if (opts.measure !== "gate" && opts.measure !== "on-demand") {
-      return fail(
-        opts,
-        `--measure must be "gate" or "on-demand" (got "${opts.measure}").`,
-      );
+  for (const key of ["extract", "artifact"] as const) {
+    const value = opts[key];
+    if (value !== undefined) {
+      edits.push({
+        key: `standards.${name}.${key}`,
+        literal: tomlString(value),
+      });
     }
-    edits.push({
-      key: `standards.${name}.measure`,
-      literal: tomlString(opts.measure),
-    });
   }
-  if (opts.inputs !== undefined) {
-    edits.push({
-      key: `standards.${name}.inputs`,
-      literal: tomlStringArray(opts.inputs),
-    });
-  }
+  edits.push(...producerEdits(`standards.${name}`, opts));
   return await applyEdits(edits, opts, `Set standard "${name}".`);
 }
 

@@ -56,8 +56,16 @@ import {
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
 import {
+  CLI_MANIFEST_ID,
+  CONFIG_SCHEMA_ID,
+  CONVENTIONS_MANIFEST_ID,
+  MCP_TOOLS_MANIFEST_ID,
+  PROOF_NOTE_SCHEMA_ID,
+  publicSchemaArtifact,
   renderPublicSchemaReference,
   replacePublicSchemaReference,
+  RESULT_SCHEMA_ID,
+  SETUP_CONFIG_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
 import { replaceExitStatusTable } from "../src/shared/exit_codes.ts";
 import {
@@ -246,9 +254,12 @@ async function write(
 
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
 await write("templates/discern.toml.tmpl", renderConfigTemplate());
-await write("schema/discern-config.schema.json", renderConfigSchemaJson());
 await write(
-  "schema/discern-setup-config.schema.json",
+  publicSchemaArtifact(CONFIG_SCHEMA_ID),
+  renderConfigSchemaJson(),
+);
+await write(
+  publicSchemaArtifact(SETUP_CONFIG_SCHEMA_ID),
   renderConfigDocSchemaJson(),
 );
 await write(
@@ -420,17 +431,23 @@ await write(
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );
-await write("schema/discern-results.schema.json", renderResultJsonSchema());
 await write(
-  "schema/discern-proof-note.schema.json",
+  publicSchemaArtifact(RESULT_SCHEMA_ID),
+  renderResultJsonSchema(),
+);
+await write(
+  publicSchemaArtifact(PROOF_NOTE_SCHEMA_ID),
   renderProofNoteJsonSchema(),
 );
 await write("types/discern-json.d.ts", renderResultTypesDts());
 console.log("Regenerating frozen contract manifests from live registries:");
-await write("schema/discern-mcp-tools.json", renderMcpToolsManifest());
-await write("schema/discern-cli.json", renderCliManifest());
 await write(
-  "schema/discern-conventions.json",
+  publicSchemaArtifact(MCP_TOOLS_MANIFEST_ID),
+  renderMcpToolsManifest(),
+);
+await write(publicSchemaArtifact(CLI_MANIFEST_ID), renderCliManifest());
+await write(
+  publicSchemaArtifact(CONVENTIONS_MANIFEST_ID),
   renderConventionsManifest(),
 );
 console.log(

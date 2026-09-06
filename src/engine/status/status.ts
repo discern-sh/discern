@@ -363,6 +363,9 @@ export async function statusResult(
       ...note,
       ...(commitAt === undefined ? {} : { commit_at: commitAt }),
     };
+  } else if (landedProof.status === "stale") {
+    const { status: _status, ...stale } = landedProof;
+    data.landed_proof_stale = stale;
   } else if (landedProof.status === "unsupported") {
     const { status: _status, ...unread } = landedProof;
     data.landed_proof_unsupported = unread;

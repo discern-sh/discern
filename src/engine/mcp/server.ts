@@ -1,3 +1,7 @@
+import {
+  type CompletionProgressNotification,
+  withMcpCompletionProgress,
+} from "./progress.ts";
 /**
  * `discern mcp` — expose the verbs to an agent over the Model Context Protocol.
  *
@@ -550,9 +554,31 @@ export const TOOLS: McpTool[] = orderTools([
           "variance for it.",
       ),
       ...PATH_PARAM,
+      policy_base: z.string().optional().describe(
+        "Fetched policy base for a standalone CI report only.",
+      ),
+      retain_checkout: z.boolean().optional().describe(
+        "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
+      ),
+      standalone: z.boolean().optional().describe(
+        "Run complete standalone feedback without queue admission or Proof.",
+      ),
+      context: z.string().optional().describe(
+        "The declared execution context this invocation supplies; defaults to local.",
+      ),
     },
     run: (root, args, signal, context) =>
       finishResult(root, {
+        ...(args.policy_base === undefined
+          ? {}
+          : { policyBase: args.policy_base }),
+        ...(args.retain_checkout === undefined
+          ? {}
+          : { retainCheckout: args.retain_checkout }),
+        ...(args.standalone === undefined
+          ? {}
+          : { standalone: args.standalone }),
+        ...(args.context === undefined ? {} : { context: args.context }),
         surface: { kind: "quiet" },
         cliModel: context.cliModel,
         dryRun: args.dry_run === true,
@@ -605,7 +631,7 @@ export const TOOLS: McpTool[] = orderTools([
       "for every standard. The comparison uses the selected project's configured " +
       "trunk. This call always measures; discern_done already measures ordinary " +
       "standards with the tests and verifies their limits. Use this tool for an " +
-      'on-demand (`measure = "on-demand"`) standard, an explicit remeasurement, ' +
+      "standard, an explicit remeasurement, " +
       "or a pin. Non-dry-run calls require a clean worktree unless force is set " +
       "for authoring or diagnosis. dry_run previews without measuring. pin captures " +
       "measured improvements, commits only the tighter limits, and carries the " +
@@ -2268,6 +2294,9 @@ export async function runMcpServer(
   // when the client cancels that one call).
   const shutdown = new AbortController();
   interface McpCallExtra {
+    readonly sendNotification: (
+      notification: CompletionProgressNotification,
+    ) => Promise<void>;
     readonly signal: AbortSignal;
     readonly _meta?: Record<string, unknown>;
   }
@@ -2298,15 +2327,20 @@ export async function runMcpServer(
           extra._meta,
           server.server.getClientVersion(),
         );
-        return runTool(
-          tool,
-          working,
-          args,
-          callSignal(extra),
-          installedVersion,
-          mcpClient,
-          awaitCallProfile,
-          cliModel,
+        return withMcpCompletionProgress(
+          extra._meta,
+          extra.sendNotification,
+          () =>
+            runTool(
+              tool,
+              working,
+              args,
+              callSignal(extra),
+              installedVersion,
+              mcpClient,
+              awaitCallProfile,
+              cliModel,
+            ),
         );
       },
     );

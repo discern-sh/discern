@@ -83,6 +83,7 @@ import {
 } from "../engine/instruction_render.ts";
 import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
+import { withSetupProbeCheckout } from "../engine/operation_lock.ts";
 import {
   currentTreeIdentity,
   inspectGateProof,
@@ -3673,21 +3674,30 @@ async function proveWorktreeViable(
           remedy: "worktree" as const,
         };
       }
-      const r = await finishResult(probeDir, {
-        cliModel,
-        surface: json
-          ? { kind: "quiet" }
-          : { kind: "human", plain: plainModeEnabled() },
-      });
+      const r = await withSetupProbeCheckout(
+        root,
+        probeDir,
+        () =>
+          finishResult(probeDir, {
+            cliModel,
+            standalone: true,
+            surface: json
+              ? { kind: "quiet" }
+              : { kind: "human", plain: plainModeEnabled() },
+          }),
+      );
       if (r.ok) {
-        const proof = await inspectGateProof(probeDir);
-        if (proof.status === "honored" && proof.head === markerHead) {
+        const checked = await pinValidatedTree(probeDir);
+        if (
+          checked.clean && checked.head === markerHead &&
+          r.data?.completion?.kind === "diagnostic"
+        ) {
           return { ok: true };
         }
         return {
           ok: false,
           detail:
-            `the structural probe did not retain current gate evidence for the completion-marker commit (${proof.status})`,
+            "the structural probe did not validate the unchanged completion-marker commit",
           remedy: "worktree" as const,
         };
       }

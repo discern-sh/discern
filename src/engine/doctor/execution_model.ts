@@ -171,7 +171,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   standard: {
     actor: "project",
     hint:
-      'Your measurement command for a never-loosen metric. Runs inside `discern done`\'s parallel check/test group by default (replayed for free when its declared `inputs` are untouched; deferred to `discern standards` when measure = "on-demand"), and the limit is verified against the trunk on every gate run.',
+      "Every configured standard is required for completion. Its declared producer and dependencies run when complete applicable evidence cannot be reused; definitions and limits are checked against the committed policy base.",
   },
 };
 
