@@ -1400,8 +1400,7 @@ async function pickCreationPath(
         value: "compact",
       }, {
         name: "More options",
-        description:
-          "Choose a base, brief, agent action, and landing authority.",
+        description: "Choose a base, brief, and agent action.",
         value: "expanded",
       }],
     }, {
@@ -1572,8 +1571,6 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-/** Whether a form answer is a boolean. */
-
 /** Launch the chosen provider from the created worktree, with documented brief handling. */
 async function launchCreatedTask(
   out: Out,
@@ -1621,8 +1618,8 @@ async function launchCreatedTask(
 }
 
 /**
- * Compose one concrete start plan, apply it after confirmation, optionally
- * record landing authority, then open the selected configured agent.
+ * Compose one concrete start plan, apply it after confirmation, then open
+ * the selected configured agent. Source approval belongs to the created task.
  */
 async function startTask(
   out: Out,

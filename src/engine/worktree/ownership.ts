@@ -76,7 +76,16 @@ export function branchWithoutOwnershipReason(
 export type OwnedBranchDeletionResult =
   | { readonly kind: "deleted" }
   | { readonly kind: "absent" }
-  | { readonly kind: "refused"; readonly reason: string };
+  | {
+    readonly kind: "refused";
+    readonly refusal:
+      | "ownership"
+      | "changed"
+      | "in-use"
+      | "unmerged"
+      | "unavailable";
+    readonly reason: string;
+  };
 
 /**
  * Delete one automatically-owned branch by compare-and-swap.
@@ -96,6 +105,7 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
   if (!ownership.owned || opts.ownership.branch !== opts.branch) {
     return {
       kind: "refused",
+      refusal: "ownership",
       reason: ownership.owned
         ? "ownership evidence names a different branch"
         : ownership.reason,
@@ -104,6 +114,7 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
   if (opts.expectedCommit === "") {
     return {
       kind: "refused",
+      refusal: "unavailable",
       reason: "the owned branch commit is unavailable",
     };
   }
@@ -119,12 +130,14 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
     );
     return exists.code === 1 ? { kind: "absent" } : {
       kind: "refused",
+      refusal: "unavailable",
       reason: current.stderr.trim() || "Git could not inspect the branch",
     };
   }
   if (current.stdout.trim() !== opts.expectedCommit) {
     return {
       kind: "refused",
+      refusal: "changed",
       reason: "the branch moved after ownership was captured",
     };
   }
@@ -134,11 +147,16 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
   if (!worktrees.success) {
     return {
       kind: "refused",
+      refusal: "unavailable",
       reason: worktrees.stderr.trim() || "Git could not inspect worktree use",
     };
   }
   if (worktrees.stdout.includes(`branch ${ref}\n`)) {
-    return { kind: "refused", reason: "the branch is still checked out" };
+    return {
+      kind: "refused",
+      refusal: "in-use",
+      reason: "the branch is still checked out",
+    };
   }
   if (opts.mergedInto !== undefined) {
     const merged = await runGit(
@@ -153,7 +171,10 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
     if (!merged.success) {
       return {
         kind: "refused",
-        reason: `the owned branch is not fully merged into ${opts.mergedInto}`,
+        refusal: merged.code === 1 ? "unmerged" : "unavailable",
+        reason: merged.code === 1
+          ? `the owned branch is not fully merged into ${opts.mergedInto}`
+          : merged.stderr.trim() || "Git could not verify branch ancestry",
       };
     }
   }
@@ -171,6 +192,7 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
   if (!deleted.success) {
     return {
       kind: "refused",
+      refusal: "unavailable",
       reason: deleted.stderr.trim() || "Git refused the branch deletion",
     };
   }

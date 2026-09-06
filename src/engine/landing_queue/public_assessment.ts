@@ -1,3 +1,13 @@
+import {
+  type IgnoredFileChangeSummary,
+  inspectIgnoredFileChanges,
+} from "../worktree/ignored.ts";
+import {
+  type CheckpointDrop,
+  isIndeterminateStopDrop,
+  policyCheckpointDrop,
+  uniqueCheckpointDrops,
+} from "../../shared/checkpoint_drops.ts";
 import { classifyScopeImpact, type ScopeImpact } from "../scopes/scopes.ts";
 /** Public acceptance composes canonical candidate, judgment, authority and environment readers. */
 import type {
@@ -9,7 +19,11 @@ import type { SourceRevision } from "../completion/identity.ts";
 import type { CandidateAssessment } from "./planner.ts";
 import { assessQueueCandidate, predecessorChain } from "./assessment.ts";
 import { observedRecords } from "./repository.ts";
-import { observeSourceGrant } from "./public_authority.ts";
+import { uncoveredLandingAuthorityDetails } from "../worktree/landing_authority.ts";
+import {
+  observeSourceAuthority,
+  registeredSourcePath,
+} from "./public_authority.ts";
 import { observeCandidateValidation } from "../validation/candidate_observation.ts";
 import {
   assessCandidateReview,
@@ -35,10 +49,18 @@ import type { CandidateDecisions } from "./authority.ts";
 import type { StandardLimitApprovalRequestData } from "../../shared/result_schemas.ts";
 
 export interface PublicCandidateAssessment {
+  readonly ignored_file_changes?: IgnoredFileChangeSummary;
   readonly assessment: CandidateAssessment;
   readonly review?: CandidateReview;
   readonly preview_actions: ScopeImpact["previewActions"];
   readonly approval_requests: readonly StandardLimitApprovalRequestData[];
+  readonly consent?: {
+    source: "conversation" | "standing-grant" | "effort-grant";
+    scopes?: string[];
+  };
+  readonly scopes_changed: readonly string[];
+  readonly authority_details: readonly string[];
+  readonly checkpoint_drops: readonly CheckpointDrop[];
 }
 export interface CandidateDecisionRequest {
   readonly source?: SourceRevision;
@@ -89,8 +111,9 @@ export async function assessPublicCandidate(input: {
   ];
   const grants = [];
   let sourcePath: string | undefined;
+  let ownReading: Awaited<ReturnType<typeof observeSourceAuthority>>;
   for (const subject of subjects) {
-    const grant = await observeSourceGrant(
+    const reading = await observeSourceAuthority(
       root,
       input.trunk,
       subject.candidate.source,
@@ -98,11 +121,11 @@ export async function assessPublicCandidate(input: {
       subject.authority,
       confirmed ? input.request.source : undefined,
     );
-    if (grant === undefined) continue;
-    grants.push(grant.facts);
     if (sameSource(subject.candidate.source, candidate.source)) {
-      sourcePath = grant.path;
+      sourcePath = reading?.path;
+      ownReading = reading;
     }
+    if (reading?.grant !== undefined) grants.push(reading.grant.facts);
   }
   const proof = records.filter((
     item,
@@ -122,6 +145,8 @@ export async function assessPublicCandidate(input: {
     proposals: [],
   };
   const blockers: CompletionBlocker[] = [];
+  const checkpointDrops: CheckpointDrop[] = [];
+  sourcePath ??= await registeredSourcePath(root, candidate.source);
   let approvals: StandardLimitApprovalRequestData[] = [];
   if (proof !== undefined) {
     try {
@@ -148,6 +173,11 @@ export async function assessPublicCandidate(input: {
       predecessor: candidate.expected_predecessor.head,
       stored: review.stored,
     });
+    if (
+      !confirmed && review.checkpoints?.drops?.some(isIndeterminateStopDrop)
+    ) {
+      blockers.push({ kind: "missing-authority", sources: [candidate.source] });
+    }
     const decision = resolveVarianceInterlock(state, {
       confirmed,
       varianceIds: requested ? input.request.variance : [],
@@ -166,11 +196,24 @@ export async function assessPublicCandidate(input: {
         kind: "missing-judgment",
         subjects: decision.kind === "awaiting"
           ? decision.unmet.map((item) => `variance:${item.id}`)
-          : [decision.kind],
+          : decision.kind === "invalid-variances"
+          ? [`invalid-variances:${decision.message}`]
+          : decision.ids.map((id) => `declaration-stale:${id}`),
       });
     }
     approvals = await standardLimitApprovalRequests(review.proposals);
     const tokens = requested ? input.request.approveStandard : [];
+    if (
+      tokens.some((token) => !approvals.some((item) => item.token === token)) ||
+      new Set(tokens).size !== tokens.length
+    ) {
+      blockers.push({
+        kind: "missing-judgment",
+        subjects: [
+          "invalid-standard-approvals: use each current proposal approval token exactly once",
+        ],
+      });
+    }
     if (
       (approvals.length === 0 || confirmed) &&
       approvals.length === tokens.length &&
@@ -211,21 +254,54 @@ export async function assessPublicCandidate(input: {
           subjects: ["standard-proposal-changed"],
         });
       }
-      const live = await readOpenQuestions(sourcePath);
-      if (review.stored.status === "ok" || review.stored.status === "missing") {
-        if (
-          (live.status !== "ok" && live.status !== "missing") ||
-          await evidenceIdentityOf(
-              live.status === "ok" ? live.openQuestions : {},
-            ) !== await evidenceIdentityOf(
-              review.stored.status === "ok" ? review.stored.openQuestions : {},
-            )
-        ) {
-          blockers.push({
-            kind: "missing-judgment",
-            subjects: ["checkpoint-declaration-changed"],
-          });
-        }
+    }
+  }
+  if (sourcePath !== undefined) {
+    const live = await readOpenQuestions(sourcePath);
+    const liveState = await inspectAcceptanceCheckpoints(
+      sourcePath,
+      validation.config,
+      {
+        predecessor: candidate.expected_predecessor.head,
+        stored: live,
+      },
+    );
+    checkpointDrops.push(...liveState.drops);
+    if (live.status !== "ok" && live.status !== "missing") {
+      checkpointDrops.push(
+        policyCheckpointDrop(
+          "declaration_evidence_unavailable",
+          "The validated declaration evidence could not be read; restore the record before acceptance.",
+          candidate.expected_predecessor.head,
+        ),
+      );
+      blockers.push({
+        kind: "missing-judgment",
+        subjects: ["checkpoint-evidence-unavailable"],
+      });
+    }
+    if (liveState.stale.length > 0) {
+      blockers.push({
+        kind: "missing-judgment",
+        subjects: liveState.stale.map((id) => `declaration-stale:${id}`),
+      });
+    }
+    if (
+      review !== undefined &&
+      (review.stored.status === "ok" || review.stored.status === "missing")
+    ) {
+      if (
+        (live.status !== "ok" && live.status !== "missing") ||
+        await evidenceIdentityOf(
+            live.status === "ok" ? live.openQuestions : {},
+          ) !== await evidenceIdentityOf(
+            review.stored.status === "ok" ? review.stored.openQuestions : {},
+          )
+      ) {
+        blockers.push({
+          kind: "missing-judgment",
+          subjects: ["checkpoint-declaration-changed"],
+        });
       }
     }
   }
@@ -265,10 +341,41 @@ export async function assessPublicCandidate(input: {
           },
     },
   });
+  const ownGrant = ownReading?.grant;
   return {
+    ...(sourcePath === undefined ? {} : {
+      ignored_file_changes: await inspectIgnoredFileChanges(
+        sourcePath,
+        validation.config.worktree.ignored_file_drift,
+      ),
+    }),
+    authority_details: ownReading === undefined ? [] : [
+      ...uncoveredLandingAuthorityDetails(ownReading.authority),
+      ...ownReading.authority.warnings,
+    ],
     assessment,
+    checkpoint_drops: uniqueCheckpointDrops([
+      ...(review?.checkpoints?.drops ?? []),
+      ...checkpointDrops,
+    ]),
     ...(review === undefined ? {} : { review }),
     approval_requests: approvals,
+    scopes_changed: [
+      ...new Set(
+        ownReading?.authority.scopeNames ??
+          ownReading?.authority.classifications.flatMap((path) =>
+            path.scopes
+          ) ?? [],
+      ),
+    ],
+    ...(ownGrant === undefined ? {} : {
+      consent: {
+        source: ownGrant.consent.source,
+        ...(ownGrant.consent.scopes.length
+          ? { scopes: [...ownGrant.consent.scopes] }
+          : {}),
+      },
+    }),
     preview_actions: (await classifyScopeImpact(
       root,
       validation.config,

@@ -1,3 +1,5 @@
+import type { IgnoredFileChangeSummary } from "../../shared/ignored_file_changes.ts";
+export type { IgnoredFileChangeSummary } from "../../shared/ignored_file_changes.ts";
 /**
  * Ignored-file drift detection for worktrees.
  *
@@ -63,20 +65,6 @@ const ignoredBaselineSchema = z.object({
 });
 
 type IgnoredBaseline = z.infer<typeof ignoredBaselineSchema>;
-
-export interface IgnoredFileChangeSummary {
-  status:
-    | "disabled"
-    | "baseline_missing"
-    | "newer"
-    | "unavailable"
-    | "unchanged"
-    | "changed";
-  changed_roots: string[];
-  changed_total: number;
-  truncated: boolean;
-  reason?: string;
-}
 
 /** The inert summary used when detection is switched off. */
 export function ignoredFileDriftDisabled(): IgnoredFileChangeSummary {
@@ -586,4 +574,21 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", stable.buffer);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Render bounded ignored-file drift evidence for an acceptance plan. */
+export function ignoredFileDetails(
+  summary: IgnoredFileChangeSummary,
+): string[] {
+  if (summary.status !== "changed" || summary.changed_total === 0) {
+    return [];
+  }
+  const more = summary.truncated
+    ? `, +${summary.changed_total - summary.changed_roots.length} more`
+    : "";
+  return [
+    `Ignored files changed since setup: ${
+      summary.changed_roots.join(", ")
+    }${more}`,
+  ];
 }

@@ -1,3 +1,6 @@
+import { inspectIgnoredFileChanges } from "../worktree/ignored.ts";
+import { IgnoredFileChangeSummarySchema } from "../../shared/ignored_file_changes.ts";
+import type { RetirementEffects } from "../../shared/accept_landing_state.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
 import { emitCompletionEvent } from "../completion/events.ts";
 import type { Executor } from "../completion/identity.ts";
@@ -63,7 +66,8 @@ import { sameSource } from "./model.ts";
 import type { LandingRecord } from "./publication.ts";
 
 type RetirementRecord = Extract<CompletionRecord, { kind: "retirement" }>;
-const CaptureSchema = z.strictObject({
+export const RetirementCaptureSchema = z.strictObject({
+  ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
   environment: EnvironmentSchema,
   snapshot: SnapshotSchema,
 });
@@ -75,6 +79,7 @@ export const RETIREMENT_BOUNDARIES = [
   "disposed",
 ] as const;
 export interface RetirementRuntime {
+  readonly signal?: AbortSignal;
   readonly root: string;
   readonly trunk: string;
   readonly config: DiscernConfig;
@@ -182,7 +187,8 @@ export async function retireQueueLanding(
     return { kind: "retained", reason: "active-use" };
   }
   try {
-    return await withCompletionCheckout(path, async () => {
+    return await withCompletionCheckout(path, async (signal) => {
+      signal.throwIfAborted();
       const current = await requireEnvironment(runtime.root, environment.id);
       if (
         current.record.data.release.kind !== "released" ||
@@ -249,7 +255,14 @@ export async function retireQueueLanding(
           context: "local",
         },
         `retirement-${id}`,
-        { environment: current.record.data, snapshot },
+        {
+          environment: current.record.data,
+          snapshot,
+          ignored_file_changes: await inspectIgnoredFileChanges(
+            path,
+            config.worktree.ignored_file_drift,
+          ),
+        },
       );
       const record: RetirementRecord = {
         version: ON_DISK_FORMATS.completionRecord.version,
@@ -268,12 +281,13 @@ export async function retireQueueLanding(
             .filter(Boolean),
           capture,
           reservation: current.record.revision + 1,
+          effects: { worktree_removed: false, branch_deleted: false },
           outcome: { kind: "pending" },
         },
       };
       await publish(runtime, record, null);
-      return await applyRetirement(runtime, record);
-    });
+      return await applyRetirement({ ...runtime, signal }, record);
+    }, runtime.signal);
   } catch (error) {
     if (error instanceof OperationLockError) {
       return { kind: "retained", reason: "active-use" };
@@ -299,6 +313,7 @@ async function applyRetirement(
   let path = runtime.root;
   const settle = async (
     outcome: CompletionRetirement["outcome"],
+    effects?: Partial<RetirementEffects>,
   ): Promise<CompletionRetirement["outcome"]> => {
     const current = await readCompletionRecord(runtime.root, {
       kind: "retirement",
@@ -313,7 +328,16 @@ async function applyRetirement(
     record = {
       ...current.record,
       revision: current.record.revision + 1,
-      data: { ...current.record.data, outcome },
+      data: {
+        ...current.record.data,
+        outcome,
+        effects: {
+          worktree_removed: false,
+          branch_deleted: false,
+          ...current.record.data.effects,
+          ...effects,
+        },
+      },
     };
     await publish(runtime, record, current.stamp);
     return outcome;
@@ -324,7 +348,7 @@ async function applyRetirement(
     if (capture === undefined || reservation === undefined) {
       return await settle({ kind: "retained", reason: "ownership-uncertain" });
     }
-    const frozen = CaptureSchema.parse(
+    const frozen = RetirementCaptureSchema.parse(
       await readEnvironmentArtifact(runtime.root, capture),
     );
     const state = WorkspaceStateSchema.parse(frozen.snapshot.value);
@@ -341,7 +365,10 @@ async function applyRetirement(
       await releasedSubject(environment, frozen.snapshot) !==
         environment.release.subject
     ) return await settle({ kind: "retained", reason: "ownership-uncertain" });
-    const run = async (): Promise<CompletionRetirement["outcome"]> => {
+    const run = async (
+      signal?: AbortSignal,
+    ): Promise<CompletionRetirement["outcome"]> => {
+      signal?.throwIfAborted();
       const current = await requireEnvironment(
         runtime.root,
         record.data.environment_id,
@@ -481,6 +508,7 @@ async function applyRetirement(
           async () => {
             const destroyed = await destroyResources({
               config: runtime.config,
+              ...(signal === undefined ? {} : { signal }),
               cwd: path,
               log: runtime.log,
             }, entries);
@@ -510,6 +538,7 @@ async function applyRetirement(
             reason: "ownership-uncertain",
           });
         }
+        signal?.throwIfAborted();
         await removeWorktreeSafely(path, runtime.root);
       } else if (registration !== undefined) {
         return await settle({
@@ -517,7 +546,9 @@ async function applyRetirement(
           reason: "ownership-uncertain",
         });
       }
+      await settle(record.data.outcome, { worktree_removed: true });
       await runtime.afterBoundary?.("checkout", record);
+      signal?.throwIfAborted();
       const deleted = await withCompletionPublication(
         runtime.root,
         () =>
@@ -530,8 +561,21 @@ async function applyRetirement(
           }),
       );
       if (deleted.kind === "refused") {
-        return await settle({ kind: "retained", reason: "moved-branch" });
+        if (deleted.refusal === "unavailable") {
+          throw new Error(
+            `Branch retirement needs recovery: ${deleted.reason}`,
+          );
+        }
+        return await settle({
+          kind: "retained",
+          reason: deleted.refusal === "changed"
+            ? "moved-branch"
+            : deleted.refusal === "in-use"
+            ? "active-use"
+            : "ownership-uncertain",
+        });
       }
+      await settle(record.data.outcome, { branch_deleted: true });
       await runtime.afterBoundary?.("branch", record);
       const enrolled = await requireEnvironment(
         runtime.root,
@@ -549,8 +593,8 @@ async function applyRetirement(
       return await settle({ kind: "retired", at: SYSTEM_CLOCK.wallNow() });
     };
     return await statIfExists(path) === undefined
-      ? await run()
-      : await withCompletionCheckout(path, run);
+      ? await run(runtime.signal)
+      : await withCompletionCheckout(path, run, runtime.signal);
   } catch (error) {
     if (error instanceof OperationLockError) {
       return { kind: "retained", reason: "active-use" };

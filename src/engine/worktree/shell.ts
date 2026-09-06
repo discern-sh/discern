@@ -164,6 +164,7 @@ export async function runShellRouted(
     log: Logger;
     env?: Record<string, string>;
     scheduler?: Scheduler;
+    signal?: AbortSignal;
   },
 ): Promise<number> {
   if (command.trim() === "") {
@@ -197,7 +198,12 @@ export async function runShellRouted(
         quiet
           ? (await child.status).code
           : await settleCaptured(child, interrupted, scheduler),
-      { isolatedGroup, resumeAfterInterrupt: false, scheduler },
+      {
+        isolatedGroup,
+        resumeAfterInterrupt: opts.signal !== undefined,
+        scheduler,
+        ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+      },
     );
     return run.value;
   } catch {

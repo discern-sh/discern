@@ -1079,12 +1079,14 @@ export const TOOLS: McpTool[] = orderTools([
     reaimAfterResult: (result, ctx) => {
       const data = result.data as AcceptData | undefined;
       return ctx.heldRootMissing &&
-          data?.landing?.worktree_removed === true
+          (data?.landing?.worktree_removed === true ||
+            data?.queue?.some((prefix) => prefix.state === "landed"))
         ? data.root
         : undefined;
     },
-    run: (root, args, _signal, context) =>
+    run: (root, args, signal, context) =>
       acceptToolResult(root, {
+        ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
         cliModel: context.cliModel,
@@ -1269,6 +1271,7 @@ function renderMcpHintText(authored: string): string {
 async function acceptToolResult(
   root: string,
   opts: {
+    signal?: AbortSignal;
     dryRun?: boolean;
     confirmed?: boolean;
     variance?: string[];
@@ -2293,6 +2296,7 @@ export async function runMcpServer(
   // this OR the SDK's per-request signal (aborted on `notifications/cancelled`
   // when the client cancels that one call).
   const shutdown = new AbortController();
+  const activeCalls = new Set<Promise<unknown>>();
   interface McpCallExtra {
     readonly sendNotification: (
       notification: CompletionProgressNotification,
@@ -2322,12 +2326,12 @@ export async function runMcpServer(
     server.registerTool(
       tool.name,
       { ...config, inputSchema: strictInput(tool.inputSchema) },
-      (args: Record<string, unknown>, extra: McpCallExtra) => {
+      async (args: Record<string, unknown>, extra: McpCallExtra) => {
         const mcpClient = resolveMcpClientInfo(
           extra._meta,
           server.server.getClientVersion(),
         );
-        return withMcpCompletionProgress(
+        const call = withMcpCompletionProgress(
           extra._meta,
           extra.sendNotification,
           () =>
@@ -2342,6 +2346,12 @@ export async function runMcpServer(
               cliModel,
             ),
         );
+        activeCalls.add(call);
+        try {
+          return await call;
+        } finally {
+          activeCalls.delete(call);
+        }
       },
     );
   }
@@ -2375,5 +2385,9 @@ export async function runMcpServer(
   });
   await server.connect(transport);
   await closed;
+  shutdown.abort();
+  // Transport closure does not settle the tools it dispatched. Keep the process
+  // alive until their child shutdown and retained environment recovery finish.
+  while (activeCalls.size > 0) await Promise.allSettled([...activeCalls]);
   return 0;
 }

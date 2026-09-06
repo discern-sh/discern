@@ -70,9 +70,9 @@ export interface AcceptanceCheckpointState {
 
 /**
  * Inspect the checkpoint state at `root` for acceptance. Read-only: the
- * governing policy plus the open question store; an unavailable store FAILS OPEN
- * (empty state, one advisory) — acceptance must never wedge on state nobody
- * can read.
+ * governing policy plus the open question store. Unreadable evidence returns
+ * typed drops; the acceptance evaluator refuses to authorize an unknown
+ * declaration set.
  */
 export async function inspectAcceptanceCheckpoints(
   root: string,

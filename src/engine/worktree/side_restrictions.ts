@@ -36,12 +36,7 @@ export interface SideRestriction {
   cli: { argv: readonly string[]; verb: string } | null;
 }
 
-/**
- * Every side-restricted lifecycle operation. `accept`'s guard is the one
- * sanctioned inline check (`buildAcceptPlan` diagnoses the boundary itself to
- * give accept-specific recovery advice); it is enrolled here so the derived
- * refusal test still proves its wrong-side run maps to the same slug.
- */
+/** Operations whose effects require one particular checkout location. */
 export const SIDE_RESTRICTED_OPS = {
   "worktree-setup": {
     side: "worktree",
@@ -86,12 +81,6 @@ export const SIDE_RESTRICTED_OPS = {
     side: "main-checkout",
     label: "discern start",
     cli: { argv: ["start"], verb: "start" },
-  },
-  // --confirmed neutralizes the consent gate so the SIDE refusal is what fires.
-  accept: {
-    side: "worktree",
-    label: "discern accept",
-    cli: { argv: ["accept", "--confirmed"], verb: "accept" },
   },
   // The setup-time probe worktree is minted from the main checkout only.
   "worktree-probe": {

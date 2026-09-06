@@ -1,3 +1,4 @@
+import { AcceptancePrefixSchema } from "../../shared/result_schemas.ts";
 /**
  * The logbook **recorder** — the layer between an interceptor (the CLI action
  * wrapper in `cli.ts`, the MCP `runTool` completion chokepoint) and the store,
@@ -487,6 +488,36 @@ function liftData(data: unknown): LiftedData {
         ? { scopes: consent.data.consent.scopes }
         : {}),
     };
+  }
+  const prefixes = z.looseObject({ queue: z.array(AcceptancePrefixSchema) })
+    .safeParse(data);
+  if (prefixes.success) {
+    const landed = prefixes.data.queue.filter((row) => row.state === "landed");
+    const single = landed.length === 1 ? landed[0] : undefined;
+    if (single?.consent !== undefined) {
+      lifted.consent = {
+        source: single.consent.source,
+        ...(single.consent.scopes === undefined
+          ? {}
+          : { scopes: single.consent.scopes }),
+      };
+    }
+    const scopes = [
+      ...new Set(landed.flatMap((row) => row.scopes_changed ?? [])),
+    ];
+    if (scopes.length > 0) lifted.scopes = scopes;
+    if (landed.length > 0) {
+      lifted.landing = {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: landed.every((row) =>
+          row.retirement_effects?.worktree_removed === true
+        ),
+        branch_deleted: landed.every((row) =>
+          row.retirement_effects?.branch_deleted === true
+        ),
+      };
+    }
   }
   const landing = liftedLandingShape.safeParse(data);
   if (landing.success) {

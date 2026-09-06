@@ -1,3 +1,4 @@
+import { ignoredFileDetails } from "./ignored.ts";
 /**
  * The worktree lifecycle's **plan types and pure projections** (ADR 0027). Each
  * effectful worktree verb — setup, teardown, accept, prune — describes what it
@@ -188,21 +189,6 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     ],
     steps,
   };
-}
-
-/** Render bounded ignored-file drift evidence for an acceptance plan. */
-function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
-  if (summary.status !== "changed" || summary.changed_total === 0) {
-    return [];
-  }
-  const more = summary.truncated
-    ? `, +${summary.changed_total - summary.changed_roots.length} more`
-    : "";
-  return [
-    `Ignored files changed since setup: ${
-      summary.changed_roots.join(", ")
-    }${more}`,
-  ];
 }
 
 // ── update ───────────────────────────────────────────────────────────────

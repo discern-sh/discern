@@ -1,3 +1,6 @@
+import type { FinishResultSurface } from "../gate/finish.ts";
+import type { LandingConvergenceResult } from "../landing_queue/convergence.ts";
+import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { acceptQueueResult } from "../landing_queue/public_accept.ts";
 /**
  * The worktree lifecycle entry points — worktree setup, ensure, accept,
@@ -32,6 +35,7 @@ import { terminalLine } from "../../lib/terminal.ts";
 import {
   canInteract,
   confirmDestructiveAction,
+  plainModeEnabled,
 } from "../../lib/terminal_interaction.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { uniqueCheckpointDrops } from "../../shared/checkpoint_drops.ts";
@@ -79,6 +83,7 @@ import {
   renderStepResults,
   type StepOutcome,
   type StepResult,
+  stepResultToJson,
   verbatimStepLabel,
 } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
@@ -109,7 +114,11 @@ import {
   resolveGateRunPolicy,
   runJobGroups,
 } from "../gate/execute.ts";
-import { type JobGroup, serializeJobSteps } from "../gate/plan.ts";
+import {
+  type JobGroup,
+  planStageJobs,
+  serializeJobSteps,
+} from "../gate/plan.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import { readFleetLogbookActivity } from "../logbook/read.ts";
 import {
@@ -250,6 +259,7 @@ import {
   compileInstructions,
   instructionRefreshErrors,
   type InstructionsResult,
+  materializeLocalRefreshArtifacts,
 } from "../instructions.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate proof when nothing changed since
@@ -412,10 +422,18 @@ function emitOrRenderWorktreeResult<TData>(
     hooks.afterPlan?.(result);
     return;
   }
-  renderStepResults(loggerSink(ctx.log), {
-    title: applyResultTitle(result.verb),
-    steps: result.steps ?? [],
-  });
+  if (result.verb === "accept" && result.message !== undefined) {
+    if (!result.ok) ctx.log.errorBlock(result.message);
+    else {for (const line of result.message.split("\n")) {
+        ctx.log.humanLine(terminalLine(line));
+      }}
+  }
+  if (result.verb !== "accept" || (result.steps?.length ?? 0) > 0) {
+    renderStepResults(loggerSink(ctx.log), {
+      title: applyResultTitle(result.verb),
+      steps: result.steps ?? [],
+    });
+  }
   if (!result.ok) {
     const hints = interactiveHintTexts(result.hints);
     if (hints.length > 0) ctx.log.group("next");
@@ -681,16 +699,25 @@ async function runEnsureCommands(
     fatal: boolean;
     cwd: string;
     scope: "repository" | "worktree";
+    signal?: AbortSignal;
   },
 ): Promise<EnsureCommandRun> {
   const outcomes: StepOutcome[] = [];
   const diagnostics: Diagnostic[] = [];
   for (const step of commands) {
+    if (opts.signal?.aborted) {
+      outcomes.push("cancelled");
+      continue;
+    }
     const label = opts.scope === "repository"
       ? "Repository ensure step"
       : "Worktree ensure step";
     ctx.log.info(`${label}: ${step}`);
-    const code = await runShellRouted(step, { cwd: opts.cwd, log: ctx.log });
+    const code = await runShellRouted(step, {
+      cwd: opts.cwd,
+      log: ctx.log,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+    });
     if (code !== 0) {
       if (opts.fatal) {
         throw new WorktreeGitError(
@@ -699,7 +726,7 @@ async function runEnsureCommands(
         );
       }
       ctx.log.warn(`${label} failed (continuing): ${step}`);
-      outcomes.push("failed");
+      outcomes.push(opts.signal?.aborted ? "cancelled" : "failed");
       diagnostics.push(
         ensureFailureDiagnostic(
           opts.scope,
@@ -722,12 +749,13 @@ async function runEnsureCommands(
 /** Shared checkout convergence, safe in a linked worktree or the main checkout. */
 async function runRepositoryEnsureSteps(
   ctx: LifecycleContext,
-  opts: { fatal: boolean; cwd?: string },
+  opts: { fatal: boolean; cwd?: string; signal?: AbortSignal },
 ): ReturnType<typeof runEnsureCommands> {
   return await runEnsureCommands(ctx, ctx.config.repository.ensure, {
     fatal: opts.fatal,
     cwd: opts.cwd ?? ctx.cwd,
     scope: "repository",
+    ...(opts.signal === undefined ? {} : { signal: opts.signal }),
   });
 }
 
@@ -1945,6 +1973,9 @@ export async function accept(
     variance: opts.variance ?? [],
     approveStandard: opts.approveStandard ?? [],
     cliModel: opts.cliModel,
+    validationSurface: (opts.json || ctx.log.json)
+      ? { kind: "quiet" }
+      : { kind: "human", plain: plainModeEnabled() },
   });
   if (!result.ok && result.error === "report_only_proof") {
     throw new WorktreeResultError(
@@ -1953,6 +1984,14 @@ export async function accept(
     );
   }
   emitOrRenderWorktreeResult(ctx, result, opts.json ?? false);
+  if (!(opts.json || ctx.log.json)) {
+    const proofLines = result.data?.queue?.flatMap((row) =>
+      row.proof_line === undefined ? [] : [row.proof_line]
+    ) ?? [];
+    for (const line of proofLines) {
+      ctx.log.humanLine(terminalLine(line));
+    }
+  }
 }
 
 /** The CLI and MCP share this queue acceptance result, including partial progress.
@@ -1963,6 +2002,8 @@ export async function accept(
 export async function acceptResult(
   ctx: LifecycleContext,
   opts: {
+    signal?: AbortSignal;
+    validationSurface?: FinishResultSurface;
     dryRun?: boolean;
     confirmed?: boolean;
     variance?: string[];
@@ -1970,6 +2011,7 @@ export async function acceptResult(
     cliModel: CliModelProvider;
   },
 ): Promise<DiscernResult<AcceptData>> {
+  await assertProjectRootIsRepoToplevel(ctx, "accept");
   const interrupted = await inspectInterruptedAcceptance(
     ctx.cwd,
     integrationBranch(ctx.config.repository.trunk),
@@ -1989,7 +2031,106 @@ export async function acceptResult(
       () => recoverAcceptanceJournalResult(ctx, opts.confirmed ?? false),
     );
   }
-  return await acceptQueueResult(ctx, opts);
+  return await acceptQueueResult(ctx, {
+    ...opts,
+    validationSurface: opts.validationSurface ?? { kind: "quiet" },
+    converge: async (root, signal) =>
+      await convergeAcceptedCheckout(
+        await lifecycleContext(root, ctx.log),
+        signal,
+      ),
+  });
+}
+
+/** Converge the receiving checkout without rewriting validated tracked artifacts. */
+async function convergeAcceptedCheckout(
+  ctx: LifecycleContext,
+  signal: AbortSignal,
+): Promise<LandingConvergenceResult> {
+  const steps: StepResult[] = [];
+  const diagnostics: Diagnostic[] = [];
+  const hints: string[] = [];
+  const refresh = instructionRefreshRun(
+    await materializeLocalRefreshArtifacts(ctx.root, ctx.log),
+    ctx.root,
+  );
+  steps.push({
+    step: {
+      kind: "refresh",
+      label: BUILT_IN_STEP_LABELS.materializeLocalAgentArtifacts,
+      disposition: "run",
+    },
+    outcome: refresh.ok ? "ok" : "failed",
+  });
+  diagnostics.push(...refresh.diagnostics);
+  hints.push(...refresh.hints);
+  const ensured = await runRepositoryEnsureSteps(ctx, { fatal: false, signal });
+  ctx.config.repository.ensure.forEach((command, index) =>
+    steps.push({
+      step: {
+        kind: "repository-ensure",
+        label: verbatimStepLabel(command),
+        disposition: "run",
+        note: "converge the main checkout on the landed tree",
+      },
+      outcome: ensured.outcomes[index] ?? "failed",
+    })
+  );
+  diagnostics.push(...ensured.diagnostics);
+  hints.push(...ensured.hints);
+  const groups: JobGroup[] = [{
+    stage: "test",
+    mode: "serial",
+    heading: "Main checkout smoke check",
+    display: "Main checkout smoke check",
+    jobs: planStageJobs(ctx.config, "test").filter((job) =>
+      job.label === "smoke"
+    ),
+  }];
+  const run = gateRunContext(
+    ctx.root,
+    ctx.config,
+    resolveGateRunPolicy(false, { kind: "quiet-result" }),
+    signal,
+  );
+  const tested = await runJobGroups(groups, run.runOpts, run.runOut, run.slots);
+  const smoke = await serializeJobSteps(ctx.root, groups, tested.results);
+  steps.push(...smoke.steps);
+  diagnostics.push(...smoke.diagnostics);
+  hints.push(...hintTexts(smoke.hints));
+  const clean = await runGit([
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=no",
+  ], { cwd: ctx.root });
+  const cleanOk = clean.success && clean.stdout === "";
+  steps.push({
+    step: {
+      kind: "checkout-clean-check",
+      label: BUILT_IN_STEP_LABELS.checkTrunkCheckout,
+      disposition: "gate",
+    },
+    outcome: cleanOk ? "ok" : "failed",
+  });
+  if (!cleanOk) {
+    diagnostics.push({
+      tool: "checkout-clean",
+      severity: "error",
+      message: clean.success
+        ? checkoutChangesMessage(clean.stdout)
+        : "Main checkout cleanliness is unavailable. Preserve the checkout and restore Git status before continuing.",
+      reproduce_cmd: "git status --short",
+    });
+  }
+  return {
+    ok: steps.every((step) =>
+      step.outcome === "ok" || step.outcome === "skipped"
+    ),
+    steps: steps.map(stepResultToJson),
+    diagnostics,
+    hints: mergeHintTexts(hints, ensureRecoveryHints(diagnostics)),
+  };
 }
 
 /**

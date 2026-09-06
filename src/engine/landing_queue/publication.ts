@@ -1,3 +1,8 @@
+import {
+  type LandingConverger,
+  readLandingConvergenceResult,
+} from "./convergence.ts";
+import { runGit } from "../../shared/subprocess.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
 import { z } from "@zod/zod";
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -7,7 +12,10 @@ import { recordLandingProofNote } from "../worktree/accept_proof_recording.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import { AcceptProofNoteSchema } from "../../shared/result_schemas.ts";
-import { emitCompletionEvent } from "../completion/events.ts";
+import {
+  emitCompletionEvent,
+  emitCompletionProgress,
+} from "../completion/events.ts";
 /** Publish one exact queue transition; recovery and note publication never repeat landing. */
 import type { CompletionLanding } from "../completion/outcomes.ts";
 import type { CompletionRecord } from "../completion/records.ts";
@@ -48,14 +56,18 @@ import { mutateQueue } from "./mutations.ts";
 
 export type LandingRecord = Extract<CompletionRecord, { kind: "landing" }>;
 type AuthorityRecord = Extract<CompletionRecord, { kind: "authority" }>;
-export type LandingBoundary =
-  | "planned"
-  | "grant"
-  | "ref"
-  | "authority"
-  | "note";
+export const LANDING_BOUNDARIES = [
+  "planned",
+  "grant",
+  "ref",
+  "authority",
+  "convergence",
+  "note",
+] as const;
+export type LandingBoundary = (typeof LANDING_BOUNDARIES)[number];
 
 export interface QueueLandingRuntime {
+  readonly signal?: AbortSignal;
   readonly root: string;
   readonly mainRepo: string;
   readonly trunk: string;
@@ -72,6 +84,7 @@ export interface QueueLandingRuntime {
     record: LandingRecord,
   ) => Promise<void>;
   readonly writeNote?: typeof writeProofNote;
+  readonly converge?: LandingConverger;
 }
 
 /** A ref transition's exact identifiers stay immutable through every settlement revision. */
@@ -95,7 +108,11 @@ async function updateLanding(
   change: Partial<
     Pick<
       CompletionLanding,
-      "outcome" | "authority_settlement" | "note" | "note_result"
+      | "outcome"
+      | "authority_settlement"
+      | "note"
+      | "note_result"
+      | "convergence_result"
     >
   >,
 ): Promise<LandingRecord> {
@@ -405,6 +422,106 @@ async function reconcileLandedQueue(
   }
 }
 
+/** Run only convergent checkout work under main exclusion, outside the shared publication lock.
+ * A retained successful result is never rerun. An interrupted or failed run may be
+ * retried on the same target; authority settlement and the ref transition stay fixed.
+ */
+async function convergeLandedCheckout(
+  runtime: QueueLandingRuntime,
+  record: LandingRecord,
+  signal: AbortSignal,
+): Promise<LandingRecord | CompletionBlocker> {
+  if (record.data.outcome.kind !== "landed" || runtime.converge === undefined) {
+    return record;
+  }
+  if ((await readLandingConvergenceResult(runtime.root, record.data))?.ok) {
+    return record;
+  }
+  const branch = await runGit(["symbolic-ref", "--quiet", "HEAD"], {
+    cwd: runtime.mainRepo,
+  });
+  const clean = await runGit([
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=no",
+  ], { cwd: runtime.mainRepo });
+  if (
+    !branch.success || branch.stdout.trim() !== `refs/heads/${runtime.trunk}` ||
+    !clean.success || clean.stdout !== "" ||
+    await gitValue(runtime.mainRepo, ["rev-parse", "HEAD"]) !==
+      record.data.target ||
+    (await inspectGitOperation(runtime.mainRepo)).kind !== "none"
+  ) {
+    return {
+      kind: "environment-unavailable",
+      reason:
+        "Landing is recorded. Restore the main checkout to the recorded target with a clean tracked tree before retrying its convergence commands; preserve any edits.",
+    };
+  }
+  emitCompletionProgress({
+    phase: "environment",
+    state: "converging",
+    candidate_id: record.data.candidate_id,
+    reason:
+      `Running receiving-checkout convergence for ${record.data.source.branch}; the landing is already recorded.`,
+  });
+  let result;
+  try {
+    result = await runtime.converge(runtime.mainRepo, signal);
+  } catch (error) {
+    result = {
+      ok: false,
+      steps: [],
+      diagnostics: [{
+        tool: "checkout-convergence",
+        severity: "error" as const,
+        message: error instanceof Error ? error.message : String(error),
+        reproduce_cmd: "discern accept",
+      }],
+      hints: hintTexts([fire(HINTS["lifecycle-convergence-failed"])]),
+    };
+  }
+  const head = await runGit(["rev-parse", "HEAD"], { cwd: runtime.mainRepo });
+  const currentBranch = await runGit(["symbolic-ref", "--quiet", "HEAD"], {
+    cwd: runtime.mainRepo,
+  });
+  if (
+    !head.success || head.stdout.trim() !== record.data.target ||
+    !currentBranch.success ||
+    currentBranch.stdout.trim() !== `refs/heads/${runtime.trunk}`
+  ) {
+    result = {
+      ...result,
+      ok: false,
+      diagnostics: [...result.diagnostics, {
+        tool: "checkout-convergence",
+        severity: "error",
+        message:
+          "The main checkout changed commits during convergence. Preserve it and reconcile the recorded landing target before retrying acceptance.",
+        reproduce_cmd: "git status --short --branch",
+      }],
+    };
+  }
+  if (signal.aborted) result = { ...result, ok: false };
+  const artifact = await saveEnvironmentArtifact(
+    runtime.root,
+    {
+      attempt_id: record.data.attempt_id,
+      candidate_id: record.data.candidate_id,
+      context: "local",
+    },
+    `landing-convergence-${record.id}-${SYSTEM_SECURE_ENTROPY.uuid()}`,
+    result,
+  );
+  const updated = await withQueueLock(
+    runtime.root,
+    () => updateLanding(runtime, record.id, { convergence_result: artifact }),
+  );
+  await runtime.afterBoundary?.("convergence", updated);
+  return updated;
+}
+
 /** Expensive evidence audit precedes the short lock; every observed stamp is rechecked within it. */
 export async function publishQueueLanding(
   runtime: QueueLandingRuntime,
@@ -419,8 +536,15 @@ export async function publishQueueLanding(
   const sourcePath = await runtime.sourceCheckout(record);
   const advanced = await withCompletionCheckout(
     runtime.mainRepo,
-    () =>
-      withQueueLock(
+    async (signal) => {
+      if (signal.aborted) {
+        return {
+          kind: "environment-unavailable" as const,
+          reason:
+            "Acceptance was cancelled before publication; the recorded transition remains available for inspection.",
+        };
+      }
+      const published = await withQueueLock(
         runtime.root,
         async (): Promise<LandingRecord | CompletionBlocker> => {
           const now = await observeQueue(runtime.root, runtime.trunk, clock);
@@ -444,18 +568,40 @@ export async function publishQueueLanding(
               sameSource(source, record.data.source)
             )
           ) return { kind: "missing-authority", sources: [record.data.source] };
-          if (
-            await gitValue(runtime.mainRepo, [
-                "symbolic-ref",
-                "--quiet",
-                "HEAD",
-              ]) !== `refs/heads/${runtime.trunk}` ||
-            (await inspectGitOperation(runtime.mainRepo)).kind !== "none"
-          ) {
+          const operation = await inspectGitOperation(runtime.mainRepo);
+          if (operation.kind !== "none") {
             return {
               kind: "environment-unavailable",
-              reason:
-                "The main checkout must be on the configured trunk with no in-progress Git operation.",
+              reason: operation.kind === "active"
+                ? `The main checkout has an in-progress ${operation.operation}. Resolve it with git ${operation.operation} --continue or git ${operation.operation} --abort before retrying acceptance.`
+                : operation.detail,
+            };
+          }
+          const branch = await runGit(["branch", "--show-current"], {
+            cwd: runtime.mainRepo,
+          });
+          if (!branch.success || branch.stdout.trim() !== runtime.trunk) {
+            return {
+              kind: "environment-unavailable",
+              reason: !branch.success
+                ? `The main checkout branch is unavailable: ${branch.stderr.trim()}`
+                : `The main checkout is on '${
+                  branch.stdout.trim() || "(detached)"
+                }', not '${runtime.trunk}'. Return to the configured trunk in ${runtime.mainRepo}, then retry acceptance.`,
+            };
+          }
+          const status = await runGit([
+            "status",
+            "--porcelain=v1",
+            "-z",
+            "--untracked-files=no",
+          ], { cwd: runtime.mainRepo });
+          if (!status.success || status.stdout !== "") {
+            return {
+              kind: "environment-unavailable",
+              reason: status.success
+                ? "The main checkout has uncommitted tracked changes. Preserve and resolve them before retrying acceptance."
+                : `Git could not read tracked status in the main checkout: ${status.stderr.trim()}. Restore Git status access before retrying acceptance.`,
             };
           }
           const existing = await readCompletionRecord(runtime.root, record);
@@ -605,7 +751,12 @@ export async function publishQueueLanding(
           ) await reconcileLandedQueue(runtime);
           return settled;
         },
-      ),
+      );
+      return published.kind === "landing"
+        ? await convergeLandedCheckout(runtime, published, signal)
+        : published;
+    },
+    runtime.signal,
   );
   if (advanced.kind !== "landing") return advanced;
   return advanced.data.outcome.kind === "landed"
@@ -622,8 +773,15 @@ export async function recoverQueueLanding(
   const proof = await readLandingProof(runtime, initial);
   const recovered = await withCompletionCheckout(
     runtime.mainRepo,
-    () =>
-      withQueueLock(
+    async (signal) => {
+      if (signal.aborted) {
+        return {
+          kind: "environment-unavailable" as const,
+          reason:
+            "Acceptance was cancelled before publication; the recorded transition remains available for inspection.",
+        };
+      }
+      const published = await withQueueLock(
         runtime.root,
         async (): Promise<LandingRecord | CompletionBlocker> => {
           const record = (await currentLanding(runtime.root, id)).record;
@@ -724,7 +882,12 @@ export async function recoverQueueLanding(
           await reconcileLandedQueue(runtime);
           return settled;
         },
-      ),
+      );
+      return published.kind === "landing"
+        ? await convergeLandedCheckout(runtime, published, signal)
+        : published;
+    },
+    runtime.signal,
   );
   if (recovered.kind !== "landing") return recovered;
   return recovered.data.outcome.kind === "landed"

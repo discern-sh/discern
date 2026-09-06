@@ -68,6 +68,7 @@ export interface ResourceContext {
   clock?: Clock;
   /** Retry and child-lifecycle timer capability. */
   scheduler?: Scheduler;
+  signal?: AbortSignal;
 }
 
 /** One declared `[worktree.resources.<name>]`. */
@@ -383,10 +384,21 @@ async function deleteEntryCAS(
 // ── command execution ─────────────────────────────────────────────────────────
 
 /** Sleep for `ms` milliseconds. */
-function delay(ms: number, scheduler: Scheduler): Promise<void> {
-  return new Promise((resolveDelay) =>
-    scheduler.scheduleTimeout(resolveDelay, ms)
-  );
+function delay(
+  ms: number,
+  scheduler: Scheduler,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolveDelay) => {
+    const finish = (): void => {
+      scheduler.cancelTimeout(timer);
+      signal?.removeEventListener("abort", finish);
+      resolveDelay();
+    };
+    const timer = scheduler.scheduleTimeout(finish, ms);
+    signal?.addEventListener("abort", finish, { once: true });
+    if (signal?.aborted) finish();
+  });
 }
 
 /**
@@ -401,19 +413,29 @@ async function runWithRetries(
   retries: number,
   log: Logger,
   scheduler: Scheduler,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   if (command.trim() === "") {
     return true;
   }
   for (let attempt = 0;; attempt++) {
-    const code = await runShellRouted(command, { cwd, log, env, scheduler });
+    if (signal?.aborted) return false;
+    const code = await runShellRouted(command, {
+      cwd,
+      log,
+      env,
+      scheduler,
+      ...(signal === undefined ? {} : { signal }),
+    });
+    if (signal?.aborted) return false;
     if (code === 0) {
       return true;
     }
     if (attempt >= retries) {
       return false;
     }
-    await delay(250 * 2 ** attempt, scheduler);
+    await delay(250 * 2 ** attempt, scheduler, signal);
+    if (signal?.aborted) return false;
     log.warn(`  retrying (attempt ${attempt + 2} of ${retries + 1})…`);
   }
 }
@@ -695,7 +717,16 @@ export async function destroyResources(
   const failed: string[] = [];
   for (const { path, entry } of entries) {
     ctx.log.info(`Destroying worktree resource '${entry.resource_name}'…`);
-    if (await destroyRecordedEntry(path, entry, ctx.cwd, ctx.log, scheduler)) {
+    if (
+      await destroyRecordedEntry(
+        path,
+        entry,
+        ctx.cwd,
+        ctx.log,
+        scheduler,
+        ctx.signal,
+      )
+    ) {
       destroyed.push(entry.resource_name);
     } else {
       ctx.log.warn(
@@ -714,9 +745,12 @@ async function destroyRecordedEntry(
   cwd: string,
   log: Logger,
   scheduler: Scheduler,
+  signal?: AbortSignal,
 ): Promise<boolean> {
-  if (!sameEntry(entry, await readEntry(path))) return false;
-  if (!(await runDestroyEntry(entry, cwd, log, scheduler))) return false;
+  if (signal?.aborted || !sameEntry(entry, await readEntry(path))) return false;
+  if (!(await runDestroyEntry(entry, cwd, log, scheduler, signal))) {
+    return false;
+  }
   return await deleteEntryCAS(path, entry);
 }
 
@@ -730,6 +764,7 @@ async function runDestroyEntry(
   cwd: string,
   log: Logger,
   scheduler: Scheduler,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   const command = entry.destroy_command;
   if (command.trim() === "") {
@@ -756,6 +791,7 @@ async function runDestroyEntry(
     entry.retries,
     log,
     scheduler,
+    signal,
   );
 }
 

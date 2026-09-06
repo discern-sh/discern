@@ -8,8 +8,10 @@ import type { SourceRevision } from "../completion/identity.ts";
 import { AuthoritySchema } from "../completion/authority.ts";
 import { writeCompletionRecord } from "../completion/store.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
-import { inspectLandingAuthority } from "../worktree/landing_authority.ts";
-import { readEffortGrant } from "../worktree/effort_grant.ts";
+import {
+  inspectLandingAuthority,
+  type LandingAuthorityResolution,
+} from "../worktree/landing_authority.ts";
 import { inspectEffortGrantSubject } from "../worktree/effort_grant_subject.ts";
 import { worktreePathForBranch } from "../worktree/git.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
@@ -33,23 +35,38 @@ export interface ObservedSourceGrant {
   readonly facts: SourceGrantFacts;
 }
 
+export interface ObservedSourceAuthority {
+  readonly path: string;
+  readonly authority: LandingAuthorityResolution;
+  readonly grant?: ObservedSourceGrant;
+}
+
+/** Locate the positively identified effort even when edits have invalidated its authority. */
+export async function registeredSourcePath(
+  root: string,
+  source: SourceRevision,
+): Promise<string | undefined> {
+  const path = await worktreePathForBranch(
+    root,
+    source.branch.slice("refs/heads/".length),
+  );
+  return path !== undefined &&
+      (await resolveIdentity(path, path)).id === source.effort_id
+    ? path
+    : undefined;
+}
+
 /** Only the exact registered source checkout may supply its desk marker or scope coverage. */
-export async function observeSourceGrant(
+export async function observeSourceAuthority(
   root: string,
   trunk: string,
   source: SourceRevision,
   policy: string,
   previous?: SourceAuthority,
   conversation?: SourceRevision,
-): Promise<ObservedSourceGrant | undefined> {
-  const path = await worktreePathForBranch(
-    root,
-    source.branch.slice("refs/heads/".length),
-  );
-  if (
-    path === undefined ||
-    (await resolveIdentity(path, path)).id !== source.effort_id
-  ) return undefined;
+): Promise<ObservedSourceAuthority | undefined> {
+  const path = await registeredSourcePath(root, source);
+  if (path === undefined) return undefined;
   const pin = await pinValidatedTree(path);
   if (!pin.clean || pin.head !== source.head) return undefined;
   const subject = await inspectEffortGrantSubject(
@@ -60,48 +77,63 @@ export async function observeSourceGrant(
   const standing = await inspectLandingAuthority(path, trunk, {
     includeScopeEvidence: true,
   });
-  const effort = await readEffortGrant(path);
+  const effort = standing.effortGrant;
   const explicit = conversation !== undefined &&
     sameSource(conversation, source);
+  const reading = { path, authority: standing };
+  if (
+    standing.kind === "conversation-required" &&
+    standing.blockingReason !== undefined
+  ) return reading;
   const sourceKind = explicit
     ? "conversation"
     : standing.kind === "authorized"
     ? standing.consent.source
     : undefined;
-  if (sourceKind === undefined) return undefined;
+  if (sourceKind === undefined) return reading;
   const matching = previous?.source.source === sourceKind &&
     previous.state.kind === "granted" &&
     previous.sources.some((entry) => sameSource(entry, source));
   const recordId = sourceKind === "effort-grant"
-    ? effort.status === "granted" ? effort.grant.id : undefined
+    ? effort?.id
     : matching
     ? previous.source.record_id
     : SYSTEM_SECURE_ENTROPY.uuid();
-  if (recordId === undefined) return undefined;
+  if (recordId === undefined) return reading;
   const scopes =
     sourceKind === "standing-grant" && standing.kind === "authorized"
       ? [...(standing.consent.scopes ?? [])]
       : [];
   return {
-    path,
-    source,
-    procedure: subject.composition_procedure,
-    consent: { source: sourceKind, record_id: recordId, scopes },
-    approved_at: sourceKind === "effort-grant" && effort.status === "granted"
-      ? Date.parse(effort.grant.granted_at)
-      : matching
-      ? previous.approved_at
-      : SYSTEM_CLOCK.wallNow(),
-    facts: {
+    ...reading,
+    grant: {
+      path,
       source,
-      policy,
-      record_id: recordId,
-      current: true,
-      classifications: standing.classifications,
-      granted_scopes: scopes,
-      defined_scopes: scopes,
+      procedure: subject.composition_procedure,
+      consent: { source: sourceKind, record_id: recordId, scopes },
+      approved_at: sourceKind === "effort-grant" && effort !== undefined
+        ? Date.parse(effort.granted_at)
+        : matching
+        ? previous.approved_at
+        : SYSTEM_CLOCK.wallNow(),
+      facts: {
+        source,
+        policy,
+        record_id: recordId,
+        current: true,
+        classifications: standing.classifications,
+        granted_scopes: scopes,
+        defined_scopes: scopes,
+      },
     },
   };
+}
+
+/** Grant publication consumes the same observation used by independent judgment readers. */
+export async function observeSourceGrant(
+  ...args: Parameters<typeof observeSourceAuthority>
+): Promise<ObservedSourceGrant | undefined> {
+  return (await observeSourceAuthority(...args))?.grant;
 }
 
 /** An active invocation records only authority already verified from its original source. */
@@ -224,12 +256,13 @@ export async function synchronizeQueueAuthorities(
       const pin = await pinValidatedTree(item.grant.path);
       if (!pin.clean || pin.head !== item.grant.source.head) continue;
       if (item.grant.consent.source === "effort-grant") {
-        const current = await readEffortGrant(item.grant.path);
+        const current =
+          (await inspectLandingAuthority(item.grant.path, trunk)).effortGrant;
         if (
-          current.status !== "granted" ||
-          current.grant.id !== item.grant.consent.record_id ||
-          current.grant.composition_procedure !== item.grant.procedure ||
-          !sameSource(current.grant.source, item.grant.source)
+          current === undefined ||
+          current.id !== item.grant.consent.record_id ||
+          current.composition_procedure !== item.grant.procedure ||
+          !sameSource(current.source, item.grant.source)
         ) continue;
       }
       if (!item.existing) {
