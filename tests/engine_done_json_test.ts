@@ -27,6 +27,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { refreshScaffold } from "./engine_done_fixture.ts";
 import {
   assertFailedStepsHaveDiagnostics,
   decodeGateResult,
@@ -94,6 +95,7 @@ Deno.test("done --json: trunk advancing during validation prevents stale queue P
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const wt = await addWorktree(dir, "mid-gate-main-advance");
     await writeExecutable(join(wt, "feature.txt"), "feature");
     await git(wt, "add", "-A");
@@ -124,9 +126,36 @@ Deno.test("done --json: trunk advancing during validation prevents stale queue P
   });
 });
 
-Deno.test("done --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output", async () => {
+// Each red-diagnostic variant below is a fact about ONE failing check job's own
+// diagnostic, so the four variants ride one red gate as four check jobs — a
+// captured stderr failure, a missing tool, a noisy Tier-0 offload, and an empty
+// SARIF fallback. Each step carries the name of the case it replaced, so a
+// failure still names the behaviour.
+Deno.test("done --json: one red gate carries each failing check's own diagnostic — captured stderr, exit-127 guidance, bounded Tier-0 noise, and the empty-SARIF fallback", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "noisy-check.sh"),
+      [
+        "#!/usr/bin/env sh",
+        "printf '\\033[32mCheck\\033[0m src/main.ts\\n'",
+        "printf '\\033]8;;https://example.test\\033\\\\click here\\033]8;;\\033\\\\\\n'",
+        "printf 'progress 10%%\\rprogress 50%%\\rprogress done\\n'",
+        "printf 'bell\\007back\\010space\\n'",
+        "i=0",
+        'while [ "$i" -lt 20000 ]; do',
+        "  printf X",
+        "  i=$((i + 1))",
+        "done",
+        "printf '\\nTAIL-SIGNAL\\n'",
+        "exit 1",
+        "",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(
+      join(dir, "empty.sarif"),
+      JSON.stringify({ version: "2.1.0", runs: [{ results: [] }] }),
+    );
     await writeConfig(
       dir,
       [
@@ -145,75 +174,135 @@ Deno.test("done --json: a failing check reports ok:false, a failed step, and a d
         // a check-stage capability that prints to stderr, then fails
         'lint = "echo boom-on-stderr >&2; exit 1"',
         "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, false);
-    assertEquals(obj.verb, "done");
-    assertEquals(obj.data.failed_stage, "check");
-    // The failure is attributed to the precise job step.
-    const lint = stepFor(obj, "lint");
-    assertEquals(lint.outcome, "failed");
-    assertEquals(lint.kind, "job");
-    // …and to a structured diagnostic carrying the reproduce command + output.
-    const diag = diagFor(obj, "lint");
-    assert(
-      diag,
-      `expected a diagnostic for lint, got ${JSON.stringify(obj.diagnostics)}`,
-    );
-    assertEquals(diag.severity, "error");
-    assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
-    assertEquals(diag.fix_available, true);
-    assert(diag.output !== undefined, "expected captured lint output");
-    assertStringIncludes(diag.output, "boom-on-stderr");
-    assertFailedStepsHaveDiagnostics(obj);
-  });
-});
-
-Deno.test("done --json: an exit-127 failure explains command-not-found and points at [repository].ensure", async () => {
-  // The class this guards: a tool present in the main checkout but absent from a
-  // fresh worktree fails with a bare `sh: <cmd>: not found` and exit 127, and nothing
-  // links the failure to worktrees or to [repository].ensure. The hint stays
-  // generic — no tool or ecosystem names — since discern never sniffs the stack.
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[jobs]",
         // a command that does not exist → the shell exits 127 ("command not found")
-        'lint = "discern-no-such-command-xyz --run"',
+        "[jobs.missing-tool]",
+        'stage = "check"',
+        'run = "discern-no-such-command-xyz --run"',
+        "",
+        "[jobs.noisy]",
+        'stage = "check"',
+        'run = "./noisy-check.sh"',
+        "",
+        "[jobs.empty-sarif]",
+        'stage = "check"',
+        'run = "cat empty.sarif; exit 1"',
+        "",
+        // The four checks share one stage; without fail-fast the first failure
+        // cannot cancel a sibling before its diagnostic evidence is complete.
+        "[gate]",
+        "fail_fast = false",
         "",
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
-
     const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, false);
-    const diag = diagFor(obj, "lint");
-    assert(
-      diag,
-      `expected a diagnostic for lint, got ${JSON.stringify(obj.diagnostics)}`,
+
+    await t.step(
+      "done --json: a failing check reports ok:false, a failed step, and a diagnostic with captured output",
+      () => {
+        assertEquals(obj.ok, false);
+        assertEquals(obj.verb, "done");
+        assertEquals(obj.data.failed_stage, "check");
+        // The failure is attributed to the precise job step.
+        const lint = stepFor(obj, "lint");
+        assertEquals(lint.outcome, "failed");
+        assertEquals(lint.kind, "job");
+        // …and to a structured diagnostic carrying the reproduce command + output.
+        const diag = diagFor(obj, "lint");
+        assert(
+          diag,
+          `expected a diagnostic for lint, got ${
+            JSON.stringify(obj.diagnostics)
+          }`,
+        );
+        assertEquals(diag.severity, "error");
+        assertEquals(diag.reproduce_cmd, "echo boom-on-stderr >&2; exit 1");
+        assertEquals(diag.fix_available, true);
+        assert(diag.output !== undefined, "expected captured lint output");
+        assertStringIncludes(diag.output, "boom-on-stderr");
+        assertFailedStepsHaveDiagnostics(obj);
+      },
     );
-    assertStringIncludes(diag.message, "exit 127");
-    assertStringIncludes(diag.message, "command not found");
-    assertStringIncludes(diag.message, "[repository].ensure");
+
+    await t.step(
+      "done --json: an exit-127 failure explains command-not-found and points at [repository].ensure",
+      () => {
+        // The class this guards: a tool present in the main checkout but absent from a
+        // fresh worktree fails with a bare `sh: <cmd>: not found` and exit 127, and nothing
+        // links the failure to worktrees or to [repository].ensure. The hint stays
+        // generic — no tool or ecosystem names — since discern never sniffs the stack.
+        const diag = diagFor(obj, "missing-tool");
+        assert(
+          diag,
+          `expected a diagnostic for missing-tool, got ${
+            JSON.stringify(obj.diagnostics)
+          }`,
+        );
+        assertStringIncludes(diag.message, "exit 127");
+        assertStringIncludes(diag.message, "command not found");
+        assertStringIncludes(diag.message, "[repository].ensure");
+      },
+    );
+
+    await t.step(
+      "done --json: Tier-0 diagnostic output is normalized, bounded, and offloaded when long",
+      async () => {
+        const diag = diagFor(obj, "noisy");
+        assert(diag !== undefined, `expected a noisy diagnostic: ${r.stdout}`);
+        assert(diag.output !== undefined, "expected bounded diagnostic output");
+
+        assert(!diag.output.includes("\x1b"), diag.output);
+        assert(!diag.output.includes("\r"), diag.output);
+        assert(!hasDroppedC0Control(diag.output), diag.output);
+        assertTerminalTextIncludes(diag.output, "progress done");
+        assert(!diag.output.includes("progress 10%"), diag.output);
+        assert(
+          diag.output.length <= CAPTURE_CAP,
+          `diagnostic output should stay within ${CAPTURE_CAP} chars; got ${diag.output.length}`,
+        );
+        assertEquals(diag.truncated, true);
+        assert(
+          typeof diag.output_path === "string",
+          "expected offloaded output path",
+        );
+
+        const info = await Deno.stat(diag.output_path);
+        assert(info.isFile, `expected a readable file at ${diag.output_path}`);
+        const full = await Deno.readTextFile(diag.output_path);
+        assert(
+          full.length > CAPTURE_CAP,
+          "full capture should exceed the inline cap",
+        );
+        assert(!full.includes("\x1b"), full);
+        assert(!full.includes("\r"), full);
+        assert(!hasDroppedC0Control(full), full);
+        assertStringIncludes(full, "Check src/main.ts");
+        assertStringIncludes(full, "click here");
+        assertStringIncludes(full, "progress done");
+        assertStringIncludes(full, "TAIL-SIGNAL");
+      },
+    );
+
+    await t.step(
+      "done --json: empty SARIF falls back to a raw Tier-0 diagnostic",
+      () => {
+        const diag = diagFor(obj, "empty-sarif");
+        assert(diag, `expected Tier-0 fallback diagnostic, got ${r.stdout}`);
+        assertEquals(diag.message, "empty-sarif failed (exit 1)");
+        assertEquals(diag.reproduce_cmd, "cat empty.sarif; exit 1");
+        assert(diag.output !== undefined, "expected raw fallback output");
+        assertStringIncludes(diag.output, '"results":[]');
+        assertEquals(diag.file, undefined);
+        assertFailedStepsHaveDiagnostics(obj);
+      },
+    );
   });
 });
 
-Deno.test("done --json: a passing job with suspicious output exposes an advisory artifact", async () => {
+Deno.test("done --json: one green gate reports a loud passing job's advisory artifact and the fired and unchanged scope gates", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -228,32 +317,64 @@ Deno.test("done --json: a passing job with suspicious output exposes an advisory
         "[jobs]",
         "lint = \"printf 'error: one\\nwarning: two\\n    ^~~~~\\nerror: three\\nwarning: four\\n    ^~~~~\\nerror: five\\nwarning: six\\n    ^~~~~\\nerror: seven\\nwarning: eight\\n    ^~~~~\\n'\"",
         "",
+        "[scopes.map]",
+        'paths = ["docs/"]',
+        "neutral = true",
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "echo widget-ok"',
+        "",
+        "[scopes.gadget]",
+        'paths = ["gadget/**"]',
+        'gate = "echo gadget-ok"',
+        "",
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
+    await writeExecutable(join(dir, "widget/x.txt"), "x"); // only widget changed
+
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
-    assertEquals(obj.diagnostics, undefined);
-    const lint = stepFor(obj, "lint");
-    assertEquals(lint.outcome, "ok");
-    assertEquals(lint.output_lines, 12);
-    assertEquals(lint.error_like_lines, 12);
-    assert(
-      typeof lint.output_path === "string",
-      "expected a captured output path",
+
+    await t.step(
+      "done --json: a passing job with suspicious output exposes an advisory artifact",
+      async () => {
+        assertEquals(obj.diagnostics, undefined);
+        const lint = stepFor(obj, "lint");
+        assertEquals(lint.outcome, "ok");
+        assertEquals(lint.output_lines, 12);
+        assertEquals(lint.error_like_lines, 12);
+        assert(
+          typeof lint.output_path === "string",
+          "expected a captured output path",
+        );
+        const output = await Deno.readTextFile(lint.output_path);
+        assertStringIncludes(output, "error: one");
+        assertStringIncludes(output, "warning: eight");
+        assertHasHint(obj, HINTS["gate-job-loud-success"], {
+          label: "lint",
+          errorLikeLines: 12,
+          outputLines: 12,
+          outputPath: lint.output_path,
+        });
+      },
     );
-    const output = await Deno.readTextFile(lint.output_path);
-    assertStringIncludes(output, "error: one");
-    assertStringIncludes(output, "warning: eight");
-    assertHasHint(obj, HINTS["gate-job-loud-success"], {
-      label: "lint",
-      errorLikeLines: 12,
-      outputLines: 12,
-      outputPath: lint.output_path,
-    });
+
+    await t.step(
+      "done --json: scope-gates report fired (ok) and unchanged (skipped) steps",
+      () => {
+        const widget = stepFor(obj, "scope:widget");
+        const gadget = stepFor(obj, "scope:gadget");
+        assertEquals(widget.kind, "scope-gate");
+        assertEquals(widget.outcome, "ok"); // fired and passed
+        assertEquals(gadget.outcome, "skipped"); // configured, scope unchanged
+        assert(obj.data.scopes_changed.includes("widget"));
+      },
+    );
   });
 });
 
@@ -278,6 +399,7 @@ Deno.test("done --json: stream-enabled failures capture output into the diagnost
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
@@ -316,6 +438,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
     const r = await runAgent(dir, ["done", "--json"]);
@@ -347,125 +470,6 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
   });
 });
 
-Deno.test("done --json: Tier-0 diagnostic output is normalized, bounded, and offloaded when long", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeExecutable(
-      join(dir, "noisy-check.sh"),
-      [
-        "#!/usr/bin/env sh",
-        "printf '\\033[32mCheck\\033[0m src/main.ts\\n'",
-        "printf '\\033]8;;https://example.test\\033\\\\click here\\033]8;;\\033\\\\\\n'",
-        "printf 'progress 10%%\\rprogress 50%%\\rprogress done\\n'",
-        "printf 'bell\\007back\\010space\\n'",
-        "i=0",
-        'while [ "$i" -lt 20000 ]; do',
-        "  printf X",
-        "  i=$((i + 1))",
-        "done",
-        "printf '\\nTAIL-SIGNAL\\n'",
-        "exit 1",
-        "",
-      ].join("\n"),
-    );
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[jobs]",
-        'lint = "./noisy-check.sh"',
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
-    const diag = diagFor(obj, "lint");
-    assert(diag !== undefined, `expected a lint diagnostic: ${r.stdout}`);
-    assert(diag.output !== undefined, "expected bounded diagnostic output");
-
-    assert(!diag.output.includes("\x1b"), diag.output);
-    assert(!diag.output.includes("\r"), diag.output);
-    assert(!hasDroppedC0Control(diag.output), diag.output);
-    assertTerminalTextIncludes(diag.output, "progress done");
-    assert(!diag.output.includes("progress 10%"), diag.output);
-    assert(
-      diag.output.length <= CAPTURE_CAP,
-      `diagnostic output should stay within ${CAPTURE_CAP} chars; got ${diag.output.length}`,
-    );
-    assertEquals(diag.truncated, true);
-    assert(
-      typeof diag.output_path === "string",
-      "expected offloaded output path",
-    );
-
-    const info = await Deno.stat(diag.output_path);
-    assert(info.isFile, `expected a readable file at ${diag.output_path}`);
-    const full = await Deno.readTextFile(diag.output_path);
-    assert(
-      full.length > CAPTURE_CAP,
-      "full capture should exceed the inline cap",
-    );
-    assert(!full.includes("\x1b"), full);
-    assert(!full.includes("\r"), full);
-    assert(!hasDroppedC0Control(full), full);
-    assertStringIncludes(full, "Check src/main.ts");
-    assertStringIncludes(full, "click here");
-    assertStringIncludes(full, "progress done");
-    assertStringIncludes(full, "TAIL-SIGNAL");
-  });
-});
-
-Deno.test("done --json: scope-gates report fired (ok) and unchanged (skipped) steps", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[scopes.map]",
-        'paths = ["docs/"]',
-        "neutral = true",
-        "",
-        "[scopes.widget]",
-        'paths = ["widget/**"]',
-        'gate = "echo widget-ok"',
-        "",
-        "[scopes.gadget]",
-        'paths = ["gadget/**"]',
-        'gate = "echo gadget-ok"',
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-    await writeExecutable(join(dir, "widget/x.txt"), "x"); // only widget changed
-
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
-
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, true);
-    const widget = stepFor(obj, "scope:widget");
-    const gadget = stepFor(obj, "scope:gadget");
-    assertEquals(widget.kind, "scope-gate");
-    assertEquals(widget.outcome, "ok"); // fired and passed
-    assertEquals(gadget.outcome, "skipped"); // configured, scope unchanged
-    assert(obj.data.scopes_changed.includes("widget"));
-  });
-});
-
 Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates stage with a diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -489,6 +493,7 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
     const r = await runAgent(dir, ["done", "--json"]);
@@ -508,7 +513,7 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
   });
 });
 
-Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with file/line/rule", async () => {
+Deno.test("done --json: one red gate yields Tier-1 diagnostics from a SARIF-emitting check and a JUnit-emitting test job", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const sarif = JSON.stringify({
@@ -530,48 +535,6 @@ Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with fi
       }],
     });
     await Deno.writeTextFile(join(dir, "lint.sarif"), sarif);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[jobs]",
-        // The check prints SARIF (as a real `--format sarif` run would), then fails.
-        'lint = "cat lint.sarif; exit 1"',
-        "",
-      ].join("\n"),
-    );
-    await gitInit(dir);
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, false);
-    // The raw output was normalized into a structured, located finding.
-    const diag = diagFor(obj, "lint");
-    assert(
-      diag,
-      `expected a lint diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
-    );
-    assertEquals(diag.file, "src/app.ts");
-    assertEquals(diag.line, 42);
-    assertEquals(diag.col, 3);
-    assertEquals(diag.rule, "no-debugger");
-    assertEquals(diag.severity, "error");
-    assertStringIncludes(diag.message, "debugger");
-    // reproduce_cmd is still the gate job's own command.
-    assertEquals(diag.reproduce_cmd, "cat lint.sarif; exit 1");
-    assertFailedStepsHaveDiagnostics(obj);
-  });
-});
-
-Deno.test("done --json: a JUnit-emitting test job yields Tier-1 diagnostics naming the failing test", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
     const junit = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<testsuites name="test run" tests="2" failures="1" errors="0" time="0.1">',
@@ -595,70 +558,66 @@ Deno.test("done --json: a JUnit-emitting test job yields Tier-1 diagnostics nami
         'trunk = "main"',
         "",
         "[jobs]",
+        // The check prints SARIF (as a real `--format sarif` run would), then fails.
+        'lint = "cat lint.sarif; exit 1"',
         // The test job prints JUnit (as a real `--reporter=junit` run would), then fails.
         'test = "cat report.xml; exit 1"',
         "",
+        // Both jobs share the check/test group; without fail-fast the first
+        // failure cannot cancel its sibling before that report is emitted.
+        "[gate]",
+        "fail_fast = false",
+        "",
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
-    // The raw report was normalized into one located finding per failing test.
-    const diag = diagFor(obj, "test");
-    assert(
-      diag,
-      `expected a test diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
-    );
-    assertEquals(diag.file, "checks/upload_check.txt");
-    assertEquals(diag.line, 9);
-    assertEquals(diag.col, 6);
-    assertEquals(diag.rule, "retries the upload");
-    assertEquals(diag.severity, "error");
-    assertStringIncludes(diag.message, "expected 2 retries");
-    // reproduce_cmd is still the gate job's own command.
-    assertEquals(diag.reproduce_cmd, "cat report.xml; exit 1");
-    assertFailedStepsHaveDiagnostics(obj);
-  });
-});
 
-Deno.test("done --json: empty SARIF falls back to a raw Tier-0 diagnostic", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    const sarif = JSON.stringify({
-      version: "2.1.0",
-      runs: [{ results: [] }],
-    });
-    await Deno.writeTextFile(join(dir, "empty.sarif"), sarif);
-    await writeConfig(
-      dir,
-      [
-        "[project]",
-        'slug = "engine-test"',
-        "",
-        "[repository]",
-        'trunk = "main"',
-        "",
-        "[jobs]",
-        'lint = "cat empty.sarif; exit 1"',
-        "",
-      ].join("\n"),
+    await t.step(
+      "done --json: a SARIF-emitting check yields Tier-1 diagnostics with file/line/rule",
+      () => {
+        // The raw output was normalized into a structured, located finding.
+        const diag = diagFor(obj, "lint");
+        assert(
+          diag,
+          `expected a lint diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
+        );
+        assertEquals(diag.file, "src/app.ts");
+        assertEquals(diag.line, 42);
+        assertEquals(diag.col, 3);
+        assertEquals(diag.rule, "no-debugger");
+        assertEquals(diag.severity, "error");
+        assertStringIncludes(diag.message, "debugger");
+        // reproduce_cmd is still the gate job's own command.
+        assertEquals(diag.reproduce_cmd, "cat lint.sarif; exit 1");
+        assertFailedStepsHaveDiagnostics(obj);
+      },
     );
-    await gitInit(dir);
 
-    const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, false);
-    const diag = diagFor(obj, "lint");
-    assert(diag, `expected Tier-0 fallback diagnostic, got ${r.stdout}`);
-    assertEquals(diag.message, "lint failed (exit 1)");
-    assertEquals(diag.reproduce_cmd, "cat empty.sarif; exit 1");
-    assert(diag.output !== undefined, "expected raw fallback output");
-    assertStringIncludes(diag.output, '"results":[]');
-    assertEquals(diag.file, undefined);
-    assertFailedStepsHaveDiagnostics(obj);
+    await t.step(
+      "done --json: a JUnit-emitting test job yields Tier-1 diagnostics naming the failing test",
+      () => {
+        // The raw report was normalized into one located finding per failing test.
+        const diag = diagFor(obj, "test");
+        assert(
+          diag,
+          `expected a test diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
+        );
+        assertEquals(diag.file, "checks/upload_check.txt");
+        assertEquals(diag.line, 9);
+        assertEquals(diag.col, 6);
+        assertEquals(diag.rule, "retries the upload");
+        assertEquals(diag.severity, "error");
+        assertStringIncludes(diag.message, "expected 2 retries");
+        // reproduce_cmd is still the gate job's own command.
+        assertEquals(diag.reproduce_cmd, "cat report.xml; exit 1");
+        assertFailedStepsHaveDiagnostics(obj);
+      },
+    );
   });
 });

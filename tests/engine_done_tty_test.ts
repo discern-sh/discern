@@ -25,6 +25,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { refreshScaffold } from "./engine_done_fixture.ts";
 import { assertTerminalTextIncludes, fakeEnv, withTempDir } from "./helpers.ts";
 import { ptyOutputContains } from "./fixtures/pty_process.ts";
 import {
@@ -132,6 +133,7 @@ realPtyTest({
         ),
       );
       await gitInit(dir);
+      await refreshScaffold(dir);
 
       const result = await runAgentPtyJourney(dir, ["done"], {
         geometry: { columns: 80, rows: 18 },
@@ -191,6 +193,7 @@ realPtyTest({
         ),
       );
       await gitInit(dir);
+      await refreshScaffold(dir);
 
       const result = await runAgentPtyJourney(dir, ["done"], {
         geometry: { columns: 80, rows: 18 },
@@ -254,6 +257,7 @@ realPtyTest({
       );
       await writeConfig(dir, liveOutputConfig("./live-evidence.sh", false));
       await gitInit(dir);
+      await refreshScaffold(dir);
 
       const human = await runAgentPty(dir, ["done"], {
         env: { COLUMNS: "80", LINES: "18", NO_COLOR: "1", CI: "false" },
