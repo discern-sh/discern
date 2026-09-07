@@ -865,8 +865,8 @@ Deno.test("standards: a limit may only tighten vs main — loosening, deleting a
     await t.step(
       "standards: tightening the limit vs main passes in both directions",
       () => {
-        assertStringIncludes(small.stdout, "meets the floor");
-        assertStringIncludes(small.stdout, "within the ceiling");
+        assertTerminalTextIncludes(small.stdout, "meets the floor");
+        assertTerminalTextIncludes(small.stdout, "within the ceiling");
       },
     );
 
