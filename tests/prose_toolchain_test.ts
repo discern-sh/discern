@@ -20,6 +20,7 @@ import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { parseValeVersion, runVale } from "../scripts/vale_lib.ts";
 import {
   ensureVale,
+  installEffectFailure,
   readValeAssets,
   resolveValeBinary,
   sha256BytesHex,
@@ -408,6 +409,146 @@ Deno.test("native Windows is unsupported while WSL resolves the Linux asset", as
       Error,
       "no tracked asset for windows-x86_64",
     );
+  });
+});
+
+Deno.test("a failed Vale download names its cause and the operator's next step", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    const rejection = await assertRejects(
+      () =>
+        ensureVale(fixture.repoRoot, {
+          cacheRoot: fixture.cacheRoot,
+          platform: fixture.platform,
+          download: () =>
+            Promise.reject(new Error("error sending request for url")),
+        }),
+      Error,
+      "Vale download failed",
+    );
+    assertStringIncludes(rejection.message, "error sending request for url");
+    assertStringIncludes(rejection.message, "github.com");
+    assertStringIncludes(rejection.message, "deno task vale:sync");
+  });
+});
+
+Deno.test("a blocked install write names the denied effect and the macOS permission surface", async () => {
+  // The deterministic seam first: a permission denial on macOS names App
+  // Management; elsewhere the cause and next step stand alone.
+  const denied = new Deno.errors.PermissionDenied(
+    "Operation not permitted (os error 1)",
+  );
+  const darwin = installEffectFailure(
+    "mark the staged Vale binary executable",
+    "/cache/vale",
+    denied,
+    "darwin",
+  );
+  assertStringIncludes(darwin.message, "mark the staged Vale binary");
+  assertStringIncludes(darwin.message, "Operation not permitted");
+  assertStringIncludes(darwin.message, "App Management");
+  assertStringIncludes(darwin.message, "deno task vale:sync");
+  const linux = installEffectFailure(
+    "mark the staged Vale binary executable",
+    "/cache/vale",
+    denied,
+    "linux",
+  );
+  assertStringIncludes(linux.message, "Operation not permitted");
+  assertStringIncludes(linux.message, "deno task vale:sync");
+  assert(!linux.message.includes("App Management"));
+});
+
+Deno.test("a denied cache write fails provisioning with the explained effect, not a bare stack", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    await Deno.mkdir(fixture.cacheRoot);
+    await Deno.chmod(fixture.cacheRoot, 0o555);
+    try {
+      const rejection = await assertRejects(
+        () =>
+          ensureVale(fixture.repoRoot, {
+            cacheRoot: fixture.cacheRoot,
+            platform: fixture.platform,
+            download: () => Promise.resolve(fixture.archive),
+          }),
+        Error,
+        "Could not create the shared Vale cache directory",
+      );
+      assertStringIncludes(rejection.message, "deno task vale:sync");
+    } finally {
+      await Deno.chmod(fixture.cacheRoot, 0o755);
+    }
+  });
+});
+
+Deno.test("the gate-facing resolve path never performs a download", async () => {
+  await withTempDir(async (dir) => {
+    const fixture = await fakeValeFixture(dir);
+    let downloads = 0;
+    const options = {
+      cacheRoot: fixture.cacheRoot,
+      platform: fixture.platform,
+      download: (): Promise<Uint8Array> => {
+        downloads += 1;
+        return Promise.reject(new Error("resolve path attempted a download"));
+      },
+    };
+    // A cold cache refuses with the provisioning next step instead of
+    // fetching: the first download belongs to `deno task vale:sync` at the
+    // checkout-ensure boundary, never to a gate's prose step.
+    const rejection = await assertRejects(
+      () => resolveValeBinary(fixture.repoRoot, options),
+      Error,
+      "not ready in the repository cache",
+    );
+    assertStringIncludes(rejection.message, "deno task vale:sync");
+    await assertRejects(
+      () => runVale(fixture.repoRoot, ["--output=JSON"], options),
+      Error,
+      "not ready in the repository cache",
+    );
+    assertEquals(downloads, 0, "resolution must stay network-free");
+  });
+});
+
+Deno.test("the Vale wrapper exposes no provisioning verb to its gate-facing callers", async () => {
+  // The import guard above makes vale_lib.ts the ONE module allowed to import
+  // the toolchain, so keeping the provisioning entry points out of it keeps
+  // every gate-facing caller resolve-only by construction.
+  const source = await Deno.readTextFile(
+    join(REPO_ROOT, "scripts", "vale_lib.ts"),
+  );
+  for (const verb of ["ensureVale", "syncVale"]) {
+    assert(
+      !source.includes(verb),
+      `scripts/vale_lib.ts must not surface ${verb}; provisioning belongs to \`deno task vale:sync\``,
+    );
+  }
+});
+
+Deno.test("a failing prose measurement still lands its explanation on stdout", async () => {
+  // The standard's captured evidence is the measurement's stdout, so a failure
+  // that explains itself only on stderr fails the gate with empty diagnostics.
+  await withTempDir(async (dir) => {
+    const run = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        "--quiet",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        "--allow-run",
+        join("scripts", "prose.ts"),
+        join(dir, "absent-docs"),
+      ],
+      cwd: REPO_ROOT,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const stdout = new TextDecoder().decode(run.stdout);
+    assertEquals(run.code, 1);
+    assertStringIncludes(stdout, "prose measurement failed");
   });
 });
 

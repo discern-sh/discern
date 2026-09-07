@@ -299,10 +299,59 @@ async function downloadRelease(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
-      `Vale download failed with HTTP ${response.status} ${response.statusText}`,
+      `HTTP ${response.status} ${response.statusText}`,
     );
   }
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/** Explain a failed release fetch with its cause and the operator's next step. */
+function downloadFailure(url: string, error: unknown): Error {
+  const cause = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Vale download failed (${url}): ${cause}. ` +
+      "Check network access to github.com, then rerun `deno task vale:sync`.",
+    { cause: error },
+  );
+}
+
+/**
+ * Explain one blocked install effect with its cause and the operator's next
+ * step. A permission denial on macOS additionally names the App Management
+ * privacy surface, which can silently block a program from writing executable
+ * files into place even for a path the user owns.
+ */
+export function installEffectFailure(
+  action: string,
+  path: string,
+  error: unknown,
+  os: typeof Deno.build.os = Deno.build.os,
+): Error {
+  const cause = error instanceof Error ? error.message : String(error);
+  const denied = error instanceof Deno.errors.PermissionDenied ||
+    error instanceof Deno.errors.NotCapable ||
+    /operation not permitted|permission denied/iu.test(cause);
+  const surface = denied && os === "darwin"
+    ? " On macOS, App Management (System Settings → Privacy & Security → App Management) can block this; allow it for your terminal, or install from a shell that already has that access."
+    : "";
+  return new Error(
+    `Could not ${action} (${path}): ${cause}.${surface} ` +
+      "Then rerun `deno task vale:sync`.",
+    { cause: error },
+  );
+}
+
+/** Run one install effect, explaining any failure at the point it happened. */
+async function installEffect<T>(
+  action: string,
+  path: string,
+  effect: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await effect();
+  } catch (error) {
+    throw installEffectFailure(action, path, error);
+  }
 }
 
 /** Remove one owned cache path, tolerating only a raced absence. */
@@ -368,7 +417,9 @@ async function acquireInstallLock(
       await Deno.mkdir(lock, { mode: 0o700 });
       return true;
     } catch (error) {
-      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+      if (!(error instanceof Deno.errors.AlreadyExists)) {
+        throw installEffectFailure("create the Vale install lock", lock, error);
+      }
     }
     if (await cacheValidationIssue(toolchain, repoRoot, env) === undefined) {
       return false;
@@ -386,16 +437,21 @@ async function extractVale(
   archive: string,
   destination: string,
 ): Promise<void> {
-  const run = await new Deno.Command("tar", {
-    args: ["-xzf", archive, "-C", destination, "vale"],
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
+  const run = await installEffect(
+    "run tar to extract the Vale archive",
+    archive,
+    () =>
+      new Deno.Command("tar", {
+        args: ["-xzf", archive, "-C", destination, "vale"],
+        stdout: "piped",
+        stderr: "piped",
+      }).output(),
+  );
   if (!run.success) {
     throw new Error(
       `Could not extract Vale: ${
         decoder.decode(run.stderr).trim() || `tar exited ${run.code}`
-      }`,
+      }. Then rerun \`deno task vale:sync\`.`,
     );
   }
 }
@@ -407,9 +463,18 @@ async function stageVale(
   stage: string,
   options: ValeToolchainOptions,
 ): Promise<void> {
-  await Deno.mkdir(stage, { mode: 0o700 });
+  await installEffect(
+    "create the Vale staging directory",
+    stage,
+    () => Deno.mkdir(stage, { mode: 0o700 }),
+  );
   const archive = join(stage, toolchain.assetName);
-  const bytes = await (options.download ?? downloadRelease)(toolchain.assetUrl);
+  let bytes: Uint8Array;
+  try {
+    bytes = await (options.download ?? downloadRelease)(toolchain.assetUrl);
+  } catch (error) {
+    throw downloadFailure(toolchain.assetUrl, error);
+  }
   const actualArchiveSha = await sha256BytesHex(bytes);
   if (actualArchiveSha !== toolchain.asset.sha256) {
     throw new Error(
@@ -417,9 +482,17 @@ async function stageVale(
         `expected ${toolchain.asset.sha256}, received ${actualArchiveSha}`,
     );
   }
-  await Deno.writeFile(archive, bytes, { mode: 0o600 });
+  await installEffect(
+    "write the downloaded Vale archive",
+    archive,
+    () => Deno.writeFile(archive, bytes, { mode: 0o600 }),
+  );
   await extractVale(archive, stage);
-  await Deno.chmod(join(stage, "vale"), 0o755);
+  await installEffect(
+    "mark the staged Vale binary executable",
+    join(stage, "vale"),
+    () => Deno.chmod(join(stage, "vale"), 0o755),
+  );
   await Deno.remove(archive);
 
   const staged: ValeToolchain = {
@@ -471,7 +544,11 @@ export async function ensureVale(
     return toolchain.binary;
   }
 
-  await Deno.mkdir(dirname(toolchain.cacheDir), { recursive: true });
+  await installEffect(
+    "create the shared Vale cache directory",
+    dirname(toolchain.cacheDir),
+    () => Deno.mkdir(dirname(toolchain.cacheDir), { recursive: true }),
+  );
   const lock = `${toolchain.cacheDir}.lock`;
   const ownsLock = await acquireInstallLock(
     lock,
@@ -497,7 +574,11 @@ export async function ensureVale(
       await removeOwnedPath(toolchain.cacheDir);
     }
     await stageVale(toolchain, repoRoot, stage, options);
-    await Deno.rename(stage, toolchain.cacheDir);
+    await installEffect(
+      "move the staged Vale toolchain into the shared cache",
+      toolchain.cacheDir,
+      () => Deno.rename(stage, toolchain.cacheDir),
+    );
     const issue = await cacheValidationIssue(
       toolchain,
       repoRoot,

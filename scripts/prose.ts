@@ -30,51 +30,65 @@ import { runVale } from "./vale_lib.ts";
 // Vale exits non-zero when it finds error-severity alerts; that is not a failure
 // of the MEASUREMENT (the count is the point), so its JSON is read regardless of
 // the exit code — mirroring how the standards runner ignores the run's exit status.
-const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
-const docsDir = Deno.args[0] ??
-  resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
-// Measure PROSE, not metadata: Vale reads a staged mirror with frontmatter
-// blanked (scripts/prose_lib.ts) so a metadata block never counts as an alert.
-const { run, words } = await withStagedProseInput(
-  docsDir,
-  async (stage) => ({
-    run: await runVale(repoRoot, ["--output=JSON", stage.dir]),
-    words: stage.words,
-  }),
-);
-
-const stdout = new TextDecoder().decode(run.stdout);
-let report;
-try {
-  report = decodeValeReport(stdout, "Vale output for the prose standard");
-} catch (error) {
-  console.error(new TextDecoder().decode(run.stderr));
-  throw new Error(
-    `vale did not emit valid JSON — is it installed and has \`vale sync\` run? ${
-      error instanceof Error ? error.message : String(error)
-    }`,
-    { cause: error },
+async function measure(): Promise<void> {
+  const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+  const docsDir = Deno.args[0] ??
+    resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+  // Measure PROSE, not metadata: Vale reads a staged mirror with frontmatter
+  // blanked (scripts/prose_lib.ts) so a metadata block never counts as an alert.
+  const { run, words } = await withStagedProseInput(
+    docsDir,
+    async (stage) => ({
+      run: await runVale(repoRoot, ["--output=JSON", stage.dir]),
+      words: stage.words,
+    }),
   );
-}
 
-let errors = 0;
-let warnings = 0;
-let suggestions = 0;
-for (const alerts of Object.values(report)) {
-  for (const alert of alerts) {
-    if (alert.Severity === "error") {
-      errors++;
-    } else if (alert.Severity === "warning") {
-      warnings++;
-    } else if (alert.Severity === "suggestion") {
-      suggestions++;
+  const stdout = new TextDecoder().decode(run.stdout);
+  let report;
+  try {
+    report = decodeValeReport(stdout, "Vale output for the prose standard");
+  } catch (error) {
+    console.error(new TextDecoder().decode(run.stderr));
+    throw new Error(
+      `vale did not emit valid JSON — is it installed and has \`vale sync\` run? ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    );
+  }
+
+  let errors = 0;
+  let warnings = 0;
+  let suggestions = 0;
+  for (const alerts of Object.values(report)) {
+    for (const alert of alerts) {
+      if (alert.Severity === "error") {
+        errors++;
+      } else if (alert.Severity === "warning") {
+        warnings++;
+      } else if (alert.Severity === "suggestion") {
+        suggestions++;
+      }
     }
   }
-}
-const total = errors + warnings + suggestions;
+  const total = errors + warnings + suggestions;
 
-console.error(
-  `${docsDir} prose: ${total} alerts across ${words} words (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
-);
-console.log(`DISCERN_METRIC prose ${total}`);
-console.log(`DISCERN_METRIC prose_words ${words}`);
+  console.error(
+    `${docsDir} prose: ${total} alerts across ${words} words (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
+  );
+  console.log(`DISCERN_METRIC prose ${total}`);
+  console.log(`DISCERN_METRIC prose_words ${words}`);
+}
+
+try {
+  await measure();
+} catch (error) {
+  // The standard's captured evidence is this process's STDOUT: an uncaught
+  // throw explains itself only on stderr and fails the gate with empty
+  // diagnostics. Land the explanation on both streams before exiting.
+  const message = error instanceof Error ? error.message : String(error);
+  console.log(`prose measurement failed: ${message}`);
+  console.error(`prose measurement failed: ${message}`);
+  Deno.exit(1);
+}
