@@ -1,23 +1,20 @@
 import { countedAdminQueries } from "./git_admin_observer.ts";
-import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
-import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
-import { synchronizeQueueAuthorities } from "../src/engine/landing_queue/public_authority.ts";
 /** Native queue publication guards use real complete done evidence and desk source grants. */
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
-import { project } from "./completion_public_fixture.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import { git, gitOut } from "./engine_helpers.ts";
+import {
+  claimedLanding,
+  provenSource,
+  type ReadyLanding,
+} from "./completion_journey_fixture.ts";
 import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
 import { readCompletionRecord } from "../src/engine/completion/store.ts";
 import {
-  observedRecords,
   observeQueue,
   replaceQueue,
   requireQueue,
 } from "../src/engine/landing_queue/repository.ts";
-import { claimLandingAttempt } from "../src/engine/landing_queue/claims.ts";
-import { planQueue } from "../src/engine/landing_queue/planner.ts";
 import {
   LANDING_BOUNDARIES,
   publishQueueLanding,
@@ -29,277 +26,245 @@ import {
 import { readLandingConvergenceResult } from "../src/engine/landing_queue/convergence.ts";
 import { OperationLockError } from "../src/engine/operation_lock.ts";
 import { readAcceptanceTransactionMarker } from "../src/engine/worktree/git.ts";
+import type { CompletionLanding } from "../src/engine/completion/outcomes.ts";
+import type { Proof } from "../src/shared/result_schemas.ts";
 
-/** All machine evidence comes from public done; the fixture supplies only the owner's desk decision. */
-async function ready(root: string): Promise<{
-  runtime: QueueLandingRuntime;
-  record: import("../src/engine/landing_queue/publication.ts").LandingRecord;
-  claim: import("../src/engine/landing_queue/claims.ts").QueueWorkClaim;
-  path: string;
-}> {
-  const path = await project(root, ["local"]);
-  const done = await runAgent(path, ["done", "--json"]);
-  assertEquals(done.code, 0, done.output);
-  const records = observedRecords(await observeQueue(root, "main"));
-  const candidate = records.find((record) => record.kind === "candidate");
-  const proof = records.find((record) => record.kind === "proof");
-  assert(candidate?.kind === "candidate" && proof?.kind === "proof");
-  await grantEffort(
-    path,
-    candidate.data.source.branch.slice("refs/heads/".length),
-    wallTimeIso(SYSTEM_CLOCK.wallNow()),
-  );
-  await synchronizeQueueAuthorities(root, "main");
-  const queue = await requireQueue(root);
-  const authorityId = queue.record.data.entries.find((entry) =>
-    entry.source.effort_id === candidate.data.source.effort_id
-  )?.authority_id;
-  assert(authorityId !== undefined && authorityId !== null);
-  await synchronizeQueueAuthorities(root, "main");
-  assertEquals(
-    await requireQueue(root),
-    queue,
-    "a repeated authority audit does not replace a current source decision or queue rank",
-  );
-  const actor = {
-    operation_id: crypto.randomUUID(),
-    originating_effort: candidate.data.source.effort_id,
-    started_at: SYSTEM_CLOCK.wallNow(),
-  };
-  const claim = await claimLandingAttempt({
-    root,
-    candidate_id: candidate.id,
-    executor: actor,
-    lease_ms: 60_000,
-  });
-  assert(!("kind" in claim));
-  const observation = await observeQueue(root, "main");
-  const planned = planQueue({
-    observation,
-    policy: { required_contexts: ["local"], concurrency: 1, lookahead: 0 },
-    requested_effort: candidate.data.source.effort_id,
-    assessments: new Map([[candidate.id, {
-      candidate_id: candidate.id,
-      candidate: candidate.data,
-      blockers: [],
-      proof,
-      authority_id: authorityId,
-      decisions: { judgments: [], variances: [], proposals: [] },
-      refresh: null,
-    }]]),
-    executor: actor,
-    transition_attempts: new Map([[candidate.id, claim.attempt.identity]]),
-  });
-  assertEquals(planned.blockers, []);
-  const action = planned.actions[0];
-  assert(action?.kind === "land");
-  return {
-    path,
-    record: action.record,
-    claim,
-    runtime: {
-      root,
-      mainRepo: root,
-      trunk: "main",
-      sourceCheckout: () => Promise.resolve(path),
-      converge: () => {
-        assertEquals([...(currentOperationLocks()?.boundaries ?? [])], [
-          "checkout",
-        ], "main convergence never holds the shared publication lock");
-        return Promise.resolve({
-          ok: true,
-          steps: [],
-          diagnostics: [],
-          hints: [],
-        });
-      },
-      afterBoundary: (phase) => {
-        if (phase === "planned") {
-          assertEquals(
-            [...(currentOperationLocks()?.boundaries ?? [])].sort(),
-            ["checkout", "common"],
-            "native publication owns both concrete locks without a command-wide lock",
-          );
-        }
-        return Promise.resolve();
-      },
-      // Publication is tested below an already evaluated plan; public assessment has separate guards.
-      audit: () => observeQueue(root, "main"),
-    },
-  };
+/** One complete public done, granted at the desk and claimed by a native landing actor. */
+async function ready(root: string): Promise<ReadyLanding> {
+  return await claimedLanding(root, await provenSource(root));
 }
 
-Deno.test("native queue landing settles exact authority and retries notes after source checkout removal", async () => {
-  await withTempDir(async (root) => {
-    const { runtime, record, claim, path } = await ready(root);
-    const reading = await countedAdminQueries(() =>
-      readLandingProof(runtime, record)
-    );
-    const originalProof = reading.value;
-    assertEquals(
-      reading.queries,
-      4,
-      "one record-store scope and one read of each retained review and presentation",
-    );
-    assert(originalProof.markdown.includes("test"));
-    for (
-      const change of [
-        { policy: "0".repeat(64) },
-        { target: "0".repeat(40) },
-        { expected_trunk: "0".repeat(40) },
-        { source: { ...record.data.source, head: "0".repeat(40) } },
-      ]
-    ) {
-      await assertRejects(
-        () =>
-          readLandingProof(runtime, {
-            ...record,
-            data: { ...record.data, ...change },
-          }),
-        Error,
-        "landing subject differs",
-      );
-    }
-    await assertRejects(
-      () => readLandingProof({ ...runtime, trunk: "another-trunk" }, record),
-      Error,
-      "Proof names another trunk",
-    );
-    assertEquals(await readLandingNoteResult(root, record.data), undefined);
-    await Deno.writeTextFile(`${root}/receiving-checkout-only`, "keep\n");
-    assertEquals(await readLandingProof(runtime, record), originalProof);
-    const landed = await publishQueueLanding(
-      {
-        ...runtime,
-        writeNote: () => Promise.reject(new Error("controlled note failure")),
-      },
-      record,
-      null,
-      claim.fence,
-    );
-    assert("outcome" in landed);
-    assertEquals(landed.outcome.kind, "landed");
-    assertEquals(landed.authority_settlement, "consumed");
-    assertEquals(landed.note, "recovery");
-    assert(landed.note_result !== undefined);
-    for (const field of ["attempt_id", "candidate_id"] as const) {
-      const note_result = {
-        ...landed.note_result,
-        [field]: "00000000-0000-4000-8000-000000000001",
-      };
-      await assertRejects(
-        () => readLandingNoteResult(root, { ...landed, note_result }),
-        Error,
-        "another landing attempt or candidate",
-      );
-    }
-    const note = await readLandingNoteResult(root, landed);
-    assert(note !== undefined && note.hints.length > 0);
-    assertEquals(await gitOut(root, "rev-parse", "main"), record.data.target);
-    assertEquals(
-      await gitOut(root, "status", "--short"),
-      "?? receiving-checkout-only",
-    );
-    assertEquals((await readEffortGrant(path)).status, "missing");
-    const authority = record.data.claim.kind === "normal"
-      ? await readCompletionRecord(root, {
-        kind: "authority",
-        id: record.data.claim.authority_id,
-      })
-      : undefined;
-    assert(
-      authority?.kind === "recorded" && authority.record.kind === "authority",
-    );
-    assertEquals(authority.record.data.state.kind, "consumed");
-    await git(root, "worktree", "remove", path);
-    assertEquals(await readLandingProof(runtime, record), originalProof);
-    const retried = await recoverQueueLanding({
-      ...runtime,
-      sourceCheckout: () => Promise.resolve(undefined),
-    }, record.id);
-    assert("outcome" in retried);
-    assertEquals(retried.outcome.kind, "landed");
-    assertEquals(retried.note, "published");
-    assertEquals(
-      await readCompletionRecord(root, {
-        kind: "authority",
-        id: authority.record.id,
-      }),
-      authority,
-      "note retry must not spend authority again",
-    );
-    assertEquals(await readAcceptanceTransactionMarker(root, record.id, true), {
-      kind: "present",
-      target: record.data.target,
-    });
-  });
-});
-
-Deno.test("native queue publication rejects superseded observation before any ref or grant movement", async () => {
+// Every refusal below leaves the claimed plan landable, so one proven source
+// carries the read-only Proof checks, each no-movement refusal, the racing
+// second actor, and finally the landing whose note publication is retried.
+Deno.test("native queue landing refuses without movement, then settles exact authority and retries notes after source checkout removal", async (t) => {
   await withTempDir(async (root) => {
     const { runtime, record, claim, path } = await ready(root);
     const before = await gitOut(root, "rev-parse", "main");
     const grant = await readEffortGrant(path);
-    const refused = await publishQueueLanding(
-      {
-        ...runtime,
-        audit: async () => {
-          const observation = await observeQueue(root, "main");
-          const queue = await requireQueue(root);
-          assertEquals(
-            (await replaceQueue(root, queue, queue.record.data)).kind,
-            "written",
-          );
-          return observation;
-        },
-      },
-      record,
-      null,
-      claim.fence,
-    );
-    assert("kind" in refused);
-    assertEquals(refused.kind, "stale-evidence");
-    assertEquals(await gitOut(root, "rev-parse", "main"), before);
-    assertEquals(await readEffortGrant(path), grant);
-    assertEquals((await readCompletionRecord(root, record)).kind, "missing");
-  });
-});
+    const unmoved = async (): Promise<void> => {
+      assertEquals(await gitOut(root, "rev-parse", "main"), before);
+      assertEquals(await readEffortGrant(path), grant);
+      assertEquals((await readCompletionRecord(root, record)).kind, "missing");
+    };
+    let originalProof: Proof | undefined;
 
-Deno.test("native racing accept actors have one checked-out ref publication", async () => {
-  await withTempDir(async (root) => {
-    const { runtime, record, claim } = await ready(root);
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const first = publishQueueLanding(
-      {
-        ...runtime,
-        afterBoundary: async (boundary) => {
-          if (boundary === "planned") {
-            entered.resolve();
-            await release.promise;
-          }
-        },
+    await t.step(
+      "native queue landing reads its exact retained Proof and rejects another subject or trunk",
+      async () => {
+        const reading = await countedAdminQueries(() =>
+          readLandingProof(runtime, record)
+        );
+        originalProof = reading.value;
+        assertEquals(
+          reading.queries,
+          4,
+          "one record-store scope and one read of each retained review and presentation",
+        );
+        assert(originalProof.markdown.includes("test"));
+        for (
+          const change of [
+            { policy: "0".repeat(64) },
+            { target: "0".repeat(40) },
+            { expected_trunk: "0".repeat(40) },
+            { source: { ...record.data.source, head: "0".repeat(40) } },
+          ]
+        ) {
+          await assertRejects(
+            () =>
+              readLandingProof(runtime, {
+                ...record,
+                data: { ...record.data, ...change },
+              }),
+            Error,
+            "landing subject differs",
+          );
+        }
+        await assertRejects(
+          () =>
+            readLandingProof({ ...runtime, trunk: "another-trunk" }, record),
+          Error,
+          "Proof names another trunk",
+        );
+        assertEquals(await readLandingNoteResult(root, record.data), undefined);
       },
-      record,
-      null,
-      claim.fence,
     );
-    await entered.promise;
-    try {
-      await assertRejects(
-        () => publishQueueLanding(runtime, record, null, claim.fence),
-        OperationLockError,
-      );
-    } finally {
-      release.resolve();
-    }
-    const result = await first;
-    assert("outcome" in result);
-    assertEquals(result.outcome.kind, "landed");
-    assertEquals(await gitOut(root, "rev-parse", "main"), record.data.target);
-    assertEquals(
-      (await requireQueue(root)).record.data.entries[0]?.state,
-      "landed",
+
+    await t.step(
+      "native queue publication rejects superseded observation before any ref or grant movement",
+      async () => {
+        const refused = await publishQueueLanding(
+          {
+            ...runtime,
+            audit: async () => {
+              const observation = await observeQueue(root, "main");
+              const queue = await requireQueue(root);
+              assertEquals(
+                (await replaceQueue(root, queue, queue.record.data)).kind,
+                "written",
+              );
+              return observation;
+            },
+          },
+          record,
+          null,
+          claim.fence,
+        );
+        assert("kind" in refused);
+        assertEquals(refused.kind, "stale-evidence");
+        await unmoved();
+      },
+    );
+
+    await t.step(
+      "native publication preserves source authority when the receiving checkout is unavailable",
+      async () => {
+        const publish = (): ReturnType<typeof publishQueueLanding> =>
+          publishQueueLanding(runtime, record, null, claim.fence);
+        const marker = `${root}/.git/MERGE_HEAD`;
+        await Deno.writeTextFile(marker, `${before}\n`);
+        let refusal = await publish();
+        assert("kind" in refusal && refusal.kind === "environment-unavailable");
+        await Deno.remove(marker);
+        await git(root, "checkout", "-b", "receiving-other");
+        refusal = await publish();
+        assert("kind" in refusal && refusal.kind === "environment-unavailable");
+        await git(root, "checkout", "main");
+        await git(root, "branch", "-D", "receiving-other");
+        const configPath = `${root}/discern.toml`;
+        const config = await Deno.readTextFile(configPath);
+        await Deno.writeTextFile(
+          configPath,
+          `${config}\n# unsaved receiving edit\n`,
+        );
+        refusal = await publish();
+        assert("kind" in refusal && refusal.kind === "environment-unavailable");
+        await Deno.writeTextFile(configPath, config);
+        await unmoved();
+        assertEquals(await gitOut(root, "status", "--short"), "");
+      },
+    );
+
+    // The landing keeps the untracked receiving file and fails its note on purpose;
+    // the racing second actor is refused at the checkout lock while it is planned.
+    let landed: CompletionLanding | undefined;
+    await t.step(
+      "native racing accept actors have one checked-out ref publication",
+      async () => {
+        const proof = originalProof;
+        assert(proof !== undefined);
+        await Deno.writeTextFile(`${root}/receiving-checkout-only`, "keep\n");
+        assertEquals(await readLandingProof(runtime, record), proof);
+        const entered = Promise.withResolvers<void>();
+        const release = Promise.withResolvers<void>();
+        const first = publishQueueLanding(
+          {
+            ...runtime,
+            writeNote: () =>
+              Promise.reject(new Error("controlled note failure")),
+            afterBoundary: async (boundary, planned) => {
+              await runtime.afterBoundary?.(boundary, planned);
+              if (boundary === "planned") {
+                entered.resolve();
+                await release.promise;
+              }
+            },
+          },
+          record,
+          null,
+          claim.fence,
+        );
+        await entered.promise;
+        try {
+          await assertRejects(
+            () => publishQueueLanding(runtime, record, null, claim.fence),
+            OperationLockError,
+          );
+        } finally {
+          release.resolve();
+        }
+        const result = await first;
+        assert("outcome" in result);
+        assertEquals(result.outcome.kind, "landed");
+        assertEquals(
+          await gitOut(root, "rev-parse", "main"),
+          record.data.target,
+        );
+        assertEquals(
+          (await requireQueue(root)).record.data.entries[0]?.state,
+          "landed",
+        );
+        landed = result;
+      },
+    );
+
+    await t.step(
+      "native queue landing settles exact authority and retries notes after source checkout removal",
+      async () => {
+        const landing = landed;
+        const proof = originalProof;
+        assert(landing !== undefined && proof !== undefined);
+        assertEquals(landing.authority_settlement, "consumed");
+        assertEquals(landing.note, "recovery");
+        assert(landing.note_result !== undefined);
+        for (const field of ["attempt_id", "candidate_id"] as const) {
+          const note_result = {
+            ...landing.note_result,
+            [field]: "00000000-0000-4000-8000-000000000001",
+          };
+          await assertRejects(
+            () => readLandingNoteResult(root, { ...landing, note_result }),
+            Error,
+            "another landing attempt or candidate",
+          );
+        }
+        const note = await readLandingNoteResult(root, landing);
+        assert(note !== undefined && note.hints.length > 0);
+        assertEquals(
+          await gitOut(root, "rev-parse", "main"),
+          record.data.target,
+        );
+        assertEquals(
+          await gitOut(root, "status", "--short"),
+          "?? receiving-checkout-only",
+        );
+        assertEquals((await readEffortGrant(path)).status, "missing");
+        const authority = record.data.claim.kind === "normal"
+          ? await readCompletionRecord(root, {
+            kind: "authority",
+            id: record.data.claim.authority_id,
+          })
+          : undefined;
+        assert(
+          authority?.kind === "recorded" &&
+            authority.record.kind === "authority",
+        );
+        assertEquals(authority.record.data.state.kind, "consumed");
+        await git(root, "worktree", "remove", path);
+        assertEquals(await readLandingProof(runtime, record), proof);
+        const retried = await recoverQueueLanding({
+          ...runtime,
+          sourceCheckout: () => Promise.resolve(undefined),
+        }, record.id);
+        assert("outcome" in retried);
+        assertEquals(retried.outcome.kind, "landed");
+        assertEquals(retried.note, "published");
+        assertEquals(
+          await readCompletionRecord(root, {
+            kind: "authority",
+            id: authority.record.id,
+          }),
+          authority,
+          "note retry must not spend authority again",
+        );
+        assertEquals(
+          await readAcceptanceTransactionMarker(root, record.id, true),
+          {
+            kind: "present",
+            target: record.data.target,
+          },
+        );
+      },
     );
   });
 });
@@ -347,38 +312,6 @@ for (const boundary of LANDING_BOUNDARIES) {
     });
   });
 }
-
-Deno.test("native publication preserves source authority when the receiving checkout is unavailable", async () => {
-  await withTempDir(async (root) => {
-    const { runtime, record, claim, path } = await ready(root);
-    const head = await gitOut(root, "rev-parse", "main");
-    const grant = await readEffortGrant(path);
-    const publish = (): ReturnType<typeof publishQueueLanding> =>
-      publishQueueLanding(runtime, record, null, claim.fence);
-    const marker = `${root}/.git/MERGE_HEAD`;
-    await Deno.writeTextFile(marker, `${head}\n`);
-    let refusal = await publish();
-    assert("kind" in refusal && refusal.kind === "environment-unavailable");
-    await Deno.remove(marker);
-    await git(root, "checkout", "-b", "receiving-other");
-    refusal = await publish();
-    assert("kind" in refusal && refusal.kind === "environment-unavailable");
-    await git(root, "checkout", "main");
-    const configPath = `${root}/discern.toml`;
-    const config = await Deno.readTextFile(configPath);
-    await Deno.writeTextFile(
-      configPath,
-      `${config}\n# unsaved receiving edit\n`,
-    );
-    refusal = await publish();
-    assert("kind" in refusal && refusal.kind === "environment-unavailable");
-    await Deno.writeTextFile(configPath, config);
-    assertEquals(await gitOut(root, "rev-parse", "main"), head);
-    assertEquals(await readEffortGrant(path), grant);
-    assertEquals((await readCompletionRecord(root, record)).kind, "missing");
-    assertEquals(await gitOut(root, "status", "--short"), "");
-  });
-});
 
 Deno.test("native convergence retries preserve a landed ref and consumed authority", async () => {
   await withTempDir(async (root) => {
