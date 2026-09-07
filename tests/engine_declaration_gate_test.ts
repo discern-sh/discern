@@ -1,29 +1,23 @@
 /**
- * The declaration-interlock class and the acceptance variance contract —
- * third and fourth refusal contracts beside the consent-gated class, never
- * inside it (consent awaits the owner; a declaration is the caller's own act;
- * a variance is the owner's decision about a declared-unmet conclusion).
+ * The declaration-interlock class — a third refusal contract beside the
+ * consent-gated class, never inside it (consent awaits the owner; a
+ * declaration is the caller's own act), and the registry facts the
+ * acceptance variance contract shares with it.
  *
- * Driven off the `DECLARATION_GATED_VERBS` registry and the
- * `VARIANCE_GATED_ACCEPTANCE` contract: a future member enrols by adding an
- * entry (and a probe), and fails here until every declared surface refuses
- * with the shared slug, batches the complete serving, states its no-effects
- * claim, and names its resolution.
+ * Driven off the `DECLARATION_GATED_VERBS` registry: a future member enrols
+ * by adding an entry (and a probe), and fails here until every declared
+ * surface refuses with the shared slug, batches the complete serving, states
+ * its no-effects claim, and names its resolution. Each probe crosses the CLI
+ * boundary once per surface family — `--json` and the terminal — and
+ * projects the Markdown surface from that same envelope through the
+ * production presenter; the MCP surface runs the server's own dispatch
+ * in-process, as do the MCP declaration-parameter journeys below the class
+ * matrix.
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { targetExists } from "../src/shared/fs_presence.ts";
 import { join } from "@std/path";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
-import {
-  addWorktree,
-  git,
-  gitInit,
-  runAgent,
-  scaffoldEngine,
-  writeConfig,
-  writeExecutable,
-} from "./engine_helpers.ts";
+import { finishResult } from "../src/engine/gate/finish.ts";
 import {
   AWAITING_DECLARATION_SLUG,
   AWAITING_VARIANCE_SLUG,
@@ -32,88 +26,25 @@ import {
   type DeclarationSurface,
   VARIANCE_GATED_ACCEPTANCE,
 } from "../src/shared/declarations.ts";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
-import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
-  type CliResultEnvelope,
-  decodeCliResult,
-} from "./decode_cli_result.ts";
-
-/** Decode a JSON result envelope. */
-function parseJson(stdout: string, command: string): CliResultEnvelope {
-  return decodeCliResult(stdout, command);
-}
-
-const QUESTION = "A changed surface is described in its docs before it lands.";
-const RATIONALE = "The docs lag the new surface; a follow-up covers them.";
-
-const CONFIG = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-question = "${QUESTION}"
-`;
-
-/** Scaffold main + a worktree with one committed change under `api/`. */
-async function checkpointedWorktree(
-  dir: string,
-  config = CONFIG,
-): Promise<string> {
-  await scaffoldEngine(dir);
-  await writeConfig(dir, config);
-  await writeExecutable(
-    join(dir, "check.sh"),
-    "#!/usr/bin/env sh\nexit 0\n",
-  );
-  await gitInit(dir);
-  const wt = await addWorktree(dir, "declared");
-  await Deno.mkdir(join(wt, "api"), { recursive: true });
-  await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
-  await git(wt, "add", "-A");
-  await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
-  return wt;
-}
-
-/** Run one MCP tool by name against `root` and return its envelope pieces. */
-async function runMcp(
-  name: string,
-  root: string,
-  args: Record<string, unknown>,
-): Promise<{ isError: boolean; env: Record<string, unknown> }> {
-  const tool = TOOLS.find((candidate) => candidate.name === name);
-  assert(tool !== undefined, `${name} must be in the MCP tool registry`);
-  const outcome = await runTool(
-    tool,
-    new WorkingRoot(root),
-    args,
-    undefined,
-    () => Promise.resolve(undefined),
-    undefined,
-    "unknown-client",
-    TEST_CLI_MODEL,
-  );
-  return {
-    isError: outcome.isError === true,
-    env: outcome.structuredContent as Record<string, unknown>,
-  };
-}
-
-/** What one surface observation must prove. */
-interface SurfaceObservation {
-  readonly refused: boolean;
-  readonly slug: unknown;
-  /** Raw public text; the exact contract facts must occur here. */
-  readonly evidence: string;
-}
+  checkpointedWorktree,
+  CONFIG_ONE_STOP,
+  QUESTION,
+} from "./engine_checkpoints_accept_fixture.ts";
+import {
+  jsonSurface,
+  markdownSurface,
+  mcpSurface,
+  runMcp,
+  type SurfaceObservation,
+  terminalSurface,
+} from "./engine_checkpoints_surfaces.ts";
+import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 
 /** The meaning every declared surface must carry without paraphrase: the
  * served checkpoint, its question, the no-effects claim, and the resolution. */
@@ -129,18 +60,12 @@ const PROBES = {
   done: async (dir: string): Promise<DeclarationProbeResult> => {
     const wt = await checkpointedWorktree(dir);
     const json = await runAgent(wt, ["done", "--json"]);
-    const markdown = await runAgent(wt, ["done", "--markdown"]);
+    const env = decodeCliResult(json.stdout, "done");
     const terminal = await runAgent(wt, ["done"]);
     const mcp = await runMcp("discern_done", wt, {});
-    const env = parseJson(json.stdout, "done");
     // Mutated iff a gate job ran or the project tree changed; the open question
     // record and logbook line live inside .git and are the stated writes.
-    const status = await new Deno.Command("git", {
-      args: ["status", "--porcelain"],
-      cwd: wt,
-      stdout: "piped",
-    }).output();
-    const mutated = new TextDecoder().decode(status.stdout).trim() !== "";
+    const mutated = (await gitOut(wt, "status", "--porcelain")) !== "";
     return {
       mutated,
       meaning: [
@@ -153,53 +78,43 @@ const PROBES = {
         "tree is unchanged",
       ],
       surfaces: {
-        json: {
-          refused: json.code === 1 && env.ok === false,
-          slug: env.error,
-          evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
-        },
+        json: jsonSurface(json, env),
         // Markdown and terminal are prose surfaces: the machine slug rides
         // json/mcp, while these must refuse with the same complete serving.
-        markdown: {
-          refused: markdown.code === 1,
-          slug: AWAITING_DECLARATION_SLUG,
-          evidence: markdown.stdout,
-        },
-        terminal: {
-          refused: terminal.code === 1,
-          slug: AWAITING_DECLARATION_SLUG,
-          evidence: terminal.output,
-        },
-        mcp: {
-          refused: mcp.isError,
-          slug: mcp.env.error,
-          evidence: [
-            String(mcp.env.message ?? ""),
-            ...((mcp.env.hints ?? []) as string[]),
-          ].join("\n"),
-        },
+        markdown: markdownSurface(json, env, "done"),
+        terminal: terminalSurface(terminal, AWAITING_DECLARATION_SLUG),
+        mcp: mcpSurface(mcp),
       },
     };
   },
   accept: async (dir: string): Promise<DeclarationProbeResult> => {
     const wt = await checkpointedWorktree(dir);
-    // Reach the accept-side precondition: a recorded conclusion staled by a
-    // further committed revision to the matched path.
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-    assertEquals(
-      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
-      0,
-    );
+    // Reach the accept-side precondition through the done core: a recorded
+    // conclusion staled by a further committed revision to the matched path.
+    const served = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    assertEquals(served.error, AWAITING_DECLARATION_SLUG);
+    const met = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+      met: ["api-review"],
+    });
+    assert(met.ok, JSON.stringify(met));
     await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint v2\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "revise the api", "--no-gpg-sign");
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    const stale = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    assertEquals(stale.error, AWAITING_DECLARATION_SLUG);
 
     const json = await runAgent(wt, ["accept", "--json"]);
-    const markdown = await runAgent(wt, ["accept", "--markdown"]);
+    const env = decodeCliResult(json.stdout, "accept");
     const terminal = await runAgent(wt, ["accept"]);
     const mcp = await runMcp("discern_accept", wt, {});
-    const env = parseJson(json.stdout, "accept");
     const mutated = (await targetExists(join(dir, "api"))) ||
       !(await targetExists(wt));
     return {
@@ -210,29 +125,10 @@ const PROBES = {
         "0 prefixes landed",
       ],
       surfaces: {
-        json: {
-          refused: json.code === 1 && env.ok === false,
-          slug: env.error,
-          evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
-        },
-        markdown: {
-          refused: markdown.code === 1,
-          slug: AWAITING_DECLARATION_SLUG,
-          evidence: markdown.stdout,
-        },
-        terminal: {
-          refused: terminal.code === 1,
-          slug: AWAITING_DECLARATION_SLUG,
-          evidence: terminal.output,
-        },
-        mcp: {
-          refused: mcp.isError,
-          slug: mcp.env.error,
-          evidence: [
-            String(mcp.env.message ?? ""),
-            ...((mcp.env.hints ?? []) as string[]),
-          ].join("\n"),
-        },
+        json: jsonSurface(json, env),
+        markdown: markdownSurface(json, env, "accept"),
+        terminal: terminalSurface(terminal, AWAITING_DECLARATION_SLUG),
+        mcp: mcpSurface(mcp),
       },
     };
   },
@@ -293,85 +189,74 @@ Deno.test("declaration class: every enrolled verb refuses with the shared slug, 
   }
 });
 
-Deno.test("variance contract: every declared surface serves the same complete decision", async () => {
+Deno.test("MCP done records one strict unmet declaration per call and composes successive calls", async () => {
   await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    const config = `${CONFIG_ONE_STOP}
+[checkpoints.risk-notes]
+paths = ["api/**"]
+question = "The changed surface records its operational risks."
+`;
+    const wt = await checkpointedWorktree(dir, config);
+
+    const first = await runMcp("discern_done", wt, {
+      unmet: {
+        id: "api-review",
+        why: "The documentation follows in a separately reviewed change.",
+      },
+    });
+    assertEquals(first.isError, true);
+    assertEquals(first.env.error, AWAITING_DECLARATION_SLUG);
+    const firstData = first.env.data as {
+      checkpoints?: { outstanding?: { id: string }[] };
+    };
     assertEquals(
-      (await runAgent(wt, [
-        "done",
-        "--unmet",
-        "api-review",
-        "--why",
-        RATIONALE,
-        "--json",
-      ])).code,
-      0,
+      firstData.checkpoints?.outstanding?.map((entry) => entry.id),
+      ["risk-notes"],
     );
 
-    const meaning = [
-      "api-review",
-      QUESTION,
-      RATIONALE,
-      "declared unmet",
-      "--confirmed",
-      "--variance",
-      "never authorize a variance",
-      "0 prefixes landed",
-    ];
-    const json = await runAgent(wt, ["accept", "--json"]);
-    const markdown = await runAgent(wt, ["accept", "--markdown"]);
-    const terminal = await runAgent(wt, ["accept"]);
-    const mcp = await runMcp("discern_accept", wt, {});
-    const env = parseJson(json.stdout, "accept");
-    const observations: Record<
-      (typeof VARIANCE_GATED_ACCEPTANCE.surfaces)[number],
-      SurfaceObservation
-    > = {
-      json: {
-        refused: json.code === 1 && env.ok === false,
-        slug: env.error,
-        evidence: [env.message ?? "", ...(env.hints ?? [])].join("\n"),
+    const second = await runMcp("discern_done", wt, {
+      unmet: {
+        id: "risk-notes",
+        why:
+          "The owner must decide whether the remaining operational risk is acceptable.",
       },
-      markdown: {
-        refused: markdown.code === 1,
-        slug: AWAITING_VARIANCE_SLUG,
-        evidence: markdown.stdout,
-      },
-      terminal: {
-        refused: terminal.code === 1,
-        slug: AWAITING_VARIANCE_SLUG,
-        evidence: terminal.output,
-      },
-      mcp: {
-        refused: mcp.isError,
-        slug: mcp.env.error,
-        evidence: [
-          String(mcp.env.message ?? ""),
-          ...((mcp.env.hints ?? []) as string[]),
-        ].join("\n"),
-      },
+    });
+    assertEquals(second.isError, false, JSON.stringify(second.env));
+    const secondData = second.env.data as {
+      checkpoints?: { declared_unmet?: { id: string }[] };
     };
-    for (const surface of VARIANCE_GATED_ACCEPTANCE.surfaces) {
-      const observation = observations[surface];
-      assert(observation.refused, `${surface} must refuse`);
-      assertEquals(
-        observation.slug,
-        AWAITING_VARIANCE_SLUG,
-        `${surface} must carry the variance slug`,
-      );
-      for (const fact of meaning) {
-        assertTerminalTextIncludes(
-          observation.evidence,
-          surface === "mcp" && fact.startsWith("--")
-            ? fact.slice(2) + ":"
-            : fact,
-          `${surface} omits ${JSON.stringify(fact)}`,
-        );
-      }
-    }
-    // Every refusal above was read-only: worktree intact, trunk untouched.
-    assert(await targetExists(wt));
-    assertEquals(await targetExists(join(dir, "api", "surface.txt")), false);
+    assertEquals(
+      secondData.checkpoints?.declared_unmet?.map((entry) => entry.id).sort(),
+      ["api-review", "risk-notes"],
+    );
+  });
+});
+
+Deno.test("mcp: declarations travel the tool parameters — met records and unlocks; an invalid unmet records nothing", async () => {
+  // The spec's MCP half of the declaration contract: `met: ["<id>", …]` and
+  // `unmet: {id, why}` are tool parameters, validated exactly like the flags.
+  await withTempDir(async (dir) => {
+    const wt = await checkpointedWorktree(dir);
+    const refused = await runMcp("discern_done", wt, {});
+    assert(refused.isError, "the interlock must refuse the bare call");
+
+    // A mis-shaped rationale is rejected before any write: the follow-up
+    // bare call still refuses with the same awaiting contract.
+    const invalid = await runMcp("discern_done", wt, {
+      unmet: { id: "api-review", why: "line one\nline two" },
+    });
+    assert(invalid.isError, "a mis-shaped rationale must not record");
+    const still = await runMcp("discern_done", wt, {});
+    assert(still.isError, "nothing was recorded, so the refusal stands");
+    assertEquals(still.env.error, AWAITING_DECLARATION_SLUG);
+
+    // The met array records the caller's judgment and the gate proceeds in
+    // the same call.
+    const met = await runMcp("discern_done", wt, { met: ["api-review"] });
+    assert(!met.isError, JSON.stringify(met.env));
+    const checkpoints = (met.env.data as {
+      checkpoints: { declared_met?: { id: string }[] };
+    }).checkpoints;
+    assertEquals(checkpoints.declared_met?.[0]?.id, "api-review");
   });
 });

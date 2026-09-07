@@ -73,7 +73,9 @@ export const QUESTION =
 export const RATIONALE =
   "The docs lag the new surface; a follow-up covers them.";
 
-const CONFIG = `
+/** A gate whose one check always passes, plus one stop checkpoint watching
+ * `api/**` — the policy every accept journey's effort is governed by. */
+export const CONFIG_ONE_STOP = `
 [project]
 slug = "engine-test"
 
@@ -116,7 +118,7 @@ const CHECK_OK = "#!/usr/bin/env sh\nexit 0\n";
 /** Scaffold main + a worktree with one committed change under `api/`. */
 export async function checkpointedWorktree(
   dir: string,
-  config: string = CONFIG,
+  config: string = CONFIG_ONE_STOP,
 ): Promise<string> {
   await scaffoldEngine(dir);
   await writeConfig(dir, config);
@@ -130,9 +132,9 @@ export async function checkpointedWorktree(
   return wt;
 }
 
-/** Drive the worktree to a green gate with a declared-unmet conclusion. */
+/** Drive the worktree to a green gate with a declared-unmet conclusion: the
+ * opening run both serves the question and records the conclusion. */
 export async function greenWithUnmet(wt: string): Promise<void> {
-  assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
   const green = await runAgent(wt, [
     "done",
     "--unmet",

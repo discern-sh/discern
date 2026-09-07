@@ -1,27 +1,22 @@
 /** Checkpoint evidence accept journeys with independently owned fixtures. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
 import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { HINTS } from "../src/shared/hints.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
   type AcceptEnvelope,
   type AcceptWireData,
   checkpointedWorktree,
   CONFIG_WITH_GRANT,
-  greenWithUnmet,
   landedNotePayload,
   parseAcceptJson,
-  parseAcceptMessageJson,
   parseAppliedAcceptJson,
   QUESTION,
 } from "./engine_checkpoints_accept_fixture.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { gitOut, runAgent } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { assertHasHint } from "./hint_asserts.ts";
 
 type CheckpointDropAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
   data: AcceptWireData & {
@@ -190,42 +185,5 @@ Deno.test("accept: unreadable declaration evidence refuses before landing", asyn
       ),
     );
     assert(await targetExists(wt), "unreadable declarations must land nothing");
-  });
-});
-
-Deno.test("accept: a stale conclusion routes back to done before any effect", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    await greenWithUnmet(wt);
-
-    // A further committed edit to the matched path stales the conclusion
-    // (the subject moved) — acceptance must route back to done, not serve a
-    // variance decision for evidence that no longer stands.
-    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint v2\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "revise the api", "--no-gpg-sign");
-    // Reconcile the open question to the new subject (and get served again).
-    const reserved = await runAgent(wt, ["done", "--json"]);
-    assertEquals(reserved.code, 1, reserved.output);
-    const reservedResult = decodeCliResult(reserved.stdout, "done");
-    assertEquals(reservedResult.verb, "done");
-    assertEquals(reservedResult.error, AWAITING_DECLARATION_SLUG);
-
-    const r = await runAgent(wt, [
-      "accept",
-      "--confirmed",
-      "--variance",
-      "api-review",
-      "--json",
-    ]);
-    assertEquals(r.code, 1, r.output);
-    const env = parseAcceptMessageJson(r.stdout);
-    assertEquals(env.error, AWAITING_DECLARATION_SLUG, r.stdout);
-    assertStringIncludes(env.message, "api-review");
-    assertStringIncludes((env.hints ?? []).join("\n"), "discern done");
-    assertHasHint(env, HINTS["accept-declarations-stale"], {
-      ids: ["api-review"],
-    });
-    assert(await targetExists(wt), "a precondition refusal must land nothing");
   });
 });
