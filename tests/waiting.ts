@@ -24,7 +24,7 @@ export interface TestRealDelayBoundary {
 }
 
 /**
- * The complete set of genuine wall-clock intervals in executable test code.
+ * The complete set of genuine JavaScript timer intervals in executable test code.
  * The structural guard binds every member to exactly one literal call site.
  */
 export const TEST_REAL_DELAY_BOUNDARIES = {
@@ -135,14 +135,6 @@ export const TEST_REAL_DELAY_BOUNDARIES = {
     reason:
       "The assertion is the absence of a delayed write after command settlement, which requires the planted window to pass.",
     classification: "negative-observation-window",
-  },
-  "terminal-resize-delay": {
-    path: "tests/fixtures/terminal_resize_harness.ts",
-    enclosing: "main",
-    operation: "resize a real terminal after the scenario's declared interval",
-    reason:
-      "A job-owned marker first proves active work; the following interval deliberately places the resize during that job, while output assertions independently prove the before and after frames.",
-    classification: "adversarial-stimulus",
   },
   "slot-lock-holder-lifetime": {
     path: "tests/fixtures/slot_lock_holder.ts",

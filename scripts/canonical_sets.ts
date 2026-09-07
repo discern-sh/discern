@@ -3623,7 +3623,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "test-real-delay-boundaries",
     title: "Test real-delay boundaries",
     what:
-      "Every genuine wall-clock interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.",
+      "Every genuine JavaScript timer interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.",
     source: {
       kind: "module",
       module: "tests/waiting.ts",
@@ -3645,6 +3645,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.keys(
         (await import("../tests/waiting.ts")).TEST_REAL_DELAY_BOUNDARIES,
       ),
+  },
+  {
+    id: "test-shell-wait-boundaries",
+    title: "Test shell wait boundaries",
+    what:
+      "Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.",
+    source: {
+      kind: "module",
+      module: "tests/test_shell_wait_boundaries.ts",
+      exportName: "TEST_SHELL_WAIT_BOUNDARIES",
+    },
+    guards: ["tests/test_shell_wait_guard_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "shell waiting enrollment is repository test infrastructure rather than product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the syntax census constrains this repository's tests and is not part of the shipped binary",
+      },
+    },
+    members: async () =>
+      (await import("../tests/test_shell_wait_boundaries.ts"))
+        .TEST_SHELL_WAIT_BOUNDARIES.map((boundary) =>
+          JSON.stringify([boundary.path, boundary.enclosing, boundary.argument])
+        ),
   },
   {
     id: "real-pty-contracts",

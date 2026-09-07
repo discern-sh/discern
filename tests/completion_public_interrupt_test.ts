@@ -62,7 +62,7 @@ for (
           const leader = join(aux, "leader");
           const descendant = join(aux, "descendant");
           const tree =
-            `echo $$ > ${leader}; sleep 60 & echo $! > ${descendant}; wait`;
+            `echo $$ > ${leader}; tail -f /dev/null & echo $! > ${descendant}; wait`;
           const extra = (scenario === "extract"
             ? `extract = ${JSON.stringify(tree)}\n`
             : "") + DECLARATION;

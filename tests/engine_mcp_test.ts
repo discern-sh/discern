@@ -4823,7 +4823,7 @@ function sleeperConfig(): string {
     'trunk = "main"',
     "",
     "[jobs]",
-    'lint = "echo $$ > gate.pid && sleep 30"',
+    'lint = "echo $$ > gate.pid && tail -f /dev/null"',
   ].join("\n");
 }
 
@@ -4837,7 +4837,7 @@ function pidAlive(pid: number): boolean {
   }
 }
 
-/** Initialize handshake + the in-flight sleeper gate: start a discern_done
+/** Initialize handshake + the held gate: start a discern_done
  * call (request id 2), wait until its check job is running, return the job's
  * PID. Shared by the cancel and shutdown tests so both interrupt the same
  * genuinely-running gate. */

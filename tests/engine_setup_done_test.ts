@@ -213,7 +213,7 @@ realPtyTest({
   canary: false,
   fn: async () => {
     await withTempDir(async (dir) => {
-      await readyForDone(dir, "sleep 1");
+      await readyForDone(dir, "true");
       await git(dir, "add", "-A");
       await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
 

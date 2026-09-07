@@ -184,7 +184,7 @@ async function waitForTreeShutdown(
 /** A POSIX child tree that records its leader and one forked descendant, then
  * blocks — the shape every black-box scenario plants behind its surface. */
 function recordingTree(leaderFile: string, descendantFile: string): string {
-  return `echo $$ > ${leaderFile}; sleep 60 & echo $! > ${descendantFile}; wait`;
+  return `echo $$ > ${leaderFile}; tail -f /dev/null & echo $! > ${descendantFile}; wait`;
 }
 
 /** One prepared black-box run: the engine argv to interrupt, where it runs,

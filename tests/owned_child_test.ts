@@ -123,7 +123,7 @@ Deno.test("request cancellation stops a routed command without killing its ownin
     const ready = join(dir, "ready");
     const late = join(dir, "late");
     const command = runShellRouted(
-      'touch "$READY_TARGET"; sleep 2; touch "$LATE_TARGET"',
+      'touch "$READY_TARGET"; tail -f /dev/null; touch "$LATE_TARGET"',
       {
         cwd: dir,
         env: { READY_TARGET: ready, LATE_TARGET: late },

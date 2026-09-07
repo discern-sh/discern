@@ -69,7 +69,7 @@ realPtyTest({
     await withTempDir(async (dir) => {
       await testRepo(
         dir,
-        "sh -c 'echo $((800+8))-TEST-FAIL; sleep 1; exit 7'",
+        "sh -c 'echo $((800+8))-TEST-FAIL; exit 7'",
       );
       const result = await runAgentPtyWithViewport(dir, ["test"], {
         size: { columns: 80, rows: 12 },
@@ -97,7 +97,7 @@ realPtyTest({
   ignore: Deno.build.os === "windows",
   fn: async () => {
     await withTempDir(async (dir) => {
-      await testRepo(dir, "sleep 1");
+      await testRepo(dir, "true");
       const noColor = await runAgentPtyWithViewport(dir, ["test"], {
         size: { columns: 80, rows: 60 },
         env: { NO_COLOR: "1", FORCE_COLOR: "", CI: "false" },

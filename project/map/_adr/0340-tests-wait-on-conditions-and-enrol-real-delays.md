@@ -2,6 +2,8 @@
 
 **Status**: accepted.
 
+Amended for shell fixtures by [ADR 0383](0383-test-shell-waits-require-observable-transitions.md).
+
 ## Context
 
 The suite mixed three local polling helpers with direct timers spread across tests, shared support, executable fixtures, and TypeScript stored inside child-program strings. Most intervals guessed how long an external condition might take. They charged every run the full guess when the condition became true early, yet still failed when a loaded machine needed longer. A smaller population tests elapsed time itself: cancellation grace, watchdogs, terminal input pacing, delayed descendants, and other scenarios where replacing the interval with a positive condition would remove the behavior under test.

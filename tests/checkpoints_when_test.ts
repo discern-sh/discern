@@ -153,7 +153,7 @@ Deno.test("when: a pre-aborted external signal is indeterminate as cancelled", a
   await withTempDir(async (dir) => {
     const controller = new AbortController();
     controller.abort();
-    const out = await runWhenCommand(dir, "probe", "sleep 30", {
+    const out = await runWhenCommand(dir, "probe", "tail -f /dev/null", {
       input: INPUT,
       signal: controller.signal,
     });
@@ -183,7 +183,7 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
       const [name, command, options] of [
         ["pass", "exit 10", {}],
         ["failure", "exit 7", {}],
-        ["timeout", "sleep 30", { timeoutS: 0.05 }],
+        ["timeout", "tail -f /dev/null", { timeoutS: 0.05 }],
       ] as const
     ) {
       const record = join(dir, `${name}.txt`);
@@ -202,7 +202,7 @@ Deno.test("when: removes structured input after pass, failure, timeout, and canc
     const pending = runWhenCommand(
       dir,
       "probe",
-      `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; sleep 30`,
+      `printf %s "$DISCERN_CHECKPOINT_INPUT" > "${record}"; tail -f /dev/null`,
       { input: INPUT, signal: controller.signal },
     );
     await waitForPath(record, pending);
@@ -257,7 +257,7 @@ Deno.test("when: an input-cleanup failure overrides a decisive command result", 
 
 Deno.test("when: a timeout is indeterminate with an account naming the budget", async () => {
   await withTempDir(async (dir) => {
-    const out = await runWhenCommand(dir, "probe", "sleep 30", {
+    const out = await runWhenCommand(dir, "probe", "tail -f /dev/null", {
       timeoutS: 1,
     });
     assert(out.kind === "error");

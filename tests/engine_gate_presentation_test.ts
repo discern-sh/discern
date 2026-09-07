@@ -415,6 +415,7 @@ Deno.test("Gate activity pins lifecycle facts and fits a sanitised partial tail"
   assertStringIncludes(active, "lint started");
   assertStringIncludes(active, "lint │ newerred");
   assertStringIncludes(active, "rewritten partial");
+  assertEquals(active.includes("building"), false);
   assertEquals(active.includes("older line"), false);
   assertEquals(active.includes("must stay invisible"), false);
   assertEquals(active.includes("[31m"), false);

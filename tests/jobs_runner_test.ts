@@ -309,7 +309,7 @@ Deno.test("runParallel: fail-fast cancels the slow sibling promptly", async () =
   let cancellationStarted: number | undefined;
   const jobs: Job[] = [
     { label: "fail", command: "exit 3" },
-    { label: "slow", command: "sleep 30" },
+    { label: "slow", command: "tail -f /dev/null" },
   ];
   const r = await runParallel(jobs, {
     cwd: CWD,
@@ -490,7 +490,7 @@ Deno.test("a fail-fast-cancelled sibling is flagged cancelled and carries no out
   const s = makeSink();
   const r = await runParallel([
     { label: "boom", command: "exit 1" },
-    { label: "victim", command: "echo partial; sleep 30" },
+    { label: "victim", command: "echo partial; tail -f /dev/null" },
   ], {
     cwd: CWD,
     stream: false,
@@ -514,7 +514,7 @@ Deno.test("a sibling that TRAPS SIGTERM and exits non-zero is still cancelled, n
   const s = makeSink();
   const r = await runParallel([
     { label: "boom", command: "exit 2" },
-    { label: "trapper", command: "trap 'exit 7' TERM; sleep 30" },
+    { label: "trapper", command: "trap 'exit 7' TERM; tail -f /dev/null" },
   ], {
     cwd: CWD,
     stream: false,
@@ -545,7 +545,7 @@ Deno.test("fail-fast escalates to SIGKILL when a sibling ignores SIGTERM", async
       },
       {
         label: "stubborn",
-        command: 'trap "" TERM; : > stubborn.ready; sleep 30',
+        command: 'trap "" TERM; : > stubborn.ready; tail -f /dev/null',
       },
     ], {
       cwd: dir,
@@ -638,9 +638,9 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       // GROUP died, not just the direct `sh`.
       {
         label: "slow",
-        command: "sh -c 'echo $$ > inner.pid; sleep 30' & wait",
+        command: "sh -c 'echo $$ > inner.pid; tail -f /dev/null' & wait",
       },
-      { label: "slow-too", command: "sleep 30" },
+      { label: "slow-too", command: "tail -f /dev/null" },
     ], {
       cwd: dir,
       stream: false,
@@ -724,7 +724,7 @@ Deno.test("runParallel: an already-aborted signal cancels before any job runs", 
     const external = new AbortController();
     external.abort();
     const r = await runParallel([
-      { label: "never", command: "echo ran > ran.txt; sleep 30" },
+      { label: "never", command: "echo ran > ran.txt; tail -f /dev/null" },
     ], {
       cwd: dir,
       stream: false,
@@ -742,7 +742,7 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
   await withTempDir(async (dir) => {
     const external = new AbortController();
     const run = runSerial([
-      { label: "current", command: "echo $$ > current.pid; sleep 30" },
+      { label: "current", command: "echo $$ > current.pid; tail -f /dev/null" },
       { label: "after", command: "echo ran > after.txt" },
     ], {
       cwd: dir,

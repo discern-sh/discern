@@ -38,8 +38,10 @@ export async function waitingSources(
     },
     narrow: {
       reason:
-        "Only executable test and fixture source can make the suite wait; production scheduling belongs to a later boundary.",
-      include: (path) => path.startsWith("tests/"),
+        "Test directories and native test entry names enroll at any depth; production scheduling is outside test waiting.",
+      include: (path) =>
+        /(?:^|\/)tests\//u.test(path) ||
+        /(?:^|\/)(?:[^/]+[._]test|test)\.[cm]?[jt]sx?$/u.test(path),
     },
   }, root);
   return await Promise.all(files.map(async (path) => ({

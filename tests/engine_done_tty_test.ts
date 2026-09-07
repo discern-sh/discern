@@ -39,6 +39,8 @@ import { stripAnsi } from "discern-design-system/cli";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { shellBarrier } from "./shell_barrier.ts";
+import { quoteCommandWord } from "../src/shared/command_evidence.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const REPAINT = `${CSI}1G`;
@@ -115,14 +117,17 @@ realPtyTest({
   canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    await withTempDir(async (dir) => {
+    await withTempDir(async (base) => {
+      using barrier = await shellBarrier(join(base, "acknowledgement.fifo"));
+      const dir = join(base, "project");
+      await Deno.mkdir(dir);
       await scaffoldEngine(dir, { agents: [] });
       await writeConfig(
         dir,
         liveOutputConfig(
-          "printf 'phase-one\\r'; sleep 0.25; printf 'phase-two\\r'; " +
-            "sleep 0.25; printf 'tail-complete\\n'; " +
-            "printf 'tail-second\\n'; sleep 0.4",
+          `printf 'phase-one\\r'; ${barrier.wait}; printf 'phase-two\\r'; ` +
+            `${barrier.wait}; printf 'tail-complete\\n'; ` +
+            `printf 'tail-second\\n'; ${barrier.wait}`,
           false,
         ),
       );
@@ -131,24 +136,18 @@ realPtyTest({
       const result = await runAgentPtyJourney(dir, ["done"], {
         geometry: { columns: 80, rows: 18 },
         env: { NO_COLOR: "1", CI: "false" },
-        input: [{
-          waitFor: [
-            "phase-one",
-            "phase-two",
-            "tail-complete",
-            "tail-second",
-          ],
-          capture: {
-            name: "active-tail",
-            when: ptyOutputContains([
-              "phase-one",
-              "phase-two",
-              "tail-complete",
-              "tail-second",
-            ]),
+        input: [
+          { waitFor: "│ phase-one", steps: [{ effect: barrier.release }] },
+          { waitFor: "│ phase-two", steps: [{ effect: barrier.release }] },
+          {
+            waitFor: ["tail-complete", "tail-second"],
+            capture: {
+              name: "active-tail",
+              when: ptyOutputContains(["tail-complete", "tail-second"]),
+            },
+            steps: [{ effect: barrier.release }],
           },
-          steps: [{}],
-        }],
+        ],
       });
       assertEquals(result.code, 0, result.transcript);
       const active = result.keyframes["active-tail"] ?? "";
@@ -186,7 +185,7 @@ realPtyTest({
       await writeConfig(
         dir,
         liveOutputConfig(
-          "printf 'interrupt-ready\\n'; sleep 20; " +
+          "printf 'interrupt-ready\\n'; tail -f /dev/null; " +
             "printf survived > should-not-exist.txt",
           false,
         ),
@@ -242,7 +241,6 @@ realPtyTest({
           "#!/usr/bin/env sh",
           "printf '\\033[31mLIVE-EVIDENCE-START\\033[0m\\n'",
           "printf 'partial-one\\r'",
-          "sleep 0.2",
           "printf 'partial-two\\rpartial-done\\n'",
           "i=0",
           'while [ "$i" -lt 20000 ]; do',
@@ -250,7 +248,6 @@ realPtyTest({
           "  i=$((i + 1))",
           "done",
           "printf '\\nTAIL-SIGNAL\\n'",
-          "sleep 0.2",
           "exit 7",
           "",
         ].join("\n"),
@@ -314,7 +311,11 @@ realPtyTest({
   canary: true,
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    await withTempDir(async (root) => {
+    await withTempDir(async (base) => {
+      const root = join(base, "project");
+      await Deno.mkdir(root);
+      const barrierPath = join(base, "acknowledgement.fifo");
+      const quotedBarrier = quoteCommandWord(barrierPath);
       const worktree = await completionProject(
         root,
         ["local"],
@@ -329,7 +330,7 @@ resources = []
 prepare = 'true'
 restore = 'true'
 `,
-        "printf t >> executions; printf 'refresh-visible\r'; sleep 1; printf 'refresh-finished\nDISCERN_METRIC coverage 93\n'",
+        `printf t >> executions; printf 'refresh-visible\r'; if test -p ${quotedBarrier}; then IFS= read -r acknowledgement < ${quotedBarrier}; fi; printf 'refresh-finished\nDISCERN_METRIC coverage 93\n'`,
       );
       const done = await runAgent(worktree, ["done", "--json"]);
       assertEquals(done.code, 0, done.output);
@@ -344,6 +345,7 @@ restore = 'true'
       );
       await git(root, "add", "predecessor.txt");
       await git(root, "commit", "-m", "Advance the predecessor");
+      using barrier = await shellBarrier(barrierPath);
       const accepted = await runAgentPtyJourney(root, ["accept"], {
         geometry: { columns: 100, rows: 24 },
         env: { NO_COLOR: "1", CI: "false" },
@@ -353,7 +355,7 @@ restore = 'true'
             name: "validating",
             when: ptyOutputContains(["test started", "refresh-visible"]),
           },
-          steps: [{}],
+          steps: [{ effect: barrier.release }],
         }],
       });
       assertEquals(accepted.code, 0, accepted.transcript);

@@ -609,11 +609,13 @@ export async function runAgentPtyWithViewport(
     readonly resize?: {
       readonly columns: number;
       readonly rows: number;
-      readonly afterMs: number;
-      /** Optional job-written path that synchronizes the real resize. */
-      readonly whenPath?: string;
+      /** Written by the parent only after observing the initial frame. */
+      readonly whenPath: string;
+      /** FIFO acknowledgement releases the job after the kernel size changes. */
+      readonly releasePath: string;
     };
     readonly env?: Record<string, string>;
+    readonly input?: readonly PtyInputPhase[];
   },
 ): Promise<ViewportRunResult> {
   if (Deno.build.os === "windows") {
@@ -635,11 +637,10 @@ export async function runAgentPtyWithViewport(
         ...(options.resize === undefined ? [] : [
           "--resize",
           `${options.resize.columns}x${options.resize.rows}`,
-          "--resize-after",
-          String(options.resize.afterMs),
-          ...(options.resize.whenPath === undefined
-            ? []
-            : ["--resize-when", options.resize.whenPath]),
+          "--resize-when",
+          options.resize.whenPath,
+          "--release-after-resize",
+          options.resize.releasePath,
         ]),
         "--",
         Deno.execPath(),
@@ -647,7 +648,9 @@ export async function runAgentPtyWithViewport(
       ]),
       cwd: dir,
       env: await engineEnv({ TERM: "xterm-256color", ...options.env }),
-      keepInputOpen: true,
+      ...(options.input === undefined
+        ? { keepInputOpen: true }
+        : { input: options.input }),
     });
     const raw = await Deno.readTextFile(resultPath);
     const decoded = decodeWith(

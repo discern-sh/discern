@@ -175,7 +175,7 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
         direction: "up",
         limit: "1",
         timeout: "1",
-        run: "sleep 30; echo 'DISCERN_METRIC slow 1'",
+        run: "tail -f /dev/null; echo 'DISCERN_METRIC slow 1'",
       }),
     );
     await gitInit(dir);
@@ -206,7 +206,7 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
       "the budget comes from `[standards.slow].timeout`",
     );
     assertEquals(diagnostic?.rule, "timeout");
-    assertStringIncludes(diagnostic?.reproduce_cmd ?? "", "sleep 30");
+    assertStringIncludes(diagnostic?.reproduce_cmd ?? "", "tail -f /dev/null");
     assertEquals((result.steps ?? [])[0]?.duration_s, 1);
   });
 });
@@ -221,7 +221,7 @@ Deno.test("standardsResult: cancellation starts no work and stops in-flight work
         direction: "up",
         limit: "1",
         run:
-          "touch .git/standard-cancel-ready; sleep 30; touch .git/standard-cancel-finished; echo 'DISCERN_METRIC slow 1'",
+          "touch .git/standard-cancel-ready; tail -f /dev/null; touch .git/standard-cancel-finished; echo 'DISCERN_METRIC slow 1'",
       }),
     );
     await gitInit(dir);

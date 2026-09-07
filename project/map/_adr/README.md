@@ -366,6 +366,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0380 — Bind validation demand after composition within one execution lease](0380-bind-validation-demand-after-composition.md)
 - [0381 — Stage complete completion in place before publication](0381-stage-complete-completion-in-place-before-publication.md)
 - [0382 — Release checkout semantics independently of recovery bytes](0382-release-checkout-semantics-independently-of-recovery-bytes.md)
+- [0383 — Test shell waits require observable transitions](0383-test-shell-waits-require-observable-transitions.md)
 
 <!-- END GENERATED: current ADR records -->
 

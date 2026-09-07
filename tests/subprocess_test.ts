@@ -326,7 +326,7 @@ Deno.test("both production Git spawners consume the one repository-location sani
 Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
   await withTempDir(async (dir) => {
     const fakeGit = join(dir, "slow-git");
-    await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec sleep 5\n");
+    await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec tail -f /dev/null\n");
     await Deno.chmod(fakeGit, 0o755);
     const started = SYSTEM_CLOCK.monotonicNow();
     const result = await runGit(["status"], {

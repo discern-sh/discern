@@ -387,7 +387,7 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
         "[standards.slow]",
         'direction = "up"',
         "limit = 1",
-        'run = "sleep 9999"',
+        'run = "tail -f /dev/null"',
         "timeout = 1",
         "",
         "[gate]",

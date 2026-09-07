@@ -158,7 +158,7 @@ Deno.test("discern mcp: cancellation during main convergence preserves landing a
     const ready = join(dir, "ready");
     const calls = join(dir, "calls");
     const ensure =
-      `if [ -f '${armed}' ]; then echo run >> '${calls}'; touch '${ready}'; sleep 30; else echo run >> '${calls}'; fi`;
+      `if [ -f '${armed}' ]; then echo run >> '${calls}'; touch '${ready}'; tail -f /dev/null; else echo run >> '${calls}'; fi`;
     await scaffoldEngine(root);
     await writeConfig(
       root,

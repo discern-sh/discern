@@ -1,7 +1,7 @@
 /**
  * Real-PTY evidence for height-responsive Gate-family dashboards. The harness
- * changes the child terminal with stty while real jobs sleep; no controller
- * resize seam or process mutation inside product code is involved.
+ * changes the child terminal with stty while a job awaits acknowledgement;
+ * no controller resize seam or process mutation inside product code is involved.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -17,6 +17,7 @@ import {
 } from "./engine_helpers.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { shellBarrier } from "./shell_barrier.ts";
 
 const CSI = "\x1b[";
 const REPAINT = `${CSI}1G`;
@@ -24,18 +25,17 @@ const HIDE_CURSOR = `${CSI}?25l`;
 const SHOW_CURSOR = `${CSI}?25h`;
 const LINT_OUTPUT = "701-PTY-LINT";
 const TEST_OUTPUT = "711-PTY-TEST";
-const RESIZE_MARKER_ENV = "DISCERN_VIEWPORT_TEST_READY";
+const RESIZE_RELEASE_ENV = "DISCERN_VIEWPORT_TEST_RELEASE";
+const RESIZE_ACK_ENV = "DISCERN_VIEWPORT_TEST_RESIZE_ACK";
 
 type GateVerb = "done" | "prepare" | "test";
 type InitialMode = "full" | "compact" | "append";
 
 /** Build a Gate-family fixture with optional resize synchronization. */
 function config(resizeReady: boolean): string {
-  const beforeSleep = resizeReady ? `touch "$${RESIZE_MARKER_ENV}"; ` : "";
-  const sleepSeconds = resizeReady ? 2 : 1;
-  const format = resizeReady
-    ? `sh -c 'touch "$${RESIZE_MARKER_ENV}"; sleep ${sleepSeconds}'`
-    : "sleep 1";
+  const release = resizeReady
+    ? `IFS= read -r acknowledgement < "$${RESIZE_RELEASE_ENV}"; `
+    : "";
   return [
     "[project]",
     'slug = "gate-viewport-tty"',
@@ -48,17 +48,26 @@ function config(resizeReady: boolean): string {
     "sources = []",
     "",
     "[jobs]",
-    `format = ${JSON.stringify(format)}`,
+    'format = "true"',
     `lint = ${
       JSON.stringify(
-        `sh -c '${beforeSleep}sleep ${sleepSeconds}; echo $((700+1))-PTY-LINT'`,
+        "echo $((700+1))-PTY-LINT",
       )
     }`,
     `test = ${
       JSON.stringify(
-        `sh -c '${beforeSleep}sleep ${sleepSeconds}; echo $((710+1))-PTY-TEST'`,
+        `${release}echo $((710+1))-PTY-TEST`,
       )
     }`,
+    ...(resizeReady
+      ? [
+        "[jobs.resize-probe]",
+        'stage = "test"',
+        `run = ${
+          JSON.stringify(`IFS= read -r acknowledgement < "$${RESIZE_ACK_ENV}"`)
+        }`,
+      ]
+      : []),
     "",
   ].join("\n");
 }
@@ -189,7 +198,7 @@ function assertFinalRegionOnce(
   }
 }
 
-/** Run a resize synchronized to a marker written immediately before job sleep. */
+/** Observe the initial frame, resize, then await a new stable fact before output. */
 async function runObservedResize(
   root: string,
   args: string[],
@@ -203,18 +212,32 @@ async function runObservedResize(
 ): Promise<ViewportRunResult> {
   return await withTempDir(async (markerDir) => {
     const markerPath = join(markerDir, "ready");
+    using barrier = await shellBarrier(join(markerDir, "acknowledgement.fifo"));
+    using resized = await shellBarrier(join(markerDir, "resized.fifo"));
     return await runAgentPtyWithViewport(root, args, {
       size: options.size,
       resize: {
         ...options.resize,
-        afterMs: 100,
         whenPath: markerPath,
+        releasePath: resized.path,
       },
       env: {
         NO_COLOR: "1",
         CI: "false",
-        [RESIZE_MARKER_ENV]: markerPath,
+        [RESIZE_RELEASE_ENV]: barrier.path,
+        [RESIZE_ACK_ENV]: resized.path,
       },
+      input: [{
+        waitFor: "test started",
+        steps: [{
+          effect: async (): Promise<void> => {
+            await Deno.writeTextFile(markerPath, "observed initial frame\n");
+          },
+        }],
+      }, {
+        waitFor: "resize-probe passed",
+        steps: [{ effect: barrier.release }],
+      }],
     });
   }, { prefix: "discern-viewport-ready-" });
 }

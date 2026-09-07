@@ -148,7 +148,7 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       {
         label: "hang",
         command:
-          `sh -c 'echo $$ > inner.pid; : > ${TIMEOUT_READY_FILE}; sleep 9999' & wait`,
+          `sh -c 'echo $$ > inner.pid; : > ${TIMEOUT_READY_FILE}; tail -f /dev/null' & wait`,
       },
     ], {
       cwd: dir,
@@ -276,7 +276,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
         'trunk = "main"',
         "",
         "[jobs]",
-        `test = ${JSON.stringify(readyThen("sleep 9999"))}`, // never exits
+        `test = ${JSON.stringify(readyThen("tail -f /dev/null"))}`, // never exits
         "",
         "[gate]",
         "timeout = 1", // a tiny budget so the test is fast
@@ -309,7 +309,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     assertStringIncludes(diag.message, "timed out");
     assertStringIncludes(diag.message, "watch-mode");
     assertTimeoutAttribution(diag, "[gate].timeout");
-    // Bounded: the gate returned in seconds, not the 9999s the command wanted.
+    // The watchdog ends the deliberately non-terminating command.
     assert(
       elapsed < FULL_GATE_POST_READY_CEILING_MS,
       `the ready gate should fail within the budget, took ${elapsed}ms`,
@@ -337,7 +337,7 @@ function assertTimeoutAttribution(
  * Drive a never-exiting command wired into some stage kind through the full
  * `discern done` under a tiny budget, and assert it fails with the actionable
  * timeout diagnostic — bounded, not a hang. `wiring` is the config section(s) that
- * place the `sleep 9999`; `jobLabel` is the diagnostic's `tool`; `changedFile`
+ * place the `tail -f /dev/null`; `jobLabel` is the diagnostic's `tool`; `changedFile`
  * (scope gates only) marks the scope changed so its gate fires.
  */
 async function assertStageKindTimesOut(opts: {
@@ -349,7 +349,7 @@ async function assertStageKindTimesOut(opts: {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const command = opts.command?.(TIMEOUT_READY_FILE) ??
-      readyThen("sleep 9999");
+      readyThen("tail -f /dev/null");
     await writeConfig(
       dir,
       [
@@ -486,7 +486,7 @@ Deno.test("timeout override: a job's own budget bounds only that job — sibling
       // well inside the run-level budget: untouched.
       {
         label: "tight",
-        command: readyThen("sleep 9999"),
+        command: readyThen("tail -f /dev/null"),
         timeout: { seconds: 1, key: "[jobs.tight].timeout" },
       },
       { label: "roomy", command: "sleep 2" },
@@ -561,7 +561,7 @@ async function assertOverrideBoundsOwnJob(opts: {
         "[repository]",
         'trunk = "main"',
         "",
-        ...opts.wiring(readyThen("sleep 9999")),
+        ...opts.wiring(readyThen("tail -f /dev/null")),
         "",
         "[gate]",
         "timeout = 600", // generous global: only the override can fire this fast
@@ -656,7 +656,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
         "",
         "[scopes.widget]",
         'paths = ["widget/**"]',
-        `gate = ${JSON.stringify(readyThen("sleep 9999"))}`,
+        `gate = ${JSON.stringify(readyThen("tail -f /dev/null"))}`,
         "timeout = 1",
         "",
         "[gate]",

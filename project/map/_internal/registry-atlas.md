@@ -109,7 +109,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 372     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 373     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -127,7 +127,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
 | [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 15      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
-| [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 23      | —                | —                           |
+| [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 22      | —                | —                           |
+| [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 18      | —                | —                           |
 | [`real-pty-contracts`](#real-pty-contracts--real-pseudo-terminal-contracts)                                           | `tests/real_pty.ts#REAL_PTY_CONTRACTS`                                            | 8       | —                | —                           |
 | [`ambient-state-boundaries`](#ambient-state-boundaries--ambient-process-state-boundaries)                             | `scripts/ambient_state_lint.ts#AMBIENT_READ_BOUNDARIES`                           | 48      | —                | —                           |
 | [`clock-primitive-boundaries`](#clock-primitive-boundaries--clock-primitive-boundaries)                               | `src/shared/clock.ts#CLOCK_PRIMITIVE_BOUNDARIES`                                  | 2       | —                | —                           |
@@ -139,9 +140,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 128     | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 129     | —                | node `canonical-sets`       |
 
-128 sets · 182 guard tests · 71 committed artifacts.
+129 sets · 183 guard tests · 71 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -316,6 +317,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/temp_dir_guard_test.ts`                     | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities), [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds), [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/temp_dir_test.ts`                           | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/test_shell_wait_guard_test.ts`              | [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/test_waiting_guard_test.ts`                 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -3347,7 +3349,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 372
+- Members: 373
   - `0003`
   - `0005`
   - `0006`
@@ -3696,6 +3698,7 @@ The numbered decision records in the map, including records later superseded.
   - `0380`
   - `0381`
   - `0382`
+  - `0383`
   - `0001`
   - `0002`
   - `0004`
@@ -4109,10 +4112,10 @@ The only modules permitted to call Deno's raw temporary-directory primitives, ea
 
 ## `test-real-delay-boundaries` — Test real-delay boundaries
 
-Every genuine wall-clock interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.
+Every genuine JavaScript timer interval in executable tests, with its exact module, enclosing test or helper, operation, and reason a condition or fake clock cannot replace it.
 
 - Source: `tests/waiting.ts` — `TEST_REAL_DELAY_BOUNDARIES`
-- Members: 23
+- Members: 22
   - `commit-hook-quiescence-window`
   - `escaped-daemon-hold`
   - `job-descendant-quiescence-window`
@@ -4126,7 +4129,6 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
   - `pty-input-step-pacing`
   - `pty-termination-grace`
   - `routed-command-quiescence-window`
-  - `terminal-resize-delay`
   - `slot-lock-holder-lifetime`
   - `suite-temp-child-lifetime`
   - `self-signal-desk-lifetime`
@@ -4139,6 +4141,34 @@ Every genuine wall-clock interval in executable tests, with its exact module, en
 - Guards: `tests/test_waiting_guard_test.ts`
 - Glossary: not enrolled — real test-delay enrollment is a repository development boundary rather than product vocabulary
 - Feature canon: not enrolled — the condition-oriented waiting capability supports this repository and is not part of the shipped discern binary
+
+## `test-shell-wait-boundaries` — Test shell wait boundaries
+
+Every elapsed shell wait in executable test source, with its exact enclosing scope, argument, occurrence count, and reviewed polling or timing contract.
+
+- Source: `tests/test_shell_wait_boundaries.ts` — `TEST_SHELL_WAIT_BOUNDARIES`
+- Members: 18
+  - `["tests/completion_public_done_test.ts","E09 public done releases an extractor while an unrelated check waits for it","0.02"]`
+  - `["tests/discern_commit_enrolment_test.ts","the attributed commit boundary quiesces backgrounded hook descendants","0.01"]`
+  - `["tests/engine_accept_authority_test.ts","concurrent accept refuses without recovering the active transaction","0.01"]`
+  - `["tests/engine_gate_ergonomics_test.ts","failFastConfig","0.01"]`
+  - `["tests/engine_gate_slots_test.ts","writeMarkerJob","${sleepS}"]`
+  - `["tests/engine_gate_slots_test.ts","gate slots: cap=2 lets two test runs overlap","0.1"]`
+  - `["tests/engine_gate_timeout_test.ts","timeout override: a job's own budget bounds only that job — siblings keep the run-level budget","2"]`
+  - `["tests/engine_gate_timeout_test.ts","timeout override: 0 disables the bound for that job alone","2"]`
+  - `["tests/engine_queue_test.ts","queue serializes two wrapped commands at cap 1 and narrates only on stderr","0.4"]`
+  - `["tests/engine_queue_test.ts","queue nesting takes one slot total at cap 1","0.05"]`
+  - `["tests/engine_queue_test.ts","a gate queued behind a wrapped sibling names queue on its wait line","0.05"]`
+  - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a command-owned late writer cannot follow a successful teardown","0.01"]`
+  - `["tests/engine_worktree_probe_test.ts","probeWorktreeViability: a backgrounded Git hook is quiesced before teardown","0.01"]`
+  - `["tests/jobs_runner_test.ts","runParallel: observer sees starts up front and settlements in real completion order","0.01"]`
+  - `["tests/jobs_runner_test.ts","buffered capture feeds complete and partial text to a separate live observer","0.01"]`
+  - `["tests/jobs_runner_test.ts","spawnJob quiesces background descendants before a clean result returns","0.01"]`
+  - `["tests/jobs_runner_test.ts","fail-fast escalates to SIGKILL when a sibling ignores SIGTERM","0.05"]`
+  - `["tests/owned_child_test.ts","a routed setup command quiesces background descendants before returning","0.01"]`
+- Guards: `tests/test_shell_wait_guard_test.ts`
+- Glossary: not enrolled — shell waiting enrollment is repository test infrastructure rather than product vocabulary
+- Feature canon: not enrolled — the syntax census constrains this repository's tests and is not part of the shipped binary
 
 ## `real-pty-contracts` — Real pseudo-terminal contracts
 
@@ -4533,7 +4563,7 @@ The named framing, member-wording authority, renderer, documentation exposure, a
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 128
+- Members: 129
   - `verbs`
   - `hidden-verbs`
   - `operation-effects`
@@ -4650,6 +4680,7 @@ This meta-registry: the closed set of closed sets.
   - `canary-tests`
   - `temp-directory-creator-authorities`
   - `test-real-delay-boundaries`
+  - `test-shell-wait-boundaries`
   - `real-pty-contracts`
   - `ambient-state-boundaries`
   - `clock-primitive-boundaries`

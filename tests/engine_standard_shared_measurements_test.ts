@@ -405,7 +405,7 @@ Deno.test("shared Standard measurement: cancellation fans out without a second p
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const command =
-      "printf x >> .git/shared-runs; sleep 30; echo DISCERN_METRIC first 5; echo DISCERN_METRIC second 20";
+      "printf x >> .git/shared-runs; tail -f /dev/null; echo DISCERN_METRIC first 5; echo DISCERN_METRIC second 20";
     await writeConfig(
       dir,
       standardsConfig([
@@ -455,7 +455,7 @@ Deno.test("shared Standard measurement: a timeout fans out naming each member's 
     // command. The leader carries its own `timeout`; the sibling inherits the
     // run-level [gate].timeout of the same length, so the process is shared
     // (equal effective budget) while the provenance differs per member.
-    const command = "sleep 30";
+    const command = "tail -f /dev/null";
     await writeConfig(
       dir,
       [

@@ -56,7 +56,7 @@ realPtyTest({
       await preparedRepo(
         dir,
         config([
-          'format = "sleep 1"',
+          'format = "true"',
           'lint = "true"',
         ]),
       );
@@ -96,7 +96,7 @@ realPtyTest({
         config([
           'format = "true"',
           `lint = "${failing}"`,
-          'typecheck = "sleep 2"',
+          'typecheck = "tail -f /dev/null"',
         ]),
       );
 

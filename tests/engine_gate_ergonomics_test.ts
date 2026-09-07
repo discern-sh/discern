@@ -3,8 +3,8 @@
  * line-prefixed output) and `[gate].fail_fast` (cancel in-flight siblings on
  * first failure). These drive `agent finish` with two independent commands in the
  * same parallel check stage: one fails fast and its sibling would otherwise
- * run for seconds. The fixture stays independent of the repository-wide test
- * cap, which deliberately separates check from test when enabled.
+ * remain active until cancelled. The fixture stays independent of the
+ * repository-wide test cap, which deliberately separates check from test when enabled.
  */
 
 import { join } from "@std/path";
@@ -19,17 +19,11 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
-/**
- * A config with two jobs in the same parallel check stage. `sleepS` sets
- * how long the slow sibling would run uncancelled — a cancellation test needs a
- * window wide enough that a loaded machine cannot let the sleep win the race
- * against the abort.
- */
+/** A held sibling acknowledges startup before the fail-fast trigger runs. */
 function failFastConfig(
   opts: {
     failFast?: boolean;
     stream?: boolean;
-    sleepS?: number;
     ready?: string;
   },
 ): string {
@@ -53,9 +47,9 @@ function failFastConfig(
     'stage = "check"',
     `run = ${
       JSON.stringify(
-        `${
-          opts.ready === undefined ? "" : `echo started > '${opts.ready}'; `
-        }sleep ${opts.sleepS ?? 5}; echo RAN-TO-END${
+        `${opts.ready === undefined ? "" : `echo started > '${opts.ready}'; `}${
+          opts.ready === undefined ? "" : "tail -f /dev/null; "
+        }echo RAN-TO-END${
           opts.ready === undefined ? "" : ` > '${opts.ready}.done'`
         }`,
       )
@@ -80,7 +74,6 @@ for (const failFast of [true, undefined]) {
           dir,
           failFastConfig({
             ...(failFast === undefined ? {} : { failFast }),
-            sleepS: 30,
             ready,
           }),
         );

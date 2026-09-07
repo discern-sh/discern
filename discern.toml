@@ -1077,7 +1077,7 @@
     "deno.lock",
   ]
 
-# Real test-delay boundary standard — every genuine elapsed-time dependency
+# JavaScript test-delay boundary standard — every genuine timer dependency
 # is a stable registry member bound one-to-one to a literal `realDelay` call.
 # The census scans all executable test and fixture text, including child
 # source embedded in strings, before emitting the raw registry population.
@@ -1430,6 +1430,8 @@
 # whether elapsed time remains behavior or stimulus rather than readiness.
 [checkpoints.terminal-timing-readiness]
   paths = [
+    "tests/test_shell_wait*.ts",
+    "tests/shell_barrier.ts",
     "tests/waiting.ts",
     "tests/test_waiting_guard.ts",
     "scripts/test_real_delay_boundaries.ts",

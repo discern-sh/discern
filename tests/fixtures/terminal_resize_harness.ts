@@ -4,7 +4,7 @@
  * evidence is written out of band for the parent test.
  */
 
-import { realDelay, waitUntil } from "../waiting.ts";
+import { waitForPendingCondition } from "../waiting.ts";
 
 interface TerminalDimensions {
   readonly columns: number;
@@ -22,8 +22,8 @@ interface HarnessOptions {
   readonly resultPath: string;
   readonly initialSize: TerminalDimensions;
   readonly resize?: TerminalDimensions & {
-    readonly delayMs: number;
-    readonly whenPath?: string;
+    readonly whenPath: string;
+    readonly releasePath: string;
   };
   readonly command: string;
   readonly commandArgs: readonly string[];
@@ -47,32 +47,35 @@ function parseOptions(args: readonly string[]): HarnessOptions {
   const initialSize = dimensions(argument(args, "--size"));
   const resizeSize = dimensions(argument(args, "--resize"));
   const resizeWhenPath = argument(args, "--resize-when");
+  const releasePath = argument(args, "--release-after-resize");
   const command = separator < 0 ? undefined : args[separator + 1];
   if (
     resultPath === undefined || initialSize === undefined ||
     command === undefined
   ) {
-    throw new TypeError("--result, --size, and a command after -- are required");
+    throw new TypeError(
+      "--result, --size, and a command after -- are required",
+    );
   }
-  const resizeDelay = Number(argument(args, "--resize-after") ?? "100");
   if (
     resizeSize !== undefined &&
-    (!Number.isFinite(resizeDelay) || resizeDelay < 0)
+    (resizeWhenPath === undefined || releasePath === undefined)
   ) {
-    throw new TypeError("--resize-after must be a non-negative number");
+    throw new TypeError(
+      "a resize requires --resize-when and --release-after-resize",
+    );
   }
   return {
     resultPath,
     initialSize,
-    ...(resizeSize === undefined
+    ...(resizeSize === undefined || resizeWhenPath === undefined ||
+        releasePath === undefined
       ? {}
       : {
         resize: {
           ...resizeSize,
-          delayMs: resizeDelay,
-          ...(resizeWhenPath === undefined
-            ? {}
-            : { whenPath: resizeWhenPath }),
+          whenPath: resizeWhenPath,
+          releasePath,
         },
       }),
     command,
@@ -101,17 +104,24 @@ function consoleSize(): TerminalDimensions {
   return { columns: size.columns, rows: size.rows };
 }
 
-/** Await a job-owned readiness file so the resize occurs during real work. */
-async function waitForPath(path: string): Promise<void> {
-  await waitUntil(async () => {
-    try {
-      await Deno.stat(path);
-      return true;
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
-      return false;
-    }
-  }, `resize readiness path ${path}`, { timeoutMs: 10_000 });
+/** Await the parent acknowledgement that the initial live frame was observed. */
+async function waitForPath(
+  path: string,
+  pending: Promise<Deno.CommandStatus>,
+): Promise<void> {
+  await waitForPendingCondition(
+    pending,
+    async () => {
+      try {
+        await Deno.stat(path);
+        return true;
+      } catch (error) {
+        if (!(error instanceof Deno.errors.NotFound)) throw error;
+        return false;
+      }
+    },
+    `resize readiness path ${path}`,
+  );
 }
 
 async function main(args: readonly string[]): Promise<void> {
@@ -119,25 +129,37 @@ async function main(args: readonly string[]): Promise<void> {
   await setSize(options.initialSize);
   const initialSize = consoleSize();
   let resizedSize: TerminalDimensions | undefined;
-  const resize = options.resize === undefined
-    ? undefined
-    : (async (): Promise<void> => {
-      if (options.resize?.whenPath !== undefined) {
-        await waitForPath(options.resize.whenPath);
-      }
-      await realDelay("terminal-resize-delay", options.resize?.delayMs ?? 0);
-      if (options.resize === undefined) return;
-      await setSize(options.resize);
-      resizedSize = consoleSize();
-    })();
   const child = new Deno.Command(options.command, {
     args: [...options.commandArgs],
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   }).spawn();
-  const status = await child.status;
-  await resize;
+  const pendingStatus = child.status;
+  const requestedResize = options.resize;
+  const resize = requestedResize === undefined
+    ? undefined
+    : (async (): Promise<void> => {
+      await waitForPath(requestedResize.whenPath, pendingStatus);
+      await setSize(requestedResize);
+      resizedSize = consoleSize();
+      using release = await Deno.open(requestedResize.releasePath, {
+        write: true,
+      });
+      if (await release.write(Uint8Array.of(10)) !== 1) {
+        throw new Error("resize acknowledgement was not written");
+      }
+    })();
+  let status: Deno.CommandStatus;
+  try {
+    [status] = await Promise.all([pendingStatus, resize]);
+  } catch (error) {
+    try {
+      child.kill("SIGTERM");
+    } catch { /* The child may already have settled. */ }
+    await pendingStatus;
+    throw error;
+  }
   const evidence: TerminalResizeEvidence = {
     childCode: status.code,
     initialSize,

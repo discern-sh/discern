@@ -53,7 +53,7 @@ Deno.test("standalone test records pass/fail outcomes and concurrent execution w
   for (const fails of [false, true]) {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
-      const sibling = fails ? "sleep 2" : "true";
+      const sibling = fails ? "tail -f /dev/null" : "true";
       await writeConfig(
         dir,
         `[project]\nslug = "evidence-fixture"\n[jobs]\ntest = "${
@@ -156,7 +156,7 @@ Deno.test("failing done records the failed test job and cancelled sibling", asyn
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[project]\nslug = "evidence-fixture"\n[jobs]\nlint = "sleep 2"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\nlint = "tail -f /dev/null"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
     );
     await gitInit(dir);
 
