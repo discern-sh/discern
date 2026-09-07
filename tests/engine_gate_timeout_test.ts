@@ -38,6 +38,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { refreshScaffold } from "./engine_done_fixture.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 
@@ -268,6 +269,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
       { append: true },
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
 
     const pending = runAgent(dir, ["done", "--json"]);
     const r = await settleAfterReadiness(
@@ -347,6 +349,7 @@ async function assertStageKindTimesOut(opts: {
       { append: true },
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     if (opts.changedFile !== undefined) {
       await writeExecutable(join(dir, opts.changedFile), "x");
     }
@@ -546,6 +549,7 @@ async function assertOverrideBoundsOwnJob(opts: {
       { append: true },
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
 
     const pending = runAgent(dir, ["done", "--json"]);
     const r = await settleAfterReadiness(
@@ -637,6 +641,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
       { append: true },
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
     const pending = runAgent(dir, ["done", "--json"]);
@@ -713,6 +718,7 @@ Deno.test("timeout override: the bare command-or-list capability form parses and
       { append: true },
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
   });
