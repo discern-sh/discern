@@ -1,3 +1,4 @@
+import { executionRecoveryStatus } from "../execution/public_recovery.ts";
 import { emergencyValidationStatus } from "../emergency/obligations.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
@@ -339,7 +340,11 @@ export async function statusResult(
   const fleetLed = includeFleet && location === "main";
 
   const emergencyValidation = await emergencyValidationStatus(root);
+  const executionRecovery = await executionRecoveryStatus(root);
   const data: StatusData = {
+    ...(executionRecovery.length
+      ? { execution_recovery: executionRecovery }
+      : {}),
     ...(emergencyValidation.length
       ? { emergency_validation: emergencyValidation }
       : {}),
@@ -695,6 +700,11 @@ export async function statusResult(
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
   });
+  for (const recovery of executionRecovery) {
+    hints.push(
+      fire(HINTS["execution-recovery"], { id: recovery.environment_id }),
+    );
+  }
   for (const exception of emergencyValidation) {
     if (exception.state === "outstanding") {
       hints.push(

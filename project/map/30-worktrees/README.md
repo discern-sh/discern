@@ -41,3 +41,5 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   180 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |
 
 [Emergency integration](emergency-integration.md) records an explicit owner decision to integrate before machine validation finishes. It issues no passing Proof.
+
+[Execution recovery](execution-recovery.md) returns a retained borrowed checkout and its queue reservation without repeating validation or landing.

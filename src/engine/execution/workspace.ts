@@ -44,6 +44,7 @@ import {
   captureGitSnapshot,
   containedFile,
   executionGit,
+  requireRestorableSnapshot,
   snapshotValue,
 } from "./snapshot.ts";
 import type {
@@ -187,6 +188,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     declaration: EnvironmentDeclaration | null,
   ): Promise<WorkspaceSnapshot> {
     const state = await this.state(environment, declaration);
+    if (declaration !== null) requireRestorableSnapshot(state.git);
     if (environment.ownership.kind === "borrowed") {
       const source = environment.ownership.source;
       if (
@@ -263,6 +265,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     source: WorkspaceSnapshot,
   ): Promise<WorkspaceSnapshot> {
     const original = await this.frozen(source);
+    if (plan.action !== "source-tip") requireRestorableSnapshot(original.git);
     await this.verify(execution.environment, source);
     const { path } = execution.environment;
     if (original.git === null) {
@@ -423,6 +426,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       plan.declaration,
       original,
     );
+    if (plan.action !== "source-tip") requireRestorableSnapshot(state.git);
     if (
       execution.environment.ownership.kind === "isolated" && state.git !== null
     ) {
@@ -495,6 +499,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     const original = await this.frozen(source);
     const drift = await this.frozen(captured);
     const current = drift.git;
+    if (plan.action !== "source-tip") requireRestorableSnapshot(current);
     const { environment, candidate } = execution;
     if (current === null) {
       if (original.git !== null) {
@@ -621,6 +626,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       original,
     );
     const git = current.git;
+    if (plan.action !== "source-tip") requireRestorableSnapshot(git);
     if (git === null) throw new Error("The environment has no ready checkout.");
     if (git.status !== "") {
       throw new Error(
@@ -675,6 +681,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     await this.verify(execution.environment, captured);
     const state = await this.frozen(captured);
     if (state.git === null) return;
+    requireRestorableSnapshot(state.git);
     if (
       state.git.status !== "" || state.git.branch !== null ||
       state.git.head !== execution.candidate.head

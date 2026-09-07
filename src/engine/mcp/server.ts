@@ -560,6 +560,9 @@ export const TOOLS: McpTool[] = orderTools([
       policy_base: z.string().optional().describe(
         "Fetched policy base for a standalone CI report only.",
       ),
+      recover: z.string().optional().describe(
+        "Return this owned execution environment and reconcile its queue reservation without validation or landing.",
+      ),
       retain_checkout: z.boolean().optional().describe(
         "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
       ),
@@ -572,6 +575,7 @@ export const TOOLS: McpTool[] = orderTools([
     },
     run: (root, args, signal, context) =>
       finishResult(root, {
+        ...(args.recover === undefined ? {} : { recover: args.recover }),
         ...(args.policy_base === undefined
           ? {}
           : { policyBase: args.policy_base }),

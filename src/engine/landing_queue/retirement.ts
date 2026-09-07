@@ -41,7 +41,10 @@ import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import { SnapshotSchema } from "../execution/snapshot_schema.ts";
 import { WorkspaceStateSchema } from "../execution/workspace_state.ts";
-import { captureGitSnapshot } from "../execution/snapshot.ts";
+import {
+  captureGitSnapshot,
+  requireRestorableSnapshot,
+} from "../execution/snapshot.ts";
 import { recoveryFor } from "../execution/types.ts";
 import {
   registeredWorktreeRecord,
@@ -220,6 +223,7 @@ export async function retireQueueLanding(
       ) return { kind: "retained", reason: "dirty" };
       await capabilities.workspace.verify(current.record.data, snapshot);
       const state = WorkspaceStateSchema.parse(snapshot.value);
+      requireRestorableSnapshot(state.git);
       const branch = landing.data.source.branch.slice("refs/heads/".length);
       const ownership = {
         kind: "worktree" as const,
@@ -351,6 +355,7 @@ async function applyRetirement(
       await readEnvironmentArtifact(runtime.root, capture),
     );
     const state = WorkspaceStateSchema.parse(frozen.snapshot.value);
+    requireRestorableSnapshot(state.git);
     const environment = frozen.environment;
     path = environment.path;
     if (
@@ -443,6 +448,7 @@ async function applyRetirement(
           });
         }
         const git = await captureGitSnapshot(path, bounds);
+        requireRestorableSnapshot(git);
         if (
           git.head !== record.data.source.head ||
           git.branch !== record.data.source.branch ||

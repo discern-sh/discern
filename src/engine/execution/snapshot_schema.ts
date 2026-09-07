@@ -38,5 +38,9 @@ export const GitSnapshotSchema = z.strictObject({
   staged_patch: z.string(),
   status: z.string(),
   files: z.array(FileSchema),
+  opaque_ignored_repositories: z.array(z.strictObject({
+    path: CheckoutPathSchema,
+    administration: z.enum(["file", "directory"]),
+  })).optional(),
 });
 export type GitSnapshot = z.infer<typeof GitSnapshotSchema>;

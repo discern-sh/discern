@@ -2021,6 +2021,16 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
+  "execution-recovery": defineHint<{ id: string }>({
+    id: "execution-recovery",
+    category: "next-step",
+    audience: "all",
+    when: "A recorded execution environment has not returned to its owner.",
+    example: { id: "00000000-0000-4000-8000-000000000001" },
+    template: ({ id }): string =>
+      `Preserve the retained paths and reconcile the recorded recovery reason. From the owning worktree, run discern done --recover ${id}. This returns the checkout without validation or landing.`,
+  }),
+
   "emergency-outstanding": defineHint<{ id: string }>({
     id: "emergency-outstanding",
     category: "notice",

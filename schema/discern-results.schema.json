@@ -22233,6 +22233,35 @@
             {
               "type": "object",
               "properties": {
+                "execution_recovery": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "environment_id": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "retained_paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "environment_id",
+                      "reason",
+                      "retained_paths",
+                      "next_action"
+                    ]
+                  }
+                },
                 "emergency_validation": {
                   "type": "array",
                   "items": {

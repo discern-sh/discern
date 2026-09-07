@@ -1142,6 +1142,11 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         : `${code(commandName(result))} stopped at ${code(failedStage)}.`,
     ),
     evidence: unique([
+      ...records(data.execution_recovery).map((row) =>
+        `Execution environment ${code(row.environment_id)} requires recovery: ${
+          text(row.reason) ?? ""
+        } Next: ${code(row.next_action)}.`
+      ),
       ...emergencyValidationFacts(data),
       failedStage === undefined
         ? undefined
@@ -1689,6 +1694,11 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result, state),
     evidence: unique([
+      ...records(data.execution_recovery).map((row) =>
+        `Execution environment ${code(row.environment_id)} requires recovery: ${
+          text(row.reason) ?? ""
+        } Next: ${code(row.next_action)}.`
+      ),
       ...emergencyValidationFacts(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,
       git === undefined
@@ -1812,6 +1822,11 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
+      ...records(data.execution_recovery).map((row) =>
+        `Execution environment ${code(row.environment_id)} requires recovery: ${
+          text(row.reason) ?? ""
+        } Next: ${code(row.next_action)}.`
+      ),
       ...emergencyValidationFacts(data),
       text(data.root) === undefined
         ? undefined

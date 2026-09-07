@@ -47,6 +47,7 @@ import {
 } from "../../shared/discern_commit.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import {
+  gitPathRecord,
   parsePorcelainZ,
   type PorcelainEntry,
   splitNulRecords,
@@ -625,7 +626,7 @@ async function ignoredCheckoutCollisions(
   const targetWrites = splitNulRecords(writes.stdout);
   return splitNulRecords(ignored.stdout).filter((localPath) =>
     targetWrites.some((targetPath) =>
-      checkoutPathsCollide(localPath, targetPath)
+      checkoutPathsCollide(gitPathRecord(localPath).path, targetPath)
     )
   );
 }

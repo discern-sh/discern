@@ -1,3 +1,4 @@
+import { gitPathRecord } from "../../shared/git_paths.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
@@ -108,6 +109,15 @@ export async function observeValidationInputs(
       ...new Set([...listed.stdout.split("\0").filter(Boolean), ...toolchain]),
     ].sort()
   ) {
+    const entry = gitPathRecord(path);
+    if (entry.kind === "directory") {
+      await containedFile(root, entry.path);
+      throw new Error(
+        `Validation input ${
+          JSON.stringify(path)
+        } is a Git directory record, not captured file bytes. Commit or reconcile the nested repository before validating this source.`,
+      );
+    }
     const safe = await containedFile(root, path);
     const stat = await lstatIfExists(safe);
     if (stat === undefined) continue;

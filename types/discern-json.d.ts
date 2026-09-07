@@ -7181,6 +7181,12 @@ export type DiscernStatusResult = DiscernResultState & {
   message?: string;
   verb: "status";
   data?: {
+    execution_recovery?: Array<{
+      environment_id: string;
+      reason: string;
+      retained_paths: Array<string>;
+      next_action: string;
+    }>;
     emergency_validation?: Array<{
       landing_id: string;
       head: string;

@@ -247,6 +247,10 @@ export function attachEngineCommands(
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
   root
     .command("done")
+    .option(
+      "--recover <environment-id:string>",
+      "Return this owned execution environment and reconcile its queue reservation without running validation or landing.",
+    )
     .description(
       "Run finishing steps that may change files, then verify the gate — the project's " +
         "full quality check: format, lint, type-check, and tests.",
@@ -344,6 +348,7 @@ export function attachEngineCommands(
           import("./gate/finish.ts")
         );
         return await runFinish(await requireRoot("done", json), {
+          ...(o.recover === undefined ? {} : { recover: o.recover }),
           ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
           ...(o.retainCheckout === undefined
             ? {}

@@ -18,6 +18,8 @@ export async function reconcileQueueWork(input: {
   readonly effort: string;
   readonly expected_stamp: string;
   readonly clock?: Clock;
+  /** Exact terminal inner attempt returned under native checkout exclusion. */
+  readonly returned_attempt?: string;
 }): Promise<{ readonly kind: "released" | "replan" } | CompletionBlocker> {
   const clock = input.clock ?? SYSTEM_CLOCK;
   return await withQueueLock(input.root, async () => {
@@ -47,9 +49,28 @@ export async function reconcileQueueWork(input: {
       record.kind === "attempt" &&
       record.data.identity.candidate_id === entry.candidate_id
     );
+    const returned = attempts.find((attempt) =>
+      attempt.id === input.returned_attempt
+    );
+    const returnedEnvironment = records.find((record) =>
+      record.kind === "environment" &&
+      record.id === returned?.data.environment_id
+    );
+    const recovered = returned?.data.state.kind === "finished" &&
+      returnedEnvironment?.kind === "environment" &&
+      returnedEnvironment.data.state.kind === "idle" &&
+      returnedEnvironment.data.state.returned_attempt_id === returned.id &&
+      returnedEnvironment.data.ownership.kind === "borrowed" &&
+      returnedEnvironment.data.ownership.source.effort_id === input.effort;
     for (const attempt of attempts) {
+      const recoveredOuter = recovered && attempt.data.subjects.length === 0 &&
+        attempt.data.environment_id === returned.data.environment_id &&
+        attempt.data.identity.executor.operation_id ===
+          returned.data.identity.executor.operation_id &&
+        attempt.data.identity.sequence < returned.data.identity.sequence;
+
       if (
-        attempt.data.state.kind === "claimed" &&
+        !recoveredOuter && attempt.data.state.kind === "claimed" &&
         attempt.data.state.claim.expires_at > clock.wallNow()
       ) {
         return {

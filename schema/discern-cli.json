@@ -3566,6 +3566,20 @@
         },
         {
           "spellings": [
+            "--recover"
+          ],
+          "description": "Return this owned execution environment and reconcile its queue reservation without running validation or landing.",
+          "type_definition": "<environment-id:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
             "--dry-run"
           ],
           "description": "Show the gate plan (the jobs and scope-gates that would run); touch nothing.",

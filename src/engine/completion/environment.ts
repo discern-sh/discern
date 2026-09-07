@@ -124,7 +124,10 @@ export const EnvironmentSchema = z.strictObject({
     }),
   ]),
   state: z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("idle") }),
+    z.strictObject({
+      kind: z.literal("idle"),
+      returned_attempt_id: RecordIdSchema.optional(),
+    }),
     z.strictObject({
       kind: z.literal("executing"),
       attempt_id: RecordIdSchema,

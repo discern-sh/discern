@@ -4,7 +4,7 @@ import { dirname, join } from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
 import { runGit } from "../../shared/subprocess.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
-import { splitNulRecords } from "../../shared/git_paths.ts";
+import { gitPathRecord, splitNulRecords } from "../../shared/git_paths.ts";
 import type { Scheduler } from "../../shared/scheduler.ts";
 import {
   CheckoutPathSchema,
@@ -64,7 +64,13 @@ export async function containedFile(
   root: string,
   path: string,
 ): Promise<string> {
-  CheckoutPathSchema.parse(path);
+  if (!CheckoutPathSchema.safeParse(path).success) {
+    throw new Error(
+      `Invalid checkout capture path ${
+        JSON.stringify(path)
+      }: checkout file must be a literal relative path outside Git administration.`,
+    );
+  }
   let parent = dirname(path);
   while (parent !== ".") {
     try {
@@ -253,8 +259,52 @@ async function captureOnce(
   }
   const budget = { remaining: bounds.maxBytes };
   const files = [];
-  for (const path of [...names].sort()) {
-    files.push(await captureFile(root, path, ignored.has(path), budget));
+  const repositories: NonNullable<GitSnapshot["opaque_ignored_repositories"]> =
+    [];
+  for (const label of [...names].sort()) {
+    const entry = gitPathRecord(label);
+    if (entry.kind === "file") {
+      files.push(
+        await captureFile(root, entry.path, ignored.has(label), budget),
+      );
+      continue;
+    }
+    const target = await containedFile(root, entry.path);
+    const directory = await Deno.lstat(target).catch(() => {
+      throw new Error(
+        `Git directory record ${
+          JSON.stringify(label)
+        } disappeared during capture. Preserve the checkout and retry after writers stop.`,
+      );
+    });
+    if (!directory.isDirectory || directory.isSymlink || !ignored.has(label)) {
+      throw new Error(
+        `Capture cannot preserve Git directory record ${
+          JSON.stringify(label)
+        } as an ignored repository. Keep this path intact and reconcile its ownership before retrying.`,
+      );
+    }
+    const administration = await Deno.lstat(join(target, ".git")).catch(() => {
+      throw new Error(
+        `Git directory record ${
+          JSON.stringify(label)
+        } has no readable repository administration. Preserve this path for reconciliation.`,
+      );
+    });
+    if (
+      administration.isSymlink ||
+      (!administration.isFile && !administration.isDirectory)
+    ) {
+      throw new Error(
+        `Nested repository administration at ${
+          JSON.stringify(entry.path)
+        } has no supported preservation contract. Keep it intact.`,
+      );
+    }
+    repositories.push({
+      path: entry.path,
+      administration: administration.isDirectory ? "directory" : "file",
+    });
   }
   const index = encodeBase64(await Deno.readFile(indexPath));
   const stagedPatch = await git([
@@ -293,6 +343,9 @@ async function captureOnce(
       "--ignore-submodules=none",
     ]),
     files,
+    ...(repositories.length
+      ? { opaque_ignored_repositories: repositories }
+      : {}),
   });
 }
 
@@ -331,4 +384,16 @@ export async function captureGitSnapshot(
     );
   }
   return second;
+}
+
+/** Opaque repository boundaries authorize source-tip preservation, never temporary restoration or disposal. */
+export function requireRestorableSnapshot(snapshot: GitSnapshot | null): void {
+  const opaque = snapshot?.opaque_ignored_repositories?.[0];
+  if (opaque !== undefined) {
+    throw new Error(
+      `Temporary execution cannot restore ignored nested repository ${
+        JSON.stringify(opaque.path)
+      } from checkout-file capture. Preserve its data and Git administration. Use source-tip validation, or reconcile this path outside the temporary environment before recovery; do not delete it to bypass capture.`,
+    );
+  }
 }

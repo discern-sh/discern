@@ -1945,6 +1945,12 @@ const reappearedWorktreePathSchema = z.strictObject({
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
+  execution_recovery: z.array(z.strictObject({
+    environment_id: z.string(),
+    reason: z.string(),
+    retained_paths: z.array(z.string()),
+    next_action: z.string(),
+  })).optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),
   root: z.string(),

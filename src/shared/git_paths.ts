@@ -18,6 +18,15 @@ export function splitNulRecords(stdout: string): string[] {
   return stdout.split("\0").filter((r) => r !== "");
 }
 
+/** Git's directory suffix is record metadata; it is never an empty filename component. */
+export function gitPathRecord(
+  label: string,
+): { kind: "file" | "directory"; path: string } {
+  return label.endsWith("/")
+    ? { kind: "directory", path: label.slice(0, -1) }
+    : { kind: "file", path: label };
+}
+
 /** One `git check-attr --stdin -z <attribute>` output triple. */
 export interface GitAttributeRecord {
   readonly path: string;

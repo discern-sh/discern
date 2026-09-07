@@ -1,4 +1,8 @@
 import {
+  recoverCompletionResult,
+  recoveryArgumentConflict,
+} from "../execution/public_recovery.ts";
+import {
   emergencyValidationStatus,
   resolveEmergencyValidation,
 } from "../emergency/obligations.ts";
@@ -315,6 +319,7 @@ async function runCandidateGate(
     };
     completion?: CompletionSession;
     execution?: ReleasedCompletionExecution;
+    recover?: string;
     retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
@@ -1731,6 +1736,7 @@ export type FinishResultSurface =
 export interface FinishResultOptions {
   /** Internal accept capability names an already released slot and its observed stamp. */
   execution?: ReleasedCompletionExecution;
+  recover?: string;
   retainCheckout?: boolean;
   policyBase?: string;
   standalone?: boolean;
@@ -1770,6 +1776,17 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
+  if (opts.recover !== undefined) {
+    return recoveryArgumentConflict(opts)
+      ? {
+        ok: false,
+        verb: "done",
+        error: "invalid_arguments",
+        message:
+          "Recovery cannot be combined with validation, release, policy, or judgment options. Run done --recover separately.",
+      }
+      : await recoverCompletionResult(root, opts.recover, opts.dryRun);
+  }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
     const refusal: DiscernResult<GateData> = {
@@ -1934,6 +1951,7 @@ export async function runFinish(
   opts: {
     json: boolean;
     standalone?: boolean;
+    recover?: string;
     retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
@@ -1947,6 +1965,20 @@ export async function runFinish(
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
+  if (opts.recover !== undefined) {
+    const result: DiscernResult<GateData> = recoveryArgumentConflict(opts)
+      ? {
+        ok: false,
+        verb: "done",
+        error: "invalid_arguments",
+        message:
+          "Recovery cannot be combined with validation, release, policy, or judgment options. Run done --recover separately.",
+      }
+      : await recoverCompletionResult(root, opts.recover, opts.dryRun);
+    observeResult(result);
+    emitResult(result);
+    return result.ok ? 0 : 1;
+  }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
     const refusal: DiscernResult<GateData> = {

@@ -88,6 +88,7 @@ export interface EnvironmentExecutorOptions {
   readonly entropy?: SecureEntropy;
   readonly scheduler?: Scheduler;
   /** Deterministic interruption seam after a phase is durable, before its effect. */
+  readonly afterReturn?: () => Promise<void>;
   readonly afterPhase?: (
     phase: EnvironmentPhase,
     execution: ClaimedExecution,
@@ -576,7 +577,10 @@ class ExecutorImplementation implements EnvironmentExecutor {
           : current.record.data.release,
         state: disposable
           ? { kind: "disposed" as const, at: this.clock.wallNow() }
-          : { kind: "idle" as const },
+          : {
+            kind: "idle" as const,
+            returned_attempt_id: execution.fence.attempt_id,
+          },
       };
       if (
         !disposable && environment.release.kind === "released"
@@ -610,7 +614,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
           phase,
           `${
             errorReason(error)
-          } Retry recovery for environment ${execution.environment_id} with a fresh observed stamp after reconciliation.`,
+          } After reconciling the retained paths, run discern done --recover ${execution.environment_id} from the owning worktree.`,
           execution.environment.path,
           cleanupCommands(intent),
           quiescent,
@@ -839,6 +843,61 @@ class ExecutorImplementation implements EnvironmentExecutor {
     }
     if (state.kind === "disposed") return { kind: "disposed", environment };
     if (state.kind === "idle") {
+      if (state.returned_attempt_id !== undefined) {
+        const intent = await loadExecutionIntent(
+          this.options.root,
+          state.returned_attempt_id,
+          environmentId,
+        );
+        if (
+          JSON.stringify(intent.environment.ownership) !==
+            JSON.stringify(environment.ownership) ||
+          intent.environment.path !== environment.path
+        ) {
+          throw new Error(
+            "Returned attempt disagrees with frozen environment ownership.",
+          );
+        }
+        const execution: ClaimedExecution = {
+          fence: {
+            attempt_id: state.returned_attempt_id,
+            token: intent.attempt.state.kind === "claimed" ||
+                intent.attempt.state.kind === "composing"
+              ? intent.attempt.state.claim.token
+              : executor.operation_id,
+          },
+          attempt: intent.attempt,
+          environment_id: environmentId,
+          environment,
+          candidate_id: intent.candidate_id,
+          candidate: intent.candidate,
+          signal: new AbortController().signal,
+        };
+        await this.options.workspace.verifyReturned(
+          execution,
+          intent.recipe,
+          intent.source,
+        );
+        if (
+          !await this.options.lifetime.quiesce(
+            environment.path,
+            state.returned_attempt_id,
+          )
+        ) {
+          return {
+            kind: "recovery-incomplete",
+            recovery: {
+              ...pending,
+              reason: "Returned attempt child quiescence remains unproved.",
+            },
+          };
+        }
+        await this.settleAttempt(execution, {
+          kind: "finished",
+          outcome: "cancelled",
+          finished_at: this.clock.wallNow(),
+        });
+      }
       return {
         kind: environment.ownership.kind === "borrowed" ? "restored" : "reset",
         environment,
@@ -934,6 +993,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
           );
           const returned = await this.returnEnvironment(bound, intent);
           if (returned.kind !== "recovery-incomplete") {
+            await this.options.afterReturn?.();
             await this.settleAttempt(execution, {
               kind: "finished",
               outcome: "cancelled",

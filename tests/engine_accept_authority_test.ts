@@ -1761,3 +1761,34 @@ Deno.test("successful acceptance evidence covers every canonical landing-consent
     [...LANDING_CONSENT_SOURCES].sort(),
   );
 });
+
+Deno.test("landing collision protection preserves a Git directory record when target writes its descendant", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root);
+    await writeConfig(root, authorityConfig(["map"]));
+    await Deno.writeTextFile(join(root, ".gitignore"), "cache/\n");
+    await gitInit(root);
+    const expected = await gitOut(root, "rev-parse", "HEAD");
+    const path = await addWorktree(root, "nested-collision");
+    await Deno.mkdir(join(path, "cache/package"), { recursive: true });
+    await Deno.writeTextFile(join(path, "cache/package/new"), "candidate");
+    await git(path, "add", "-f", "cache/package/new");
+    await git(path, "commit", "-m", "Track nested descendant");
+    await Deno.mkdir(join(root, "cache/package"), { recursive: true });
+    await git(join(root, "cache/package"), "init", "-q");
+    await Deno.writeTextFile(join(root, "cache/package/owned"), "preserve");
+    const refused = await fastForwardCheckedOutBranch(
+      root,
+      "main",
+      expected,
+      await gitOut(path, "rev-parse", "HEAD"),
+    );
+    assertEquals(refused.kind, "dirty");
+    assertEquals(await gitOut(root, "rev-parse", "HEAD"), expected);
+    assertEquals(
+      await Deno.readTextFile(join(root, "cache/package/owned")),
+      "preserve",
+    );
+    assert((await Deno.lstat(join(root, "cache/package/.git"))).isDirectory);
+  });
+});

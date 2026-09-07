@@ -1,15 +1,18 @@
+import { gitPathRecord } from "../src/shared/git_paths.ts";
 /** Real bounded Git failures remain actionable in an environment's recovery. */
 import {
   assert,
   assertEquals,
   assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
 import { join } from "@std/path";
 import {
   captureGitSnapshot,
   containedFile,
   executionGit,
+  requireRestorableSnapshot,
 } from "../src/engine/execution/snapshot.ts";
 import { CheckoutPathSchema } from "../src/engine/execution/snapshot_schema.ts";
 import { ArtifactPathSchema } from "../src/engine/completion/evidence.ts";
@@ -322,6 +325,79 @@ Deno.test("release identity ignores native index refresh while preserving actual
       () => f.workspace.inspect(environment, f.declaration),
       Error,
       "clean source and index",
+    );
+  });
+});
+
+Deno.test("Git directory records preserve opaque ignored repositories without authorizing restoration", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(
+      join(root, ".gitignore"),
+      "cache/\nseparate-administration/\n",
+    );
+    await Deno.writeTextFile(join(root, "source"), "source\n");
+    await gitInit(root);
+    const bounds = {
+      maxFiles: 100,
+      maxBytes: 1024 * 1024,
+      gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
+    };
+    const nested = join(root, "cache", "package");
+    await Deno.mkdir(nested, { recursive: true });
+    await Deno.writeTextFile(join(nested, "content"), "package bytes");
+    assertEquals(
+      (await captureGitSnapshot(root, bounds)).opaque_ignored_repositories,
+      undefined,
+    );
+    await git(nested, "init", "-q");
+    const snapshot = await captureGitSnapshot(root, bounds);
+    assertEquals(snapshot.opaque_ignored_repositories, [{
+      path: "cache/package",
+      administration: "directory",
+    }]);
+    assert(
+      !snapshot.files.some((file) => file.path.startsWith("cache/package")),
+    );
+    assertThrows(
+      () => requireRestorableSnapshot(snapshot),
+      Error,
+      "cache/package",
+    );
+    await assertRejects(
+      () => captureGitSnapshot(root, { ...bounds, maxFiles: 2 }),
+      Error,
+      "file limit",
+    );
+    await assertRejects(
+      () => containedFile(root, gitPathRecord("../escape/").path),
+      Error,
+      "Invalid checkout capture path",
+    );
+    assertEquals(gitPathRecord("cache//"), {
+      kind: "directory",
+      path: "cache/",
+    });
+    await assertRejects(
+      () => containedFile(root, gitPathRecord("cache//").path),
+      Error,
+      "Invalid checkout capture path",
+    );
+    // A Git file is also administration, never content that can be restored as project bytes.
+    await git(
+      nested,
+      "init",
+      "--separate-git-dir",
+      join(root, "separate-administration"),
+    );
+    const withFile = await captureGitSnapshot(root, bounds);
+    assertEquals(withFile.opaque_ignored_repositories, [{
+      path: "cache/package",
+      administration: "file",
+    }]);
+    assertThrows(
+      () => requireRestorableSnapshot(withFile),
+      Error,
+      "cache/package",
     );
   });
 });

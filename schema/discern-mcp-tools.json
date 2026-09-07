@@ -150,6 +150,10 @@
             "description": "Fetched policy base for a standalone CI report only.",
             "type": "string"
           },
+          "recover": {
+            "description": "Return this owned execution environment and reconcile its queue reservation without validation or landing.",
+            "type": "string"
+          },
           "retain_checkout": {
             "description": "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
             "type": "boolean"

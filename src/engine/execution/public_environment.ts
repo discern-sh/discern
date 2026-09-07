@@ -125,7 +125,7 @@ export async function ownValidationEnvironment(
 }
 
 /** Construct the canonical workspace adapter for an owned or released source. */
-function validationWorkspace(
+export function validationWorkspace(
   root: string,
   config: DiscernConfig,
   environmentId: string,

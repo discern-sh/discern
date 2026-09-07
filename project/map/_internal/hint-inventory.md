@@ -540,6 +540,17 @@ Rendered example:
 
 > Session opened in the main checkout, where every effort lands. Keep one worktree for an effort across review feedback and resumed sessions. If this effort already has one, continue at its recorded path; pass `path` to every discern tool. If unavailable, ask for its path instead of creating another. Do not call `discern start` again. For a new effort, run `discern start` before editing and work in the worktree it returns. Questions and investigation can read from anywhere.
 
+## `execution-recovery`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: A recorded execution environment has not returned to its owner.
+
+Rendered example:
+
+> Preserve the retained paths and reconcile the recorded recovery reason. From the owning worktree, run discern done --recover 00000000-0000-4000-8000-000000000001. This returns the checkout without validation or landing.
+
 ## `failure-recovery`
 
 - Category: `next-step`
