@@ -176,7 +176,7 @@
 
 [completion]
   required_contexts = ["local"]
-  concurrency = 1
+  concurrency = 2
   lookahead = 1
 
 # The same required convergence runs on the composed tree and after source return.
@@ -199,7 +199,7 @@
     ".claude/skills/**",
   ]
   inputs = ["**"]
-  capacity = 1
+  capacity = 2
 
 [jobs]
   format = ["deno fmt", "discern tidy"]
