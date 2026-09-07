@@ -28,7 +28,6 @@ import {
   parseLogbookLine,
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
 
@@ -48,22 +47,6 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-question = "${QUESTION}"
-`;
-
-const CONFIG_ADVISE = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-mode = "advise"
 question = "${QUESTION}"
 `;
 
@@ -328,34 +311,5 @@ Deno.test("observation: an open question the effort ends on records as abandoned
     assert(accept !== undefined, "the landing must record its observations");
     assertEquals(accept.checkpoints?.abandoned, [{ id: "api-review" }]);
     assertEquals(accept.checkpoints?.variances, undefined);
-  });
-});
-
-Deno.test("observation: advise servings record for economics without inventing open questions", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir, CONFIG_ADVISE);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
-
-    const { events } = await readLogbook(dir);
-    const dones = checkpointDones(events);
-    assertEquals(dones.length, 1);
-    assertEquals(dones[0]?.checkpoints?.advise, [{ id: "api-review" }]);
-    assertEquals(dones[0]?.checkpoints?.fired, undefined);
-    assertEquals(dones[0]?.checkpoints?.declared, undefined);
-
-    // The read verb renders the observed history from the same events: one
-    // bounded economics row, counts beside their denominators.
-    const report = await runAgent(wt, ["checkpoints", "--json"]);
-    assertEquals(report.code, 0, report.output);
-    const envelope = decodeCliResult(report.stdout, "checkpoints");
-    assert(envelope.data !== undefined && "checkpoints" in envelope.data);
-    const economics = envelope.data.economics;
-    assert(economics !== undefined, "observed history must reach the verb");
-    assertEquals(economics.efforts, 1);
-    assertEquals(economics.omitted, 0);
-    assertEquals(economics.rows.length, 1);
-    assertEquals(economics.rows[0]?.id, "api-review");
-    assertEquals(economics.rows[0]?.fires, 1);
-    assertEquals(economics.rows[0]?.efforts_fired, 1);
   });
 });

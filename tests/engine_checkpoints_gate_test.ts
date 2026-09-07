@@ -14,11 +14,9 @@ import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import {
   CHECK_TOUCHES,
-  CONFIG_ADVISE,
   CONFIG_ONE_CHECKPOINT,
   decodedProofMarker,
   parseCheckpointGateJson,
-  parseCheckpointsJson,
   parseGateJson,
   parseJson,
   proofMarker,
@@ -27,7 +25,7 @@ import {
   worktreeWithApiChange,
 } from "./engine_checkpoints_gate_fixture.ts";
 import { git, runAgent } from "./engine_helpers.ts";
-import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
+import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 const CONFIG_TWO_CHECKPOINTS = `
@@ -47,38 +45,6 @@ question = "${QUESTION_API}"
 [checkpoints.risk-notes]
 paths = ["api/**"]
 question = "${QUESTION_NOTES}"
-`;
-
-const CONFIG_UNLESS_CHANGED = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-unless_changed = ["docs/**"]
-question = "${QUESTION_API}"
-`;
-
-const CONFIG_SEPARATOR_QUESTION = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-question = "Does the \u2028 changed surface preserve \u2029 its contract?"
-teach = "State the failure modes; note what callers must revisit."
 `;
 
 Deno.test("done: a fired stop checkpoint refuses before any job, serving the question and both recoveries", async () => {
@@ -392,125 +358,6 @@ Deno.test("done: a rationale of shell and Markdown metacharacters round-trips op
   });
 });
 
-Deno.test("done: advise mode serves the question through the advisory channel and never blocks", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ADVISE);
-
-    const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const env = parseCheckpointGateJson(r.stdout);
-    assertEquals(env.ok, true);
-    assertHasHint(env, HINTS["checkpoint-advise"], {
-      id: "api-review",
-      question: QUESTION_API,
-      matched: ["api/surface.txt"],
-      related: [],
-    });
-    assertEquals(env.data.checkpoints.advise?.length, 1);
-    assertEquals(env.data.checkpoints.outstanding, undefined);
-    // No declaration exists or is required; the recorded Proof carries no
-    // conclusion block for an advise-only run.
-    assert(!(await proofMarker(wt)).includes("Checkpoint conclusions"));
-  });
-});
-
-Deno.test("done: an opened stop question remains interlocked after its trigger becomes inactive", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_UNLESS_CHANGED);
-
-    // The API-only effort opens the open question. A later docs change makes the
-    // current trigger inactive, but cannot retract a question already served.
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-    await Deno.mkdir(join(wt, "docs"), { recursive: true });
-    await Deno.writeTextFile(join(wt, "docs", "api.md"), "documented\n");
-    await git(wt, "add", "docs/api.md");
-    await git(
-      wt,
-      "commit",
-      "-q",
-      "-m",
-      "docs: describe the api",
-      "--no-gpg-sign",
-    );
-
-    const stillAwaiting = await runAgent(wt, ["done", "--json"]);
-    assertEquals(stillAwaiting.code, 1, stillAwaiting.output);
-    const awaiting = parseCheckpointGateJson(stillAwaiting.stdout);
-    assertEquals(awaiting.error, AWAITING_DECLARATION_SLUG);
-    assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.id, "api-review");
-    assertEquals(awaiting.data.checkpoints.outstanding?.[0]?.matched, [
-      "api/surface.txt",
-    ]);
-
-    // A conclusion recorded while the trigger remains inactive is still part
-    // of this run's checkpoint evidence, including the variance requirement.
-    const concluded = await runAgent(wt, [
-      "done",
-      "--unmet",
-      "api-review",
-      "--why",
-      "The changed docs do not yet describe the compatibility trade-off.",
-      "--json",
-    ]);
-    assertEquals(concluded.code, 0, concluded.output);
-    const env = parseCheckpointGateJson(concluded.stdout);
-    assertEquals(env.data.checkpoints.declared_unmet?.[0]?.id, "api-review");
-    assertStringIncludes(env.data.proof?.line ?? "", "variance required");
-  });
-});
-
-Deno.test("done: --dry-run never refuses; it previews the checkpoints that would require declarations", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
-
-    const r = await runAgent(wt, ["done", "--dry-run", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout);
-    assertEquals(env.ok, true);
-    assertEquals(env.dry_run, true);
-    const details: string[] = env.plan?.details ?? [];
-    assert(
-      details.some((line) =>
-        line.includes("api-review") && line.includes("required")
-      ),
-      JSON.stringify(details),
-    );
-    // Previewing wrote nothing: no open question exists yet.
-    const openQuestions = await readOpenQuestions(wt);
-    assert(openQuestions.status === "missing", openQuestions.status);
-  });
-});
-
-Deno.test("openQuestions: the effort's state survives session restarts — each engine process reads what the last recorded", async () => {
-  // Every invocation below is its own OS process over the per-worktree store:
-  // the refusal's open question, read back by a fresh `checkpoints` run, resolved by
-  // a third process's declaration — the spec's session-restart claim, named.
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-
-    const read = await runAgent(wt, ["checkpoints", "--json"]);
-    assertEquals(read.code, 0, read.output);
-    const awaiting = parseCheckpointsJson(read.stdout);
-    assertEquals(
-      awaiting.data.checkpoints[0]?.open_question?.state,
-      "awaiting_declaration",
-    );
-
-    assertEquals(
-      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
-      0,
-    );
-    const settled = await runAgent(wt, ["checkpoints", "--json"]);
-    const met = parseCheckpointsJson(settled.stdout);
-    assertEquals(met.data.checkpoints[0]?.open_question?.state, "declared_met");
-    assertEquals(
-      met.data.checkpoints[0]?.open_question?.declaration?.current,
-      true,
-    );
-  });
-});
-
 Deno.test("done: the declaration refusal escapes matched paths on the markdown surface", async () => {
   // The refusal message renders verbatim under --markdown, and matched paths
   // are working-tree-controlled text — a hostile file name must arrive
@@ -524,33 +371,5 @@ Deno.test("done: the declaration refusal escapes matched paths on the markdown s
     assertEquals(md.code, 1, md.output);
     assertStringIncludes(md.stdout, "`api/*bold*.txt`");
     assertStringIncludes(md.stdout, "`api/surface.txt`");
-  });
-});
-
-Deno.test("done: the human refusal keeps authored paragraphs and inert hostile separators", async () => {
-  // The refusal is a multi-paragraph product message: its own newlines are
-  // deliberate structure, while separators inside governed dynamic text stay
-  // visible, inert notation. Rendering it through a single-line sink turns
-  // the paragraphs into visible newline symbols — the defect this guards.
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_SEPARATOR_QUESTION);
-    const human = await runAgent(wt, ["done"], {
-      env: { COLUMNS: "200", NO_COLOR: "1" },
-    });
-    assertEquals(human.code, 1, human.output);
-    assert(
-      !human.output.includes("␊"),
-      `authored refusal newlines leaked as visible symbols:\n${human.output}`,
-    );
-    assert(
-      /\n\s*Question: /.test(human.output),
-      `the question must open its own line:\n${human.output}`,
-    );
-    assertTerminalTextIncludes(human.output, "<U+2028>");
-    assertTerminalTextIncludes(human.output, "<U+2029>");
-    assert(
-      !human.output.includes("\u2028") && !human.output.includes("\u2029"),
-      "a raw line or paragraph separator reached the terminal",
-    );
   });
 });

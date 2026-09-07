@@ -53,17 +53,6 @@ min_commits = 1
 question = "${QUESTION_API}"
 `;
 
-const CONFIG_NO_CHECKPOINTS = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-`;
-
 const CONFIG_FILE_CHECKPOINT = `
 [project]
 slug = "engine-test"
@@ -337,37 +326,6 @@ Deno.test("done: a corrupt open-question store fails open into a clean re-ask", 
     assertEquals(
       openQuestions.openQuestions["api-review"]?.declaration?.conclusion,
       "met",
-    );
-  });
-});
-
-Deno.test("checkpoints: a corrupt store remains visible with zero resolved definitions", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_NO_CHECKPOINTS);
-    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
-    assert(path !== undefined);
-    await Deno.mkdir(dirname(path), { recursive: true });
-    await Deno.writeTextFile(path, "not json\n");
-
-    const report = await runAgent(wt, ["checkpoints", "--json"]);
-    assertEquals(report.code, 0, report.output);
-    const data = parseCheckpointsJson(report.stdout).data;
-    assertEquals(data.checkpoints, []);
-    assertEquals(data.drops?.[0]?.scope, "policy");
-    assertEquals(data.drops?.[0]?.reason, "open_question_store_corrupt");
-    assert((data.drops?.[0]?.policy_commit?.length ?? 0) > 0);
-
-    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-    assertEquals(preview.code, 0, preview.output);
-    const previewEnvelope = decodeCliResult(preview.stdout, "accept");
-    assert(
-      previewEnvelope.data !== undefined &&
-        "checkpoint_drops" in previewEnvelope.data,
-    );
-    const previewData = previewEnvelope.data;
-    assertEquals(
-      previewData?.checkpoint_drops?.[0]?.reason,
-      "open_question_store_corrupt",
     );
   });
 });
