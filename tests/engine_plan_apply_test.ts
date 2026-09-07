@@ -9,6 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { targetExists } from "../src/shared/fs_presence.ts";
 import { BUILT_IN_STEP_LABELS } from "../src/shared/result.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -288,7 +289,12 @@ Deno.test("worktree prune --json on a clean pool reports ok with no steps", asyn
 
 // ── accept ──────────────────────────────────────────────────────────────────
 
-Deno.test("accept --dry-run shows the plan after the preconditions pass", async () => {
+// One proven worktree serves the three acceptance surfaces in sequence: the
+// read-only dry run leaves it intact, the refused --json precondition leaves it
+// intact, and the applied --json acceptance lands it. Each step guards the
+// behaviour its name states; the shared prefix (scaffold, worktree, feature
+// commit, green `done`) is built once instead of three times.
+Deno.test("accept --dry-run, a JSON precondition refusal, and the applied --json acceptance share one proven worktree", async (t) => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "gradry");
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
@@ -297,72 +303,76 @@ Deno.test("accept --dry-run shows the plan after the preconditions pass", async 
 
     const done = await runAgent(wt, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const r = await runAgent(wt, ["accept", "--dry-run"]);
-    assertEquals(r.code, 0, r.output);
-    assertTerminalTextIncludes(r.stdout, "Read-only queue preview");
-    assertStringIncludes(r.stdout, "refs/heads/agent/gradry");
-    // The worktree must still exist — dry-run mutates nothing.
-    assertEquals(
-      (await runAgent(wt, ["identity", "--branch"])).code,
-      0,
-      "dry-run must leave the worktree intact",
-    );
-  });
-});
 
-Deno.test("accept --json performs the acceptance and serializes the steps", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "gradj");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const obj = decodeCliResult(r.stdout, "accept"); // stdout must be ONLY the JSON object
-    assertEquals(obj.ok, true);
-    assert(obj.steps !== undefined);
-    assertResultDataKey(obj, "queue");
-    const prefix = obj.data.queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assertEquals(prefix?.authority_settlement, "consumed");
-    assertEquals(prefix?.retirement_effects, {
-      worktree_removed: true,
-      branch_deleted: true,
-    });
-    assert(obj.steps.some((step) => step.kind === "checkout-clean-check"));
-    // The work landed on the trunk in main.
-    assert(
-      await import("../src/shared/fs_presence.ts").then((m) =>
-        m.targetExists(join(dir, "feature.txt"))
-      ),
-      "work not landed on the trunk in main",
-    );
-  });
-});
-
-Deno.test("accept --json reports a precondition failure as a JSON error", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "graderr");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    // Dirty a tracked file in main so acceptance refuses.
-    const toml = join(dir, "discern.toml");
-    await Deno.writeTextFile(
-      toml,
-      `${await Deno.readTextFile(toml)}\n# dirty\n`,
+    await t.step(
+      "accept --dry-run shows the plan after the preconditions pass",
+      async () => {
+        const r = await runAgent(wt, ["accept", "--dry-run"]);
+        assertEquals(r.code, 0, r.output);
+        assertTerminalTextIncludes(r.stdout, "Read-only queue preview");
+        assertStringIncludes(r.stdout, "refs/heads/agent/gradry");
+        // The worktree must still exist — dry-run mutates nothing.
+        assertEquals(
+          (await runAgent(wt, ["identity", "--branch"])).code,
+          0,
+          "dry-run must leave the worktree intact",
+        );
+      },
     );
 
-    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const obj = decodeCliResult(r.stdout, "accept"); // the error is a JSON object, not a human line
-    assertEquals(obj.ok, false);
-    assertEquals(obj.verb, "accept");
-    // error is a machine-stable slug; the human sentence rides in `message`.
-    assertEquals(obj.error, "incomplete");
-    assert(obj.message !== undefined);
-    assertStringIncludes(obj.message, "uncommitted tracked changes");
+    await t.step(
+      "accept --json reports a precondition failure as a JSON error",
+      async () => {
+        // Dirty a tracked file in main so acceptance refuses.
+        const toml = join(dir, "discern.toml");
+        const committed = await Deno.readTextFile(toml);
+        await Deno.writeTextFile(toml, `${committed}\n# dirty\n`);
+
+        const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(r.code, 1, r.output);
+        const obj = decodeCliResult(r.stdout, "accept"); // the error is a JSON object, not a human line
+        assertEquals(obj.ok, false);
+        assertEquals(obj.verb, "accept");
+        // error is a machine-stable slug; the human sentence rides in `message`.
+        assertEquals(obj.error, "incomplete");
+        assert(obj.message !== undefined);
+        assertStringIncludes(obj.message, "uncommitted tracked changes");
+
+        // The refusal fired before any effect: restoring main's committed
+        // config bytes returns the fixture to the clean state the landing
+        // step starts from, with the worktree still present.
+        await Deno.writeTextFile(toml, committed);
+        assertEquals(
+          (await runAgent(wt, ["identity", "--branch"])).code,
+          0,
+          "a refused acceptance must leave the worktree intact",
+        );
+      },
+    );
+
+    await t.step(
+      "accept --json performs the acceptance and serializes the steps",
+      async () => {
+        const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(r.code, 0, r.output);
+        const obj = decodeCliResult(r.stdout, "accept"); // stdout must be ONLY the JSON object
+        assertEquals(obj.ok, true);
+        assert(obj.steps !== undefined);
+        assertResultDataKey(obj, "queue");
+        const prefix = obj.data.queue?.[0];
+        assertEquals(prefix?.state, "landed");
+        assertEquals(prefix?.authority_settlement, "consumed");
+        assertEquals(prefix?.retirement_effects, {
+          worktree_removed: true,
+          branch_deleted: true,
+        });
+        assert(obj.steps.some((step) => step.kind === "checkout-clean-check"));
+        // The work landed on the trunk in main.
+        assert(
+          await targetExists(join(dir, "feature.txt")),
+          "work not landed on the trunk in main",
+        );
+      },
+    );
   });
 });
