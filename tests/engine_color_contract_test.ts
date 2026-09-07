@@ -19,10 +19,19 @@
  *     real CLI with `--no-color` (NO_COLOR unset), emit zero escapes on the combined
  *     stdout+stderr. The verb set is reconciled against the engine-verb registry so a
  *     new verb must either pass the check or be consciously excepted.
+ *  4. Structural — the SPAWN side of the same contract: an env literal that sets
+ *     NO_COLOR without resolving FORCE_COLOR beside it leaves the child's colour
+ *     to the invoking environment (FORCE_COLOR beats NO_COLOR and non-TTY
+ *     detection), so every such literal must pair the two — normally by spreading
+ *     the one authority, colorResolvedEnv() (src/shared/color_env.ts).
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import { Node, Project, SyntaxKind } from "ts-morph";
 import type { Command } from "@cliffy/command";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { structuralGuardScope } from "./structural_guard_scope.ts";
 import { withTempDir } from "./helpers.ts";
 import { fakeEnv } from "./helpers.ts";
 import {
@@ -263,9 +272,10 @@ Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI
       // NO_COLOR forced empty (i.e. UNSET semantics) so the ONLY thing that can
       // suppress colour is the code path under test — the resolved decision from the
       // --no-color flag (and the non-TTY pipe). If a verb re-decided colour on its
-      // own and ignored the flag, coloured bytes would leak here.
+      // own and ignored the flag, coloured bytes would leak here. FORCE_COLOR is
+      // blanked beside it so the invoking environment cannot tilt the base state.
       const r = await runAgent(dir, [verb, "--no-color"], {
-        env: { NO_COLOR: "" },
+        env: { NO_COLOR: "", FORCE_COLOR: "" },
       });
       assertEquals(
         ansiCount(r.output),
@@ -289,7 +299,9 @@ Deno.test("the root help and a bare invocation honour --no-color on the real CLI
 
     // Explicit help path (main() prints the grouped operator help).
     for (const args of [["--help", "--no-color"], ["--no-color"]]) {
-      const r = await runAgent(dir, args, { env: { NO_COLOR: "" } });
+      const r = await runAgent(dir, args, {
+        env: { NO_COLOR: "", FORCE_COLOR: "" },
+      });
       assertEquals(
         ansiCount(r.output),
         0,
@@ -331,4 +343,97 @@ Deno.test("FORCE_COLOR never overrides the resolved decision on any help spellin
       );
     }
   });
+});
+
+/**
+ * The layer-4 detector: object literals in one source that set a `NO_COLOR`
+ * property without a `FORCE_COLOR` property or a `colorResolvedEnv()` spread
+ * beside it. FORCE_COLOR beats NO_COLOR and non-TTY detection, so such a
+ * literal leaves a child's colour to the invoking environment. The AST scan
+ * makes prose mentions, planted-fixture strings, and comments inert.
+ */
+function unresolvedForceColorFindings(
+  source: string,
+  path: string,
+): string[] {
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  const file = project.createSourceFile(path, source);
+  const findings: string[] = [];
+  for (
+    const literal of file.getDescendantsOfKind(
+      SyntaxKind.ObjectLiteralExpression,
+    )
+  ) {
+    const names = new Set<string>();
+    let usesAuthority = false;
+    for (const property of literal.getProperties()) {
+      if (
+        Node.isPropertyAssignment(property) ||
+        Node.isShorthandPropertyAssignment(property)
+      ) {
+        names.add(property.getName().replaceAll(/["']/g, ""));
+      } else if (
+        Node.isSpreadAssignment(property) &&
+        property.getExpression().getText().includes("colorResolvedEnv")
+      ) {
+        usesAuthority = true;
+      }
+    }
+    if (names.has("NO_COLOR") && !names.has("FORCE_COLOR") && !usesAuthority) {
+      const location = file.getLineAndColumnAtPos(literal.getStart());
+      findings.push(`${path}:${location.line}`);
+    }
+  }
+  return findings;
+}
+
+Deno.test("every env literal that sets NO_COLOR resolves FORCE_COLOR beside it", async () => {
+  const offenders: string[] = [];
+  for (
+    const rel of await structuralGuardScope({
+      guard: "tests/engine_color_contract_test.ts#spawn-env-force-color",
+      universe: "authored-deno",
+      narrow: {
+        reason:
+          "Child-env bases live in production, tooling, and the shared test harness; test bodies merge extras onto those resolved bases and spawn the CLI this file's behavioural layers already hold to the resolved decision.",
+        include: (path) =>
+          !path.startsWith("tests/") ||
+          path === "tests/helpers.ts" ||
+          path === "tests/engine_helpers.ts" ||
+          path.startsWith("tests/fixtures/"),
+      },
+    })
+  ) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    // The property name must appear textually before it can parse as a key;
+    // files without the token cannot contain a member.
+    if (!source.includes("NO_COLOR")) continue;
+    offenders.push(...unresolvedForceColorFindings(source, rel));
+  }
+  assertEquals(
+    offenders,
+    [],
+    "spread colorResolvedEnv() (src/shared/color_env.ts) — or set FORCE_COLOR in the same literal — wherever NO_COLOR is set",
+  );
+});
+
+Deno.test("a future spawn site cannot set NO_COLOR while ignoring FORCE_COLOR", () => {
+  // Fresh-name sibling: unrelated identifiers, a different container, no
+  // spawn call in sight — the mechanism alone must trip the detector.
+  assertEquals(
+    unresolvedForceColorFindings(
+      [
+        'const quietChild = { QUIET: "1", NO_COLOR: "1" };',
+        'new Deno.Command("tool", { env: { NO_COLOR: "1", FORCE_COLOR: "" } });',
+        'const resolved = { ...colorResolvedEnv(), TERM: "dumb" };',
+        'const forcedOn = { NO_COLOR: "", FORCE_COLOR: "1" };',
+      ].join("\n"),
+      "fixture.ts",
+    ),
+    ["fixture.ts:1"],
+  );
 });

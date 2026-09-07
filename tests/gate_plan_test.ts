@@ -89,6 +89,7 @@ Deno.test("the Gate contract documents its registry order, fixed child environme
   assertEquals(STAGES, ["fix", "build", "check", "test"]);
   assertEquals(GATE_JOB_ENVIRONMENT, {
     NO_COLOR: "1",
+    FORCE_COLOR: "",
     TERM: "dumb",
     CI: "1",
   });

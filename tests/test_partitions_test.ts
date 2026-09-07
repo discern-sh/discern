@@ -5,9 +5,10 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import {
   combineJunitReports,
+  listedModuleSizes,
   runTestPartitions,
   testPartitionCount,
 } from "../scripts/test_partitions.ts";
@@ -513,6 +514,84 @@ Deno.test("module scheduling uses native discovery, prioritizes source size, and
         ),
       DOMException,
       "aborted",
+    );
+  });
+});
+
+Deno.test("module listings parse through ANSI decoration and unreadable entries", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "plain_test.ts"), "1234567890");
+    await Deno.writeTextFile(join(dir, "styled_test.ts"), "12345");
+    // A colour-forcing environment wraps the native listing in SGR escapes;
+    // parsing must survive that even when the spawn env failed to prevent it.
+    const esc = String.fromCharCode(27);
+    const output = [
+      `Check plain_test.ts`,
+      `${esc}[0m${esc}[32mCheck${esc}[0m styled_test.ts${esc}[0m`,
+      `${esc}[32mCheck${esc}[0m missing_test.ts`,
+      "unrelated line",
+    ].join("\n");
+    assertEquals(await listedModuleSizes(output, dir), [10, 5, 0]);
+  });
+});
+
+Deno.test("a colour-forcing invoking environment cannot break module scheduling", async () => {
+  // The exact harness shape that once broke scheduling: FORCE_COLOR=3 with
+  // NO_COLOR=1 exported around the whole run. The scheduler's own process
+  // inherits both, so its native listing child would arrive ANSI-wrapped
+  // unless the spawn env resolves colour off (and the parser strips escapes).
+  // Three modules with one worker must still yield three single-module
+  // partitions - the fallback would run only two interleaved ones.
+  await withTempDir(async (dir) => {
+    const root = join(dir, "forced");
+    await Deno.mkdir(root);
+    for (let index = 0; index < 3; index++) {
+      await Deno.writeTextFile(
+        join(root, `${index}_test.ts`),
+        `Deno.test('forced ${index}', async () => {
+          await Deno.writeTextFile('order.txt', '${index},' + Deno.pid + '\\n', { append: true });
+        });\n`,
+      );
+    }
+    await Deno.writeTextFile(join(root, "order.txt"), "");
+    const driver = join(dir, "driver.ts");
+    await Deno.writeTextFile(
+      driver,
+      `import { runTestPartitions } from ${
+        JSON.stringify(new URL("../scripts/test_partitions.ts", import.meta.url).href)
+      };
+      import { testCommandArgs } from ${
+        JSON.stringify(new URL("../scripts/run_tests.ts", import.meta.url).href)
+      };
+      const root = Deno.args[0] ?? "";
+      const result = await runTestPartitions(
+        testCommandArgs(42, ["--reporter=junit", root]),
+        2,
+        { cwd: root, concurrency: 1, scheduleModules: true },
+      );
+      Deno.exit(result.code);\n`,
+    );
+    const repoRoot = new URL("../", import.meta.url);
+    const run = await new Deno.Command(Deno.execPath(), {
+      // The driver lives outside the workspace, so the repo import map is
+      // named explicitly; cwd is the repo root the config path resolves from.
+      args: ["run", "--quiet", "--allow-all", "--config", "deno.json", driver, root],
+      cwd: fromFileUrl(repoRoot),
+      env: { FORCE_COLOR: "3", NO_COLOR: "1" },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const evidence = new TextDecoder().decode(run.stdout) +
+      new TextDecoder().decode(run.stderr);
+    assertEquals(run.code, 0, `forced-colour run failed:\n${evidence}`);
+    const rows = (await Deno.readTextFile(join(root, "order.txt"))).trim()
+      .split("\n").map((row) => row.split(","));
+    assertEquals(rows.length, 3);
+    const listed = Deno.build.os !== "windows";
+    assertEquals(
+      new Set(rows.map((row) => row[1])).size,
+      listed ? 3 : 2,
+      `module scheduling fell back to interleaved partitions:\n${evidence}`,
     );
   });
 });
