@@ -146,7 +146,7 @@ export const AMBIENT_READ_BOUNDARIES = defineAmbientReadBoundaries({
       "The doctor command still reports useful diagnostics when root discovery falls back to the invoking cwd.",
   },
   "engine-checkpoint-fixture-path": {
-    path: "tests/engine_checkpoints_gate_test.ts",
+    path: "tests/engine_checkpoints_policy_gate_test.ts",
     enclosingFunction: "<module>",
     primitive: "env.get",
     operation: "preserve PATH for the checkpoint fixture child",
