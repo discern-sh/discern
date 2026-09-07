@@ -11,7 +11,8 @@
  * its recovery. It then pins accept's own surface — the refusal shape, that a
  * confirmed call is byte-identical to the prior success path, that a dry-run needs
  * no attestation, and that the setup-flow landing (a separate path) never double-
- * gates.
+ * gates. Accept's refusals and preview are read-only, so the class probe's
+ * proven worktree carries them as follow-on steps and lands once at the end.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -115,6 +116,95 @@ interface ConsentProbeResult {
   readonly surfaces: Partial<
     Readonly<Record<ConsentSurface, ConsentSurfaceObservation>>
   >;
+  /**
+   * Verb-specific surface checks that reuse the probe's fixture after the
+   * class assertions pass: read-only refusals and previews first, the one
+   * effectful step last.
+   */
+  readonly followOn?: (t: Deno.TestContext) => Promise<void>;
+}
+
+/** Accept's own surface, driven on the proven worktree the class probe built. */
+function acceptFollowOn(
+  dir: string,
+  wt: string,
+): (t: Deno.TestContext) => Promise<void> {
+  return async (t) => {
+    await t.step(
+      "accept: refuses without --confirmed, re-serving the review moment (slug + hint, nothing landed)",
+      async () => {
+        const r = await runAgent(wt, ["accept", "--json"]);
+        assertEquals(r.code, 1, r.output);
+        const env = parseJson(r.stdout, "accept");
+        assert(typeof env.message === "string");
+        assertEquals(env.ok, false);
+        assertEquals(env.verb, "accept");
+        assertEquals(env.error, AWAITING_CONSENT_SLUG);
+        assertHasHint(env, HINTS["accept-awaiting-confirmation"]);
+        assertStringIncludes((env.hints ?? []).join("\n"), "--confirmed");
+        // Read-only: the worktree survives and nothing reached the trunk.
+        assert(await targetExists(wt), `worktree must survive\n${r.output}`);
+        assertEquals(
+          await targetExists(join(dir, "feature.txt")),
+          false,
+          "no work may land without the attestation",
+        );
+
+        // The terminal presentation carries the relay message too, and is
+        // equally mutation-free.
+        const terminal = await runAgent(wt, ["accept"]);
+        assertEquals(terminal.code, 1, terminal.output);
+        assertTerminalTextIncludes(terminal.output, env.message);
+        assert(
+          await targetExists(wt),
+          "the terminal refusal must not touch the worktree",
+        );
+      },
+    );
+
+    await t.step(
+      "accept: --dry-run previews without the attestation (consent gates writes, not previews)",
+      async () => {
+        const r = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+        assertEquals(r.code, 0, r.output);
+        const env = parseJson(r.stdout, "accept");
+        assertEquals(env.ok, true);
+        assertEquals(env.dry_run, true);
+        // A preview lands nothing — the worktree and trunk are untouched.
+        assert(await targetExists(wt), "a dry-run lands nothing");
+        assertEquals(await targetExists(join(dir, "feature.txt")), false);
+      },
+    );
+
+    await t.step(
+      "accept: --confirmed preserves the conversation-consent landing path",
+      async () => {
+        const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(r.code, 0, r.output);
+        const env = parseJson(r.stdout, "accept");
+        assert(env.data !== undefined && !("issues" in env.data));
+        assert(typeof env.data.proof_line === "string");
+        assertEquals(env.ok, true);
+        assertEquals(env.verb, "accept");
+        assertEquals(env.data.queue?.[0]?.consent, { source: "conversation" });
+        assertStringIncludes(
+          env.data.proof_line,
+          "landed with conversation consent",
+        );
+        // The landing happened: worktree gone, branch work on the trunk, proof line carried.
+        assertEquals(
+          await targetExists(wt),
+          false,
+          `should have landed\n${r.output}`,
+        );
+        assert(
+          await targetExists(join(dir, "feature.txt")),
+          "branch work should be on the trunk",
+        );
+        assert(!("proof" in env.data));
+      },
+    );
+  };
 }
 
 /**
@@ -217,6 +307,7 @@ const PROBES = {
           ],
         },
       },
+      followOn: acceptFollowOn(dir, wt),
     };
   },
 } satisfies Record<
@@ -224,7 +315,7 @@ const PROBES = {
   (dir: string) => Promise<ConsentProbeResult>
 >;
 
-Deno.test("consent class: every consent-gated verb refuses without its attestation, mutation-free", async () => {
+Deno.test("consent class: every consent-gated verb refuses without its attestation, mutation-free; accept then re-serves, previews, and lands on the same proven worktree", async (t) => {
   for (const verb of CONSENT_GATED_VERBS) {
     const probe = PROBES[verb.id];
     assert(
@@ -273,71 +364,11 @@ Deno.test("consent class: every consent-gated verb refuses without its attestati
         verb.flag,
         `${verb.id} must name its ${verb.flag} recovery`,
       );
+      if (observed.followOn !== undefined) {
+        await observed.followOn(t);
+      }
     });
   }
-});
-
-Deno.test("accept: refuses without --confirmed, re-serving the review moment (slug + hint, nothing landed)", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeReadyToLand(dir);
-
-    const r = await runAgent(wt, ["accept", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout, "accept");
-    assert(typeof env.message === "string");
-    assertEquals(env.ok, false);
-    assertEquals(env.verb, "accept");
-    assertEquals(env.error, AWAITING_CONSENT_SLUG);
-    assertHasHint(env, HINTS["accept-awaiting-confirmation"]);
-    assertStringIncludes((env.hints ?? []).join("\n"), "--confirmed");
-    // Read-only: the worktree survives and nothing reached the trunk.
-    assert(await targetExists(wt), `worktree must survive\n${r.output}`);
-    assertEquals(
-      await targetExists(join(dir, "feature.txt")),
-      false,
-      "no work may land without the attestation",
-    );
-
-    // The terminal presentation carries the relay message too, and is
-    // equally mutation-free.
-    const terminal = await runAgent(wt, ["accept"]);
-    assertEquals(terminal.code, 1, terminal.output);
-    assertTerminalTextIncludes(terminal.output, env.message);
-    assert(
-      await targetExists(wt),
-      "the terminal refusal must not touch the worktree",
-    );
-  });
-});
-
-Deno.test("accept: --confirmed preserves the conversation-consent landing path", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeReadyToLand(dir);
-
-    const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout, "accept");
-    assert(env.data !== undefined && !("issues" in env.data));
-    assert(typeof env.data.proof_line === "string");
-    assertEquals(env.ok, true);
-    assertEquals(env.verb, "accept");
-    assertEquals(env.data.queue?.[0]?.consent, { source: "conversation" });
-    assertStringIncludes(
-      env.data.proof_line,
-      "landed with conversation consent",
-    );
-    // The landing happened: worktree gone, branch work on the trunk, proof line carried.
-    assertEquals(
-      await targetExists(wt),
-      false,
-      `should have landed\n${r.output}`,
-    );
-    assert(
-      await targetExists(join(dir, "feature.txt")),
-      "branch work should be on the trunk",
-    );
-    assert(!("proof" in env.data));
-  });
 });
 
 Deno.test("accept: terminal success reports the same conversation-consent evidence", async () => {
@@ -352,21 +383,6 @@ Deno.test("accept: terminal success reports the same conversation-consent eviden
       "the interactive completion must report the authority used",
     );
     assertEquals(await targetExists(wt), false, landed.output);
-  });
-});
-
-Deno.test("accept: --dry-run previews without the attestation (consent gates writes, not previews)", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeReadyToLand(dir);
-
-    const r = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const env = parseJson(r.stdout, "accept");
-    assertEquals(env.ok, true);
-    assertEquals(env.dry_run, true);
-    // A preview lands nothing — the worktree and trunk are untouched.
-    assert(await targetExists(wt), "a dry-run lands nothing");
-    assertEquals(await targetExists(join(dir, "feature.txt")), false);
   });
 });
 
