@@ -8,11 +8,7 @@ import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { fromFileUrl } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
-import {
-  runTestPartitions,
-  testPartitionCount,
-  testProcessCount,
-} from "./test_partitions.ts";
+import { runTestPartitions, testPartitionCount } from "./test_partitions.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -112,10 +108,7 @@ if (import.meta.main) {
   );
   const args = testCommandArgs(identitySeed, Deno.args);
   if (count > 1) {
-    const concurrency = Math.min(
-      count,
-      testProcessCount(navigator.hardwareConcurrency),
-    );
+    const concurrency = Math.min(count, navigator.hardwareConcurrency);
     console.error(
       `Test allocation: ${count} native partitions, ${concurrency} processes, one worker each.`,
     );

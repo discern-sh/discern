@@ -10,7 +10,6 @@ import {
   combineJunitReports,
   runTestPartitions,
   testPartitionCount,
-  testProcessCount,
 } from "../scripts/test_partitions.ts";
 import { testCommandArgs } from "../scripts/run_tests.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
@@ -55,11 +54,6 @@ async function seedWaitingTests(dir: string, count: number): Promise<void> {
 }
 
 Deno.test("complete macOS runs partition native discovery while explicit selection and allocation stay native", () => {
-  assertEquals(testProcessCount(18), 16);
-  assertEquals(testProcessCount(6), 4);
-  for (const cores of [1, 2, 0, -1, 1.5, NaN, Infinity]) {
-    assertEquals(testProcessCount(cores), 1);
-  }
   const empty = { get: () => undefined };
   for (const os of ["darwin", "linux", "windows"] as const) {
     assertEquals(

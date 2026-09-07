@@ -34,11 +34,6 @@ export function testPartitionCount(
   return cores > 1 && Number.isSafeInteger(count) ? count : 1;
 }
 
-/** Leave capacity for the integration processes each native test host launches. */
-export function testProcessCount(cores: number): number {
-  return Number.isSafeInteger(cores) && cores > 2 ? cores - 2 : 1;
-}
-
 /** Read a required native JUnit count without accepting an incomplete report. */
 function junitCount(attributes: string, name: string): number {
   const matches = [
