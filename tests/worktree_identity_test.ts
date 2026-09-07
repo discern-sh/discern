@@ -10,7 +10,7 @@
  * Guards: claim:isolated-worktrees
  */
 
-import { assert, assertEquals, assertMatch } from "@std/assert";
+import { assert, assertEquals, assertMatch, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { cksumString } from "../src/shared/crc.ts";
 import {
@@ -31,7 +31,12 @@ import {
   WORKTREE_IDENTITY_CONTRACT,
 } from "../src/engine/worktree/identity.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
-import { addWorktree, gitInit } from "./engine_helpers.ts";
+import {
+  addWorktree,
+  gitInit,
+  runWorktreeCore,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { z } from "@zod/zod";
 import { decodeWith } from "./decode_cli_result.ts";
 
@@ -456,7 +461,7 @@ Deno.test("the env override never renames a FOREIGN worktree inspected by path",
         settings,
         worktree,
         fakeEnv({ DISCERN_WORKTREE_ID: "imposter" }),
-        dir,
+        () => dir,
       ),
       "real-identity",
     );
@@ -522,5 +527,89 @@ Deno.test("metadata ids colliding with the project slug get a wt- prefix", async
         expected,
       );
     }
+  });
+});
+
+for (const override of ["", "unrelated-process"]) {
+  for (const dotenv of [false, true]) {
+    Deno.test(`explicit identity survives cwd removal: override=${override || "absent"}, dotenv=${dotenv}`, async () => {
+      await withTempDir(async (root) => {
+        await scaffoldEngine(root);
+        await gitInit(root);
+        const target = await addWorktree(root, "future-sibling");
+        if (dotenv) {
+          await Deno.writeTextFile(
+            join(target, ".env.local"),
+            "DISCERN_WORKTREE_ID=dotenv-sibling\n",
+          );
+        }
+        const retired = join(root, "retired-cwd");
+        await Deno.mkdir(retired);
+        const result = await runWorktreeCore(
+          root,
+          ["identity-after-retirement", target, retired],
+          { cwd: retired, env: { DISCERN_WORKTREE_ID: override } },
+        );
+        assertEquals(result.code, 0, result.output);
+        const expected = dotenv ? "dotenv-sibling" : "future-sibling";
+        assertEquals(decodeWith(z.array(z.string()), result.stdout), [
+          expected,
+          expected,
+        ]);
+      });
+    });
+  }
+}
+
+Deno.test("identity reads process cwd only to establish an override and propagates other read failures", async () => {
+  const settings: IdentitySettings = {
+    slug: "discern",
+    branchPrefix: "agent/",
+  };
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
+    await gitInit(dir);
+    const target = await addWorktree(dir, "separate-target");
+    let reads = 0;
+    const readCwd = (): string => {
+      reads++;
+      return target;
+    };
+    assertEquals(
+      await resolveWorktreeId(settings, target, fakeEnv(), readCwd),
+      "separate-target",
+    );
+    assertEquals(
+      reads,
+      0,
+      "an absent override needs no process directory read",
+    );
+    assertEquals(
+      await resolveWorktreeId(
+        settings,
+        target,
+        fakeEnv({ DISCERN_WORKTREE_ID: "own-process" }),
+        readCwd,
+      ),
+      "own-process",
+    );
+    assertEquals(
+      reads,
+      1,
+      "an override requires one positive ownership observation",
+    );
+    await assertRejects(
+      () =>
+        resolveWorktreeId(
+          settings,
+          target,
+          fakeEnv({ DISCERN_WORKTREE_ID: "own-process" }),
+          () => {
+            throw new Deno.errors.PermissionDenied("cwd is unreadable");
+          },
+        ),
+      Deno.errors.PermissionDenied,
+      "cwd is unreadable",
+    );
   });
 });

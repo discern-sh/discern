@@ -114,6 +114,11 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     file: "tests/vocab_drift_test.ts",
     reason: "hot in the recorded failure ranking; static vocabulary scan",
   },
+  {
+    file: "tests/worktree_identity_test.ts",
+    reason:
+      "recorded post-retirement crash; identity and removed-directory regressions take about two seconds",
+  },
 ];
 
 /**

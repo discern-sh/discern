@@ -8,6 +8,11 @@ import { Logger } from "../../src/lib/log.ts";
 import { loadConfig } from "../../src/shared/config_schema.ts";
 import { findRoot } from "../../src/shared/env.ts";
 import {
+  loadIdentitySettings,
+  resolveIdentity,
+  resolveWorktreeId,
+} from "../../src/engine/worktree/identity.ts";
+import {
   inheritMainEnvVars,
   removeWorktreeSafely,
   WorktreeGitError,
@@ -15,10 +20,25 @@ import {
 
 /** Run one test-only worktree core and return its process exit status. */
 async function run(): Promise<number> {
-  const [operation, target] = Deno.args;
+  const [operation, target, retired] = Deno.args;
   const log = new Logger({ json: false, noColor: true });
   try {
     switch (operation) {
+      case "identity-after-retirement": {
+        if (target === undefined || retired === undefined) {
+          throw new TypeError(
+            "identity-after-retirement requires target and retired paths",
+          );
+        }
+        await Deno.remove(retired, { recursive: true });
+        const settings = await loadIdentitySettings(target);
+        const ids = [
+          await resolveWorktreeId(settings, target),
+          (await resolveIdentity(target, target)).id,
+        ];
+        console.log(JSON.stringify(ids));
+        return 0;
+      }
       case "remove":
         if (target === undefined) {
           throw new TypeError("remove requires a target path");
