@@ -355,9 +355,9 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
   });
 });
 
-// ── the measurement proof: a green gate records it; --pin replays it ───────
+// ── the measurement proof: a green gate renders and records it; --pin replays it ──
 
-Deno.test("a green gate over a clean committed tree records the measurement proof, and `standards --pin` replays it without re-measuring", async () => {
+Deno.test("a green gate over a clean committed branch renders the standards section and records the measurement proof, and `standards --pin` replays it without re-measuring", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // The measurement appends to a counter file, so the test can prove pin
@@ -369,31 +369,53 @@ Deno.test("a green gate over a clean committed tree records the measurement proo
         run: "echo x >> runs.count; echo DISCERN_METRIC cov 90",
       }),
     );
-    await gitInit(dir);
     // `runs.count` must not dirty the tree after the gate runs the measurement.
     await Deno.writeTextFile(join(dir, ".gitignore"), "runs.count\n");
-    await git(dir, "add", ".gitignore");
-    await git(dir, "commit", "-qm", "ignore the counter", "--no-gpg-sign");
+    await gitInit(dir);
+    // A committed branch ahead of the trunk, so a proof is rendered.
+    await git(dir, "checkout", "-qb", "agent/std-proof");
+    await Deno.writeTextFile(join(dir, "work.txt"), "w\n");
+    await git(dir, "add", "work.txt");
+    await git(dir, "commit", "-qm", "work", "--no-gpg-sign");
 
-    const green = await runAgent(dir, ["done", "--json"]);
+    const green = await runAgent(dir, ["done"]);
     assertEquals(green.code, 0, green.output);
-    const runsAfterGate =
-      (await Deno.readTextFile(join(dir, "runs.count"))).trim().split("\n")
-        .length;
-    assertEquals(runsAfterGate, 1);
 
-    const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
-    assertEquals(pin.code, 0, pin.output);
-    const pinObj = decodeCliResult(pin.stdout, "standards");
-    assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
-    // No second measurement ran.
-    const runsAfterPin =
-      (await Deno.readTextFile(join(dir, "runs.count"))).trim().split("\n")
-        .length;
-    assertEquals(runsAfterPin, 1, "pin must not re-measure after a green gate");
-    // And the pin captured the gain: the floor tightened to the measured value.
-    const config = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(config, "limit = 90");
+    await t.step(
+      "the proof renders the standards section and the limits-verified line",
+      () => {
+        const markdown = green.output;
+        assertStringIncludes(markdown, "Standards (limits verified against");
+        assertStringIncludes(markdown, "`cov` 90 (floor 80, improved)");
+      },
+    );
+
+    await t.step(
+      "a green gate over a clean committed tree records the measurement proof, and `standards --pin` replays it without re-measuring",
+      async () => {
+        const runsAfterGate =
+          (await Deno.readTextFile(join(dir, "runs.count"))).trim().split("\n")
+            .length;
+        assertEquals(runsAfterGate, 1);
+
+        const pin = await runAgent(dir, ["standards", "--pin", "--json"]);
+        assertEquals(pin.code, 0, pin.output);
+        const pinObj = decodeCliResult(pin.stdout, "standards");
+        assertHasHint(pinObj, HINTS["standards-pin-reused-measurements"]);
+        // No second measurement ran.
+        const runsAfterPin =
+          (await Deno.readTextFile(join(dir, "runs.count"))).trim().split("\n")
+            .length;
+        assertEquals(
+          runsAfterPin,
+          1,
+          "pin must not re-measure after a green gate",
+        );
+        // And the pin captured the gain: the floor tightened to the measured value.
+        const config = await Deno.readTextFile(join(dir, "discern.toml"));
+        assertStringIncludes(config, "limit = 90");
+      },
+    );
   });
 });
 
@@ -420,27 +442,6 @@ Deno.test("zero cost when [standards] is empty: the gate plan is byte-identical 
   );
   const without = buildGatePlan(cfg, ["web"]);
   assertEquals(withStandards, without);
-});
-
-// ── the proof's standards section ───────────────────────────────────────────
-
-Deno.test("the proof renders the standards section and the limits-verified line", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, covConfig({ limit: 80 }));
-    await gitInit(dir);
-    // A committed branch ahead of the trunk, so a proof is rendered.
-    await git(dir, "checkout", "-qb", "agent/std-proof");
-    await Deno.writeTextFile(join(dir, "work.txt"), "w\n");
-    await git(dir, "add", "work.txt");
-    await git(dir, "commit", "-qm", "work", "--no-gpg-sign");
-
-    const r = await runAgent(dir, ["done"]);
-    assertEquals(r.code, 0, r.output);
-    const markdown = r.output;
-    assertStringIncludes(markdown, "Standards (limits verified against");
-    assertStringIncludes(markdown, "`cov` 90 (floor 80, improved)");
-  });
 });
 
 // ── prepare stays measurement-free ────────────────────────────────────────────
