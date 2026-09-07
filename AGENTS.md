@@ -1,18 +1,22 @@
 # Working in discern
 
-discern's built-in instructions come first; discern's own instructions fill the second half and win on any conflict.
+discern's built-in instructions appear first. discern's own instructions follow the divider and take precedence where they conflict.
 
 ## Operating discern
 
-This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …), the **primary surface**.
+discern gives each development task an isolated workspace, runs the project's configured checks, records completion evidence, and controls how changes land on the shared branch. Its configuration lives in **`discern.toml`**. Use its **MCP tools** as the primary interface.
 
-- **Orient first.** Call **`discern_status`** at session start for a fast read-only account of what's true and next.
-- **Keep one worktree for the whole effort.** The worktree carries the effort's branch, identity, and any recorded authority, so review feedback and resumed sessions continue there; a second worktree would split the effort's history and its evidence. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern_start` again. For a new effort, run **`discern_start`** from the main checkout and work only at the returned path. Read-only work needs none.
-- **`discern_done` is the bar for "done".** Call work finished only after its full gate passes. Iterate with **`discern_prepare`** or a diagnostic's reproduce command; each diagnostic names its location and exact command. With a positive `[gate].concurrent_test_runs`, run direct tests through **`discern queue -- <command>`**. `discern_test` runs the complete test stage on demand. `discern_done` already includes the same test stage, so a final gate run needs no standalone test preflight.
-- **Follow discern's printed next action.** A discern refusal or failure names its own next step in the result, and `hints` are matched to the state you are in. Prefer the stated remedy over improvising around it with raw git or shell — discern gives you instructions which are optimized, deterministic, and fleet-aware.
-- **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
+- **Orient first.** Call **`discern_status`** at the start of every session, including investigation-only and resumed sessions. It reports current state and the next action without running checks or changing the project.
+- **Use the effort's worktree before editing.** An effort is one task carried through implementation and review. Continue in its existing worktree across feedback and resumed sessions. For a new effort requiring edits, call **`discern_start`** from the main checkout and move your file operations to the returned path. Read-only investigation does not require creating a worktree.
+- **Finish through `discern_done`.** It verifies the configured gate: the checks required to call the change complete. Use **`discern_prepare`** or a diagnostic's reproduce command while iterating. Follow the finishing sequence below before reporting completion.
+- **Follow the reported next action.** Use the result's diagnostics and recovery instructions instead of bypassing them with raw Git or shell operations. If the remedy cannot be followed, use **`discern_docs`** for the relevant procedure or report the unresolved condition to the owner.
+- **Find the right reference.** **`discern_docs`** explains discern; **`discern_map`** reads the current project's documentation; **`discern_doctor`** diagnoses installation problems.
 
-**Troubleshooting**: MCP tools unreachable? Tell the user and use the **`discern` CLI** as a fallback (`--markdown` for a readable result, `--json` for structured fields). Consume the result's state, diagnostics, location, next action, recovery, Proof, and human relay when present. If output is truncated, use the result's structured or retrievable view; never repeat an effectful command merely to recover omitted output. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) or continuing without discern's protections.
+**When MCP is unavailable:** tell the owner and use the **`discern` CLI**, with `--markdown` for readable results or `--json` for structured fields. Read the reported state, diagnostics, recovery instructions, and any owner relay or Proof. If output is truncated, retrieve its structured or stored view; never repeat an effectful command just to recover omitted output. Offer `discern doctor` afterwards. If the CLI is also unavailable, stop and let the owner choose between installing discern (`curl discern.sh` explains how) and continuing without its protections.
+
+## Communicating with the owner
+
+Explain discern's findings through their consequences for the requested work: what happened, what remains unverified, and what you will do next. Match the owner's technical familiarity; explain unfamiliar terms when needed. Distinguish observed facts from suspected causes. Continue authorized investigation and repair before asking the owner to resolve routine implementation choices. When a decision is needed, present the supported tradeoff, your recommendation, and what approval would authorize. Keep completion claims within the available evidence.
 
 ## Generated files — don't hand-edit
 
@@ -22,34 +26,41 @@ discern compiles the project's instruction sources (`project/instructions.md`) i
 
 discern keeps each effort in its own **linked git worktree** so parallel work doesn't collide. It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.
 
-The `discern_status` fleet isn't a pool. Never adopt another effort's worktree because it is idle or clean.
+Keep one worktree for the whole effort. Its branch, identity, and recorded authority preserve continuity through review feedback and resumed sessions.
 
-- **`discern_start`** — only for an effort without a worktree. From the main checkout, create one (branch prefix `agent/`, forked from `main`) and re-root into the returned path using your native worktree-entering tool when available; otherwise cd in, or start a session there. Continue in the worktree throughout the entire effort. Already there? Stay there. If you can't change your working root, prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Starting re-aims the discern tools at the new worktree, but your own file operations move only when you move them — edits made from the old root land on the trunk while the gate runs in the worktree, and the two quietly diverge.
-- **`discern_update`** brings `main` into your branch when behind and reports upstream overlap — re-read any of your files it names, since a merge that applies cleanly can still conflict in meaning. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
-- **`discern_await`** watches a sibling or the trunk in one longest-safe call. Do not surface progress updates until it returns. If `data.met: false`, continue with `data.resume` without surfacing an update. Repeat without a fixed limit until the condition holds, or until stopped or unnecessary. An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input. On success, follow its `start`/`update` hint.
-- **`discern_accept`** checks explicit conversation consent or machine-verified authority for each predecessor. Green means ready for review; it grants no authority. Follow `done`'s authority-aware hint: report the Proof and stop, or accept under the verified grant. Acceptance retires only released, positively owned, clean checkouts. Judgment, authority, evidence, unavailable environments and recovery remain separate conditions.
+- **Resume the assigned worktree.** If this effort already has a worktree, continue at its recorded path and pass `path` to discern tools that accept it. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern_start` again.
+- **Never adopt another effort's worktree**, even when it is idle or clean. The fleet reported by `discern_status` lists separate efforts; its rows do not establish which effort belongs to this conversation.
+- **Move your own file operations.** `discern_start` creates a worktree from `main` with branch prefix `agent/` and re-aims discern's tools. Your shell and editor must also use the returned path. If you can't change your working root, prefix shell commands with `cd <path> &&` and target file operations explicitly.
+- **Update through `discern_update`.** Call it when behind `main`; it checks its own preconditions, so no Git pre-check or hand-merge is needed. Re-read affected files named in its overlap report before continuing.
+- **Wait through `discern_await`.** Use one longest-safe call when work depends on a sibling effort or the trunk, and follow its continuation or recovery instructions.
+- **Run tests through the configured queue.** When `[gate].concurrent_test_runs` is positive, run direct test commands through `discern queue -- <command>`.
 
-Use `discern_test` when the complete test stage is the intended standalone result. While iterating, use `discern_prepare`, a diagnostic's reproduce command, or a targeted project command, and commit each logical step. Acceptance validates and lands the selected candidate, which may compose the committed source with earlier ready work.
+### Finishing an effort
 
-**Finishing an effort.** Proof binds to one exact commit, so the order matters:
+1. Run **`discern_prepare`**, review its changes, and commit the intended work belonging to this effort. `prepare` may rewrite files; staging and committing remain your responsibility. Commit each logical change separately.
+2. Run **`discern_done`** on the clean, committed final tree. `discern_done` includes the complete test stage, so a final gate needs no standalone test preflight. `discern_test` runs the complete test stage on demand when that stage is itself the requested task.
+3. Read the completion evidence and landing-authority result. **Proof** records what the configured gate established for the exact validated commit. Later edits require renewed verification.
+4. Report what changed, what was verified, and anything still unresolved. End with the returned Proof line verbatim. The owner can retrieve the full Proof page with `discern status --verbose`.
 
-1. Run `discern_prepare` and commit everything, so the final tree is committed and the fixers have nothing left to rewrite.
-2. Run **`discern_done`** on clean HEAD. Passing completion admits the candidate and releases the checkout for eligible validation and retirement. Use `retain_checkout: true` (CLI `--retain-checkout`) to retain authoring control. `--standalone` gives diagnostics without landing Proof. Later edits require a new complete gate.
-3. Report completion in your own words — what changed and why, plus anything the gate did not cover (a required context still missing, a decision the owner still holds) — and end with the Proof line verbatim. Never paste the full Proof page; the owner retrieves it with `discern status --verbose`.
+Ordinary successful completion releases the checkout from authoring control so discern can use it for later validation and eligible cleanup. If further local edits are planned, use `retain_checkout: true` (CLI `--retain-checkout`) to keep authoring control. Completion does not itself merge the change into `main`. Follow the reported state when resuming a released checkout; an unavailable checkout uses the recovery rule above.
+
+**`discern_accept` lands the validated change on `main`.** A passing gate supplies evidence; landing also requires explicit owner consent or machine-verified authority. Follow `done`'s authority-aware next action: report and wait when consent is needed, or proceed under the verified authority. Acceptance may remove eligible released worktrees and their resources.
 
 ## Quality standards
 
-Standards hold a **limit that may only improve**: floors rise (`up`), ceilings fall (`down`). **`discern_done`** verifies protected definitions and limits against the candidate’s predecessor and requires every standard in every required context. Producers may be shared; reuse requires unchanged applicable evidence. **`discern_standards`** measures separately. `prepare` requests no measurement.
+Standards protect measured limits: minimums may rise and maximums may fall. **`discern_done`** checks the required standards; **`discern_standards`** measures them separately.
 
-**Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
+**Never loosen or delete a limit to make a change pass.** Investigate the measured regression and try reasonable remedies within the authorized task. If satisfying the requested outcome requires changing a limit, explain the evidence, alternatives, and recommendation to the owner.
 
-After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
+After owner agreement, use **`discern_standards_propose`** and follow its procedure for measuring and recording the proposed limit. A general permission to land does not approve a standard-limit change.
 
-When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.
+When a measure improves, offer to preserve the gain by tightening its limit through **`discern_standards`** with `pin`.
 
 ## Checkpoints
 
-Configured checkpoints serve a question which requires your judgment when a matching change completes. `discern_status` and `discern_prepare` name detected checkpoints early. On `discern_done`, use `met` only for a satisfied served question; otherwise use `unmet` with a short, owner-relevant, secret-free tradeoff. A variance requires the owner to explicitly accept the exact declared-unmet set; grants never cover one.
+A checkpoint asks you to judge a specific question about the change. `discern_status` and `discern_prepare` identify relevant checkpoints; `discern_done` supplies any question that needs a recorded answer.
+
+Judge the question against the actual change and record your conclusion using the supplied instructions. If it does not hold, explain the tradeoff for the owner without including secrets. The gate can still run, but landing requires the owner to approve an exception for the exact unmet questions. Recorded landing grants do not authorize that exception.
 
 ## Skills
 
@@ -77,7 +88,7 @@ The map records what the code cannot say (boundaries, invariants, intent, where 
 - `80-development` — Working on this project
 - `90-site` — The public site — discern.sh
 
-Stuck or missing context? `search` the map in task language, then fetch the best result's canonical `target`.
+Stuck or missing context? Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`.
 
 ---
 

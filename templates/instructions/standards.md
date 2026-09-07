@@ -1,11 +1,11 @@
 {{#if has_standards}}## Quality standards
 
-Standards hold a **limit that may only improve**: floors rise (`up`), ceilings fall (`down`). **`discern_done`** verifies protected definitions and limits against the candidate’s predecessor and requires every standard in every required context. Producers may be shared; reuse requires unchanged applicable evidence. **`discern_standards`** measures separately. `prepare` requests no measurement.
+Standards protect measured limits: minimums may rise and maximums may fall. **`discern_done`** checks the required standards; **`discern_standards`** measures them separately.
 
-**Never loosen one to pass.** A loosened or deleted limit fails the gate. Each limit records ground some past change earned. Cut waste your change added; when the work itself grew the number, report it: moving a limit is an owner decision.
+**Never loosen or delete a limit to make a change pass.** Investigate the measured regression and try reasonable remedies within the authorized task. If satisfying the requested outcome requires changing a limit, explain the evidence, alternatives, and recommendation to the owner.
 
-After owner agreement, create a proposed limit only from the committed final tree: call **`discern_standards_propose`** once. It measures the named standard. For an unchanged descendant, repeat it to renew evidence without another commit; never cycle proposal and restoration commits while work is moving.
+After owner agreement, use **`discern_standards_propose`** and follow its procedure for measuring and recording the proposed limit. A general permission to land does not approve a standard-limit change.
 
-When your change _improves_ a measure, the result hints you to offer to lock in the gain. `discern_standards` with `pin` tightens the limit to the measured value and commits that change on its own, so today's gain becomes the baseline every later branch inherits.{{else}}## Quality standards
+When a measure improves, offer to preserve the gain by tightening its limit through **`discern_standards`** with `pin`.{{else}}## Quality standards
 
 No quality standards yet.{{#if has_skill_discern_set_the_standard}} When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.{{/if}}{{/if}}

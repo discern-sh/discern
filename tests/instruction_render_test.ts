@@ -485,12 +485,12 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
       );
       assert(
         !bareBody.includes(
-          "Standards hold a **limit that may only improve**",
+          "Standards protect measured limits",
         ),
         "an unconfigured project omits the configured standards instructions",
       );
       assert(
-        richBody.includes("Standards hold a **limit that may only improve**"),
+        richBody.includes("Standards protect measured limits"),
         "a configured project gets the standards instructions",
       );
       assert(
@@ -532,72 +532,86 @@ Deno.test("renderAgentFiles: the built-in instructions reflect config (interpola
         }
       }
       assert(
-        bareBody.includes("authority-aware hint: report the Proof and stop"),
+        bareBody.includes(
+          "authority-aware next action: report and wait when consent is needed",
+        ),
         "the runtime result, not static prose, chooses the landing route",
       );
       assert(
         bareBody.includes(
-          "report the Proof and stop, or accept under the verified grant",
+          "report and wait when consent is needed, or proceed under the verified authority",
         ),
         "a green finish still needs one verified source of landing authority",
       );
       for (
         const [meaning, needle] of [
           [
-            "start is reserved for an effort with no worktree",
-            "only for an effort without a worktree",
+            "new editing work starts from the main checkout",
+            "For a new effort requiring edits",
           ],
           [
-            "start explains how to move the agent into the returned checkout",
-            "re-root into the returned path using your native worktree-entering tool when available",
+            "read-only work still orients",
+            "including investigation-only and resumed sessions",
+          ],
+          [
+            "read-only investigation need not create a checkout",
+            "Read-only investigation does not require creating a worktree",
+          ],
+          [
+            "entry moves the agent's own file operations",
+            "move your file operations to the returned path",
           ],
           [
             "later fixes and sessions keep the returned checkout",
-            "Continue in the worktree throughout the entire effort",
+            "Keep one worktree for the whole effort",
           ],
           [
-            "the no-re-root fallback applies to every shell command and discern tool",
-            "prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
+            "shell operations target the assigned checkout",
+            "prefix shell commands with `cd <path> &&`",
+          ],
+          [
+            "MCP calls target their assigned checkout",
+            "pass `path` to discern tools that accept it",
           ],
           [
             "update replaces pre-checks and hand merges",
-            "call it directly instead of pre-checking with git or hand-merging",
+            "no Git pre-check or hand-merge is needed",
           ],
           [
-            "from accepts an arbitrary ref and composes below the trunk",
-            "`from` (any ref) — work composes below the trunk",
+            "await discovery routes to its call contract",
+            "follow its continuation or recovery instructions",
           ],
           [
-            "await instructions states what the call watches",
-            "watches a sibling or the trunk in one longest-safe call",
+            "atomic history stays explicit",
+            "Commit each logical change separately",
           ],
           [
-            "an active await call produces no progress updates",
-            "Do not surface progress updates until it returns",
+            "staging is the agent's responsibility",
+            "staging and committing remain your responsibility",
           ],
           [
-            "an unmet await continuation produces no update",
-            "continue with `data.resume` without surfacing an update",
+            "completion checks a committed tree",
+            "on the clean, committed final tree",
           ],
           [
-            "await continuations have no fixed retry count",
-            "Repeat without a fixed limit until the condition holds",
+            "another effort's checkout stays off limits",
+            "Never adopt another effort's worktree",
           ],
           [
-            "a refusal follows recovery instead of continuing",
-            "An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint",
+            "retention is selected before releasing authoring control",
+            "use `retain_checkout: true`",
           ],
           [
-            "atomic history survives acceptance",
-            "commit each logical step. Acceptance validates and lands the selected candidate",
+            "completion is distinct from landing",
+            "Completion does not itself merge",
           ],
           [
-            "the gate Proof belongs to the final clean commit",
-            "Run **`discern_done`** on clean HEAD",
+            "owner updates connect evidence to the task",
+            "consequences for the requested work",
           ],
           [
-            "another effort's clean worktree remains off limits",
-            "Never adopt another effort's worktree because it is idle or clean",
+            "routine implementation choices stay with the agent",
+            "Continue authorized investigation and repair",
           ],
         ] as const
       ) {
@@ -771,13 +785,16 @@ Deno.test("renderAgentFiles: base instructions are MCP-first with a CLI fallback
     const body = (await renderAgentFiles(dir)).get("AGENTS.md");
     assert(body !== undefined);
     // MCP-first stance + the unreachable-server fallback are present...
-    assert(body.includes("primary surface"), "states MCP-first");
     assert(
-      body.includes("MCP tools unreachable"),
+      body.includes("MCP tools** as the primary interface"),
+      "states MCP-first",
+    );
+    assert(
+      body.includes("When MCP is unavailable"),
       "carries the fallback instruction",
     );
     assert(
-      body.includes("CLI not on PATH"),
+      body.includes("If the CLI is also unavailable"),
       "carries the fallback installation instruction",
     );
     assert(body.includes("discern_done"), "names the gate as a tool");

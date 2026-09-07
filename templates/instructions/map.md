@@ -8,4 +8,4 @@ The map records what the code cannot say (boundaries, invariants, intent, where 
 
 <!-- discern:map-regions -->
 
-Stuck or missing context? `search` the map in task language, then fetch the best result's canonical `target`.
+Stuck or missing context? Call `discern_map` with `search` in task language, then retrieve the best result using its returned `target`.

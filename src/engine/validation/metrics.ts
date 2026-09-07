@@ -45,6 +45,13 @@ export function compareValueToLimit(
   breakdown: string,
 ): StandardVerdict {
   const { name, metric, direction, limit, per } = r;
+  const recovery =
+    "Investigate the measured change and try reasonable remedies within the authorized task. " +
+    "If the requested outcome requires a different limit, explain the measured " +
+    "tradeoff, supported alternatives, and your recommendation to the owner. " +
+    "After owner agreement, commit the final clean tree and run " +
+    `\`discern standards propose ${name} --reason "…"\`; ` +
+    "the proposal command measures this standard. Keep unrelated changes out of the remedy.";
   if (direction === "up") {
     if (value + 1e-9 < limit) {
       return {
@@ -52,11 +59,7 @@ export function compareValueToLimit(
         value,
         reason:
           `standard '${name}': ${metric} ${shown} is below the floor ${limit}${breakdown}. ` +
-          `Raise it within the scope of your task; never lower the floor. ` +
-          `If the work itself shrank what this measures, commit the final clean ` +
-          `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
-          `the proposal command measures this standard. ` +
-          `propping the number up with unrelated changes is worse than the breach.`,
+          `Raise it within the scope of your task; never lower the floor. ${recovery}`,
       };
     }
     return {
@@ -77,11 +80,7 @@ export function compareValueToLimit(
       value,
       reason:
         `standard '${name}': ${metric} ${shown} exceeds the ceiling ${limit}${breakdown}. ` +
-        `Bring it down within the scope of your task; never raise the ceiling. ` +
-        `If the work itself grew what this measures, commit the final clean ` +
-        `tree and run \`discern standards propose ${name} --reason "…"\`; ` +
-        `the proposal command measures this standard. ` +
-        `offsetting the number with unrelated changes is worse than the breach.${growHint}`,
+        `Bring it down within the scope of your task; never raise the ceiling. ${recovery}${growHint}`,
     };
   }
   return {

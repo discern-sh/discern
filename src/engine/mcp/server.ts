@@ -517,7 +517,10 @@ export const TOOLS: McpTool[] = orderTools([
       "each failure). A green run over a clean committed tree ahead of the selected " +
       "project's configured trunk — its shared landing branch — " +
       "also carries data.proof and resolves any recorded grant into " +
-      "data.landing_authority. Follow the resolution-gated hints: an uncovered " +
+      "data.landing_authority. Successful ordinary completion admits a validated " +
+      "candidate and releases the source checkout for later validation and eligible " +
+      "retirement; it does not land on the trunk. Set retain_checkout when further " +
+      "local edits are planned. Follow the resolution-gated hints: an uncovered " +
       "landing is reported to the owner in your own words and ends with " +
       "data.proof.line verbatim before you wait; a covered landing names the " +
       "verified source and routes straight to discern_accept. Never paste " +
@@ -558,7 +561,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Fetched policy base for a standalone CI report only.",
       ),
       retain_checkout: z.boolean().optional().describe(
-        "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
+        "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
       ),
       standalone: z.boolean().optional().describe(
         "Run complete standalone feedback without queue admission or Proof.",
@@ -601,7 +604,8 @@ export const TOOLS: McpTool[] = orderTools([
       "quick check to run while iterating, before the full discern_done — and the pass " +
       "to run before the FINAL commit, so the fixers and regenerations have nothing " +
       "left to rewrite when discern_done runs on the committed tree. NOTE: the " +
-      "fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files).",
+      "fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files). " +
+      "It does not stage or commit your changes and requests no standard measurements.",
     inputSchema: { ...PATH_PARAM },
     run: (root, _args, signal) => prepareResult(root, signal),
   }),
@@ -672,7 +676,9 @@ export const TOOLS: McpTool[] = orderTools([
       "the named standard, then commits only the proposed limit and records its " +
       "value, delta, reason, definition, trunk baseline, and responsible input " +
       "paths. Repeating an unchanged proposal on an eligible descendant renews " +
-      "its measured binding without another commit. A changed tuple or value " +
+      "its measured binding without another commit. Finalize the intended work " +
+      "before proposing; never cycle proposal and restoration commits while editing. " +
+      "A changed tuple or value " +
       "refuses. The resulting gate Proof cannot land until the owner approves " +
       "the current proposal; generic landing authority never covers it.",
     inputSchema: {
@@ -1034,20 +1040,23 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: AcceptOutputSchema,
     annotations: DESTRUCTIVE,
     description:
-      "Use only when the user explicitly asks to hand off or land this branch. " +
-      "Resolve the selected project's configured trunk for this call, then " +
-      "fast-forward that shared landing branch to this worktree's tip. The tool " +
-      "first verifies a clean committed branch containing the latest trunk, a clean " +
-      "main checkout on that trunk, current Proof, and an empty tracked refresh plan. " +
-      "It tears down worktree resources, removes the worktree, and deletes the merged " +
-      "branch. Tracked instructions and provider integrations must already be committed; " +
-      "after landing only checkout-local agent artifacts are materialized. Landing " +
-      "authority comes from confirmed current consent or a machine-verified grant. " +
-      "Recorded grants never cover a checkpoint variance or standard proposal. Without " +
-      "authority the call is read-only and re-serves the review moment. Use discern_update " +
-      "when the branch is behind. Set dry_run to preview without changing anything. " +
-      "After success, report the result in your own words and end with data.proof_line " +
-      "verbatim; the full review page remains available through `discern status --verbose`.",
+      "Land only with explicit owner consent or machine-verified authority. " +
+      "Resolve the selected project's configured trunk and the selected candidate, " +
+      "which can compose this effort's committed source with earlier ready work. " +
+      "Each predecessor requires its own current evidence and authority; permission " +
+      "for this effort does not authorize another. Acceptance validates the exact " +
+      "candidate before advancing the trunk. Its Proof identifies that validated " +
+      "commit, which can differ from this worktree's HEAD. Released checkouts may " +
+      "supply validation environments. Eligible cleanup removes only released, " +
+      "positively owned, clean checkouts and their resources after landing. " +
+      "Recorded grants never cover a checkpoint variance or standard proposal. " +
+      "Without authority the call re-serves the review moment without landing. " +
+      "Follow the reported per-predecessor state and recovery action; earlier " +
+      "authorized predecessors may have landed before a later stop. " +
+      "Set dry_run to inspect the acceptance plan without changing anything. " +
+      "After success, report what landed and any unresolved cleanup in your own " +
+      "words, then end with data.proof_line verbatim; the full review page remains " +
+      "available through `discern status --verbose`.",
     inputSchema: {
       dry_run: z.boolean().optional().describe(
         "Preview the acceptance plan and touch nothing (default false).",
