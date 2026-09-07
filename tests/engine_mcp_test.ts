@@ -9,6 +9,7 @@ import {
   assert,
   assertEquals,
   assertExists,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { basename, join } from "@std/path";
@@ -302,7 +303,16 @@ class McpClient {
   private readonly statusPromise: Promise<Deno.CommandStatus>;
   private exitStatus: Deno.CommandStatus | undefined;
 
-  constructor(private child: Deno.ChildProcess) {
+  constructor(
+    private child: Pick<Deno.ChildProcess, "status" | "kill" | "pid"> & {
+      readonly stdin: WritableStream<Uint8Array>;
+      readonly stdout: ReadableStream<Uint8Array>;
+    },
+    private readonly waitForExit: (
+      status: Promise<Deno.CommandStatus>,
+      timeoutMs: number,
+    ) => Promise<Deno.CommandStatus | undefined> = settledWithin,
+  ) {
     this.writer = child.stdin.getWriter();
     this.reader = child.stdout.getReader();
     this.statusPromise = child.status.then((status) => {
@@ -438,7 +448,7 @@ class McpClient {
   /** Await the process, escalating through TERM and KILL if EOF cannot stop it. */
   private async exitWithEscalation(): Promise<Deno.CommandStatus> {
     let status = this.exitStatus ??
-      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+      await this.waitForExit(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
     if (status !== undefined) {
       return status;
     }
@@ -448,7 +458,7 @@ class McpClient {
       // It raced to exit.
     }
     status = this.exitStatus ??
-      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+      await this.waitForExit(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
     if (status !== undefined) {
       return status;
     }
@@ -458,7 +468,7 @@ class McpClient {
       // It raced to exit.
     }
     status = this.exitStatus ??
-      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+      await this.waitForExit(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
     if (status === undefined) {
       throw new Error(
         `MCP server ${this.child.pid} did not exit after SIGKILL`,
@@ -480,9 +490,16 @@ class McpClient {
     }
   }
 
-  /** Await a clean exit and release the stdout reader. */
+  /** Normal EOF waits for active tools to restore their environments before exit. */
   async finish(): Promise<number> {
-    const status = await this.exitWithEscalation();
+    const status = this.exitStatus ??
+      await this.waitForExit(this.statusPromise, MCP_RECV_TIMEOUT_MS);
+    if (status === undefined) {
+      await this.terminate();
+      throw new Error(
+        `MCP server ${this.child.pid} did not finish within ${MCP_RECV_TIMEOUT_MS}ms`,
+      );
+    }
     await this.cancelReader();
     return status.code;
   }
@@ -498,6 +515,44 @@ class McpClient {
     await this.terminate().catch(() => undefined);
   }
 }
+
+Deno.test("mcp harness: normal shutdown allows restoration and still tears down a stuck process", async () => {
+  for (const completes of [true, false]) {
+    const status = Promise.withResolvers<Deno.CommandStatus>();
+    let killed = false;
+    let readerClosed = false;
+    const child = {
+      pid: 1,
+      stdin: new WritableStream<Uint8Array>(),
+      stdout: new ReadableStream<Uint8Array>({
+        cancel: () => {
+          readerClosed = true;
+        },
+      }),
+      status: status.promise,
+      kill: () => {
+        killed = true;
+        status.resolve({ success: false, code: 143, signal: "SIGTERM" });
+      },
+    };
+    await using client = new McpClient(child, async (pending, allowance) => {
+      // Restoration exceeds emergency teardown's grace but fits an ordinary call.
+      if (!killed && (!completes || allowance < MCP_RECV_TIMEOUT_MS)) {
+        return undefined;
+      }
+      if (!killed) status.resolve({ success: true, code: 0, signal: null });
+      return await pending;
+    });
+    if (completes) assertEquals(await client.close(), 0);
+    else {await assertRejects(
+        () => client.close(),
+        Error,
+        "did not finish within",
+      );}
+    assertEquals(killed, !completes);
+    assertEquals(readerClosed, true);
+  }
+});
 
 /** Start a line-framed MCP server with the fixture engine environment and piped stdio. */
 async function spawnMcp(
