@@ -314,39 +314,283 @@ Deno.test("worktree ensure orientation stays off the worktree side", async () =>
   });
 });
 
-Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the merged branch", async () => {
+/**
+ * Prove an acceptance refusal moved nothing: the trunk ref, the worktree
+ * checkout, its branch tip and its branch ref are exactly as the green
+ * `done` left them.
+ */
+async function assertProvenWorktreeUntouched(
+  dir: string,
+  wt: string,
+  name: string,
+  proven: { readonly trunk: string; readonly head: string },
+  output: string,
+): Promise<void> {
+  assertEquals(
+    await gitOut(dir, "rev-parse", "main"),
+    proven.trunk,
+    `the trunk must not move on refusal\n${output}`,
+  );
+  assertEquals(
+    await targetExists(wt),
+    true,
+    `the refused worktree must remain intact\n${output}`,
+  );
+  assertEquals(
+    await gitOut(wt, "rev-parse", "HEAD"),
+    proven.head,
+    `the refused branch tip must not move\n${output}`,
+  );
+  assertStringIncludes(
+    await gitOut(dir, "branch", "--list", `agent/${name}`),
+    `agent/${name}`,
+    `the branch must not be deleted on refusal\n${output}`,
+  );
+}
+
+Deno.test("accept: one proven worktree refuses every main-checkout precondition non-destructively, then fast-forwards the trunk", async (t) => {
   await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "gamma");
+    // The prefix every main-checkout refusal shares: a scaffolded main repo,
+    // one worktree carrying committed work, and a green `done`. Main also
+    // carries a branch that conflicts with its own tip, so a rebase can be
+    // left in progress for one refusal and aborted afterwards. Each step
+    // perturbs the main checkout, asserts the refusal, restores the
+    // perturbation, and proves nothing moved; the landing at the end proves
+    // the pooled refusals left the worktree acceptable.
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const conflict = join(dir, "rebase-conflict.txt");
+    await Deno.writeTextFile(conflict, "base\n");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "rebase base", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "-c", "rebase-source");
+    await Deno.writeTextFile(conflict, "source\n");
+    await git(dir, "commit", "-q", "-am", "source side", "--no-gpg-sign");
+    await git(dir, "switch", "-q", "main");
+    await Deno.writeTextFile(conflict, "main\n");
+    await git(dir, "commit", "-q", "-am", "main side", "--no-gpg-sign");
+    const name = "gamma";
+    const wt = await addWorktree(dir, name);
     await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-
     const done = await runAgent(wt, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
-    const r = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(r.code, 0, r.output);
-    assertEquals(
-      await targetExists(wt),
-      false,
-      `worktree should be removed\n${r.output}`,
+    const proven = {
+      trunk: await gitOut(dir, "rev-parse", "main"),
+      head: await gitOut(wt, "rev-parse", "HEAD"),
+    };
+
+    await t.step(
+      "accept: refuses a detached-HEAD main checkout the same way",
+      async () => {
+        // Detach the main checkout: no branch is checked out at all, so the
+        // fast-forward has nothing to land on — the refusal must say so plainly,
+        // not crash and not move HEAD.
+        await git(dir, "switch", "-q", "--detach", "main");
+
+        const r = await runAgent(wt, ["accept", "--confirmed"]);
+        assertEquals(r.code, 1, r.output);
+        assertTerminalTextIncludes(r.output, "'(detached)', not 'main'");
+        assertTerminalTextIncludes(
+          r.output,
+          "Return to the configured trunk",
+        );
+        assertEquals(
+          await gitOut(dir, "branch", "--show-current"),
+          "",
+          `the detached main checkout must not be moved\n${r.output}`,
+        );
+        await assertProvenWorktreeUntouched(dir, wt, name, proven, r.output);
+        await git(dir, "switch", "-q", "main");
+      },
     );
-    // The work landed on the trunk itself, which stays checked out in main…
-    assert(
-      await targetExists(join(dir, "feature.txt")),
-      `work not fast-forwarded onto the trunk\n${r.output}`,
+
+    await t.step(
+      "accept names an in-progress main-checkout rebase before suggesting a branch switch",
+      async () => {
+        const rebase = await new Deno.Command("git", {
+          args: ["rebase", "rebase-source"],
+          cwd: dir,
+          stdout: "piped",
+          stderr: "piped",
+        }).output();
+        assert(rebase.code !== 0, "fixture must stop during a rebase conflict");
+
+        const accepted = await runAgent(wt, ["accept", "--confirmed"]);
+        assertEquals(accepted.code, 1, accepted.output);
+        assertTerminalTextIncludes(accepted.output, "in-progress rebase");
+        assertTerminalTextIncludes(accepted.output, "rebase --continue");
+        assertEquals(
+          accepted.output.includes("switch main"),
+          false,
+          accepted.output,
+        );
+        await git(dir, "rebase", "--abort");
+        assertEquals(await gitOut(dir, "branch", "--show-current"), "main");
+        await assertProvenWorktreeUntouched(
+          dir,
+          wt,
+          name,
+          proven,
+          accepted.output,
+        );
+      },
     );
-    assertEquals(
-      await gitOut(dir, "branch", "--show-current"),
-      "main",
-      `main checkout should be on the trunk, not the worktree branch\n${r.output}`,
+
+    await t.step(
+      "accept: refuses when the main checkout is parked off the trunk, naming the way back",
+      async () => {
+        // Park the main checkout on another branch: acceptance must refuse, not
+        // silently switch it back.
+        await git(dir, "switch", "-q", "-c", "parked-elsewhere");
+
+        const r = await runAgent(wt, ["accept", "--confirmed"]);
+        assertEquals(r.code, 1, r.output);
+        assertTerminalTextIncludes(r.output, "'parked-elsewhere', not 'main'");
+        // The way back is named (path canonicalization may differ, so match the tail).
+        assertTerminalTextIncludes(
+          r.output,
+          "Return to the configured trunk",
+        );
+        assertEquals(
+          await targetExists(wt),
+          true,
+          `off-trunk refusal must leave the worktree intact\n${r.output}`,
+        );
+        assertEquals(
+          await gitOut(dir, "branch", "--show-current"),
+          "parked-elsewhere",
+          `the parked main checkout must not be moved\n${r.output}`,
+        );
+        await assertProvenWorktreeUntouched(dir, wt, name, proven, r.output);
+        await git(dir, "switch", "-q", "main");
+        await git(dir, "branch", "-q", "-D", "parked-elsewhere");
+      },
     );
-    // …and the now-merged worktree branch is gone.
-    assertEquals(
-      await gitOut(dir, "branch", "--list", "agent/gamma"),
-      "",
-      `the merged branch should be deleted\n${r.output}`,
+
+    await t.step(
+      "accept refuses (non-destructively) when the main checkout is dirty",
+      async () => {
+        // Dirty a tracked file in main: exit must refuse rather than clobber it.
+        const toml = join(dir, "discern.toml");
+        const committed = await Deno.readTextFile(toml);
+        const dirtied = `${committed}\n# dirty\n`;
+        await Deno.writeTextFile(toml, dirtied);
+
+        const r = await runAgent(wt, ["accept", "--confirmed"]);
+        assertEquals(r.code, 1, r.output);
+        assertTerminalTextIncludes(r.output, "uncommitted tracked changes");
+        assertEquals(
+          await targetExists(wt),
+          true,
+          "worktree must be left intact on refusal",
+        );
+        assertEquals(
+          await Deno.readTextFile(toml),
+          dirtied,
+          "the refusal must preserve the dirty tracked file",
+        );
+        await assertProvenWorktreeUntouched(dir, wt, name, proven, r.output);
+        await Deno.writeTextFile(toml, committed);
+        assertEquals(
+          await gitOut(dir, "status", "--porcelain", "--untracked-files=no"),
+          "",
+        );
+      },
     );
-    assertTerminalTextIncludes(r.output, "1 prefix landed");
+
+    await t.step(
+      "accept fails closed when main-checkout status is unreadable",
+      async () => {
+        const wrapper = join(dir, "fail-main-status-git");
+        const canonicalMain = await Deno.realPath(dir);
+        await Deno.writeTextFile(
+          wrapper,
+          [
+            "#!/bin/sh",
+            "top=$(git rev-parse --show-toplevel 2>/dev/null || true)",
+            "is_status=false",
+            'for arg in "$@"; do',
+            '  if [ "$arg" = status ]; then is_status=true; break; fi',
+            "done",
+            `if [ "$top" = '${canonicalMain}' ] && [ "$is_status" = true ]; then`,
+            "  echo 'deliberate main status failure' >&2",
+            "  exit 41",
+            "fi",
+            'exec git "$@"',
+            "",
+          ].join("\n"),
+        );
+        await Deno.chmod(wrapper, 0o755);
+
+        const accepted = await runAgent(wt, ["accept", "--confirmed"], {
+          env: { GIT_BIN: wrapper },
+        });
+        assertEquals(accepted.code, 1, accepted.output);
+        assertTerminalTextIncludes(
+          accepted.output,
+          "could not read tracked status",
+        );
+        assertTerminalTextIncludes(
+          accepted.output,
+          "deliberate main status failure",
+        );
+        assertEquals(accepted.output.includes("discern update"), false);
+        assertEquals(await gitOut(dir, "rev-parse", "main"), proven.trunk);
+        assert(await targetExists(wt));
+        await assertProvenWorktreeUntouched(
+          dir,
+          wt,
+          name,
+          proven,
+          accepted.output,
+        );
+        await Deno.remove(wrapper);
+      },
+    );
+
+    await t.step(
+      "accept: fast-forwards the trunk, removes the worktree, deletes the merged branch, and ignores untracked local scratch in the main checkout",
+      async () => {
+        // Untracked local scratch in the main checkout is not a dirty tree: the
+        // clean precondition ignores it and the landing leaves it alone.
+        await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+        await Deno.writeTextFile(
+          join(dir, ".codex/session.local.toml"),
+          "permission = 'local'\n",
+        );
+
+        const r = await runAgent(wt, ["accept", "--confirmed"]);
+        assertEquals(r.code, 0, r.output);
+        assertEquals(
+          await targetExists(wt),
+          false,
+          `worktree should be removed\n${r.output}`,
+        );
+        // The work landed on the trunk itself, which stays checked out in main…
+        assert(
+          await targetExists(join(dir, "feature.txt")),
+          `work not fast-forwarded onto the trunk\n${r.output}`,
+        );
+        assertEquals(
+          await gitOut(dir, "branch", "--show-current"),
+          "main",
+          `main checkout should be on the trunk, not the worktree branch\n${r.output}`,
+        );
+        // …and the now-merged worktree branch is gone.
+        assertEquals(
+          await gitOut(dir, "branch", "--list", `agent/${name}`),
+          "",
+          `the merged branch should be deleted\n${r.output}`,
+        );
+        assertTerminalTextIncludes(r.output, "1 prefix landed");
+        assert(
+          await targetExists(join(dir, ".codex/session.local.toml")),
+          "the main checkout's local scratch file should be left alone",
+        );
+      },
+    );
   });
 });
 
@@ -703,208 +947,6 @@ Deno.test("accept: lands a proven locked worktree and retains its checkout and b
       await gitOut(dir, "branch", "--list", "agent/locked-grad"),
       "agent/locked-grad",
       `the branch keeps its commits\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("accept: refuses a detached-HEAD main checkout the same way", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "detached-main");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    // Detach the main checkout: no branch is checked out at all, so the
-    // fast-forward has nothing to land on — the refusal must say so plainly,
-    // not crash and not move HEAD.
-    await git(dir, "switch", "-q", "--detach", "main");
-
-    const r = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.output, "'(detached)', not 'main'");
-    assertTerminalTextIncludes(
-      r.output,
-      "Return to the configured trunk",
-    );
-    assertEquals(
-      await gitOut(dir, "branch", "--show-current"),
-      "",
-      `the detached main checkout must not be moved\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("accept names an in-progress main-checkout rebase before suggesting a branch switch", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const conflict = join(dir, "rebase-conflict.txt");
-    await Deno.writeTextFile(conflict, "base\n");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "rebase base", "--no-gpg-sign");
-    await git(dir, "switch", "-q", "-c", "rebase-source");
-    await Deno.writeTextFile(conflict, "source\n");
-    await git(dir, "commit", "-q", "-am", "source side", "--no-gpg-sign");
-    await git(dir, "switch", "-q", "main");
-    const wt = await addWorktree(dir, "main-rebase-active");
-    await Deno.writeTextFile(conflict, "main\n");
-    await git(dir, "commit", "-q", "-am", "main side", "--no-gpg-sign");
-    await git(wt, "merge", "--ff-only", "main");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const rebase = await new Deno.Command("git", {
-      args: ["rebase", "rebase-source"],
-      cwd: dir,
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    assert(rebase.code !== 0, "fixture must stop during a rebase conflict");
-
-    const accepted = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(accepted.code, 1, accepted.output);
-    assertTerminalTextIncludes(accepted.output, "in-progress rebase");
-    assertTerminalTextIncludes(accepted.output, "rebase --continue");
-    assertEquals(
-      accepted.output.includes("switch main"),
-      false,
-      accepted.output,
-    );
-    await git(dir, "rebase", "--abort");
-  });
-});
-
-Deno.test("accept: refuses when the main checkout is parked off the trunk, naming the way back", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "parked-main");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    // Park the main checkout on another branch: acceptance must refuse, not
-    // silently switch it back.
-    await git(dir, "switch", "-q", "-c", "parked-elsewhere");
-
-    const r = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.output, "'parked-elsewhere', not 'main'");
-    // The way back is named (path canonicalization may differ, so match the tail).
-    assertTerminalTextIncludes(
-      r.output,
-      "Return to the configured trunk",
-    );
-    assertEquals(
-      await targetExists(wt),
-      true,
-      `off-trunk refusal must leave the worktree intact\n${r.output}`,
-    );
-    assertEquals(
-      await gitOut(dir, "branch", "--show-current"),
-      "parked-elsewhere",
-      `the parked main checkout must not be moved\n${r.output}`,
-    );
-  });
-});
-
-Deno.test("accept refuses (non-destructively) when the main checkout is dirty", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "delta");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    // Dirty a tracked file in main: exit must refuse rather than clobber it.
-    const toml = join(dir, "discern.toml");
-    await Deno.writeTextFile(
-      toml,
-      `${await Deno.readTextFile(toml)}\n# dirty\n`,
-    );
-
-    const r = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(r.code, 1, r.output);
-    assertTerminalTextIncludes(r.output, "uncommitted tracked changes");
-    assertEquals(
-      await targetExists(wt),
-      true,
-      "worktree must be left intact on refusal",
-    );
-  });
-});
-
-Deno.test("accept fails closed when main-checkout status is unreadable", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "unreadable-main-status");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const trunkBefore = await gitOut(dir, "rev-parse", "main");
-    const wrapper = join(dir, "fail-main-status-git");
-    const canonicalMain = await Deno.realPath(dir);
-    await Deno.writeTextFile(
-      wrapper,
-      [
-        "#!/bin/sh",
-        "top=$(git rev-parse --show-toplevel 2>/dev/null || true)",
-        "is_status=false",
-        'for arg in "$@"; do',
-        '  if [ "$arg" = status ]; then is_status=true; break; fi',
-        "done",
-        `if [ "$top" = '${canonicalMain}' ] && [ "$is_status" = true ]; then`,
-        "  echo 'deliberate main status failure' >&2",
-        "  exit 41",
-        "fi",
-        'exec git "$@"',
-        "",
-      ].join("\n"),
-    );
-    await Deno.chmod(wrapper, 0o755);
-
-    const accepted = await runAgent(wt, ["accept", "--confirmed"], {
-      env: { GIT_BIN: wrapper },
-    });
-    assertEquals(accepted.code, 1, accepted.output);
-    assertTerminalTextIncludes(
-      accepted.output,
-      "could not read tracked status",
-    );
-    assertTerminalTextIncludes(
-      accepted.output,
-      "deliberate main status failure",
-    );
-    assertEquals(accepted.output.includes("discern update"), false);
-    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
-    assert(await targetExists(wt));
-  });
-});
-
-Deno.test("accept ignores untracked local scratch in the main checkout clean precondition", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await mainWithWorktree(dir, "delta-scratch");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-    const done = await runAgent(wt, ["done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, ".codex/session.local.toml"),
-      "permission = 'local'\n",
-    );
-
-    const r = await runAgent(wt, ["accept", "--confirmed"]);
-    assertEquals(r.code, 0, r.output);
-    assert(
-      await targetExists(join(dir, "feature.txt")),
-      `branch not landed into main\n${r.output}`,
-    );
-    assert(
-      await targetExists(join(dir, ".codex/session.local.toml")),
-      "the main checkout's local scratch file should be left alone",
     );
   });
 });
