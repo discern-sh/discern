@@ -3,6 +3,7 @@ import type { Candidate } from "../completion/candidate.ts";
 import {
   CandidateProofSchema,
   type ComponentEvidence,
+  EvidencePurposeSchema,
   type Requirement,
 } from "../completion/evidence.ts";
 import {
@@ -172,6 +173,39 @@ export function selectEvidence(
   } catch {
     return blocked({ kind: "validation-failed", evidence_ids: [record.id] });
   }
+}
+
+/** Ask the canonical selector which current receipts need byte verification.
+ * An empty audited set cannot confer readiness. It exposes only the newest
+ * eligible receipt, leaving newer failure, ambiguity and active use blocking. */
+export function artifactAuditEvidence(
+  snapshot: ValidationSnapshot,
+  records: readonly CompletionRecord[],
+): ComponentEvidence[] {
+  const wanted = new Set<string>();
+  const unaudited = new Set<string>();
+  for (const obligation of snapshot.obligations) {
+    for (const purpose of EvidencePurposeSchema.options) {
+      const selection = selectEvidence(
+        obligation,
+        snapshot.candidate_id,
+        records,
+        "report",
+        purpose,
+        unaudited,
+      );
+      if (selection.kind === "selected") wanted.add(selection.record.id);
+      else if (
+        selection.kind === "blocked" &&
+        selection.blocker.kind === "stale-evidence"
+      ) {
+        for (const id of selection.blocker.evidence_ids) wanted.add(id);
+      }
+    }
+  }
+  return records.flatMap((record) =>
+    record.kind === "evidence" && wanted.has(record.id) ? [record.data] : []
+  );
 }
 
 /** All receipts are rebuilt for this exact immutable candidate and requirement set. */

@@ -628,3 +628,82 @@ Deno.test("explicit retry bounds all earlier terminal failures while retaining u
     assertEquals(protectedPlan.reused.map((r) => r.requirement.id), ["cedar"]);
   }
 });
+
+Deno.test("evaluator audits only selectable newest evidence and never falls back after corruption", async () => {
+  const { withTempDir } = await import("./helpers.ts");
+  const { gitInit } = await import("./engine_helpers.ts");
+  const { retainArtifact } = await import(
+    "../src/engine/validation/artifacts.ts"
+  );
+  const { createProducerEvaluator } = await import(
+    "../src/engine/validation/evaluator.ts"
+  );
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(`${root}/source`, "fixture");
+    await gitInit(root);
+    const snap = await snapshot();
+    const old = await passing(snap, "local", 1);
+    const latest = await passing(snap, "local", 2);
+    const records = [];
+    for (const [name, run] of [["old", old], ["latest", latest]] as const) {
+      const artifact = await retainArtifact(
+        root,
+        {
+          attempt_id: run.execution.attempt.identity.id,
+          candidate_id: snap.candidate_id,
+          context: "local",
+        },
+        `${name}.txt`,
+        new TextEncoder().encode(name),
+      );
+      records.push(...run.records.map((record) =>
+        record.kind === "evidence"
+          ? {
+            ...record,
+            data: { ...record.data, artifacts: [artifact] },
+          }
+          : record
+      ));
+    }
+    const current = observation(records);
+    const evaluator = createProducerEvaluator({
+      root,
+      snapshot: snap,
+      observe: () => Promise.resolve(current),
+    });
+    const open = Deno.open;
+    const reads: string[] = [];
+    Deno.open = (path, options) => {
+      if (options?.read && /\/(old|latest)\.txt$/.test(String(path))) {
+        reads.push(String(path));
+      }
+      return open(path, options);
+    };
+    try {
+      await evaluator.observe(snap.candidate_id);
+      assertEquals(reads.map((path) => path.split("/").at(-1)), ["latest.txt"]);
+      const demand = {
+        kind: "done" as const,
+        context: "local",
+        mode: "strict" as const,
+        requirements: snap.requirements,
+      };
+      const plan = evaluator.plan(current, demand, snap.candidate_id);
+      assertEquals(plan.producers.length, 0);
+      assertEquals(plan.reused.length, snap.requirements.length);
+      const path = reads[0];
+      assert(path !== undefined);
+      await Deno.writeTextFile(path, "changed evidence");
+      await evaluator.observe(snap.candidate_id);
+      const invalid = evaluator.plan(current, demand, snap.candidate_id);
+      assertEquals(invalid.reused.length, 0);
+      assert(invalid.producers.length > 0 || invalid.blockers.length > 0);
+      assert(
+        reads.every((path) => path.endsWith("/latest.txt")),
+        "old passing artifacts cannot rescue a corrupt newest attempt",
+      );
+    } finally {
+      Deno.open = open;
+    }
+  });
+});

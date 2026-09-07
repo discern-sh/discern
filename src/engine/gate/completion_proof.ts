@@ -5,7 +5,7 @@ import {
   CompleteProofEvidenceSchema,
   type CompletionProofPointer,
 } from "../../shared/completion_proof.ts";
-import { readCompletionRecord } from "../completion/store.ts";
+import { openCompletionRecordStore } from "../completion/store.ts";
 import type {
   CompletionRecord,
   RecordSelector,
@@ -16,8 +16,12 @@ export async function readCompleteProof(
   root: string,
   pointer: CompletionProofPointer,
 ): Promise<CompleteProofEvidence> {
+  const store = await openCompletionRecordStore(root);
+  if (store === undefined) {
+    throw new Error("Complete evidence storage is unavailable.");
+  }
   const read = async (selector: RecordSelector): Promise<CompletionRecord> => {
-    const result = await readCompletionRecord(root, selector);
+    const result = await store.read(selector);
     if (result.kind !== "recorded" || result.record.kind !== selector.kind) {
       throw new Error(
         `Complete evidence ${selector.kind}/${selector.id} is ${result.kind}.`,

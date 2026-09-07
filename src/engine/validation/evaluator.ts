@@ -7,7 +7,7 @@ import type { Clock } from "../../shared/clock.ts";
 import type { ValidationSnapshot } from "./catalog.ts";
 import { executeValidation, type ValidationRuntime } from "./execute.ts";
 import { planValidation } from "./plan.ts";
-import { assembleCandidate } from "./selection.ts";
+import { artifactAuditEvidence, assembleCandidate } from "./selection.ts";
 import { auditArtifacts } from "./artifacts.ts";
 
 /** 4A supplies candidate/policy observation, explicit rerun and the claimed environment. */
@@ -28,10 +28,11 @@ export function createProducerEvaluator(options: {
       const observation = await options.observe();
       audited = await auditArtifacts(
         options.root,
-        observation.records.flatMap(({ reading }) =>
-          reading.kind === "recorded" && reading.record.kind === "evidence"
-            ? [reading.record.data]
-            : []
+        artifactAuditEvidence(
+          options.snapshot,
+          observation.records.flatMap(({ reading }) =>
+            reading.kind === "recorded" ? [reading.record] : []
+          ),
         ),
       );
       return observation;

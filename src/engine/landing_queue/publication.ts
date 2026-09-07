@@ -31,7 +31,6 @@ import {
 import { candidateRef } from "../completion/identity.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { withCompletionCheckout } from "../operation_lock.ts";
-import { readCompleteProof } from "../gate/completion_proof.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import type { writeProofNote } from "../gate/proof_notes.ts";
 import type { Proof } from "../../shared/result_schemas.ts";
@@ -220,11 +219,13 @@ export async function readLandingProof(
   if (record.data.claim.kind !== "normal") {
     throw new Error("Ordinary acceptance requires complete normal Proof.");
   }
-  const complete = await readCompleteProof(runtime.root, {
+  const proof = await readProofPresentation(runtime.root, {
     candidate_id: record.data.candidate_id,
     proof_id: record.data.claim.proof_id,
   });
+  const complete = proof.completion;
   if (
+    complete === undefined ||
     complete.candidate.policy !== record.data.policy ||
     complete.candidate.head !== record.data.target ||
     complete.candidate.expected_predecessor.head !==
@@ -236,10 +237,6 @@ export async function readLandingProof(
       "The landing subject differs from its complete strict Proof.",
     );
   }
-  const proof = await readProofPresentation(runtime.root, {
-    candidate_id: record.data.candidate_id,
-    proof_id: record.data.claim.proof_id,
-  });
   if (proof.trunk !== runtime.trunk) {
     throw new Error("The retained Proof names another trunk.");
   }

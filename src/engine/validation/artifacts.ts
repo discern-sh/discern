@@ -1,13 +1,16 @@
+import {
+  artifactPath,
+  type ArtifactPathResolver,
+  openArtifactPaths,
+} from "../completion/artifact_paths.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 /** Attempt-owned artifact capture and read-only byte verification. */
-import { dirname, relative } from "@std/path";
+import { dirname } from "@std/path";
 import {
   ArtifactPathSchema,
   ArtifactSchema,
   type ComponentEvidence,
 } from "../completion/evidence.ts";
-import { RecordIdSchema } from "../completion/identity.ts";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
 import { resolveContainedProjectWritePath } from "../../shared/project_path.ts";
 import { readCompleteCapture } from "../jobs/captured.ts";
@@ -43,28 +46,6 @@ export async function artifactStamp(
     info.ctime?.getTime(),
     await bytesDigest(await readCompleteCapture(safe)),
   ]);
-}
-
-/** Resolve an attempt coordinate without following symbolic links or creating storage. */
-async function artifactPath(
-  root: string,
-  attempt: string,
-  path: string,
-): Promise<string> {
-  const directory = await gitAdminStatePath(root, "completionArtifacts");
-  if (directory === undefined) {
-    throw new Error("completion artifact storage is unavailable");
-  }
-  // Resolve from existing common administration so absent attempt directories remain read-only.
-  let anchor = dirname(directory);
-  while (await lstatIfExists(anchor) === undefined) anchor = dirname(anchor);
-  return await resolveContainedProjectWritePath(
-    anchor,
-    `${relative(anchor, directory)}/${RecordIdSchema.parse(attempt)}/${
-      ArtifactPathSchema.parse(path)
-    }`,
-    "attempt artifact",
-  );
 }
 
 /** The retained protocol output coordinate shared by capture and diagnostic readers. */
@@ -138,9 +119,17 @@ export async function readArtifact(
   root: string,
   artifact: ComponentEvidence["artifacts"][number],
 ): Promise<Uint8Array> {
+  return await readScopedArtifact(await openArtifactPaths(root), artifact);
+}
+
+/** Validate current complete bytes through an operation-owned path resolver. */
+async function readScopedArtifact(
+  resolve: ArtifactPathResolver,
+  artifact: ComponentEvidence["artifacts"][number],
+): Promise<Uint8Array> {
   ArtifactSchema.parse(artifact);
   const bytes = await readCompleteCapture(
-    await artifactPath(root, artifact.attempt_id, artifact.path),
+    await resolve(artifact.attempt_id, artifact.path),
   );
   if (
     bytes.length !== artifact.bytes ||
@@ -155,10 +144,21 @@ export async function auditArtifacts(
   evidence: readonly ComponentEvidence[],
 ): Promise<ReadonlySet<string>> {
   const audited = new Set<string>();
+  if (evidence.every((component) => component.artifacts.length === 0)) {
+    return audited;
+  }
+  const [paths] = await Promise.allSettled([openArtifactPaths(root)]);
+  if (paths?.status !== "fulfilled") return audited;
+  const seen = new Set<string>();
   for (const component of evidence) {
     for (const artifact of component.artifacts) {
-      const [result] = await Promise.allSettled([readArtifact(root, artifact)]);
-      if (result?.status === "fulfilled") audited.add(artifactKey(artifact));
+      const key = artifactKey(artifact);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const [result] = await Promise.allSettled([
+        readScopedArtifact(paths.value, artifact),
+      ]);
+      if (result?.status === "fulfilled") audited.add(key);
     }
   }
   return audited;

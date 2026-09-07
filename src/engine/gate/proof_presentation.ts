@@ -1,7 +1,10 @@
 /** Retain the clean gate's presentation in common storage; it grants no authority. */
 import { type Proof, ProofSchema } from "../../shared/result_schemas.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
-import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
+import type {
+  CompleteProofEvidence,
+  CompletionProofPointer,
+} from "../../shared/completion_proof.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
@@ -11,13 +14,11 @@ import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 
 /** A presentation must reproduce the complete immutable claim, never replace it. */
-async function validatePresentation(
-  root: string,
-  pointer: CompletionProofPointer,
+function validatePresentation(
+  complete: CompleteProofEvidence,
   value: unknown,
-): Promise<Proof> {
+): Proof {
   const proof = ProofSchema.parse(value);
-  const complete = await readCompleteProof(root, pointer);
   if (
     JSON.stringify(proof.completion) !== JSON.stringify(complete) ||
     proof.head !== complete.candidate.head.slice(0, 12) ||
@@ -38,7 +39,10 @@ export async function retainProofPresentation(
   pointer: CompletionProofPointer,
   value: Proof,
 ): Promise<void> {
-  const proof = await validatePresentation(root, pointer, value);
+  const proof = validatePresentation(
+    await readCompleteProof(root, pointer),
+    value,
+  );
   const complete = proof.completion;
   if (complete === undefined || complete.validation.review === undefined) {
     throw new Error(
@@ -93,9 +97,8 @@ export async function readProofPresentation(
       "The clean gate's retained Proof presentation is unavailable; preserve the source and common evidence for recovery.",
     );
   }
-  return await validatePresentation(
-    root,
-    pointer,
+  return validatePresentation(
+    complete,
     await readEnvironmentArtifact(root, retained.record.data.artifact),
   );
 }

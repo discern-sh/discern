@@ -1,3 +1,4 @@
+import { countedAdminQueries } from "./git_admin_observer.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { RetirementEffectsSchema } from "../src/shared/accept_landing_state.ts";
 import { assert, assertEquals } from "@std/assert";
@@ -494,26 +495,6 @@ Deno.test("every recorded retirement effect is monotonic without changing owners
     true,
   );
 });
-
-/** Count physical Git administration requests during one isolated operation. */
-async function countedAdminQueries<T>(
-  operation: () => Promise<T>,
-): Promise<{ readonly value: T; readonly queries: number }> {
-  const Command = Deno.Command;
-  let queries = 0;
-  Deno.Command = class extends Command {
-    /** Count the administration query while retaining the native command. */
-    constructor(command: string | URL, options?: Deno.CommandOptions) {
-      super(command, options);
-      if (options?.args?.includes("--git-common-dir")) queries += 1;
-    }
-  };
-  try {
-    return { value: await operation(), queries };
-  } finally {
-    Deno.Command = Command;
-  }
-}
 
 Deno.test("completion inventory discovers its administration directory once across every family", async () => {
   await withTempDir(async (root) => {

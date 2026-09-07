@@ -1,3 +1,6 @@
+import { openArtifactPaths } from "../src/engine/completion/artifact_paths.ts";
+import { countedAdminQueries } from "./git_admin_observer.ts";
+import { completionFixtures } from "./completion_fixtures.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
@@ -361,5 +364,94 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         [],
       );
     }
+  });
+});
+
+Deno.test("artifact audit resolves storage once and reads duplicate coordinates once per observation", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, "source"), "fixture");
+    await gitInit(root);
+    const fixture = completionFixtures().evidence;
+    assert(fixture.kind === "evidence");
+    const component = fixture.data;
+    const subject = {
+      attempt_id: component.attempt_id,
+      candidate_id: component.candidate_id,
+      context: component.applicability.context,
+    };
+    const artifact = await retainArtifact(
+      root,
+      subject,
+      "counted.txt",
+      new TextEncoder().encode("evidence"),
+    );
+    const evidence = { ...component, artifacts: [artifact, artifact] };
+    const open = Deno.open;
+    let reads = 0;
+    Deno.open = (path, options) => {
+      if (String(path).endsWith("/counted.txt") && options?.read) reads++;
+      return open(path, options);
+    };
+    try {
+      const audited = await countedAdminQueries(() =>
+        auditArtifacts(root, [evidence, evidence])
+      );
+      assertEquals(audited.value.size, 1);
+      assertEquals(reads, 1);
+      assertEquals(audited.queries, 1);
+      const directory = await gitAdminStatePath(root, "completionArtifacts");
+      assert(directory !== undefined);
+      await Deno.writeTextFile(
+        join(directory, subject.attempt_id, "counted.txt"),
+        "tampered",
+      );
+      assertEquals(
+        (await auditArtifacts(root, [evidence])).size,
+        0,
+        "a later observation must read and verify bytes again",
+      );
+      assertEquals(reads, 2);
+    } finally {
+      Deno.open = open;
+    }
+  });
+});
+
+Deno.test("artifact path scopes recheck containment after every storage replacement", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, "source"), "fixture");
+    await gitInit(root);
+    const resolve = await openArtifactPaths(root);
+    const attempt = completionId(990);
+    const path = await resolve(attempt, "nested/output.txt");
+    const directory = await gitAdminStatePath(root, "completionArtifacts");
+    assert(directory !== undefined);
+    const outside = join(root, "outside");
+    await Deno.mkdir(outside);
+    await Deno.mkdir(join(directory, attempt, "nested"), { recursive: true });
+    for (
+      const victim of [
+        path,
+        join(directory, attempt, "nested"),
+        join(directory, attempt),
+        directory,
+      ]
+    ) {
+      if (victim !== path) await Deno.remove(victim, { recursive: true });
+      await Deno.symlink(outside, victim);
+      await assertRejects(
+        () => resolve(attempt, "nested/output.txt"),
+        Error,
+        "symlink",
+      );
+      await Deno.remove(victim);
+      if (victim !== path) {
+        await Deno.mkdir(join(directory, attempt, "nested"), {
+          recursive: true,
+        });
+      }
+    }
+    await assertRejects(() => resolve("not-an-id", "safe"));
+    await assertRejects(() => resolve(attempt, "../outside"));
   });
 });

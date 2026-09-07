@@ -1,3 +1,4 @@
+import { countedAdminQueries } from "./git_admin_observer.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
 import { synchronizeQueueAuthorities } from "../src/engine/landing_queue/public_authority.ts";
@@ -131,7 +132,15 @@ async function ready(root: string): Promise<{
 Deno.test("native queue landing settles exact authority and retries notes after source checkout removal", async () => {
   await withTempDir(async (root) => {
     const { runtime, record, claim, path } = await ready(root);
-    const originalProof = await readLandingProof(runtime, record);
+    const reading = await countedAdminQueries(() =>
+      readLandingProof(runtime, record)
+    );
+    const originalProof = reading.value;
+    assertEquals(
+      reading.queries,
+      4,
+      "one record-store scope and one read of each retained review and presentation",
+    );
     assert(originalProof.markdown.includes("test"));
     for (
       const change of [
