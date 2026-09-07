@@ -52,7 +52,11 @@ import {
   unavailable,
   verifyClaimCapacity,
 } from "./registry.ts";
-import { declarationIdentity, releasedSubject } from "./subjects.ts";
+import {
+  declarationIdentity,
+  releasedSubject,
+  releaseMatchesSnapshot,
+} from "./subjects.ts";
 import {
   type EnvironmentPhase,
   errorReason,
@@ -197,9 +201,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
       }
       const source = await workspace.inspect(environment, plan.declaration);
       if (
-        environment.release.kind !== "released" ||
-        environment.release.subject !==
-          await releasedSubject(environment, source)
+        !await releaseMatchesSnapshot(environment, source)
       ) {
         return unavailable(
           "Source, index, resources, or ignored state changed after release; return control to its source owner for a new release.",

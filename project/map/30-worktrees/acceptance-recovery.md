@@ -26,7 +26,7 @@ If the main checkout contains unfamiliar data, recovery preserves it and reports
 
 Main-checkout convergence runs after the exact transition and authority settlement, under checkout exclusion and outside the common publication lock. It materializes local agent artifacts, runs repository ensure commands, and checks smoke and tracked cleanliness. A retained successful convergence result is reused; a failed or cancelled one is retried on the same target before another prefix advances. Cancellation stops project children and preserves the landed result.
 
-Retirement runs separately after landing. It requires the recorded source release, positive ownership, current cleanliness, a matching resource inventory, and child quiescence under exclusion. Changed resources, branches, or files remain available for inspection. A note or retirement failure never runs the landing transaction again.
+Retirement runs separately after landing. It requires the recorded source release, positive ownership, current cleanliness, a matching resource inventory, and child quiescence under exclusion. Changed resources, branches, or files remain available for inspection. Native Git index cache refreshes alone do not change the released subject; the exact index remains in recovery snapshots. Ignored-file changes after release still prevent retirement. The optional comparison against setup is an advisory and does not decide retirement. [ADR 0382](../_adr/0382-release-checkout-semantics-independently-of-recovery-bytes.md) explains these boundaries. A note or retirement failure never runs the landing transaction again.
 
 ## Read the result before acting
 

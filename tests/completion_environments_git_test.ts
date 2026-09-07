@@ -1,5 +1,10 @@
 /** Real bounded Git failures remain actionable in an environment's recovery. */
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { join } from "@std/path";
 import {
   captureGitSnapshot,
@@ -239,5 +244,84 @@ Deno.test("Git capture batches native observations without changing fields or bo
   }, {
     ...(Deno.build.os === "windows" ? {} : { parent: "/tmp" }),
     prefix: "discern-snapshot-",
+  });
+});
+
+Deno.test("release identity ignores native index refresh while preserving actual checkout drift", async () => {
+  const { environmentFixture } = await import(
+    "./completion_environments_fixture.ts"
+  );
+  const { releasedSubject, releaseMatchesSnapshot } = await import(
+    "../src/engine/execution/subjects.ts"
+  );
+  const { sha256Hex } = await import("../src/shared/sha256.ts");
+  const { requireEnvironment } = await import(
+    "../src/engine/execution/registry.ts"
+  );
+  await withTempDir(async (base) => {
+    const f = await environmentFixture(base);
+    const environment = (await requireEnvironment(f.root, f.id)).record.data;
+    const before = await f.workspace.inspect(environment, f.declaration);
+    const subject = await releasedSubject(environment, before);
+    const released = {
+      ...environment,
+      release: {
+        kind: "released" as const,
+        subject,
+        retirement: true,
+        id: f.id,
+        at: 1,
+        owner: "fixture",
+      },
+    };
+    const legacy = {
+      ...released,
+      release: {
+        ...released.release,
+        subject: await sha256Hex(JSON.stringify({
+          path: environment.path,
+          declaration: environment.declaration,
+          ownership: environment.ownership,
+          snapshot: before.digest,
+        })),
+      },
+    };
+    assertEquals(
+      await releaseMatchesSnapshot({
+        ...environment,
+        release: { kind: "held" },
+      }, before),
+      false,
+    );
+    assertEquals(await releaseMatchesSnapshot(released, before), true);
+    assertEquals(await releaseMatchesSnapshot(legacy, before), true);
+    const path = join(f.path, "schema");
+    await Deno.utime(path, 1234567890, 1234567890);
+    await git(f.path, "status", "--porcelain");
+    const after = await f.workspace.inspect(environment, f.declaration);
+    assert(
+      before.digest !== after.digest,
+      "the raw restoration snapshot must retain the changed index bytes",
+    );
+    assertEquals(await releasedSubject(environment, after), subject);
+    assertEquals(await releaseMatchesSnapshot(released, after), true);
+    assertEquals(
+      await releaseMatchesSnapshot(legacy, after),
+      false,
+      "older exact-byte releases cannot gain broader validity",
+    );
+    await Deno.writeTextFile(join(f.path, "cache.dat"), "new local data");
+    const drift = await f.workspace.inspect(environment, f.declaration);
+    assert(
+      await releasedSubject(environment, drift) !== subject,
+      "ignored file changes after release must remain protected",
+    );
+    assertEquals(await releaseMatchesSnapshot(released, drift), false);
+    await Deno.writeTextFile(path, "changed source");
+    await assertRejects(
+      () => f.workspace.inspect(environment, f.declaration),
+      Error,
+      "clean source and index",
+    );
   });
 });

@@ -11,7 +11,6 @@ import {
 } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { integrationBranch } from "../worktree/git.ts";
-import { withCompletionCheckout } from "../operation_lock.ts";
 import {
   type CompletionRunValue,
   type CompletionSession,
@@ -22,7 +21,7 @@ import { pinValidatedTree, preflightAdminStateWrites } from "./proof.ts";
 interface CompletionGateResult {
   result: DiscernResult<GateData>;
   failedStage: FailedStage | null;
-  finalize: (pointer: CompletionProofPointer) => Promise<void>;
+  finalize: (pointer: CompletionProofPointer) => Promise<boolean>;
 }
 
 /** Publish the caller's clean gate result only after complete evidence and environment return. */
@@ -52,7 +51,14 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   // The gate preflight owns the unreadable policy-base diagnostic.
   if (!trunk.success) return (await run(undefined)).value;
   const context = options.context;
-  const completed = await withPublicCompletion(root, options, run);
+  const completed = await withPublicCompletion(
+    root,
+    options,
+    run,
+    async (gate, pointer) => {
+      return await gate.finalize(pointer) && gate.result.ok;
+    },
+  );
   if (completed.kind !== "completed") {
     const reason = "reason" in completed
       ? completed.reason
@@ -109,13 +115,10 @@ export async function runCompleteGate<T extends CompletionGateResult>(
       ),
     };
   }
-  if (completed.proof_id !== undefined && completed.blockers.length === 0) {
-    const pointer = {
-      candidate_id: completed.candidate_id,
-      proof_id: completed.proof_id,
-    };
-    await withCompletionCheckout(root, () => gate.finalize(pointer));
-  } else if (gate.result.ok) {
+  if (
+    (completed.proof_id === undefined || completed.blockers.length > 0) &&
+    gate.result.ok
+  ) {
     gate.result = {
       ...gate.result,
       ok: false,

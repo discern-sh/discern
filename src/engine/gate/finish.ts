@@ -279,7 +279,7 @@ async function unrunGateResult(
     gotchasTail: undefined,
     outputWithheld: false,
     presentationWritable: true,
-    finalize: () => Promise.resolve(),
+    finalize: () => Promise.resolve(false),
   };
 }
 
@@ -323,7 +323,7 @@ async function runCandidateGate(
     presentationWritable: boolean;
     validationRun?: PublicValidationRun;
     review?: EnvironmentArtifact;
-    finalize: (pointer: CompletionProofPointer) => Promise<void>;
+    finalize: (pointer: CompletionProofPointer) => Promise<boolean>;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -1071,7 +1071,7 @@ async function runCandidateGate(
       ),
     }),
     ...(validationRun === undefined ? {} : { validationRun }),
-    finalize: async (pointer): Promise<void> => {
+    finalize: async (pointer): Promise<boolean> => {
       const complete = await readCompleteProof(root, pointer);
       const proof = await buildGateProof(
         root,
@@ -1148,6 +1148,7 @@ async function runCandidateGate(
           checkpointPreflight?.mode ?? "strict",
         );
       }
+      return recorded.status === "recorded" && proof !== undefined;
     },
   };
 }

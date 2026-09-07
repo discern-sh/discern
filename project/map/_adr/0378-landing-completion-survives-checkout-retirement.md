@@ -2,6 +2,8 @@
 
 **Status**: accepted on 2026-09-05; implemented by the complete completion and coordinated acceptance boundaries. Amends [ADR 0366](0366-landing-is-one-exact-repository-transaction.md), [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), and [ADR 0215](0215-landing-receipts-travel-as-git-notes.md).
 
+> Amended by [ADR 0382](0382-release-checkout-semantics-independently-of-recovery-bytes.md): checkout release binds meaningful state while recovery retains exact bytes. [`subjects.ts`](../../../src/engine/execution/subjects.ts) owns that distinction.
+
 ## Context
 
 Acceptance currently holds its transaction through resource destruction, checkout removal, and branch deletion. Its journal lives with the worktree. Cooperative prefix advancement lets an executor land another effort's candidate, so landing cannot imply that the author's checkout is unused or that its local evidence may disappear.

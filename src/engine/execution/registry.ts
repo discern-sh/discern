@@ -32,7 +32,11 @@ import { registeredWorktreeRecord } from "../worktree/git.ts";
 import { withCompletionPublication } from "../operation_lock.ts";
 import { recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
-import { declarationIdentity, releasedSubject } from "./subjects.ts";
+import {
+  declarationIdentity,
+  releasedSubject,
+  releaseMatchesSnapshot,
+} from "./subjects.ts";
 import { enrolledEnvironments } from "./enrollment_read.ts";
 
 type EnvironmentRecord = Extract<CompletionRecord, { kind: "environment" }>;
@@ -334,8 +338,7 @@ export async function releaseExecutionEnvironment(
     await capabilities.workspace.verify(environment, snapshot);
     if (
       environment.release.kind === "released" &&
-      environment.release.subject ===
-        await releasedSubject(environment, snapshot) &&
+      await releaseMatchesSnapshot(environment, snapshot) &&
       environment.release.retirement === (options.retirement ?? false)
     ) return current;
     return await replaceEnvironment(root, current, {

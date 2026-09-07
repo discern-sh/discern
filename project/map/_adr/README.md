@@ -365,6 +365,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0379 — Emergency landings record an explicit Proof exception](0379-emergency-landings-record-an-explicit-proof-exception.md)
 - [0380 — Bind validation demand after composition within one execution lease](0380-bind-validation-demand-after-composition.md)
 - [0381 — Stage complete completion in place before publication](0381-stage-complete-completion-in-place-before-publication.md)
+- [0382 — Release checkout semantics independently of recovery bytes](0382-release-checkout-semantics-independently-of-recovery-bytes.md)
 
 <!-- END GENERATED: current ADR records -->
 

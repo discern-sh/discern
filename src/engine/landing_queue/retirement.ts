@@ -36,7 +36,7 @@ import {
   replaceEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
-import { releasedSubject } from "../execution/subjects.ts";
+import { releaseMatchesSnapshot } from "../execution/subjects.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import { SnapshotSchema } from "../execution/snapshot_schema.ts";
@@ -216,8 +216,7 @@ export async function retireQueueLanding(
         declaration,
       );
       if (
-        await releasedSubject(current.record.data, snapshot) !==
-          current.record.data.release.subject
+        !await releaseMatchesSnapshot(current.record.data, snapshot)
       ) return { kind: "retained", reason: "dirty" };
       await capabilities.workspace.verify(current.record.data, snapshot);
       const state = WorkspaceStateSchema.parse(snapshot.value);
@@ -362,8 +361,7 @@ async function applyRetirement(
       !sameSource(environment.ownership.source, record.data.source) ||
       record.data.ownership !==
         await sha256Hex(JSON.stringify(environment.ownership)) ||
-      await releasedSubject(environment, frozen.snapshot) !==
-        environment.release.subject
+      !await releaseMatchesSnapshot(environment, frozen.snapshot)
     ) return await settle({ kind: "retained", reason: "ownership-uncertain" });
     const run = async (
       signal?: AbortSignal,

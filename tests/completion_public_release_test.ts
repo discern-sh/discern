@@ -37,6 +37,9 @@ for (const retained of [false, true]) {
         ...(retained ? ["--retain-checkout"] : []),
       ]);
       assertEquals(done.code, 0, done.output);
+      // Native status may refresh the index cache without changing any checkout data.
+      await Deno.utime(`${path}/source`, 1234567890, 1234567890);
+      assertEquals(await gitOut(path, "status", "--porcelain"), "");
       const original = await gitOut(path, "rev-parse", "HEAD");
       const environments = observedRecords(await observeQueue(root, "main"))
         .filter((record) => record.kind === "environment");

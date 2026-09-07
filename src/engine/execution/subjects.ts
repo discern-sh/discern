@@ -6,6 +6,7 @@ import {
 import type { ExecutionEnvironment } from "../completion/environment.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import type { WorkspaceSnapshot } from "./snapshot_schema.ts";
+import { WorkspaceStateSchema } from "./workspace_state.ts";
 
 /** Freeze normalized declaration bytes, retaining the distinct source-tip case. */
 export async function declarationIdentity(
@@ -25,12 +26,41 @@ export async function releasedSubject(
   environment: ExecutionEnvironment,
   snapshot: WorkspaceSnapshot,
 ): Promise<string> {
+  const state = WorkspaceStateSchema.safeParse(snapshot.value);
+  let identity = snapshot.digest;
+  if (state.success && state.data.git !== null) {
+    // Recovery keeps exact index bytes. Release identity uses the captured
+    // entries, staged patch and complete files; native capture rejects index
+    // flags and layouts whose semantics those observations cannot preserve.
+    const { index: _index, ...git } = state.data.git;
+    identity = await sha256Hex(JSON.stringify({ ...state.data, git }));
+  }
+  return await releaseDigest(environment, identity);
+}
+
+/** Existing exact-byte releases remain usable only while their exact subject matches. */
+export async function releaseMatchesSnapshot(
+  environment: ExecutionEnvironment,
+  snapshot: WorkspaceSnapshot,
+): Promise<boolean> {
+  return environment.release.kind === "released" &&
+    (environment.release.subject ===
+        await releasedSubject(environment, snapshot) ||
+      environment.release.subject ===
+        await releaseDigest(environment, snapshot.digest));
+}
+
+/** Bind the state identity to this exact ownership and declaration. */
+async function releaseDigest(
+  environment: ExecutionEnvironment,
+  snapshot: string,
+): Promise<string> {
   return await sha256Hex(
     JSON.stringify({
       path: environment.path,
       declaration: environment.declaration,
       ownership: environment.ownership,
-      snapshot: snapshot.digest,
+      snapshot,
     }),
   );
 }

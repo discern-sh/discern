@@ -17,6 +17,9 @@ import { requireQueue } from "../src/engine/landing_queue/repository.ts";
 async function complete(
   root: string,
   context = "local",
+  finalize?: Parameters<
+    typeof withPublicCompletion<Readonly<Record<string, number>>>
+  >[3],
 ): ReturnType<typeof withPublicCompletion<Readonly<Record<string, number>>>> {
   return await withPublicCompletion(
     root,
@@ -50,6 +53,7 @@ async function complete(
         validation,
       };
     },
+    finalize,
   );
 }
 
@@ -155,3 +159,42 @@ Deno.test("E13 distinct declared contexts assemble only after every context supp
     assertEquals(replaced.proof_id, undefined);
   });
 });
+
+for (const finalized of [true, false]) {
+  Deno.test(`completion finalizes before release and retains control on unsuccessful finalization (${finalized})`, async () => {
+    await withTempDir(async (root) => {
+      const path = await Deno.realPath(await project(root));
+      let calls = 0;
+      const result = await complete(path, "local", async (_value, pointer) => {
+        calls++;
+        const observation = await observeCompletionRecords(path);
+        const records = observation.records.flatMap(({ reading }) =>
+          reading.kind === "recorded" ? [reading.record] : []
+        );
+        assert(
+          records.some((record) =>
+            record.kind === "proof" && record.id === pointer.proof_id
+          ),
+        );
+        const environment = records.find((record) =>
+          record.kind === "environment" && record.data.path === path
+        );
+        assert(environment?.kind === "environment");
+        assertEquals(environment.data.release.kind, "held");
+        await Deno.utime(`${path}/discern.toml`, 1234567890, 1234567890);
+        await git(path, "status", "--porcelain");
+        return finalized;
+      });
+      assertEquals(calls, 1);
+      assert(result.kind === "completed");
+      const { requireEnvironment } = await import(
+        "../src/engine/execution/registry.ts"
+      );
+      const current = await requireEnvironment(path, result.environment_id);
+      assertEquals(
+        current.record.data.release.kind,
+        finalized ? "released" : "held",
+      );
+    });
+  });
+}

@@ -6,7 +6,7 @@ import { CandidateSchema } from "../completion/candidate.ts";
 import { NameSchema, RecordIdSchema } from "../completion/identity.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { readExecutionDocument } from "./artifact_read.ts";
-import { releasedSubject } from "./subjects.ts";
+import { releaseMatchesSnapshot } from "./subjects.ts";
 import { SnapshotSchema } from "./snapshot_schema.ts";
 export const ExecutionIntentSchema = z.strictObject({
   format: z.literal("execution-intent-v1"),
@@ -49,9 +49,7 @@ export async function loadExecutionIntent(
     );
   }
   if (
-    intent.environment.release.kind !== "released" ||
-    intent.environment.release.subject !==
-      await releasedSubject(intent.environment, intent.source)
+    !await releaseMatchesSnapshot(intent.environment, intent.source)
   ) {
     throw new Error(
       "Execution intent does not match its frozen release subject. Preserve both records for reconciliation.",

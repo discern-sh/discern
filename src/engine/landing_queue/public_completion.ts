@@ -1,3 +1,4 @@
+import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { emitComponentUse } from "../completion/events.ts";
 import { producerLabel } from "../validation/public_run.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
@@ -152,6 +153,7 @@ export async function withPublicCompletion<T>(
     readonly executor?: Executor;
   },
   run: (session: CompletionSession) => Promise<CompletionRunValue<T>>,
+  finalize?: (value: T, pointer: CompletionProofPointer) => Promise<boolean>,
 ): Promise<
   CompletedCandidate<T> | CompletionBlocker | { readonly kind: "replan" }
 > {
@@ -570,8 +572,15 @@ export async function withPublicCompletion<T>(
         ],
       };
     }
+    // Final source checks and Proof presentation finish under the same checkout
+    // exclusion before another actor can claim or retire the released state.
+    const finalized = await finalize?.(result.value, {
+      candidate_id: candidateId,
+      proof_id: admission.proof_id,
+    }) ?? true;
     if (
-      options.released === undefined && options.mode === "strict" &&
+      finalized && options.released === undefined &&
+      options.mode === "strict" &&
       !options.retainCheckout
     ) {
       const returnedEnvironment = await requireEnvironment(root, environmentId);

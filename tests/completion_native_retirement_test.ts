@@ -231,3 +231,14 @@ for (const change of ["resource", "uncertain-child"] as const) {
     });
   });
 }
+
+Deno.test("retirement accepts a timestamp-only index refresh after release", async () => {
+  await withTempDir(async (root) => {
+    const f = await landed(root);
+    await Deno.utime(`${f.path}/discern.toml`, 1234567890, 1234567890);
+    await git(f.path, "status", "--porcelain");
+    const result = await retireQueueLanding(f.runtime, f.landing);
+    assertEquals(result.kind, "retired", JSON.stringify(result));
+    assertEquals(await statIfExists(f.path), undefined);
+  });
+});
