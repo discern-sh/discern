@@ -1884,41 +1884,8 @@ const ACCEPT_FAITHFULNESS_CASE = defineFaithfulnessCase(
       worktree_removed: true,
       branch_deleted: true,
     });
-    expectFaithful("accept", applied, "accept applied rerun");
-  });
-
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      `[meta]\nschema_version = ${SCHEMA_VERSION}\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n`,
-    );
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "grad-proof");
-    await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
-    const finish = await finishResult(wt, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-    });
-    assertEquals(finish.ok, true);
-    const ctx = await lifecycleContext(
-      wt,
-      new Logger({ json: true, noColor: true }),
-    );
-
-    const applied = await acceptResult(ctx, {
-      confirmed: true,
-      cliModel: TEST_CLI_MODEL,
-    });
-    assertEquals(applied.ok, true);
-    const prefix = applied.data?.queue?.[0];
-    assertEquals(prefix?.state, "landed");
-    assertEquals(prefix?.convergence, "passed");
-    assertEquals(prefix?.retirement, "retired");
-    assertEquals(prefix?.retirement_effects, {
-      worktree_removed: true,
-      branch_deleted: true,
-    });
+    // One landing carries the complete per-prefix data: the applied envelope
+    // after a real Proof, with every landing, convergence, and retirement fact.
     expectFaithful("accept", applied, "accept applied proof");
   });
 });
