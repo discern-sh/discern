@@ -1,4 +1,6 @@
-import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { superviseSpawn } from "../src/engine/owned_child.ts";
+import { KILL_GRACE_MS } from "../src/engine/process_signals.ts";
+import { ManualScheduler } from "./manual_scheduler.ts";
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { Logger } from "../src/lib/log.ts";
@@ -66,16 +68,11 @@ Deno.test({
   name: "an owned child that ignores shutdown is killed after the grace period",
   ignore: Deno.build.os === "windows",
   fn: async () => {
-    const started = SYSTEM_CLOCK.monotonicNow();
     const result = await runDriver("SIGTERM", true);
 
     assertEquals(result.interruptedBy, "SIGTERM");
     assertEquals(result.signal, "SIGKILL");
     assertEquals(result.code, 137);
-    assert(
-      SYSTEM_CLOCK.monotonicNow() - started >= 2_000,
-      "the child must receive the graceful signal before SIGKILL",
-    );
   },
 });
 
@@ -153,4 +150,70 @@ Deno.test("request cancellation stops a routed command without killing its ownin
       0,
     );
   });
+});
+
+Deno.test("owned-child escalation schedules the grace before sending SIGKILL", async () => {
+  const scheduler = new ManualScheduler();
+  const controller = new AbortController();
+  const ready = Promise.withResolvers<void>();
+  const exited = Promise.withResolvers<Deno.CommandStatus>();
+  const signals: Deno.Signal[] = [];
+  // A complete structural fake keeps signal order observable without native delays.
+  const fake: Deno.ChildProcess = {
+    pid: 123,
+    status: exited.promise,
+    get stdin(): Deno.ChildProcess["stdin"] {
+      throw new Error("unused fixture pipe");
+    },
+    get stdout(): Deno.ChildProcess["stdout"] {
+      throw new Error("unused fixture pipe");
+    },
+    get stderr(): Deno.ChildProcess["stderr"] {
+      throw new Error("unused fixture pipe");
+    },
+    kill: (signal = "SIGTERM"): void => {
+      assert(
+        typeof signal === "string",
+        "the supervisor forwards named signals",
+      );
+      signals.push(signal);
+      if (signal === "SIGKILL") {
+        exited.resolve({ success: false, code: 137, signal });
+      }
+    },
+    ref: (): void => {},
+    unref: (): void => {},
+    output: async (): Promise<Deno.CommandOutput> => ({
+      ...await exited.promise,
+      stdout: new Uint8Array(),
+      stderr: new Uint8Array(),
+    }),
+    [Symbol.asyncDispose]: async (): Promise<void> => {
+      await exited.promise;
+    },
+  };
+  const pending = superviseSpawn(() => fake, (child) => {
+    ready.resolve();
+    return child.status;
+  }, {
+    isolatedGroup: false,
+    signal: controller.signal,
+    scheduler,
+  });
+  try {
+    await ready.promise;
+    controller.abort();
+    assertEquals(signals, ["SIGTERM"]);
+    assertEquals(
+      [...scheduler.pending.values()].map((timer) => timer.delayMs),
+      [KILL_GRACE_MS],
+    );
+    scheduler.fire(KILL_GRACE_MS);
+    assertEquals(signals, ["SIGTERM", "SIGKILL"]);
+    assertEquals((await pending).value.code, 137);
+    assertEquals(scheduler.pending.size, 0);
+  } finally {
+    exited.resolve({ success: false, code: 137, signal: "SIGKILL" });
+    await pending;
+  }
 });

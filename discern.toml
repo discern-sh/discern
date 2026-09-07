@@ -1431,6 +1431,7 @@
 [checkpoints.terminal-timing-readiness]
   paths = [
     "tests/test_shell_wait*.ts",
+    "tests/test_elapsed*.ts",
     "tests/shell_barrier.ts",
     "tests/waiting.ts",
     "tests/test_waiting_guard.ts",
@@ -1442,7 +1443,7 @@
     "scripts/terminal_capture.ts",
   ]
   mode = "stop"
-  question = "Does each changed terminal transition use elapsed time only for behavior or controlled adversarial stimulus under test, and a positive observable condition for readiness and frame completion? If not, identify the transition that still infers state from elapsed time and why no protocol can expose that state."
+  question = "Does each changed timing assertion measure only the operation that owns its bound, excluding unrelated preparation and restoration? Does each changed terminal transition use elapsed time only for behavior or controlled adversarial stimulus under test, and a positive observable condition for readiness and frame completion? If not, identify the transition that still infers state from elapsed time and why no protocol can expose that state."
   teach = "Scheduler silence cannot establish completion of streamed output; the real-delay census measures population, not semantic validity."
 
 # An ADR addition is the decision moment; later corrections to an existing

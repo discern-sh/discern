@@ -398,9 +398,7 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
     );
     await gitInit(dir);
 
-    const start = SYSTEM_CLOCK.wallNow();
     const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = SYSTEM_CLOCK.wallNow() - start;
 
     assertEquals(r.code, 1, r.output);
     const obj = parseGate(r.stdout);
@@ -418,6 +416,5 @@ Deno.test("a standard's own `timeout` bounds its gate measurement job while sibl
     assertEquals(diag.rule, "timeout");
     const lint = (obj.steps ?? []).find((s) => s.label === "lint");
     assertEquals(lint?.outcome, "ok");
-    assert(elapsed < 30_000, `bounded by the override, took ${elapsed}ms`);
   });
 });

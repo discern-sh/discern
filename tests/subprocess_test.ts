@@ -12,7 +12,8 @@
  * statically knowable — NEVER a word `sh` would not have run.
  */
 
-import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
+import { waitForPendingCondition } from "./waiting.ts";
+import { ManualScheduler } from "./manual_scheduler.ts";
 import {
   assert,
   assertEquals,
@@ -328,19 +329,34 @@ Deno.test("runGit enforces an explicit caller-owned timeout", async () => {
     const fakeGit = join(dir, "slow-git");
     await Deno.writeTextFile(fakeGit, "#!/bin/sh\nexec tail -f /dev/null\n");
     await Deno.chmod(fakeGit, 0o755);
-    const started = SYSTEM_CLOCK.monotonicNow();
-    const result = await runGit(["status"], {
+    const scheduler = new ManualScheduler();
+    const pending = runGit(["status"], {
       cwd: dir,
       bin: fakeGit,
       timeoutMs: 50,
+      scheduler,
     });
-    assertEquals(result.success, false);
-    assertEquals(result.code, 124);
-    assertEquals(result.timedOut, true);
-    assert(
-      SYSTEM_CLOCK.monotonicNow() - started < 2_000,
-      "runGit waited for the child after its explicit deadline",
-    );
+    try {
+      await waitForPendingCondition(
+        pending,
+        () => scheduler.pending.size > 0,
+        "Git watchdog scheduling",
+      );
+      assertEquals(
+        [...scheduler.pending.values()].map((timer) => timer.delayMs),
+        [50],
+      );
+      scheduler.fire(50);
+      const result = await pending;
+      assertEquals(scheduler.pending.size, 0);
+      assertEquals(result.success, false);
+      assertEquals(result.code, 124);
+      assertEquals(result.timedOut, true);
+    } finally {
+      // Assertion failure still dispatches the owned timeout and reaps its child.
+      for (const timer of [...scheduler.pending.values()]) timer.callback();
+      await pending;
+    }
   });
 });
 
