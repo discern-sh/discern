@@ -241,6 +241,7 @@ export async function runCheckpointGit(
     readonly cwd: string;
     readonly timeoutMs: number;
     readonly maxOutputBytes: number;
+    readonly stdin?: string;
   },
 ): Promise<GitResult> {
   return await runGit(args, {

@@ -32,6 +32,10 @@ Checkpoint gate and acceptance journeys are grouped by declaration, policy, CI, 
 
 MCP fixtures distinguish normal EOF from emergency teardown. Normal shutdown waits for active calls, including environment restoration and durable settlement, within the existing call-readiness allowance. The shorter escalation grace belongs to exceptional cleanup. Neither a killed child nor a closed input pipe alone proves that the server has finished returning its environment.
 
+### Review execution cost
+
+The [test execution review](test-execution-review.md) explains when to share results, copy fixtures, or chain compatible states. The `test-execution-cost` checkpoint selects growth in expensive test calls and repetition. It leaves assertion-only changes outside the question and requires no timing benchmark. The review preserves each assertion's meaningful preconditions and the real process boundaries under test.
+
 ### The canary job
 
 `[jobs.canary]` in [discern.toml](../../../discern.toml) runs a small, cheap subset of the suite at the check stage. `discern prepare` therefore reports a tripped content or structure guard in seconds, and in `discern done` a red canary ends the concurrent check-and-test group early under `[gate].fail_fast`. Every member also runs in the test stage, so a green gate proves the same thing with or without the canary; the job changes how quickly a failure is heard. The canary imports the full runner's command builder, including explicit shuffle, and forwards caller arguments before its derived file list.
