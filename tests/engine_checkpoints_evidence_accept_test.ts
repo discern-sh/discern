@@ -1,27 +1,22 @@
 /** Checkpoint evidence accept journeys with independently owned fixtures. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
 import { AWAITING_CONSENT_SLUG } from "../src/shared/consent.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { HINTS } from "../src/shared/hints.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
   type AcceptEnvelope,
   type AcceptWireData,
   checkpointedWorktree,
   CONFIG_WITH_GRANT,
-  greenWithUnmet,
   landedNotePayload,
   parseAcceptJson,
-  parseAcceptMessageJson,
   parseAppliedAcceptJson,
   QUESTION,
 } from "./engine_checkpoints_accept_fixture.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { gitOut, runAgent } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { assertHasHint } from "./hint_asserts.ts";
 
 type CheckpointDropAcceptEnvelope = Omit<AcceptEnvelope, "data"> & {
   data: AcceptWireData & {
@@ -45,35 +40,104 @@ function parseCheckpointDropAcceptJson(
   };
 }
 
-Deno.test("accept: report-mode Proof is non-landable in preview and apply", async () => {
+Deno.test("accept: unreadable checkpoint evidence refuses before landing — a report-mode Proof and an unreadable declaration store alike", async (t) => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir);
-    const reported = await runAgent(wt, ["done", "--ci", "--json"]);
-    assertEquals(reported.code, 0, reported.output);
-
     const store = await gitAdminStatePath(wt, "checkpointOpenQuestions");
     assert(store !== undefined);
-    await Deno.writeTextFile(store, "not json\n");
 
-    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-    assertEquals(preview.code, 0, preview.output);
-    const previewResult = parseAcceptJson(preview.stdout);
-    assertResultDataKey(previewResult, "queue");
-    assert(
-      previewResult.data.queue?.some((row) =>
-        row.pending.some((item) => item.kind === "missing-evidence")
-      ),
-      preview.stdout,
-    );
-    assertEquals(previewResult.dry_run, true);
+    await t.step(
+      "report-mode Proof is non-landable in preview and apply",
+      async () => {
+        const reported = await runAgent(wt, ["done", "--ci", "--json"]);
+        assertEquals(reported.code, 0, reported.output);
 
-    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(apply.code, 1, apply.output);
-    assertEquals(
-      parseAcceptJson(apply.stdout).error,
-      "checkpoint_evidence_unavailable",
+        await Deno.writeTextFile(store, "not json\n");
+
+        const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+        assertEquals(preview.code, 0, preview.output);
+        const previewResult = parseAcceptJson(preview.stdout);
+        assertResultDataKey(previewResult, "queue");
+        assert(
+          previewResult.data.queue?.some((row) =>
+            row.pending.some((item) => item.kind === "missing-evidence")
+          ),
+          preview.stdout,
+        );
+        assertEquals(previewResult.dry_run, true);
+
+        const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(apply.code, 1, apply.output);
+        assertEquals(
+          parseAcceptJson(apply.stdout).error,
+          "checkpoint_evidence_unavailable",
+        );
+        assert(await targetExists(wt), "report-mode Proof must land nothing");
+      },
     );
-    assert(await targetExists(wt), "report-mode Proof must land nothing");
+
+    await t.step(
+      "unreadable declaration evidence refuses before landing",
+      async () => {
+        // Strict completion after the report-only run: the declaration rebuilds
+        // the unreadable store around itself and the gate records strict Proof
+        // against readable declaration state.
+        const gate = await runAgent(wt, [
+          "done",
+          "--met",
+          "api-review",
+          "--json",
+        ]);
+        assertEquals(gate.code, 0, gate.output);
+        const policyCommit = await gitOut(wt, "merge-base", "main", "HEAD");
+
+        // This corruption is first observable by proof inspection and
+        // acceptance.
+        await Deno.writeTextFile(store, "not json\n");
+        const liveDrop = (envelope: CheckpointDropAcceptEnvelope) =>
+          envelope.data.checkpoint_drops.find((drop) =>
+            drop.reason === "open_question_store_corrupt"
+          );
+        const declarationDrop = (envelope: CheckpointDropAcceptEnvelope) =>
+          envelope.data.checkpoint_drops.find((drop) =>
+            drop.reason === "declaration_evidence_unavailable"
+          );
+
+        const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+        assertEquals(preview.code, 0, preview.output);
+        assertEquals(
+          liveDrop(parseCheckpointDropAcceptJson(preview.stdout))
+            ?.policy_commit,
+          policyCommit,
+        );
+
+        const review = await runAgent(wt, ["accept", "--json"]);
+        assertEquals(review.code, 1, review.output);
+        const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
+        assertEquals(reviewEnv.error, "checkpoint_evidence_unavailable");
+        assertStringIncludes(
+          declarationDrop(reviewEnv)?.account ?? "",
+          "declaration evidence could not be read",
+        );
+
+        const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(apply.code, 1, apply.output);
+        assertEquals(
+          parseAcceptJson(apply.stdout).error,
+          "checkpoint_evidence_unavailable",
+        );
+        assert(
+          parseCheckpointDropAcceptJson(apply.stdout).data.checkpoint_drops
+            .some(
+              (drop) => drop.reason === "declaration_evidence_unavailable",
+            ),
+        );
+        assert(
+          await targetExists(wt),
+          "unreadable declarations must land nothing",
+        );
+      },
+    );
   });
 });
 
@@ -133,99 +197,5 @@ Deno.test("accept: an indeterminate stop serves full evidence and excludes recor
       payload.proof?.checkpoint_drops?.[0]?.reason,
       "when_invalid_exit",
     );
-  });
-});
-
-Deno.test("accept: unreadable declaration evidence refuses before landing", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    const gate = await runAgent(wt, [
-      "done",
-      "--met",
-      "api-review",
-      "--json",
-    ]);
-    assertEquals(gate.code, 0, gate.output);
-    const policyCommit = await gitOut(wt, "merge-base", "main", "HEAD");
-
-    // The strict Proof was recorded against readable declaration state. This
-    // corruption is first observable by proof inspection and acceptance.
-    const store = await gitAdminStatePath(wt, "checkpointOpenQuestions");
-    assert(store !== undefined);
-    await Deno.writeTextFile(store, "not json\n");
-    const liveDrop = (envelope: CheckpointDropAcceptEnvelope) =>
-      envelope.data.checkpoint_drops.find((drop) =>
-        drop.reason === "open_question_store_corrupt"
-      );
-    const declarationDrop = (envelope: CheckpointDropAcceptEnvelope) =>
-      envelope.data.checkpoint_drops.find((drop) =>
-        drop.reason === "declaration_evidence_unavailable"
-      );
-
-    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
-    assertEquals(preview.code, 0, preview.output);
-    assertEquals(
-      liveDrop(parseCheckpointDropAcceptJson(preview.stdout))?.policy_commit,
-      policyCommit,
-    );
-
-    const review = await runAgent(wt, ["accept", "--json"]);
-    assertEquals(review.code, 1, review.output);
-    const reviewEnv = parseCheckpointDropAcceptJson(review.stdout);
-    assertEquals(reviewEnv.error, "checkpoint_evidence_unavailable");
-    assertStringIncludes(
-      declarationDrop(reviewEnv)?.account ?? "",
-      "declaration evidence could not be read",
-    );
-
-    const apply = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(apply.code, 1, apply.output);
-    assertEquals(
-      parseAcceptJson(apply.stdout).error,
-      "checkpoint_evidence_unavailable",
-    );
-    assert(
-      parseCheckpointDropAcceptJson(apply.stdout).data.checkpoint_drops.some(
-        (drop) => drop.reason === "declaration_evidence_unavailable",
-      ),
-    );
-    assert(await targetExists(wt), "unreadable declarations must land nothing");
-  });
-});
-
-Deno.test("accept: a stale conclusion routes back to done before any effect", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    await greenWithUnmet(wt);
-
-    // A further committed edit to the matched path stales the conclusion
-    // (the subject moved) — acceptance must route back to done, not serve a
-    // variance decision for evidence that no longer stands.
-    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint v2\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "revise the api", "--no-gpg-sign");
-    // Reconcile the open question to the new subject (and get served again).
-    const reserved = await runAgent(wt, ["done", "--json"]);
-    assertEquals(reserved.code, 1, reserved.output);
-    const reservedResult = decodeCliResult(reserved.stdout, "done");
-    assertEquals(reservedResult.verb, "done");
-    assertEquals(reservedResult.error, AWAITING_DECLARATION_SLUG);
-
-    const r = await runAgent(wt, [
-      "accept",
-      "--confirmed",
-      "--variance",
-      "api-review",
-      "--json",
-    ]);
-    assertEquals(r.code, 1, r.output);
-    const env = parseAcceptMessageJson(r.stdout);
-    assertEquals(env.error, AWAITING_DECLARATION_SLUG, r.stdout);
-    assertStringIncludes(env.message, "api-review");
-    assertStringIncludes((env.hints ?? []).join("\n"), "discern done");
-    assertHasHint(env, HINTS["accept-declarations-stale"], {
-      ids: ["api-review"],
-    });
-    assert(await targetExists(wt), "a precondition refusal must land nothing");
   });
 });

@@ -1,12 +1,13 @@
 /**
  * Checkpoint **observation** through the real engine (black-box): the Logbook
- * records the open question and variance lifecycle as metadata — fired, reopened,
- * declared (with the unchanged/revised split and elapsed time), advise
- * servings, authorized variances, abandoned open questions — while the unmet
- * rationale, which the SAME invocations carry as Proof evidence in their
- * envelopes, never reaches a single Logbook byte. Recording is observation,
- * never a gate: every assertion here rides runs whose outcomes the interlock
- * already decided.
+ * records the open question lifecycle as metadata — fired, reopened, declared
+ * (with the unchanged/revised split and elapsed time), abandoned open
+ * questions — while the unmet rationale, which the SAME invocations carry as
+ * Proof evidence in their envelopes, never reaches a single Logbook byte.
+ * Recording is observation, never a gate: every assertion here rides runs
+ * whose outcomes the interlock already decided. The authorized-landing and
+ * advise-serving observations ride the accept and report journeys that
+ * already reach those states.
  *
  * Guards: boundary:local-private-evidence, claim:local-logbook
  */
@@ -23,12 +24,8 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import {
-  type LogbookEvent,
-  parseLogbookLine,
-  type VerbEvent,
-} from "../src/engine/logbook/schema.ts";
-import { decodeCliResult } from "./decode_cli_result.ts";
+import { readLogbook } from "./engine_checkpoints_gate_fixture.ts";
+import type { LogbookEvent, VerbEvent } from "../src/engine/logbook/schema.ts";
 
 const QUESTION = "A changed surface is described in its docs before it lands.";
 
@@ -48,22 +45,6 @@ lint = "sh check.sh"
 
 [checkpoints.api-review]
 paths = ["api/**"]
-question = "${QUESTION}"
-`;
-
-const CONFIG_ADVISE = `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[jobs]
-lint = "sh check.sh"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-mode = "advise"
 question = "${QUESTION}"
 `;
 
@@ -116,37 +97,6 @@ async function checkpointedWorktree(
   await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", "feat: extend the api", "--no-gpg-sign");
   return wt;
-}
-
-/** Every raw Logbook line under the project, in file order — raw text first,
- * so exclusion claims cover every byte, then the parsed events. */
-async function readLogbook(
-  dir: string,
-): Promise<{ raw: string; events: LogbookEvent[] }> {
-  const logDir = join(dir, ".git", "discern", "logbook");
-  let names: string[] = [];
-  try {
-    for await (const entry of Deno.readDir(logDir)) {
-      if (entry.isFile && entry.name.endsWith(".jsonl")) {
-        names.push(entry.name);
-      }
-    }
-  } catch {
-    return { raw: "", events: [] };
-  }
-  names = names.sort();
-  let raw = "";
-  const events: LogbookEvent[] = [];
-  for (const name of names) {
-    const text = await Deno.readTextFile(join(logDir, name));
-    raw += text;
-    for (const line of text.split("\n").filter((l) => l !== "")) {
-      const parsed = parseLogbookLine(line);
-      assert(parsed.kind === "event", `unparseable logbook line: ${line}`);
-      events.push(parsed.event);
-    }
-  }
-  return { raw, events };
 }
 
 /** The `done` verb events carrying a checkpoints block, in order. */
@@ -238,63 +188,6 @@ Deno.test("observation: the open-question lifecycle records as metadata and the 
   });
 });
 
-Deno.test("observation: an authorized landing records its variances by fingerprint, never by rationale", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-    assertEquals(
-      (await runAgent(wt, [
-        "done",
-        "--unmet",
-        "api-review",
-        "--why",
-        RATIONALE_SENTINEL,
-        "--json",
-      ])).code,
-      0,
-    );
-
-    const landed = await runAgent(wt, [
-      "accept",
-      "--confirmed",
-      "--variance",
-      "api-review",
-      "--json",
-    ]);
-    assertEquals(landed.code, 0, landed.output);
-    // The CONTRAST that defines the boundary: this very invocation's envelope
-    // serves the rationale as Proof evidence…
-    assert(landed.stdout.includes(RATIONALE_SENTINEL));
-
-    // …while its Logbook event carries the variance as id + fingerprints only.
-    const { raw, events } = await readLogbook(dir);
-    assert(!raw.includes(RATIONALE_SENTINEL));
-    const accept = events.find((event): event is VerbEvent =>
-      event.kind === "verb" && event.verb === "accept" &&
-      event.checkpoints !== undefined
-    );
-    assert(accept !== undefined, "the landing must record its observations");
-    assertEquals(accept.outcome, "ok");
-    const variance = accept.checkpoints?.variances?.[0];
-    assertEquals(variance?.id, "api-review");
-    assert(typeof variance?.definition === "string");
-    assert(typeof variance?.subject === "string");
-    assertEquals(accept.checkpoints?.abandoned, undefined);
-    const retry = await runAgent(dir, ["accept", "--json"]);
-    assertEquals(retry.code, 0, retry.output);
-    const repeated = await readLogbook(dir);
-    assertEquals(
-      repeated.events.filter((event) =>
-        event.kind === "verb" && event.verb === "accept" &&
-        event.checkpoints?.variances !== undefined
-      ).length,
-      1,
-      "publication and cleanup retries cannot repeat the landing observation",
-    );
-    assert(!repeated.raw.includes(RATIONALE_SENTINEL));
-  });
-});
-
 Deno.test("observation: an open question the effort ends on records as abandoned at the landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await checkpointedWorktree(dir, CONFIG_RETIREABLE);
@@ -328,34 +221,5 @@ Deno.test("observation: an open question the effort ends on records as abandoned
     assert(accept !== undefined, "the landing must record its observations");
     assertEquals(accept.checkpoints?.abandoned, [{ id: "api-review" }]);
     assertEquals(accept.checkpoints?.variances, undefined);
-  });
-});
-
-Deno.test("observation: advise servings record for economics without inventing open questions", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir, CONFIG_ADVISE);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
-
-    const { events } = await readLogbook(dir);
-    const dones = checkpointDones(events);
-    assertEquals(dones.length, 1);
-    assertEquals(dones[0]?.checkpoints?.advise, [{ id: "api-review" }]);
-    assertEquals(dones[0]?.checkpoints?.fired, undefined);
-    assertEquals(dones[0]?.checkpoints?.declared, undefined);
-
-    // The read verb renders the observed history from the same events: one
-    // bounded economics row, counts beside their denominators.
-    const report = await runAgent(wt, ["checkpoints", "--json"]);
-    assertEquals(report.code, 0, report.output);
-    const envelope = decodeCliResult(report.stdout, "checkpoints");
-    assert(envelope.data !== undefined && "checkpoints" in envelope.data);
-    const economics = envelope.data.economics;
-    assert(economics !== undefined, "observed history must reach the verb");
-    assertEquals(economics.efforts, 1);
-    assertEquals(economics.omitted, 0);
-    assertEquals(economics.rows.length, 1);
-    assertEquals(economics.rows[0]?.id, "api-review");
-    assertEquals(economics.rows[0]?.fires, 1);
-    assertEquals(economics.rows[0]?.efforts_fired, 1);
   });
 });
