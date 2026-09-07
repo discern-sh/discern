@@ -1,6 +1,9 @@
 /** Resolve registered attempt coordinates once for one operation; recheck containment on every use. */
 import { dirname, join } from "@std/path";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import {
+  GIT_ADMIN_STATE,
+  gitAdminStatePath,
+} from "../../shared/git_admin_state.ts";
 import { ArtifactPathSchema } from "./evidence.ts";
 import { RecordIdSchema } from "./identity.ts";
 
@@ -9,14 +12,15 @@ export type ArtifactPathResolver = (
   path: string,
 ) => Promise<string>;
 
-/** Retain only the common directory; containment is checked for each coordinate. */
+/** Retain only the common directory; containment is checked for each coordinate.
+ * A publisher may supply the directory from its currently locked write preflight. */
 export async function openArtifactPaths(
   root: string,
+  commonGitDirectory?: string,
 ): Promise<ArtifactPathResolver> {
-  const directory = await gitAdminStatePath(
-    await Deno.realPath(root),
-    "completionArtifacts",
-  );
+  const directory = commonGitDirectory === undefined
+    ? await gitAdminStatePath(await Deno.realPath(root), "completionArtifacts")
+    : join(commonGitDirectory, GIT_ADMIN_STATE.completionArtifacts.path);
   if (directory === undefined) {
     throw new Error(
       "Common attempt storage is unavailable; retain the environment and restore Git administration.",

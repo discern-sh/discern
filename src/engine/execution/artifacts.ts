@@ -6,7 +6,7 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import { ArtifactSchema } from "../completion/evidence.ts";
 import { withCompletionPublication } from "../operation_lock.ts";
 import type { EnvironmentArtifact } from "./types.ts";
-import { artifactPath } from "./artifact_read.ts";
+import { openArtifactPaths } from "../completion/artifact_paths.ts";
 
 /** Publish complete bytes once; an existing different artifact remains untouched. */
 export async function saveEnvironmentArtifact(
@@ -26,8 +26,10 @@ export async function saveEnvironmentArtifact(
     digest: await sha256Hex(raw),
     bytes: new TextEncoder().encode(raw).length,
   });
-  await withCompletionPublication(root, async () => {
-    const path = await artifactPath(root, artifact.attempt_id, artifact.path);
+  const canonicalRoot = await Deno.realPath(root);
+  await withCompletionPublication(canonicalRoot, async (commonGitDirectory) => {
+    const paths = await openArtifactPaths(canonicalRoot, commonGitDirectory);
+    const path = await paths(artifact.attempt_id, artifact.path);
     const old = await readTextIfExists(path);
     if (old !== undefined && old !== raw) {
       throw new Error(

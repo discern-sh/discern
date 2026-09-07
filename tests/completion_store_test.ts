@@ -117,6 +117,10 @@ Deno.test("completion reads are effect-free and every family preserves newer and
 Deno.test("completion publication uses live claims, exact subjects, immutable records, and optimistic revisions", async () => {
   await withTempDir(async (root) => {
     await initializeRepository(root);
+    await Deno.writeTextFile(
+      join(root, "discern.toml"),
+      "[project]\nslug = 'publication-fixture'\n",
+    );
     const fixtures = completionFixtures();
     const attempt = await writeCompletionRecord(
       root,
@@ -128,7 +132,11 @@ Deno.test("completion publication uses live claims, exact subjects, immutable re
     assert(attempt.kind === "written", JSON.stringify(attempt));
     for (const record of Object.values(fixtures)) {
       if (record.kind === "attempt") continue;
-      const stamp = await writeFixture(root, record);
+      const publication = await countedAdminQueries(() =>
+        writeFixture(root, record)
+      );
+      assertEquals(publication.queries, 3, record.kind);
+      const stamp = publication.value;
       const observed = await readCompletionRecord(root, record);
       assert(observed.kind === "recorded");
       assertEquals(observed.stamp, stamp);
@@ -549,6 +557,11 @@ Deno.test("completion revision history adds no administration discovery to publi
       )
     );
     assertEquals(revised.value.kind, "written");
+    assertEquals(
+      initial.queries,
+      3,
+      "queue identity, acquisition identity, and one store resolution",
+    );
     assertEquals(revised.queries, initial.queries);
     const historic = await readCompletionRecord(root, fixture, 1);
     assert(historic.kind === "recorded");

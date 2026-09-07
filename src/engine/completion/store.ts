@@ -5,7 +5,10 @@ import {
   atomicReplaceText,
 } from "../../shared/atomic_write.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
-import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import {
+  GIT_ADMIN_STATE,
+  gitAdminStatePath,
+} from "../../shared/git_admin_state.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
 import {
   inspectOnDiskJsonVersion,
@@ -101,7 +104,11 @@ export async function openCompletionRecordStore(
     await Deno.realPath(root),
     "completionRecords",
   );
-  if (directory === undefined) return undefined;
+  return directory === undefined ? undefined : completionStoreAt(directory);
+}
+
+/** Use one resolved directory while validating each coordinate and reading fresh bytes. */
+function completionStoreAt(directory: string): CompletionRecordStore {
   const path = (selector: RecordSelector, revision?: number): string =>
     join(directory, recordRelativePath(selector, revision));
   return {
@@ -298,8 +305,12 @@ export async function writeCompletionRecord(
     const canonicalRoot = await Deno.realPath(root);
     return await withCompletionPublication(
       canonicalRoot,
-      async () => {
-        const store = await openCompletionRecordStore(canonicalRoot);
+      async (commonGitDirectory) => {
+        const store = commonGitDirectory === undefined
+          ? await openCompletionRecordStore(canonicalRoot)
+          : completionStoreAt(
+            join(commonGitDirectory, GIT_ADMIN_STATE.completionRecords.path),
+          );
         if (store === undefined) {
           return {
             kind: "unavailable",
@@ -344,13 +355,7 @@ export async function writeCompletionRecord(
             return { kind: "transition-refused", reason: blocked };
           }
         }
-        const path = await completionRecordPath(root, record);
-        if (path === undefined) {
-          return {
-            kind: "unavailable",
-            reason: "common Git administration is unavailable",
-          };
-        }
+        const path = store.path(record);
         await Deno.mkdir(dirname(path), { recursive: true });
         const durable = {
           ...parsed.data,

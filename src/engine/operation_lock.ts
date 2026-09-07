@@ -188,7 +188,7 @@ async function operationBoundaryWrites(
   cwd: string,
   policy: OperationEffectPolicy,
   projectRoot: string | undefined,
-): Promise<PlannedWriteTarget[]> {
+): Promise<{ targets: PlannedWriteTarget[]; commonGitDirectory?: string }> {
   const writesCheckout = policy.effects.includes("discern-checkout-mutation");
   const [commonAnchor, checkoutAnchor] = await Promise.all([
     gitAdminStatePath(cwd, "resources"),
@@ -198,7 +198,7 @@ async function operationBoundaryWrites(
     commonAnchor === undefined ||
     (writesCheckout && checkoutAnchor === undefined)
   ) {
-    return [];
+    return { targets: [] };
   }
   const targets: PlannedWriteTarget[] = [
     {
@@ -219,7 +219,7 @@ async function operationBoundaryWrites(
       description: "the checkout containing its planned discern-owned writes",
     });
   }
-  return targets;
+  return { targets, commonGitDirectory: dirname(dirname(commonAnchor)) };
 }
 
 /** Fail before the command body when its classified write boundary is denied. */
@@ -228,18 +228,16 @@ async function preflightOperationBoundary(
   invocation: OperationInvocation,
   policy: OperationEffectPolicy,
   entropy: SecureEntropy,
-): Promise<void> {
+): Promise<string | undefined> {
   if (
     policy.gitWriteAuthority !== "boundary-plan" &&
     policy.gitWriteAuthority !== "boundary-plus-effect-plan"
   ) return;
   const projectRoot = await findRoot(cwd);
   if (projectRoot === undefined && policy.lockWithoutProject !== true) return;
-  const preflight = await preflightPlannedWrites(
-    await operationBoundaryWrites(cwd, policy, projectRoot),
-    entropy,
-  );
-  if (preflight.ok) return;
+  const writes = await operationBoundaryWrites(cwd, policy, projectRoot);
+  const preflight = await preflightPlannedWrites(writes.targets, entropy);
+  if (preflight.ok) return writes.commonGitDirectory;
   throw new OperationLockError(
     writePreflightFailureResult(
       resultVerb(invocation),
@@ -459,10 +457,13 @@ const completionPublications = new Map<string, Promise<void>>();
 /** Completion publications own only the short shared boundary. Cross-process
  * contention waits at most ten seconds before any callback effect runs. Return
  * publications use the same bounded wait after cancellation; ordinary operation
- * locks and invalid lock-order acquisitions remain non-blocking refusals. */
+ * locks and invalid lock-order acquisitions remain non-blocking refusals.
+ * The callback may reuse the common directory resolved by its locked write
+ * preflight; absent a project preflight, it resolves storage itself. No path
+ * scope survives this publication or its FIFO wait. */
 export async function withCompletionPublication<T>(
   cwd: string,
-  operation: () => Promise<T>,
+  operation: (commonGitDirectory?: string) => Promise<T>,
 ): Promise<T> {
   const run = (): Promise<T> =>
     withPolicyLock(
@@ -572,7 +573,7 @@ async function withPolicyLock<T>(
   cwd: string,
   invocation: OperationInvocation,
   policy: OperationEffectPolicy,
-  operation: () => Promise<T>,
+  operation: (commonGitDirectory?: string) => Promise<T>,
   entropy: SecureEntropy,
   setupProbe?: { readonly common: string; readonly checkout: string },
   waitForPublication = false,
@@ -580,8 +581,13 @@ async function withPolicyLock<T>(
   if (policy.lock === "none") return await operation();
   if (policy.lock === "phased") {
     // The concrete publisher/executor owns exclusion. Preserve the invocation's write-access proof.
-    await preflightOperationBoundary(cwd, invocation, policy, entropy);
-    return await operation();
+    const commonGitDirectory = await preflightOperationBoundary(
+      cwd,
+      invocation,
+      policy,
+      entropy,
+    );
+    return await operation(commonGitDirectory);
   }
 
   let specs = await resolveLockSpecs(cwd, policy.lock);
@@ -599,8 +605,13 @@ async function withPolicyLock<T>(
   const held = currentOperationLocks();
   const missing = specs.filter((spec) => !held?.leases.has(spec.key));
   if (missing.length === 0) {
-    await preflightOperationBoundary(cwd, invocation, policy, entropy);
-    return await operation();
+    const commonGitDirectory = await preflightOperationBoundary(
+      cwd,
+      invocation,
+      policy,
+      entropy,
+    );
+    return await operation(commonGitDirectory);
   }
 
   const heldCheckout = held?.boundaries.has("checkout") === true;
@@ -673,8 +684,13 @@ async function withPolicyLock<T>(
         : {}),
     };
     return await runWithOperationLocks(next, async () => {
-      await preflightOperationBoundary(cwd, invocation, policy, entropy);
-      return await operation();
+      const commonGitDirectory = await preflightOperationBoundary(
+        cwd,
+        invocation,
+        policy,
+        entropy,
+      );
+      return await operation(commonGitDirectory);
     });
   } finally {
     await releaseLocks(acquiredLocks);

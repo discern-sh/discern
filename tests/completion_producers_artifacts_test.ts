@@ -1,3 +1,5 @@
+import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
+import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
 import { openArtifactPaths } from "../src/engine/completion/artifact_paths.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 import { completionFixtures } from "./completion_fixtures.ts";
@@ -453,5 +455,55 @@ Deno.test("artifact path scopes recheck containment after every storage replacem
     }
     await assertRejects(() => resolve("not-an-id", "safe"));
     await assertRejects(() => resolve(attempt, "../outside"));
+  });
+});
+
+Deno.test("environment publications reuse checked storage and retain immutable bytes and containment", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(
+      join(root, "discern.toml"),
+      "[project]\nslug = 'artifact-fixture'\n",
+    );
+    await gitInit(root);
+    const subject = {
+      attempt_id: completionId(700),
+      candidate_id: completionId(701),
+      context: "local",
+    };
+    const value = { newArtifactKind: "complete bytes" };
+    const published = await countedAdminQueries(() =>
+      saveEnvironmentArtifact(root, subject, "unrelated-new-kind", value)
+    );
+    assertEquals(
+      published.queries,
+      3,
+      "queue identity, acquisition identity, and checked storage",
+    );
+    assertEquals(await readEnvironmentArtifact(root, published.value), value);
+    assertEquals(
+      await saveEnvironmentArtifact(root, subject, "unrelated-new-kind", value),
+      published.value,
+    );
+    await assertRejects(() =>
+      saveEnvironmentArtifact(root, subject, "unrelated-new-kind", {
+        changed: true,
+      })
+    );
+    const directory = await gitAdminStatePath(root, "completionArtifacts");
+    assert(directory !== undefined);
+    const outside = join(root, "outside");
+    await Deno.mkdir(outside);
+    await Deno.remove(join(directory, subject.attempt_id), { recursive: true });
+    await Deno.symlink(outside, join(directory, subject.attempt_id));
+    await assertRejects(
+      () => saveEnvironmentArtifact(root, subject, "another-kind", value),
+      Error,
+      "symlink",
+    );
+    await assertRejects(
+      () => readEnvironmentArtifact(root, published.value),
+      Error,
+      "symlink",
+    );
   });
 });
