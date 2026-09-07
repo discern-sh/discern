@@ -27,6 +27,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
+import { refreshScaffold } from "./engine_done_fixture.ts";
 import {
   decodeGateResult,
   diagFor,
@@ -105,6 +106,7 @@ Deno.test("done (human): a failure prints a structured Failures block with repro
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done"]); // human mode
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.output, "Failures");
@@ -113,7 +115,7 @@ Deno.test("done (human): a failure prints a structured Failures block with repro
   });
 });
 
-Deno.test("done --json: a passing gate carries next-step hints, and the human tail prints the SAME strings", async () => {
+Deno.test("done: one green gate carries next-step hints on --json and prints the same strings, never JSON, on the human surface", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -136,30 +138,50 @@ Deno.test("done --json: a passing gate carries next-step hints, and the human ta
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
 
     // --json: the advice rides in the envelope (promoted off the human-only tail).
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, true);
-    assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
-    assertHasHint(obj, HINTS["gate-update-docs"]);
-    // The standard was measured IN the gate (not deferred to a follow-up verb),
-    // so no "run discern standards" nudge is owed — the step itself is the record.
-    const stdStep = stepFor(obj, "standard:cov");
-    assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
-
-    // Human mode renders the exact same hint strings (one source of truth).
-    // The tree is unchanged, so the deliberate rerun is explicit.
+    // Human mode: the tree is unchanged, so the deliberate rerun is explicit.
     const human = await runAgent(dir, ["done", "--rerun"]);
     assertEquals(human.code, 0, human.output);
-    const canonical = await finishResult(dir, {
-      surface: { kind: "quiet" },
-      cliModel: TEST_CLI_MODEL,
-    });
-    for (const hint of interactiveHintTexts(canonical.hints)) {
-      assertTerminalTextIncludes(human.output, hint);
-    }
+
+    await t.step(
+      "done --json: a passing gate carries next-step hints, and the human tail prints the SAME strings",
+      async () => {
+        const obj = decodeGateResult(r.stdout);
+        assertEquals(obj.ok, true);
+        assert(Array.isArray(obj.hints), `expected hints[], got ${r.stdout}`);
+        assertHasHint(obj, HINTS["gate-update-docs"]);
+        // The standard was measured IN the gate (not deferred to a follow-up verb),
+        // so no "run discern standards" nudge is owed — the step itself is the record.
+        const stdStep = stepFor(obj, "standard:cov");
+        assertEquals(stdStep?.outcome, "ok", JSON.stringify(obj.steps));
+
+        // Human mode renders the exact same hint strings (one source of truth).
+        const canonical = await finishResult(dir, {
+          surface: { kind: "quiet" },
+          cliModel: TEST_CLI_MODEL,
+        });
+        for (const hint of interactiveHintTexts(canonical.hints)) {
+          assertTerminalTextIncludes(human.output, hint);
+        }
+      },
+    );
+
+    await t.step(
+      "done --json: human mode is unaffected (stdout still human, not JSON)",
+      () => {
+        let parsed = true;
+        try {
+          decodeCliResult(human.stdout, "done");
+        } catch {
+          parsed = false;
+        }
+        assert(!parsed, "human-mode stdout should not be a JSON object");
+      },
+    );
   });
 });
 
@@ -182,6 +204,7 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
       ].join("\n"),
     );
     await gitInit(dir);
+    await refreshScaffold(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
@@ -190,23 +213,6 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
     assertHasHint(obj, HINTS["gate-failure-gotchas"], {
       path: join(await Deno.realPath(dir), "docs/gotchas.md"),
     });
-  });
-});
-
-Deno.test("done --json: human mode is unaffected (stdout still human, not JSON)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    const r = await runAgent(dir, ["done"]); // no --json
-    assertEquals(r.code, 0, r.output);
-    // Human stdout, not JSON.
-    let parsed = true;
-    try {
-      decodeCliResult(r.stdout, "done");
-    } catch {
-      parsed = false;
-    }
-    assert(!parsed, "human-mode stdout should not be a JSON object");
   });
 });
 
@@ -326,6 +332,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
+    await refreshScaffold(dir);
     assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
 
     // The state two in-flight efforts land in when both pick the next free
@@ -555,111 +562,123 @@ const PROOF_CONFIG = [
   "",
 ].join("\n");
 
-Deno.test("done --json: a green worktree gate emits a compact proof and stores the full page in the marker", async () => {
+// The trunk's candidate, a worktree's compact proof, and a dirty run's refusal
+// are all facts about ONE proof-config repository, so they share its scaffold.
+// Each step carries the name of the case it replaced, so a failure still names
+// the behaviour.
+Deno.test("done --json: one proof-config repo — the trunk proves its candidate, a green worktree gate emits the compact proof, and dirty runs stay diagnostic", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
     await gitInit(dir);
-    const wt = await addWorktree(dir, "alpha");
-    await writeExecutable(join(wt, "feature.txt"), "feature");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
+    await refreshScaffold(dir);
 
-    const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
-    const obj = decodeGateResult(r.stdout);
-    assertEquals(obj.ok, true);
-
-    // Compact data keeps the claim and omits the review-page rendering.
-    const proof = obj.data.proof;
-    assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
-    assertEquals(proof.branch, "agent/alpha");
-    assertEquals(proof.trunk, "main");
-    assertEquals(proof.files_total, 1);
-    const shortHead = (await gitOut(wt, "rev-parse", "--short=12", "HEAD"))
-      .trim();
-    assertEquals(proof.head, shortHead);
-    assertStringIncludes(
-      proof.line,
-      `> **Proof:** Gate passed for \`agent/alpha\` at \`${shortHead}\` · 1 file changed `,
+    await t.step(
+      "done --json: the trunk can prove its candidate — a clean trunk has its own immutable candidate and complete evidence",
+      async () => {
+        const onMain = decodeGateResult(
+          (await runAgent(dir, ["done", "--json"])).stdout,
+        );
+        assertEquals(onMain.ok, true);
+        assert(onMain.data.proof?.completion !== undefined);
+      },
     );
-    assertStringIncludes(
-      proof.line,
-      "View the full Proof: `discern status --verbose`",
-    );
-    assertEquals("markdown" in proof, false);
 
-    // The relay affordance rides the envelope's hints, led by the
-    // prove-before-claiming guardrail that replaced the prove-it-works skill.
-    assertHasHint(obj, HINTS["gate-prove-it-works"]);
-    assertHasHint(obj, HINTS["gate-relay-proof"]);
+    await t.step(
+      "done --json: a green worktree gate emits a compact proof and stores the full page in the marker",
+      async () => {
+        const wt = await addWorktree(dir, "alpha");
+        await writeExecutable(join(wt, "feature.txt"), "feature");
+        await git(wt, "add", "-A");
+        await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
 
-    // The versioned JSON marker stores the structured Proof beside the sha it
-    // vouches for, so status and accept can surface it without re-running.
-    assert(obj.data.gate_proof !== undefined);
-    assertEquals(obj.data.gate_proof.status, "recorded");
-    assert(obj.data.gate_proof.path !== undefined);
-    const markerRaw = await Deno.readTextFile(obj.data.gate_proof.path);
-    const marker = decodeWith(GateProofMarkerFixtureSchema, markerRaw);
-    const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
-    assertEquals(marker.version, ON_DISK_FORMATS.gateProof.version);
-    assertEquals(marker.head, head);
-    assertEquals(marker.mode, "strict");
-    assertEquals(marker.proof.line, proof.line);
-    assertStringIncludes(marker.proof.markdown, "### Proof");
+        const r = await runAgent(wt, ["done", "--json"]);
+        assertEquals(r.code, 0, r.output);
+        const obj = decodeGateResult(r.stdout);
+        assertEquals(obj.ok, true);
 
-    // Deterministic: the same tree emits the same compact Proof. The unchanged
-    // tree makes this a rerun, so it uses the Gate-specific spelling.
-    const again = decodeGateResult(
-      (await runAgent(wt, ["done", "--rerun", "--json"])).stdout,
-    );
-    assertEquals(again.data.proof?.line, proof.line);
-    assertEquals(
-      again.data.proof?.completion?.candidate_id,
-      proof.completion?.candidate_id,
-    );
-    assert(
-      again.data.proof?.completion?.proof_id !== proof.completion?.proof_id,
-      "a deliberate rerun publishes its own complete receipt",
-    );
-  });
-});
+        // Compact data keeps the claim and omits the review-page rendering.
+        const proof = obj.data.proof;
+        assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
+        assertEquals(proof.branch, "agent/alpha");
+        assertEquals(proof.trunk, "main");
+        assertEquals(proof.files_total, 1);
+        const shortHead = (await gitOut(wt, "rev-parse", "--short=12", "HEAD"))
+          .trim();
+        assertEquals(proof.head, shortHead);
+        assertStringIncludes(
+          proof.line,
+          `> **Proof:** Gate passed for \`agent/alpha\` at \`${shortHead}\` · 1 file changed `,
+        );
+        assertStringIncludes(
+          proof.line,
+          "View the full Proof: `discern status --verbose`",
+        );
+        assertEquals("markdown" in proof, false);
 
-Deno.test("done --json: the trunk can prove its candidate while dirty runs stay diagnostic", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(dir, PROOF_CONFIG);
-    await gitInit(dir);
+        // The relay affordance rides the envelope's hints, led by the
+        // prove-before-claiming guardrail that replaced the prove-it-works skill.
+        assertHasHint(obj, HINTS["gate-prove-it-works"]);
+        assertHasHint(obj, HINTS["gate-relay-proof"]);
 
-    // A clean trunk has its own immutable candidate and complete evidence.
-    const onMain = decodeGateResult(
-      (await runAgent(dir, ["done", "--json"])).stdout,
-    );
-    assertEquals(onMain.ok, true);
-    assert(onMain.data.proof?.completion !== undefined);
+        // The versioned JSON marker stores the structured Proof beside the sha it
+        // vouches for, so status and accept can surface it without re-running.
+        assert(obj.data.gate_proof !== undefined);
+        assertEquals(obj.data.gate_proof.status, "recorded");
+        assert(obj.data.gate_proof.path !== undefined);
+        const markerRaw = await Deno.readTextFile(obj.data.gate_proof.path);
+        const marker = decodeWith(GateProofMarkerFixtureSchema, markerRaw);
+        const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
+        assertEquals(marker.version, ON_DISK_FORMATS.gateProof.version);
+        assertEquals(marker.head, head);
+        assertEquals(marker.mode, "strict");
+        assertEquals(marker.proof.line, proof.line);
+        assertStringIncludes(marker.proof.markdown, "### Proof");
 
-    // A dirty worktree: the diff vs the trunk would describe a different tree than
-    // the one the gate validated — no proof, and no relay hint.
-    const wt = await addWorktree(dir, "beta");
-    await writeExecutable(join(wt, "feature.txt"), "feature");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
-    await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
-    const dirty = decodeGateResult(
-      (await runAgent(wt, ["done", "--json"])).stdout,
+        // Deterministic: the same tree emits the same compact Proof. The unchanged
+        // tree makes this a rerun, so it uses the Gate-specific spelling.
+        const again = decodeGateResult(
+          (await runAgent(wt, ["done", "--rerun", "--json"])).stdout,
+        );
+        assertEquals(again.data.proof?.line, proof.line);
+        assertEquals(
+          again.data.proof?.completion?.candidate_id,
+          proof.completion?.candidate_id,
+        );
+        assert(
+          again.data.proof?.completion?.proof_id !== proof.completion?.proof_id,
+          "a deliberate rerun publishes its own complete receipt",
+        );
+      },
     );
-    assertEquals(dirty.ok, true);
-    assertEquals(dirty.data.proof, undefined);
-    assert(dirty.data.gate_proof !== undefined);
-    assert(dirty.data.gate_proof.reason !== undefined);
-    assertEquals(dirty.data.gate_proof.status, "skipped_dirty");
-    // The refusal NAMES what blocks the proof — in the reason and the hint —
-    // so the agent commits the right file instead of diagnosing a bare "dirty".
-    assertStringIncludes(dirty.data.gate_proof.reason, "wip.txt");
-    assertHasHint(dirty, HINTS["gate-proof-skipped-dirty"], {
-      reason: dirty.data.gate_proof.reason,
-    });
-    assertLacksHint(dirty, HINTS["gate-relay-proof"]);
-    assertLacksHint(dirty, HINTS["gate-prove-it-works"]);
+
+    await t.step(
+      "done --json: the trunk can prove its candidate while dirty runs stay diagnostic — the dirty worktree earns no proof",
+      async () => {
+        // A dirty worktree: the diff vs the trunk would describe a different tree than
+        // the one the gate validated — no proof, and no relay hint.
+        const wt = await addWorktree(dir, "beta");
+        await writeExecutable(join(wt, "feature.txt"), "feature");
+        await git(wt, "add", "-A");
+        await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
+        await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
+        const dirty = decodeGateResult(
+          (await runAgent(wt, ["done", "--json"])).stdout,
+        );
+        assertEquals(dirty.ok, true);
+        assertEquals(dirty.data.proof, undefined);
+        assert(dirty.data.gate_proof !== undefined);
+        assert(dirty.data.gate_proof.reason !== undefined);
+        assertEquals(dirty.data.gate_proof.status, "skipped_dirty");
+        // The refusal NAMES what blocks the proof — in the reason and the hint —
+        // so the agent commits the right file instead of diagnosing a bare "dirty".
+        assertStringIncludes(dirty.data.gate_proof.reason, "wip.txt");
+        assertHasHint(dirty, HINTS["gate-proof-skipped-dirty"], {
+          reason: dirty.data.gate_proof.reason,
+        });
+        assertLacksHint(dirty, HINTS["gate-relay-proof"]);
+        assertLacksHint(dirty, HINTS["gate-prove-it-works"]);
+      },
+    );
   });
 });
