@@ -334,20 +334,23 @@ export async function inspectLandingAuthority(
   trunk: string,
   opts: { includeScopeEvidence?: boolean } = {},
 ): Promise<LandingAuthorityResolution> {
-  const [branchRead, effort, headRead, treeRead] = await Promise.all([
+  const [branchRead, effort, sourceRead] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
     readEffortGrant(cwd),
-    runGit(["rev-parse", "HEAD"], { cwd }),
-    runGit(["rev-parse", "HEAD^{tree}"], { cwd }),
+    // One read names the commit and its tree together, so they cannot disagree.
+    runGit(["rev-parse", "HEAD", "HEAD^{tree}"], { cwd }),
   ]);
+  const [sourceHead, sourceTree] = sourceRead.success
+    ? sourceRead.stdout.trim().split("\n")
+    : [];
   const branch = branchRead.success && branchRead.stdout.trim() !== ""
     ? branchRead.stdout.trim()
     : undefined;
   let effortGranted = effort.status === "granted" &&
     branch !== undefined && effort.grant.branch === branch &&
-    headRead.success && treeRead.success &&
-    effort.grant.source.head === headRead.stdout.trim() &&
-    effort.grant.source.tree === treeRead.stdout.trim();
+    sourceHead !== undefined && sourceTree !== undefined &&
+    effort.grant.source.head === sourceHead &&
+    effort.grant.source.tree === sourceTree;
   const warnings = effortWarnings(effort, branch);
   if (effortGranted && effort.status === "granted" && branch !== undefined) {
     try {
