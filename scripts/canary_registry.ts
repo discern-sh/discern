@@ -60,6 +60,11 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "hot in the recorded failure ranking; static comment scan",
   },
   {
+    file: "tests/discern_checkpoint_policy_test.ts",
+    reason:
+      "checkpoint scope changes require policy parity; static config and matcher checks",
+  },
+  {
     file: "tests/engine_temp_artifacts_test.ts",
     reason: "hot in the recorded failure ranking; near-second artifact checks",
   },

@@ -125,7 +125,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                  | `src/shared/exit_codes.ts#EXIT_STATUS_REGISTRY`                                   | 11      | —                | —                           |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
-| [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 15      | —                | —                           |
+| [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 16      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 22      | —                | —                           |
 | [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 18      | —                | —                           |
@@ -4077,10 +4077,11 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrolment-name convention.
 
 - Source: `scripts/canary_registry.ts` — `CANARY_EXTRA_TEST_FILES`
-- Members: 15
+- Members: 16
   - `tests/adr_citation_form_test.ts`
   - `tests/brand_mark_test.ts`
   - `tests/comment_currency_test.ts`
+  - `tests/discern_checkpoint_policy_test.ts`
   - `tests/engine_temp_artifacts_test.ts`
   - `tests/hint_surface_rendering_test.ts`
   - `tests/logbook_test.ts`

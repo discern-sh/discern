@@ -86,6 +86,8 @@ const PUBLIC_CONTRACT_PATHS = [
 ] as const;
 
 const TERMINAL_TIMING_READINESS_PATHS = [
+  "tests/test_shell_wait*.ts",
+  "tests/shell_barrier.ts",
   "tests/waiting.ts",
   "tests/test_waiting_guard.ts",
   "scripts/test_real_delay_boundaries.ts",
@@ -325,7 +327,14 @@ Deno.test("terminal timing checkpoint catches a fresh registered sibling and gen
   assert(siblingTrigger.holds);
   assertEquals(siblingTrigger.matched, ["tests/waiting.ts"]);
 
-  for (const path of TERMINAL_TIMING_READINESS_PATHS) {
+  for (
+    const path of [
+      ...TERMINAL_TIMING_READINESS_PATHS.filter((path) => !path.includes("*")),
+      "tests/test_shell_wait_boundaries.ts",
+      "tests/test_shell_wait_guard.ts",
+      "tests/test_shell_wait_future_runtime.ts",
+    ]
+  ) {
     const outcome = evaluateStructuralTrigger(definition, {
       files: [changed(path)],
       baseFiles: [],
