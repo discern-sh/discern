@@ -1,3 +1,4 @@
+import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 /** Explicit checkout return uses frozen intent; it never runs validation or publishes Proof. */
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
@@ -203,7 +204,7 @@ export async function executionRecoveryStatus(
         environment_id: record.id,
         reason: record.data.state.recovery.reason,
         retained_paths: record.data.state.recovery.retained_paths,
-        next_action: `discern done --recover ${record.id}`,
+        next_action: executionRecoveryCommand(record.id),
       }]
       : []
   );
@@ -227,4 +228,25 @@ export function recoveryArgumentConflict(options: {
     options.policyBase !== undefined ||
     (options.met?.length ?? 0) > 0 || options.unmet !== undefined ||
     options.execution !== undefined;
+}
+
+/** CLI and MCP validate recovery options through the same result boundary. */
+export async function recoveryRequestResult(
+  root: string,
+  options: Parameters<typeof recoveryArgumentConflict>[0] & {
+    recover?: string;
+    dryRun?: boolean;
+  },
+): Promise<DiscernResult<GateData> | undefined> {
+  if (options.recover === undefined) return undefined;
+  if (recoveryArgumentConflict(options)) {
+    return {
+      ok: false,
+      verb: "done",
+      error: "invalid_arguments",
+      message:
+        "Recovery cannot be combined with validation, release, policy, or judgment options. Run done --recover separately.",
+    };
+  }
+  return await recoverCompletionResult(root, options.recover, options.dryRun);
 }

@@ -1,5 +1,4 @@
-import { executionRecoveryStatus } from "../execution/public_recovery.ts";
-import { emergencyValidationStatus } from "../emergency/obligations.ts";
+import { completionRecoveryStatus } from "./completion_recovery.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -339,15 +338,9 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
-  const emergencyValidation = await emergencyValidationStatus(root);
-  const executionRecovery = await executionRecoveryStatus(root);
+  const completionRecovery = await completionRecoveryStatus(root);
   const data: StatusData = {
-    ...(executionRecovery.length
-      ? { execution_recovery: executionRecovery }
-      : {}),
-    ...(emergencyValidation.length
-      ? { emergency_validation: emergencyValidation }
-      : {}),
+    ...completionRecovery.data,
     location,
     root,
     project: cfg.project.slug,
@@ -700,20 +693,7 @@ export async function statusResult(
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
   });
-  for (const recovery of executionRecovery) {
-    hints.push(
-      fire(HINTS["execution-recovery"], { id: recovery.environment_id }),
-    );
-  }
-  for (const exception of emergencyValidation) {
-    if (exception.state === "outstanding") {
-      hints.push(
-        fire(HINTS["emergency-outstanding"], {
-          id: exception.landing_id,
-        }),
-      );
-    }
-  }
+  hints.push(...completionRecovery.hints);
   if (opts.verbose !== true) {
     hints.push(fire(HINTS["status-full-structured-detail"]));
   }

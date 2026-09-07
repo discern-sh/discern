@@ -1,3 +1,4 @@
+import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import {
   emitCompletionEvent,
   emitCompletionProgress,
@@ -612,9 +613,9 @@ class ExecutorImplementation implements EnvironmentExecutor {
         execution,
         recoveryFor(
           phase,
-          `${
-            errorReason(error)
-          } After reconciling the retained paths, run discern done --recover ${execution.environment_id} from the owning worktree.`,
+          `${errorReason(error)} After reconciling the retained paths, run ${
+            executionRecoveryCommand(execution.environment_id)
+          } from the owning worktree.`,
           execution.environment.path,
           cleanupCommands(intent),
           quiescent,

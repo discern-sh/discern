@@ -57,11 +57,7 @@ export function acceptancePending(
     };
   }
   if (blocker.kind === "recovery-incomplete" && "recovery" in blocker) {
-    return {
-      kind: blocker.kind,
-      reason:
-        `${blocker.recovery.reason} Run discern done --recover ${blocker.record_id} from the owning worktree after reconciliation.`,
-    };
+    return { kind: blocker.kind, reason: blocker.recovery.reason };
   }
   if ("reason" in blocker && blocker.reason !== undefined) {
     return { kind: blocker.kind, reason: blocker.reason };
