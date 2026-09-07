@@ -2283,92 +2283,71 @@ Deno.test("discern mcp: pre-setup gates map but not the gate proof verbs or docs
 });
 
 Deno.test("discern mcp: noisy Gate output stays inside the result under both stream settings", async () => {
-  for (const stream of [false, true]) {
-    await withTempDir(async (dir) => {
-      await scaffoldEngine(dir, { agents: [] });
-      await writeConfig(
-        dir,
-        [
-          "[project]",
-          'slug = "mcp-gate-silence"',
-          "agents = []",
-          "",
-          "[instructions]",
-          "sources = []",
-          "",
-          "[jobs]",
-          `format = "printf 'MCP-GATE-NOISE\\n'; exit 7"`,
-          "",
-          "[gate]",
-          `stream = ${stream}`,
-          "",
-        ].join("\n"),
-      );
-      await gitInit(dir);
-      await using mcp = await spawnMcp(dir);
-      await mcp.send({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "initialize",
-        params: initParams(),
-      });
-      await mcp.recv();
-      await mcp.send({
-        jsonrpc: "2.0",
-        id: 2,
-        method: "tools/call",
-        params: { name: "discern_done", arguments: {} },
-      });
-      const response = await mcp.recv();
-      assertEquals(response.result.structuredContent.ok, false);
-      assertEquals(response.result.structuredContent.verb, "done");
-      assertStringIncludes(
-        JSON.stringify(response.result.structuredContent.diagnostics),
-        "MCP-GATE-NOISE",
-      );
-      assertEquals(await mcp.close(), 0);
-    });
-  }
-});
-
-Deno.test("discern mcp: discern_accept previews an acceptance from inside a worktree", async () => {
   await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
+    await scaffoldEngine(dir, { agents: [] });
+    const gateConfig = (stream: boolean): string =>
+      [
+        "[project]",
+        'slug = "mcp-gate-silence"',
+        "agents = []",
+        "",
+        "[instructions]",
+        "sources = []",
+        "",
+        "[jobs]",
+        `format = "printf 'MCP-GATE-NOISE\\n'; exit 7"`,
+        "",
+        "[gate]",
+        `stream = ${stream}`,
+        "",
+      ].join("\n");
+    await writeConfig(dir, gateConfig(false));
     await gitInit(dir);
-
-    // The preview reports one complete candidate with its independent authority stop.
-    const wt = await addWorktree(dir, "grad");
-    await completeWorktreeForAcceptance(wt);
-    const trunkBefore = await gitOut(dir, "rev-parse", "main");
-    await using wtMcp = await spawnMcp(wt);
-    await wtMcp.send({
+    await using mcp = await spawnMcp(dir);
+    await mcp.send({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
       params: initParams(),
     });
-    await wtMcp.recv();
-    await wtMcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_accept", arguments: { dry_run: true } },
-    });
-    const preview = await wtMcp.recv();
-    assertEquals(preview.result.isError, false);
-    assertEquals(preview.result.structuredContent.verb, "accept");
-    assertEquals(preview.result.structuredContent.dry_run, true);
-    const rows = preview.result.structuredContent.data.queue;
-    assertEquals(rows.length, 1);
-    assertEquals(rows[0].branch, "refs/heads/agent/grad");
-    assert(
-      rows[0].pending.some((item: { kind: string }) =>
-        item.kind === "missing-authority"
-      ),
-    );
-    assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
-    assert(await targetExists(wt));
-    assertEquals(await wtMcp.close(), 0);
+    await mcp.recv();
+    // One live server serves both settings: the gate reads its config per call,
+    // so the streamed setting is committed in place of the quiet one between them.
+    for (const [id, stream] of [[2, false], [3, true]] as const) {
+      if (stream) {
+        await writeConfig(dir, gateConfig(true));
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "stream the gate",
+          "--no-gpg-sign",
+        );
+      }
+      await mcp.send({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name: "discern_done", arguments: {} },
+      });
+      const response = await mcp.recv();
+      assertEquals(
+        response.result.structuredContent.ok,
+        false,
+        `stream = ${stream}: ${
+          JSON.stringify(response.result.structuredContent)
+        }`,
+      );
+      assertEquals(response.result.structuredContent.verb, "done");
+      assertStringIncludes(
+        JSON.stringify(response.result.structuredContent.diagnostics),
+        "MCP-GATE-NOISE",
+        `stream = ${stream}`,
+      );
+    }
+    assertEquals(await mcp.close(), 0);
   });
 });
 
@@ -2913,16 +2892,22 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
   });
 });
 
-Deno.test("discern mcp: start then accept over ONE main-rooted session — the working root re-aims (ADR 0062)", async () => {
+/**
+ * ONE main-rooted session carries the whole trunk-side lifecycle (ADR 0062,
+ * ADR 0134). The motivating flow this record exists to fix: an agent on the
+ * trunk opens ONE MCP connection, starts a worktree, and accepts it — without
+ * ever re-rooting the connection. Before ADR 0062 this was impossible (accept
+ * was hidden from a main-rooted server, and even revealed it gated the trunk);
+ * now discern_start re-aims the server's working root at the new worktree, so
+ * accept lands it. The refusals that bracket the landing ride the same session:
+ * an accept with nothing to land refuses cleanly, and an unconfirmed accept
+ * refuses read-only before the confirmed one lands. Each step guards the
+ * behaviour its name states.
+ */
+Deno.test("discern mcp: one main-rooted session — accept refuses with no candidate, start re-aims the working root, accept without confirmed refuses read-only, and the confirmed accept lands (ADR 0062, ADR 0134)", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-
-    // The motivating flow this whole record exists to fix: an agent on the trunk opens
-    // ONE MCP connection, starts a worktree, and accepts it — without ever re-rooting
-    // the connection. Before ADR 0062 this was impossible (accept was hidden from a
-    // main-rooted server, and even revealed it gated the trunk); now discern_start
-    // re-aims the server's working root at the new worktree, so accept lands it.
     await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
@@ -2932,156 +2917,156 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
     });
     await mcp.recv();
 
-    // discern_start from the trunk → creates the worktree and re-aims the working root.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_start", arguments: {} },
-    });
-    const started = await mcp.recv();
-    assertEquals(started.result.isError, false, JSON.stringify(started.result));
-    const wtPath = started.result.structuredContent.data.path as string;
-    assert(
-      typeof wtPath === "string" && wtPath.length > 0,
-      JSON.stringify(started.result.structuredContent),
+    await t.step(
+      "discern mcp: discern_accept with no prior discern_start refuses cleanly (working root = trunk)",
+      async () => {
+        // No current complete candidate or recorded authority exists in this repository.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: { name: "discern_accept", arguments: { confirmed: true } },
+        });
+        const refused = await mcp.recv();
+        assertEquals(refused.result.isError, true);
+        assertEquals(
+          refused.result.structuredContent.verb,
+          "accept",
+        );
+        assertEquals(
+          refused.result.structuredContent.error,
+          "incomplete",
+        );
+      },
     );
-    assert(
-      await targetExists(join(wtPath, "CLAUDE.md")),
-      "the created worktree is set up",
-    );
-    await completeWorktreeForAcceptance(wtPath);
 
-    // discern_accept over the SAME connection now operates on the re-aimed working
-    // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
-    // guard: it fails against today's main, where accept is hidden (→ "not found").
-    // `confirmed` attests the owner accepted this landing (ADR 0134).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_accept", arguments: { confirmed: true } },
-    });
-    const landed = await mcp.recv();
-    assertEquals(
-      landed.result.isError,
-      false,
-      JSON.stringify(landed.result),
+    let wtPath = "";
+    await t.step(
+      "discern mcp: discern_start from the trunk creates the worktree and re-aims the working root (ADR 0062)",
+      async () => {
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: { name: "discern_start", arguments: {} },
+        });
+        const started = await mcp.recv();
+        assertEquals(
+          started.result.isError,
+          false,
+          JSON.stringify(started.result),
+        );
+        wtPath = started.result.structuredContent.data.path as string;
+        assert(
+          typeof wtPath === "string" && wtPath.length > 0,
+          JSON.stringify(started.result.structuredContent),
+        );
+        assert(
+          await targetExists(join(wtPath, "CLAUDE.md")),
+          "the created worktree is set up",
+        );
+        // Commit landable work and establish real complete evidence.
+        await completeWorktreeForAcceptance(wtPath);
+      },
     );
-    assertEquals(landed.result.structuredContent.verb, "accept");
-    assertEquals(landed.result.structuredContent.ok, true);
-    // accept removed the worktree it landed — proof it acted on the worktree, not the
-    // (still-present) trunk.
-    assertEquals(
-      await targetExists(wtPath),
-      false,
-      "accept removed the worktree directory",
+
+    await t.step(
+      "discern mcp: discern_accept without confirmed refuses read-only with awaiting_consent (ADR 0134)",
+      async () => {
+        // accept WITHOUT confirmed refuses — the same awaiting_consent slug setup begin
+        // uses, carrying ≥1 hint, and touching nothing (the worktree survives). This is
+        // the MCP mirror of the CLI refusal: the consent gate fires before any git.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 4,
+          method: "tools/call",
+          params: { name: "discern_accept", arguments: {} },
+        });
+        const refused = await mcp.recv();
+        assertEquals(
+          refused.result.isError,
+          true,
+          JSON.stringify(refused.result),
+        );
+        assertEquals(refused.result.structuredContent.verb, "accept");
+        assertEquals(
+          refused.result.structuredContent.error,
+          "awaiting_consent",
+        );
+        assert(
+          (refused.result.structuredContent.hints ?? []).length >= 1,
+          JSON.stringify(refused.result.structuredContent),
+        );
+        assert(
+          await targetExists(wtPath),
+          "the refusal must not remove the worktree",
+        );
+      },
+    );
+
+    await t.step(
+      "discern mcp: start then accept over ONE main-rooted session — the working root re-aims (ADR 0062)",
+      async () => {
+        // discern_accept over the SAME connection now operates on the re-aimed working
+        // root (the new worktree), not the trunk — and SUCCEEDS. This is the headline
+        // guard: against a main that hides accept from a main-rooted server it fails
+        // with "not found". `confirmed` attests the owner accepted this landing (ADR
+        // 0134): the byte-identical success path, gated only by the attestation.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: { name: "discern_accept", arguments: { confirmed: true } },
+        });
+        const landed = await mcp.recv();
+        assertEquals(
+          landed.result.isError,
+          false,
+          JSON.stringify(landed.result),
+        );
+        assertEquals(landed.result.structuredContent.verb, "accept");
+        assertEquals(landed.result.structuredContent.ok, true);
+        assertEquals(landed.result.structuredContent.data.queue[0].consent, {
+          source: "conversation",
+        });
+        assertStringIncludes(
+          landed.result.structuredContent.data.queue[0].proof_line,
+          "landed with conversation consent",
+        );
+        // accept removed the worktree it landed — proof it acted on the worktree, not
+        // the (still-present) trunk.
+        assertEquals(
+          await targetExists(wtPath),
+          false,
+          "a confirmed accept lands and removes the worktree",
+        );
+      },
     );
 
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even with an explicit `path`, since accept removed its held root (ADR 0062)", async () => {
+/**
+ * The worktree-spawned side of ADR 0062. Codex's app-managed-worktree flow
+ * (Phase B) spawns the MCP server INSIDE the worktree, so its spawn root IS the
+ * worktree — unlike Claude Code, launched from the trunk. Two worktrees are
+ * started from main-rooted servers (a server re-aims into the worktree it just
+ * started, and `start` refuses from inside one), then ONE server rooted in the
+ * held worktree serves three contracts in sequence: accepting the OTHER
+ * worktree by `path` leaves the held root alone (§2), an accept dry run from
+ * inside the held worktree previews without touching it, and accepting the held
+ * worktree itself by explicit `path` re-aims the server to main because accept
+ * removed the root it held. Each step guards the behaviour its name states.
+ */
+Deno.test("discern mcp: a worktree-spawned server — accepting another worktree by `path` keeps the held root, a dry run previews from inside it, and accepting its own root re-aims to main (ADR 0062)", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    // Codex's app-managed-worktree flow (Phase B) spawns the MCP server INSIDE the
-    // worktree, so its spawn root IS the worktree — unlike Claude Code, launched from
-    // the trunk. A main-rooted server creates + sets up the worktree (start refuses from
-    // inside one), then we hand it to a server rooted THERE, the way Codex does.
-    await using maker = await spawnMcp(dir);
-    await maker.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await maker.recv();
-    await maker.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_start", arguments: {} },
-    });
-    const started = await maker.recv();
-    const wtPath = started.result.structuredContent.data.path as string;
-    assert(await targetExists(join(wtPath, "CLAUDE.md")), "worktree is set up");
-    await completeWorktreeForAcceptance(wtPath);
-    assertEquals(await maker.close(), 0);
-
-    // The accepting server is rooted IN the worktree (spawn root = the worktree).
-    await using inWt = await spawnMcp(wtPath);
-    await inWt.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await inWt.recv();
-
-    // accept with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
-    // the spawn-root worktree. A `path` override normally leaves the held root alone
-    // (§2), but accept just deleted the directory that root points at, so it must
-    // re-root anyway. The result reports the main checkout it landed in.
-    await inWt.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "discern_accept",
-        arguments: { path: wtPath, confirmed: true },
-      },
-    });
-    const landed = await inWt.recv();
-    assertEquals(
-      landed.result.isError,
-      false,
-      JSON.stringify(landed.result),
-    );
-    const landedRoot = landed.result.structuredContent.data.root as string;
-    assert(
-      typeof landedRoot === "string" && landedRoot.length > 0,
-      JSON.stringify(landed.result.structuredContent),
-    );
-    assertEquals(
-      await targetExists(wtPath),
-      false,
-      "accept removed the worktree",
-    );
-
-    // The headline: a subsequent call with NO `path` must follow the re-aimed working
-    // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
-    // re-aim, the explicit `path` on accept would skip re-aiming, leaving this `status`
-    // to resolve the deleted worktree's discern.toml and error.
-    await inWt.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const status = await inWt.recv();
-    assertEquals(status.result.isError, false, JSON.stringify(status.result));
-    assertEquals(status.result.structuredContent.data.location, "main");
-    // The status root is exactly the root accept re-aimed to (the main checkout).
-    assertEquals(status.result.structuredContent.data.root, landedRoot);
-
-    assertEquals(await inWt.close(), 0);
-  });
-});
-Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-
-    // The other side of the held-root-removed rule: re-aiming on a `path` override must
-    // fire ONLY when accept removed the root you're HOLDING — never when you accept
-    // some OTHER worktree by path while still working in your own. Make two worktrees,
-    // hold one, accept the other. (Each `start` runs from a fresh main-rooted server,
-    // because a server re-aims into the worktree it just started and `start` then refuses
-    // from inside one.)
-    const startFromMain = async (): Promise<string> => {
+    const startFromMain = async (): Promise<
+      { path: string; branch: string }
+    > => {
       await using m = await spawnMcp(dir);
       await m.send({
         jsonrpc: "2.0",
@@ -3096,17 +3081,29 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
         method: "tools/call",
         params: { name: "discern_start", arguments: {} },
       });
-      const path = (await m.recv()).result.structuredContent.data
-        .path as string;
+      const started = await m.recv();
+      assertEquals(
+        started.result.isError,
+        false,
+        JSON.stringify(started.result),
+      );
+      const data = started.result.structuredContent.data as {
+        path: string;
+        branch: string;
+      };
+      assert(
+        await targetExists(join(data.path, "CLAUDE.md")),
+        "worktree is set up",
+      );
       assertEquals(await m.close(), 0);
-      return path;
+      return { path: data.path, branch: data.branch };
     };
     const held = await startFromMain(); // the worktree we keep working in
     const other = await startFromMain(); // the worktree we accept by path
-    await completeWorktreeForAcceptance(other);
+    await completeWorktreeForAcceptance(other.path);
 
-    // A server rooted in `held`, accepting `other` by explicit path.
-    await using inHeld = await spawnMcp(held);
+    // The server is rooted IN the held worktree (spawn root = the worktree).
+    await using inHeld = await spawnMcp(held.path);
     await inHeld.send({
       jsonrpc: "2.0",
       id: 1,
@@ -3114,45 +3111,176 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
       params: initParams(),
     });
     await inHeld.recv();
-    await inHeld.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "discern_accept",
-        arguments: { path: other, confirmed: true },
-      },
-    });
-    const landed = await inHeld.recv();
-    assertEquals(
-      landed.result.isError,
-      false,
-      JSON.stringify(landed.result),
-    );
-    assertEquals(
-      await targetExists(other),
-      false,
-      "the OTHER worktree was removed",
-    );
-    assert(await targetExists(held), "the held worktree is untouched");
 
-    // The held root survived — a no-path call still operates on it, NOT the main checkout
-    // (it wasn't the one removed, so §2's one-call-override rule holds).
+    await t.step(
+      "discern mcp: accepting a DIFFERENT worktree by `path` leaves the held root alone (ADR 0062 §2 preserved)",
+      async () => {
+        // The other side of the held-root-removed rule: re-aiming on a `path` override
+        // must fire ONLY when accept removed the root you're HOLDING — never when you
+        // accept some OTHER worktree by path while still working in your own.
+        await inHeld.send({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: {
+            name: "discern_accept",
+            arguments: { path: other.path, confirmed: true },
+          },
+        });
+        const landed = await inHeld.recv();
+        assertEquals(
+          landed.result.isError,
+          false,
+          JSON.stringify(landed.result),
+        );
+        assertEquals(
+          await targetExists(other.path),
+          false,
+          "the OTHER worktree was removed",
+        );
+        assert(await targetExists(held.path), "the held worktree is untouched");
+
+        // The held root survived — a no-path call still operates on it, NOT the main
+        // checkout (it wasn't the one removed, so §2's one-call-override rule holds).
+        await inHeld.send({
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: {} },
+        });
+        const status = await inHeld.recv();
+        assertEquals(
+          status.result.isError,
+          false,
+          JSON.stringify(status.result),
+        );
+        assertEquals(status.result.structuredContent.data.location, "worktree");
+      },
+    );
+
+    // The sibling's landing moved the trunk under the held worktree, so `done`
+    // would refuse to prove a behind branch. Commit, bring the trunk in over the
+    // same session (the working root is the held worktree), then establish
+    // complete evidence — the held worktree becomes the one complete candidate.
+    await git(held.path, "add", "-A");
+    await git(
+      held.path,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "prepare held worktree",
+      "--no-gpg-sign",
+    );
     await inHeld.send({
       jsonrpc: "2.0",
-      id: 3,
+      id: 4,
       method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
+      params: { name: "discern_update", arguments: {} },
     });
-    const status = await inHeld.recv();
-    assertEquals(status.result.isError, false, JSON.stringify(status.result));
-    assertEquals(status.result.structuredContent.data.location, "worktree");
+    const updated = await inHeld.recv();
+    assertEquals(
+      updated.result.isError,
+      false,
+      JSON.stringify(updated.result),
+    );
+    await completeWorktreeForAcceptance(held.path);
+    const trunkBefore = await gitOut(dir, "rev-parse", "main");
+
+    await t.step(
+      "discern mcp: discern_accept previews an acceptance from inside a worktree",
+      async () => {
+        // The preview reports one complete candidate with its independent authority stop.
+        await inHeld.send({
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: { name: "discern_accept", arguments: { dry_run: true } },
+        });
+        const preview = await inHeld.recv();
+        assertEquals(preview.result.isError, false);
+        assertEquals(preview.result.structuredContent.verb, "accept");
+        assertEquals(preview.result.structuredContent.dry_run, true);
+        const rows = preview.result.structuredContent.data.queue;
+        assertEquals(rows.length, 1);
+        assertEquals(rows[0].branch, `refs/heads/${held.branch}`);
+        assert(
+          rows[0].pending.some((item: { kind: string }) =>
+            item.kind === "missing-authority"
+          ),
+        );
+        assertEquals(await gitOut(dir, "rev-parse", "main"), trunkBefore);
+        assert(await targetExists(held.path));
+      },
+    );
+
+    await t.step(
+      "discern mcp: a worktree-spawned server re-aims to main on accept even with an explicit `path`, since accept removed its held root (ADR 0062)",
+      async () => {
+        // accept with an EXPLICIT `path` (the worktree) — Codex's exact call — removes
+        // the spawn-root worktree. A `path` override normally leaves the held root alone
+        // (§2), but accept just deleted the directory that root points at, so it must
+        // re-root anyway. The result reports the main checkout it landed in.
+        await inHeld.send({
+          jsonrpc: "2.0",
+          id: 6,
+          method: "tools/call",
+          params: {
+            name: "discern_accept",
+            arguments: { path: held.path, confirmed: true },
+          },
+        });
+        const landed = await inHeld.recv();
+        assertEquals(
+          landed.result.isError,
+          false,
+          JSON.stringify(landed.result),
+        );
+        const landedRoot = landed.result.structuredContent.data.root as string;
+        assert(
+          typeof landedRoot === "string" && landedRoot.length > 0,
+          JSON.stringify(landed.result.structuredContent),
+        );
+        assertEquals(
+          await targetExists(held.path),
+          false,
+          "accept removed the worktree",
+        );
+
+        // The headline: a subsequent call with NO `path` must follow the re-aimed working
+        // root to the MAIN CHECKOUT — not the removed worktree. Without the held-root-missing
+        // re-aim, the explicit `path` on accept would skip re-aiming, leaving this `status`
+        // to resolve the deleted worktree's discern.toml and error.
+        await inHeld.send({
+          jsonrpc: "2.0",
+          id: 7,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: {} },
+        });
+        const status = await inHeld.recv();
+        assertEquals(
+          status.result.isError,
+          false,
+          JSON.stringify(status.result),
+        );
+        assertEquals(status.result.structuredContent.data.location, "main");
+        // The status root is exactly the root accept re-aimed to (the main checkout).
+        assertEquals(status.result.structuredContent.data.root, landedRoot);
+      },
+    );
 
     assertEquals(await inHeld.close(), 0);
   });
 });
 
-Deno.test("discern mcp: discern_accept with no prior discern_start refuses cleanly (working root = trunk)", async () => {
+/**
+ * ONE main-rooted session, ONE discern_start: everything that must follow the
+ * re-aimed working root afterwards (ADR 0062) is read from that same session —
+ * the status tool (§4, with the start hint spelling out the agent's own move),
+ * the readable resources, and the one-call `path` override precedence (§2).
+ * Each step guards the behaviour its name states.
+ */
+Deno.test("discern mcp: after one discern_start, status, resources, and the explicit `path` override all follow the re-aimed working root (ADR 0062)", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -3165,130 +3293,34 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
     });
     await mcp.recv();
 
-    // No current complete candidate or recorded authority exists in this repository.
+    // Before start: status and the discern://status resource are rooted in the
+    // main checkout (the spawn root).
     await mcp.send({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "discern_accept", arguments: { confirmed: true } },
+      params: { name: "discern_status", arguments: {} },
     });
-    const refused = await mcp.recv();
-    assertEquals(refused.result.isError, true);
-    assertEquals(
-      refused.result.structuredContent.verb,
-      "accept",
-    );
-    assertEquals(
-      refused.result.structuredContent.error,
-      "incomplete",
-    );
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: discern_accept without confirmed refuses read-only with awaiting_consent (ADR 0134)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    // Start a worktree (re-aims the working root to it) and commit landable work.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_start", arguments: {} },
-    });
-    const started = await mcp.recv();
-    const wtPath = started.result.structuredContent.data.path as string;
-    await completeWorktreeForAcceptance(wtPath);
-
-    // accept WITHOUT confirmed refuses — the same awaiting_consent slug setup begin
-    // uses, carrying ≥1 hint, and touching nothing (the worktree survives). This is
-    // the MCP mirror of the CLI refusal: the consent gate fires before any git.
+    const before = await mcp.recv();
+    assertEquals(before.result.structuredContent.data.location, "main");
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
-      method: "tools/call",
-      params: { name: "discern_accept", arguments: {} },
+      method: "resources/read",
+      params: { uri: "discern://status" },
     });
-    const refused = await mcp.recv();
+    const beforeResource = await mcp.recv();
     assertEquals(
-      refused.result.isError,
-      true,
-      JSON.stringify(refused.result),
-    );
-    assertEquals(refused.result.structuredContent.verb, "accept");
-    assertEquals(
-      refused.result.structuredContent.error,
-      "awaiting_consent",
-    );
-    assert(
-      (refused.result.structuredContent.hints ?? []).length >= 1,
-      JSON.stringify(refused.result.structuredContent),
-    );
-    assert(
-      await targetExists(wtPath),
-      "the refusal must not remove the worktree",
+      decodeWith(StatusWireDataSchema, beforeResource.result.contents[0].text)
+        .location,
+      "main",
     );
 
-    // confirmed: true over the same connection lands it — the byte-identical
-    // success path, gated only by the attestation.
+    // discern_start re-aims the working root at the new worktree, so the
+    // working root and the spawn root genuinely differ from here on.
     await mcp.send({
       jsonrpc: "2.0",
       id: 4,
-      method: "tools/call",
-      params: { name: "discern_accept", arguments: { confirmed: true } },
-    });
-    const landed = await mcp.recv();
-    assertEquals(
-      landed.result.isError,
-      false,
-      JSON.stringify(landed.result),
-    );
-    assertEquals(landed.result.structuredContent.ok, true);
-    assertEquals(landed.result.structuredContent.data.queue[0].consent, {
-      source: "conversation",
-    });
-    assertStringIncludes(
-      landed.result.structuredContent.data.queue[0].proof_line,
-      "landed with conversation consent",
-    );
-    assertEquals(
-      await targetExists(wtPath),
-      false,
-      "a confirmed accept lands and removes the worktree",
-    );
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 §2)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    // Re-aim the working root at a fresh worktree via discern_start, so the working
-    // root and the spawn root genuinely differ — the precedence has something to win.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
       method: "tools/call",
       params: { name: "discern_start", arguments: {} },
     });
@@ -3296,52 +3328,109 @@ Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 
     assertEquals(started.result.isError, false, JSON.stringify(started.result));
     const wtPath = started.result.structuredContent.data.path as string;
 
-    // No `path` → status follows the (re-aimed) working root: the worktree.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const fromWorking = await mcp.recv();
-    assertEquals(
-      fromWorking.result.structuredContent.data.location,
-      "worktree",
+    await t.step(
+      "discern mcp: after discern_start, discern_status follows the re-aimed working root, and the start hint spells out the agent's own move (ADR 0062 §4)",
+      async () => {
+        // The start result hint spells out BOTH load-bearing halves (§4): the discern
+        // tools now follow the new worktree automatically, AND the agent must still
+        // move its own file context there (alluded to, not a vendor tool name) or its
+        // edits and the gate diverge. The hint names the new path so the agent knows
+        // where to go.
+        assertHasMcpHint(
+          started.result.structuredContent,
+          HINTS["start-mcp-re-root"],
+          { path: wtPath },
+        );
+
+        // …so a plain discern_status (no path) now reports the worktree and its exact root.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: {} },
+        });
+        const after = await mcp.recv();
+        assertEquals(after.result.structuredContent.data.location, "worktree");
+        assertEquals(after.result.structuredContent.data.root, wtPath);
+      },
     );
 
-    // An explicit `path` pointing at the trunk WINS over the working root for that one
-    // call: status reports the main checkout, not the worktree the working root holds.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: { path: dir } },
-    });
-    const fromPath = await mcp.recv();
-    assertEquals(fromPath.result.structuredContent.data.location, "main");
-
-    // …and the override is scoped to that one call — the held working root is unchanged
-    // (a subsequent no-`path` call still sees the worktree).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const afterOverride = await mcp.recv();
-    assertEquals(
-      afterOverride.result.structuredContent.data.location,
-      "worktree",
+    await t.step(
+      "discern mcp: the resources follow the re-aimed working root after discern_start (ADR 0062)",
+      async () => {
+        // A fresh read of discern://status (resolved per read, not bound to the
+        // spawn root) now reports the worktree and its exact root — the readable
+        // surface aligned with the tools, not lagging on the trunk.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 6,
+          method: "resources/read",
+          params: { uri: "discern://status" },
+        });
+        const after = await mcp.recv();
+        const afterData = decodeWith(
+          StatusWireDataSchema,
+          after.result.contents[0].text,
+        );
+        assertEquals(afterData.location, "worktree");
+        assertEquals(afterData.root, wtPath);
+      },
     );
-    // A `path` inside the worktree resolves to the worktree's root (findRoot walks up).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: { path: wtPath } },
-    });
-    const fromWtPath = await mcp.recv();
-    assertEquals(fromWtPath.result.structuredContent.data.location, "worktree");
+
+    await t.step(
+      "discern mcp: an explicit `path` wins over the working root (ADR 0062 §2)",
+      async () => {
+        // No `path` → status follows the (re-aimed) working root: the worktree.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 7,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: {} },
+        });
+        const fromWorking = await mcp.recv();
+        assertEquals(
+          fromWorking.result.structuredContent.data.location,
+          "worktree",
+        );
+
+        // An explicit `path` pointing at the trunk WINS over the working root for that one
+        // call: status reports the main checkout, not the worktree the working root holds.
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 8,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: { path: dir } },
+        });
+        const fromPath = await mcp.recv();
+        assertEquals(fromPath.result.structuredContent.data.location, "main");
+
+        // …and the override is scoped to that one call — the held working root is unchanged
+        // (a subsequent no-`path` call still sees the worktree).
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 9,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: {} },
+        });
+        const afterOverride = await mcp.recv();
+        assertEquals(
+          afterOverride.result.structuredContent.data.location,
+          "worktree",
+        );
+        // A `path` inside the worktree resolves to the worktree's root (findRoot walks up).
+        await mcp.send({
+          jsonrpc: "2.0",
+          id: 10,
+          method: "tools/call",
+          params: { name: "discern_status", arguments: { path: wtPath } },
+        });
+        const fromWtPath = await mcp.recv();
+        assertEquals(
+          fromWtPath.result.structuredContent.data.location,
+          "worktree",
+        );
+      },
+    );
 
     assertEquals(await mcp.close(), 0);
   });
@@ -3461,65 +3550,6 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
       );
       assertEquals(await mcp.close(), 0);
     }, { prefix: "discern-not-a-project-" });
-  });
-});
-
-Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed working root, and the start hint spells out the agent's own move (ADR 0062 §4)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    // Before start: status is rooted in the main checkout (the spawn root).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const before = await mcp.recv();
-    assertEquals(before.result.structuredContent.data.location, "main");
-
-    // discern_start re-aims the working root at the new worktree…
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_start", arguments: {} },
-    });
-    const started = await mcp.recv();
-    assertEquals(started.result.isError, false, JSON.stringify(started.result));
-    const wtPath = started.result.structuredContent.data.path as string;
-
-    // …and its result hint spells out BOTH load-bearing halves (§4): the discern tools
-    // now follow the new worktree automatically, AND the agent must still move its own
-    // file context there (alluded to, not a vendor tool name) or its edits and the gate
-    // diverge. The hint names the new path so the agent knows where to go.
-    assertHasMcpHint(
-      started.result.structuredContent,
-      HINTS["start-mcp-re-root"],
-      { path: wtPath },
-    );
-
-    // …so a plain discern_status (no path) now reports the worktree and its exact root.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "tools/call",
-      params: { name: "discern_status", arguments: {} },
-    });
-    const after = await mcp.recv();
-    assertEquals(after.result.structuredContent.data.location, "worktree");
-    assertEquals(after.result.structuredContent.data.root, wtPath);
-
-    assertEquals(await mcp.close(), 0);
   });
 });
 
@@ -4793,64 +4823,6 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
         }
       }
     }
-
-    assertEquals(await mcp.close(), 0);
-  });
-});
-
-Deno.test("discern mcp: the resources follow the re-aimed working root after discern_start (ADR 0062)", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await gitInit(dir);
-    await using mcp = await spawnMcp(dir);
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: initParams(),
-    });
-    await mcp.recv();
-
-    // Baseline: the discern://status resource reads the main checkout (the spawn root).
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "resources/read",
-      params: { uri: "discern://status" },
-    });
-    const before = await mcp.recv();
-    assertEquals(
-      decodeWith(StatusWireDataSchema, before.result.contents[0].text).location,
-      "main",
-    );
-
-    // discern_start re-aims the server's working root at the new worktree…
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 3,
-      method: "tools/call",
-      params: { name: "discern_start", arguments: {} },
-    });
-    const started = await mcp.recv();
-    assertEquals(started.result.isError, false, JSON.stringify(started.result));
-    const wtPath = started.result.structuredContent.data.path as string;
-
-    // …and the resources follow it: a fresh read of discern://status (resolved per
-    // read, not bound to the spawn root) now reports the worktree and its exact root —
-    // the readable surface aligned with the tools, not lagging on the trunk.
-    await mcp.send({
-      jsonrpc: "2.0",
-      id: 4,
-      method: "resources/read",
-      params: { uri: "discern://status" },
-    });
-    const after = await mcp.recv();
-    const afterData = decodeWith(
-      StatusWireDataSchema,
-      after.result.contents[0].text,
-    );
-    assertEquals(afterData.location, "worktree");
-    assertEquals(afterData.root, wtPath);
 
     assertEquals(await mcp.close(), 0);
   });
