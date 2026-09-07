@@ -34,6 +34,16 @@ const FILE_QUESTION_REFERENCE = "project/map/`review`.md#rubric";
 const FILE_QUESTION =
   "## Governing review\n\n- Does the changed API keep its documented contract?\n";
 
+/** The one-checkpoint gate with no provider artifacts. The trunk-advance
+ * journey runs `update` repeatedly, and update re-materializes provider
+ * files into the worktree as untracked content; `agents = []` keeps the
+ * flow free of them so the behind-trunk merge stage judges only the
+ * effort's own tree. */
+const CONFIG_TRUNK_ADVANCE = CONFIG_ONE_CHECKPOINT.replace(
+  "[project]",
+  "[project]\nagents = []",
+);
+
 const CONFIG_MIN_COMMITS = `
 [project]
 slug = "engine-test"
@@ -268,10 +278,26 @@ Deno.test("a bad historical question source fails open into durable Proof eviden
   });
 });
 
+Deno.test("done: the branch cannot edit its own governing policy — the merge-base copy rules", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
+
+    // The branch deletes the checkpoint table and commits the edit; the
+    // governing (merge-base) copy still interlocks.
+    const stripped = CONFIG_ONE_CHECKPOINT.split("[checkpoints.api-review]")[0];
+    await writeConfig(wt, stripped ?? "");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "drop the checkpoint", "--no-gpg-sign");
+    const r = await runAgent(wt, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+    assertEquals(parseJson(r.stdout).error, AWAITING_DECLARATION_SLUG);
+  });
+});
+
 Deno.test("done: unavailable history never reopens or interlocks a declared min_commits question", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeWithApiChange(dir, CONFIG_MIN_COMMITS);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    // The opening run serves the question and records the conclusion.
     const concluded = await runAgent(wt, [
       "done",
       "--met",
@@ -305,12 +331,12 @@ Deno.test("done: unavailable history never reopens or interlocks a declared min_
   });
 });
 
-Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-base update reopens it", async () => {
+Deno.test("done: trunk advances — an unrelated update preserves a conclusion, a matched-base update reopens it, and a policy edit arrives only through update", async (t) => {
   await withTempDir(async (dir) => {
     // The matched file exists on MAIN with room for non-conflicting edits at
     // both ends, so both trunk advances below auto-merge cleanly.
     await scaffoldEngine(dir);
-    await writeConfig(dir, CONFIG_ONE_CHECKPOINT);
+    await writeConfig(dir, CONFIG_TRUNK_ADVANCE);
     await writeExecutable(join(dir, "check.sh"), CHECK_OK);
     await Deno.mkdir(join(dir, "api"), { recursive: true });
     const body = Array.from({ length: 9 }, (_, i) => `line-${i + 1}`);
@@ -333,53 +359,149 @@ Deno.test("done: an unrelated trunk update preserves a conclusion; a matched-bas
       "feat: reshape the api",
       "--no-gpg-sign",
     );
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
+    // The opening run serves the question and records the conclusion.
     assertEquals(
       (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
       0,
     );
 
-    // Unrelated trunk advance: a file outside the matched set lands on main.
-    await Deno.writeTextFile(join(dir, "unrelated.txt"), "trunk moved\n");
-    await git(dir, "add", "-A");
-    await git(
-      dir,
-      "commit",
-      "-q",
-      "-m",
-      "unrelated trunk work",
-      "--no-gpg-sign",
-    );
-    const updated = await runAgent(wt, ["update", "--json"]);
-    assertEquals(updated.code, 0, updated.output);
-    // The tree changed (merge commit), so the gate runs — but the conclusion
-    // still binds: no fresh declaration is demanded.
-    const after = await runAgent(wt, ["done", "--json"]);
-    assertEquals(after.code, 0, after.output);
-    const env = parseCheckpointGateJson(after.stdout);
-    assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
+    await t.step(
+      "an unrelated trunk update preserves a conclusion; a matched-base update reopens it",
+      async () => {
+        // Unrelated trunk advance: a file outside the matched set lands on main.
+        await Deno.writeTextFile(join(dir, "unrelated.txt"), "trunk moved\n");
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "unrelated trunk work",
+          "--no-gpg-sign",
+        );
+        const updated = await runAgent(wt, ["update", "--json"]);
+        assertEquals(updated.code, 0, updated.output);
+        // The tree changed (merge commit), so the gate runs — but the conclusion
+        // still binds: no fresh declaration is demanded.
+        const after = await runAgent(wt, ["done", "--json"]);
+        assertEquals(after.code, 0, after.output);
+        const env = parseCheckpointGateJson(after.stdout);
+        assertEquals(env.data.checkpoints.declared_met?.[0]?.id, "api-review");
 
-    // Matched-base trunk advance: main edits the far end of the SAME matched
-    // file; the update merges cleanly but moves the subject's base (and
-    // merged current) state, reopening the open question.
-    await Deno.writeTextFile(
-      join(dir, "api", "surface.txt"),
-      `${body.slice(0, -1).join("\n")}\ntrunk-take\n`,
+        // Matched-base trunk advance: main edits the far end of the SAME matched
+        // file; the update merges cleanly but moves the subject's base (and
+        // merged current) state, reopening the open question.
+        await Deno.writeTextFile(
+          join(dir, "api", "surface.txt"),
+          `${body.slice(0, -1).join("\n")}\ntrunk-take\n`,
+        );
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "trunk touches the api",
+          "--no-gpg-sign",
+        );
+        const secondUpdate = await runAgent(wt, ["update", "--json"]);
+        assertEquals(secondUpdate.code, 0, secondUpdate.output);
+        const reopened = await runAgent(wt, ["done", "--json"]);
+        assertEquals(reopened.code, 1, reopened.output);
+        assertEquals(
+          parseJson(reopened.stdout).error,
+          AWAITING_DECLARATION_SLUG,
+        );
+      },
     );
-    await git(dir, "add", "-A");
-    await git(
-      dir,
-      "commit",
-      "-q",
-      "-m",
-      "trunk touches the api",
-      "--no-gpg-sign",
+
+    await t.step(
+      "a trunk policy edit reaches the effort only through update, and arrives beside a tree change",
+      async () => {
+        // The reopened question concludes met again — the conclusion the
+        // policy advance below must preserve.
+        const met = await runAgent(wt, [
+          "done",
+          "--met",
+          "api-review",
+          "--json",
+        ]);
+        assertEquals(met.code, 0, met.output);
+        const governed = parseCheckpointGateJson(met.stdout).data.checkpoints
+          .policy;
+
+        // The trunk lands a SECOND stop checkpoint on the same paths. The effort's
+        // merge-base has not moved, so its governing policy has not either.
+        await writeConfig(
+          dir,
+          `${CONFIG_TRUNK_ADVANCE}
+[checkpoints.risk-notes]
+paths = ["api/**"]
+question = "${QUESTION_NOTES}"
+`,
+        );
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "trunk adds a checkpoint",
+          "--no-gpg-sign",
+        );
+
+        // Before `update`, the branch is behind. Exact current Proof is no longer
+        // reusable because missing integration evidence cannot become green by
+        // omission. The not-yet-governing checkpoint is still absent.
+        const before = await runAgent(wt, ["done", "--json"]);
+        assertEquals(before.code, 1, before.output);
+        assertEquals(
+          parseJson(before.stdout).error,
+          "incomplete",
+          before.output,
+        );
+        assertEquals(
+          parseGateJson(before.stdout).data.completion?.pending?.[0]?.kind,
+          "environment-unavailable",
+          before.output,
+        );
+        assert(!before.output.includes("risk-notes"), before.output);
+        const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
+        assertEquals(forced.code, 1, forced.output);
+        assertEquals(
+          parseGateJson(forced.stdout).data.completion?.pending?.[0]?.kind,
+          "environment-unavailable",
+        );
+        const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
+        assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
+        assert(!preUpdate.stdout.includes("risk-notes"), preUpdate.stdout);
+
+        // `update` advances the merge-base — and with it, the policy — beside a
+        // tree change (the merge commit), so the new checkpoint can never appear
+        // against an already-green unchanged tree: the reopened gate is a fresh
+        // run, not a rerun needing --confirmed.
+        const updated = await runAgent(wt, ["update", "--json"]);
+        assertEquals(updated.code, 0, updated.output);
+        const after = await runAgent(wt, ["done", "--json"]);
+        assertEquals(after.code, 1, after.output);
+        const afterEnv = parseCheckpointGateJson(after.stdout);
+        assertEquals(afterEnv.error, AWAITING_DECLARATION_SLUG);
+        assertEquals(
+          afterEnv.data.checkpoints.outstanding?.map((entry) => entry.id),
+          ["risk-notes"],
+        );
+        // The untouched checkpoint's conclusion still binds across the advance.
+        assertEquals(
+          afterEnv.data.checkpoints.declared_met?.[0]?.id,
+          "api-review",
+        );
+        assert(afterEnv.data.checkpoints.policy !== governed);
+        assertEquals(
+          (await runAgent(wt, ["done", "--met", "risk-notes", "--json"])).code,
+          0,
+        );
+      },
     );
-    const secondUpdate = await runAgent(wt, ["update", "--json"]);
-    assertEquals(secondUpdate.code, 0, secondUpdate.output);
-    const reopened = await runAgent(wt, ["done", "--json"]);
-    assertEquals(reopened.code, 1, reopened.output);
-    assertEquals(parseJson(reopened.stdout).error, AWAITING_DECLARATION_SLUG);
   });
 });
 
@@ -421,79 +543,5 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
       "instruction-economy",
     );
     assert(after.error !== AWAITING_DECLARATION_SLUG, declared.output);
-  });
-});
-
-Deno.test("done: a trunk policy edit reaches the effort only through update, and arrives beside a tree change", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-    const met = await runAgent(wt, ["done", "--met", "api-review", "--json"]);
-    assertEquals(met.code, 0, met.output);
-    const governed = parseCheckpointGateJson(met.stdout).data.checkpoints
-      .policy;
-
-    // The trunk lands a SECOND stop checkpoint on the same paths. The effort's
-    // merge-base has not moved, so its governing policy has not either.
-    await writeConfig(
-      dir,
-      `${CONFIG_ONE_CHECKPOINT}
-[checkpoints.risk-notes]
-paths = ["api/**"]
-question = "${QUESTION_NOTES}"
-`,
-    );
-    await git(dir, "add", "-A");
-    await git(
-      dir,
-      "commit",
-      "-q",
-      "-m",
-      "trunk adds a checkpoint",
-      "--no-gpg-sign",
-    );
-
-    // Before `update`, the branch is behind. Exact current Proof is no longer
-    // reusable because missing integration evidence cannot become green by
-    // omission. The not-yet-governing checkpoint is still absent.
-    const before = await runAgent(wt, ["done", "--json"]);
-    assertEquals(before.code, 1, before.output);
-    assertEquals(parseJson(before.stdout).error, "incomplete");
-    assertEquals(
-      parseGateJson(before.stdout).data.completion?.pending?.[0]?.kind,
-      "environment-unavailable",
-    );
-    assert(!before.output.includes("risk-notes"), before.output);
-    const forced = await runAgent(wt, ["done", "--rerun", "--json"]);
-    assertEquals(forced.code, 1, forced.output);
-    assertEquals(
-      parseGateJson(forced.stdout).data.completion?.pending?.[0]?.kind,
-      "environment-unavailable",
-    );
-    const preUpdate = await runAgent(wt, ["checkpoints", "--json"]);
-    assertStringIncludes(preUpdate.stdout, `"policy":"${governed}"`);
-    assert(!preUpdate.stdout.includes("risk-notes"), preUpdate.stdout);
-
-    // `update` advances the merge-base — and with it, the policy — beside a
-    // tree change (the merge commit), so the new checkpoint can never appear
-    // against an already-green unchanged tree: the reopened gate is a fresh
-    // run, not a rerun needing --confirmed.
-    const updated = await runAgent(wt, ["update", "--json"]);
-    assertEquals(updated.code, 0, updated.output);
-    const after = await runAgent(wt, ["done", "--json"]);
-    assertEquals(after.code, 1, after.output);
-    const afterEnv = parseCheckpointGateJson(after.stdout);
-    assertEquals(afterEnv.error, AWAITING_DECLARATION_SLUG);
-    assertEquals(
-      afterEnv.data.checkpoints.outstanding?.map((entry) => entry.id),
-      ["risk-notes"],
-    );
-    // The untouched checkpoint's conclusion still binds across the advance.
-    assertEquals(afterEnv.data.checkpoints.declared_met?.[0]?.id, "api-review");
-    assert(afterEnv.data.checkpoints.policy !== governed);
-    assertEquals(
-      (await runAgent(wt, ["done", "--met", "risk-notes", "--json"])).code,
-      0,
-    );
   });
 });
