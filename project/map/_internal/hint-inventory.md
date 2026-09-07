@@ -786,7 +786,7 @@ Rendered example:
 
 Rendered example:
 
-> Follow the standards diagnostics, then re-run the current discern command. Do not weaken a trunk limit on this branch. Moving a limit is an owner decision made on the trunk.
+> Follow the standards diagnostics and restore any unauthorized limit change. Try reasonable remedies within the task before asking the owner to change a limit. After owner agreement, follow the measured proposal procedure; general landing permission does not approve a limit change.
 
 ## `gate-failure-test`
 

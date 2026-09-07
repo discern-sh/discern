@@ -1063,12 +1063,12 @@ export const TOOLS: McpTool[] = orderTools([
       "Set dry_run to inspect the acceptance plan without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +
-      "available through `discern status --verbose`." +
+      "available through `discern status --verbose`. " +
       "Use action: emergency with a reason for an explicit exception against actual trunk. " +
       "Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name " +
       "its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. " +
       "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
-      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys. ",
+      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
     inputSchema: {
       action: z.literal(EMERGENCY_ACCEPT_ACTION).optional().describe(
         "Select emergency only for an explicit exception. Omit for ordinary acceptance. Emergency previews require fresh exact owner approval; no ordinary grant authorizes them.",

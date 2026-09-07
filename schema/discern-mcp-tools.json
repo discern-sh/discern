@@ -79,7 +79,7 @@
     {
       "name": "discern_prepare",
       "title": "Run the fast gate",
-      "description": "Run the fast inner-loop gate — the project's quick quality check — with the fix-stage fixers, then the [generated] artifact regenerations, then the read-only check-stage jobs (no build jobs, no tests) — and return the result envelope. The quick check to run while iterating, before the full discern_done — and the pass to run before the FINAL commit, so the fixers and regenerations have nothing left to rewrite when discern_done runs on the committed tree. NOTE: the fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files).",
+      "description": "Run the fast inner-loop gate — the project's quick quality check — with the fix-stage fixers, then the [generated] artifact regenerations, then the read-only check-stage jobs (no build jobs, no tests) — and return the result envelope. The quick check to run while iterating, before the full discern_done — and the pass to run before the FINAL commit, so the fixers and regenerations have nothing left to rewrite when discern_done runs on the committed tree. NOTE: the fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files). It does not stage or commit your changes and requests no standard measurements.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -99,7 +99,7 @@
     {
       "name": "discern_done",
       "title": "Verify the claim that the change is done",
-      "description": "Claim this change is done: run finishing steps, including format, which may rewrite files; then verify lint, type-check, tests, and scope gates. A scope is a named region of the repository with its own check. Return the structured result with per-step outcomes plus normalized diagnostics (tool, file/line when available, message, and the exact command to reproduce each failure). A green run over a clean committed tree ahead of the selected project's configured trunk — its shared landing branch — also carries data.proof and resolves any recorded grant into data.landing_authority. Follow the resolution-gated hints: an uncovered landing is reported to the owner in your own words and ends with data.proof.line verbatim before you wait; a covered landing names the verified source and routes straight to discern_accept. Never paste the full Proof page into a message; your owner retrieves it with `discern status --verbose`. Set dry_run to preview the plan without running anything.",
+      "description": "Claim this change is done: run finishing steps, including format, which may rewrite files; then verify lint, type-check, tests, and scope gates. A scope is a named region of the repository with its own check. Return the structured result with per-step outcomes plus normalized diagnostics (tool, file/line when available, message, and the exact command to reproduce each failure). A green run over a clean committed tree ahead of the selected project's configured trunk — its shared landing branch — also carries data.proof and resolves any recorded grant into data.landing_authority. Successful ordinary completion admits a validated candidate and releases the source checkout for later validation and eligible retirement; it does not land on the trunk. Set retain_checkout when further local edits are planned. Follow the resolution-gated hints: an uncovered landing is reported to the owner in your own words and ends with data.proof.line verbatim before you wait; a covered landing names the verified source and routes straight to discern_accept. Never paste the full Proof page into a message; your owner retrieves it with `discern status --verbose`. Set dry_run to preview the plan without running anything.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -155,7 +155,7 @@
             "type": "string"
           },
           "retain_checkout": {
-            "description": "Keep authoring control after completion; do not release the checkout for later validation or retirement.",
+            "description": "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
             "type": "boolean"
           },
           "standalone": {
@@ -247,7 +247,7 @@
     {
       "name": "discern_accept",
       "title": "Accept and land the worktree",
-      "description": "Ordinary acceptance advances separately authorized candidates with complete strict Proof. It preserves ref and checkout checks, then retires only released, positively owned, clean checkouts. Use action: emergency with a reason for an explicit exception against actual trunk. Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. The exception stays durable and outstanding validation stays visible; no passing Proof is issued. Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys. dry_run previews without effects. Report ordinary Proof lines only when the result supplies them.",
+      "description": "Ordinary acceptance: Land only with explicit owner consent or machine-verified authority. Resolve the selected project's configured trunk and the selected candidate, which can compose this effort's committed source with earlier ready work. Each predecessor requires its own current evidence and authority; permission for this effort does not authorize another. Acceptance validates the exact candidate before advancing the trunk. Its Proof identifies that validated commit, which can differ from this worktree's HEAD. Released checkouts may supply validation environments. Eligible cleanup removes only released, positively owned, clean checkouts and their resources after landing. Recorded grants never cover a checkpoint variance or standard proposal. Without authority the call re-serves the review moment without landing. Follow the reported per-predecessor state and recovery action; earlier authorized predecessors may have landed before a later stop. Set dry_run to inspect the acceptance plan without changing anything. After success, report what landed and any unresolved cleanup in your own words, then end with data.proof_line verbatim; the full review page remains available through `discern status --verbose`. Use action: emergency with a reason for an explicit exception against actual trunk. Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. The exception stays durable and outstanding validation stays visible; no passing Proof is issued. Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -365,7 +365,7 @@
     {
       "name": "discern_standards_propose",
       "title": "Propose standard limit",
-      "description": "Finalize a proposed limit for a standard breached by this change. Run after the intended tree is committed and clean. The tool measures only the named standard, then commits only the proposed limit and records its value, delta, reason, definition, trunk baseline, and responsible input paths. Repeating an unchanged proposal on an eligible descendant renews its measured binding without another commit. A changed tuple or value refuses. The resulting gate Proof cannot land until the owner approves the current proposal; generic landing authority never covers it.",
+      "description": "Finalize a proposed limit for a standard breached by this change. Run after the intended tree is committed and clean. The tool measures only the named standard, then commits only the proposed limit and records its value, delta, reason, definition, trunk baseline, and responsible input paths. Repeating an unchanged proposal on an eligible descendant renews its measured binding without another commit. Finalize the intended work before proposing; never cycle proposal and restoration commits while editing. A changed tuple or value refuses. The resulting gate Proof cannot land until the owner approves the current proposal; generic landing authority never covers it.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
