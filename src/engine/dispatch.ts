@@ -979,18 +979,26 @@ export function attachEngineCommands(
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
       if (action !== undefined && action !== EMERGENCY_ACCEPT_ACTION) {
-        throw new Error(
-          "Use accept for ordinary landing or accept emergency for the explicit exception exchange.",
-        );
+        throw new CliRefusal({
+          ok: false,
+          verb: "accept",
+          error: "invalid_arguments",
+          message:
+            "Use accept for ordinary landing or accept emergency for the explicit exception exchange.",
+        });
       }
       if (
         action === undefined &&
         (o.reason !== undefined || o.confirmation !== undefined ||
           o.recover !== undefined)
       ) {
-        throw new Error(
-          "Emergency flags require the explicit accept emergency action.",
-        );
+        throw new CliRefusal({
+          ok: false,
+          verb: "accept",
+          error: "invalid_arguments",
+          message:
+            "Emergency flags require the explicit accept emergency action.",
+        });
       }
       const json = jsonFrom(o);
       return await runWorktreeOp(

@@ -698,7 +698,7 @@ export async function statusResult(
   for (const exception of emergencyValidation) {
     if (exception.state === "outstanding") {
       hints.push(
-        fireOwnerAttention(HINTS["emergency-outstanding"], {
+        fire(HINTS["emergency-outstanding"], {
           id: exception.landing_id,
         }),
       );

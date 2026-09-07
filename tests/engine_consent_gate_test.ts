@@ -250,7 +250,11 @@ const PROBES = {
       "--confirmed",
       "--json",
     ]);
-    assertEquals(mixedCli.code, 1);
+    assertEquals(mixedCli.code, 1, mixedCli.output);
+    assertEquals(
+      parseJson(mixedCli.stdout, "accept").error,
+      "invalid_arguments",
+    );
     return {
       env,
       mutated: before !== await gitOut(dir, "rev-parse", "main"),
