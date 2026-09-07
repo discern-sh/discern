@@ -34,6 +34,10 @@ import {
   SYSTEM_SCHEDULER,
   type TimeoutHandle,
 } from "./scheduler.ts";
+import {
+  GIT_TOPOLOGY_SUBCOMMANDS,
+  invalidateGitDiscovery,
+} from "./git_discovery.ts";
 
 /** Bind Git-admin path queries to the canonical generic Git subprocess runner. */
 const selfShimGitRunner: GitAdminPathRunner = async (cwd, args) =>
@@ -811,6 +815,14 @@ export async function runGit(
       stdout: "",
       stderr: describeSpawnError(error, binary),
     };
+  } finally {
+    // Worktree topology may have changed under every retained discovery answer.
+    if (
+      invocation !== undefined &&
+      GIT_TOPOLOGY_SUBCOMMANDS.has(invocation.subcommand)
+    ) {
+      invalidateGitDiscovery();
+    }
   }
   const dec = new TextDecoder();
   return {

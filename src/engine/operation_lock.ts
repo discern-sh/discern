@@ -45,6 +45,10 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../shared/entropy.ts";
+import {
+  invalidateGitDiscovery,
+  withGitDiscoveryScope,
+} from "../shared/git_discovery.ts";
 
 /** One classified operation invocation. */
 export interface OperationInvocation extends OperationInvocationFacts {
@@ -425,7 +429,9 @@ export async function withOperationLock<T>(
         "This call made no change. Retry after the command is classified.",
     );
   }
-  return await withPolicyLock(cwd, invocation, policy, operation, entropy);
+  return await withGitDiscoveryScope(() =>
+    withPolicyLock(cwd, invocation, policy, operation, entropy)
+  );
 }
 
 /** Version-one journal recovery holds exclusion for its whole transaction. */
@@ -486,11 +492,13 @@ export async function withCompletionPublication<T>(
     spec === undefined || held?.leases.has(spec.key) ||
     (held?.boundaries.has("checkout") && held.completionExecution !== true)
   ) return await run();
-  const previous = completionPublications.get(spec.key) ?? Promise.resolve();
+  const previous = completionPublications.get(spec.key);
   const finished = Promise.withResolvers<void>();
   completionPublications.set(spec.key, finished.promise);
   try {
     await previous;
+    // A publication this one waited for is observed again, never replayed.
+    if (previous !== undefined) invalidateGitDiscovery();
     return await run();
   } finally {
     finished.resolve();
@@ -670,6 +678,8 @@ async function withPolicyLock<T>(
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }
+    // Newly held exclusion: discovery observed before it is observed again.
+    invalidateGitDiscovery();
     const leases = new Map(held?.leases ?? []);
     const boundaries = new Set(held?.boundaries ?? []);
     for (const lease of acquiredLeases) {

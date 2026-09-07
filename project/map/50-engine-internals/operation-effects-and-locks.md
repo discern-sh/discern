@@ -74,15 +74,26 @@ Gate, setup, and lifecycle operations can invoke discern children. [`operation_l
 
 A nested operation can reuse a lease its parent holds. Ordinary nested operations cannot acquire common after checkout, acquire a second checkout, or widen a child from a checkout-only parent. Native completion explicitly retains its one checkout while taking short common publication locks; it cannot acquire another checkout through that exception. Those refusals preserve the common-before-checkout order and prevent nested deadlock. [`tests/operation_lock_test.ts`](../../../tests/operation_lock_test.ts) exercises the shared acceptance boundary, same-checkout refusal, orphan path, pre-Git boundary, acquisition order, MCP routing, and separate-worktree concurrency.
 
+## Operations retain Git discovery
+
+Repository discovery answers where a checkout's Git administration lives, where the shared common directory is, where a registered administrative artifact resolves, how the project root sits inside its work tree, and what a pinned object holds. Those answers change only when a worktree is added, moved, removed, pruned or repaired. Within one operation the engine is the only actor that does so.
+
+[`withOperationLock`](../../../src/engine/operation_lock.ts) opens one discovery scope for the operation it runs. [`git_discovery.ts`](../../../src/shared/git_discovery.ts) owns the scope. Consumers declare the kind of fact they need. A miss runs git, with the two administration directories and the two work-tree positions each batched into one process. A hit replays the exact output git printed for the same query in the same directory, and only while the checkout still resolves and its administration directory still exists. Failures are never retained.
+
+The scope ends with its operation, so a long-lived MCP server or desk session retains nothing between calls. Newly held exclusion, a publication's FIFO wait, environment restoration, and every `git worktree`, `git init`, `git submodule` or `git clone` invocation through `runGit` clear it, so the observation after each of those boundaries is fresh. Code that runs outside an operation, including direct library calls and injected runners, observes git directly.
+
+Evidence stays outside the scope: the execution snapshot, status and diff reads, ref verification, `symbolic-ref` and `worktree list` run fresh on every observation. [`git_discovery_test.ts`](../../../tests/git_discovery_test.ts) proves batching, exact replay and each boundary. [`engine_git_command_budget_test.ts`](../../../tests/engine_git_command_budget_test.ts) holds the proven-worktree journey to a per-verb ceiling on git processes ([ADR 0385](../_adr/0385-retain-git-discovery-within-one-operation.md)).
+
 ## Where it lives in code
 
-| Concern                   | Source                                                                                                                                             |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Effect policy             | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)                                                                                 |
-| Lock and broad preflight  | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                                                                                       |
-| Real write probes         | [`write_preflight.ts`](../../../src/shared/write_preflight.ts), [`setup_effects.ts`](../../../src/shared/setup_effects.ts)                         |
-| Nested and child leases   | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts)                                                                       |
-| Git-admin identity        | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)                                                                                     |
-| CLI interception          | [`main.ts`](../../../src/main.ts)                                                                                                                  |
-| MCP interception          | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
-| Policy and preview parity | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |
+| Concern                    | Source                                                                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Effect policy              | [`operation_effects.ts`](../../../src/shared/operation_effects.ts)                                                                                 |
+| Lock and broad preflight   | [`operation_lock.ts`](../../../src/engine/operation_lock.ts)                                                                                       |
+| Real write probes          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts), [`setup_effects.ts`](../../../src/shared/setup_effects.ts)                         |
+| Nested and child leases    | [`operation_lock_context.ts`](../../../src/shared/operation_lock_context.ts)                                                                       |
+| Git-admin identity         | [`git_admin_state.ts`](../../../src/shared/git_admin_state.ts)                                                                                     |
+| Operation-scoped discovery | [`git_discovery.ts`](../../../src/shared/git_discovery.ts)                                                                                         |
+| CLI interception           | [`main.ts`](../../../src/main.ts)                                                                                                                  |
+| MCP interception           | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                   |
+| Policy and preview parity  | [`operation_effects_test.ts`](../../../tests/operation_effects_test.ts), [`engine_plan_parity_test.ts`](../../../tests/engine_plan_parity_test.ts) |

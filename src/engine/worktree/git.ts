@@ -104,6 +104,7 @@ export {
   type GitSnapshotInspection,
   inspectGitSnapshot,
 } from "./git_snapshot.ts";
+import { discoverGit, discoverGitDirs } from "../../shared/git_discovery.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -256,22 +257,26 @@ interface GitDirs {
   commonGitDir: string | undefined;
 }
 
+/** Discovery forwards each fresh query through this module's git runner. */
+function discoveryGit(cwd: string, args: string[]): Promise<GitResult> {
+  return git(args, cwd);
+}
+
 /** Resolve the absolute + common git dirs for `cwd` (default: the process cwd). */
 async function resolveGitDirs(cwd: string = Deno.cwd()): Promise<GitDirs> {
-  const absRun = await git(["rev-parse", "--absolute-git-dir"], cwd);
-  const commonRun = await git(["rev-parse", "--git-common-dir"], cwd);
-  const absoluteGitDir = absRun.success ? absRun.stdout.trim() : undefined;
-  let commonGitDir: string | undefined;
-  if (commonRun.success) {
-    let raw = commonRun.stdout.trim();
-    if (raw !== "") {
-      if (!isAbsolute(raw)) {
-        raw = resolve(cwd, raw);
-      }
-      commonGitDir = await realPathOr(raw);
-    }
+  const dirs = await discoverGitDirs(cwd, discoveryGit);
+  if (dirs === undefined) {
+    return { absoluteGitDir: undefined, commonGitDir: undefined };
   }
-  return { absoluteGitDir, commonGitDir };
+  let commonGitDir: string | undefined;
+  let raw = dirs.commonGitDir.trim();
+  if (raw !== "") {
+    if (!isAbsolute(raw)) {
+      raw = resolve(cwd, raw);
+    }
+    commonGitDir = await realPathOr(raw);
+  }
+  return { absoluteGitDir: dirs.absoluteGitDir.trim(), commonGitDir };
 }
 
 /** Where a path sits relative to the main-checkout / linked-worktree boundary. */
@@ -1852,7 +1857,7 @@ export async function localBranchExists(
  * and `start` compare the project root against, to catch a `discern.toml` living
  * in a subdirectory of its repo. */
 export async function repoToplevel(cwd: string): Promise<string | undefined> {
-  const run = await git(["rev-parse", "--show-toplevel"], cwd);
+  const run = await discoverGit(cwd, { kind: "toplevel" }, discoveryGit);
   if (!run.success) {
     return undefined;
   }
@@ -2002,7 +2007,7 @@ async function gitlinksInto(
 export async function resolveCommonGitDir(
   cwd: string = Deno.cwd(),
 ): Promise<string | undefined> {
-  const run = await git(["rev-parse", "--git-common-dir"], cwd);
+  const run = await discoverGit(cwd, { kind: "common-dir" }, discoveryGit);
   if (!run.success) {
     return undefined;
   }

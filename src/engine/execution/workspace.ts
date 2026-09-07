@@ -51,6 +51,7 @@ import type {
   ExecutionWorkspace,
   WorkspaceSnapshot,
 } from "./types.ts";
+import { invalidateGitDiscovery } from "../../shared/git_discovery.ts";
 
 export interface GitExecutionWorkspaceOptions {
   readonly root: string;
@@ -604,6 +605,8 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         await Deno.remove(indexLock);
       }
     }
+    // The restored checkout is a fresh observation for later discovery.
+    invalidateGitDiscovery();
   }
 
   async verifyReturned(
