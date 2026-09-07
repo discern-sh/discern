@@ -302,19 +302,26 @@ Deno.test("a type error fails shared preparation before any runtime partition st
       /** Count native children through real compiler failure. */
       constructor(command: string | URL, options?: Deno.CommandOptions) {
         super(command, options);
-        if (command === Deno.execPath() && options?.args?.[0] === "test") {
+        if (
+          options?.args?.includes("--no-run") ||
+          (command === Deno.execPath() && options?.args?.[0] === "test")
+        ) {
           commands.push([...options.args]);
         }
       }
     };
     try {
-      const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
-        cwd: dir,
-      });
-      assertEquals(result.code, 1);
-      assertEquals(commands.length, 1);
-      assert(commands[0]?.includes("--no-run"));
-      assertEquals(await lstatIfExists(join(dir, "executed")), undefined);
+      for (const scheduleModules of [false, true]) {
+        commands.length = 0;
+        const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
+          cwd: dir,
+          scheduleModules,
+        });
+        assertEquals(result.code, 1);
+        assertEquals(commands.length, 1);
+        assert(commands[0]?.includes("--no-run"));
+        assertEquals(await lstatIfExists(join(dir, "executed")), undefined);
+      }
     } finally {
       Deno.Command = Command;
     }
@@ -322,50 +329,58 @@ Deno.test("a type error fails shared preparation before any runtime partition st
 });
 
 Deno.test("cancelling shared preparation reaps its child before any partition starts", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(
-      join(dir, "ready_test.ts"),
-      "Deno.test('ready', () => {});\n",
-    );
-    const controller = new AbortController();
-    const Command = Deno.Command;
-    let pid: number | undefined;
-    let commands = 0;
-    Deno.Command = class extends Command {
-      private readonly checking: boolean;
-      /** Recognize the preparation child at its actual launch boundary. */
-      constructor(command: string | URL, options?: Deno.CommandOptions) {
-        super(command, options);
-        this.checking = command === Deno.execPath() &&
-          options?.args?.includes("--no-run") === true;
-        if (command === Deno.execPath() && options?.args?.[0] === "test") {
-          commands += 1;
+  for (const scheduleModules of [false, true]) {
+    await withTempDir(async (dir) => {
+      await Deno.writeTextFile(
+        join(dir, "ready_test.ts"),
+        "Deno.test('ready', () => {});\n",
+      );
+      const controller = new AbortController();
+      const Command = Deno.Command;
+      let pid: number | undefined;
+      let commands = 0;
+      Deno.Command = class extends Command {
+        private readonly checking: boolean;
+        /** Recognize the preparation child at its actual launch boundary. */
+        constructor(command: string | URL, options?: Deno.CommandOptions) {
+          super(command, options);
+          this.checking = options?.args?.includes("--no-run") === true;
+          if (
+            this.checking ||
+            (command === Deno.execPath() && options?.args?.[0] === "test")
+          ) {
+            commands += 1;
+          }
         }
-      }
-      /** Cancel as soon as the real preparation process exists. */
-      override spawn(): Deno.ChildProcess {
-        const child = super.spawn();
-        if (this.checking) {
-          pid = child.pid;
-          controller.abort();
+        /** Cancel as soon as the real preparation process exists. */
+        override spawn(): Deno.ChildProcess {
+          const child = super.spawn();
+          if (this.checking) {
+            pid = child.pid;
+            controller.abort();
+          }
+          return child;
         }
-        return child;
+      };
+      try {
+        const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
+          cwd: dir,
+          signal: controller.signal,
+          scheduleModules,
+        });
+        assertEquals(result.code, 1);
+        assertEquals(commands, 1);
+        const childPid = pid;
+        assert(childPid !== undefined);
+        assertThrows(
+          () => Deno.kill(childPid, "SIGTERM"),
+          Deno.errors.NotFound,
+        );
+      } finally {
+        Deno.Command = Command;
       }
-    };
-    try {
-      const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
-        cwd: dir,
-        signal: controller.signal,
-      });
-      assertEquals(result.code, 1);
-      assertEquals(commands, 1);
-      const childPid = pid;
-      assert(childPid !== undefined);
-      assertThrows(() => Deno.kill(childPid, "SIGTERM"), Deno.errors.NotFound);
-    } finally {
-      Deno.Command = Command;
-    }
-  });
+    });
+  }
 });
 
 Deno.test("queued partitions refill a free slot while another child remains active", async () => {
@@ -442,4 +457,62 @@ Deno.test("queued native partitions preserve uneven and oversized process alloca
       "concurrency",
     );
   }
+});
+
+Deno.test("module scheduling uses native discovery, prioritizes source size, and retains complete failing enrollment", async () => {
+  await withTempDir(async (dir) => {
+    const root = join(dir, "native files with ' quotes");
+    await Deno.mkdir(root);
+    for (const count of [3, 4]) {
+      for (let index = 0; index < count; index++) {
+        await Deno.writeTextFile(
+          join(root, `${index}_test.ts`),
+          `Deno.test('module ${index}', async () => {
+            await Deno.writeTextFile('order.txt', '${index},' + Deno.pid + '\\n', { append: true });
+            ${index === 1 ? "throw new Error('planted module failure');" : ""}
+          });\n/* ${"source-size hint ".repeat(index * 100)} */\n`,
+        );
+      }
+      for (const checked of [true, false]) {
+        await Deno.writeTextFile(join(root, "order.txt"), "");
+        const result = await runTestPartitions(
+          testCommandArgs(42, [
+            "--reporter=junit",
+            ...(checked ? [] : ["--no-check"]),
+            root,
+          ]),
+          2,
+          { cwd: root, concurrency: 1, scheduleModules: true },
+        );
+        assertEquals(result.code, 1);
+        assertStringIncludes(
+          result.report ?? "",
+          `tests="${count}" failures="1" errors="0"`,
+        );
+        assertStringIncludes(result.report ?? "", "planted module failure");
+        const rows = (await Deno.readTextFile(join(root, "order.txt"))).trim()
+          .split("\n").map((row) => row.split(","));
+        assertEquals(rows.length, count);
+        assertEquals(new Set(rows.map((row) => row[0])).size, count);
+        const listed = checked && Deno.build.os !== "windows";
+        assertEquals(
+          new Set(rows.map((row) => row[1])).size,
+          listed ? count : 2,
+        );
+        if (listed) assertEquals(rows[0]?.[0], String(count - 1));
+      }
+    }
+    const controller = new AbortController();
+    controller.abort();
+    await assertRejects(
+      () =>
+        runTestPartitions(
+          testCommandArgs(42, ["--reporter=junit", root]),
+          2,
+          { cwd: root, scheduleModules: true, signal: controller.signal },
+        ),
+      DOMException,
+      "aborted",
+    );
+  });
 });
