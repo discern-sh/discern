@@ -1,4 +1,5 @@
 /** An active accept actor advances one audited, separately authorized prefix at a time. */
+import { loadModule } from "../../shared/module_loading.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { landingAdvanced } from "../completion/records.ts";
 import type { FinishResultSurface } from "../gate/finish.ts";
@@ -521,7 +522,9 @@ export async function acceptQueueResult(
           reason:
             `Validating ${entry.source.branch} in its released environment.`,
         });
-        const { finishResult } = await import("../gate/finish.ts");
+        const { finishResult } = await loadModule(() =>
+          import("../gate/finish.ts")
+        );
         const validation = await finishResult(environment.record.data.path, {
           ...(options.signal === undefined ? {} : { signal: options.signal }),
           surface: options.validationSurface,

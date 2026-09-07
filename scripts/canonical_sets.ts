@@ -4041,6 +4041,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/test_elapsed_guard_test.ts":
+    "applies timer-ownership review across authored test duration measurements rather than guarding a closed member set",
+  "tests/module_loading_guard_test.ts":
+    "applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set",
   "tests/fs_presence_enrolment_test.ts":
     "applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set",
   "tests/terminal_boundary_guard_test.ts":

@@ -1,3 +1,4 @@
+import { ManualScheduler } from "./manual_scheduler.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { setActiveInvocationId } from "../src/shared/invocation_context.ts";
 import {
@@ -820,4 +821,70 @@ Deno.test("stream mode makes configured labels inert without rewriting child byt
     `── stream␛[31m␊spoof<U+009B> │ ${child}`,
   );
   assertEquals(s.text().includes("\x1b[31m"), false);
+});
+
+Deno.test("spawnJob attributes its exact scheduled budget even after scheduler starvation", async () => {
+  for (const deliveredAt of [1_000, 50_000]) {
+    await withTempDir(async (dir) => {
+      const scheduler = new ManualScheduler();
+      const controller = new AbortController();
+      let now = 0;
+      let settled = false;
+      const budget = { seconds: 1, key: "[jobs.unrelated].timeout" };
+      const pending = spawnJob({
+        label: "unrelated",
+        command: "echo $$ > producer.pid; exec tail -f /dev/null",
+      }, {
+        cwd: dir,
+        stream: false,
+        write: () => {},
+        signal: controller.signal,
+        timeout: budget,
+        scheduler,
+        clock: { wallNow: () => 0, monotonicNow: () => now },
+      }).then((result) => {
+        settled = true;
+        return result;
+      });
+      try {
+        await waitForPendingCondition(
+          pending,
+          async () =>
+            await targetExists(join(dir, "producer.pid")) &&
+            scheduler.pending.size > 0,
+          "producer readiness and watchdog scheduling",
+        );
+        assertEquals(
+          [...scheduler.pending.values()].map((timer) => timer.delayMs),
+          [1_000],
+        );
+        now = deliveredAt;
+        assertEquals(
+          settled,
+          false,
+          "clock advancement does not dispatch the watchdog",
+        );
+        scheduler.fire(1_000);
+        const { result } = await pending;
+        assertEquals(result.timedOut, budget);
+        assertEquals(result.cancelled, undefined);
+        assert(result.code !== 0);
+        assertEquals(result.durationS, deliveredAt / 1_000);
+        assertEquals(
+          scheduler.pending.size,
+          0,
+          "settlement cancels escalation and drain timers",
+        );
+        await waitForExit(
+          Number(await Deno.readTextFile(join(dir, "producer.pid"))),
+        );
+      } finally {
+        if (!settled) {
+          controller.abort();
+          for (const timer of [...scheduler.pending.values()]) timer.callback();
+        }
+        await pending;
+      }
+    });
+  }
 });

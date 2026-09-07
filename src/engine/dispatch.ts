@@ -7,6 +7,7 @@
  * each requires a project root.
  */
 
+import { loadModule } from "../shared/module_loading.ts";
 import { Command } from "@cliffy/command";
 import { join, relative } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
@@ -121,7 +122,7 @@ export async function logbookLifecycleConfirmation(
   }
 }
 
-// Verb BODIES load at dispatch time (`await import(…)` inside each action),
+// Verb BODIES load at dispatch time (`loadModule(() => import(…))` inside each action),
 // never at registration: every invocation — `--help` included — builds the
 // whole Cliffy tree through this module, so a static verb-body import would
 // tax every spawn with that verb's entire subtree. The pattern is load-bearing
@@ -192,7 +193,7 @@ async function runWorktreeOp(
 ): Promise<number> {
   const json = opts.json ?? false;
   const root = await requireRoot(opts.verb ?? "worktree", json);
-  const lc = await import("./worktree/lifecycle.ts");
+  const lc = await loadModule(() => import("./worktree/lifecycle.ts"));
   const log = new Logger({
     json,
     noColor: false,
@@ -338,7 +339,9 @@ export function attachEngineCommands(
         if (unmetId === undefined && o.why !== undefined) {
           return invalid("--why accompanies --unmet <id>; pass both.");
         }
-        const { runFinish } = await import("./gate/finish.ts");
+        const { runFinish } = await loadModule(() =>
+          import("./gate/finish.ts")
+        );
         return await runFinish(await requireRoot("done", json), {
           ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
           ...(o.retainCheckout === undefined
@@ -367,7 +370,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("prepare", async (o) => {
-        const { runPrepare } = await import("./gate/prepare.ts");
+        const { runPrepare } = await loadModule(() =>
+          import("./gate/prepare.ts")
+        );
         return await runPrepare(
           await requireRoot("prepare", jsonFrom(o)),
           {
@@ -385,7 +390,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("test", async (o) => {
-        const { runTestJob } = await import("./gate/test_job.ts");
+        const { runTestJob } = await loadModule(() =>
+          import("./gate/test_job.ts")
+        );
         return await runTestJob(await requireRoot("test", jsonFrom(o)), {
           json: jsonFrom(o),
           plain: plainModeEnabled(),
@@ -419,7 +426,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("improvement", async (o) => {
-        const { runImprovement } = await import("./improve/improve.ts");
+        const { runImprovement } = await loadModule(() =>
+          import("./improve/improve.ts")
+        );
         return await runImprovement(
           await requireRoot("improvement", jsonFrom(o)),
           {
@@ -438,7 +447,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("checkpoints", async (o) => {
-        const { runCheckpoints } = await import("./checkpoints/report.ts");
+        const { runCheckpoints } = await loadModule(() =>
+          import("./checkpoints/report.ts")
+        );
         return await runCheckpoints(
           await requireRoot("checkpoints", jsonFrom(o)),
           { json: jsonFrom(o) },
@@ -462,7 +473,9 @@ export function attachEngineCommands(
     .action(recordedExit("mcp", async (o) => {
       // The server resolves the project root itself and reports a missing one
       // per tool-call, so it need not requireRoot up front.
-      const { runMcpServer } = await import("./mcp/server.ts");
+      const { runMcpServer } = await loadModule(() =>
+        import("./mcp/server.ts")
+      );
       const profile = o.strictToolCalls === true
         ? "strict-client"
         : o.longToolCalls === true
@@ -481,7 +494,9 @@ export function attachEngineCommands(
       recordedExit(
         "scripts",
         async (_o, name: string | undefined, ...args: string[]) => {
-          const { runProjectScript } = await import("./project_scripts.ts");
+          const { runProjectScript } = await loadModule(() =>
+            import("./project_scripts.ts")
+          );
           return await runProjectScript(name, args);
         },
       ),
@@ -506,7 +521,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
-        const { runStandards } = await import("./gate/standards.ts");
+        const { runStandards } = await loadModule(() =>
+          import("./gate/standards.ts")
+        );
         return await runStandards(
           await requireRoot("standards", jsonFrom(o)),
           {
@@ -535,8 +552,10 @@ export function attachEngineCommands(
       .action(recordedExit(
         "standards propose",
         async (o, name: string) => {
-          const { runStandardsPropose } = await import(
-            "./gate/standard_proposals.ts"
+          const { runStandardsPropose } = await loadModule(() =>
+            import(
+              "./gate/standard_proposals.ts"
+            )
           );
           return await runStandardsPropose(
             await requireRoot("standards propose", jsonFrom(o)),
@@ -566,7 +585,9 @@ export function attachEngineCommands(
     .action(recordedExit("refresh", async (o) => {
       const json = jsonFrom(o);
       const root = await requireRoot("refresh", json);
-      const { refreshResult } = await import("./instructions.ts");
+      const { refreshResult } = await loadModule(() =>
+        import("./instructions.ts")
+      );
       // Quiet result: narration → stderr, the selected result → stdout.
       // Terminal presentation narrates to stdout via the default logger.
       const log = json
@@ -594,7 +615,7 @@ export function attachEngineCommands(
     .action(recordedExit("tidy", async (o, type: string | undefined) => {
       // Keep the formatter host and embedded WASMs off every other verb's module
       // path. The WASMs are read and instantiated only when tidy formats a file.
-      const { runTidy } = await import("./tidy/tidy.ts");
+      const { runTidy } = await loadModule(() => import("./tidy/tidy.ts"));
       return await runTidy(await requireRoot("tidy", jsonFrom(o)), {
         ...(type !== undefined ? { type } : {}),
         json: jsonFrom(o),
@@ -620,7 +641,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("impact", async (o) => {
-        const { runImpact } = await import("./scopes/scopes.ts");
+        const { runImpact } = await loadModule(() =>
+          import("./scopes/scopes.ts")
+        );
         return await runImpact(await requireRoot("impact", jsonFrom(o)), {
           json: jsonFrom(o),
           ...(o.has !== undefined ? { has: o.has } : {}),
@@ -640,7 +663,9 @@ export function attachEngineCommands(
       const paths = [file, withFile].filter((p): p is string =>
         p !== undefined
       );
-      const { runCoupling } = await import("./coupling/coupling.ts");
+      const { runCoupling } = await loadModule(() =>
+        import("./coupling/coupling.ts")
+      );
       return await runCoupling(await requireRoot("coupling", jsonFrom(o)), {
         json: jsonFrom(o),
         ...(paths.length > 0 ? { paths } : {}),
@@ -678,7 +703,7 @@ export function attachEngineCommands(
       `Seconds before answering "not yet". Omit to wait once for up to ${AWAIT_LONG_CALL_SECONDS}s; the condition returns early, and 0 checks once.`,
     )
     .action(recordedExit("await", async (o) => {
-      const { runAwait } = await import("./await/await.ts");
+      const { runAwait } = await loadModule(() => import("./await/await.ts"));
       return await runAwait(await requireRoot("await", jsonFrom(o)), {
         json: jsonFrom(o),
         ...(o.green !== undefined ? { green: o.green } : {}),
@@ -711,7 +736,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("patterns", async (o) => {
-        const { runPatterns } = await import("./logbook/patterns.ts");
+        const { runPatterns } = await loadModule(() =>
+          import("./logbook/patterns.ts")
+        );
         return await runPatterns(
           await requireRoot("patterns", jsonFrom(o)),
           {
@@ -733,8 +760,10 @@ export function attachEngineCommands(
         )
         .action(
           recordedExit("patterns archives", async (o) => {
-            const { runPatternsArchives } = await import(
-              "./logbook/patterns.ts"
+            const { runPatternsArchives } = await loadModule(() =>
+              import(
+                "./logbook/patterns.ts"
+              )
             );
             return await runPatternsArchives(
               await requireRoot("patterns", jsonFrom(o)),
@@ -759,8 +788,10 @@ export function attachEngineCommands(
         )
         .action(
           recordedExit(invocation, async (o) => {
-            const { runPatternsLifecycle } = await import(
-              "./logbook/patterns.ts"
+            const { runPatternsLifecycle } = await loadModule(() =>
+              import(
+                "./logbook/patterns.ts"
+              )
             );
             return await runPatternsLifecycle(
               await requireRoot("patterns", jsonFrom(o)),
@@ -806,7 +837,9 @@ export function attachEngineCommands(
       CLI_JSON_DESCRIPTION_OVERRIDES.status,
     )
     .action(recordedExit("status", async (o) => {
-      const { runStatus } = await import("./status/status.ts");
+      const { runStatus } = await loadModule(() =>
+        import("./status/status.ts")
+      );
       return await runStatus({
         json: jsonFrom(o),
         all: o.all ?? false,
@@ -828,7 +861,7 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("desk", async (o) => {
-        const { runDesk } = await import("./desk/desk.ts");
+        const { runDesk } = await loadModule(() => import("./desk/desk.ts"));
         return await runDesk({ json: jsonFrom(o), cliModel });
       }),
     );
@@ -844,7 +877,9 @@ export function attachEngineCommands(
     )
     .action(
       recordedExit("enter", async (o) => {
-        const { runEnter } = await import("./worktree/shell_picker.ts");
+        const { runEnter } = await loadModule(() =>
+          import("./worktree/shell_picker.ts")
+        );
         return await runEnter({ json: jsonFrom(o) });
       }),
     );
@@ -1003,8 +1038,10 @@ export function attachEngineCommands(
         identityResourceHandle,
         identityResources,
         IdentityError,
-      } = await import("./worktree/lifecycle.ts");
-      const { WORKTREE_FIELDS } = await import("./worktree/identity.ts");
+      } = await loadModule(() => import("./worktree/lifecycle.ts"));
+      const { WORKTREE_FIELDS } = await loadModule(() =>
+        import("./worktree/identity.ts")
+      );
       const selectedFields = WORKTREE_FIELDS.filter((field) =>
         o[field] === true
       );
@@ -1126,8 +1163,10 @@ export function attachEngineCommands(
         );
       }
       if (stepId !== undefined) {
-        const { isSetupStepId } = await import(
-          "./worktree/setup_step_journal.ts"
+        const { isSetupStepId } = await loadModule(() =>
+          import(
+            "./worktree/setup_step_journal.ts"
+          )
         );
         if (!isSetupStepId(stepId)) {
           return invalid(
@@ -1353,8 +1392,10 @@ export function attachEngineCommands(
         )
         .action(
           recordedExit("worktree hook create", async () => {
-            const { worktreeCreateHook } = await import(
-              "../lib/worktree_hooks.ts"
+            const { worktreeCreateHook } = await loadModule(() =>
+              import(
+                "../lib/worktree_hooks.ts"
+              )
             );
             return await worktreeCreateHook();
           }),
@@ -1368,8 +1409,10 @@ export function attachEngineCommands(
         )
         .action(
           recordedExit("worktree hook remove", async () => {
-            const { worktreeRemoveHook } = await import(
-              "../lib/worktree_hooks.ts"
+            const { worktreeRemoveHook } = await loadModule(() =>
+              import(
+                "../lib/worktree_hooks.ts"
+              )
             );
             return await worktreeRemoveHook();
           }),
@@ -1437,7 +1480,9 @@ function attachSkillsCommand(root: Command): void {
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const root = await requireRoot("skills list", opts.json);
   const cfg = await loadConfig(root);
-  const { listSkills, skillsListResult } = await import("../lib/skills.ts");
+  const { listSkills, skillsListResult } = await loadModule(() =>
+    import("../lib/skills.ts")
+  );
   if (opts.json) {
     emitResult(await skillsListResult(root, cfg));
     return 0;
@@ -1549,13 +1594,21 @@ async function planSkillsEject(
   name: string,
 ): Promise<SkillsEjectPlan> {
   const cfg = await loadConfig(root);
-  const { planEjectSkill, planMaterializeSkills } = await import(
-    "../lib/skills.ts"
+  const { planEjectSkill, planMaterializeSkills } = await loadModule(() =>
+    import(
+      "../lib/skills.ts"
+    )
   );
-  const { skillsDirsForAgents } = await import("../lib/providers.ts");
-  const { instructionAgents } = await import("./instruction_render.ts");
-  const { TomlEditor } = await import("../lib/toml_edit.ts");
-  const { formatTomlText } = await import("../lib/tidy_format.ts");
+  const { skillsDirsForAgents } = await loadModule(() =>
+    import("../lib/providers.ts")
+  );
+  const { instructionAgents } = await loadModule(() =>
+    import("./instruction_render.ts")
+  );
+  const { TomlEditor } = await loadModule(() => import("../lib/toml_edit.ts"));
+  const { formatTomlText } = await loadModule(() =>
+    import("../lib/tidy_format.ts")
+  );
   const ejection = await planEjectSkill(root, cfg, name);
   const effects: SkillsEjectEffect[] = [{
     type: "eject",
@@ -1612,8 +1665,10 @@ async function applySkillsEjectPlan(
   plan: SkillsEjectPlan,
 ): Promise<DiscernResult<SkillsEjectData>> {
   const { applyEjectSkillPlan, applySkillMaterializationOperation } =
-    await import("../lib/skills.ts");
-  const { writeDiscernToml } = await import("../lib/tidy_format.ts");
+    await loadModule(() => import("../lib/skills.ts"));
+  const { writeDiscernToml } = await loadModule(() =>
+    import("../lib/tidy_format.ts")
+  );
   const steps: StepResult[] = [];
   const materialized: SkillsEjectData["materialized"] = {
     copied: 0,
@@ -1914,7 +1969,9 @@ function closestCommand(
 
 /** Names of the executable project scripts in one configured directory. */
 async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
-  const { discoverProjectScripts } = await import("./project_scripts.ts");
+  const { discoverProjectScripts } = await loadModule(() =>
+    import("./project_scripts.ts")
+  );
   return (await discoverProjectScripts(scriptsAbs)).map((script) =>
     script.name
   );

@@ -7,6 +7,7 @@
  * is routing only.
  */
 
+import { loadModule } from "./shared/module_loading.ts";
 import { Command, ValidationError } from "@cliffy/command";
 import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { DISCERN_VERSION } from "./lib/version.ts";
@@ -516,8 +517,10 @@ export function buildCli(
     )
     .action(recordedExit("setup begin", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { beginOptsFrom, runSetupBegin } = await import(
-        "./commands/setup.ts"
+      const { beginOptsFrom, runSetupBegin } = await loadModule(() =>
+        import(
+          "./commands/setup.ts"
+        )
       );
       return await runSetupBegin(beginOptsFrom(options, json, noColor));
     }));
@@ -528,7 +531,9 @@ export function buildCli(
     )
     .action(recordedExit("setup verify", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { runSetupVerify } = await import("./commands/setup_verify.ts");
+      const { runSetupVerify } = await loadModule(() =>
+        import("./commands/setup_verify.ts")
+      );
       return await runSetupVerify({ json, noColor });
     }));
 
@@ -539,7 +544,9 @@ export function buildCli(
     .arguments("<n:number>")
     .action(recordedExit("setup step", async (options, n: number) => {
       const { json, noColor } = globalFlags(options);
-      const { runSetupStep } = await import("./commands/setup.ts");
+      const { runSetupStep } = await loadModule(() =>
+        import("./commands/setup.ts")
+      );
       return await runSetupStep(n, { json, noColor });
     }));
 
@@ -552,7 +559,9 @@ export function buildCli(
       "Record completion without Proof; setup acceptance will refuse it.",
     )
     .action(recordedExit("setup done", async (options) => {
-      const { runSetupDone } = await import("./commands/setup.ts");
+      const { runSetupDone } = await loadModule(() =>
+        import("./commands/setup.ts")
+      );
       return await runSetupDone({
         json: globalFlags(options).json,
         unproven: options.unproven ?? false,
@@ -567,7 +576,9 @@ export function buildCli(
     .option("--dry-run", "Print the plan and change nothing.")
     .action(recordedExit("setup accept", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { runSetupAccept } = await import("./commands/setup_accept.ts");
+      const { runSetupAccept } = await loadModule(() =>
+        import("./commands/setup_accept.ts")
+      );
       return await runSetupAccept({
         json,
         noColor,
@@ -582,7 +593,9 @@ export function buildCli(
     )
     .action(recordedExit("setup", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { runSetupWelcome } = await import("./commands/setup_welcome.ts");
+      const { runSetupWelcome } = await loadModule(() =>
+        import("./commands/setup_welcome.ts")
+      );
       return await runSetupWelcome({ json, noColor });
     }))
     .command("verify", setupVerify)
@@ -611,7 +624,9 @@ export function buildCli(
       "Upgrade even with uncommitted changes (skips the clean-tree check).",
     )
     .action(recordedExit("upgrade", async (options) => {
-      const { runUpgrade } = await import("./commands/upgrade.ts");
+      const { runUpgrade } = await loadModule(() =>
+        import("./commands/upgrade.ts")
+      );
       return await runUpgrade({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
@@ -633,7 +648,9 @@ export function buildCli(
     .option("-y, --yes", "Skip the confirmation.")
     .action(recordedExit("uninstall", async (options) => {
       const { json, noColor } = globalFlags(options);
-      const { runUninstall } = await import("./commands/uninstall.ts");
+      const { runUninstall } = await loadModule(() =>
+        import("./commands/uninstall.ts")
+      );
       return await runUninstall({
         json,
         noColor,
@@ -652,7 +669,9 @@ export function buildCli(
       "Show the hint explaining each execution-model step (hidden by default).",
     )
     .action(recordedExit("doctor", async (options) => {
-      const { runDoctor } = await import("./commands/doctor.ts");
+      const { runDoctor } = await loadModule(() =>
+        import("./commands/doctor.ts")
+      );
       return await runDoctor({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
@@ -666,7 +685,9 @@ export function buildCli(
       "Print discern's licenses and bundled third-party software notices.",
     )
     .action(recordedExit("licenses", async (options) => {
-      const { runLicenses } = await import("./commands/licenses.ts");
+      const { runLicenses } = await loadModule(() =>
+        import("./commands/licenses.ts")
+      );
       return runLicenses({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
@@ -679,7 +700,9 @@ export function buildCli(
     .command("triangle")
     .description("A small mystery for those who find it.")
     .action(recordedExit("triangle", async (options) => {
-      const { runTriangle } = await import("./commands/triangle.ts");
+      const { runTriangle } = await loadModule(() =>
+        import("./commands/triangle.ts")
+      );
       return await runTriangle({
         json: options.json ?? false,
         noColor: noColorFrom(options.color),
@@ -726,7 +749,7 @@ export function buildCli(
         if (target !== undefined && target !== "") {
           observeVerbTarget(target); // which page was read — a slug, never text
         }
-        const { runMap } = await import("./commands/docs.ts");
+        const { runMap } = await loadModule(() => import("./commands/docs.ts"));
         return await runMap({
           json: options.json ?? false,
           resultFormat: requestedResultFormat(),
@@ -788,7 +811,7 @@ export function buildCli(
       if (target !== undefined && target !== "") {
         observeVerbTarget(target); // which topic was looked up — a slug, never text
       }
-      const { runDocs } = await import("./commands/docs.ts");
+      const { runDocs } = await loadModule(() => import("./commands/docs.ts"));
       return await runDocs({
         json: options.json ?? false,
         resultFormat: requestedResultFormat(),
@@ -903,7 +926,9 @@ export function buildCli(
       recordedExit(
         "config set-job",
         async (options, name: string, command?: string) => {
-          const { runConfigSetJob } = await import("./commands/config.ts");
+          const { runConfigSetJob } = await loadModule(() =>
+            import("./commands/config.ts")
+          );
           const flags = globalFlags(options);
           const runArgv = setJobRunArgv(activeDiscernArgv);
           return await runConfigSetJob(name, command, {
@@ -979,7 +1004,9 @@ export function buildCli(
     .action(recordedExit(
       "config set-scope",
       async (options, name: string, ...globs: string[]) => {
-        const { runConfigSetScope } = await import("./commands/config.ts");
+        const { runConfigSetScope } = await loadModule(() =>
+          import("./commands/config.ts")
+        );
         return await runConfigSetScope(name, globs, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
@@ -1073,8 +1100,10 @@ export function buildCli(
       recordedExit(
         "config set-standard",
         async (options, name: string) => {
-          const { runConfigSetStandard } = await import(
-            "./commands/config.ts"
+          const { runConfigSetStandard } = await loadModule(() =>
+            import(
+              "./commands/config.ts"
+            )
           );
           return await runConfigSetStandard(name, {
             ...globalFlags(options),
@@ -1113,7 +1142,9 @@ export function buildCli(
     .action(recordedExit(
       "config set",
       async (options, key: string, value: string) => {
-        const { runConfigSet } = await import("./commands/config.ts");
+        const { runConfigSet } = await loadModule(() =>
+          import("./commands/config.ts")
+        );
         return await runConfigSet(key, value, {
           ...globalFlags(options),
           dryRun: options.dryRun ?? false,
@@ -1773,8 +1804,10 @@ export async function main(args: string[]): Promise<number> {
         return EXIT_USAGE;
       }
       if (shouldWelcomeBare(inProject, bootstrapped)) {
-        const { runSetupWelcome } = await import(
-          "./commands/setup_welcome.ts"
+        const { runSetupWelcome } = await loadModule(() =>
+          import(
+            "./commands/setup_welcome.ts"
+          )
         );
         return await runSetupWelcome({
           json: quietResult,
@@ -1784,7 +1817,9 @@ export async function main(args: string[]): Promise<number> {
       if (inProject && configOk && bootstrapped) {
         const json = quietResult;
         if (inDeskSession() || (!json && canInteract(false))) {
-          const { runDesk } = await import("./engine/desk/desk.ts");
+          const { runDesk } = await loadModule(() =>
+            import("./engine/desk/desk.ts")
+          );
           // The bare invocation IS the desk, so it records through the same
           // interceptor as `discern desk`: the session's begin/verb pair and
           // its delivered tip ids land in the logbook from either spelling.
@@ -1870,7 +1905,7 @@ export async function main(args: string[]): Promise<number> {
     // enters the logbook through queue's direct recording boundary.
     if (verb === "queue") {
       const { parseQueueInvocation, reportQueueUsageError, runQueue } =
-        await import("./engine/queue.ts");
+        await loadModule(() => import("./engine/queue.ts"));
       const queued = parseQueueInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
@@ -1919,8 +1954,10 @@ export async function main(args: string[]): Promise<number> {
       );
       if (script.name !== "-h" && script.name !== "--help") {
         // Pre-Cliffy dispatch still routes through the one recording point.
-        const { runProjectScript } = await import(
-          "./engine/project_scripts.ts"
+        const { runProjectScript } = await loadModule(() =>
+          import(
+            "./engine/project_scripts.ts"
+          )
         );
         return await recordedRun(
           "scripts",

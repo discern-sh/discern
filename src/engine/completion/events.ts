@@ -1,5 +1,5 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
-import { AsyncLocalStorage } from "async_hooks";
+import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
 import type { ComponentEvidence } from "./evidence.ts";
 

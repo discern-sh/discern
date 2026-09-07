@@ -21,6 +21,7 @@
  * verb that surfaces no envelope still records a minimal event.
  */
 
+import { loadModule } from "../../shared/module_loading.ts";
 import {
   observeResult,
   takeCheckpointActivity,
@@ -100,7 +101,9 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   try {
     // Loaded when a verb actually dispatches — this module sits on every CLI
     // action's registration path, so its static graph must stay routing-thin.
-    const { detectAgentSignals } = await import("./agent_signals.ts");
+    const { detectAgentSignals } = await loadModule(() =>
+      import("./agent_signals.ts")
+    );
     agentSignals = await detectAgentSignals();
   } catch {
     // discern-best-effort: logbook-cli-agent-signals-fallback
@@ -249,19 +252,23 @@ function cliReproduceCommand(): string {
 async function routeOperationLockRefusal(
   error: import("../operation_lock.ts").OperationLockError,
 ): Promise<number> {
-  const { withSetupResultNextAction } = await import(
-    "../../shared/setup_next_action.ts"
+  const { withSetupResultNextAction } = await loadModule(() =>
+    import(
+      "../../shared/setup_next_action.ts"
+    )
   );
   const result = withSetupResultNextAction(
     error.result,
     cliReproduceCommand(),
   );
   if (serializedResultRequested()) {
-    const { emitResult } = await import("../../shared/emit.ts");
+    const { emitResult } = await loadModule(() =>
+      import("../../shared/emit.ts")
+    );
     emitResult(result);
   } else {
     observeResult(result);
-    const { Logger } = await import("../../lib/log.ts");
+    const { Logger } = await loadModule(() => import("../../lib/log.ts"));
     new Logger({ json: false, noColor: false }).errorBlock(error.message);
   }
   return 1;
@@ -269,19 +276,23 @@ async function routeOperationLockRefusal(
 
 /** Project one expected lower-layer refusal at the CLI dispatcher boundary. */
 async function routeCliRefusal(error: CliRefusal): Promise<number> {
-  const { withSetupResultNextAction } = await import(
-    "../../shared/setup_next_action.ts"
+  const { withSetupResultNextAction } = await loadModule(() =>
+    import(
+      "../../shared/setup_next_action.ts"
+    )
   );
   const result = withSetupResultNextAction(
     error.result,
     cliReproduceCommand(),
   );
   if (serializedResultRequested()) {
-    const { emitResult } = await import("../../shared/emit.ts");
+    const { emitResult } = await loadModule(() =>
+      import("../../shared/emit.ts")
+    );
     emitResult(result);
   } else {
     observeResult(result);
-    const { Logger } = await import("../../lib/log.ts");
+    const { Logger } = await loadModule(() => import("../../lib/log.ts"));
     new Logger({ json: false, noColor: false }).error(
       result.message ?? error.message,
     );
@@ -299,8 +310,10 @@ async function runClassifiedCliOperation(
     readonly hasOperands?: boolean;
   },
 ): Promise<number> {
-  const { OperationLockError, withOperationLock } = await import(
-    "../operation_lock.ts"
+  const { OperationLockError, withOperationLock } = await loadModule(() =>
+    import(
+      "../operation_lock.ts"
+    )
   );
   const resultVerb = operationResultVerbResolver(verb);
   try {
@@ -369,7 +382,7 @@ export async function recordedRun(
   // Start driver enrichment before opening the recorder so an effectful
   // invocation's begin event carries the same raw signals as its completion.
   const driver = cliDriverFacts(scanArgs);
-  const { beginRecording } = await import("./record.ts");
+  const { beginRecording } = await loadModule(() => import("./record.ts"));
   const recording = beginRecording(Deno.cwd(), {
     verb,
     surface,

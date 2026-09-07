@@ -23,14 +23,19 @@ prepare = 'true'
 restore = 'true'
 `;
 
-Deno.test("fresh public accept lands two separately granted sources through composition and retirement", async () => {
+Deno.test("fresh public accept retires its cwd after landing a granted prefix and preserves another queued source", async () => {
   await withTempDir(async (root) => {
     const first = await project(root, ["local"], declaration);
     const second = await addWorktree(root, "second");
     await Deno.writeTextFile(`${second}/second-source`, "second author\n");
     await git(second, "add", "second-source");
     await git(second, "commit", "-m", "Author second source");
-    for (const path of [first, second]) {
+    const waiting = await addWorktree(root, "waiting");
+    await Deno.writeTextFile(`${waiting}/waiting-source`, "waiting author\n");
+    await git(waiting, "add", "waiting-source");
+    await git(waiting, "commit", "-m", "Author waiting source");
+    const waitingHead = await gitOut(waiting, "rev-parse", "HEAD");
+    for (const path of [first, second, waiting]) {
       const done = await runAgent(path, ["done", "--json"]);
       assertEquals(done.code, 0, done.output);
     }
@@ -46,7 +51,7 @@ Deno.test("fresh public accept lands two separately granted sources through comp
       "agent/second",
       wallTimeIso(SYSTEM_CLOCK.wallNow()),
     );
-    const accepted = await runAgent(root, ["accept", "--json"]);
+    const accepted = await runAgent(second, ["accept", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
     const result = decodeCliResult(accepted.stdout, "accept");
     assert(
@@ -63,6 +68,11 @@ Deno.test("fresh public accept lands two separately granted sources through comp
     assertEquals(
       await Deno.readTextFile(`${root}/second-source`),
       "second author\n",
+    );
+    assertEquals(await gitOut(waiting, "rev-parse", "HEAD"), waitingHead);
+    assertEquals(
+      await Deno.readTextFile(`${waiting}/waiting-source`),
+      "waiting author\n",
     );
     const records = observedRecords(await observeQueue(root, "main"));
     const landings = records.filter((record) => record.kind === "landing");

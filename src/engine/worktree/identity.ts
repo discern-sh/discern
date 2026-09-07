@@ -19,6 +19,7 @@
  * against `tests/fixtures/parity/worktree-identity.json`.
  */
 
+import { loadModule } from "../../shared/module_loading.ts";
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
 import { sanitizeSlug } from "../../shared/slug.ts";
@@ -584,8 +585,10 @@ async function executionIdentityContext(path: string): Promise<
     return undefined;
   }
   try {
-    const { frozenExecutionContext } = await import(
-      "../execution/identity_context.ts"
+    const { frozenExecutionContext } = await loadModule(() =>
+      import(
+        "../execution/identity_context.ts"
+      )
     );
     return await frozenExecutionContext(path);
   } catch (error) {
@@ -727,7 +730,7 @@ export async function resolveWorktreeId(
   settings: IdentitySettings,
   target: string = Deno.cwd(),
   env: EnvReader = Deno.env,
-  processCwd: string = Deno.cwd(),
+  processCwd: () => string = Deno.cwd,
 ): Promise<string> {
   const canonical = await canonicalizeTarget(target);
 
@@ -740,7 +743,14 @@ export async function resolveWorktreeId(
     // honoring it there collapses every row a caller walks onto one id — the
     // defect that let `worktree drop <id>` delete whichever worktree it met
     // first. Apply it only when the target IS the process's own workroot.
-    const own = await canonicalizeTarget(processCwd);
+    // Retirement can remove this process's directory. Without a current
+    // directory, the process override cannot establish ownership of any target.
+    let own: string | undefined;
+    try {
+      own = await canonicalizeTarget(processCwd());
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
     if (canonical === own) {
       return validateOverrideId(envOverride);
     }

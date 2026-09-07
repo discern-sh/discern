@@ -150,7 +150,6 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
           settings,
           environment.path,
           { get: () => undefined },
-          this.options.root,
         );
       if (
         actual !== id ||

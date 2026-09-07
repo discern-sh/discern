@@ -87,6 +87,7 @@ const PUBLIC_CONTRACT_PATHS = [
 
 const TERMINAL_TIMING_READINESS_PATHS = [
   "tests/test_shell_wait*.ts",
+  "tests/test_elapsed*.ts",
   "tests/shell_barrier.ts",
   "tests/waiting.ts",
   "tests/test_waiting_guard.ts",
@@ -333,6 +334,8 @@ Deno.test("terminal timing checkpoint catches a fresh registered sibling and gen
       "tests/test_shell_wait_boundaries.ts",
       "tests/test_shell_wait_guard.ts",
       "tests/test_shell_wait_future_runtime.ts",
+      "tests/test_elapsed_boundaries.ts",
+      "tests/test_elapsed_guard_test.ts",
     ]
   ) {
     const outcome = evaluateStructuralTrigger(definition, {

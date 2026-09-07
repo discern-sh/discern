@@ -1,5 +1,5 @@
 /** In-process capability for recording children owned by a candidate execution. */
-import { AsyncLocalStorage } from "async_hooks";
+import { AsyncLocalStorage } from "./module_loading.ts";
 import { kill } from "process";
 
 export interface ExecutionChildTicket {

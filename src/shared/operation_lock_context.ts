@@ -6,7 +6,7 @@
  * environment value is never sufficient ownership evidence on its own.
  */
 
-import { AsyncLocalStorage } from "async_hooks";
+import { AsyncLocalStorage } from "./module_loading.ts";
 import { z } from "@zod/zod";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { decodeJson } from "./runtime_decode.ts";
