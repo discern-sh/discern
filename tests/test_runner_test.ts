@@ -5,7 +5,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { z } from "@zod/zod";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { canaryCommandArgs } from "../scripts/canary_tests.ts";
 import {
@@ -17,12 +17,11 @@ import {
 } from "../scripts/run_tests.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const DenoTasksSchema = z.object({
   tasks: z.record(z.string(), z.string()).optional(),
 });
-
-const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 const HOSTED_SUITE_MINIMUM_HEADROOM = 4 / 3;
 
@@ -84,7 +83,10 @@ Deno.test("the repository admits parallel suites with a separate internal worker
     source,
     "env: testWorkerEnvironment(Deno.build.os)",
   );
-  assertStringIncludes(source, "runTestPartitions(args, count)");
+  assertStringIncludes(
+    source,
+    "runTestPartitions(args, count, { concurrency })",
+  );
   const canarySource = await Deno.readTextFile(
     join(REPO_ROOT, "scripts/canary_tests.ts"),
   );
@@ -192,4 +194,33 @@ Deno.test("hosted full-suite observations retain one-third timeout headroom", as
     Error,
     "needs at least 1600s",
   );
+});
+
+Deno.test("the repository's habitual and targeted test commands stay queue-wrapped", async () => {
+  const denoConfig = decodeWith(
+    DenoTasksSchema,
+    await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
+  );
+  assertEquals(
+    denoConfig.tasks?.["test:preflight"],
+    "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
+  );
+  assertEquals(
+    denoConfig.tasks?.test,
+    "discern queue -- deno run --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
+  );
+
+  const testingGuide = await Deno.readTextFile(
+    join(REPO_AUTHORED_PATHS.map, "80-development", "testing.md"),
+  );
+  assertEquals(
+    /^deno test(?:\s|$)/m.exec(testingGuide),
+    null,
+    "testing instructions must send runnable examples through the wrapped task",
+  );
+  assertStringIncludes(
+    testingGuide,
+    "deno task test tests/upgrade_migrations_test.ts",
+  );
+  assertStringIncludes(testingGuide, 'deno task test --filter "convergence"');
 });

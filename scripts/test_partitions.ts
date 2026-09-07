@@ -2,7 +2,10 @@
 import { join } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
-import { runOwnedChild } from "../src/engine/owned_child.ts";
+import {
+  type OwnedChildOptions,
+  runOwnedChild,
+} from "../src/engine/owned_child.ts";
 import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
@@ -27,7 +30,8 @@ export function testPartitionCount(
     (coverage && !forwarded.includes("--coverage-raw-data-only")) ||
     !Number.isSafeInteger(cores) || cores < 1
   ) return 1;
-  return cores;
+  const count = cores * 8;
+  return cores > 1 && Number.isSafeInteger(count) ? count : 1;
 }
 
 /** Read a required native JUnit count without accepting an incomplete report. */
@@ -104,6 +108,90 @@ function partitionArguments(
   ];
 }
 
+/** Check complete native discovery before running its partitions. */
+async function prepareTestGraph(
+  args: readonly string[],
+  options: OwnedChildOptions,
+): Promise<number> {
+  if (args.includes("--no-check")) return 0;
+  const started = SYSTEM_CLOCK.monotonicNow();
+  const child = await runOwnedChild(Deno.execPath(), {
+    ...options,
+    args: [
+      ...args.filter((arg) =>
+        !/^--(?:coverage(?:=|$)|coverage-raw-data-only$|reporter=|junit-path=)/
+          .test(arg)
+      ),
+      "--no-run",
+    ],
+  });
+  console.error(
+    `Test graph preparation: ${
+      ((SYSTEM_CLOCK.monotonicNow() - started) / 1000).toFixed(1)
+    }s.`,
+  );
+  return child.status.success ? 0 : 1;
+}
+
+/** Refill bounded native process slots and settle every active child on failure. */
+async function runPartitionChildren(
+  args: readonly string[],
+  reports: readonly string[],
+  concurrency: number,
+  options: OwnedChildOptions,
+): Promise<number> {
+  const runtimeArgs = args.includes("--no-check") ? args : [
+    ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
+    "--no-check",
+  ];
+  // Interleave the source universe so costly alphabetical regions start early.
+  const workers = Math.min(concurrency, reports.length);
+  const span = Math.ceil(reports.length / workers);
+  const order: number[] = [];
+  for (let round = 0; round < span; round++) {
+    for (let worker = 0; worker < workers; worker++) {
+      const index = worker * span + round;
+      if (index < reports.length) order.push(index);
+    }
+  }
+  let cursor = 0;
+  let code = 0;
+  const failures: unknown[] = [];
+  const worker = async (): Promise<void> => {
+    while (!options.signal?.aborted) {
+      const index = order[cursor++];
+      if (index === undefined) return;
+      const report = reports[index];
+      try {
+        if (report === undefined) {
+          throw new Error(`Missing native report destination ${index}`);
+        }
+        const child = await runOwnedChild(Deno.execPath(), {
+          ...options,
+          args: partitionArguments(
+            runtimeArgs,
+            index + 1,
+            reports.length,
+            report,
+          ),
+        });
+        if (!child.status.success) code = 1;
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: workers }, () => worker()));
+  if (options.signal?.aborted) return 1;
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      "Test partitions failed after every child settled.",
+    );
+  }
+  return code;
+}
+
 export interface PartitionedTestResult {
   readonly code: number;
   readonly report?: string;
@@ -113,10 +201,18 @@ export interface PartitionedTestResult {
 export async function runTestPartitions(
   args: readonly string[],
   count: number,
-  options: { readonly cwd?: string; readonly signal?: AbortSignal } = {},
+  options: {
+    readonly cwd?: string;
+    readonly signal?: AbortSignal;
+    readonly concurrency?: number;
+  } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
     throw new TypeError("Test partition count must be a positive integer.");
+  }
+  const concurrency = options.concurrency ?? count;
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
+    throw new TypeError("Test process concurrency must be a positive integer.");
   }
   const controller = new AbortController();
   const signal = options.signal === undefined
@@ -139,32 +235,24 @@ export async function runTestPartitions(
         { length: count },
         (_, index) => join(directory, `${index + 1}.xml`),
       );
+      const childOptions: OwnedChildOptions = {
+        env: { DENO_JOBS: "1" },
+        signal,
+        resumeAfterInterrupt: true,
+        ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+      };
+      if (await prepareTestGraph(args, childOptions) !== 0 || signal.aborted) {
+        return { code: 1 };
+      }
       const started = SYSTEM_CLOCK.monotonicNow();
-      const settled = await Promise.allSettled(
-        reports.map((report, index) =>
-          runOwnedChild(Deno.execPath(), {
-            args: partitionArguments(args, index + 1, count, report),
-            env: { DENO_JOBS: "1" },
-            signal,
-            resumeAfterInterrupt: true,
-            ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-          })
-        ),
+      const code = await runPartitionChildren(
+        args,
+        reports,
+        concurrency,
+        childOptions,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (signal.aborted) return { code: 1 };
-      const failures = settled.filter((row) => row.status === "rejected");
-      if (failures.length > 0) {
-        throw new AggregateError(
-          failures.map((row) => row.reason),
-          "Test partitions failed after every child settled.",
-        );
-      }
-      const code = settled.some((row) =>
-          row.status === "fulfilled" && !row.value.status.success
-        )
-        ? 1
-        : 0;
       if (!args.includes("--reporter=junit")) {
         return { code };
       }

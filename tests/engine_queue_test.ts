@@ -20,20 +20,14 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import {
   pathExists,
   readDirIfExists,
   readTextIfExists,
 } from "../src/shared/fs_presence.ts";
 import { logbookEventSchema } from "../src/engine/logbook/schema.ts";
-import { z } from "@zod/zod";
 import { decodeCliResult, decodeWith } from "./decode_cli_result.ts";
 import { TEST_PROCESS_TIMEOUT_MS, waitUntil } from "./waiting.ts";
-
-const DENO_TASKS_SCHEMA = z.object({
-  tasks: z.record(z.string(), z.string()).optional(),
-}).passthrough();
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -616,35 +610,6 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       "the gate owns the marked inner wrapper's lifecycle",
     );
   });
-});
-
-Deno.test("the repository's habitual and targeted test commands stay queue-wrapped", async () => {
-  const denoConfig = decodeWith(
-    DENO_TASKS_SCHEMA,
-    await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
-  );
-  assertEquals(
-    denoConfig.tasks?.["test:preflight"],
-    "deno run --allow-net=127.0.0.1 scripts/test_preflight.ts",
-  );
-  assertEquals(
-    denoConfig.tasks?.test,
-    "discern queue -- deno run --allow-read --allow-env --allow-run --allow-net=127.0.0.1 scripts/run_tests.ts",
-  );
-
-  const testingGuide = await Deno.readTextFile(
-    join(REPO_AUTHORED_PATHS.map, "80-development", "testing.md"),
-  );
-  assertEquals(
-    /^deno test(?:\s|$)/m.exec(testingGuide),
-    null,
-    "testing instructions must send runnable examples through the wrapped task",
-  );
-  assertStringIncludes(
-    testingGuide,
-    "deno task test tests/upgrade_migrations_test.ts",
-  );
-  assertStringIncludes(testingGuide, 'deno task test --filter "convergence"');
 });
 
 Deno.test("a capped gate exports the marker after its slots fail open", async () => {

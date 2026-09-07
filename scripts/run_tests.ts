@@ -108,10 +108,11 @@ if (import.meta.main) {
   );
   const args = testCommandArgs(identitySeed, Deno.args);
   if (count > 1) {
+    const concurrency = Math.min(count, navigator.hardwareConcurrency);
     console.error(
-      `Test allocation: ${count} native partitions, one worker each.`,
+      `Test allocation: ${count} native partitions, ${concurrency} processes, one worker each.`,
     );
-    const result = await runTestPartitions(args, count);
+    const result = await runTestPartitions(args, count, { concurrency });
     if (result.report !== undefined) console.log(result.report);
     Deno.exit(result.code);
   }
