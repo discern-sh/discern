@@ -227,7 +227,8 @@ Deno.test("mcp surface: confirmed belongs only to consent-gated tools", () => {
     CONSENT_GATED_VERBS.filter((entry) =>
       new Set<string>(entry.surfaces).has("mcp")
     )
-      .map((entry) => entry.command),
+      // MCP actions share the tool for their owning top-level verb.
+      .map((entry) => entry.command.split(" ")[0]),
   );
   const carrying = TOOLS.filter((tool) => inputKeys(tool).includes("confirmed"))
     .map((tool) => verbOf(tool.name));
