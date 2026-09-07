@@ -17,6 +17,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { refreshScaffold } from "./engine_done_fixture.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type VerbEvent,
@@ -161,6 +162,7 @@ async function proofBranch(
   await scaffoldEngine(main);
   await writeConfig(main, gateConfig(testCommand, logbook));
   await gitInit(main);
+  await refreshScaffold(main);
   const worktree = await addWorktree(main, "surface");
   await Deno.writeTextFile(join(worktree, "feature.txt"), "surface\n");
   await git(worktree, "add", "feature.txt");
