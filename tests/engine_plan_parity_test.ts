@@ -336,9 +336,21 @@ interface DryRunProbe {
    * exception cannot silently absorb a member that grows an engine plan.
    */
   envelope: "engine-plan" | "data-preview";
-  arrange: (dir: string) => Promise<Arranged>;
+  /**
+   * Arrange the fixture in `dir`. A member chained through `after` receives
+   * the fixture its predecessor's apply left behind as `parent` and continues
+   * on it instead of scaffolding its own.
+   */
+  arrange: (dir: string, parent?: Arranged) => Promise<Arranged>;
   /** Member-specific proof that the fixture exercises its promised effect set. */
   assertPreview?: (envelope: CliResultEnvelope) => void;
+  /**
+   * The member whose applied fixture this probe continues from. The class
+   * test runs a chained member as a nested step after its predecessor's
+   * phases, inside the same temp dir, so the predecessor's real apply (a
+   * green `done`) is the prefix instead of a second complete gate run.
+   */
+  after?: string;
 }
 
 /** Scaffold a main repository and return one newly linked fixture checkout. */
@@ -505,13 +517,16 @@ const PROBES: Record<string, DryRunProbe> = {
   "done": {
     envelope: "engine-plan",
     arrange: async (dir) => {
-      // The untouched scaffold: its agent files were compiled from this exact
-      // config, so the gate's instructions/skills checks hold and the apply is a
-      // full green run.
-      await scaffoldEngine(dir);
-      await gitInit(dir);
+      // The untouched scaffold in a linked worktree with one committed change:
+      // its agent files were compiled from this exact config, so the gate's
+      // instructions/skills checks hold and the apply is a full green run —
+      // which is also the Proof the chained `accept` member lands.
+      const wt = await mainWithWorktree(dir, "paritygrad");
+      await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
+      await git(wt, "add", "-A");
+      await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
       return {
-        cwd: dir,
+        cwd: wt,
         dry: ["done", "--dry-run", "--json"],
         apply: ["done", "--json"],
       };
@@ -610,18 +625,19 @@ const PROBES: Record<string, DryRunProbe> = {
         ),
       );
     },
-    arrange: async (dir) => {
-      const wt = await mainWithWorktree(dir, "paritygrad");
-      await Deno.writeTextFile(join(wt, "feature.txt"), "work\n");
-      await git(wt, "add", "-A");
-      await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
-      const done = await runAgent(wt, ["done", "--json"]);
-      assertEquals(done.code, 0, done.output);
-      return {
-        cwd: wt,
+    // Continues on the `done` member's fixture: its applied green gate is the
+    // complete candidate this preview reads and this apply lands.
+    after: "done",
+    arrange: (_dir, parent) => {
+      assert(
+        parent !== undefined,
+        "accept chains after done's applied fixture",
+      );
+      return Promise.resolve({
+        cwd: parent.cwd,
         dry: ["accept", "--dry-run", "--json"],
         apply: ["accept", "--confirmed", "--json"],
-      };
+      });
     },
   },
   "update": {
@@ -873,6 +889,161 @@ const PROBES: Record<string, DryRunProbe> = {
 
 // ── the class contract ──────────────────────────────────────────────────────
 
+/**
+ * Drive one member's probe on `dir` — the dry run writes nothing, the envelope
+ * carries the uniform preview marker, and (for engine-plan members) applied ⊆
+ * planned on the SAME fixture — then every member chained after it through
+ * `after`, as nested steps inside the same temp dir, so a chained member's
+ * prefix is its predecessor's real apply rather than a second scaffold.
+ */
+async function probeMember(
+  t: Deno.TestContext,
+  verb: string,
+  verbs: readonly string[],
+  dir: string,
+  executed: Set<string>,
+  parent?: Arranged,
+): Promise<void> {
+  const probe = PROBES[verb];
+  if (probe === undefined) {
+    return; // unreachable: the class test's table check already failed
+  }
+  executed.add(verb);
+  const run = await probe.arrange(dir, parent);
+
+  // 1. A dry run writes nothing (logbook appends aside).
+  const before = await snapshotTree(dir);
+  const dry = await runAgent(run.cwd, run.dry, { env: run.env ?? {} });
+  assertEquals(dry.code, 0, `${verb}: dry-run failed\n${dry.output}`);
+  const after = await snapshotTree(dir);
+  assertTreeUnchanged(before, after, verb);
+
+  // 2. The envelope carries the uniform preview marker.
+  const envelope = parse(dry.stdout, verb);
+  probe.assertPreview?.(envelope);
+  assertEquals(
+    envelope.dry_run,
+    true,
+    `${verb}: a dry-run envelope must carry dry_run: true`,
+  );
+  assertEquals(
+    envelope.steps ?? [],
+    [],
+    `${verb}: a serialized dry run must carry no applied effects`,
+  );
+  const contract = resultContractForVerb(envelope.verb);
+  assert(contract !== undefined, `${verb}: no public result contract`);
+  const dryMarkdown = renderResultMarkdown(
+    envelope,
+    contract.presenter,
+  );
+  assertStringIncludes(
+    dryMarkdown,
+    `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
+    `${verb}: Markdown lacks the canonical dry-run lead`,
+  );
+
+  if (probe.envelope === "engine-plan") {
+    // 3. Applied ⊆ planned on the SAME fixture, and the fixture is real
+    // work (an empty applied set would make the subset vacuous).
+    assert(
+      envelope.plan !== undefined,
+      `${verb}: an engine-plan member must emit plan.steps on --dry-run`,
+    );
+    assert(
+      run.apply !== undefined,
+      `${verb}: probe lists no apply argv`,
+    );
+    const apply = await runAgent(run.cwd, run.apply, {
+      env: run.env ?? {},
+    });
+    assertEquals(
+      apply.code,
+      0,
+      `${verb}: apply failed\n${apply.output}`,
+    );
+    assert(
+      appliedSet(apply.stdout, verb).size > 0,
+      `${verb}: fixture applied nothing\n${apply.output}`,
+    );
+    assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
+    if ((envelope.plan?.steps ?? []).length > 0) {
+      assert(
+        /Would (?:run|skip|check) `/.test(dryMarkdown),
+        `${verb}: Markdown plan uses applied grammar\n${dryMarkdown}`,
+      );
+    }
+    const appliedEnvelope = parse(apply.stdout, verb);
+    const appliedContract = resultContractForVerb(
+      appliedEnvelope.verb,
+    );
+    assert(
+      appliedContract !== undefined,
+      `${verb}: applied result has no public contract`,
+    );
+    const appliedMarkdown = renderResultMarkdown(
+      appliedEnvelope,
+      appliedContract.presenter,
+    );
+    assert(
+      !appliedMarkdown.includes(DRY_RUN_LEAD),
+      `${verb}: applied Markdown inherited the dry-run lead`,
+    );
+    assert(
+      !/Would (?:run|skip|check) `/.test(appliedMarkdown),
+      `${verb}: applied Markdown inherited dry-run plan copy`,
+    );
+  } else {
+    // 3'. The recorded exception stays honest: the preview rides in
+    // `data`, and the envelope carries no engine plan. A member that
+    // grows one must move to the engine-plan side of the table.
+    assertEquals(
+      envelope.plan,
+      undefined,
+      `${verb}: emits an engine plan — move its probe to ` +
+        `envelope: "engine-plan" so applied ⊆ planned is enforced`,
+    );
+    assert(
+      envelope.data !== undefined,
+      `${verb}: a data-preview member must carry its preview in data`,
+    );
+    const currentState = dryMarkdown.slice(
+      dryMarkdown.indexOf(DRY_RUN_LEAD) + DRY_RUN_LEAD.length,
+      dryMarkdown.indexOf("## Evidence") < 0
+        ? undefined
+        : dryMarkdown.indexOf("## Evidence"),
+    );
+    assert(
+      /\bwould\b/i.test(currentState),
+      `${verb}: data preview state is not conditional\n${dryMarkdown}`,
+    );
+    const appliedTwin = { ...envelope };
+    delete appliedTwin.dry_run;
+    const appliedMarkdown = renderResultMarkdown(
+      appliedTwin,
+      contract.presenter,
+    );
+    assert(
+      !appliedMarkdown.includes(DRY_RUN_LEAD),
+      `${verb}: non-dry Markdown inherited the dry-run lead`,
+    );
+  }
+
+  // Members chained after this one continue on its applied fixture, each as a
+  // nested step named after its own verb.
+  for (const dependent of verbs.filter((v) => PROBES[v]?.after === verb)) {
+    await t.step({
+      name: dependent,
+      sanitizeOps: false,
+      sanitizeResources: false,
+      sanitizeExit: false,
+      fn: async (nested) => {
+        await probeMember(nested, dependent, verbs, dir, executed, run);
+      },
+    });
+  }
+}
+
 Deno.test("preview-required class: every member previews faithfully (writes nothing; apply ⊆ plan)", async (t) => {
   const verbs = previewRequiredOperationPaths();
   // Fail closed, both directions: a new preview-required policy must wire a
@@ -883,146 +1054,49 @@ Deno.test("preview-required class: every member previews faithfully (writes noth
     "the dry-run fixture table has drifted from preview-required operation " +
       "policy — add a probe for the new member (or delete the stale one)",
   );
-
-  // Every probe drives its own scaffold, so the members fan out as
-  // concurrent steps. Concurrent sibling steps need their per-step sanitizers
-  // off (Deno refuses to start a step while a sanitized sibling runs); the
-  // parent test's sanitizers still hold the whole sweep.
-  await mapPool(verbs, 8, async (verb) => {
-    const probe = PROBES[verb];
-    if (probe === undefined) {
-      return; // unreachable: the assertEquals above already failed
+  // A chained member names a live root member — one with a probe of its own
+  // that is not itself chained — so a chain can neither dangle nor nest.
+  for (const verb of verbs) {
+    const after = PROBES[verb]?.after;
+    if (after === undefined) {
+      continue;
     }
+    assert(
+      verbs.includes(after),
+      `${verb}: chains after "${after}", which is not a preview-required member`,
+    );
+    assertEquals(
+      PROBES[after]?.after,
+      undefined,
+      `${verb}: chains after "${after}", itself a chained member`,
+    );
+  }
+
+  // Every root probe drives its own scaffold, so the roots fan out as
+  // concurrent steps; a chained member runs inside its root's step. Concurrent
+  // sibling steps need their per-step sanitizers off (Deno refuses to start a
+  // step while a sanitized sibling runs); the parent test's sanitizers still
+  // hold the whole sweep.
+  const roots = verbs.filter((verb) => PROBES[verb]?.after === undefined);
+  const executed = new Set<string>();
+  await mapPool(roots, 8, async (verb) => {
     await t.step({
       name: verb,
       sanitizeOps: false,
       sanitizeResources: false,
       sanitizeExit: false,
-      fn: async () => {
+      fn: async (step) => {
         await withTempDir(async (dir) => {
-          const run = await probe.arrange(dir);
-
-          // 1. A dry run writes nothing (logbook appends aside).
-          const before = await snapshotTree(dir);
-          const dry = await runAgent(run.cwd, run.dry, { env: run.env ?? {} });
-          assertEquals(dry.code, 0, `${verb}: dry-run failed\n${dry.output}`);
-          const after = await snapshotTree(dir);
-          assertTreeUnchanged(before, after, verb);
-
-          // 2. The envelope carries the uniform preview marker.
-          const envelope = parse(dry.stdout, verb);
-          probe.assertPreview?.(envelope);
-          assertEquals(
-            envelope.dry_run,
-            true,
-            `${verb}: a dry-run envelope must carry dry_run: true`,
-          );
-          assertEquals(
-            envelope.steps ?? [],
-            [],
-            `${verb}: a serialized dry run must carry no applied effects`,
-          );
-          const contract = resultContractForVerb(envelope.verb);
-          assert(contract !== undefined, `${verb}: no public result contract`);
-          const dryMarkdown = renderResultMarkdown(
-            envelope,
-            contract.presenter,
-          );
-          assertStringIncludes(
-            dryMarkdown,
-            `## Current state\n\n${DRY_RUN_LEAD}\n\n`,
-            `${verb}: Markdown lacks the canonical dry-run lead`,
-          );
-
-          if (probe.envelope === "engine-plan") {
-            // 3. Applied ⊆ planned on the SAME fixture, and the fixture is real
-            // work (an empty applied set would make the subset vacuous).
-            assert(
-              envelope.plan !== undefined,
-              `${verb}: an engine-plan member must emit plan.steps on --dry-run`,
-            );
-            assert(
-              run.apply !== undefined,
-              `${verb}: probe lists no apply argv`,
-            );
-            const apply = await runAgent(run.cwd, run.apply, {
-              env: run.env ?? {},
-            });
-            assertEquals(
-              apply.code,
-              0,
-              `${verb}: apply failed\n${apply.output}`,
-            );
-            assert(
-              appliedSet(apply.stdout, verb).size > 0,
-              `${verb}: fixture applied nothing\n${apply.output}`,
-            );
-            assertAppliedSubsetOfPlanned(dry.stdout, apply.stdout, verb);
-            if ((envelope.plan?.steps ?? []).length > 0) {
-              assert(
-                /Would (?:run|skip|check) `/.test(dryMarkdown),
-                `${verb}: Markdown plan uses applied grammar\n${dryMarkdown}`,
-              );
-            }
-            const appliedEnvelope = parse(apply.stdout, verb);
-            const appliedContract = resultContractForVerb(
-              appliedEnvelope.verb,
-            );
-            assert(
-              appliedContract !== undefined,
-              `${verb}: applied result has no public contract`,
-            );
-            const appliedMarkdown = renderResultMarkdown(
-              appliedEnvelope,
-              appliedContract.presenter,
-            );
-            assert(
-              !appliedMarkdown.includes(DRY_RUN_LEAD),
-              `${verb}: applied Markdown inherited the dry-run lead`,
-            );
-            assert(
-              !/Would (?:run|skip|check) `/.test(appliedMarkdown),
-              `${verb}: applied Markdown inherited dry-run plan copy`,
-            );
-          } else {
-            // 3'. The recorded exception stays honest: the preview rides in
-            // `data`, and the envelope carries no engine plan. A member that
-            // grows one must move to the engine-plan side of the table.
-            assertEquals(
-              envelope.plan,
-              undefined,
-              `${verb}: emits an engine plan — move its probe to ` +
-                `envelope: "engine-plan" so applied ⊆ planned is enforced`,
-            );
-            assert(
-              envelope.data !== undefined,
-              `${verb}: a data-preview member must carry its preview in data`,
-            );
-            const currentState = dryMarkdown.slice(
-              dryMarkdown.indexOf(DRY_RUN_LEAD) + DRY_RUN_LEAD.length,
-              dryMarkdown.indexOf("## Evidence") < 0
-                ? undefined
-                : dryMarkdown.indexOf("## Evidence"),
-            );
-            assert(
-              /\bwould\b/i.test(currentState),
-              `${verb}: data preview state is not conditional\n${dryMarkdown}`,
-            );
-            const appliedTwin = { ...envelope };
-            delete appliedTwin.dry_run;
-            const appliedMarkdown = renderResultMarkdown(
-              appliedTwin,
-              contract.presenter,
-            );
-            assert(
-              !appliedMarkdown.includes(DRY_RUN_LEAD),
-              `${verb}: non-dry Markdown inherited the dry-run lead`,
-            );
-          }
+          await probeMember(step, verb, verbs, dir, executed);
         });
       },
     });
   });
+  assertEquals(
+    [...executed].sort(),
+    [...verbs].sort(),
+    "every preview-required member must run its probe exactly once, as a root or chained after one",
+  );
 });
 
 Deno.test("control: the enumeration catches a fresh-named verb in a fresh group", () => {

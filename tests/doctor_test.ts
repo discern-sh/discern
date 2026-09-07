@@ -1,9 +1,11 @@
 /**
- * Installer `doctor` surface tests: drive `src/main.ts doctor` as a subprocess
- * (so Cliffy parsing, JSON vs human rendering, the per-check diagnostics, and the
- * exit code are all exercised for real). With the committed engine gone, the
- * checks are in-process and few: the config parses, the recorded schema is
- * current (`[meta].schema_version`), and the capabilities resolve.
+ * Installer `doctor` surface tests. The output surfaces — Cliffy parsing, JSON
+ * vs human rendering, the exit code, root discovery from a subdirectory, the
+ * recorder's own session state — drive `src/main.ts doctor` as a subprocess.
+ * The check-logic variants drive the same `doctorResult` core in-process
+ * through `runDoctorJson`, serialized and decoded through the same wire
+ * contract, and most cases share one scaffolded install through pristine
+ * copies (`withPristineInstalls`) instead of scaffolding per case.
  *
  * Two output channels matter. `--json` prints the payload to STDOUT. The human
  * render (no `--json`) goes to STDERR: the `Logger` writes headings, ok/error
@@ -46,6 +48,7 @@ import { DISCERN_MARK } from "../src/shared/brand.ts";
 import { DISCERN_GENERATED_MERGE_DRIVER } from "../src/lib/agent_gitattributes.ts";
 import {
   DOCTOR_ORIENTATION_MAX_CHARS,
+  doctorResult,
   executionModelHumanGroups,
   renderDoctorCheck,
   renderDoctorCheckLine,
@@ -55,6 +58,7 @@ import {
 } from "../src/commands/doctor.ts";
 import { resolveTerminalContext } from "../src/lib/terminal.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
+import { serializeResult } from "../src/shared/result_serialization.ts";
 import type { DoctorData } from "../src/shared/result_schemas.ts";
 import { z } from "@zod/zod";
 import {
@@ -62,6 +66,7 @@ import {
   decodeCliResult,
   decodeWith,
 } from "./decode_cli_result.ts";
+import { withPristineInstalls } from "./engine_surface_fixture.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
@@ -250,8 +255,33 @@ async function commitDoctorFixture(dir: string): Promise<void> {
   );
 }
 
-/** Run the explicit verbose structured doctor used by execution-model tests. */
+/**
+ * Run the explicit verbose structured doctor in-process: the same
+ * `doctorResult` core the CLI calls, serialized through the same wire
+ * boundary and decoded through the same contract, with the exit code the CLI
+ * derives from `ok`. Check-logic cases drive this seam; the subprocess form,
+ * {@link runDoctorJsonCli}, remains for the recorder's own session state.
+ */
 async function runDoctorJson(
+  dir: string,
+): Promise<{ code: number; payload: DoctorPayload }> {
+  // A spawned CLI observes its cwd kernel-resolved, so the in-process seam
+  // hands the core the same canonical root before it compares Git origins.
+  const result = await doctorResult(await Deno.realPath(dir), {
+    verbose: true,
+  });
+  return {
+    code: result.ok ? 0 : 1,
+    payload: decodeDoctor(JSON.stringify(serializeResult(result))),
+  };
+}
+
+/**
+ * The subprocess form of {@link runDoctorJson}: the CLI observes its own result
+ * into the Logbook and a refused write disables recording for that process, so
+ * the Logbook-check cases keep each invocation in its own process.
+ */
+async function runDoctorJsonCli(
   dir: string,
 ): Promise<{ code: number; payload: DoctorPayload }> {
   const { code, stdout } = await runCli([
@@ -262,37 +292,297 @@ async function runDoctorJson(
   return { code, payload: decodeDoctor(stdout) };
 }
 
-Deno.test("doctor default JSON is a bounded orientation result and verbose opts into the execution model", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const routine = await runCli(["doctor", "--json"], dir);
-    assertEquals(routine.code, 0, routine.stderr);
-    assert(
-      routine.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
-      `routine doctor used ${routine.stdout.length} characters`,
-    );
-    const bounded = decodeDoctor(routine.stdout);
-    assertEquals(bounded.data.execution_model, undefined);
-    assert(
-      bounded.hints?.some((hint) =>
-        hint.includes("discern doctor --verbose --json")
-      ),
-    );
+Deno.test("doctor output surfaces and config health run over pristine copies of one scaffolded install", async (t) => {
+  await withPristineInstalls(t, setupInstall, [
+    [
+      "doctor default JSON is a bounded orientation result and verbose opts into the execution model",
+      async (dir) => {
+        const routine = await runCli(["doctor", "--json"], dir);
+        assertEquals(routine.code, 0, routine.stderr);
+        assert(
+          routine.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
+          `routine doctor used ${routine.stdout.length} characters`,
+        );
+        const bounded = decodeDoctor(routine.stdout);
+        assertEquals(bounded.data.execution_model, undefined);
+        assert(
+          bounded.hints?.some((hint) =>
+            hint.includes("discern doctor --verbose --json")
+          ),
+        );
 
-    const verbose = await runDoctorJson(dir);
-    assert(verbose.payload.data.execution_model !== undefined);
+        const verbose = await runDoctorJson(dir);
+        assert(verbose.payload.data.execution_model !== undefined);
 
-    for (let call = 0; call < 2; call += 1) {
-      const status = await runCli(["status", "--json"], dir);
-      assertEquals(status.code, 0, status.stderr);
-      assert(
-        status.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
-        `routine status call ${
-          call + 1
-        } used ${status.stdout.length} characters`,
-      );
-    }
-  });
+        for (let call = 0; call < 2; call += 1) {
+          const status = await runCli(["status", "--json"], dir);
+          assertEquals(status.code, 0, status.stderr);
+          assert(
+            status.stdout.length <= DOCTOR_ORIENTATION_MAX_CHARS,
+            `routine status call ${
+              call + 1
+            } used ${status.stdout.length} characters`,
+          );
+        }
+      },
+    ],
+    [
+      "doctor --json: a fresh install includes the seeded tidy format job",
+      async (dir) => {
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        assertEquals(payload.ok, true);
+        assertEquals(payload.verb, "doctor");
+        assertEquals(payload.data.discern_version, DISCERN_VERSION);
+        for (
+          const name of ["discern.toml", "schema version", "known jobs", "git"]
+        ) {
+          assertEquals(check(payload, name).ok, true, `${name} should pass`);
+        }
+        for (const c of payload.data.checks) {
+          assert(
+            c.status === "ok" || c.status === "warn" || c.status === "fail",
+            `${c.name} should carry a closed status`,
+          );
+        }
+        const capabilities = check(payload, "known jobs");
+        // The seeded tidy job runs, but protects nothing of the project's own —
+        // a fresh install warns instead of reading as covered.
+        assertEquals(capabilities.status, "warn");
+        assertStringIncludes(capabilities.detail, "only discern's own upkeep");
+        assertStringIncludes(capabilities.detail, "format");
+        const tidy = check(payload, "tidy format job");
+        assertEquals(tidy.status, "ok");
+        assertStringIncludes(tidy.detail, "includes `discern tidy`");
+        // The schema check names the current version.
+        assertStringIncludes(
+          check(payload, "schema version").detail,
+          "current",
+        );
+        // The git check reports the resolved version (triage context).
+        assertStringIncludes(check(payload, "git").detail, ".");
+        // The environment block is populated for bug-report triage.
+        assertEquals(payload.data.environment.discern, DISCERN_VERSION);
+        assert(
+          payload.data.environment.platform.includes("/"),
+          "platform should be os/arch",
+        );
+      },
+    ],
+    [
+      "doctor reports when it runs inside a desk-owned child session",
+      async (dir) => {
+        const env = { [DESK_SESSION_ENV]: "1" };
+
+        const json = await runCli(["doctor", "--json"], dir, env);
+        assertEquals(json.code, 0);
+        const payload = decodeDoctor(json.stdout);
+        assertEquals(payload.data.environment.desk_session, true);
+
+        const human = await runCli(["doctor"], dir, env);
+        assertEquals(human.code, 0);
+        assertTerminalTextIncludes(human.stderr, "desk session: active");
+        assertTerminalTextIncludes(human.stderr, "launched by discern desk");
+      },
+    ],
+    [
+      "every failing doctor check names a fix (shape guard over the emitted set)",
+      async (dir) => {
+        // The per-check tests pin fix-presence one check at a time (schema version, git,
+        // script contract, gotchas, the capability nudge…). This ties the invariant to the
+        // whole emitted set: degrade the install so a broad set of checks trips at once,
+        // then assert every check carries a closed status and every FAILING one names a
+        // non-empty fix — an unactionable failure is a dead end. A new check that fails
+        // without a remedy red-lights here rather than shipping silently.
+        const cfgPath = join(dir, "discern.toml");
+        let toml = await Deno.readTextFile(cfgPath);
+        toml = toml.replace(/agents = \[[^\]]*\]/, 'agents = ["bogus_agent"]'); // unknown → fails
+        await Deno.writeTextFile(cfgPath, toml);
+
+        const { payload } = await runDoctorJson(dir);
+        const failing = payload.data.checks.filter((c) => c.status === "fail");
+        assert(
+          failing.length >= 1,
+          `the degraded fixture should fail at least one check, got: ${
+            payload.data.checks.map((c) => `${c.name}:${c.status}`).join(", ")
+          }`,
+        );
+        for (const c of payload.data.checks) {
+          assert(
+            c.status === "ok" || c.status === "warn" || c.status === "fail",
+            `${c.name}: must carry a closed status, got "${c.status}"`,
+          );
+          if (c.status === "fail") {
+            assert(
+              (c.fix ?? "").trim().length > 0,
+              `${c.name}: a failing check must name a fix (it is a dead end otherwise)`,
+            );
+          }
+        }
+      },
+    ],
+    [
+      "doctor: the git check fails with a fix when git is unreachable",
+      async (dir) => {
+        // Point GIT_BIN at a name that does not resolve, so the git probe fails the
+        // same way a machine with no git would — without touching the real PATH.
+        const { code, stdout } = await runCli(["doctor", "--json"], dir, {
+          GIT_BIN: "definitely-not-git-12345",
+        });
+        const payload = decodeDoctor(stdout);
+        assertEquals(code, 1);
+        const git = check(payload, "git");
+        assertEquals(git.ok, false);
+        assertStringIncludes(git.fix ?? "", "install Git");
+        // The environment block records git as absent (omitted) rather than crashing.
+        assertEquals(payload.data.environment.git, undefined);
+      },
+    ],
+    [
+      "doctor: Git below the declared minimum fails before repository probes",
+      async (dir) => {
+        const fakeGit = join(dir, "old-git");
+        await Deno.writeTextFile(
+          fakeGit,
+          '#!/bin/sh\necho "git version 2.29.9"\n',
+        );
+        await Deno.chmod(fakeGit, 0o755);
+
+        const { code, stdout } = await runCli(["doctor", "--json"], dir, {
+          GIT_BIN: fakeGit,
+        });
+        const payload = decodeDoctor(stdout);
+        assertEquals(code, 1);
+        const git = check(payload, "git");
+        assertEquals(git.status, "fail");
+        assertStringIncludes(git.detail, "requires Git 2.30.0 or later");
+        assertStringIncludes(git.fix ?? "", "upgrade Git");
+      },
+    ],
+    [
+      "doctor: human output reports advisories separately from failures",
+      async (dir) => {
+        const { code, stderr } = await runCli(["doctor"], dir);
+        assertEquals(code, 0);
+        assertStringIncludes(stderr, "discern doctor");
+        // The environment header gives at-a-glance triage context.
+        assertStringIncludes(stderr, `discern ${DISCERN_VERSION} ·`);
+        assertStringIncludes(stderr, "discern.toml: present and valid TOML");
+        assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
+        assertStringIncludes(
+          stderr,
+          "known jobs: only discern's own upkeep is wired (format)",
+        );
+        assertStringIncludes(
+          stderr,
+          "tidy format job: the format job includes",
+        );
+        assertStringIncludes(stderr, "git: ");
+        assertStringIncludes(
+          stderr,
+          "All checks passed (see the advisory above).",
+        );
+        const modelAt = stderr.indexOf("EXECUTION MODEL");
+        const checksAt = stderr.indexOf("DOCTOR CHECKS");
+        const firstCheckAt = stderr.indexOf(
+          "discern.toml: present and valid TOML",
+        );
+        const summaryAt = stderr.indexOf("All checks passed");
+        assert(modelAt >= 0, "doctor should render the execution model");
+        assert(checksAt > modelAt, "doctor checks should follow the model");
+        assert(
+          firstCheckAt > checksAt,
+          "checks should render under their heading",
+        );
+        assert(summaryAt > firstCheckAt, "the summary should close the output");
+      },
+    ],
+    [
+      "doctor: every populated top-level human group has one boundary",
+      async (dir) => {
+        const { code, stderr } = await runCli(["doctor", "--no-color"], dir);
+        assertEquals(code, 0);
+
+        assertDoctorGroupBoundaries(stderr, [
+          "Execution model",
+          "Doctor checks",
+          "All checks passed",
+        ]);
+      },
+    ],
+    [
+      "doctor: execution-model subgroups keep one gap in default and verbose views",
+      async (dir) => {
+        const machine = await runDoctorJson(dir);
+        const model = machine.payload.data.execution_model;
+        assert(
+          model !== undefined,
+          "healthy Doctor should carry its canonical model",
+        );
+
+        const normal = await runCli(["doctor", "--no-color"], dir);
+        assertEquals(normal.code, 0);
+        assertExecutionModelGroupBoundaries(normal.stderr, model, false);
+
+        const verbose = await runCli(
+          ["doctor", "--no-color", "--verbose"],
+          dir,
+        );
+        assertEquals(verbose.code, 0);
+        assertExecutionModelGroupBoundaries(verbose.stderr, model, true);
+      },
+    ],
+    [
+      "doctor: invalid (malformed) discern.toml is flagged with a syntax fix",
+      async (dir) => {
+        await Deno.writeTextFile(
+          join(dir, "discern.toml"),
+          'this is = not valid toml [[[\n"unterminated\n',
+        );
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        assertEquals(payload.ok, false);
+        const toml = check(payload, "discern.toml");
+        assertEquals(toml.ok, false);
+        assertStringIncludes(toml.detail, "invalid");
+        assertEquals(toml.fix, "fix the TOML syntax in discern.toml");
+        // With an unparseable config the later checks have nothing to read, so they
+        // are not emitted.
+        assertEquals(
+          payload.data.checks.find((c) => c.name === "schema version"),
+          undefined,
+        );
+      },
+    ],
+    [
+      "doctor: human output still prints checks when the execution model cannot load",
+      async (dir) => {
+        await Deno.writeTextFile(
+          join(dir, "discern.toml"),
+          'this is = not valid toml [[[\n"unterminated\n',
+        );
+
+        const { code, stderr } = await runCli(["doctor"], dir);
+        assertEquals(code, 1);
+        assert(
+          !stderr.includes("EXECUTION MODEL"),
+          "invalid config should omit the execution model",
+        );
+        assertStringIncludes(stderr, "DOCTOR CHECKS");
+        assertStringIncludes(stderr, "discern.toml: invalid");
+        assertStringIncludes(
+          stderr,
+          "fix: fix the TOML syntax in discern.toml",
+        );
+        assertStringIncludes(stderr, "1 check failed — see the fixes above.");
+        assertDoctorGroupBoundaries(stderr, [
+          "Doctor checks",
+          "1 check failed",
+        ]);
+      },
+    ],
+  ]);
 });
 
 /** Find a named check in a payload, asserting it is present. */
@@ -596,183 +886,6 @@ async function generatedDoctorProject(
   await commitDoctorFixture(dir);
 }
 
-Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    assertEquals(payload.ok, true);
-    assertEquals(payload.verb, "doctor");
-    assertEquals(payload.data.discern_version, DISCERN_VERSION);
-    for (
-      const name of ["discern.toml", "schema version", "known jobs", "git"]
-    ) {
-      assertEquals(check(payload, name).ok, true, `${name} should pass`);
-    }
-    for (const c of payload.data.checks) {
-      assert(
-        c.status === "ok" || c.status === "warn" || c.status === "fail",
-        `${c.name} should carry a closed status`,
-      );
-    }
-    const capabilities = check(payload, "known jobs");
-    // The seeded tidy job runs, but protects nothing of the project's own —
-    // a fresh install warns instead of reading as covered.
-    assertEquals(capabilities.status, "warn");
-    assertStringIncludes(capabilities.detail, "only discern's own upkeep");
-    assertStringIncludes(capabilities.detail, "format");
-    const tidy = check(payload, "tidy format job");
-    assertEquals(tidy.status, "ok");
-    assertStringIncludes(tidy.detail, "includes `discern tidy`");
-    // The schema check names the current version.
-    assertStringIncludes(check(payload, "schema version").detail, "current");
-    // The git check reports the resolved version (triage context).
-    assertStringIncludes(check(payload, "git").detail, ".");
-    // The environment block is populated for bug-report triage.
-    assertEquals(payload.data.environment.discern, DISCERN_VERSION);
-    assert(
-      payload.data.environment.platform.includes("/"),
-      "platform should be os/arch",
-    );
-  });
-});
-
-Deno.test("doctor reports when it runs inside a desk-owned child session", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const env = { [DESK_SESSION_ENV]: "1" };
-
-    const json = await runCli(["doctor", "--json"], dir, env);
-    assertEquals(json.code, 0);
-    const payload = decodeDoctor(json.stdout);
-    assertEquals(payload.data.environment.desk_session, true);
-
-    const human = await runCli(["doctor"], dir, env);
-    assertEquals(human.code, 0);
-    assertTerminalTextIncludes(human.stderr, "desk session: active");
-    assertTerminalTextIncludes(human.stderr, "launched by discern desk");
-  });
-});
-
-Deno.test("every failing doctor check names a fix (shape guard over the emitted set)", async () => {
-  // The per-check tests pin fix-presence one check at a time (schema version, git,
-  // script contract, gotchas, the capability nudge…). This ties the invariant to the
-  // whole emitted set: degrade the install so a broad set of checks trips at once,
-  // then assert every check carries a closed status and every FAILING one names a
-  // non-empty fix — an unactionable failure is a dead end. A new check that fails
-  // without a remedy red-lights here rather than shipping silently.
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const cfgPath = join(dir, "discern.toml");
-    let toml = await Deno.readTextFile(cfgPath);
-    toml = toml.replace(/agents = \[[^\]]*\]/, 'agents = ["bogus_agent"]'); // unknown → fails
-    await Deno.writeTextFile(cfgPath, toml);
-
-    const { payload } = await runDoctorJson(dir);
-    const failing = payload.data.checks.filter((c) => c.status === "fail");
-    assert(
-      failing.length >= 1,
-      `the degraded fixture should fail at least one check, got: ${
-        payload.data.checks.map((c) => `${c.name}:${c.status}`).join(", ")
-      }`,
-    );
-    for (const c of payload.data.checks) {
-      assert(
-        c.status === "ok" || c.status === "warn" || c.status === "fail",
-        `${c.name}: must carry a closed status, got "${c.status}"`,
-      );
-      if (c.status === "fail") {
-        assert(
-          (c.fix ?? "").trim().length > 0,
-          `${c.name}: a failing check must name a fix (it is a dead end otherwise)`,
-        );
-      }
-    }
-  });
-});
-
-Deno.test("doctor: the git check fails with a fix when git is unreachable", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // Point GIT_BIN at a name that does not resolve, so the git probe fails the
-    // same way a machine with no git would — without touching the real PATH.
-    const { code, stdout } = await runCli(["doctor", "--json"], dir, {
-      GIT_BIN: "definitely-not-git-12345",
-    });
-    const payload = decodeDoctor(stdout);
-    assertEquals(code, 1);
-    const git = check(payload, "git");
-    assertEquals(git.ok, false);
-    assertStringIncludes(git.fix ?? "", "install Git");
-    // The environment block records git as absent (omitted) rather than crashing.
-    assertEquals(payload.data.environment.git, undefined);
-  });
-});
-
-Deno.test("doctor: Git below the declared minimum fails before repository probes", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const fakeGit = join(dir, "old-git");
-    await Deno.writeTextFile(
-      fakeGit,
-      '#!/bin/sh\necho "git version 2.29.9"\n',
-    );
-    await Deno.chmod(fakeGit, 0o755);
-
-    const { code, stdout } = await runCli(["doctor", "--json"], dir, {
-      GIT_BIN: fakeGit,
-    });
-    const payload = decodeDoctor(stdout);
-    assertEquals(code, 1);
-    const git = check(payload, "git");
-    assertEquals(git.status, "fail");
-    assertStringIncludes(git.detail, "requires Git 2.30.0 or later");
-    assertStringIncludes(git.fix ?? "", "upgrade Git");
-  });
-});
-
-Deno.test("doctor: human output reports advisories separately from failures", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 0);
-    assertStringIncludes(stderr, "discern doctor");
-    // The environment header gives at-a-glance triage context.
-    assertStringIncludes(stderr, `discern ${DISCERN_VERSION} ·`);
-    assertStringIncludes(stderr, "discern.toml: present and valid TOML");
-    assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
-    assertStringIncludes(
-      stderr,
-      "known jobs: only discern's own upkeep is wired (format)",
-    );
-    assertStringIncludes(stderr, "tidy format job: the format job includes");
-    assertStringIncludes(stderr, "git: ");
-    assertStringIncludes(stderr, "All checks passed (see the advisory above).");
-    const modelAt = stderr.indexOf("EXECUTION MODEL");
-    const checksAt = stderr.indexOf("DOCTOR CHECKS");
-    const firstCheckAt = stderr.indexOf("discern.toml: present and valid TOML");
-    const summaryAt = stderr.indexOf("All checks passed");
-    assert(modelAt >= 0, "doctor should render the execution model");
-    assert(checksAt > modelAt, "doctor checks should follow the model");
-    assert(firstCheckAt > checksAt, "checks should render under their heading");
-    assert(summaryAt > firstCheckAt, "the summary should close the output");
-  });
-});
-
-Deno.test("doctor: every populated top-level human group has one boundary", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, stderr } = await runCli(["doctor", "--no-color"], dir);
-    assertEquals(code, 0);
-
-    assertDoctorGroupBoundaries(stderr, [
-      "Execution model",
-      "Doctor checks",
-      "All checks passed",
-    ]);
-  });
-});
-
 Deno.test("doctor: top-level grouping enrolls empty combinations and a fresh sibling", () => {
   const events: string[] = [];
   renderDoctorHumanGroups(
@@ -872,78 +985,6 @@ Deno.test("doctor: execution-model grouping enrolls a fresh canonical member", (
   );
 });
 
-Deno.test("doctor: execution-model subgroups keep one gap in default and verbose views", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const machine = await runDoctorJson(dir);
-    const model = machine.payload.data.execution_model;
-    assert(
-      model !== undefined,
-      "healthy Doctor should carry its canonical model",
-    );
-
-    const normal = await runCli(["doctor", "--no-color"], dir);
-    assertEquals(normal.code, 0);
-    assertExecutionModelGroupBoundaries(normal.stderr, model, false);
-
-    const verbose = await runCli(
-      ["doctor", "--no-color", "--verbose"],
-      dir,
-    );
-    assertEquals(verbose.code, 0);
-    assertExecutionModelGroupBoundaries(verbose.stderr, model, true);
-  });
-});
-
-Deno.test("doctor: invalid (malformed) discern.toml is flagged with a syntax fix", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      'this is = not valid toml [[[\n"unterminated\n',
-    );
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    assertEquals(payload.ok, false);
-    const toml = check(payload, "discern.toml");
-    assertEquals(toml.ok, false);
-    assertStringIncludes(toml.detail, "invalid");
-    assertEquals(toml.fix, "fix the TOML syntax in discern.toml");
-    // With an unparseable config the later checks have nothing to read, so they
-    // are not emitted.
-    assertEquals(
-      payload.data.checks.find((c) => c.name === "schema version"),
-      undefined,
-    );
-  });
-});
-
-Deno.test("doctor: human output still prints checks when the execution model cannot load", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await Deno.writeTextFile(
-      join(dir, "discern.toml"),
-      'this is = not valid toml [[[\n"unterminated\n',
-    );
-
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 1);
-    assert(
-      !stderr.includes("EXECUTION MODEL"),
-      "invalid config should omit the execution model",
-    );
-    assertStringIncludes(stderr, "DOCTOR CHECKS");
-    assertStringIncludes(stderr, "discern.toml: invalid");
-    assertStringIncludes(stderr, "fix: fix the TOML syntax in discern.toml");
-    assertStringIncludes(stderr, "1 check failed — see the fixes above.");
-    assertDoctorGroupBoundaries(stderr, [
-      "Doctor checks",
-      "1 check failed",
-    ]);
-  });
-});
-
 Deno.test("doctor: a missing config is flagged as not initialized", async () => {
   await withTempDir(async (dir) => {
     // No `setup` here — the dir has no discern.toml.
@@ -1001,188 +1042,329 @@ for (const { label, segments } of SUBDIR_DEPTHS) {
   });
 }
 
-Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const checks = await runChecks(dir, {
-      currentSchema: SCHEMA_VERSION + 1,
-    });
-    const schema = checks.find((candidate) =>
-      candidate.name === "schema version"
-    );
-    assert(schema !== undefined, "expected a 'schema version' check");
-    assertEquals(schema.status, "fail");
-    assertEquals(schema.ok, false);
-    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION}`);
-    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
-    assertStringIncludes(schema.fix ?? "", "discern upgrade");
-  });
+Deno.test("doctor schema, job, and command-probe checks run over pristine copies of one scaffolded install", async (t) => {
+  await withPristineInstalls(t, setupInstall, [
+    [
+      "doctor: a stale schema is flagged with an upgrade fix",
+      async (dir) => {
+        const checks = await runChecks(dir, {
+          currentSchema: SCHEMA_VERSION + 1,
+        });
+        const schema = checks.find((candidate) =>
+          candidate.name === "schema version"
+        );
+        assert(schema !== undefined, "expected a 'schema version' check");
+        assertEquals(schema.status, "fail");
+        assertEquals(schema.ok, false);
+        assertStringIncludes(schema.detail, `v${SCHEMA_VERSION}`);
+        assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
+        assertStringIncludes(schema.fix ?? "", "discern upgrade");
+      },
+    ],
+    [
+      "doctor: a NEWER-than-binary schema advises updating discern, never the `discern upgrade` it refuses",
+      async (dir) => {
+        // The project was upgraded by a newer binary than this one.
+        await setSchema(dir, SCHEMA_VERSION + 1);
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const schema = check(payload, "schema version");
+        assertEquals(schema.status, "fail");
+        assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
+        assertStringIncludes(schema.detail, "newer");
+        // The remedy must point at updating discern itself, NOT at running the migrate
+        // command upgrade would refuse.
+        const fix = schema.fix ?? "";
+        assert(
+          /re-run the install script|get a newer discern/i.test(fix),
+          `newer-schema fix must point at updating discern: ${fix}`,
+        );
+        assert(
+          !/run `discern upgrade`/i.test(fix),
+          `newer-schema fix must not recommend the \`discern upgrade\` that refuses this state: ${fix}`,
+        );
+
+        // Prove the contradiction the old advice created: `discern upgrade` genuinely
+        // refuses this exact install, so recommending it would send the user nowhere.
+        const up = await runCli(["upgrade", "--json"], dir);
+        assertEquals(up.code, 1);
+        assertEquals(
+          decodeCliResult(up.stdout, "upgrade").error,
+          "schema_version_too_new",
+          "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
+        );
+      },
+    ],
+    [
+      "doctor: unknown-job shorthand is flagged with the custom table fix",
+      async (dir) => {
+        // An unknown name is a custom job and therefore cannot use shorthand.
+        await addCapability(dir, "bogus", "echo hi");
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        assertEquals(check(payload, "discern.toml").ok, true);
+        const schema = check(payload, "config schema");
+        assertEquals(schema.status, "fail");
+        assertEquals(schema.ok, false);
+        assertStringIncludes(schema.detail, "bogus");
+        assertStringIncludes(schema.detail, "table form");
+        assertStringIncludes(schema.detail, "stage");
+      },
+    ],
+    [
+      "doctor: a fresh install reports its wired capabilities",
+      async (dir) => {
+        // The default scaffold ships none wired; add a known one.
+        await addCapability(dir, "test", "echo ok");
+        const { payload } = await runDoctorJson(dir);
+        const caps = check(payload, "known jobs");
+        assertEquals(caps.status, "ok");
+        assertEquals(caps.ok, true);
+        assertStringIncludes(caps.detail, "test");
+      },
+    ],
+    [
+      "doctor: explicitly inapplicable lifecycles do not trigger a known-job warning",
+      async (dir) => {
+        await removeTidyFormatJob(dir, true);
+        for (const name of Object.keys(KNOWN_JOBS)) {
+          const marked = await runCli(
+            ["config", "set-job", name, "--not-applicable"],
+            dir,
+          );
+          assertEquals(marked.code, 0, marked.stderr);
+        }
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        const jobs = check(payload, "known jobs");
+        assertEquals(jobs.status, "ok");
+        assertEquals(jobs.warn, undefined);
+        assertStringIncludes(jobs.detail, "no known jobs apply");
+      },
+    ],
+    [
+      "doctor: missing tidy fails during setup but is informational after bootstrap",
+      async (dir) => {
+        await removeTidyFormatJob(dir, false);
+
+        const duringSetup = await runDoctorJson(dir);
+        assertEquals(duringSetup.code, 1);
+        const failing = check(duringSetup.payload, "tidy format job");
+        assertEquals(failing.status, "fail");
+        assertStringIncludes(failing.detail, "during setup");
+        assertStringIncludes(failing.fix ?? "", "restore `discern tidy`");
+
+        const p = join(dir, "discern.toml");
+        const text = await Deno.readTextFile(p);
+        await Deno.writeTextFile(
+          p,
+          text.replace(/^\[meta\]\n/m, "[meta]\nbootstrapped = true\n"),
+        );
+
+        const afterSetup = await runDoctorJson(dir);
+        assertEquals(afterSetup.code, 0);
+        const informational = check(afterSetup.payload, "tidy format job");
+        assertEquals(informational.status, "ok");
+        assertEquals(informational.warn, undefined);
+        assertEquals(informational.fix, undefined);
+        assertStringIncludes(informational.detail, "opted out");
+      },
+    ],
+    [
+      "doctor: a check-only command cannot masquerade as the format-stage fixer",
+      async (dir) => {
+        const configured = await runCli([
+          "config",
+          "set-job",
+          "format",
+          "--run",
+          "deno fmt --check",
+          "--run",
+          "discern tidy",
+          "--json",
+        ], dir);
+        assertEquals(configured.code, 0, configured.stdout + configured.stderr);
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const semantics = check(payload, "format job semantics");
+        assertEquals(semantics.status, "fail");
+        assertStringIncludes(semantics.detail, "deno fmt --check");
+        assertStringIncludes(semantics.detail, "mutating fix stage");
+        assertStringIncludes(semantics.fix ?? "", "write mode");
+
+        const repaired = await runCli([
+          "config",
+          "set-job",
+          "format",
+          "--run",
+          "deno fmt",
+          "--run",
+          "discern tidy",
+          "--json",
+        ], dir);
+        assertEquals(repaired.code, 0, repaired.stdout + repaired.stderr);
+        const healthy = await runDoctorJson(dir);
+        assertEquals(
+          healthy.payload.data.checks.some((candidate) =>
+            candidate.name === "format job semantics"
+          ),
+          false,
+        );
+      },
+    ],
+    [
+      "doctor: an env-assignment prefix probes the real command, not the assignment",
+      async (dir) => {
+        // The gate runs this fine through `sh -c` (the prefix is the shell's), so
+        // doctor must not report the healthy install as broken.
+        await addCapability(dir, "test", "CI=1 echo ok");
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        assertEquals(check(payload, "job commands").ok, true);
+      },
+    ],
+    [
+      "doctor: an env-prefixed MISSING command is still detected, naming the real word",
+      async (dir) => {
+        await addCapability(
+          dir,
+          "test",
+          "CI=1 definitely-not-a-tool-xyz --flag",
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const cmds = check(payload, "job commands");
+        assertEquals(cmds.ok, false);
+        assertStringIncludes(cmds.detail, "test → definitely-not-a-tool-xyz");
+      },
+    ],
+    [
+      "doctor: a quoted leading word (a path with spaces) resolves as one command",
+      async (dir) => {
+        const script = join(dir, "my tool.sh");
+        await Deno.writeTextFile(script, "#!/bin/sh\necho ok\n");
+        await Deno.chmod(script, 0o755);
+        await addCapabilityLiteral(dir, "test", '"./my tool.sh" --all');
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        assertEquals(check(payload, "job commands").ok, true);
+      },
+    ],
+    [
+      "doctor: a dynamic leading word is skipped (advisory scope), never failed",
+      async (dir) => {
+        // `$TOOL run` can't be resolved without executing the shell — doctor skips
+        // the probe rather than failing a command it cannot judge.
+        await addCapabilityLiteral(dir, "test", "$TOOL run");
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        assertEquals(check(payload, "job commands").ok, true);
+      },
+    ],
+    [
+      "doctor: generated run probes resolve each leading word without executing generators",
+      async (dir) => {
+        await disableLogbook(dir);
+        const groups = [
+          {
+            name: "reference",
+            paths: ["reference-*.txt"],
+            run: "sh -c 'touch generator-ran'",
+          },
+          {
+            name: "schema",
+            paths: ["schema-*.json"],
+            run: "definitely-not-a-generator-xyz --write",
+          },
+        ] satisfies readonly GeneratedGroupFixture[];
+        await addGeneratedGroups(dir, groups);
+        await Deno.writeTextFile(
+          join(dir, "reference-output.txt"),
+          "reference\n",
+        );
+        await Deno.writeTextFile(join(dir, "schema-output.json"), "{}\n");
+        await commitDoctorFixture(dir);
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        for (const group of groups) {
+          const paths = check(payload, `generated: ${group.name} paths`);
+          assertEquals(
+            paths.status,
+            "ok",
+            `${group.name} paths should resolve`,
+          );
+          assertStringIncludes(paths.detail, group.paths[0] ?? "");
+          assertStringIncludes(paths.detail, "git-tracked file");
+        }
+
+        const resolved = check(payload, "generated: reference run");
+        assertEquals(resolved.status, "ok");
+        assertStringIncludes(resolved.detail, "leading word `sh` resolves");
+        assertEquals(
+          await targetExists(join(dir, "generator-ran")),
+          false,
+          "doctor must probe the leading word without running the generator",
+        );
+
+        const missing = check(payload, "generated: schema run");
+        assertEquals(missing.status, "fail");
+        assertStringIncludes(
+          missing.detail,
+          "leading word `definitely-not-a-generator-xyz` does not resolve",
+        );
+        assertStringIncludes(missing.fix ?? "", "[generated.schema] run");
+      },
+    ],
+    [
+      "doctor: a stale generated-merge block warns with the refresh remedy",
+      async (dir) => {
+        await disableLogbook(dir);
+        await Deno.mkdir(join(dir, "generated"));
+        await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
+        await commitDoctorFixture(dir);
+        await addGeneratedGroups(dir, [{
+          name: "bundle",
+          paths: ["generated/**"],
+          run: "sh -c true",
+        }]);
+
+        const stale = await runDoctorJson(dir);
+        assertEquals(stale.code, 1, JSON.stringify(stale.payload.data.checks));
+        const warning = check(stale.payload, "Git attributes");
+        assertEquals(warning.status, "warn");
+        assertStringIncludes(warning.detail, "does not match");
+        assertStringIncludes(warning.fix ?? "", "discern refresh");
+        assertEquals(
+          check(
+            stale.payload,
+            "generated merge attribute: generated/bundle.txt",
+          ).status,
+          "fail",
+        );
+
+        const refresh = await runCli(["refresh", "--json"], dir);
+        assertEquals(refresh.code, 0, refresh.stderr);
+        const current = await runDoctorJson(dir);
+        assertEquals(
+          current.payload.data.checks.some((candidate) =>
+            candidate.name === "Git attributes"
+          ),
+          false,
+        );
+      },
+    ],
+  ]);
 });
 
 // The class guard for B51: doctor must give schema advice the recommended command
 // actually honors. The synthetic-current-schema test above proves that an older
 // install points at `discern upgrade`; this test proves a newer one points at the
 // binary update channel and that upgrade refuses the exact state.
-Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never the `discern upgrade` it refuses", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // The project was upgraded by a newer binary than this one.
-    await setSchema(dir, SCHEMA_VERSION + 1);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const schema = check(payload, "schema version");
-    assertEquals(schema.status, "fail");
-    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
-    assertStringIncludes(schema.detail, "newer");
-    // The remedy must point at updating discern itself, NOT at running the migrate
-    // command upgrade would refuse.
-    const fix = schema.fix ?? "";
-    assert(
-      /re-run the install script|get a newer discern/i.test(fix),
-      `newer-schema fix must point at updating discern: ${fix}`,
-    );
-    assert(
-      !/run `discern upgrade`/i.test(fix),
-      `newer-schema fix must not recommend the \`discern upgrade\` that refuses this state: ${fix}`,
-    );
-
-    // Prove the contradiction the old advice created: `discern upgrade` genuinely
-    // refuses this exact install, so recommending it would send the user nowhere.
-    const up = await runCli(["upgrade", "--json"], dir);
-    assertEquals(up.code, 1);
-    assertEquals(
-      decodeCliResult(up.stdout, "upgrade").error,
-      "schema_version_too_new",
-      "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
-    );
-  });
-});
-
-Deno.test("doctor: unknown-job shorthand is flagged with the custom table fix", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // An unknown name is a custom job and therefore cannot use shorthand.
-    await addCapability(dir, "bogus", "echo hi");
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    assertEquals(check(payload, "discern.toml").ok, true);
-    const schema = check(payload, "config schema");
-    assertEquals(schema.status, "fail");
-    assertEquals(schema.ok, false);
-    assertStringIncludes(schema.detail, "bogus");
-    assertStringIncludes(schema.detail, "table form");
-    assertStringIncludes(schema.detail, "stage");
-  });
-});
-
-Deno.test("doctor: a fresh install reports its wired capabilities", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // The default scaffold ships none wired; add a known one.
-    await addCapability(dir, "test", "echo ok");
-    const { payload } = await runDoctorJson(dir);
-    const caps = check(payload, "known jobs");
-    assertEquals(caps.status, "ok");
-    assertEquals(caps.ok, true);
-    assertStringIncludes(caps.detail, "test");
-  });
-});
-
-Deno.test("doctor: explicitly inapplicable lifecycles do not trigger a known-job warning", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await removeTidyFormatJob(dir, true);
-    for (const name of Object.keys(KNOWN_JOBS)) {
-      const marked = await runCli(
-        ["config", "set-job", name, "--not-applicable"],
-        dir,
-      );
-      assertEquals(marked.code, 0, marked.stderr);
-    }
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const jobs = check(payload, "known jobs");
-    assertEquals(jobs.status, "ok");
-    assertEquals(jobs.warn, undefined);
-    assertStringIncludes(jobs.detail, "no known jobs apply");
-  });
-});
-
-Deno.test("doctor: missing tidy fails during setup but is informational after bootstrap", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await removeTidyFormatJob(dir, false);
-
-    const duringSetup = await runDoctorJson(dir);
-    assertEquals(duringSetup.code, 1);
-    const failing = check(duringSetup.payload, "tidy format job");
-    assertEquals(failing.status, "fail");
-    assertStringIncludes(failing.detail, "during setup");
-    assertStringIncludes(failing.fix ?? "", "restore `discern tidy`");
-
-    const p = join(dir, "discern.toml");
-    const text = await Deno.readTextFile(p);
-    await Deno.writeTextFile(
-      p,
-      text.replace(/^\[meta\]\n/m, "[meta]\nbootstrapped = true\n"),
-    );
-
-    const afterSetup = await runDoctorJson(dir);
-    assertEquals(afterSetup.code, 0);
-    const informational = check(afterSetup.payload, "tidy format job");
-    assertEquals(informational.status, "ok");
-    assertEquals(informational.warn, undefined);
-    assertEquals(informational.fix, undefined);
-    assertStringIncludes(informational.detail, "opted out");
-  });
-});
-
-Deno.test("doctor: a check-only command cannot masquerade as the format-stage fixer", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const configured = await runCli([
-      "config",
-      "set-job",
-      "format",
-      "--run",
-      "deno fmt --check",
-      "--run",
-      "discern tidy",
-      "--json",
-    ], dir);
-    assertEquals(configured.code, 0, configured.stdout + configured.stderr);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const semantics = check(payload, "format job semantics");
-    assertEquals(semantics.status, "fail");
-    assertStringIncludes(semantics.detail, "deno fmt --check");
-    assertStringIncludes(semantics.detail, "mutating fix stage");
-    assertStringIncludes(semantics.fix ?? "", "write mode");
-
-    const repaired = await runCli([
-      "config",
-      "set-job",
-      "format",
-      "--run",
-      "deno fmt",
-      "--run",
-      "discern tidy",
-      "--json",
-    ], dir);
-    assertEquals(repaired.code, 0, repaired.stdout + repaired.stderr);
-    const healthy = await runDoctorJson(dir);
-    assertEquals(
-      healthy.payload.data.checks.some((candidate) =>
-        candidate.name === "format job semantics"
-      ),
-      false,
-    );
-  });
-});
 
 for (
   const invocation of ["discern tidy", "discern tidy md", "discern tidy toml"]
@@ -1247,263 +1429,190 @@ for (const { label, raw } of NOOP_CAPABILITY_VALUES) {
   });
 }
 
-Deno.test("doctor: an env-assignment prefix probes the real command, not the assignment", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // The gate runs this fine through `sh -c` (the prefix is the shell's), so
-    // doctor must not report the healthy install as broken.
-    await addCapability(dir, "test", "CI=1 echo ok");
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "job commands").ok, true);
-  });
-});
+Deno.test("doctor generated-attribute checks run over pristine copies of one generated project", async (t) => {
+  await withPristineInstalls(t, generatedDoctorProject, [
+    [
+      "doctor: a later project attribute override exposes an unsafe generated path without rewriting rules",
+      async (dir) => {
+        const attributesPath = join(dir, ".gitattributes");
+        const managed = await Deno.readTextFile(attributesPath);
+        const overridden = `${managed}generated/** merge=project-driver\n`;
+        await Deno.writeTextFile(attributesPath, overridden);
 
-Deno.test("doctor: an env-prefixed MISSING command is still detected, naming the real word", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await addCapability(dir, "test", "CI=1 definitely-not-a-tool-xyz --flag");
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const cmds = check(payload, "job commands");
-    assertEquals(cmds.ok, false);
-    assertStringIncludes(cmds.detail, "test → definitely-not-a-tool-xyz");
-  });
-});
-
-Deno.test("doctor: a quoted leading word (a path with spaces) resolves as one command", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const script = join(dir, "my tool.sh");
-    await Deno.writeTextFile(script, "#!/bin/sh\necho ok\n");
-    await Deno.chmod(script, 0o755);
-    await addCapabilityLiteral(dir, "test", '"./my tool.sh" --all');
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "job commands").ok, true);
-  });
-});
-
-Deno.test("doctor: a dynamic leading word is skipped (advisory scope), never failed", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // `$TOOL run` can't be resolved without executing the shell — doctor skips
-    // the probe rather than failing a command it cannot judge.
-    await addCapabilityLiteral(dir, "test", "$TOOL run");
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(check(payload, "job commands").ok, true);
-  });
-});
-
-Deno.test("doctor: generated run probes resolve each leading word without executing generators", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await disableLogbook(dir);
-    const groups = [
-      {
-        name: "reference",
-        paths: ["reference-*.txt"],
-        run: "sh -c 'touch generator-ran'",
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1, JSON.stringify(payload.data.checks));
+        const unsafe = check(
+          payload,
+          "generated merge attribute: generated/bundle.txt",
+        );
+        assertEquals(unsafe.status, "fail");
+        assertStringIncludes(unsafe.detail, "project-driver");
+        assertStringIncludes(unsafe.detail, "generated merges are unsafe");
+        assertStringIncludes(unsafe.fix ?? "", "git check-attr");
+        assertEquals(
+          await Deno.readTextFile(attributesPath),
+          overridden,
+          "doctor must preserve every project-owned attribute byte",
+        );
       },
-      {
-        name: "schema",
-        paths: ["schema-*.json"],
-        run: "definitely-not-a-generator-xyz --write",
-      },
-    ] satisfies readonly GeneratedGroupFixture[];
-    await addGeneratedGroups(dir, groups);
-    await Deno.writeTextFile(join(dir, "reference-output.txt"), "reference\n");
-    await Deno.writeTextFile(join(dir, "schema-output.json"), "{}\n");
-    await commitDoctorFixture(dir);
+    ],
+    [
+      "doctor: Git precedence exposes later, nested, info, unspecified, and unset generated overrides",
+      async (dir) => {
+        const attributesPath = join(dir, ".gitattributes");
+        const nestedPath = join(dir, "generated/.gitattributes");
+        const infoPath = join(dir, ".git/info/attributes");
+        const baseline = await Deno.readTextFile(attributesPath);
+        const cases = [
+          {
+            name: "later root",
+            value: "root-driver",
+            install: async (): Promise<void> => {
+              await Deno.writeTextFile(
+                attributesPath,
+                `${baseline}generated/** merge=root-driver\n`,
+              );
+            },
+          },
+          {
+            name: "nested",
+            value: "nested-driver",
+            install: async (): Promise<void> => {
+              await Deno.writeTextFile(nestedPath, "* merge=nested-driver\n");
+            },
+          },
+          {
+            name: "info",
+            value: "info-driver",
+            install: async (): Promise<void> => {
+              await Deno.writeTextFile(
+                infoPath,
+                "generated/** merge=info-driver\n",
+              );
+            },
+          },
+          {
+            name: "unspecified",
+            value: "unspecified",
+            install: async (): Promise<void> => {
+              await Deno.writeTextFile(
+                attributesPath,
+                `${baseline}generated/** !merge\n`,
+              );
+            },
+          },
+          {
+            name: "unset",
+            value: "unset",
+            install: async (): Promise<void> => {
+              await Deno.writeTextFile(
+                attributesPath,
+                `${baseline}generated/** -merge\n`,
+              );
+            },
+          },
+        ] as const;
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    for (const group of groups) {
-      const paths = check(payload, `generated: ${group.name} paths`);
-      assertEquals(paths.status, "ok", `${group.name} paths should resolve`);
-      assertStringIncludes(paths.detail, group.paths[0] ?? "");
-      assertStringIncludes(paths.detail, "git-tracked file");
-    }
+        for (const fixture of cases) {
+          await Deno.writeTextFile(attributesPath, baseline);
+          await Deno.remove(nestedPath).catch(() => {});
+          await Deno.remove(infoPath).catch(() => {});
+          await fixture.install();
+          const beforeRoot = await Deno.readTextFile(attributesPath);
+          const beforeNested = await targetExists(nestedPath)
+            ? await Deno.readTextFile(nestedPath)
+            : undefined;
+          const beforeInfo = await targetExists(infoPath)
+            ? await Deno.readTextFile(infoPath)
+            : undefined;
 
-    const resolved = check(payload, "generated: reference run");
-    assertEquals(resolved.status, "ok");
-    assertStringIncludes(resolved.detail, "leading word `sh` resolves");
-    assertEquals(
-      await targetExists(join(dir, "generator-ran")),
-      false,
-      "doctor must probe the leading word without running the generator",
-    );
-
-    const missing = check(payload, "generated: schema run");
-    assertEquals(missing.status, "fail");
-    assertStringIncludes(
-      missing.detail,
-      "leading word `definitely-not-a-generator-xyz` does not resolve",
-    );
-    assertStringIncludes(missing.fix ?? "", "[generated.schema] run");
-  });
-});
-
-Deno.test("doctor: a stale generated-merge block warns with the refresh remedy", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await disableLogbook(dir);
-    await Deno.mkdir(join(dir, "generated"));
-    await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
-    await commitDoctorFixture(dir);
-    await addGeneratedGroups(dir, [{
-      name: "bundle",
-      paths: ["generated/**"],
-      run: "sh -c true",
-    }]);
-
-    const stale = await runDoctorJson(dir);
-    assertEquals(stale.code, 1, JSON.stringify(stale.payload.data.checks));
-    const warning = check(stale.payload, "Git attributes");
-    assertEquals(warning.status, "warn");
-    assertStringIncludes(warning.detail, "does not match");
-    assertStringIncludes(warning.fix ?? "", "discern refresh");
-    assertEquals(
-      check(
-        stale.payload,
-        "generated merge attribute: generated/bundle.txt",
-      ).status,
-      "fail",
-    );
-
-    const refresh = await runCli(["refresh", "--json"], dir);
-    assertEquals(refresh.code, 0, refresh.stderr);
-    const current = await runDoctorJson(dir);
-    assertEquals(
-      current.payload.data.checks.some((candidate) =>
-        candidate.name === "Git attributes"
-      ),
-      false,
-    );
-  });
-});
-
-Deno.test("doctor: a later project attribute override exposes an unsafe generated path without rewriting rules", async () => {
-  await withTempDir(async (dir) => {
-    await generatedDoctorProject(dir);
-
-    const attributesPath = join(dir, ".gitattributes");
-    const managed = await Deno.readTextFile(attributesPath);
-    const overridden = `${managed}generated/** merge=project-driver\n`;
-    await Deno.writeTextFile(attributesPath, overridden);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1, JSON.stringify(payload.data.checks));
-    const unsafe = check(
-      payload,
-      "generated merge attribute: generated/bundle.txt",
-    );
-    assertEquals(unsafe.status, "fail");
-    assertStringIncludes(unsafe.detail, "project-driver");
-    assertStringIncludes(unsafe.detail, "generated merges are unsafe");
-    assertStringIncludes(unsafe.fix ?? "", "git check-attr");
-    assertEquals(
-      await Deno.readTextFile(attributesPath),
-      overridden,
-      "doctor must preserve every project-owned attribute byte",
-    );
-  });
-});
-
-Deno.test("doctor: Git precedence exposes later, nested, info, unspecified, and unset generated overrides", async () => {
-  await withTempDir(async (dir) => {
-    await generatedDoctorProject(dir);
-    const attributesPath = join(dir, ".gitattributes");
-    const nestedPath = join(dir, "generated/.gitattributes");
-    const infoPath = join(dir, ".git/info/attributes");
-    const baseline = await Deno.readTextFile(attributesPath);
-    const cases = [
-      {
-        name: "later root",
-        value: "root-driver",
-        install: async (): Promise<void> => {
-          await Deno.writeTextFile(
-            attributesPath,
-            `${baseline}generated/** merge=root-driver\n`,
+          const { code, payload } = await runDoctorJson(dir);
+          assertEquals(code, 1, `${fixture.name}: ${JSON.stringify(payload)}`);
+          const unsafe = check(
+            payload,
+            "generated merge attribute: generated/bundle.txt",
           );
-        },
-      },
-      {
-        name: "nested",
-        value: "nested-driver",
-        install: async (): Promise<void> => {
-          await Deno.writeTextFile(nestedPath, "* merge=nested-driver\n");
-        },
-      },
-      {
-        name: "info",
-        value: "info-driver",
-        install: async (): Promise<void> => {
-          await Deno.writeTextFile(
-            infoPath,
-            "generated/** merge=info-driver\n",
+          assertEquals(unsafe.status, "fail", fixture.name);
+          assertStringIncludes(unsafe.detail, fixture.value, fixture.name);
+          assertEquals(await Deno.readTextFile(attributesPath), beforeRoot);
+          assertEquals(
+            await targetExists(nestedPath)
+              ? await Deno.readTextFile(nestedPath)
+              : undefined,
+            beforeNested,
           );
-        },
-      },
-      {
-        name: "unspecified",
-        value: "unspecified",
-        install: async (): Promise<void> => {
-          await Deno.writeTextFile(
-            attributesPath,
-            `${baseline}generated/** !merge\n`,
+          assertEquals(
+            await targetExists(infoPath)
+              ? await Deno.readTextFile(infoPath)
+              : undefined,
+            beforeInfo,
           );
-        },
+        }
       },
-      {
-        name: "unset",
-        value: "unset",
-        install: async (): Promise<void> => {
-          await Deno.writeTextFile(
-            attributesPath,
-            `${baseline}generated/** -merge\n`,
-          );
-        },
-      },
-    ] as const;
+    ],
+    [
+      "doctor: main and linked checkouts require one shared generated merge driver",
+      async (dir) => {
+        const worktree = await addWorktree(dir, "driver-health");
 
-    for (const fixture of cases) {
-      await Deno.writeTextFile(attributesPath, baseline);
-      await Deno.remove(nestedPath).catch(() => {});
-      await Deno.remove(infoPath).catch(() => {});
-      await fixture.install();
-      const beforeRoot = await Deno.readTextFile(attributesPath);
-      const beforeNested = await targetExists(nestedPath)
-        ? await Deno.readTextFile(nestedPath)
-        : undefined;
-      const beforeInfo = await targetExists(infoPath)
-        ? await Deno.readTextFile(infoPath)
-        : undefined;
+        for (const checkout of [dir, worktree]) {
+          const healthy = await runDoctorJson(checkout);
+          assertEquals(
+            healthy.code,
+            0,
+            JSON.stringify(healthy.payload.data.checks),
+          );
+          const configured = check(healthy.payload, "generated merge driver");
+          assertEquals(configured.status, "ok");
+          assertStringIncludes(configured.detail, 'scope "local"');
+          assertStringIncludes(configured.detail, ".git/config");
+        }
 
-      const { code, payload } = await runDoctorJson(dir);
-      assertEquals(code, 1, `${fixture.name}: ${JSON.stringify(payload)}`);
-      const unsafe = check(
-        payload,
-        "generated merge attribute: generated/bundle.txt",
-      );
-      assertEquals(unsafe.status, "fail", fixture.name);
-      assertStringIncludes(unsafe.detail, fixture.value, fixture.name);
-      assertEquals(await Deno.readTextFile(attributesPath), beforeRoot);
-      assertEquals(
-        await targetExists(nestedPath)
-          ? await Deno.readTextFile(nestedPath)
-          : undefined,
-        beforeNested,
-      );
-      assertEquals(
-        await targetExists(infoPath)
-          ? await Deno.readTextFile(infoPath)
-          : undefined,
-        beforeInfo,
-      );
-    }
-  });
+        await git(dir, "config", "--unset-all", DRIVER_KEY);
+        const missing = await runDoctorJson(worktree);
+        assertEquals(missing.code, 1);
+        const absent = check(missing.payload, "generated merge driver");
+        assertEquals(absent.status, "fail");
+        assertStringIncludes(absent.detail, "has no");
+        assertStringIncludes(
+          absent.fix ?? "",
+          `${DRIVER_KEY} true`,
+        );
+
+        await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
+        const wrongValue = await runDoctorJson(worktree);
+        assertEquals(wrongValue.code, 1);
+        const common = check(wrongValue.payload, "generated merge driver");
+        assertEquals(common.status, "fail");
+        assertStringIncludes(common.detail, "wrong-common-driver");
+        assertStringIncludes(common.detail, 'scope "local"');
+
+        // A private-era checkout-local definition wins effective precedence until
+        // refresh migrates it to the one common clone-local definition.
+        await git(dir, "config", DRIVER_KEY, "true");
+        await git(dir, "config", "extensions.worktreeConfig", "true");
+        await git(worktree, "config", "--worktree", DRIVER_KEY, "false");
+        const wrong = await runDoctorJson(worktree);
+        assertEquals(wrong.code, 1);
+        const incorrect = check(wrong.payload, "generated merge driver");
+        assertEquals(incorrect.status, "fail");
+        assertStringIncludes(incorrect.detail, 'resolves to "false"');
+        assertStringIncludes(incorrect.detail, 'scope "worktree"');
+
+        const refresh = await runCli(["refresh", "--json"], worktree);
+        assertEquals(refresh.code, 0, refresh.stderr);
+        const migrated = await runDoctorJson(worktree);
+        assertEquals(
+          migrated.code,
+          0,
+          JSON.stringify(migrated.payload.data.checks),
+        );
+        const shared = check(migrated.payload, "generated merge driver");
+        assertEquals(shared.status, "ok");
+        assertStringIncludes(shared.detail, 'scope "local"');
+      },
+    ],
+  ]);
 });
 
 Deno.test("doctor: spaces and newly tracked outputs auto-enroll in effective attribute verification", async () => {
@@ -1526,338 +1635,290 @@ Deno.test("doctor: spaces and newly tracked outputs auto-enroll in effective att
   });
 });
 
-Deno.test("doctor: main and linked checkouts require one shared generated merge driver", async () => {
-  await withTempDir(async (dir) => {
-    await generatedDoctorProject(dir);
-    const worktree = await addWorktree(dir, "driver-health");
+Deno.test("doctor generated-path, project-script, and hook checks run over pristine copies of one scaffolded install", async (t) => {
+  await withPristineInstalls(t, setupInstall, [
+    [
+      "doctor: an untranslatable generated glob names the config row",
+      async (dir) => {
+        await disableLogbook(dir);
+        await addGeneratedGroups(dir, [{
+          name: "bundle",
+          paths: ["{schema,reference}/**"],
+          run: "sh -c true",
+        }]);
 
-    for (const checkout of [dir, worktree]) {
-      const healthy = await runDoctorJson(checkout);
-      assertEquals(
-        healthy.code,
-        0,
-        JSON.stringify(healthy.payload.data.checks),
-      );
-      const configured = check(healthy.payload, "generated merge driver");
-      assertEquals(configured.status, "ok");
-      assertStringIncludes(configured.detail, 'scope "local"');
-      assertStringIncludes(configured.detail, ".git/config");
-    }
-
-    await git(dir, "config", "--unset-all", DRIVER_KEY);
-    const missing = await runDoctorJson(worktree);
-    assertEquals(missing.code, 1);
-    const absent = check(missing.payload, "generated merge driver");
-    assertEquals(absent.status, "fail");
-    assertStringIncludes(absent.detail, "has no");
-    assertStringIncludes(
-      absent.fix ?? "",
-      `${DRIVER_KEY} true`,
-    );
-
-    await git(dir, "config", DRIVER_KEY, "wrong-common-driver");
-    const wrongValue = await runDoctorJson(worktree);
-    assertEquals(wrongValue.code, 1);
-    const common = check(wrongValue.payload, "generated merge driver");
-    assertEquals(common.status, "fail");
-    assertStringIncludes(common.detail, "wrong-common-driver");
-    assertStringIncludes(common.detail, 'scope "local"');
-
-    // A private-era checkout-local definition wins effective precedence until
-    // refresh migrates it to the one common clone-local definition.
-    await git(dir, "config", DRIVER_KEY, "true");
-    await git(dir, "config", "extensions.worktreeConfig", "true");
-    await git(worktree, "config", "--worktree", DRIVER_KEY, "false");
-    const wrong = await runDoctorJson(worktree);
-    assertEquals(wrong.code, 1);
-    const incorrect = check(wrong.payload, "generated merge driver");
-    assertEquals(incorrect.status, "fail");
-    assertStringIncludes(incorrect.detail, 'resolves to "false"');
-    assertStringIncludes(incorrect.detail, 'scope "worktree"');
-
-    const refresh = await runCli(["refresh", "--json"], worktree);
-    assertEquals(refresh.code, 0, refresh.stderr);
-    const migrated = await runDoctorJson(worktree);
-    assertEquals(
-      migrated.code,
-      0,
-      JSON.stringify(migrated.payload.data.checks),
-    );
-    const shared = check(migrated.payload, "generated merge driver");
-    assertEquals(shared.status, "ok");
-    assertStringIncludes(shared.detail, 'scope "local"');
-  });
-});
-
-Deno.test("doctor: an untranslatable generated glob names the config row", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await disableLogbook(dir);
-    await addGeneratedGroups(dir, [{
-      name: "bundle",
-      paths: ["{schema,reference}/**"],
-      run: "sh -c true",
-    }]);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const warning = check(payload, "Git attributes");
-    assertEquals(warning.status, "warn");
-    assertStringIncludes(warning.detail, "[generated.bundle].paths");
-    assertStringIncludes(warning.detail, '"{schema,reference}/**"');
-    assertStringIncludes(warning.detail, "cannot be translated");
-    assertStringIncludes(warning.fix ?? "", "discern refresh");
-  });
-});
-
-Deno.test("doctor: generated path probes distinguish empty, untracked, and ignored groups", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await disableLogbook(dir);
-    const groups = [
-      { name: "empty", paths: ["missing/**"], run: "sh -c true" },
-      {
-        name: "untracked",
-        paths: ["untracked-*.txt"],
-        run: "sh -c true",
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        const warning = check(payload, "Git attributes");
+        assertEquals(warning.status, "warn");
+        assertStringIncludes(warning.detail, "[generated.bundle].paths");
+        assertStringIncludes(warning.detail, '"{schema,reference}/**"');
+        assertStringIncludes(warning.detail, "cannot be translated");
+        assertStringIncludes(warning.fix ?? "", "discern refresh");
       },
-      {
-        name: "ignored",
-        paths: ["ignored-*.txt"],
-        run: "sh -c true",
+    ],
+    [
+      "doctor: generated path probes distinguish empty, untracked, and ignored groups",
+      async (dir) => {
+        await disableLogbook(dir);
+        const groups = [
+          { name: "empty", paths: ["missing/**"], run: "sh -c true" },
+          {
+            name: "untracked",
+            paths: ["untracked-*.txt"],
+            run: "sh -c true",
+          },
+          {
+            name: "ignored",
+            paths: ["ignored-*.txt"],
+            run: "sh -c true",
+          },
+        ] satisfies readonly GeneratedGroupFixture[];
+        await addGeneratedGroups(dir, groups);
+        await Deno.writeTextFile(
+          join(dir, ".gitignore"),
+          "ignored-output.txt\n",
+          {
+            append: true,
+          },
+        );
+        await Deno.writeTextFile(join(dir, "ignored-output.txt"), "ignored\n");
+        await commitDoctorFixture(dir);
+        await Deno.writeTextFile(
+          join(dir, "untracked-output.txt"),
+          "untracked\n",
+        );
+
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        for (const group of groups) {
+          assertEquals(
+            check(payload, `generated: ${group.name} run`).status,
+            "ok",
+          );
+          const paths = check(payload, `generated: ${group.name} paths`);
+          assertEquals(
+            paths.status,
+            "warn",
+            `${group.name} should be advisory`,
+          );
+          assertStringIncludes(paths.detail, group.paths[0] ?? "");
+          assertStringIncludes(
+            paths.fix ?? "",
+            `[generated.${group.name}] paths`,
+          );
+        }
+
+        const empty = check(payload, "generated: empty paths");
+        assertStringIncludes(empty.detail, "match no git-tracked");
+
+        for (const name of ["untracked", "ignored"]) {
+          const inert = check(payload, `generated: ${name} paths`);
+          assertStringIncludes(inert.detail, "all untracked or ignored");
+          assertStringIncludes(inert.detail, "inert");
+          assertStringIncludes(inert.detail, "never conflict and never drift");
+          assertStringIncludes(inert.detail, "Track them or drop the group");
+        }
       },
-    ] satisfies readonly GeneratedGroupFixture[];
-    await addGeneratedGroups(dir, groups);
-    await Deno.writeTextFile(join(dir, ".gitignore"), "ignored-output.txt\n", {
-      append: true,
-    });
-    await Deno.writeTextFile(join(dir, "ignored-output.txt"), "ignored\n");
-    await commitDoctorFixture(dir);
-    await Deno.writeTextFile(join(dir, "untracked-output.txt"), "untracked\n");
+    ],
+    [
+      "doctor: overlapping generated ownership warns with every claiming config row",
+      async (dir) => {
+        await disableLogbook(dir);
+        const groups = [
+          { name: "reference", paths: ["shared-*.txt"], run: "sh -c true" },
+          { name: "manifest", paths: ["shared-output.txt"], run: "sh -c true" },
+        ] satisfies readonly GeneratedGroupFixture[];
+        await addGeneratedGroups(dir, groups);
+        await Deno.writeTextFile(join(dir, "shared-output.txt"), "shared\n");
+        await commitDoctorFixture(dir);
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    for (const group of groups) {
-      assertEquals(check(payload, `generated: ${group.name} run`).status, "ok");
-      const paths = check(payload, `generated: ${group.name} paths`);
-      assertEquals(paths.status, "warn", `${group.name} should be advisory`);
-      assertStringIncludes(paths.detail, group.paths[0] ?? "");
-      assertStringIncludes(paths.fix ?? "", `[generated.${group.name}] paths`);
-    }
-
-    const empty = check(payload, "generated: empty paths");
-    assertStringIncludes(empty.detail, "match no git-tracked");
-
-    for (const name of ["untracked", "ignored"]) {
-      const inert = check(payload, `generated: ${name} paths`);
-      assertStringIncludes(inert.detail, "all untracked or ignored");
-      assertStringIncludes(inert.detail, "inert");
-      assertStringIncludes(inert.detail, "never conflict and never drift");
-      assertStringIncludes(inert.detail, "Track them or drop the group");
-    }
-  });
-});
-
-Deno.test("doctor: overlapping generated ownership warns with every claiming config row", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await disableLogbook(dir);
-    const groups = [
-      { name: "reference", paths: ["shared-*.txt"], run: "sh -c true" },
-      { name: "manifest", paths: ["shared-output.txt"], run: "sh -c true" },
-    ] satisfies readonly GeneratedGroupFixture[];
-    await addGeneratedGroups(dir, groups);
-    await Deno.writeTextFile(join(dir, "shared-output.txt"), "shared\n");
-    await commitDoctorFixture(dir);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    for (const group of groups) {
-      assertEquals(check(payload, `generated: ${group.name} run`).status, "ok");
-      assertEquals(
-        check(payload, `generated: ${group.name} paths`).status,
-        "ok",
-      );
-    }
-    const overlap = check(
-      payload,
-      "generated ownership: shared-output.txt",
-    );
-    assertEquals(overlap.status, "warn");
-    for (const group of groups) {
-      assertStringIncludes(overlap.detail, `[generated.${group.name}]`);
-      assertStringIncludes(
-        overlap.fix ?? "",
-        `[generated.${group.name}] paths`,
-      );
-    }
-  });
-});
-
-Deno.test("doctor: no generated config emits no generated check rows", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    assertEquals(
-      payload.data.checks.filter((candidate) =>
-        candidate.name.startsWith("generated")
-      ),
-      [],
-    );
-  });
-});
-
-Deno.test("doctor: worktree-resource commands honor env-assignment prefixes too", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await appendConfig(
-      dir,
-      '[worktree.resources.db]\ncreate = "CI=1 echo up"\ndestroy = "CI=1 echo down"\n',
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    // The prefix probes through to `echo`, which resolves — no advisory warn.
-    assertEquals(
-      payload.data.checks.find((c) => c.name === "worktree resource commands"),
-      undefined,
-      "an env-prefixed resolvable resource command must not warn",
-    );
-  });
-});
-
-Deno.test("doctor: a fresh install passes the script-contract check (no project scripts)", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // A fresh install seeds no Project Scripts directory.
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    assertEquals(check(payload, "script contract").ok, true);
-  });
-});
-
-Deno.test("doctor: this repository's Project Scripts satisfy the public environment contract", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const scriptsDir = join(dir, "discern/scripts");
-    await Deno.mkdir(scriptsDir, { recursive: true });
-    const prefix = `${REPO_AUTHORED_PATHS.scriptsRel}/`;
-    const projectScripts = await structuralGuardScope({
-      guard: "tests/doctor_test.ts#repository-project-scripts",
-      universe: "authored-text",
-      narrow: {
-        reason:
-          "The public environment contract applies to configured top-level Project Scripts.",
-        include: (rel) =>
-          rel.startsWith(prefix) && rel !== `${prefix}README.md` &&
-          !rel.slice(prefix.length).includes("/"),
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        for (const group of groups) {
+          assertEquals(
+            check(payload, `generated: ${group.name} run`).status,
+            "ok",
+          );
+          assertEquals(
+            check(payload, `generated: ${group.name} paths`).status,
+            "ok",
+          );
+        }
+        const overlap = check(
+          payload,
+          "generated ownership: shared-output.txt",
+        );
+        assertEquals(overlap.status, "warn");
+        for (const group of groups) {
+          assertStringIncludes(overlap.detail, `[generated.${group.name}]`);
+          assertStringIncludes(
+            overlap.fix ?? "",
+            `[generated.${group.name}] paths`,
+          );
+        }
       },
-    });
-    for (const rel of projectScripts) {
-      await Deno.copyFile(
-        join(REPO_ROOT, rel),
-        join(scriptsDir, rel.slice(prefix.length)),
-      );
-    }
-    const { code, payload } = await runDoctorJson(dir);
-    const script = check(payload, "script contract");
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    assertEquals(script.ok, true, script.detail);
-  });
-});
+    ],
+    [
+      "doctor: no generated config emits no generated check rows",
+      async (dir) => {
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        assertEquals(
+          payload.data.checks.filter((candidate) =>
+            candidate.name.startsWith("generated")
+          ),
+          [],
+        );
+      },
+    ],
+    [
+      "doctor: worktree-resource commands honor env-assignment prefixes too",
+      async (dir) => {
+        await appendConfig(
+          dir,
+          '[worktree.resources.db]\ncreate = "CI=1 echo up"\ndestroy = "CI=1 echo down"\n',
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        // The prefix probes through to `echo`, which resolves — no advisory warn.
+        assertEquals(
+          payload.data.checks.find((c) =>
+            c.name === "worktree resource commands"
+          ),
+          undefined,
+          "an env-prefixed resolvable resource command must not warn",
+        );
+      },
+    ],
+    [
+      "doctor: a fresh install passes the script-contract check (no project scripts)",
+      async (dir) => {
+        // A fresh install seeds no Project Scripts directory.
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        assertEquals(check(payload, "script contract").ok, true);
+      },
+    ],
+    [
+      "doctor: this repository's Project Scripts satisfy the public environment contract",
+      async (dir) => {
+        const scriptsDir = join(dir, "discern/scripts");
+        await Deno.mkdir(scriptsDir, { recursive: true });
+        const prefix = `${REPO_AUTHORED_PATHS.scriptsRel}/`;
+        const projectScripts = await structuralGuardScope({
+          guard: "tests/doctor_test.ts#repository-project-scripts",
+          universe: "authored-text",
+          narrow: {
+            reason:
+              "The public environment contract applies to configured top-level Project Scripts.",
+            include: (rel) =>
+              rel.startsWith(prefix) && rel !== `${prefix}README.md` &&
+              !rel.slice(prefix.length).includes("/"),
+          },
+        });
+        for (const rel of projectScripts) {
+          await Deno.copyFile(
+            join(REPO_ROOT, rel),
+            join(scriptsDir, rel.slice(prefix.length)),
+          );
+        }
+        const { code, payload } = await runDoctorJson(dir);
+        const script = check(payload, "script contract");
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        assertEquals(script.ok, true, script.detail);
+      },
+    ],
+    [
+      "doctor: a Project Script referencing an unknown DISCERN name is flagged",
+      async (dir) => {
+        const unknown = ["DISCERN", "PRIVATE_PATH"].join("_");
+        await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
+        await Deno.writeTextFile(
+          join(dir, "discern/scripts/reset"),
+          `#!/usr/bin/env sh\n# desc: reset fixtures\nprintf '%s\\n' "$${unknown}"\n`,
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const script = check(payload, "script contract");
+        assertEquals(script.ok, false);
+        assertStringIncludes(script.detail, "reset");
+        assertStringIncludes(script.detail, unknown);
+        assertStringIncludes(script.fix ?? "", "discern config get");
+      },
+    ],
+    [
+      "doctor: a project script running the project's OWN bootstrap.sh is healthy",
+      async (dir) => {
+        // bootstrap.sh is a generic script name; invoking a project-owned helper
+        // must not fail the environment-contract check.
+        await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
+        await Deno.writeTextFile(
+          join(dir, "discern/scripts/reset-env"),
+          "#!/usr/bin/env sh\n# desc: reset the dev environment\n./scripts/bootstrap.sh --seed\n",
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        const script = check(payload, "script contract");
+        assertEquals(script.ok, true);
+      },
+    ],
+    [
+      "doctor: registered Project Script and worktree environment families are allowed",
+      async (dir) => {
+        await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
+        await Deno.writeTextFile(
+          join(dir, "discern/scripts/inspect"),
+          '#!/usr/bin/env sh\nprintf \'%s:%s:%s\\n\' "$DISCERN_ROOT" "$DISCERN_WORKTREE" "$DISCERN_RESOURCE_DATABASE"\n',
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0, JSON.stringify(payload.data.checks));
+        const script = check(payload, "script contract");
+        assertEquals(script.ok, true);
+      },
+    ],
+    [
+      "doctor: a fresh install confirms `sh` resolves on PATH",
+      async (dir) => {
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        assertEquals(check(payload, "sh").ok, true);
+      },
+    ],
+    [
+      "doctor: a foreign worktree hook is an advisory warning, not a failure",
+      async (dir) => {
+        // Inject another tool's worktree automation alongside the harness's own hooks
+        // (which call `discern`); the harness's stay, this one is foreign.
+        const p = join(dir, ".claude/settings.json");
+        const settings = decodeWith(
+          CLAUDE_SETTINGS_SCHEMA,
+          await Deno.readTextFile(p),
+        );
+        settings.hooks ??= {};
+        (settings.hooks.WorktreeCreate ??= []).push({
+          hooks: [{ type: "command", command: "other-tool worktree-setup" }],
+        });
+        await Deno.writeTextFile(p, `${JSON.stringify(settings, null, 2)}\n`);
 
-Deno.test("doctor: a Project Script referencing an unknown DISCERN name is flagged", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const unknown = ["DISCERN", "PRIVATE_PATH"].join("_");
-    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, "discern/scripts/reset"),
-      `#!/usr/bin/env sh\n# desc: reset fixtures\nprintf '%s\\n' "$${unknown}"\n`,
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const script = check(payload, "script contract");
-    assertEquals(script.ok, false);
-    assertStringIncludes(script.detail, "reset");
-    assertStringIncludes(script.detail, unknown);
-    assertStringIncludes(script.fix ?? "", "discern config get");
-  });
-});
-
-Deno.test("doctor: a project script running the project's OWN bootstrap.sh is healthy", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // bootstrap.sh is a generic script name; invoking a project-owned helper
-    // must not fail the environment-contract check.
-    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, "discern/scripts/reset-env"),
-      "#!/usr/bin/env sh\n# desc: reset the dev environment\n./scripts/bootstrap.sh --seed\n",
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const script = check(payload, "script contract");
-    assertEquals(script.ok, true);
-  });
-});
-
-Deno.test("doctor: registered Project Script and worktree environment families are allowed", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, "discern/scripts/inspect"),
-      '#!/usr/bin/env sh\nprintf \'%s:%s:%s\\n\' "$DISCERN_ROOT" "$DISCERN_WORKTREE" "$DISCERN_RESOURCE_DATABASE"\n',
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const script = check(payload, "script contract");
-    assertEquals(script.ok, true);
-  });
-});
-
-Deno.test("doctor: a fresh install confirms `sh` resolves on PATH", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    assertEquals(check(payload, "sh").ok, true);
-  });
-});
-
-Deno.test("doctor: a foreign worktree hook is an advisory warning, not a failure", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // Inject another tool's worktree automation alongside the harness's own hooks
-    // (which call `discern`); the harness's stay, this one is foreign.
-    const p = join(dir, ".claude/settings.json");
-    const settings = decodeWith(
-      CLAUDE_SETTINGS_SCHEMA,
-      await Deno.readTextFile(p),
-    );
-    settings.hooks ??= {};
-    (settings.hooks.WorktreeCreate ??= []).push({
-      hooks: [{ type: "command", command: "other-tool worktree-setup" }],
-    });
-    await Deno.writeTextFile(p, `${JSON.stringify(settings, null, 2)}\n`);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0); // an advisory does NOT make doctor unhealthy
-    assertEquals(payload.ok, true);
-    const wt = check(payload, "worktree automation");
-    assertEquals(wt.status, "warn");
-    assertEquals(wt.ok, true);
-    assertEquals(wt.warn, true);
-    const advisory = payload.advisories?.find((candidate) =>
-      candidate.kind === "doctor-warning" &&
-      candidate.evidence.some((evidence) =>
-        evidence.includes("worktree automation")
-      )
-    );
-    assert(advisory !== undefined);
-    assertEquals(advisory.next_action, wt.fix);
-  });
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0); // an advisory does NOT make doctor unhealthy
+        assertEquals(payload.ok, true);
+        const wt = check(payload, "worktree automation");
+        assertEquals(wt.status, "warn");
+        assertEquals(wt.ok, true);
+        assertEquals(wt.warn, true);
+        const advisory = payload.advisories?.find((candidate) =>
+          candidate.kind === "doctor-warning" &&
+          candidate.evidence.some((evidence) =>
+            evidence.includes("worktree automation")
+          )
+        );
+        assert(advisory !== undefined);
+        assertEquals(advisory.next_action, wt.fix);
+      },
+    ],
+  ]);
 });
 
 Deno.test("doctor: foreign worktree detection accepts nested command, group command, and group bash vendor shapes", async () => {
@@ -1915,184 +1976,253 @@ Deno.test("doctor: foreign worktree detection accepts nested command, group comm
   }
 });
 
-Deno.test("doctor: a known job that declares stage fails with the derivation rule", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await addCheck(dir, "lint", "check", "echo lint");
+Deno.test("doctor job, instruction, and agent-integration checks run over pristine copies of one scaffolded install", async (t) => {
+  await withPristineInstalls(t, setupInstall, [
+    [
+      "doctor: a known job that declares stage fails with the derivation rule",
+      async (dir) => {
+        await addCheck(dir, "lint", "check", "echo lint");
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const schema = check(payload, "config schema");
-    assertStringIncludes(schema.detail, "jobs.lint.stage");
-    assertStringIncludes(schema.detail, "derives stage");
-  });
-});
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const schema = check(payload, "config schema");
+        assertStringIncludes(schema.detail, "jobs.lint.stage");
+        assertStringIncludes(schema.detail, "derives stage");
+      },
+    ],
+    [
+      "doctor reports custom jobs separately from known-job readiness",
+      async (dir) => {
+        await addCheck(dir, "licenses", "check", "echo licenses");
 
-Deno.test("doctor reports custom jobs separately from known-job readiness", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await addCheck(dir, "licenses", "check", "echo licenses");
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        const jobs = check(payload, "known jobs");
+        // The seeded format job is still named, but a custom job never rescues the
+        // known-name readiness line from its honest "nothing of the project's own"
+        // reading.
+        assertStringIncludes(jobs.detail, "only discern's own upkeep is wired");
+        assertStringIncludes(jobs.detail, "custom jobs: licenses");
+      },
+    ],
+    [
+      "doctor: flags a gotchas_doc that points at a missing file",
+      async (dir) => {
+        assertEquals(
+          (await runCli(
+            ["config", "set", "project.gotchas_doc", "docs/nope.md"],
+            dir,
+          )).code,
+          0,
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const g = check(payload, "gotchas doc");
+        assertEquals(g.ok, false);
+        assertStringIncludes(g.detail, "does not exist");
+        assertStringIncludes(g.fix ?? "", "gotchas_doc");
+      },
+    ],
+    [
+      "doctor: reports resolved instruction sources and authored skills when present",
+      async (dir) => {
+        // An instruction source + an authored skill exercise the "populated" branch of
+        // both checks (a fresh install only hits the "none yet" branch).
+        await Deno.writeTextFile(
+          join(dir, "discern/instructions.md"),
+          "# project instructions\n",
+        );
+        await Deno.mkdir(join(dir, "discern/skills/my-skill"), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          join(dir, "discern/skills/my-skill/SKILL.md"),
+          "# mine\n",
+        );
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    const jobs = check(payload, "known jobs");
-    // The seeded format job is still named, but a custom job never rescues the
-    // known-name readiness line from its honest "nothing of the project's own"
-    // reading.
-    assertStringIncludes(jobs.detail, "only discern's own upkeep is wired");
-    assertStringIncludes(jobs.detail, "custom jobs: licenses");
-  });
-});
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        assertStringIncludes(
+          check(payload, "instruction sources").detail,
+          "resolve",
+        );
+        assertStringIncludes(
+          check(payload, "skills").detail,
+          "1 authored skill",
+        );
+      },
+    ],
+    [
+      "doctor: flags a [instructions].sources entry naming an agent file",
+      async (dir) => {
+        // An output can never be a source (resolveInstructionSources refuses it), so a
+        // config that names one explicitly must get a diagnostic with the reason —
+        // not a silent zero-match the user has to puzzle out.
+        const tomlPath = join(dir, "discern.toml");
+        const toml = await Deno.readTextFile(tomlPath);
+        await Deno.writeTextFile(
+          tomlPath,
+          toml.replace(
+            'sources = ["discern/instructions.md"]',
+            'sources = ["discern/instructions.md", "AGENTS.md"]',
+          ),
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const g = check(payload, "instruction sources");
+        assertEquals(g.ok, false);
+        assertStringIncludes(g.detail, "AGENTS.md");
+        assertStringIncludes(g.detail, "an output can never be a source");
+        assertStringIncludes(g.fix ?? "", "[instructions].sources");
+      },
+    ],
+    [
+      "doctor: surfaces per-agent integration coverage (MCP + hooks wired for all three)",
+      async (dir) => {
+        // default agents: claude_code + codex
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0); // a registry-described divergence is healthy, just reported
 
-Deno.test("doctor: flags a gotchas_doc that points at a missing file", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    assertEquals(
-      (await runCli(
-        ["config", "set", "project.gotchas_doc", "docs/nope.md"],
-        dir,
-      )).code,
-      0,
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const g = check(payload, "gotchas doc");
-    assertEquals(g.ok, false);
-    assertStringIncludes(g.detail, "does not exist");
-    assertStringIncludes(g.fix ?? "", "gotchas_doc");
-  });
-});
+        // Claude Code wires every surface. Workspace trust loads the committed files;
+        // only then does discern's named-server pre-approval suppress the second prompt.
+        const claude = check(payload, "agent: Claude Code");
+        assertEquals(claude.ok, true);
+        assertStringIncludes(claude.detail, "instructions CLAUDE.md");
+        assertStringIncludes(claude.detail, "mcp");
+        assertStringIncludes(claude.detail, "hooks");
+        assertStringIncludes(claude.detail, "trust: one-time");
+        assertStringIncludes(claude.detail, "enabledMcpjsonServers");
+        assertStringIncludes(
+          claude.detail,
+          "normal MCP tool permissions still apply",
+        );
 
-Deno.test("doctor: reports resolved instruction sources and authored skills when present", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // An instruction source + an authored skill exercise the "populated" branch of
-    // both checks (a fresh install only hits the "none yet" branch).
-    await Deno.writeTextFile(
-      join(dir, "discern/instructions.md"),
-      "# project instructions\n",
-    );
-    await Deno.mkdir(join(dir, "discern/skills/my-skill"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, "discern/skills/my-skill/SKILL.md"),
-      "# mine\n",
-    );
+        // Codex's MCP + SessionStart hooks are now WIRED (Phase B) — reported as wired, no
+        // longer a pending gap — plus the one-time directory/hook trust it still needs for
+        // the committed config to fire (the typed McpStatus + TrustGate made visible).
+        const codex = check(payload, "agent: Codex");
+        assertEquals(codex.ok, true);
+        assertStringIncludes(codex.detail, "instructions AGENTS.md");
+        assertStringIncludes(codex.detail, "mcp");
+        assertStringIncludes(codex.detail, "hooks");
+        assertEquals(
+          codex.detail.includes("not wired"),
+          false,
+          `Codex MCP + hooks are wired now; detail should carry no "not wired" clause: ${codex.detail}`,
+        );
+        assertStringIncludes(codex.detail, "trust: one-time");
+        assertStringIncludes(codex.detail, "--dangerously-bypass-hook-trust");
+        const codexTrust = payload.data.provider_trust?.find((trust) =>
+          trust.provider === "codex"
+        );
+        assert(
+          codexTrust !== undefined,
+          "doctor JSON must carry Codex trust data",
+        );
+        const facts = codexTrust.actions.flatMap((action) => action.facts);
+        assert(
+          facts.some((fact) =>
+            fact.kind === "config-key" &&
+            fact.value === 'projects."<absolute-project-path>".trust_level'
+          ),
+        );
+        assert(
+          facts.some((fact) =>
+            fact.kind === "flag" &&
+            fact.value === "--dangerously-bypass-hook-trust"
+          ),
+        );
+      },
+    ],
+    [
+      "doctor: rejects a scope preview whose static command is unavailable",
+      async (dir) => {
+        const configured = await runCli([
+          "config",
+          "set-scope",
+          "future_ui",
+          "future-ui/**",
+          "--preview",
+          "discern-preview-command-that-does-not-exist --serve",
+        ], dir);
+        assertEquals(configured.code, 0, configured.stderr);
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    assertStringIncludes(
-      check(payload, "instruction sources").detail,
-      "resolve",
-    );
-    assertStringIncludes(check(payload, "skills").detail, "1 authored skill");
-  });
-});
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 1);
+        const preview = check(payload, "scope preview commands");
+        assertEquals(preview.ok, false);
+        assertStringIncludes(
+          preview.detail,
+          "discern-preview-command-that-does-not-exist",
+        );
+        assertStringIncludes(preview.detail, "no preview ran");
+        assertStringIncludes(preview.fix ?? "", "[scopes.<name>].preview");
+        assertStringIncludes(preview.fix ?? "", "discern doctor");
+      },
+    ],
+    [
+      "doctor: Cursor-only instructions report is backed by compiled AGENTS.md output",
+      async (dir) => {
+        await setAgents(dir, '["cursor"]');
+        const refresh = await runCli(["refresh", "--json"], dir);
+        assertEquals(refresh.code, 0, refresh.stdout + refresh.stderr);
 
-Deno.test("doctor: flags a [instructions].sources entry naming an agent file", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // An output can never be a source (resolveInstructionSources refuses it), so a
-    // config that names one explicitly must get a diagnostic with the reason —
-    // not a silent zero-match the user has to puzzle out.
-    const tomlPath = join(dir, "discern.toml");
-    const toml = await Deno.readTextFile(tomlPath);
-    await Deno.writeTextFile(
-      tomlPath,
-      toml.replace(
-        'sources = ["discern/instructions.md"]',
-        'sources = ["discern/instructions.md", "AGENTS.md"]',
-      ),
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const g = check(payload, "instruction sources");
-    assertEquals(g.ok, false);
-    assertStringIncludes(g.detail, "AGENTS.md");
-    assertStringIncludes(g.detail, "an output can never be a source");
-    assertStringIncludes(g.fix ?? "", "[instructions].sources");
-  });
-});
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        const cursor = check(payload, "agent: Cursor");
+        assertEquals(cursor.ok, true);
+        assertStringIncludes(cursor.detail, "instructions AGENTS.md");
 
-Deno.test("doctor: surfaces per-agent integration coverage (MCP + hooks wired for all three)", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir); // default agents: claude_code + codex
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0); // a registry-described divergence is healthy, just reported
-
-    // Claude Code wires every surface. Workspace trust loads the committed files;
-    // only then does discern's named-server pre-approval suppress the second prompt.
-    const claude = check(payload, "agent: Claude Code");
-    assertEquals(claude.ok, true);
-    assertStringIncludes(claude.detail, "instructions CLAUDE.md");
-    assertStringIncludes(claude.detail, "mcp");
-    assertStringIncludes(claude.detail, "hooks");
-    assertStringIncludes(claude.detail, "trust: one-time");
-    assertStringIncludes(claude.detail, "enabledMcpjsonServers");
-    assertStringIncludes(
-      claude.detail,
-      "normal MCP tool permissions still apply",
-    );
-
-    // Codex's MCP + SessionStart hooks are now WIRED (Phase B) — reported as wired, no
-    // longer a pending gap — plus the one-time directory/hook trust it still needs for
-    // the committed config to fire (the typed McpStatus + TrustGate made visible).
-    const codex = check(payload, "agent: Codex");
-    assertEquals(codex.ok, true);
-    assertStringIncludes(codex.detail, "instructions AGENTS.md");
-    assertStringIncludes(codex.detail, "mcp");
-    assertStringIncludes(codex.detail, "hooks");
-    assertEquals(
-      codex.detail.includes("not wired"),
-      false,
-      `Codex MCP + hooks are wired now; detail should carry no "not wired" clause: ${codex.detail}`,
-    );
-    assertStringIncludes(codex.detail, "trust: one-time");
-    assertStringIncludes(codex.detail, "--dangerously-bypass-hook-trust");
-    const codexTrust = payload.data.provider_trust?.find((trust) =>
-      trust.provider === "codex"
-    );
-    assert(codexTrust !== undefined, "doctor JSON must carry Codex trust data");
-    const facts = codexTrust.actions.flatMap((action) => action.facts);
-    assert(
-      facts.some((fact) =>
-        fact.kind === "config-key" &&
-        fact.value === 'projects."<absolute-project-path>".trust_level'
-      ),
-    );
-    assert(
-      facts.some((fact) =>
-        fact.kind === "flag" &&
-        fact.value === "--dangerously-bypass-hook-trust"
-      ),
-    );
-  });
-});
-
-Deno.test("doctor: rejects a scope preview whose static command is unavailable", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const configured = await runCli([
-      "config",
-      "set-scope",
-      "future_ui",
-      "future-ui/**",
-      "--preview",
-      "discern-preview-command-that-does-not-exist --serve",
-    ], dir);
-    assertEquals(configured.code, 0, configured.stderr);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const preview = check(payload, "scope preview commands");
-    assertEquals(preview.ok, false);
-    assertStringIncludes(
-      preview.detail,
-      "discern-preview-command-that-does-not-exist",
-    );
-    assertStringIncludes(preview.detail, "no preview ran");
-    assertStringIncludes(preview.fix ?? "", "[scopes.<name>].preview");
-    assertStringIncludes(preview.fix ?? "", "discern doctor");
-  });
+        const rendered = await renderAgentFiles(dir);
+        assertEquals(
+          rendered.has("AGENTS.md"),
+          true,
+          "doctor must not report instructions wired for a file refresh would not render",
+        );
+      },
+    ],
+    [
+      "doctor: surfaces Gemini's one-time trust step and the bypass action",
+      async (dir) => {
+        // Configure Gemini so its per-agent coverage row appears, then re-run doctor.
+        await setAgents(dir, '["gemini"]');
+        const { payload } = await runDoctorJson(dir);
+        const gemini = check(payload, "agent: Gemini");
+        assertEquals(gemini.ok, true);
+        // The committable target, the one-time trust, and the exact bypass action.
+        assertStringIncludes(gemini.detail, ".gemini/settings.json");
+        assertStringIncludes(gemini.detail, "trust: one-time");
+        assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
+        assertStringIncludes(gemini.detail, "hooks are enabled by default");
+        assertEquals(gemini.detail.includes("hooksConfig"), false);
+      },
+    ],
+    [
+      "doctor surfaces an integration-coverage row for EVERY configured agent",
+      async (dir) => {
+        // Configure every known agent, so each must produce its `agent: <label>` row.
+        // The per-agent tests above pin each provider's specific detail; this ties the
+        // ROW's existence to the registry (AGENT_NAMES), so a new agent auto-enrols —
+        // the coverage loop can't quietly omit it.
+        await setAgents(dir, JSON.stringify([...AGENT_NAMES]));
+        const { payload } = await runDoctorJson(dir);
+        for (const name of AGENT_NAMES) {
+          const label = providerFor(name)?.label;
+          assert(label !== undefined, `no provider label for ${name}`);
+          const row = check(payload, `agent: ${label}`);
+          assertEquals(
+            row.ok,
+            true,
+            `${name}: doctor's per-agent coverage row must be ok (a divergence is reported, not failed)`,
+          );
+          assert(
+            row.detail.trim().length > 0,
+            `${name}: the coverage row must carry a non-empty detail naming its surfaces`,
+          );
+        }
+      },
+    ],
+  ]);
 });
 
 Deno.test("doctor: fails when configured provider hook files are missing", async () => {
@@ -2132,212 +2262,302 @@ Deno.test("doctor: fails when configured provider hook files are missing", async
   });
 });
 
-Deno.test("doctor: Cursor-only instructions report is backed by compiled AGENTS.md output", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await setAgents(dir, '["cursor"]');
-    const refresh = await runCli(["refresh", "--json"], dir);
-    assertEquals(refresh.code, 0, refresh.stdout + refresh.stderr);
+Deno.test("doctor execution-model, logbook, and nested-repository checks run over pristine copies of one scaffolded install", async (t) => {
+  await withPristineInstalls(t, setupInstall, [
+    [
+      "doctor --json: carries the execution model, each step marked project/discern with a hint",
+      async (dir) => {
+        await addCapability(dir, "lint", "echo lint"); // a real [project] gate command
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        // Every configurable verb the issue-template goal needs is covered.
+        for (
+          const v of [
+            "done",
+            "prepare",
+            "test",
+            "standards",
+            "start",
+            "worktree ensure",
+            "update",
+            "accept",
+            "worktree prune",
+          ]
+        ) {
+          modelVerb(payload, v);
+        }
+        const finish = modelVerb(payload, "done");
+        // A built-in precondition is discern's, and every step carries a hint.
+        const merge = finish.steps.find((s) => s.label === "merge-check");
+        assert(merge !== undefined, "finish should run the merge-check");
+        assertEquals(merge.actor, "discern");
+        assert((merge.hint ?? "").length > 0, "every step should carry a hint");
+        // The lint job we wired is the user's own command.
+        const lint = finish.steps.find((s) => s.label === "lint");
+        assert(lint !== undefined, "finish should run the lint job");
+        assertEquals(lint.actor, "project");
+        assertEquals(lint.note, "echo lint");
+      },
+    ],
+    [
+      "doctor execution-model human facts are inert while JSON stays exact",
+      async (dir) => {
+        const command = "echo café 👩‍💻\x1b\x07\u0085\u202E";
+        await setCapabilityRaw(dir, "lint", JSON.stringify(command));
 
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    const cursor = check(payload, "agent: Cursor");
-    assertEquals(cursor.ok, true);
-    assertStringIncludes(cursor.detail, "instructions AGENTS.md");
+        const human = await runCli(
+          ["doctor", "--no-color"],
+          dir,
+          { COLUMNS: "48" },
+        );
+        assertEquals(human.code, 0);
+        assertEquals(unexpectedTerminalControls(human.stderr), []);
+        assert(!/[\p{Cc}\p{Cf}]/u.test(human.stderr.replaceAll("\n", "")));
+        for (const visible of ["<U+200D>", "␛", "␇", "<U+0085>", "<U+202E>"]) {
+          assertStringIncludes(human.stderr, visible);
+        }
+        const machine = await runDoctorJson(dir);
+        const lint = modelVerb(machine.payload, "done").steps.find((step) =>
+          step.label === "lint"
+        );
+        assert(lint !== undefined);
+        assertEquals(lint.note, command);
+      },
+    ],
+    [
+      "doctor --json: a per-worktree resource shows its teardown step with the user's command",
+      async (dir) => {
+        await appendConfig(
+          dir,
+          '[worktree.resources.db]\ncreate = "createdb x"\ndestroy = "dropdb x"\n',
+        );
+        const { code, payload } = await runDoctorJson(dir);
+        assertEquals(code, 0);
+        // The user's destroy command is surfaced verbatim as a [project] teardown step — the
+        // motivating "why did accept tear down my database?" answered up front.
+        const grad = modelVerb(payload, "accept");
+        const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
+        assert(destroy !== undefined, "accept should tear the resource down");
+        assertEquals(destroy.actor, "project");
+        assertEquals(destroy.note, "dropdb x");
+      },
+    ],
+    [
+      "doctor: human output prints the execution-model section on stderr",
+      async (dir) => {
+        // The human render goes to stderr like the rest of doctor's narration.
+        const { code, stderr } = await runCli(["doctor"], dir);
+        assertEquals(code, 0);
+        assertStringIncludes(stderr, "EXECUTION MODEL");
+        assertStringIncludes(stderr, "[discern] merge-check");
+        assertStringIncludes(stderr, " ACCEPT ");
+      },
+    ],
+    [
+      "doctor: human output hides step hints by default and points to --verbose (top and foot)",
+      async (dir) => {
+        const { code, stderr } = await runCli(["doctor"], dir);
+        assertEquals(code, 0);
+        // Step lines are present; their explanatory hints are not — the default render stays
+        // a scannable sequence before the actionable checks close the output.
+        assertStringIncludes(stderr, "[discern] merge-check");
+        assert(
+          !stderr.includes("A built-in git mutation"),
+          "a step hint must not appear in the default (non-verbose) render",
+        );
+        // The opt-in pointer is shown twice: at the top of the section and at its foot (the
+        // model is long enough to scroll past the first).
+        const pointers =
+          stderr.split("to show hints explaining each execution step").length -
+          1;
+        assertEquals(
+          pointers,
+          2,
+          "the --verbose pointer should appear at the top and the foot",
+        );
+      },
+    ],
+    [
+      "doctor --verbose: shows every step's hint, undeduplicated, and drops the pointer",
+      async (dir) => {
+        const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
+        assertEquals(code, 0);
+        // Hints are shown and never deduplicated: the git hint recurs on every git step
+        // within a single verb (accept runs several), so it appears more than
+        // once in that one section — the ambiguity a per-verb dedup would introduce.
+        const start = stderr.indexOf(" ACCEPT ");
+        const section = stderr.slice(
+          start,
+          stderr.indexOf(" WORKTREE PRUNE ", start),
+        );
+        const gitHints = section.split("A built-in git mutation").length - 1;
+        assert(
+          gitHints > 1,
+          `the git hint should repeat within a verb (no dedup); saw ${gitHints}`,
+        );
+        // The pointer is for the default render only — with hints shown it would be noise.
+        assert(
+          !stderr.includes("to show hints explaining each execution step"),
+          "the --verbose pointer should not appear when hints are already shown",
+        );
+      },
+    ],
+    [
+      "doctor: the logbook check covers healthy-empty, recording, and disabled states",
+      async (dir) => {
+        await commitDoctorFixture(dir);
 
-    const rendered = await renderAgentFiles(dir);
-    assertEquals(
-      rendered.has("AGENTS.md"),
-      true,
-      "doctor must not report instructions wired for a file refresh would not render",
-    );
-  });
-});
+        // Enabled with no completed event yet is a healthy new-install state. The
+        // first invocation settles it in one pass rather than demanding a rerun.
+        const empty = await runDoctorJsonCli(dir);
+        const emptyCheck = check(empty.payload, "logbook");
+        assertEquals(emptyCheck.status, "ok");
+        assertStringIncludes(emptyCheck.detail, "healthy but empty");
+        assertEquals(
+          empty.code,
+          0,
+          "an empty new Logbook is sound immediately",
+        );
 
-Deno.test("doctor: surfaces Gemini's one-time trust step and the bypass action", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // Configure Gemini so its per-agent coverage row appears, then re-run doctor.
-    await setAgents(dir, '["gemini"]');
-    const { payload } = await runDoctorJson(dir);
-    const gemini = check(payload, "agent: Gemini");
-    assertEquals(gemini.ok, true);
-    // The committable target, the one-time trust, and the exact bypass action.
-    assertStringIncludes(gemini.detail, ".gemini/settings.json");
-    assertStringIncludes(gemini.detail, "trust: one-time");
-    assertStringIncludes(gemini.detail, "GEMINI_CLI_TRUST_WORKSPACE=true");
-    assertStringIncludes(gemini.detail, "hooks are enabled by default");
-    assertEquals(gemini.detail.includes("hooksConfig"), false);
-  });
-});
+        // A later invocation observes the canonical recorder's completed event.
+        const recording = await runDoctorJsonCli(dir);
+        const recordingCheck = check(recording.payload, "logbook");
+        assertEquals(recordingCheck.status, "ok");
+        assertStringIncludes(recordingCheck.detail, "recording");
+        assertEquals(recording.code, 0);
 
-Deno.test("doctor surfaces an integration-coverage row for EVERY configured agent", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // Configure every known agent, so each must produce its `agent: <label>` row.
-    // The per-agent tests above pin each provider's specific detail; this ties the
-    // ROW's existence to the registry (AGENT_NAMES), so a new agent auto-enrols —
-    // the coverage loop can't quietly omit it.
-    await setAgents(dir, JSON.stringify([...AGENT_NAMES]));
-    const { payload } = await runDoctorJson(dir);
-    for (const name of AGENT_NAMES) {
-      const label = providerFor(name)?.label;
-      assert(label !== undefined, `no provider label for ${name}`);
-      const row = check(payload, `agent: ${label}`);
-      assertEquals(
-        row.ok,
-        true,
-        `${name}: doctor's per-agent coverage row must be ok (a divergence is reported, not failed)`,
-      );
-      assert(
-        row.detail.trim().length > 0,
-        `${name}: the coverage row must carry a non-empty detail naming its surfaces`,
-      );
-    }
-  });
-});
+        // Toggled off: an advisory nudge (exit 0), because the history a novice
+        // switches off at setup can never be recorded retroactively.
+        const p = join(dir, "discern.toml");
+        await Deno.writeTextFile(
+          p,
+          (await Deno.readTextFile(p)).replace(
+            "logbook = true",
+            "logbook = false",
+          ),
+        );
+        const off = await runDoctorJsonCli(dir);
+        const offCheck = check(off.payload, "logbook");
+        assertEquals(offCheck.status, "warn");
+        assertStringIncludes(offCheck.detail, "off");
+        assertStringIncludes(offCheck.fix ?? "", "re-enabling");
+        assertEquals(off.code, 0, "a deliberate opt-out advises, never fails");
+      },
+    ],
+    [
+      "doctor: an environment-denied Logbook write is advisory and disables this session",
+      async (dir) => {
+        await commitDoctorFixture(dir);
+        const discernAdmin = join(dir, ".git", "discern");
+        await Deno.mkdir(discernAdmin, { recursive: true });
+        await Deno.chmod(discernAdmin, 0o500);
+        try {
+          const denied = await runDoctorJsonCli(dir);
+          const logbook = check(denied.payload, "logbook");
+          assertEquals(logbook.status, "warn");
+          assertStringIncludes(logbook.detail, "environment refused");
+          assertStringIncludes(logbook.detail, "disabled for this session");
+          assertStringIncludes(logbook.detail, join(discernAdmin, "logbook"));
+          assertEquals(
+            denied.code,
+            0,
+            "advisory recording cannot make doctor red",
+          );
+        } finally {
+          await Deno.chmod(discernAdmin, 0o700);
+        }
+      },
+    ],
+    [
+      "doctor: corrupt schema warns, but unmatched historical begins do not affect health",
+      async (dir) => {
+        await commitDoctorFixture(dir);
+        assertEquals((await runDoctorJsonCli(dir)).code, 0);
+        const logbookDir = join(dir, ".git", "discern", "logbook");
+        const months: string[] = [];
+        for await (const entry of Deno.readDir(logbookDir)) {
+          if (entry.isFile && /^\d{4}-\d{2}\.jsonl$/.test(entry.name)) {
+            months.push(entry.name);
+          }
+        }
+        const month = months.sort().at(-1);
+        assert(month !== undefined, "doctor should have recorded a month file");
+        const monthPath = join(logbookDir, month);
 
-Deno.test("doctor --json: carries the execution model, each step marked project/discern with a hint", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await addCapability(dir, "lint", "echo lint"); // a real [project] gate command
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    // Every configurable verb the issue-template goal needs is covered.
-    for (
-      const v of [
-        "done",
-        "prepare",
-        "test",
-        "standards",
-        "start",
-        "worktree ensure",
-        "update",
-        "accept",
-        "worktree prune",
-      ]
-    ) {
-      modelVerb(payload, v);
-    }
-    const finish = modelVerb(payload, "done");
-    // A built-in precondition is discern's, and every step carries a hint.
-    const merge = finish.steps.find((s) => s.label === "merge-check");
-    assert(merge !== undefined, "finish should run the merge-check");
-    assertEquals(merge.actor, "discern");
-    assert((merge.hint ?? "").length > 0, "every step should carry a hint");
-    // The lint job we wired is the user's own command.
-    const lint = finish.steps.find((s) => s.label === "lint");
-    assert(lint !== undefined, "finish should run the lint job");
-    assertEquals(lint.actor, "project");
-    assertEquals(lint.note, "echo lint");
-  });
-});
+        await Deno.writeTextFile(monthPath, "not json\n", { append: true });
+        const corrupt = await runDoctorJsonCli(dir);
+        const corruptCheck = check(corrupt.payload, "logbook");
+        assertEquals(corruptCheck.status, "warn");
+        assertStringIncludes(corruptCheck.detail, "invalid or unreadable");
+        assertEquals(corrupt.code, 0);
 
-Deno.test("doctor execution-model human facts are inert while JSON stays exact", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const command = "echo café 👩‍💻\x1b\x07\u0085\u202E";
-    await setCapabilityRaw(dir, "lint", JSON.stringify(command));
+        const cleanLines = (await Deno.readTextFile(monthPath)).split("\n")
+          .filter((line) => line.trim() !== "" && line !== "not json");
+        const unmatchedBegins = [
+          {
+            schema: 1,
+            at: "2020-01-01T00:00:00.000Z",
+            kind: "begin",
+            invocation: "apollo-interruption",
+            verb: "done",
+            surface: "cli",
+            driver: {},
+            branch: "main",
+            head: null,
+            epoch: null,
+          },
+          {
+            schema: 1,
+            at: "2021-06-15T12:30:00.000Z",
+            kind: "begin",
+            invocation: "margaret-interruption",
+            verb: "scripts",
+            surface: "mcp",
+            driver: {},
+            branch: "main",
+            head: null,
+            epoch: null,
+          },
+        ].map((event) => JSON.stringify(event));
+        await Deno.writeTextFile(
+          monthPath,
+          `${[...cleanLines, ...unmatchedBegins].join("\n")}\n`,
+        );
+        const healthy = await runDoctorJsonCli(dir);
+        const healthyCheck = check(healthy.payload, "logbook");
+        assertEquals(healthyCheck.status, "ok");
+        assertStringIncludes(healthyCheck.detail, "recording");
+        assertEquals(healthyCheck.fix, undefined);
+        assertEquals(healthy.code, 0);
+      },
+    ],
+    [
+      "doctor: warns when the working directory is a nested repository resolving outward",
+      async (dir) => {
+        const child = join(dir, "vendor", "childrepo");
+        await Deno.mkdir(child, { recursive: true });
+        await Deno.writeTextFile(join(child, "README.md"), "a nested repo\n");
+        await gitInit(child);
 
-    const human = await runCli(
-      ["doctor", "--no-color"],
-      dir,
-      { COLUMNS: "48" },
-    );
-    assertEquals(human.code, 0);
-    assertEquals(unexpectedTerminalControls(human.stderr), []);
-    assert(!/[\p{Cc}\p{Cf}]/u.test(human.stderr.replaceAll("\n", "")));
-    for (const visible of ["<U+200D>", "␛", "␇", "<U+0085>", "<U+202E>"]) {
-      assertStringIncludes(human.stderr, visible);
-    }
-    const machine = await runDoctorJson(dir);
-    const lint = modelVerb(machine.payload, "done").steps.find((step) =>
-      step.label === "lint"
-    );
-    assert(lint !== undefined);
-    assertEquals(lint.note, command);
-  });
-});
+        // From inside the nested repo, root discovery walks up to the outer
+        // project — the crossing is disclosed as advice, exit stays 0.
+        const { code, stdout } = await runCli(["doctor", "--json"], child);
+        assertEquals(code, 0);
+        const payload = decodeDoctor(stdout);
+        const boundary = check(payload, "root discovery");
+        assertEquals(boundary.status, "warn");
+        assertStringIncludes(boundary.detail, "childrepo");
+        assertStringIncludes(boundary.fix ?? "", "discern setup");
 
-Deno.test("doctor --json: a per-worktree resource shows its teardown step with the user's command", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await appendConfig(
-      dir,
-      '[worktree.resources.db]\ncreate = "createdb x"\ndestroy = "dropdb x"\n',
-    );
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 0);
-    // The user's destroy command is surfaced verbatim as a [project] teardown step — the
-    // motivating "why did accept tear down my database?" answered up front.
-    const grad = modelVerb(payload, "accept");
-    const destroy = grad.steps.find((s) => s.kind === "resource-destroy");
-    assert(destroy !== undefined, "accept should tear the resource down");
-    assertEquals(destroy.actor, "project");
-    assertEquals(destroy.note, "dropdb x");
-  });
-});
-
-Deno.test("doctor: human output prints the execution-model section on stderr", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    // The human render goes to stderr like the rest of doctor's narration.
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 0);
-    assertStringIncludes(stderr, "EXECUTION MODEL");
-    assertStringIncludes(stderr, "[discern] merge-check");
-    assertStringIncludes(stderr, " ACCEPT ");
-  });
-});
-
-Deno.test("doctor: human output hides step hints by default and points to --verbose (top and foot)", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 0);
-    // Step lines are present; their explanatory hints are not — the default render stays
-    // a scannable sequence before the actionable checks close the output.
-    assertStringIncludes(stderr, "[discern] merge-check");
-    assert(
-      !stderr.includes("A built-in git mutation"),
-      "a step hint must not appear in the default (non-verbose) render",
-    );
-    // The opt-in pointer is shown twice: at the top of the section and at its foot (the
-    // model is long enough to scroll past the first).
-    const pointers =
-      stderr.split("to show hints explaining each execution step").length - 1;
-    assertEquals(
-      pointers,
-      2,
-      "the --verbose pointer should appear at the top and the foot",
-    );
-  });
-});
-
-Deno.test("doctor --verbose: shows every step's hint, undeduplicated, and drops the pointer", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const { code, stderr } = await runCli(["doctor", "--verbose"], dir);
-    assertEquals(code, 0);
-    // Hints are shown and never deduplicated: the git hint recurs on every git step
-    // within a single verb (accept runs several), so it appears more than
-    // once in that one section — the ambiguity a per-verb dedup would introduce.
-    const start = stderr.indexOf(" ACCEPT ");
-    const section = stderr.slice(
-      start,
-      stderr.indexOf(" WORKTREE PRUNE ", start),
-    );
-    const gitHints = section.split("A built-in git mutation").length - 1;
-    assert(
-      gitHints > 1,
-      `the git hint should repeat within a verb (no dedup); saw ${gitHints}`,
-    );
-    // The pointer is for the default render only — with hints shown it would be noise.
-    assert(
-      !stderr.includes("to show hints explaining each execution step"),
-      "the --verbose pointer should not appear when hints are already shown",
-    );
-  });
+        // From the project root itself the row stays absent: nothing was crossed.
+        const clean = await runDoctorJson(dir);
+        assertEquals(
+          clean.payload.data.checks.find((c) => c.name === "root discovery"),
+          undefined,
+        );
+      },
+    ],
+  ]);
 });
 
 Deno.test("doctor --json: omits the execution model when there is no readable config", async () => {
@@ -2350,127 +2570,6 @@ Deno.test("doctor --json: omits the execution model when there is no readable co
   });
 });
 
-Deno.test("doctor: the logbook check covers healthy-empty, recording, and disabled states", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await commitDoctorFixture(dir);
-
-    // Enabled with no completed event yet is a healthy new-install state. The
-    // first invocation settles it in one pass rather than demanding a rerun.
-    const empty = await runDoctorJson(dir);
-    const emptyCheck = check(empty.payload, "logbook");
-    assertEquals(emptyCheck.status, "ok");
-    assertStringIncludes(emptyCheck.detail, "healthy but empty");
-    assertEquals(empty.code, 0, "an empty new Logbook is sound immediately");
-
-    // A later invocation observes the canonical recorder's completed event.
-    const recording = await runDoctorJson(dir);
-    const recordingCheck = check(recording.payload, "logbook");
-    assertEquals(recordingCheck.status, "ok");
-    assertStringIncludes(recordingCheck.detail, "recording");
-    assertEquals(recording.code, 0);
-
-    // Toggled off: an advisory nudge (exit 0), because the history a novice
-    // switches off at setup can never be recorded retroactively.
-    const p = join(dir, "discern.toml");
-    await Deno.writeTextFile(
-      p,
-      (await Deno.readTextFile(p)).replace("logbook = true", "logbook = false"),
-    );
-    const off = await runDoctorJson(dir);
-    const offCheck = check(off.payload, "logbook");
-    assertEquals(offCheck.status, "warn");
-    assertStringIncludes(offCheck.detail, "off");
-    assertStringIncludes(offCheck.fix ?? "", "re-enabling");
-    assertEquals(off.code, 0, "a deliberate opt-out advises, never fails");
-  });
-});
-
-Deno.test("doctor: an environment-denied Logbook write is advisory and disables this session", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await commitDoctorFixture(dir);
-    const discernAdmin = join(dir, ".git", "discern");
-    await Deno.mkdir(discernAdmin, { recursive: true });
-    await Deno.chmod(discernAdmin, 0o500);
-    try {
-      const denied = await runDoctorJson(dir);
-      const logbook = check(denied.payload, "logbook");
-      assertEquals(logbook.status, "warn");
-      assertStringIncludes(logbook.detail, "environment refused");
-      assertStringIncludes(logbook.detail, "disabled for this session");
-      assertStringIncludes(logbook.detail, join(discernAdmin, "logbook"));
-      assertEquals(denied.code, 0, "advisory recording cannot make doctor red");
-    } finally {
-      await Deno.chmod(discernAdmin, 0o700);
-    }
-  });
-});
-
-Deno.test("doctor: corrupt schema warns, but unmatched historical begins do not affect health", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await commitDoctorFixture(dir);
-    assertEquals((await runDoctorJson(dir)).code, 0);
-    const logbookDir = join(dir, ".git", "discern", "logbook");
-    const months: string[] = [];
-    for await (const entry of Deno.readDir(logbookDir)) {
-      if (entry.isFile && /^\d{4}-\d{2}\.jsonl$/.test(entry.name)) {
-        months.push(entry.name);
-      }
-    }
-    const month = months.sort().at(-1);
-    assert(month !== undefined, "doctor should have recorded a month file");
-    const monthPath = join(logbookDir, month);
-
-    await Deno.writeTextFile(monthPath, "not json\n", { append: true });
-    const corrupt = await runDoctorJson(dir);
-    const corruptCheck = check(corrupt.payload, "logbook");
-    assertEquals(corruptCheck.status, "warn");
-    assertStringIncludes(corruptCheck.detail, "invalid or unreadable");
-    assertEquals(corrupt.code, 0);
-
-    const cleanLines = (await Deno.readTextFile(monthPath)).split("\n")
-      .filter((line) => line.trim() !== "" && line !== "not json");
-    const unmatchedBegins = [
-      {
-        schema: 1,
-        at: "2020-01-01T00:00:00.000Z",
-        kind: "begin",
-        invocation: "apollo-interruption",
-        verb: "done",
-        surface: "cli",
-        driver: {},
-        branch: "main",
-        head: null,
-        epoch: null,
-      },
-      {
-        schema: 1,
-        at: "2021-06-15T12:30:00.000Z",
-        kind: "begin",
-        invocation: "margaret-interruption",
-        verb: "scripts",
-        surface: "mcp",
-        driver: {},
-        branch: "main",
-        head: null,
-        epoch: null,
-      },
-    ].map((event) => JSON.stringify(event));
-    await Deno.writeTextFile(
-      monthPath,
-      `${[...cleanLines, ...unmatchedBegins].join("\n")}\n`,
-    );
-    const healthy = await runDoctorJson(dir);
-    const healthyCheck = check(healthy.payload, "logbook");
-    assertEquals(healthyCheck.status, "ok");
-    assertStringIncludes(healthyCheck.detail, "recording");
-    assertEquals(healthyCheck.fix, undefined);
-    assertEquals(healthy.code, 0);
-  });
-});
-
 Deno.test("doctor: the logbook check stays out of non-repository installs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -2479,33 +2578,6 @@ Deno.test("doctor: the logbook check stays out of non-repository installs", asyn
     // already owns that conversation.
     assertEquals(
       payload.data.checks.find((c) => c.name === "logbook"),
-      undefined,
-    );
-  });
-});
-
-Deno.test("doctor: warns when the working directory is a nested repository resolving outward", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    const child = join(dir, "vendor", "childrepo");
-    await Deno.mkdir(child, { recursive: true });
-    await Deno.writeTextFile(join(child, "README.md"), "a nested repo\n");
-    await gitInit(child);
-
-    // From inside the nested repo, root discovery walks up to the outer
-    // project — the crossing is disclosed as advice, exit stays 0.
-    const { code, stdout } = await runCli(["doctor", "--json"], child);
-    assertEquals(code, 0);
-    const payload = decodeDoctor(stdout);
-    const boundary = check(payload, "root discovery");
-    assertEquals(boundary.status, "warn");
-    assertStringIncludes(boundary.detail, "childrepo");
-    assertStringIncludes(boundary.fix ?? "", "discern setup");
-
-    // From the project root itself the row stays absent: nothing was crossed.
-    const clean = await runDoctorJson(dir);
-    assertEquals(
-      clean.payload.data.checks.find((c) => c.name === "root discovery"),
       undefined,
     );
   });
