@@ -321,14 +321,21 @@ export async function composeCandidate(input: {
     }
   }
   await requireLiveFence(input.root, execution.fence, clock);
-  const head = await gitValue(path, ["rev-parse", "HEAD"]);
+  const [head, tree] = (await gitValue(path, [
+    "rev-parse",
+    "HEAD",
+    "HEAD^{tree}",
+  ])).split("\n");
+  if (head === undefined || tree === undefined) {
+    throw new Error("Git returned an incomplete candidate identity.");
+  }
   const candidate = CandidateSchema.parse({
     attempt_id: execution.fence.attempt_id,
     source,
     dependencies: [...input.dependencies],
     expected_predecessor: input.predecessor,
     head,
-    tree: await gitValue(path, ["rev-parse", `${head}^{tree}`]),
+    tree,
     policy: input.policy,
     requirement_set: input.requirements === undefined
       ? input.requirement_set

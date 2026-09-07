@@ -27,6 +27,7 @@ import { resolvedScopePaths } from "./scope_paths.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import { writeStdout } from "../output.ts";
 import { expandSourcePathReferences } from "../../shared/source_path_references.ts";
+import { discoverGit } from "../../shared/git_discovery.ts";
 
 /**
  * The two derived markers a classification emits ALONGSIDE the scope names: `code`
@@ -63,7 +64,11 @@ export function isScopeMarker(name: string): name is ScopeMarker {
 export async function repoPathPrefix(
   root: string,
 ): Promise<string | undefined> {
-  const r = await runGit(["rev-parse", "--show-prefix"], { cwd: root });
+  const r = await discoverGit(
+    root,
+    { kind: "prefix" },
+    (cwd, args) => runGit(args, { cwd }),
+  );
   if (!r.success) {
     return undefined;
   }

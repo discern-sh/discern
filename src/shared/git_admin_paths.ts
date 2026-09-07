@@ -8,6 +8,7 @@
  */
 
 import { isAbsolute, join } from "@std/path";
+import type { GitDiscoveryQuery } from "./git_discovery.ts";
 
 export const GIT_ADMIN_STATE_NAMESPACE = "discern";
 
@@ -252,10 +253,13 @@ export interface GitAdminPathResult {
   readonly stdout: string;
 }
 
-/** Injectable Git boundary for callers that already own subprocess authority. */
+/** Injectable Git boundary for callers that already own subprocess authority.
+ * The declared query names the fact behind the argv, so a runner inside an
+ * operation may answer it from retained discovery. */
 export type GitAdminPathRunner = (
   cwd: string,
   args: string[],
+  query: GitDiscoveryQuery,
 ) => Promise<GitAdminPathResult>;
 
 /** Resolve a Git-reported administrative path to an absolute filesystem path. */
@@ -263,8 +267,9 @@ export async function gitReportedAdminPath(
   cwd: string,
   args: string[],
   runner: GitAdminPathRunner,
+  query: GitDiscoveryQuery,
 ): Promise<string | undefined> {
-  const result = await runner(cwd, args);
+  const result = await runner(cwd, args, query);
   if (!result.success) return undefined;
   const raw = result.stdout.trim();
   if (raw === "") return undefined;
@@ -279,11 +284,12 @@ export async function gitOperationMarkerPath(
   marker: string,
   runner: GitAdminPathRunner,
 ): Promise<string | undefined> {
-  return await gitReportedAdminPath(
-    cwd,
-    ["rev-parse", "--git-path", marker],
-    runner,
-  );
+  const args = ["rev-parse", "--git-path", marker];
+  return await gitReportedAdminPath(cwd, args, runner, {
+    kind: "admin-path",
+    path: marker,
+    args,
+  });
 }
 
 /** Resolve one registry entry through an explicitly supplied Git boundary. */
@@ -294,16 +300,18 @@ export async function resolveGitAdminStatePath(
 ): Promise<string | undefined> {
   const entry = GIT_ADMIN_STATE[key];
   if (entry.scope === "worktree") {
-    return await gitReportedAdminPath(
-      cwd,
-      ["rev-parse", "--git-path", entry.path],
-      runner,
-    );
+    const args = ["rev-parse", "--git-path", entry.path];
+    return await gitReportedAdminPath(cwd, args, runner, {
+      kind: "admin-path",
+      path: entry.path,
+      args,
+    });
   }
   const commonDir = await gitReportedAdminPath(
     cwd,
     ["rev-parse", "--git-common-dir"],
     runner,
+    { kind: "common-dir" },
   );
   return commonDir === undefined ? undefined : join(commonDir, entry.path);
 }

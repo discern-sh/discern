@@ -29,10 +29,15 @@ export {
   WORKTREE_ADMIN_STATE_KEYS,
   type WorktreeAdminStateKey,
 } from "./git_admin_paths.ts";
+import { discoverGit, type GitDiscoveryQuery } from "./git_discovery.ts";
 
-/** Ordinary unbounded admin-path resolution for non-capture callers. */
-const defaultGitAdminPathRunner: GitAdminPathRunner = async (cwd, args) =>
-  await runGit(args, { cwd });
+/** Ordinary unbounded admin-path resolution for non-capture callers, answered
+ * from the current operation's retained discovery when one is open. */
+const defaultGitAdminPathRunner: GitAdminPathRunner = async (
+  cwd,
+  _args,
+  query,
+) => await discoverGit(cwd, query, (dir, argv) => runGit(argv, { cwd: dir }));
 
 /** Resolve one registered admin-state entry for the repository at `cwd`. */
 export async function gitAdminStatePath(
@@ -48,16 +53,20 @@ export async function gitAdminStatePath(
  * administration areas. Uninstall removes both whole directories.
  */
 export async function gitAdminNamespaceDirs(cwd: string): Promise<string[]> {
-  const probes: string[][] = [
-    ["rev-parse", "--absolute-git-dir"],
-    ["rev-parse", "--git-common-dir"],
+  const probes: { args: string[]; query: GitDiscoveryQuery }[] = [
+    {
+      args: ["rev-parse", "--absolute-git-dir"],
+      query: { kind: "absolute-git-dir" },
+    },
+    { args: ["rev-parse", "--git-common-dir"], query: { kind: "common-dir" } },
   ];
   const dirs: string[] = [];
   for (const probe of probes) {
     const resolved = await gitReportedAdminPath(
       cwd,
-      probe,
+      probe.args,
       defaultGitAdminPathRunner,
+      probe.query,
     );
     if (resolved === undefined) continue;
     const dir = join(resolved, GIT_ADMIN_STATE_NAMESPACE);

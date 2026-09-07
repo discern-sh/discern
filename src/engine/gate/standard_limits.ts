@@ -36,6 +36,7 @@ import {
   type PlannedStandard,
   standardJobLabel,
 } from "./standard_plan.ts";
+import { discoverGit } from "../../shared/git_discovery.ts";
 
 /** How one Standard field participates in the held quality claim. */
 export interface StandardDefinitionPolicy {
@@ -495,9 +496,11 @@ export async function readTrunkConfig(
   }
   const commit = ref.stdout.trim();
   const rel = "discern.toml";
-  const out = await runGit(["show", `${commit}:./${rel}`], {
-    cwd: root,
-  });
+  const out = await discoverGit(
+    root,
+    { kind: "object", spec: `${commit}:./${rel}` },
+    (cwd, args) => runGit(args, { cwd }),
+  );
   if (out.success) {
     try {
       return {

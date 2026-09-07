@@ -51,6 +51,7 @@ import {
 } from "../../shared/worktree_identity_fields.ts";
 import { WORKTREE_IDENTITY_CONTRACT } from "../../shared/worktree_identity_contract.ts";
 import { DEFAULT_WORKTREE_BRANCH_PREFIX } from "../../shared/git_conventions.ts";
+import { discoverGitDirs } from "../../shared/git_discovery.ts";
 
 export {
   sanitizeSlug,
@@ -672,14 +673,16 @@ async function gitCheckoutDirs(
   if (!((await statIfExists(path))?.isDirectory ?? false)) {
     return undefined;
   }
-  const gitDir = await gitOut(path, ["rev-parse", "--absolute-git-dir"]);
-  const commonRaw = await gitOut(path, ["rev-parse", "--git-common-dir"]);
-  if (gitDir === undefined || commonRaw === undefined) {
+  const dirs = await discoverGitDirs(
+    path,
+    (cwd, args) => runGit(args, { cwd }),
+  );
+  if (dirs === undefined) {
     return undefined;
   }
   return {
-    gitDir,
-    commonGitDir: await normalizeCommonGitDir(path, commonRaw),
+    gitDir: dirs.absoluteGitDir.trim(),
+    commonGitDir: await normalizeCommonGitDir(path, dirs.commonGitDir.trim()),
   };
 }
 

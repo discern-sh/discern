@@ -156,6 +156,7 @@ async function resolveCacheRoot(
         stdout: result.stdout,
       };
     },
+    { kind: "common-dir" },
   );
   if (commonDir === undefined) {
     throw new Error(
