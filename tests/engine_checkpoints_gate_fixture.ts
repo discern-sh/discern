@@ -144,14 +144,6 @@ export async function sidecarMarker(wt: string, name: string): Promise<string> {
   return (await readTextIfExists(join(wt, "..", name))) ?? "";
 }
 
-/** Forget a sidecar marker so the next step starts from "nothing ran". */
-export async function clearSidecarMarker(
-  wt: string,
-  name: string,
-): Promise<void> {
-  await Deno.remove(join(wt, "..", name)).catch(() => undefined);
-}
-
 /** Every raw Logbook line under the project, in file order — raw text first,
  * so exclusion claims cover every byte, then the parsed events. */
 export async function readLogbook(
@@ -388,15 +380,4 @@ export async function commitDocs(wt: string): Promise<void> {
     "docs: describe the api",
     "--no-gpg-sign",
   );
-}
-
-/** Commit a revision of the matched api file — the change that moves every
- * subject bound to it and reopens its declared question. */
-export async function commitApiRevision(
-  wt: string,
-  body = "endpoint\nrevised\n",
-): Promise<void> {
-  await Deno.writeTextFile(join(wt, "api", "surface.txt"), body);
-  await git(wt, "add", "api/surface.txt");
-  await git(wt, "commit", "-q", "-m", "feat: revise the api", "--no-gpg-sign");
 }
