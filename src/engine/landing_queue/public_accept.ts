@@ -314,7 +314,9 @@ export async function acceptQueueResult(
             ? { retirement_reason: retirement.recovery.reason }
             : {}),
         });
-        finalProof = await readLandingProof(runtime, landing);
+        finalProof = landing.data.claim.kind === "normal"
+          ? await readLandingProof(runtime, landing)
+          : undefined;
       }
     }
     const recoveredResult = await queueAcceptanceResult(
@@ -393,7 +395,9 @@ export async function acceptQueueResult(
               retirement: "retained",
               pending: [],
             });
-            finalProof = await readLandingProof(runtime, landing);
+            finalProof = landing.data.claim.kind === "normal"
+              ? await readLandingProof(runtime, landing)
+              : undefined;
           }
         }
         return queueAcceptanceResult(

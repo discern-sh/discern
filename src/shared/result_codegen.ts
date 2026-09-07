@@ -1,3 +1,11 @@
+import {
+  EmergencyNoteEnvelopeSchema,
+  EmergencyNotePayloadSchema,
+} from "./emergency_note.ts";
+import {
+  EMERGENCY_NOTE_ENVELOPE_DEFINITION,
+  EMERGENCY_NOTE_PAYLOAD_DEFINITION,
+} from "./public_schemas.ts";
 /**
  * Generators for the public JSON result contract artifacts.
  *
@@ -333,8 +341,21 @@ export function buildProofNoteJsonSchema(): JsonObject {
   const hoisted: JsonObject = {};
   const body = generatedSchema(ProofNoteSchema, hoisted);
   const payloadBody = generatedSchema(ProofNotePayloadSchema, hoisted);
+  const emergencyPayload = generatedSchema(EmergencyNotePayloadSchema, hoisted);
+  const emergencyEnvelope = generatedSchema(
+    EmergencyNoteEnvelopeSchema,
+    hoisted,
+  );
   const defs: JsonObject = {};
   placeHoistedDefs(defs, hoisted);
+  defs[EMERGENCY_NOTE_PAYLOAD_DEFINITION] = {
+    title: EMERGENCY_NOTE_PAYLOAD_DEFINITION,
+    ...emergencyPayload,
+  };
+  defs[EMERGENCY_NOTE_ENVELOPE_DEFINITION] = {
+    title: EMERGENCY_NOTE_ENVELOPE_DEFINITION,
+    ...emergencyEnvelope,
+  };
   defs[PROOF_NOTE_PAYLOAD_DEFINITION] = {
     title: PROOF_NOTE_PAYLOAD_DEFINITION,
     ...payloadBody,

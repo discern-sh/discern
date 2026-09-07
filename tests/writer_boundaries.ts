@@ -52,8 +52,11 @@ export const RESTRICTED_WRITER_MODULES = [
   {
     id: "acceptance-transaction",
     module: "src/engine/worktree/acceptance_transaction.ts",
-    allowedImporters: ["src/engine/worktree/lifecycle.ts"],
+    allowedImporters: [
+      "src/engine/worktree/lifecycle.ts",
+      "src/engine/emergency/plan.ts",
+    ],
     authority:
-      "only acceptance lifecycle orchestration may start or recover a landing transaction",
+      "acceptance lifecycle owns transaction effects; emergency planning imports only the read-only interrupted-journal inspection",
   },
 ] as const satisfies readonly RestrictedWriterModule[];

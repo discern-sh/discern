@@ -137,3 +137,6 @@ export function logbookVerbIsEffectful(
   }
   return !LOGBOOK_READ_INVOCATIONS.has(verb);
 }
+
+/** The explicit emergency action is part of accept, with a separate exact confirmation exchange. */
+export const EMERGENCY_ACCEPT_ACTION = "emergency";

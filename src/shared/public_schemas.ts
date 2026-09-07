@@ -64,6 +64,14 @@ export const PROOF_NOTE_PAYLOAD_DEFINITION = "DiscernProofNotePayload";
 /** DSSE authenticates this type together with the decoded payload bytes. */
 export const PROOF_NOTE_PAYLOAD_TYPE =
   `${PROOF_NOTE_SCHEMA_ID}#/$defs/${PROOF_NOTE_PAYLOAD_DEFINITION}` as const;
+/** Exceptions have a distinct decoded claim and envelope definition in the same publication. */
+export const EMERGENCY_NOTE_PAYLOAD_DEFINITION =
+  "DiscernEmergencyExceptionPayload";
+export const EMERGENCY_NOTE_ENVELOPE_DEFINITION =
+  "DiscernEmergencyExceptionEnvelope";
+export const EMERGENCY_NOTE_PAYLOAD_TYPE =
+  `${PROOF_NOTE_SCHEMA_ID}#/$defs/${EMERGENCY_NOTE_PAYLOAD_DEFINITION}`;
+
 /** The frozen external protocol that defines proof signature bytes. */
 export const PROOF_NOTE_DSSE_PROTOCOL =
   "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md";

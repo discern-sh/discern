@@ -1,3 +1,4 @@
+import { recordExceptionNote } from "../emergency/note.ts";
 import {
   type LandingConverger,
   readLandingConvergenceResult,
@@ -67,6 +68,8 @@ export type LandingBoundary = (typeof LANDING_BOUNDARIES)[number];
 
 export interface QueueLandingRuntime {
   readonly signal?: AbortSignal;
+  /** Required only at a fresh exception transition; recovery uses the settled record. */
+  readonly emergencyAuthorizationExpiresAt?: number;
   readonly root: string;
   readonly mainRepo: string;
   readonly trunk: string;
@@ -249,6 +252,12 @@ async function settleAdvanced(
   record: LandingRecord,
 ): Promise<LandingRecord> {
   const clock = runtime.clock ?? SYSTEM_CLOCK;
+  if (record.data.claim.kind === "exception") {
+    await runtime.afterBoundary?.("authority", record);
+    return await updateLanding(runtime, record.id, {
+      authority_settlement: "consumed",
+    });
+  }
   const authority = await landingAuthority(runtime.root, record);
   const state = authority.record.data.state;
   if (state.kind === "granted") {
@@ -314,20 +323,57 @@ export async function readLandingNoteResult(
 }
 
 /** Publish presentation only after source authority is durably spent for this landing. */
+/** Share the protected exact ref transition across separately audited claim kinds. */
 async function publishLandingNote(
   runtime: QueueLandingRuntime,
   record: LandingRecord,
-  proof: Proof,
+  proof: Proof | undefined,
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<LandingRecord> {
+  if (record.data.claim.kind === "exception") {
+    if (record.data.authority_settlement !== "consumed") return record;
+    const result = await recordExceptionNote(runtime.mainRepo, record, env);
+    const artifact = await saveEnvironmentArtifact(
+      runtime.root,
+      {
+        attempt_id: record.data.attempt_id,
+        candidate_id: record.data.candidate_id,
+        context: "local",
+      },
+      `landing-note-${record.id}-${SYSTEM_SECURE_ENTROPY.uuid()}`,
+      {
+        hints:
+          result.status === "recorded" || result.status === "already_present"
+            ? []
+            : hintTexts([fire(HINTS["completion-pending"], {
+              action:
+                "Repair the exception-note failure and recover this landing. Its integration remains recorded.",
+            })]),
+        ...(result.reason === undefined ? {} : { reason: result.reason }),
+      },
+    );
+    const updated = await withQueueLock(
+      runtime.root,
+      () =>
+        updateLanding(runtime, record.id, {
+          note:
+            result.status === "recorded" || result.status === "already_present"
+              ? "published"
+              : "recovery",
+          note_result: artifact,
+        }),
+    );
+    await runtime.afterBoundary?.("note", updated);
+    return updated;
+  }
+  if (proof === undefined) {
+    throw new Error("Normal landing requires its complete Proof presentation.");
+  }
   const authority = await landingAuthority(runtime.root, record);
   if (
     authority.record.data.state.kind !== "consumed" ||
     authority.record.data.state.landing_id !== record.id
   ) return record;
-  if (record.data.claim.kind !== "normal") {
-    throw new Error("Ordinary acceptance cannot record emergency authority.");
-  }
   const source = authority.record.data.source;
   let note: z.infer<typeof LandingNoteResultSchema>;
   try {
@@ -526,10 +572,68 @@ export async function publishQueueLanding(
   expectedStamp: string | null,
   fence: PublicationFence,
 ): Promise<CompletionLanding | CompletionBlocker> {
+  if (record.data.claim.kind !== "normal") {
+    throw new Error(
+      "Ordinary acceptance cannot publish an emergency exception.",
+    );
+  }
+  return await publishLanding(runtime, record, expectedStamp, fence);
+}
+
+/** Explicit emergency entry shares the exact ref and recovery engine; its caller audits fresh authorization. */
+export async function publishEmergencyLanding(
+  runtime: QueueLandingRuntime,
+  record: LandingRecord,
+  fence: PublicationFence,
+): Promise<CompletionLanding | CompletionBlocker> {
+  if (record.data.claim.kind !== "exception") {
+    throw new Error("Emergency integration requires an exception claim.");
+  }
+  return await publishLanding(runtime, record, null, fence);
+}
+
+/** Publish either authorized claim through one fenced ref transaction and recovery record. */
+async function publishLanding(
+  runtime: QueueLandingRuntime,
+  record: LandingRecord,
+  expectedStamp: string | null,
+  fence: PublicationFence,
+): Promise<CompletionLanding | CompletionBlocker> {
   const clock = runtime.clock ?? SYSTEM_CLOCK;
   const audit = await runtime.audit(record);
   if ("kind" in audit) return audit;
-  const proof = await readLandingProof(runtime, record);
+  const proof = record.data.claim.kind === "normal"
+    ? await readLandingProof(runtime, record)
+    : undefined;
+  const candidateReading = await readCompletionRecord(runtime.root, {
+    kind: "candidate",
+    id: record.data.candidate_id,
+  });
+  if (
+    candidateReading.kind !== "recorded" ||
+    candidateReading.record.kind !== "candidate"
+  ) throw new Error("The retained landing candidate is unavailable.");
+  const candidate = candidateReading.record.data;
+  if (
+    candidate.head !== record.data.target ||
+    candidate.policy !== record.data.policy ||
+    candidate.expected_predecessor.head !== record.data.expected_trunk ||
+    !sameSource(candidate.source, record.data.source)
+  ) {
+    throw new Error(
+      "The retained candidate differs from the recorded landing subject.",
+    );
+  }
+  if (
+    record.data.claim.kind === "exception" &&
+    (candidate.dependencies.length !== 0 ||
+      candidate.expected_predecessor.candidate_id !== null ||
+      candidate.head !== candidate.source.head)
+  ) {
+    throw new Error(
+      "Emergency integration cannot include speculative predecessors.",
+    );
+  }
   const sourcePath = await runtime.sourceCheckout(record);
   const advanced = await withCompletionCheckout(
     runtime.mainRepo,
@@ -555,14 +659,23 @@ export async function publishQueueLanding(
               reason: "claim-lost",
             };
           }
-          const authority = await landingAuthority(runtime.root, record);
           if (
-            authority.record.data.policy !== record.data.policy ||
-            authority.record.data.composition_procedure !==
-              proof.completion?.candidate.composition.procedure ||
-            authority.record.data.state.kind !== "granted" ||
-            !authority.record.data.sources.some((source) =>
-              sameSource(source, record.data.source)
+            record.data.claim.kind === "exception" &&
+            (runtime.emergencyAuthorizationExpiresAt === undefined ||
+              runtime.emergencyAuthorizationExpiresAt <= clock.wallNow())
+          ) return { kind: "missing-authority", sources: [record.data.source] };
+          const authority = record.data.claim.kind === "normal"
+            ? await landingAuthority(runtime.root, record)
+            : undefined;
+          if (
+            authority !== undefined && (
+              authority.record.data.policy !== record.data.policy ||
+              authority.record.data.composition_procedure !==
+                proof?.completion?.candidate.composition.procedure ||
+              authority.record.data.state.kind !== "granted" ||
+              !authority.record.data.sources.some((source) =>
+                sameSource(source, record.data.source)
+              )
             )
           ) return { kind: "missing-authority", sources: [record.data.source] };
           const operation = await inspectGitOperation(runtime.mainRepo);
@@ -635,7 +748,7 @@ export async function publishQueueLanding(
           }
           await runtime.afterBoundary?.("planned", planned);
           let claim: EffortGrantClaim | undefined;
-          if (authority.record.data.source.source === "effort-grant") {
+          if (authority?.record.data.source.source === "effort-grant") {
             if (sourcePath === undefined) {
               return {
                 kind: "missing-authority",
@@ -684,12 +797,6 @@ export async function publishQueueLanding(
             }
           }
           await runtime.afterBoundary?.("grant", planned);
-          const candidate = proof.completion?.candidate;
-          if (candidate === undefined) {
-            throw new Error(
-              "The complete candidate is unavailable.",
-            );
-          }
           const outcome = await fastForwardCheckedOutBranch(
             runtime.mainRepo,
             runtime.trunk,
@@ -767,7 +874,9 @@ export async function recoverQueueLanding(
   id: string,
 ): Promise<CompletionLanding | CompletionBlocker> {
   const initial = (await currentLanding(runtime.root, id)).record;
-  const proof = await readLandingProof(runtime, initial);
+  const proof = initial.data.claim.kind === "normal"
+    ? await readLandingProof(runtime, initial)
+    : undefined;
   const recovered = await withCompletionCheckout(
     runtime.mainRepo,
     async (signal) => {

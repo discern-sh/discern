@@ -1,3 +1,4 @@
+import { emergencyValidationStatus } from "../emergency/obligations.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -337,7 +338,11 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
+  const emergencyValidation = await emergencyValidationStatus(root);
   const data: StatusData = {
+    ...(emergencyValidation.length
+      ? { emergency_validation: emergencyValidation }
+      : {}),
     location,
     root,
     project: cfg.project.slug,
@@ -690,6 +695,15 @@ export async function statusResult(
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
   });
+  for (const exception of emergencyValidation) {
+    if (exception.state === "outstanding") {
+      hints.push(
+        fireOwnerAttention(HINTS["emergency-outstanding"], {
+          id: exception.landing_id,
+        }),
+      );
+    }
+  }
   if (opts.verbose !== true) {
     hints.push(fire(HINTS["status-full-structured-detail"]));
   }

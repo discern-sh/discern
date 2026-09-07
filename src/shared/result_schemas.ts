@@ -1,3 +1,4 @@
+import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
 import { RetirementEffectsSchema } from "./accept_landing_state.ts";
 import {
@@ -1215,6 +1216,7 @@ export const CompletionPendingSchema = z.strictObject({
   reason: z.string(),
 });
 export const GateDataSchema = z.strictObject({
+  emergency_validation: z.array(EmergencyValidationSchema).optional(),
   producer_executions: ProducerExecutionsSchema.optional(),
   completion: z.strictObject({
     kind: z.enum(["diagnostic", "complete", "pending"]),
@@ -1590,6 +1592,8 @@ export const AcceptancePrefixSchema = z.strictObject({
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  emergency_validation: z.array(EmergencyValidationSchema).optional(),
+  emergency: EmergencyDataSchema.optional(),
   queue: z.array(AcceptancePrefixSchema).optional(),
   pending: z.array(CompletionPendingSchema).optional(),
   /** Present after landing; read-only reviews may carry only checkpoint drops. */
@@ -1941,6 +1945,7 @@ const reappearedWorktreePathSchema = z.strictObject({
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
 export const StatusDataSchema = z.strictObject({
+  emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),
   root: z.string(),
   /** Project identity used by the human heading. Optional for same-major wire

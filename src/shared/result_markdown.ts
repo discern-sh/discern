@@ -1112,6 +1112,15 @@ const presentConfig: ResultMarkdownPresenter = withConfigExplanation(
   defaultState,
 );
 
+/** Outstanding emergency checks stay visible wherever normal completion state is presented. */
+function emergencyValidationFacts(data: Record<string, unknown>): string[] {
+  return records(data.emergency_validation).map((row) =>
+    `Emergency ${code(row.landing_id)}: validation ${
+      text(row.state) ?? "outstanding"
+    }. ${text(row.next_action) ?? ""}`
+  );
+}
+
 const presentGate: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const checkpoints = object(data.checkpoints);
@@ -1133,6 +1142,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         : `${code(commandName(result))} stopped at ${code(failedStage)}.`,
     ),
     evidence: unique([
+      ...emergencyValidationFacts(data),
       failedStage === undefined
         ? undefined
         : `Failed stage: ${code(failedStage)}.`,
@@ -1679,6 +1689,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result, state),
     evidence: unique([
+      ...emergencyValidationFacts(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,
       git === undefined
         ? undefined
@@ -1801,6 +1812,7 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
         : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
+      ...emergencyValidationFacts(data),
       text(data.root) === undefined
         ? undefined
         : `Main checkout: ${code(data.root)}.`,

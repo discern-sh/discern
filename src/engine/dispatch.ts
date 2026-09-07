@@ -1,3 +1,4 @@
+import { EMERGENCY_ACCEPT_ACTION } from "../shared/verbs.ts";
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
  * `discern` CLI, including the `scripts` namespace for project-owned executables
@@ -929,14 +930,28 @@ export function attachEngineCommands(
     }));
 
   root
-    .command("accept")
+    .command("accept [action:string]")
     .description(
       `Accept and land this worktree's finished branch on the trunk${trunkName}, ` +
         "the shared landing branch. Tracked refresh artifacts must already be " +
         "current. After landing, materialize checkout-local Agent artifacts, then " +
-        "remove the worktree and merged branch.",
+        "remove the worktree and merged branch. Use accept emergency --reason <text> " +
+        "to review an explicit exception against actual trunk. Emergency integration requires " +
+        "fresh exact owner confirmation and issues no passing Proof.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
+    .option(
+      "--reason <text:string>",
+      "Emergency only: explain why integration must precede validation.",
+    )
+    .option(
+      "--confirmation <token:string>",
+      "Emergency only: the current preview token approved by the owner, with --confirmed.",
+    )
+    .option(
+      "--recover <id:string>",
+      "Emergency only: reconcile one recorded exception transition and cleanup without new landing authority.",
+    )
     .option(
       "--confirmed",
       "Attest that your owner accepted this landing in the current conversation. " +
@@ -962,11 +977,38 @@ export function attachEngineCommands(
         "generic landing grants never authorize a standard limit proposal.",
       { collect: true },
     )
-    .action(recordedExit("accept", async (o) => {
+    .action(recordedExit("accept", async (o, action: string | undefined) => {
+      if (action !== undefined && action !== EMERGENCY_ACCEPT_ACTION) {
+        throw new Error(
+          "Use accept for ordinary landing or accept emergency for the explicit exception exchange.",
+        );
+      }
+      if (
+        action === undefined &&
+        (o.reason !== undefined || o.confirmation !== undefined ||
+          o.recover !== undefined)
+      ) {
+        throw new Error(
+          "Emergency flags require the explicit accept emergency action.",
+        );
+      }
       const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.accept(ctx, {
+            ...(action === EMERGENCY_ACCEPT_ACTION
+              ? {
+                emergency: {
+                  ...(o.reason === undefined ? {} : { reason: o.reason }),
+                  ...(o.confirmation === undefined
+                    ? {}
+                    : { confirmation: o.confirmation }),
+                  ...(o.recover === undefined ? {} : { recover: o.recover }),
+                  confirmed: o.confirmed ?? false,
+                  dryRun: o.dryRun ?? false,
+                },
+              }
+              : {}),
             json,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,

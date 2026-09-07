@@ -10771,6 +10771,127 @@
             {
               "type": "object",
               "properties": {
+                "emergency_validation": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "landing_id": {
+                        "type": "string"
+                      },
+                      "head": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "exceptions": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "requirement": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "context": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "job",
+                                    "scope",
+                                    "standard"
+                                  ]
+                                },
+                                "definition": {
+                                  "type": "string",
+                                  "pattern": "^[0-9a-f]{64}$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "context",
+                                "kind",
+                                "definition"
+                              ]
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "failed",
+                                "unrun",
+                                "stale"
+                              ]
+                            },
+                            "evidence_id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "requirement",
+                            "state",
+                            "evidence_id"
+                          ]
+                        }
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "outstanding",
+                          "resolved"
+                        ]
+                      },
+                      "resolved_by": {
+                        "type": "object",
+                        "properties": {
+                          "candidate_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "proof_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "candidate_id",
+                          "proof_id"
+                        ]
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "landing_id",
+                      "head",
+                      "reason",
+                      "exceptions",
+                      "state",
+                      "next_action"
+                    ]
+                  }
+                },
                 "producer_executions": {
                   "type": "object",
                   "propertyNames": {
@@ -22112,6 +22233,127 @@
             {
               "type": "object",
               "properties": {
+                "emergency_validation": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "landing_id": {
+                        "type": "string"
+                      },
+                      "head": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "exceptions": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "requirement": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "context": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "job",
+                                    "scope",
+                                    "standard"
+                                  ]
+                                },
+                                "definition": {
+                                  "type": "string",
+                                  "pattern": "^[0-9a-f]{64}$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "context",
+                                "kind",
+                                "definition"
+                              ]
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "failed",
+                                "unrun",
+                                "stale"
+                              ]
+                            },
+                            "evidence_id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "requirement",
+                            "state",
+                            "evidence_id"
+                          ]
+                        }
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "outstanding",
+                          "resolved"
+                        ]
+                      },
+                      "resolved_by": {
+                        "type": "object",
+                        "properties": {
+                          "candidate_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "proof_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "candidate_id",
+                          "proof_id"
+                        ]
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "landing_id",
+                      "head",
+                      "reason",
+                      "exceptions",
+                      "state",
+                      "next_action"
+                    ]
+                  }
+                },
                 "location": {
                   "type": "string",
                   "enum": [
@@ -25332,6 +25574,393 @@
             {
               "type": "object",
               "properties": {
+                "emergency_validation": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "landing_id": {
+                        "type": "string"
+                      },
+                      "head": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "exceptions": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "requirement": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "context": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[A-Za-z0-9_-]+$"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "job",
+                                    "scope",
+                                    "standard"
+                                  ]
+                                },
+                                "definition": {
+                                  "type": "string",
+                                  "pattern": "^[0-9a-f]{64}$"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "context",
+                                "kind",
+                                "definition"
+                              ]
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "failed",
+                                "unrun",
+                                "stale"
+                              ]
+                            },
+                            "evidence_id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "requirement",
+                            "state",
+                            "evidence_id"
+                          ]
+                        }
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "outstanding",
+                          "resolved"
+                        ]
+                      },
+                      "resolved_by": {
+                        "type": "object",
+                        "properties": {
+                          "candidate_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "proof_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "candidate_id",
+                          "proof_id"
+                        ]
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "landing_id",
+                      "head",
+                      "reason",
+                      "exceptions",
+                      "state",
+                      "next_action"
+                    ]
+                  }
+                },
+                "emergency": {
+                  "type": "object",
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "candidate": {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "effort_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[A-Za-z0-9_-]+$"
+                            },
+                            "branch": {
+                              "type": "string",
+                              "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
+                            },
+                            "head": {
+                              "type": "string",
+                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                            },
+                            "tree": {
+                              "type": "string",
+                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                            }
+                          },
+                          "required": [
+                            "effort_id",
+                            "branch",
+                            "head",
+                            "tree"
+                          ]
+                        },
+                        "dependencies": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "effort_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "branch": {
+                                "type": "string",
+                                "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
+                              },
+                              "head": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              },
+                              "tree": {
+                                "type": "string",
+                                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                              }
+                            },
+                            "required": [
+                              "effort_id",
+                              "branch",
+                              "head",
+                              "tree"
+                            ]
+                          }
+                        },
+                        "expected_predecessor": {
+                          "type": "object",
+                          "properties": {
+                            "head": {
+                              "type": "string",
+                              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                            },
+                            "candidate_id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "head",
+                            "candidate_id"
+                          ]
+                        },
+                        "head": {
+                          "type": "string",
+                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                        },
+                        "tree": {
+                          "type": "string",
+                          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                        },
+                        "policy": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "requirement_set": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "composition": {
+                          "type": "object",
+                          "properties": {
+                            "procedure": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "generated_ownership": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "generators": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "merge_commit": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "regeneration_commit": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "procedure",
+                            "generated_ownership",
+                            "generators",
+                            "merge_commit",
+                            "regeneration_commit"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "source",
+                        "dependencies",
+                        "expected_predecessor",
+                        "head",
+                        "tree",
+                        "policy",
+                        "requirement_set",
+                        "composition"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "exceptions": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "requirement": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "context": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "job",
+                                  "scope",
+                                  "standard"
+                                ]
+                              },
+                              "definition": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "context",
+                              "kind",
+                              "definition"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "failed",
+                              "unrun",
+                              "stale"
+                            ]
+                          },
+                          "evidence_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "requirement",
+                          "state",
+                          "evidence_id"
+                        ]
+                      }
+                    },
+                    "confirmation": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "number"
+                    },
+                    "landing_id": {
+                      "type": "string"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "preview",
+                        "landed",
+                        "not-landed",
+                        "recovery"
+                      ]
+                    },
+                    "retirement": {
+                      "type": "string"
+                    }
+                  }
+                },
                 "queue": {
                   "type": "array",
                   "items": {

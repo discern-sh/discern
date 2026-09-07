@@ -1491,6 +1491,246 @@
       ],
       "description": "Owner authorization to land one declared-unmet checkpoint, bound to the exact declaration (checkpoint, definition hash, subject fingerprint, rationale) and the commit it landed with. Never a future policy."
     },
+    "DiscernEmergencyExceptionPayload": {
+      "title": "DiscernEmergencyExceptionPayload",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "emergency-exception"
+        },
+        "version": {
+          "type": "number",
+          "const": 1
+        },
+        "landing_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "claim": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "exception"
+            },
+            "authorization_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "authorized_at": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "actual_trunk": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "source": {
+              "type": "object",
+              "properties": {
+                "effort_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_-]+$"
+                },
+                "branch": {
+                  "type": "string",
+                  "pattern": "^refs\\/heads\\/[^\\s~^:?*\\[\\\\]+$"
+                },
+                "head": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                },
+                "tree": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                }
+              },
+              "required": [
+                "effort_id",
+                "branch",
+                "head",
+                "tree"
+              ]
+            },
+            "candidate_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "candidate_head": {
+              "type": "string",
+              "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+            },
+            "policy": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "exceptions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "requirement": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      },
+                      "context": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "job",
+                          "scope",
+                          "standard"
+                        ]
+                      },
+                      "definition": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "context",
+                      "kind",
+                      "definition"
+                    ]
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "failed",
+                      "unrun",
+                      "stale"
+                    ]
+                  },
+                  "evidence_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "requirement",
+                  "state",
+                  "evidence_id"
+                ]
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "authorization_id",
+            "authorized_at",
+            "actual_trunk",
+            "source",
+            "candidate_id",
+            "candidate_head",
+            "policy",
+            "reason",
+            "exceptions"
+          ]
+        },
+        "executor": {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "originating_effort": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "started_at": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "operation_id",
+            "originating_effort",
+            "started_at"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "landing_id",
+        "claim",
+        "executor"
+      ],
+      "description": "An emergency integration records exceptions and issues no passing Proof. The unsigned envelope records available facts without authenticating an owner."
+    },
+    "DiscernEmergencyExceptionEnvelope": {
+      "title": "DiscernEmergencyExceptionEnvelope",
+      "type": "object",
+      "properties": {
+        "payloadType": {
+          "type": "string",
+          "const": "https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernEmergencyExceptionPayload"
+        },
+        "payload": {
+          "type": "string",
+          "description": "Base64-encoded emergency exception payload bytes. Preserve these bytes for future verification; this payload is never passing Proof."
+        },
+        "signatures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "keyid": {
+                "type": "string",
+                "description": "Optional key-selection hint. It is not authenticated by DSSE and must not be used as evidence that a key is trusted."
+              },
+              "sig": {
+                "type": "string",
+                "description": "The Base64-encoded signature over DSSE v1 pre-authentication encoding of payloadType and the decoded payload bytes."
+              }
+            },
+            "required": [
+              "sig"
+            ],
+            "description": "One DSSE signature over this envelope's payload type and decoded payload bytes. No signing profile or trust policy is selected today."
+          },
+          "description": "DSSE signatures over this payload. Standard signed envelopes carry at least one. Current unsigned writers emit discern's empty-array extension."
+        }
+      },
+      "required": [
+        "payloadType",
+        "payload",
+        "signatures"
+      ],
+      "description": "An unsigned or future signed emergency envelope records an integration exception. It cannot attest passing validation."
+    },
     "DiscernProofNotePayload": {
       "title": "DiscernProofNotePayload",
       "type": "object",

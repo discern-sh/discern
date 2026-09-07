@@ -324,7 +324,7 @@ export interface DeskMainDecision {
 
 /** One bounded root-level fact that is not a selectable task. */
 export interface DeskBoardNotice {
-  readonly id: "unlanded" | "contained" | "reappeared";
+  readonly id: "unlanded" | "contained" | "reappeared" | "emergency";
   readonly state: "attention" | "information";
   readonly headline: string;
   readonly detail?: string;
@@ -1436,6 +1436,16 @@ export function buildDeskBoardDecision(
       headline: `${mainEntry.branch} state is unavailable`,
     };
   const notices: DeskBoardNotice[] = [];
+  for (const exception of data.emergency_validation ?? []) {
+    if (exception.state !== "outstanding") continue;
+    notices.push({
+      id: "emergency",
+      state: "attention",
+      headline: "Emergency integration has outstanding validation",
+      detail: `${exception.landing_id}: ${exception.reason}`,
+      nextAction: exception.next_action,
+    });
+  }
   const unlanded = data.unlanded_branches ?? [];
   if (unlanded.length > 0) {
     const only = unlanded.length === 1 ? unlanded[0] : undefined;

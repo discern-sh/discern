@@ -80,3 +80,7 @@ If the owner declines, leave acceptance stopped. Restore the trunk limit in the 
 - Landing consumes the claim. Drop, prune, and orphan cleanup reap abandoned state.
 - Uncertainty returns to conversation review; it never widens authority.
 - Approval of a Standard limit proposal binds one acceptance call to the current proposal set. It is not a standing source of landing authority.
+
+## Emergency authority
+
+[Emergency integration](emergency-integration.md) has its own exact, expiring confirmation exchange. Conversation landing consent and recorded grants cannot authorize it. The resulting exception claim remains separate from ordinary Proof and source authority.

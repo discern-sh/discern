@@ -96,6 +96,12 @@ export const CONSENT_GATED_VERBS = [
     flag: CONFIRMED_ATTESTATION,
     surfaces: ["terminal", "json", "markdown", "mcp"],
   },
+  {
+    id: "accept-emergency",
+    command: "accept emergency",
+    flag: CONFIRMED_ATTESTATION,
+    surfaces: ["terminal", "json", "markdown", "mcp"],
+  },
 ] as const satisfies readonly ConsentGatedVerb[];
 
 /** Stable ids used by the authority-driven class probes. */

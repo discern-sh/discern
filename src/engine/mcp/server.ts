@@ -1,3 +1,5 @@
+import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
+import type { EmergencyOptions } from "../emergency/action.ts";
 import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,
@@ -1034,21 +1036,27 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: AcceptOutputSchema,
     annotations: DESTRUCTIVE,
     description:
-      "Use only when the user explicitly asks to hand off or land this branch. " +
-      "Resolve the selected project's configured trunk for this call, then " +
-      "fast-forward that shared landing branch to this worktree's tip. The tool " +
-      "first verifies a clean committed branch containing the latest trunk, a clean " +
-      "main checkout on that trunk, current Proof, and an empty tracked refresh plan. " +
-      "It tears down worktree resources, removes the worktree, and deletes the merged " +
-      "branch. Tracked instructions and provider integrations must already be committed; " +
-      "after landing only checkout-local agent artifacts are materialized. Landing " +
-      "authority comes from confirmed current consent or a machine-verified grant. " +
-      "Recorded grants never cover a checkpoint variance or standard proposal. Without " +
-      "authority the call is read-only and re-serves the review moment. Use discern_update " +
-      "when the branch is behind. Set dry_run to preview without changing anything. " +
-      "After success, report the result in your own words and end with data.proof_line " +
-      "verbatim; the full review page remains available through `discern status --verbose`.",
+      "Ordinary acceptance advances separately authorized candidates with complete strict Proof. " +
+      "It preserves ref and checkout checks, then retires only released, positively owned, clean checkouts. " +
+      "Use action: emergency with a reason for an explicit exception against actual trunk. " +
+      "Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name " +
+      "its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. " +
+      "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
+      "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys. " +
+      "dry_run previews without effects. Report ordinary Proof lines only when the result supplies them.",
     inputSchema: {
+      action: z.literal(EMERGENCY_ACCEPT_ACTION).optional().describe(
+        "Select emergency only for an explicit exception. Omit for ordinary acceptance. Emergency previews require fresh exact owner approval; no ordinary grant authorizes them.",
+      ),
+      reason: z.string().optional().describe(
+        "Emergency reason presented in the exact owner review.",
+      ),
+      confirmation: z.string().optional().describe(
+        "The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.",
+      ),
+      recover: z.string().optional().describe(
+        "Emergency landing id to reconcile without a new transition or new approval.",
+      ),
       dry_run: z.boolean().optional().describe(
         "Preview the acceptance plan and touch nothing (default false).",
       ),
@@ -1080,12 +1088,39 @@ export const TOOLS: McpTool[] = orderTools([
       const data = result.data as AcceptData | undefined;
       return ctx.heldRootMissing &&
           (data?.landing?.worktree_removed === true ||
-            data?.queue?.some((prefix) => prefix.state === "landed"))
+            data?.queue?.some((prefix) => prefix.state === "landed") ||
+            data?.emergency?.retirement === "retired")
         ? data.root
         : undefined;
     },
-    run: (root, args, signal, context) =>
-      acceptToolResult(root, {
+    run: (root, args, signal, context) => {
+      if (
+        args.action !== EMERGENCY_ACCEPT_ACTION &&
+        (args.reason !== undefined || args.confirmation !== undefined ||
+          args.recover !== undefined)
+      ) {
+        return Promise.resolve({
+          ok: false,
+          verb: "accept",
+          error: "precondition_failed",
+          message:
+            "Emergency fields require action: emergency. Prepare that explicit plan before requesting approval.",
+        });
+      }
+      return acceptToolResult(root, {
+        ...(args.action === EMERGENCY_ACCEPT_ACTION
+          ? {
+            emergency: {
+              ...(args.reason === undefined ? {} : { reason: args.reason }),
+              ...(args.confirmation === undefined
+                ? {}
+                : { confirmation: args.confirmation }),
+              ...(args.recover === undefined ? {} : { recover: args.recover }),
+              confirmed: args.confirmed === true,
+              dryRun: args.dry_run === true,
+            },
+          }
+          : {}),
         ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
@@ -1094,7 +1129,8 @@ export const TOOLS: McpTool[] = orderTools([
         ...(args.approve_standard === undefined
           ? {}
           : { approveStandard: args.approve_standard }),
-      }),
+      });
+    },
   }),
   defineTool({
     name: "discern_update",
@@ -1271,6 +1307,7 @@ function renderMcpHintText(authored: string): string {
 async function acceptToolResult(
   root: string,
   opts: {
+    emergency?: EmergencyOptions;
     signal?: AbortSignal;
     dryRun?: boolean;
     confirmed?: boolean;

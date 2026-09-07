@@ -3690,6 +3690,27 @@ export type DiscernDoneResult = DiscernResultState & {
   message?: string;
   verb: "done";
   data?: {
+    emergency_validation?: Array<{
+      landing_id: string;
+      head: string;
+      reason: string;
+      exceptions: Array<{
+        requirement: {
+          id: string;
+          context: string;
+          kind: "job" | "scope" | "standard";
+          definition: string;
+        };
+        state: "failed" | "unrun" | "stale";
+        evidence_id: string | null;
+      }>;
+      state: "outstanding" | "resolved";
+      resolved_by?: {
+        candidate_id: string;
+        proof_id: string;
+      };
+      next_action: string;
+    }>;
     producer_executions?: {
       [key: string]: number;
     };
@@ -7160,6 +7181,27 @@ export type DiscernStatusResult = DiscernResultState & {
   message?: string;
   verb: "status";
   data?: {
+    emergency_validation?: Array<{
+      landing_id: string;
+      head: string;
+      reason: string;
+      exceptions: Array<{
+        requirement: {
+          id: string;
+          context: string;
+          kind: "job" | "scope" | "standard";
+          definition: string;
+        };
+        state: "failed" | "unrun" | "stale";
+        evidence_id: string | null;
+      }>;
+      state: "outstanding" | "resolved";
+      resolved_by?: {
+        candidate_id: string;
+        proof_id: string;
+      };
+      next_action: string;
+    }>;
     location: "main" | "worktree";
     root: string;
     project?: string;
@@ -8122,6 +8164,76 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    emergency_validation?: Array<{
+      landing_id: string;
+      head: string;
+      reason: string;
+      exceptions: Array<{
+        requirement: {
+          id: string;
+          context: string;
+          kind: "job" | "scope" | "standard";
+          definition: string;
+        };
+        state: "failed" | "unrun" | "stale";
+        evidence_id: string | null;
+      }>;
+      state: "outstanding" | "resolved";
+      resolved_by?: {
+        candidate_id: string;
+        proof_id: string;
+      };
+      next_action: string;
+    }>;
+    emergency?: {
+      candidate_id?: string;
+      candidate?: {
+        attempt_id: string;
+        source: {
+          effort_id: string;
+          branch: string;
+          head: string;
+          tree: string;
+        };
+        dependencies: Array<{
+          effort_id: string;
+          branch: string;
+          head: string;
+          tree: string;
+        }>;
+        expected_predecessor: {
+          head: string;
+          candidate_id: string | null;
+        };
+        head: string;
+        tree: string;
+        policy: string;
+        requirement_set: string;
+        composition: {
+          procedure: string;
+          generated_ownership: string;
+          generators: string;
+          merge_commit: string | null;
+          regeneration_commit: string | null;
+        };
+      };
+      reason?: string;
+      exceptions?: Array<{
+        requirement: {
+          id: string;
+          context: string;
+          kind: "job" | "scope" | "standard";
+          definition: string;
+        };
+        state: "failed" | "unrun" | "stale";
+        evidence_id: string | null;
+      }>;
+      confirmation?: string;
+      expires_at?: number;
+      landing_id?: string;
+      outcome?: "preview" | "landed" | "not-landed" | "recovery";
+      retirement?: string;
+    };
     queue?: Array<{
       ignored_file_changes?: {
         status:

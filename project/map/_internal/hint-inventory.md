@@ -518,6 +518,17 @@ Rendered example:
 
 > Fix the failure the last run reported with its reproduce command or `discern prepare`, then re-run `discern done`. Nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the explicit rerun only to probe for a flaky verdict: `discern done --rerun` does that, and records the rerun as a probe.
 
+## `emergency-outstanding`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: An integrated emergency has no later complete validation receipt.
+
+Rendered example:
+
+> Emergency recorded-landing has outstanding validation. Run discern done --rerun on the current committed trunk or a repair containing it, in every required context. The historical exception remains intact.
+
 ## `ensure-main-worktree-first`
 
 - Category: `guardrail`

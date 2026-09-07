@@ -2021,6 +2021,16 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
+  "emergency-outstanding": defineHint<{ id: string }>({
+    id: "emergency-outstanding",
+    category: "notice",
+    audience: "all",
+    when: "An integrated emergency has no later complete validation receipt.",
+    example: { id: "recorded-landing" },
+    template: ({ id }): string =>
+      `Emergency ${id} has outstanding validation. Run discern done --rerun on the current committed trunk or a repair containing it, in every required context. The historical exception remains intact.`,
+  }),
+
   "completion-pending": defineHint<{ action: string }>({
     id: "completion-pending",
     category: "next-step",

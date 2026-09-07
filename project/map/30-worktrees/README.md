@@ -39,3 +39,5 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   160 | [Cleanup ownership and teardown](cleanup-ownership.md)              | Prove cleanup authority and verify checkout absence before reporting success.   |
 |   170 | [Reappeared worktree paths](reappeared-worktree-paths.md)           | Review files written after removal and reclaim only evidence-backed paths.      |
 |   180 | [Recover a dropped branch](drop-recovery.md)                        | Restore committed work from discern's bounded local recovery refs.              |
+
+[Emergency integration](emergency-integration.md) records an explicit owner decision to integrate before machine validation finishes. It issues no passing Proof.

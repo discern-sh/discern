@@ -6250,11 +6250,17 @@
       "path": [
         "accept"
       ],
-      "description": "Accept and land this worktree's finished branch on the trunk, the shared landing branch. Tracked refresh artifacts must already be current. After landing, materialize checkout-local Agent artifacts, then remove the worktree and merged branch.",
+      "description": "Accept and land this worktree's finished branch on the trunk, the shared landing branch. Tracked refresh artifacts must already be current. After landing, materialize checkout-local Agent artifacts, then remove the worktree and merged branch. Use accept emergency --reason <text> to review an explicit exception against actual trunk. Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",
       "aliases": [],
       "hidden": false,
       "hidden_when": null,
-      "positionals": [],
+      "positionals": [
+        {
+          "name": "action",
+          "optional": true,
+          "variadic": false
+        }
+      ],
       "usage": "",
       "flags": [
         {
@@ -6339,6 +6345,48 @@
           "type_definition": "",
           "arity": 0,
           "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--reason"
+          ],
+          "description": "Emergency only: explain why integration must precede validation.",
+          "type_definition": "<text:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--confirmation"
+          ],
+          "description": "Emergency only: the current preview token approved by the owner, with --confirmed.",
+          "type_definition": "<token:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--recover"
+          ],
+          "description": "Emergency only: reconcile one recorded exception transition and cleanup without new landing authority.",
+          "type_definition": "<id:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
           "default": null,
           "hidden": false,
           "global": false

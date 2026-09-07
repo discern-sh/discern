@@ -166,7 +166,8 @@ export async function mutateQueue(input: {
         const entries: CompletionQueue["entries"] = queue.entries.map((entry) =>
           landed.some((record) =>
               record.kind === "landing" &&
-              record.data.candidate_id === entry.candidate_id &&
+              (record.data.candidate_id === entry.candidate_id ||
+                record.data.claim.kind === "exception") &&
               sameSource(record.data.source, entry.source)
             )
             ? { ...entry, state: "landed" }

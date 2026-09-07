@@ -48,6 +48,9 @@ import type { ProducerCapture, ValidationRuntime } from "./execute.ts";
 export async function observeCompletionRecords(
   root: string,
   clock: Clock = SYSTEM_CLOCK,
+  families: readonly (keyof typeof COMPLETION_FAMILIES)[] = Object.keys(
+    COMPLETION_FAMILIES,
+  ) as (keyof typeof COMPLETION_FAMILIES)[],
 ): Promise<CompletionObservation> {
   const store = await openCompletionRecordStore(root);
   if (store === undefined) {
@@ -55,9 +58,7 @@ export async function observeCompletionRecords(
   }
   const selectors: RecordSelector[] = [];
   for (
-    const kind of Object.keys(
-      COMPLETION_FAMILIES,
-    ) as (keyof typeof COMPLETION_FAMILIES)[]
+    const kind of families
   ) {
     try {
       for await (const entry of Deno.readDir(join(store.directory, kind))) {

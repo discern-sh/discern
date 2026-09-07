@@ -213,6 +213,7 @@ export const ON_DISK_FORMATS = {
     writers: [
       "src/shared/public_schemas.ts",
       "src/engine/gate/proof_notes.ts",
+      "src/engine/emergency/note.ts",
     ],
     newerVersionPolicy: "refuse",
   },

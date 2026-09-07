@@ -1,3 +1,4 @@
+import { project } from "./completion_public_fixture.ts";
 /**
  * The consent-gated-verb class (ADR 0086 → ADR 0134). Two acts refuse, read-only,
  * without an explicit `--confirmed` attestation: scaffolding a fresh install
@@ -213,6 +214,63 @@ function acceptFollowOn(
  * fails the class assertion until that rendering is observed too.
  */
 const PROBES = {
+  "accept-emergency": async (dir) => {
+    const wt = await project(dir, ["local"]);
+    const before = await gitOut(dir, "rev-parse", "main");
+    const argv = ["accept", "emergency", "--reason", "Restore service"];
+    const json = await runAgent(wt, [...argv, "--json"]);
+    const env = parseJson(json.stdout, "accept");
+    const markdown = await runAgent(wt, [...argv, "--markdown"]);
+    const terminal = await runAgent(wt, argv);
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+    assert(tool !== undefined);
+    const mcp = await runTool(
+      tool,
+      new WorkingRoot(wt),
+      { action: "emergency", reason: "Restore service" },
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    const mixed = await runTool(
+      tool,
+      new WorkingRoot(wt),
+      { reason: "Restore service", confirmed: true },
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(mixed.structuredContent?.ok, false);
+    assertStringIncludes(
+      String(mixed.structuredContent?.message),
+      "action: emergency",
+    );
+    const mixedCli = await runAgent(wt, [
+      "accept",
+      "--reason",
+      "Restore service",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(mixedCli.code, 1);
+    return {
+      env,
+      mutated: before !== await gitOut(dir, "rev-parse", "main"),
+      meaning: {
+        act: "Emergency plan",
+        consequence: "No passing Proof",
+        scope: "displayed local emergency integration",
+        continuation: "--confirmed",
+      },
+      surfaces: {
+        json: { refused: json.code === 1, evidence: [JSON.stringify(env)] },
+        markdown: { refused: markdown.code === 1, evidence: [markdown.stdout] },
+        terminal: { refused: terminal.code === 1, evidence: [terminal.output] },
+        mcp: {
+          refused: mcp.structuredContent?.ok === false,
+          evidence: [JSON.stringify(mcp.structuredContent)],
+        },
+      },
+    };
+  },
   "setup-begin": async (dir) => {
     await freshRepo(dir);
     const json = await runAgent(dir, ["setup", "begin", "--json"]);

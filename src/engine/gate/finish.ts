@@ -1,3 +1,7 @@
+import {
+  emergencyValidationStatus,
+  resolveEmergencyValidation,
+} from "../emergency/obligations.ts";
 import { describeDirtyPaths } from "./proof.ts";
 import { GATE_FAILED_STAGE_LABEL } from "./presentation.ts";
 import type { ProducerBoundary } from "../validation/execute.ts";
@@ -197,7 +201,9 @@ async function runGate(
   signal: AbortSignal | undefined,
   presentation: Parameters<typeof runCandidateGate>[3],
 ): ReturnType<typeof runCandidateGate> {
-  return await runCompleteGate<Awaited<ReturnType<typeof runCandidateGate>>>(
+  const completed = await runCompleteGate<
+    Awaited<ReturnType<typeof runCandidateGate>>
+  >(
     root,
     {
       context: presentation.context ?? "local",
@@ -260,6 +266,11 @@ async function runGate(
     },
     (result) => unrunGateResult(root, surface, result),
   );
+  const emergencyValidation = await emergencyValidationStatus(root);
+  if (emergencyValidation.length && completed.result.data !== undefined) {
+    completed.result.data.emergency_validation = emergencyValidation;
+  }
+  return completed;
 }
 
 /** A precondition refusal carries a normal gate result without starting any producer. */
@@ -1106,8 +1117,15 @@ async function runCandidateGate(
         );
       if (recorded.status === "recorded" && proof !== undefined) {
         await retainProofPresentation(root, pointer, proof);
+        if (proof.mode !== "report") {
+          await resolveEmergencyValidation(root, pointer);
+        }
       }
       if (result.data !== undefined) {
+        const emergencyValidation = await emergencyValidationStatus(root);
+        if (emergencyValidation.length) {
+          result.data.emergency_validation = emergencyValidation;
+        }
         result.data.gate_proof = recorded;
         if (proof !== undefined) result.data.proof = proof;
         const resolution = await inspectLandingAuthority(root, mainBranch);

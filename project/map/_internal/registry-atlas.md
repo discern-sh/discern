@@ -30,7 +30,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 2       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 11      | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
-| [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
+| [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 3       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
 | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                        | `src/shared/consent.ts#LANDING_AUTHORITY_KINDS`                                   | 2       | —                | node `consent-attestations` |
 | [`acceptance-transaction-boundaries`](#acceptance-transaction-boundaries--acceptance-transaction-boundaries)          | `src/engine/worktree/acceptance_transaction.ts#ACCEPTANCE_TRANSACTION_BOUNDARIES` | 3       | —                | node `worktrees`            |
@@ -67,7 +67,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 20      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 191     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 192     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -916,9 +916,10 @@ The named, ordered groups used by `discern --help` and the generated CLI referen
 The verbs with a `--confirmed` conversation-attestation boundary and the public surfaces that carry each interaction contract. The class test proves an authority-free call refuses without writing and preserves the exact act, consequence, scope, and continuation; accept can also satisfy landing consent through a machine-checked recorded grant.
 
 - Source: `src/shared/consent.ts` — `CONSENT_GATED_VERBS`
-- Members: 2
+- Members: 3
   - `setup-begin`
   - `accept`
+  - `accept-emergency`
 - Guards: `tests/engine_consent_gate_test.ts`
 - Glossary: not enrolled — the two command references document their conversation-attestation boundary
 - Feature canon: described by the `consent-attestations` node
@@ -1837,7 +1838,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 191
+- Members: 192
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1917,6 +1918,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-test-run-queued`
   - `gate-test-slots-unavailable`
   - `gate-standards-limits-unverified`
+  - `emergency-outstanding`
   - `completion-pending`
   - `gate-strand-check-unavailable`
   - `gate-proof-skipped-dirty`

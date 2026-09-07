@@ -1,3 +1,4 @@
+import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
 import type { FinishResultSurface } from "../gate/finish.ts";
 import type { LandingConvergenceResult } from "../landing_queue/convergence.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
@@ -349,6 +350,7 @@ export interface WorktreeSetupOptions extends WorktreeOpOptions {
  * `variance` names each declared-unmet checkpoint the owner authorizes landing
  * (repeatable); the set must equal the current declared-unmet set exactly. */
 export interface AcceptOpOptions extends WorktreeOpOptions {
+  emergency?: EmergencyOptions;
   confirmed?: boolean;
   variance?: string[];
   approveStandard?: string[];
@@ -1968,6 +1970,7 @@ export async function accept(
   opts: AcceptOpOptions,
 ): Promise<void> {
   const result = await acceptResult(ctx, {
+    ...(opts.emergency === undefined ? {} : { emergency: opts.emergency }),
     dryRun: opts.dryRun ?? false,
     confirmed: opts.confirmed ?? false,
     variance: opts.variance ?? [],
@@ -2002,6 +2005,7 @@ export async function accept(
 export async function acceptResult(
   ctx: LifecycleContext,
   opts: {
+    emergency?: EmergencyOptions;
     signal?: AbortSignal;
     validationSurface?: FinishResultSurface;
     dryRun?: boolean;
@@ -2012,6 +2016,29 @@ export async function acceptResult(
   },
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (opts.emergency !== undefined) {
+    if (
+      (opts.variance?.length ?? 0) > 0 ||
+      (opts.approveStandard?.length ?? 0) > 0
+    ) {
+      return {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message:
+          "Emergency confirmation cannot approve a checkpoint variance or standard proposal. Resolve those decisions before preparing the emergency plan.",
+      };
+    }
+    return await emergencyResult(ctx, {
+      ...opts.emergency,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+      converge: async (root, signal) =>
+        await convergeAcceptedCheckout(
+          await lifecycleContext(root, ctx.log),
+          signal,
+        ),
+    });
+  }
   const interrupted = await inspectInterruptedAcceptance(
     ctx.cwd,
     integrationBranch(ctx.config.repository.trunk),
