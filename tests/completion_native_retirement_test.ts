@@ -1,10 +1,13 @@
-import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 /** Native retirement remains independent of a settled public landing. */
 import { assert, assertEquals } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
-import { project } from "./completion_public_fixture.ts";
+import {
+  claimedLanding,
+  landInProcess,
+  provenSource,
+} from "./completion_journey_fixture.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import {
   observedRecords,
   observeQueue,
@@ -30,33 +33,37 @@ import {
 } from "../src/engine/worktree/git.ts";
 import { currentOperationLocks } from "../src/shared/operation_lock_context.ts";
 
-/** Create a separately authorized, settled landing with optional owner release. */
+/** Create a separately authorized, settled landing with optional owner release.
+ *
+ * The landing is settled by the production publication core in this process;
+ * one journey below settles it through a real public accept instead so the
+ * retirement contract stays proven against the complete producer path.
+ */
 async function landed(
   root: string,
-  retained = false,
+  options: { readonly retained?: boolean; readonly accept?: boolean } = {},
 ): Promise<
   {
     path: string;
     landing: import("../src/engine/landing_queue/publication.ts").LandingRecord;
     runtime: RetirementRuntime;
     records: import("../src/engine/completion/records.ts").CompletionRecord[];
+    release: () => Promise<void>;
   }
 > {
   root = await Deno.realPath(root);
-  const path = await project(root, ["local"]);
-  const done = await runAgent(path, ["done", "--json", "--retain-checkout"]);
-  assertEquals(done.code, 0, done.output);
-  await grantEffort(
-    path,
-    "agent/public-done",
-    wallTimeIso(SYSTEM_CLOCK.wallNow()),
-  );
-  const accepted = await runAgent(root, ["accept", "--json"]);
-  assertEquals(accepted.code, 0, accepted.output);
+  const proven = await provenSource(root, { retainCheckout: true });
+  const path = proven.path;
+  if (options.accept) {
+    const accepted = await runAgent(root, ["accept", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+  } else {
+    await landInProcess(await claimedLanding(root, proven));
+  }
   const records = observedRecords(await observeQueue(root, "main"));
   const landing = records.find((record) => record.kind === "landing");
   assert(landing?.kind === "landing");
-  if (!retained) {
+  const release = async (): Promise<void> => {
     const source = landing.data.source;
     const actor = {
       operation_id: crypto.randomUUID(),
@@ -84,14 +91,15 @@ async function landed(
       environmentPorts,
       { retirement: true },
     );
-  }
+  };
+  if (!options.retained) await release();
   const runtime: RetirementRuntime = {
     root,
     trunk: "main",
     config: await loadConfig(root),
     log: new Logger({ json: true, noColor: true }),
   };
-  return { path, landing, runtime, records };
+  return { path, landing, runtime, records, release };
 }
 
 for (const boundary of RETIREMENT_BOUNDARIES) {
@@ -146,17 +154,12 @@ for (const boundary of RETIREMENT_BOUNDARIES) {
   });
 }
 
-for (const change of ["held", "dirty", "moved"] as const) {
-  Deno.test(`retirement keeps ${change} source checkout and branch`, async () => {
-    await withTempDir(async (root) => {
-      const f = await landed(root, change === "held");
-      if (change !== "held") {
-        await Deno.writeTextFile(`${f.path}/later`, "new authoring work\n");
-      }
-      if (change === "moved") {
-        await git(f.path, "add", "later");
-        await git(f.path, "commit", "-m", "Continue source");
-      }
+// Each refusal below returns before any retirement record exists, so one held
+// landing is released, dirtied, then moved in the order the checkout would age.
+Deno.test("retirement keeps a held, dirty, or moved source checkout and branch", async (t) => {
+  await withTempDir(async (root) => {
+    const f = await landed(root, { retained: true });
+    const keeps = async (): Promise<void> => {
       const result = await retireQueueLanding(f.runtime, f.landing);
       assert(
         result.kind === "retained" || result.kind === "recovery",
@@ -171,9 +174,26 @@ for (const change of ["held", "dirty", "moved"] as const) {
           "refs/heads/agent/public-done",
         )).length > 0,
       );
-    });
+    };
+    await t.step("retirement keeps held source checkout and branch", keeps);
+    await f.release();
+    await t.step(
+      "retirement keeps dirty source checkout and branch",
+      async () => {
+        await Deno.writeTextFile(`${f.path}/later`, "new authoring work\n");
+        await keeps();
+      },
+    );
+    await t.step(
+      "retirement keeps moved source checkout and branch",
+      async () => {
+        await git(f.path, "add", "later");
+        await git(f.path, "commit", "-m", "Continue source");
+        await keeps();
+      },
+    );
   });
-}
+});
 
 for (const change of ["resource", "uncertain-child"] as const) {
   Deno.test(`retirement retry preserves a checkout with ${change} after reservation`, async () => {
@@ -232,9 +252,10 @@ for (const change of ["resource", "uncertain-child"] as const) {
   });
 }
 
+// The complete producer path: a public accept settles this landing before release.
 Deno.test("retirement accepts a timestamp-only index refresh after release", async () => {
   await withTempDir(async (root) => {
-    const f = await landed(root);
+    const f = await landed(root, { accept: true });
     await Deno.utime(`${f.path}/discern.toml`, 1234567890, 1234567890);
     await git(f.path, "status", "--porcelain");
     const result = await retireQueueLanding(f.runtime, f.landing);
