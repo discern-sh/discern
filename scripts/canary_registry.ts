@@ -86,6 +86,11 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "hot in the recorded failure ranking; static map metadata checks",
   },
   {
+    file: "tests/module_loading_test.ts",
+    reason:
+      "recorded cold-import context leak; fresh-process isolation regression takes under a second",
+  },
+  {
     file: "tests/paths_write_surface_test.ts",
     reason: "hot in the recorded failure ranking; near-second surface checks",
   },

@@ -19,6 +19,7 @@
  * against `tests/fixtures/parity/worktree-identity.json`.
  */
 
+import { loadModule } from "../../shared/module_loading.ts";
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import { cksumString } from "../../shared/crc.ts";
 import { sanitizeSlug } from "../../shared/slug.ts";
@@ -584,8 +585,10 @@ async function executionIdentityContext(path: string): Promise<
     return undefined;
   }
   try {
-    const { frozenExecutionContext } = await import(
-      "../execution/identity_context.ts"
+    const { frozenExecutionContext } = await loadModule(() =>
+      import(
+        "../execution/identity_context.ts"
+      )
     );
     return await frozenExecutionContext(path);
   } catch (error) {

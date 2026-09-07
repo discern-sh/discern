@@ -109,7 +109,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 373     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 374     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 23      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -125,7 +125,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`exit-statuses`](#exit-statuses--cli-exit-statuses)                                                                  | `src/shared/exit_codes.ts#EXIT_STATUS_REGISTRY`                                   | 11      | —                | —                           |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 10      | —                | —                           |
-| [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 17      | —                | —                           |
+| [`canary-tests`](#canary-tests--canary-test-membership)                                                               | `scripts/canary_registry.ts#CANARY_EXTRA_TEST_FILES`                              | 18      | —                | —                           |
 | [`temp-directory-creator-authorities`](#temp-directory-creator-authorities--raw-temp-directory-creator-authorities)   | `tests/temp_dir_authorities.ts#TEMP_DIR_CREATOR_AUTHORITIES`                      | 3       | —                | —                           |
 | [`test-real-delay-boundaries`](#test-real-delay-boundaries--test-real-delay-boundaries)                               | `tests/waiting.ts#TEST_REAL_DELAY_BOUNDARIES`                                     | 22      | —                | —                           |
 | [`test-shell-wait-boundaries`](#test-shell-wait-boundaries--test-shell-wait-boundaries)                               | `tests/test_shell_wait_boundaries.ts#TEST_SHELL_WAIT_BOUNDARIES`                  | 18      | —                | —                           |
@@ -3349,7 +3349,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 373
+- Members: 374
   - `0003`
   - `0005`
   - `0006`
@@ -3699,6 +3699,7 @@ The numbered decision records in the map, including records later superseded.
   - `0381`
   - `0382`
   - `0383`
+  - `0384`
   - `0001`
   - `0002`
   - `0004`
@@ -4077,7 +4078,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Instruct
 The recorded judgments behind the canary check job: extras promoted on recorded failure evidence and refusals with their cost measurements, layered over the guard- and enrolment-name convention.
 
 - Source: `scripts/canary_registry.ts` — `CANARY_EXTRA_TEST_FILES`
-- Members: 17
+- Members: 18
   - `tests/adr_citation_form_test.ts`
   - `tests/brand_mark_test.ts`
   - `tests/comment_currency_test.ts`
@@ -4087,6 +4088,7 @@ The recorded judgments behind the canary check job: extras promoted on recorded 
   - `tests/logbook_test.ts`
   - `tests/manual_curation_test.ts`
   - `tests/map_frontmatter_test.ts`
+  - `tests/module_loading_test.ts`
   - `tests/paths_write_surface_test.ts`
   - `tests/site_design_system_runtime_test.ts`
   - `tests/site_prose_test.ts`
@@ -4709,6 +4711,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
+- `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set
 - `tests/logger_ambient_guard_test.ts` — applies a determinism rule across test sources: human-mode Loggers and terminal contexts must be injected, never resolved from the ambient environment
