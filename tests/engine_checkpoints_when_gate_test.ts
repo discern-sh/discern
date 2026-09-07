@@ -23,27 +23,88 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
-Deno.test("done: an indeterminate stop records its drop and serves full evidence", async () => {
+Deno.test("done: an indeterminate stop serves full evidence — an unpreparable when input runs nothing, and an invalid exit records its drop", async (t) => {
   await withTempDir(async (dir) => {
-    const config = `${CONFIG_ONE_CHECKPOINT}\nwhen = "sh probe.sh"\n`;
-    const wt = await worktreeWithApiChange(dir, config);
+    // The governing probe leaves a marker when it RUNS and then exits outside
+    // the protocol, so each step can say whether the command ran and how the
+    // gate accounted for it.
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `${CONFIG_ONE_CHECKPOINT}\nwhen = "sh probe.sh"\n`);
+    await writeExecutable(join(dir, "check.sh"), CHECK_OK);
     await writeExecutable(
-      join(wt, "probe.sh"),
-      "#!/usr/bin/env sh\necho probe-invalid\nexit 7\n",
+      join(dir, "probe.sh"),
+      "#!/usr/bin/env sh\necho ran >> when-ran.log\necho probe-invalid\nexit 7\n",
     );
-    await git(wt, "add", "probe.sh");
-    await git(wt, "commit", "-q", "-m", "add probe", "--no-gpg-sign");
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "poisoned-temp");
+    await Deno.mkdir(join(wt, "api"), { recursive: true });
+    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "change api", "--no-gpg-sign");
 
-    const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const env = parseCheckpointGateJson(r.stdout);
-    assertEquals(env.error, AWAITING_DECLARATION_SLUG);
-    assertEquals(env.data.checkpoints.drops?.[0]?.reason, "when_invalid_exit");
-    assertEquals(env.data.checkpoints.drops?.[0]?.checkpoint, "api-review");
-    assertEquals(env.data.checkpoints.outstanding?.[0]?.matched, [
-      "api/surface.txt",
-    ]);
-    assertStringIncludes(r.output, "probe-invalid");
+    await t.step(
+      "an unpreparable when input serves full evidence and runs nothing",
+      async () => {
+        // With the engine subprocess's temp home pointed at an absent directory,
+        // the registered when input file cannot be created: the input phase
+        // fails, the command never runs, and the run carries the typed input
+        // drop instead of a spawn or exit account.
+        const absent = join(dir, "absent-temp-home");
+        const result = await runAgent(wt, ["done", "--json"], {
+          env: { TMPDIR: absent, TMP: absent, TEMP: absent },
+        });
+        const envelope = parseCheckpointGateJson(result.stdout);
+        const drop = envelope.data.checkpoints.drops?.find((entry) =>
+          entry.reason === "when_input_failed"
+        );
+        assert(
+          drop !== undefined,
+          `expected a when_input_failed drop: ${result.output}`,
+        );
+        assertEquals(
+          (drop as { checkpoint?: string }).checkpoint,
+          "api-review",
+        );
+        assertEquals(
+          (await readTextIfExists(join(wt, "when-ran.log"))) ?? "",
+          "",
+          "an unpreparable input must never run the command",
+        );
+        assertEquals(
+          envelope.error,
+          AWAITING_DECLARATION_SLUG,
+          "an indeterminate stop must interlock over structural evidence",
+        );
+        assertEquals(envelope.data.checkpoints.outstanding?.[0]?.matched, [
+          "api/surface.txt",
+        ]);
+      },
+    );
+
+    await t.step(
+      "an indeterminate stop records its drop and serves full evidence",
+      async () => {
+        const r = await runAgent(wt, ["done", "--json"]);
+        assertEquals(r.code, 1, r.output);
+        const env = parseCheckpointGateJson(r.stdout);
+        assertEquals(env.error, AWAITING_DECLARATION_SLUG);
+        assertEquals(
+          env.data.checkpoints.drops?.[0]?.reason,
+          "when_invalid_exit",
+        );
+        assertEquals(env.data.checkpoints.drops?.[0]?.checkpoint, "api-review");
+        assertEquals(env.data.checkpoints.outstanding?.[0]?.matched, [
+          "api/surface.txt",
+        ]);
+        assertStringIncludes(r.output, "probe-invalid");
+        // This time the command ran: the drop accounts for its exit, not a
+        // missing input.
+        assertStringIncludes(
+          (await readTextIfExists(join(wt, "when-ran.log"))) ?? "",
+          "ran",
+        );
+      },
+    );
   });
 });
 
@@ -252,67 +313,5 @@ question = "${QUESTION_API}"
     const reopened = await runAgent(wt, ["done", "--json"]);
     assertEquals(reopened.code, 1, reopened.output);
     assertEquals(parseJson(reopened.stdout).error, AWAITING_DECLARATION_SLUG);
-  });
-});
-
-Deno.test("done: an unpreparable when input serves full evidence and runs nothing", async () => {
-  // With the engine subprocess's temp home pointed at an absent directory,
-  // the registered when input file cannot be created: the input phase fails,
-  // the command never runs, and the run carries the typed input drop instead
-  // of a spawn or exit account.
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      `
-[project]
-slug = "engine-test"
-
-[repository]
-trunk = "main"
-
-[checkpoints.api-review]
-paths = ["api/**"]
-when = "sh probe.sh"
-question = "${QUESTION_API}"
-`,
-    );
-    await writeExecutable(
-      join(dir, "probe.sh"),
-      "#!/usr/bin/env sh\necho ran >> when-ran.log\nexit 0\n",
-    );
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "poisoned-temp");
-    await Deno.mkdir(join(wt, "api"), { recursive: true });
-    await Deno.writeTextFile(join(wt, "api", "surface.txt"), "endpoint\n");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "change api", "--no-gpg-sign");
-
-    const absent = join(dir, "absent-temp-home");
-    const result = await runAgent(wt, ["done", "--json"], {
-      env: { TMPDIR: absent, TMP: absent, TEMP: absent },
-    });
-    const envelope = parseCheckpointGateJson(result.stdout);
-    const drop = envelope.data.checkpoints.drops?.find((entry) =>
-      entry.reason === "when_input_failed"
-    );
-    assert(
-      drop !== undefined,
-      `expected a when_input_failed drop: ${result.output}`,
-    );
-    assertEquals((drop as { checkpoint?: string }).checkpoint, "api-review");
-    assertEquals(
-      (await readTextIfExists(join(wt, "when-ran.log"))) ?? "",
-      "",
-      "an unpreparable input must never run the command",
-    );
-    assertEquals(
-      envelope.error,
-      AWAITING_DECLARATION_SLUG,
-      "an indeterminate stop must interlock over structural evidence",
-    );
-    assertEquals(envelope.data.checkpoints.outstanding?.[0]?.matched, [
-      "api/surface.txt",
-    ]);
   });
 });
