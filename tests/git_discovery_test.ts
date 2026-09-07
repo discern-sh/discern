@@ -1,8 +1,10 @@
 /**
  * Operation-scoped Git discovery: one batched query per checkout inside an
- * operation, exact replay of git's own output, and no reuse across the
- * boundaries that must observe afresh — a closed scope, a removed checkout,
- * newly held exclusion, or a topology-changing git command.
+ * operation, exact replay of git's own output, and a fresh administration
+ * observation at every boundary — a closed scope, a removed checkout, newly
+ * held exclusion, or a topology-changing git command. Answers derived from
+ * the administration directories survive a boundary only when the fresh
+ * observation is byte-identical to the retained one.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -292,12 +294,80 @@ Deno.test("invalidation reaches enclosing scopes and a finished scope retains no
         invalidateGitDiscovery();
       });
       await discoverGit(dir, { kind: "common-dir" }, run);
-      assertEquals(calls.length, 3, "the enclosing scope was cleared too");
+      assertEquals(calls.length, 3, "the enclosing scope observed again too");
       later = () => discoverGit(dir, { kind: "common-dir" }, run);
     });
     assert(later !== undefined);
     await later();
     assertEquals(calls.at(-1), ["rev-parse", "--git-common-dir"]);
+  });
+});
+
+Deno.test("an unchanged checkout re-observes once and keeps its derived answers", async () => {
+  await withTempDir(async (dir) => {
+    await seededRepository(dir);
+    const head = (await runGit(["rev-parse", "HEAD"], { cwd: dir })).stdout
+      .trim();
+    const pinned: GitDiscoveryQuery = {
+      kind: "object",
+      spec: `${head}:./seed.txt`,
+    };
+    const { calls, run } = recording();
+    await withGitDiscoveryScope(async () => {
+      const toplevel = await discoverGit(dir, { kind: "toplevel" }, run);
+      const object = await discoverGit(dir, pinned, run);
+      invalidateGitDiscovery();
+      assertEquals(
+        (await discoverGit(dir, { kind: "toplevel" }, run)).stdout,
+        toplevel.stdout,
+      );
+      assertEquals(
+        (await discoverGit(dir, pinned, run)).stdout,
+        object.stdout,
+      );
+    });
+    assertEquals(calls, [
+      ["rev-parse", "--absolute-git-dir", "--git-common-dir"],
+      ["rev-parse", "--show-toplevel", "--show-prefix"],
+      ["show", `${head}:./seed.txt`],
+      ["rev-parse", "--absolute-git-dir", "--git-common-dir"],
+    ], "one re-observation, and every unchanged derived answer replays");
+  });
+});
+
+Deno.test("a changed administration observation discards every derived answer", async () => {
+  await withTempDir(async (dir) => {
+    await seededRepository(dir);
+    const linked = await addWorktree(dir, "replaced");
+    const { calls, run } = recording();
+    await withGitDiscoveryScope(async () => {
+      const before = await discoverGit(
+        linked,
+        { kind: "absolute-git-dir" },
+        run,
+      );
+      await discoverGit(linked, { kind: "prefix" }, run);
+      // Replace the worktree with an independent repository at the same path.
+      await runGit(["worktree", "remove", "--force", linked], { cwd: dir });
+      await Deno.mkdir(linked);
+      await seededRepository(linked);
+      const after = await discoverGit(
+        linked,
+        { kind: "absolute-git-dir" },
+        run,
+      );
+      assert(
+        after.success && after.stdout !== before.stdout,
+        "an independent repository administers itself",
+      );
+      await discoverGit(linked, { kind: "prefix" }, run);
+    });
+    assertEquals(calls, [
+      ["rev-parse", "--absolute-git-dir", "--git-common-dir"],
+      ["rev-parse", "--show-toplevel", "--show-prefix"],
+      ["rev-parse", "--absolute-git-dir", "--git-common-dir"],
+      ["rev-parse", "--show-toplevel", "--show-prefix"],
+    ], "a changed observation re-runs the derived queries");
   });
 });
 

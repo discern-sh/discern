@@ -15,8 +15,10 @@
  * never reinterprets git. Every hit is validated against the checkout's current
  * real path and the presence of its administration directory. Failures are
  * never retained. Lock acquisition and every topology-changing git invocation
- * clear the scope; the scope ends with its operation. Outside any scope a
- * query runs fresh, exactly as before.
+ * mark the scope stale: the next query re-observes the administration
+ * directories with one git process, and the answers derived from them survive
+ * only when that observation is unchanged. The scope ends with its operation.
+ * Outside any scope a query runs fresh, exactly as before.
  */
 
 import { AsyncLocalStorage } from "./module_loading.ts";
@@ -78,6 +80,8 @@ interface CheckoutDiscovery {
   readonly adminPaths: Map<string, string>;
   /** Exact stdout per content-addressed object spec. */
   readonly objects: Map<string, string>;
+  /** Set by a boundary; the next query re-observes the directories. */
+  stale: boolean;
 }
 
 interface GitDiscoveryScope {
@@ -106,14 +110,18 @@ export async function withGitDiscoveryScope<T>(
   }
 }
 
-/** Forget every retained answer in the current operation and those enclosing it. */
+/**
+ * Mark every retained answer stale in the current operation and those
+ * enclosing it: each checkout re-observes its administration directories
+ * before answering again.
+ */
 export function invalidateGitDiscovery(): void {
   for (
     let scope = SCOPE.getStore();
     scope !== undefined;
     scope = scope.parent
   ) {
-    scope.checkouts.clear();
+    for (const checkout of scope.checkouts.values()) checkout.stale = true;
   }
 }
 
@@ -176,31 +184,45 @@ async function checkoutDiscovery(
   if (key === undefined) return undefined;
   let checkout = scope.checkouts.get(key);
   if (checkout === undefined) {
-    checkout = { adminPaths: new Map(), objects: new Map() };
+    checkout = { adminPaths: new Map(), objects: new Map(), stale: false };
     scope.checkouts.set(key, checkout);
   }
   return checkout;
 }
 
+/** Drop every answer derived from a checkout's administration directories. */
+function dropDerived(checkout: CheckoutDiscovery): void {
+  checkout.position = undefined;
+  checkout.adminPaths.clear();
+  checkout.objects.clear();
+}
+
 /**
  * Both administration directories, retained after one batched query. A
  * retained pair whose administration directory has since disappeared is
- * discarded together with everything derived from it.
+ * discarded together with everything derived from it. A stale pair is
+ * re-observed with one query; the answers derived from it survive only when
+ * the fresh observation is byte-identical.
  */
 async function retainDirs(
   checkout: CheckoutDiscovery,
   cwd: string,
   run: GitDiscoveryRunner,
 ): Promise<readonly [string, string] | undefined> {
-  if (checkout.dirs !== undefined) {
+  if (checkout.dirs !== undefined && !checkout.stale) {
     if (await directoryExists(checkout.dirs[0])) return checkout.dirs;
     checkout.dirs = undefined;
-    checkout.position = undefined;
-    checkout.adminPaths.clear();
-    checkout.objects.clear();
+    dropDerived(checkout);
   }
   const lines = twoLines(await run(cwd, [...ADMIN_DIR_ARGS]));
-  if (lines !== undefined) checkout.dirs = lines;
+  if (
+    lines === undefined || checkout.dirs === undefined ||
+    checkout.dirs[0] !== lines[0] || checkout.dirs[1] !== lines[1]
+  ) {
+    dropDerived(checkout);
+  }
+  checkout.dirs = lines;
+  checkout.stale = false;
   return lines;
 }
 

@@ -497,7 +497,8 @@ export async function withCompletionPublication<T>(
   completionPublications.set(spec.key, finished.promise);
   try {
     await previous;
-    // A publication this one waited for is observed again, never replayed.
+    // A publication this one waited for: administration is observed again
+    // before any retained answer replays.
     if (previous !== undefined) invalidateGitDiscovery();
     return await run();
   } finally {
@@ -678,7 +679,8 @@ async function withPolicyLock<T>(
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }
-    // Newly held exclusion: discovery observed before it is observed again.
+    // Newly held exclusion: retained discovery re-observes administration
+    // before answering again.
     invalidateGitDiscovery();
     const leases = new Map(held?.leases ?? []);
     const boundaries = new Set(held?.boundaries ?? []);
