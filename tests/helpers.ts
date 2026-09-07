@@ -7,6 +7,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 import { assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { colorResolvedEnv } from "../src/shared/color_env.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import type { TokenMap } from "../src/lib/template.ts";
@@ -127,10 +128,7 @@ export async function runCli(
     // suite launched from inside `discern desk` stays deterministic.
     env: {
       DISCERN_TEMPLATES_DIR: REAL_TEMPLATES,
-      NO_COLOR: "1",
-      // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
-      // means unset, so an inherited value can't recolour spawned output.
-      FORCE_COLOR: "",
+      ...colorResolvedEnv(),
       [DESK_SESSION_ENV]: "",
       ...env,
     },

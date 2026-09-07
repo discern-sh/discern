@@ -10,6 +10,7 @@
  */
 
 import { join } from "@std/path";
+import { colorResolvedEnv } from "../../src/shared/color_env.ts";
 import { decodeJson } from "../../src/shared/runtime_decode.ts";
 import { stripAnnotationMarkers } from "./annotation.ts";
 import { patchRegistrySource, type PatchRequest } from "./patch.ts";
@@ -205,7 +206,7 @@ async function mapProseGate(
       ...pages,
     ],
     cwd: root,
-    env: { NO_COLOR: "1", CI: "1", TERM: "dumb" },
+    env: { ...colorResolvedEnv(), CI: "1", TERM: "dumb" },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

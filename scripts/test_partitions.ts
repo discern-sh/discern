@@ -1,5 +1,6 @@
 /** Native test partitions remain one awaited suite and one complete report. */
 import { fromFileUrl, isAbsolute, join } from "@std/path";
+import { colorResolvedEnv, stripAnsi } from "../src/shared/color_env.ts";
 import { lstatIfExists, readTextIfExists } from "../src/shared/fs_presence.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
@@ -114,13 +115,15 @@ interface PreparedTestGraph {
   readonly moduleSizes: readonly number[];
 }
 
-/** Native listing hints affect scheduling only; every native shard still runs. */
-async function listedModuleSizes(
+/** Native listing hints affect scheduling only; every native shard still runs.
+ * Escapes are stripped before matching: parsing must not depend on the spawn
+ * environment having resolved colour off. */
+export async function listedModuleSizes(
   output: string,
   cwd: string = ".",
 ): Promise<number[]> {
   const sizes: number[] = [];
-  for (const match of output.matchAll(/^Check (.+)$/gm)) {
+  for (const match of stripAnsi(output).matchAll(/^Check (.+)$/gm)) {
     const entry = match[1];
     if (entry === undefined) continue;
     const path = entry.startsWith("file:")
@@ -157,7 +160,9 @@ async function prepareTestGraph(
     captureListing ? "/bin/sh" : Deno.execPath(),
     {
       ...options,
-      ...(captureListing ? { env: { ...options.env, NO_COLOR: "1" } } : {}),
+      ...(captureListing
+        ? { env: { ...options.env, ...colorResolvedEnv() } }
+        : {}),
       args: captureListing
         ? ["-c", 'exec "$@" 2>"$0"', listingPath, Deno.execPath(), ...checkArgs]
         : checkArgs,

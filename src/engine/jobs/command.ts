@@ -11,6 +11,7 @@
  */
 
 import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
+import { colorResolvedEnv } from "../../shared/color_env.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
 import { planExecutionChild } from "../../shared/execution_child_context.ts";
@@ -97,7 +98,7 @@ const TAIL_CAP = JOB_CAPTURE_CAP_BYTES - HEAD_CAP;
  * `test = "<runner>"` doesn't enter watch mode and hang the gate waiting for edits.
  */
 export const GATE_JOB_ENVIRONMENT: Readonly<Record<string, string>> = {
-  NO_COLOR: "1",
+  ...colorResolvedEnv(),
   TERM: "dumb",
   CI: "1",
 };

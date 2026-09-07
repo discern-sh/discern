@@ -4,6 +4,7 @@
  * per guard, plus the quick standards probes the canons feed.
  */
 
+import { colorResolvedEnv } from "../../src/shared/color_env.ts";
 import { REPO_ROOT } from "./root.ts";
 
 /** One guard file's verdict. */
@@ -47,7 +48,7 @@ async function runGuardFile(
       file,
     ],
     cwd: root,
-    env: { NO_COLOR: "1", CI: "1", TERM: "dumb" },
+    env: { ...colorResolvedEnv(), CI: "1", TERM: "dumb" },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

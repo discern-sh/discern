@@ -41,6 +41,7 @@ import {
   type SourcePathName,
 } from "../src/shared/paths_registry.ts";
 import type { AgentName } from "../src/lib/config.ts";
+import { colorResolvedEnv } from "../src/shared/color_env.ts";
 import { selfShimDir } from "../src/shared/subprocess.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
@@ -240,7 +241,7 @@ export async function engineEnv(
   const shim = await selfShimDir(REPO_ROOT);
   const tmp = await suiteTempDir();
   return {
-    NO_COLOR: "1",
+    ...colorResolvedEnv(),
     // A fixture models a normal local invocation unless its test opts into CI.
     // This keeps the harness independent of the environment running the suite.
     CI: "false",
@@ -249,9 +250,6 @@ export async function engineEnv(
     // shell must render the same report a developer's terminal gets.
     LANG: "en_US.UTF-8",
     LC_ALL: "",
-    // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
-    // means unset, so an inherited value can't recolour spawned output.
-    FORCE_COLOR: "",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
     // All three spellings so the engine's temp resolution lands in the suite
     // home on every platform.

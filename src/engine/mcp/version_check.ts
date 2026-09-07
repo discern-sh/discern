@@ -28,6 +28,7 @@
  */
 
 import { DISCERN_VERSION } from "../../lib/version.ts";
+import { colorResolvedEnv, stripAnsi } from "../../shared/color_env.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 
 /**
@@ -186,10 +187,6 @@ function defaultStatKey(path: string): string | undefined {
   }
 }
 
-// A control character in a literal regex trips `no-control-regex`; build it from
-// the escape code instead so the linter stays happy.
-const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
-
 /**
  * Extract the version from `discern --version` output. Requires discern's own
  * `discern <semver>` shape, so a different executable at the same path (e.g.
@@ -197,7 +194,7 @@ const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
  * discriminator that keeps the handshake silent outside a real install.
  */
 export function parseDiscernVersion(raw: string): string | undefined {
-  const clean = raw.replace(ANSI, "").trim();
+  const clean = stripAnsi(raw).trim();
   const match = clean.match(/^discern\s+(\d[\w.+-]*)/);
   return match?.[1];
 }
@@ -210,7 +207,7 @@ async function defaultProbeVersion(
     const output = await captureVersionCommand(
       execPath,
       ["--version"],
-      { stderr: "null", env: { NO_COLOR: "1" } },
+      { stderr: "null", env: colorResolvedEnv() },
     );
     if (!output.success) {
       return undefined;

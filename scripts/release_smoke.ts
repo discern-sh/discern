@@ -1,6 +1,7 @@
 /** Execute the binary-only release seams before an artifact can be uploaded. */
 
 import { ensureDir } from "@std/fs";
+import { colorResolvedEnv } from "../src/shared/color_env.ts";
 import { fileExists, targetExists } from "../src/shared/fs_presence.ts";
 import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
@@ -110,7 +111,7 @@ async function run(
   const result = await new Deno.Command(command, {
     args,
     cwd,
-    env: { NO_COLOR: "1", ...env },
+    env: { ...colorResolvedEnv(), ...env },
     stdout: "piped",
     stderr: "piped",
   }).output();
