@@ -19,6 +19,12 @@ Then [Compile and check instructions](compile-and-check-instructions.md). It sho
 
 A [Skill](../45-skills/) is a reusable agent playbook for a focused procedure. Every session reads the agent instructions. An agent loads a skill when its description matches the work. Use instructions for rules every session must carry, and a skill for a repeatable procedure that needs steps and judgment.
 
+## Operating instructions and owner communication
+
+The [bundled instructions](../../../templates/instructions/base.md) establish the first action, worktree ownership, completion boundary, and how agents explain findings to the owner. Updates connect verified facts and remaining uncertainty to the requested work. Routine implementation choices stay with the agent; consequential decisions carry evidence, a recommendation, and the scope of approval.
+
+Static instructions must arrive before a tool can teach the needed behavior ([ADR 0192](../_adr/0192-static-guidance-earns-delivery-by-the-routing-test.md)). Agents can narrate before calling tools, so the owner-communication rule belongs there. Await continuation mechanics, checkpoint parameters, and proposal renewal belong to their tool or result. The [operating-policy registry](../../../src/shared/operating_policies.ts) holds shared discovery and authority rules; its parity guard checks their delivery across agent files and MCP startup instructions.
+
 | Read next                                                           | What it helps you do                          |
 | ------------------------------------------------------------------- | --------------------------------------------- |
 | [Write project instructions](write-project-instructions.md)         | Choose sources and write shared instructions. |

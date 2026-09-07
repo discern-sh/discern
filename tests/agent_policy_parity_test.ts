@@ -126,6 +126,15 @@ function parityFailures(
 
 const AWAIT_CALLING_REQUIREMENTS = [
   {
+    meaning: "continuations have no arbitrary retry budget",
+    pattern: /repeat without a fixed limit/i,
+  },
+  {
+    meaning: "refusals cannot be resumed",
+    pattern:
+      /(?:Never resume|Do not resume)[^\n]{0,80}`ok: false`|`ok: false`[^\n]{0,80}(?:never|do not) resume/i,
+  },
+  {
     meaning: "active calls stay off the chat",
     pattern: /do not surface progress updates until it returns/i,
   },
@@ -291,9 +300,7 @@ Deno.test("await calling surfaces keep active calls and unmet continuations off 
     "SKILL.md",
   ));
   const surfaces = [
-    { label: "canonical await policy", text: policy.statement },
-    { label: "bundled instructions", text: await instructionBlob() },
-    { label: "MCP instructions", text: buildInstructions() },
+    // Discovery stays static; the call contract arrives with the tool or skill.
     { label: "await MCP tool", text: tool.description },
     { label: "await-the-fleet skill", text: skill },
   ];

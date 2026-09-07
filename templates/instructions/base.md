@@ -1,18 +1,22 @@
 # Working in {{project_name}}
 
-discern's built-in instructions come first; {{project_name}}'s own instructions fill the second half and win on any conflict.
+discern's built-in instructions appear first. {{project_name}}'s own instructions follow the divider and take precedence where they conflict.
 
 ## Operating discern
 
-This project uses **discern**, a stack-neutral agent-development system. Everything discern knows lives in one root file: **`discern.toml`**. Its verbs are **MCP tools** (`discern_status`, `discern_done`, …), the **primary surface**.
+discern gives each development task an isolated workspace, runs the project's configured checks, records completion evidence, and controls how changes land on the shared branch. Its configuration lives in **`discern.toml`**. Use its **MCP tools** as the primary interface.
 
-- **Orient first.** Call **`discern_status`** at session start for a fast read-only account of what's true and next.
-- **Keep one worktree for the whole effort.** The worktree carries the effort's branch, identity, and any recorded authority, so review feedback and resumed sessions continue there; a second worktree would split the effort's history and its evidence. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern_start` again. For a new effort, run **`discern_start`** from the main checkout and work only at the returned path. Read-only work needs none.
-- **`discern_done` is the bar for "done".** Call work finished only after its full gate passes. Iterate with **`discern_prepare`** or a diagnostic's reproduce command; each diagnostic names its location and exact command. With a positive `[gate].concurrent_test_runs`, run direct tests through **`discern queue -- <command>`**. `discern_test` runs the complete test stage on demand. `discern_done` already includes the same test stage, so a final gate run needs no standalone test preflight.
-- **Follow discern's printed next action.** A discern refusal or failure names its own next step in the result, and `hints` are matched to the state you are in. Prefer the stated remedy over improvising around it with raw git or shell — discern gives you instructions which are optimized, deterministic, and fleet-aware.
-- **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
+- **Orient first.** Call **`discern_status`** at the start of every session, including investigation-only and resumed sessions. It reports current state and the next action without running checks or changing the project.
+- **Use the effort's worktree before editing.** An effort is one task carried through implementation and review. Continue in its existing worktree across feedback and resumed sessions. For a new effort requiring edits, call **`discern_start`** from the main checkout and move your file operations to the returned path. Read-only investigation does not require creating a worktree.
+- **Finish through `discern_done`.** It verifies the configured gate: the checks required to call the change complete. Use **`discern_prepare`** or a diagnostic's reproduce command while iterating. Follow the finishing sequence below before reporting completion.
+- **Follow the reported next action.** Use the result's diagnostics and recovery instructions instead of bypassing them with raw Git or shell operations. If the remedy cannot be followed, use **`discern_docs`** for the relevant procedure or report the unresolved condition to the owner.
+- **Find the right reference.** **`discern_docs`** explains discern; **`discern_map`** reads the current project's documentation; **`discern_doctor`** diagnoses installation problems.
 
-**Troubleshooting**: MCP tools unreachable? Tell the user and use the **`discern` CLI** as a fallback (`--markdown` for a readable result, `--json` for structured fields). Consume the result's state, diagnostics, location, next action, recovery, Proof, and human relay when present. If output is truncated, use the result's structured or retrievable view; never repeat an effectful command merely to recover omitted output. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) or continuing without discern's protections.
+**When MCP is unavailable:** tell the owner and use the **`discern` CLI**, with `--markdown` for readable results or `--json` for structured fields. Read the reported state, diagnostics, recovery instructions, and any owner relay or Proof. If output is truncated, retrieve its structured or stored view; never repeat an effectful command just to recover omitted output. Offer `discern doctor` afterwards. If the CLI is also unavailable, stop and let the owner choose between installing discern (`curl discern.sh` explains how) and continuing without its protections.
+
+## Communicating with the owner
+
+Explain discern's findings through their consequences for the requested work: what happened, what remains unverified, and what you will do next. Match the owner's technical familiarity; explain unfamiliar terms when needed. Distinguish observed facts from suspected causes. Continue authorized investigation and repair before asking the owner to resolve routine implementation choices. When a decision is needed, present the supported tradeoff, your recommendation, and what approval would authorize. Keep completion claims within the available evidence.
 
 ## Generated files — don't hand-edit
 

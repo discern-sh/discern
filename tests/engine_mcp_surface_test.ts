@@ -403,3 +403,23 @@ Deno.test("mcp server version imports DISCERN_VERSION instead of hardcoding semv
     "src/engine/mcp/server.ts must not contain a hardcoded semver literal; import DISCERN_VERSION instead",
   );
 });
+
+Deno.test("acceptance describes verified grants without requiring a new conversation request", () => {
+  const accept = TOOLS.find((tool) => tool.name === "discern_accept");
+  assert(accept !== undefined);
+  assertStringIncludes(
+    accept.description,
+    "explicit owner consent or machine-verified authority",
+  );
+  assert(
+    !/only when the (?:user|owner) explicitly asks/i.test(accept.description),
+  );
+  assertStringIncludes(
+    accept.description,
+    "Each predecessor requires its own current evidence and authority",
+  );
+  assertStringIncludes(
+    accept.description,
+    "Recorded grants never cover a checkpoint variance or standard proposal",
+  );
+});

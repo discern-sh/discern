@@ -101,17 +101,10 @@ export const OPERATING_POLICIES = [
   {
     id: "await-longest-safe",
     statement:
-      `Use discern_await in one longest-safe call to watch a sibling or trunk. ${AWAIT_WATCH_POLICY}`,
+      "Use discern_await in one longest-safe call to watch a sibling or trunk; " +
+      "follow its continuation or recovery instructions.",
     surfaces: OPERATING_POLICY_SURFACES,
-    probes: [
-      /discern_await/,
-      /longest[ -]safe/i,
-      /do not surface progress updates until it returns/i,
-      /data\.met: false/,
-      /data\.resume.*without surfacing an update/i,
-      /Report only when the condition holds/,
-      /(?:respond to|Answer) new user input/i,
-    ],
+    probes: [/discern_await/, /longest[ -]safe/i, /continuation or recovery/i],
   },
   {
     id: "accept-on-handoff",
@@ -128,19 +121,20 @@ export const OPERATING_POLICIES = [
   {
     id: "checkpoint-declarations",
     statement:
-      "On discern_done, use met only for a satisfied served question; otherwise " +
-      "use unmet with a short, owner-relevant, secret-free tradeoff. A " +
-      "variance requires the owner to explicitly accept the exact declared-unmet " +
-      "set; grants never cover it.",
+      "discern_done supplies checkpoint questions. Judge each question against " +
+      "the actual change and record your conclusion. If it does not hold, explain " +
+      "the tradeoff without including secrets. The gate can still run, but landing " +
+      "requires the owner to approve an exception for the exact unmet questions. " +
+      "Recorded landing grants do not authorize that exception.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /On `?discern_done`?,/,
-      /served question/i,
-      /\bmet\b[^.\n]{0,80}satisfied[^.\n]{0,80}question/i,
-      /\bunmet\b[^.\n]{0,80}secret-free/i,
-      /owner[^.\n]{0,80}explicitly accept/i,
-      /exact[^.\n]{0,40}declared-unmet set/i,
-      /grants never cover/i,
+      /discern_done/,
+      /judge[^.\n]{0,80}question[^.\n]{0,80}actual change/i,
+      /record your conclusion/i,
+      /without including secrets/i,
+      /gate can still run/i,
+      /owner to approve an exception for the exact unmet questions/i,
+      /grants do not authorize that exception/i,
     ],
   },
   {
