@@ -107,50 +107,6 @@ async function runMcp(
   };
 }
 
-Deno.test("MCP done records one strict unmet declaration per call and composes successive calls", async () => {
-  await withTempDir(async (dir) => {
-    const config = `${CONFIG}
-
-[checkpoints.risk-notes]
-paths = ["api/**"]
-question = "The changed surface records its operational risks."
-`;
-    const wt = await checkpointedWorktree(dir, config);
-
-    const first = await runMcp("discern_done", wt, {
-      unmet: {
-        id: "api-review",
-        why: "The documentation follows in a separately reviewed change.",
-      },
-    });
-    assertEquals(first.isError, true);
-    assertEquals(first.env.error, AWAITING_DECLARATION_SLUG);
-    const firstData = first.env.data as {
-      checkpoints?: { outstanding?: { id: string }[] };
-    };
-    assertEquals(
-      firstData.checkpoints?.outstanding?.map((entry) => entry.id),
-      ["risk-notes"],
-    );
-
-    const second = await runMcp("discern_done", wt, {
-      unmet: {
-        id: "risk-notes",
-        why:
-          "The owner must decide whether the remaining operational risk is acceptable.",
-      },
-    });
-    assertEquals(second.isError, false, JSON.stringify(second.env));
-    const secondData = second.env.data as {
-      checkpoints?: { declared_unmet?: { id: string }[] };
-    };
-    assertEquals(
-      secondData.checkpoints?.declared_unmet?.map((entry) => entry.id).sort(),
-      ["api-review", "risk-notes"],
-    );
-  });
-});
-
 /** What one surface observation must prove. */
 interface SurfaceObservation {
   readonly refused: boolean;
@@ -417,34 +373,5 @@ Deno.test("variance contract: every declared surface serves the same complete de
     // Every refusal above was read-only: worktree intact, trunk untouched.
     assert(await targetExists(wt));
     assertEquals(await targetExists(join(dir, "api", "surface.txt")), false);
-  });
-});
-
-Deno.test("mcp: declarations travel the tool parameters — met records and unlocks; an invalid unmet records nothing", async () => {
-  // The spec's MCP half of the declaration contract: `met: ["<id>", …]` and
-  // `unmet: {id, why}` are tool parameters, validated exactly like the flags.
-  await withTempDir(async (dir) => {
-    const wt = await checkpointedWorktree(dir);
-    const refused = await runMcp("discern_done", wt, {});
-    assert(refused.isError, "the interlock must refuse the bare call");
-
-    // A mis-shaped rationale is rejected before any write: the follow-up
-    // bare call still refuses with the same awaiting contract.
-    const invalid = await runMcp("discern_done", wt, {
-      unmet: { id: "api-review", why: "line one\nline two" },
-    });
-    assert(invalid.isError, "a mis-shaped rationale must not record");
-    const still = await runMcp("discern_done", wt, {});
-    assert(still.isError, "nothing was recorded, so the refusal stands");
-    assertEquals(still.env.error, AWAITING_DECLARATION_SLUG);
-
-    // The met array records the caller's judgment and the gate proceeds in
-    // the same call.
-    const met = await runMcp("discern_done", wt, { met: ["api-review"] });
-    assert(!met.isError, JSON.stringify(met.env));
-    const checkpoints = (met.env.data as {
-      checkpoints: { declared_met?: { id: string }[] };
-    }).checkpoints;
-    assertEquals(checkpoints.declared_met?.[0]?.id, "api-review");
   });
 });

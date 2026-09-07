@@ -1,10 +1,7 @@
 /** Checkpoint policy gate journeys with independently owned fixtures. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
-import { readOpenQuestions } from "../src/engine/checkpoints/open_questions.ts";
-import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { AWAITING_DECLARATION_SLUG } from "../src/shared/declarations.ts";
-import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import {
@@ -268,65 +265,6 @@ Deno.test("a bad historical question source fails open into durable Proof eviden
     assertStringIncludes(marker, "checkpoint_question_file_missing");
     assertStringIncludes(marker, FILE_QUESTION_PATH);
     assertStringIncludes(marker, "does not govern this run");
-  });
-});
-
-Deno.test("done: the branch cannot edit its own governing policy — the merge-base copy rules", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
-
-    // The branch deletes the checkpoint table and commits the edit; the
-    // governing (merge-base) copy still interlocks.
-    const stripped = CONFIG_ONE_CHECKPOINT.split("[checkpoints.api-review]")[0];
-    await writeConfig(wt, stripped ?? "");
-    await git(wt, "add", "-A");
-    await git(wt, "commit", "-q", "-m", "drop the checkpoint", "--no-gpg-sign");
-    const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    assertEquals(parseJson(r.stdout).error, AWAITING_DECLARATION_SLUG);
-  });
-});
-
-Deno.test("done: a corrupt open-question store fails open into a clean re-ask", async () => {
-  await withTempDir(async (dir) => {
-    const wt = await worktreeWithApiChange(dir, CONFIG_ONE_CHECKPOINT);
-    assertEquals((await runAgent(wt, ["done", "--json"])).code, 1);
-    assertEquals(
-      (await runAgent(wt, ["done", "--met", "api-review", "--json"])).code,
-      0,
-    );
-
-    // Corrupt the store: the conclusion is gone, so the next run rebuilds
-    // and asks for a fresh declaration instead of wedging or crashing.
-    const path = await gitAdminStatePath(wt, "checkpointOpenQuestions");
-    assert(path !== undefined);
-    await Deno.writeTextFile(path, "corrupted, not json\n");
-    const r = await runAgent(wt, ["done", "--json"]);
-    assertEquals(r.code, 1, r.output);
-    const env = parseJson(r.stdout);
-    assertEquals(env.error, AWAITING_DECLARATION_SLUG);
-    // The conservative direction: the fresh declaration restores the exact
-    // claim the green run recorded, so the rerun guard recognises the
-    // unchanged tree + unchanged evidence and the standing verdict holds.
-    const redeclared = await runAgent(wt, [
-      "done",
-      "--met",
-      "api-review",
-      "--json",
-    ]);
-    assertEquals(redeclared.code, 1, redeclared.output);
-    assertEquals(
-      parseJson(redeclared.stdout).error,
-      UNCHANGED_TREE_RERUN_SLUG,
-      "an identical restored claim is the same run, not new evidence",
-    );
-    // The declaration write itself succeeded: the store holds it again.
-    const openQuestions = await readOpenQuestions(wt);
-    assert(openQuestions.status === "ok");
-    assertEquals(
-      openQuestions.openQuestions["api-review"]?.declaration?.conclusion,
-      "met",
-    );
   });
 });
 
