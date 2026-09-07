@@ -27,9 +27,12 @@ import { resolveMapDir } from "../src/lib/paths.ts";
 import { decodeValeReport, withStagedProseInput } from "./prose_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
-// Vale exits non-zero when it finds error-severity alerts; that is not a failure
-// of the MEASUREMENT (the count is the point), so its JSON is read regardless of
-// the exit code — mirroring how the standards runner ignores the run's exit status.
+/**
+ * Measure the staged corpus and emit the metric lines. Vale exits non-zero
+ * when it finds error-severity alerts; that is not a failure of the
+ * MEASUREMENT (the count is the point), so its JSON is read regardless of the
+ * exit code — mirroring how the standards runner ignores the run's exit status.
+ */
 async function measure(): Promise<void> {
   const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
   const docsDir = Deno.args[0] ??

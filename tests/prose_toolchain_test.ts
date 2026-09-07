@@ -432,7 +432,7 @@ Deno.test("a failed Vale download names its cause and the operator's next step",
   });
 });
 
-Deno.test("a blocked install write names the denied effect and the macOS permission surface", async () => {
+Deno.test("a blocked install write names the denied effect and the macOS permission surface", () => {
   // The deterministic seam first: a permission denial on macOS names App
   // Management; elsewhere the cause and next step stand alone.
   const denied = new Deno.errors.PermissionDenied(

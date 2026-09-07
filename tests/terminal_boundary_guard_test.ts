@@ -1573,12 +1573,12 @@ const EXACT_OUTLAW_EXCEPTIONS: readonly ExactOutlawException[] = [
       "Desk owns one full-screen clear/home product effect on an admitted TTY.",
   },
   {
-    file: "src/engine/mcp/version_check.ts",
+    file: "src/shared/color_env.ts",
     rule: "constructed-terminal-control",
     authority: "<module>",
     count: 1,
     reason:
-      "Parses raw subprocess version output; it never emits the constructed SGR regex.",
+      "The shared escape-stripping parser; it never emits the constructed CSI regex.",
   },
   {
     file: TERMINAL_AUTHORITY,

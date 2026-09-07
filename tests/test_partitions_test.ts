@@ -558,7 +558,9 @@ Deno.test("a colour-forcing invoking environment cannot break module scheduling"
     await Deno.writeTextFile(
       driver,
       `import { runTestPartitions } from ${
-        JSON.stringify(new URL("../scripts/test_partitions.ts", import.meta.url).href)
+        JSON.stringify(
+          new URL("../scripts/test_partitions.ts", import.meta.url).href,
+        )
       };
       import { testCommandArgs } from ${
         JSON.stringify(new URL("../scripts/run_tests.ts", import.meta.url).href)
@@ -575,7 +577,15 @@ Deno.test("a colour-forcing invoking environment cannot break module scheduling"
     const run = await new Deno.Command(Deno.execPath(), {
       // The driver lives outside the workspace, so the repo import map is
       // named explicitly; cwd is the repo root the config path resolves from.
-      args: ["run", "--quiet", "--allow-all", "--config", "deno.json", driver, root],
+      args: [
+        "run",
+        "--quiet",
+        "--allow-all",
+        "--config",
+        "deno.json",
+        driver,
+        root,
+      ],
       cwd: fromFileUrl(repoRoot),
       env: { FORCE_COLOR: "3", NO_COLOR: "1" },
       stdout: "piped",
