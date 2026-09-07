@@ -1341,6 +1341,15 @@
 [checkpoints.instruction-economy] # always-loaded prose pays rent in every session
 [checkpoints.skills-playbook] # a skill is an executable playbook
 [checkpoints.gotchas-playbook] # failure memory stays symptom → cause → recovery
+# Test assertions are cheap subjects; added lifecycle execution earns a review.
+[checkpoints.test-execution-cost]
+  paths = ["tests/**/*.ts"]
+  exclude_paths = ["tests/fixtures/**"]
+  when = "deno run --quiet --no-prompt --allow-read --allow-env=DISCERN_CHECKPOINT_INPUT --allow-run=git scripts/test_execution_checkpoint.ts"
+  mode = "stop"
+  question = "Does each added expensive fixture construction or engine execution establish a distinct necessary state or exercise a boundary that existing tests do not already cover? Have you reused existing results, pristine fixture copies, or compatible journey steps wherever doing so preserves the required preconditions and isolation?"
+  teach = "Review the selected files using project/map/80-development/test-execution-review.md. Added call sites and expanded repetition are syntax evidence for judgment, not measured runtime. Keep independent states and real transport coverage where they matter. No benchmark or quieter machine is required to answer."
+  reference = "project/map/80-development/test-execution-review.md"
 # The shared reader and per-kind checkpoints use one bounded, read-only matcher. It reads
 # current pages or deleted governing blobs, derives publication and purpose
 # from the canonical manual model, and fires closed on unavailable facts.

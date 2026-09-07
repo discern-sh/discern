@@ -20,6 +20,8 @@ Contributors use the same `discern <verb>` commands as installed projects. In th
 
 ## Leaves
 
+Use [test execution review](test-execution-review.md) when adding expensive fixtures or consolidating integration journeys.
+
 | File                                                         | What's in it                                                                                                                                                                                                        |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [ambient-process-state.md](ambient-process-state.md)         | Where authored code may read env or cwd, why host modules are registered boundaries, how trunk resolution stays singular, and how the Gate prevents new ambient coupling.                                           |

@@ -38,6 +38,7 @@ const MANUAL_PAGE_CHECKPOINT_IDS = [
 ] as const;
 
 const PROJECT_CHECKPOINT_IDS = [
+  "test-execution-cost",
   ...MANUAL_PAGE_CHECKPOINT_IDS,
   MANUAL_FRONT_DOOR_CHECKPOINT_ID,
   "templates-stay-generic",
@@ -235,6 +236,36 @@ Deno.test("discern resolves the complete project boundary checkpoint set", () =>
     "Remove stale material, link the authority, and cut mechanically derivable prose.",
   );
   assertFalse(Object.hasOwn(CONFIG.checkpoints, "map-conventions"));
+});
+
+Deno.test("test execution checkpoint selects authored tests while leaving inert fixtures outside review", () => {
+  const definition = checkpoint("test-execution-cost");
+  assertEquals(definition.mode, "stop");
+  assert(definition.when?.includes("scripts/test_execution_checkpoint.ts"));
+  for (
+    const [path, holds] of [
+      ["tests/fresh_test.ts", true],
+      ["tests/nested/fresh_helper.ts", true],
+      ["tests/fixtures/inert.ts", false],
+      ["src/fresh.ts", false],
+    ] as const
+  ) {
+    assertEquals(
+      evaluateStructuralTrigger(definition, {
+        files: [{
+          path,
+          kind: "added",
+          insertions: 1,
+          deletions: 0,
+          binary: false,
+          generated: false,
+        }],
+        baseFiles: [],
+      }).holds,
+      holds,
+      path,
+    );
+  }
 });
 
 Deno.test("every Git-backed checkpoint matcher exposes only its input environment", () => {
