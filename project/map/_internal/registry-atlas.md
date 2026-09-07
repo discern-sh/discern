@@ -4711,6 +4711,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 `UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
+- `tests/test_elapsed_guard_test.ts` — applies timer-ownership review across authored test duration measurements rather than guarding a closed member set
 - `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
 - `tests/terminal_boundary_guard_test.ts` — applies process, package-import, generic-width, and migration-census rules across the authored terminal-rendering boundary rather than guarding a closed member set

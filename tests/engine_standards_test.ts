@@ -199,6 +199,11 @@ Deno.test("standards: a per-standard timeout bounds the standalone measurement",
       standard.name === "slow"
     );
     assert(measured !== undefined, run.output);
+    assert(
+      typeof measured.duration_s === "number" &&
+        Number.isFinite(measured.duration_s) && measured.duration_s >= 0,
+      "the standard reports an observed producer duration, independently of its configured budget",
+    );
     assertEquals((result.steps ?? [])[0]?.duration_s, measured.duration_s);
   });
 });
