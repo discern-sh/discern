@@ -1,3 +1,4 @@
+import { landingNeedsRecovery } from "../landing_queue/convergence.ts";
 /** Read-only emergency subject and short-lived, exact owner-confirmation challenge. */
 import { type Candidate, CandidateSchema } from "../completion/candidate.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
@@ -131,16 +132,17 @@ export async function planEmergency(
     );
   }
   const records = observedRecords(observation);
-  if (
-    records.some((record) =>
-      record.kind === "landing" &&
-      (record.data.outcome.kind === "planned" ||
-        record.data.outcome.kind === "recovery")
-    )
-  ) {
-    throw new Error(
-      "A recorded landing needs recovery. Recover that transition before requesting a new emergency.",
-    );
+  for (const record of records) {
+    if (
+      record.kind === "landing" && await landingNeedsRecovery(root, record.data)
+    ) {
+      const action = record.data.claim.kind === "exception"
+        ? `discern accept emergency --recover ${record.id}`
+        : "discern accept";
+      throw new Error(
+        `Landing ${record.id} has unfinished settlement or checkout convergence. Run ${action} before preparing a new emergency plan.`,
+      );
+    }
   }
   const contained = await runGit([
     "merge-base",

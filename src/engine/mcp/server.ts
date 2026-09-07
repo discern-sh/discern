@@ -1,3 +1,4 @@
+import { emergencyArguments } from "../emergency/arguments.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import type { EmergencyOptions } from "../emergency/action.ts";
 import {
@@ -1094,33 +1095,13 @@ export const TOOLS: McpTool[] = orderTools([
         : undefined;
     },
     run: (root, args, signal, context) => {
-      if (
-        args.action !== EMERGENCY_ACCEPT_ACTION &&
-        (args.reason !== undefined || args.confirmation !== undefined ||
-          args.recover !== undefined)
-      ) {
-        return Promise.resolve({
-          ok: false,
-          verb: "accept",
-          error: "precondition_failed",
-          message:
-            "Emergency fields require action: emergency. Prepare that explicit plan before requesting approval.",
-        });
-      }
+      const parsed = emergencyArguments(args.action, {
+        ...args,
+        dryRun: args.dry_run === true,
+      });
+      if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       return acceptToolResult(root, {
-        ...(args.action === EMERGENCY_ACCEPT_ACTION
-          ? {
-            emergency: {
-              ...(args.reason === undefined ? {} : { reason: args.reason }),
-              ...(args.confirmation === undefined
-                ? {}
-                : { confirmation: args.confirmation }),
-              ...(args.recover === undefined ? {} : { recover: args.recover }),
-              confirmed: args.confirmed === true,
-              dryRun: args.dry_run === true,
-            },
-          }
-          : {}),
+        ...parsed.value,
         ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,

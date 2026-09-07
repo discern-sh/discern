@@ -6,6 +6,7 @@ import type { FinishResultSurface } from "../gate/finish.ts";
 import { inspectLandingAuthority } from "../worktree/landing_authority.ts";
 import {
   type LandingConverger,
+  landingNeedsRecovery,
   readLandingConvergenceResult,
 } from "./convergence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
@@ -233,11 +234,7 @@ export async function acceptQueueResult(
     for (const recorded of observedRecords(observation)) {
       if (
         recorded.kind !== "landing" ||
-        (recorded.data.outcome.kind === "not-landed") ||
-        (recorded.data.outcome.kind === "landed" &&
-          recorded.data.authority_settlement === "consumed" &&
-          recorded.data.note === "published" &&
-          (await readLandingConvergenceResult(root, recorded.data))?.ok)
+        !await landingNeedsRecovery(root, recorded.data)
       ) continue;
       if (options.dryRun) continue;
       const attempt = observedRecords(observation).find((record) =>

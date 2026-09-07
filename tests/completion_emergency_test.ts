@@ -387,6 +387,16 @@ Deno.test("emergency retains checkout collisions, failed convergence, and unrela
     assertEquals(queue.data.entries[0]?.invalidation, "external-trunk");
     const id = landed.data?.emergency?.landing_id;
     assert(id);
+    const next = await addWorktree(root, "next-repair");
+    await Deno.writeTextFile(`${next}/next-repair`, "another repair\n");
+    await git(next, "add", "next-repair");
+    await git(next, "commit", "-m", "Repair another component");
+    const nextContext = await lifecycleContext(next, ctx.log);
+    const blocked = await emergencyResult(nextContext, {
+      reason: "Restore another component",
+    });
+    assert(!blocked.ok, JSON.stringify(blocked));
+    assertStringIncludes(blocked.message ?? "", `--recover ${id}`);
     const recovered = await emergencyResult(
       await lifecycleContext(root, ctx.log),
       {
@@ -396,6 +406,10 @@ Deno.test("emergency retains checkout collisions, failed convergence, and unrela
       },
     );
     assert(recovered.ok, JSON.stringify(recovered));
+    const available = await emergencyResult(nextContext, {
+      reason: "Restore another component",
+    });
+    assert(available.data?.emergency?.confirmation, JSON.stringify(available));
     assertEquals(
       await gitOut(root, "rev-parse", "main"),
       await gitOut(path, "rev-parse", "HEAD"),

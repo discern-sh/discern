@@ -40,3 +40,15 @@ export async function readLandingConvergenceResult(
     await readEnvironmentArtifact(root, artifact),
   );
 }
+
+/** Every new integration waits until the previous ref transition and required checkout work are settled. */
+export async function landingNeedsRecovery(
+  root: string,
+  landing: CompletionLanding,
+): Promise<boolean> {
+  if (landing.outcome.kind === "not-landed") return false;
+  return landing.outcome.kind !== "landed" ||
+    landing.authority_settlement !== "consumed" ||
+    landing.note !== "published" ||
+    (await readLandingConvergenceResult(root, landing))?.ok !== true;
+}
