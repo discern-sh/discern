@@ -347,11 +347,19 @@ interface DiagnosticFormatMatch {
 interface DiagnosticFormat {
   id: string;
   label: string;
+  report: (output: string) => string | undefined;
   normalize: (
     output: string,
     tool: string,
     reproduceCmd: string,
   ) => DiagnosticFormatMatch | undefined;
+}
+
+/** Return the exact recognized JSON bytes, leaving surrounding producer text intact. */
+function sarifReport(output: string): string | undefined {
+  return extractSarif(output) === undefined
+    ? undefined
+    : output.slice(output.indexOf("{"), output.lastIndexOf("}") + 1);
 }
 
 /** Recognize and normalize SARIF, preserving an empty recognized report. */
@@ -387,14 +395,25 @@ export const DIAGNOSTIC_FORMATS = [
   {
     id: "sarif",
     label: "SARIF",
+    report: sarifReport,
     normalize: normalizeSarif,
   },
   {
     id: "junit-xml",
     label: "JUnit XML",
+    report: extractJunit,
     normalize: normalizeJunit,
   },
 ] as const satisfies readonly DiagnosticFormat[];
+
+/** Diagnostic payloads are data, even when their messages quote metric protocol tokens. */
+export function withoutDiagnosticReports(output: string): string {
+  for (const format of DIAGNOSTIC_FORMATS) {
+    const report = format.report(output);
+    if (report !== undefined) output = output.replace(report, "\n");
+  }
+  return output;
+}
 
 /** Format the supported diagnostic-format labels as an English list. */
 export function diagnosticFormatList(

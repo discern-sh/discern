@@ -97,6 +97,10 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "hot in the recorded failure ranking; sub-second parity checks",
   },
   {
+    file: "tests/standard_metric_test.ts",
+    reason: "sub-second measurement protocol and diagnostic-payload isolation",
+  },
+  {
     file: "tests/test_runner_test.ts",
     reason:
       "recorded runner-command failure; sub-second queue and allocation contracts",

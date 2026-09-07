@@ -31,7 +31,7 @@ The measurement command reports its value on stdout:
 DISCERN_METRIC coverage 91.4
 ```
 
-`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. A failed producer fails its consumers even if it prints a usable marker. A clean exit without the required marker also fails. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
+`metric` overrides the emitted metric name. The marker and name must be whole whitespace-delimited tokens; the last matching marker wins. A finite non-negative decimal is the verdict input. A failed producer fails its consumers even if it prints a usable marker. A clean exit without the required marker also fails. Recognized diagnostic reports carry data: their messages and test names cannot supply metric readings. Emit measurements outside the report. [Diagnostic-format recognition](../../../src/engine/gate/diagnostics.ts) owns this boundary for every supported format. A `per.metric` denominator uses the same last-marker rule. `timeout` sets this measurement's budget. `margin` leaves headroom when pinning.
 
 ## Keep its meaning stable
 

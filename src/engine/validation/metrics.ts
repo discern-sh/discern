@@ -4,6 +4,7 @@ import {
   standardPinEligibility,
 } from "../gate/standard_plan.ts";
 import type { GateStandard } from "../../shared/result_schemas.ts";
+import { withoutDiagnosticReports } from "../gate/diagnostics.ts";
 
 /** Format a normalized value compactly: integers bare, otherwise up to two decimals
  * with trailing zeros trimmed (18.699… → "18.7", 18 → "18"). */
@@ -131,7 +132,7 @@ export type StandardDefinition =
 export function readMetrics(output: string): Record<string, number> {
   const metrics: Record<string, number> = {};
   for (
-    const marker of output.matchAll(
+    const marker of withoutDiagnosticReports(output).matchAll(
       /(?:^|\s)DISCERN_METRIC[ \t]+(\S+)(?:[ \t]+(\S+))?/gu,
     )
   ) {

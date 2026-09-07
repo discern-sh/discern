@@ -5,11 +5,13 @@
  * emits (README, the config reference, the JSON schema, the seed template), so the
  * parser is pinned against the shapes that contract allows — and the ones it must
  * reject — rather than re-deriving them from the implementation. The marker may sit
- * anywhere on a line, the last emission wins, and a value is read only from a
+ * anywhere on a line outside recognized diagnostic reports, the last emission
+ * wins, and a value is read only from a
  * genuine marker token (not a coincidental number elsewhere in the output).
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
+import { DIAGNOSTIC_FORMATS } from "../src/engine/gate/diagnostics.ts";
 import { readMetrics } from "../src/engine/validation/metrics.ts";
 
 const cases: Array<{
@@ -91,3 +93,49 @@ for (const c of cases) {
     assertEquals(readMetrics(c.output)[c.metric], c.want);
   });
 }
+
+const diagnosticReports = {
+  sarif: (message: string): string =>
+    JSON.stringify({
+      version: "2.1.0",
+      runs: [{
+        results: [{ message: { text: `example ${message} (quoted)` } }],
+      }],
+    }),
+  "junit-xml": (message: string): string =>
+    `<testsuites><testsuite name="fixture"><testcase name="scenario ${message} (quoted)">` +
+    `<system-out><![CDATA[example ${message} (quoted)]]></system-out>` +
+    "</testcase></testsuite></testsuites>",
+} satisfies Record<
+  typeof DIAGNOSTIC_FORMATS[number]["id"],
+  (message: string) => string
+>;
+
+for (const format of DIAGNOSTIC_FORMATS) {
+  Deno.test(`readMetrics: ${format.label} payloads cannot supply or corrupt readings`, () => {
+    const report = diagnosticReports[format.id];
+    for (const token of ["91", "40)", "NaN"]) {
+      const payload = report(`DISCERN_METRIC unrelated ${token}`);
+      assertEquals(readMetrics(payload), {});
+      assertEquals(
+        readMetrics(
+          `DISCERN_METRIC unrelated 3\n${payload}\n` +
+            "result: DISCERN_METRIC population 4 (ok)",
+        ),
+        { unrelated: 3, population: 4 },
+      );
+      assertThrows(() =>
+        readMetrics(`${payload}\nDISCERN_METRIC unrelated ${token}oops`)
+      );
+    }
+  });
+}
+
+Deno.test("readMetrics: unrecognized or incomplete reports retain strict marker validation", () => {
+  for (
+    const output of [
+      '<testsuite name="unfinished DISCERN_METRIC missing NaN',
+      JSON.stringify({ message: "example DISCERN_METRIC missing NaN" }),
+    ]
+  ) assertThrows(() => readMetrics(output));
+});
