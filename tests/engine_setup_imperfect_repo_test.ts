@@ -116,7 +116,7 @@ async function unbornRepo(dir: string, branch: string): Promise<void> {
 
 // ── A6: the integration branch is detected and stamped ────────────────────────
 
-Deno.test("begin on a master repo stamps [repository].trunk = master and land works", async () => {
+Deno.test("begin on a master repo stamps [repository].trunk = master", async () => {
   await withTempDir(async (dir) => {
     await repoOnBranch(dir, "master");
     const r = await runAgent(dir, ["setup", "begin", "--confirmed"]);
@@ -124,23 +124,12 @@ Deno.test("begin on a master repo stamps [repository].trunk = master and land wo
 
     // The scaffolded config carries the repo's REAL default branch — without it
     // the gate's behind-main merge check self-skips forever ('main' is missing)
-    // and `setup accept` dead-ends.
+    // and `setup accept` dead-ends. Landing onto the stamped branch, and the
+    // merge check it arms, ride the B47 re-entry journey below: the same
+    // discern-setup branch lands onto the same master, so one proven landing
+    // serves both.
     const toml = await Deno.readTextFile(join(dir, "discern.toml"));
     assertStringIncludes(toml, 'trunk = "master"');
-
-    // Landing works end to end: setup lives on discern-setup, lands onto master.
-    await proveSetupBranchForAcceptance(dir);
-    const land = await runAgent(dir, ["setup", "accept"]);
-    assertEquals(land.code, 0, land.output);
-    assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
-
-    // The merge check is armed against the stamped branch: status reports it as
-    // the integration branch (and it exists locally, so nothing self-skips).
-    const status = decodeStatusData(
-      (await runAgent(dir, ["status", "--json"])).stdout,
-    );
-    assertExists(status.git);
-    assertEquals(status.git.trunk, "master");
   });
 });
 
@@ -1274,7 +1263,7 @@ Deno.test("re-entry (B48): a --reseed scaffold honours an explicit [instructions
   });
 });
 
-Deno.test("re-entry (B47): setup that starts on discern-setup stamps the real integration branch, not init.defaultBranch", async () => {
+Deno.test("re-entry (B47): setup that starts on discern-setup stamps the real integration branch, not init.defaultBranch, and land works", async () => {
   await withTempDir(async (dir) => {
     await repoOnBranch(dir, "master");
     // Simulate a vendored git baking init.defaultBranch=main (Apple's git ships this
@@ -1314,10 +1303,20 @@ Deno.test("re-entry (B47): setup that starts on discern-setup stamps the real in
         `init.defaultBranch; stamped ${conv.mainBranch}`,
     );
 
-    // End to end: landing uses the recovered branch.
+    // End to end: landing uses the recovered branch — setup lives on
+    // discern-setup and lands onto master, the journey the A6 master case
+    // above shares.
     await proveSetupBranchForAcceptance(dir);
     const land = await runAgent(dir, ["setup", "accept"]);
     assertEquals(land.code, 0, land.output);
     assertEquals(await gitOut(dir, "branch", "--show-current"), "master");
+
+    // The merge check is armed against the stamped branch: status reports it as
+    // the integration branch (and it exists locally, so nothing self-skips).
+    const status = decodeStatusData(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    assertExists(status.git);
+    assertEquals(status.git.trunk, "master");
   });
 });
