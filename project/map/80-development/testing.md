@@ -30,6 +30,8 @@ To compare allocations, run the same focused files with explicit `DENO_JOBS` val
 
 Checkpoint gate and acceptance journeys are grouped by declaration, policy, CI, command predicates, evidence and rendering so native file partitions can schedule them independently. Their [gate fixture](../../../tests/engine_checkpoints_gate_fixture.ts) and [acceptance fixture](../../../tests/engine_checkpoints_accept_fixture.ts) share definitions; every case still builds and cleans up its own repository. Keep native test registration in the case files. Splitting files changes scheduling, so report that benefit separately from reductions in executed work.
 
+MCP fixtures distinguish normal EOF from emergency teardown. Normal shutdown waits for active calls, including environment restoration and durable settlement, within the existing call-readiness allowance. The shorter escalation grace belongs to exceptional cleanup. Neither a killed child nor a closed input pipe alone proves that the server has finished returning its environment.
+
 ### The canary job
 
 `[jobs.canary]` in [discern.toml](../../../discern.toml) runs a small, cheap subset of the suite at the check stage. `discern prepare` therefore reports a tripped content or structure guard in seconds, and in `discern done` a red canary ends the concurrent check-and-test group early under `[gate].fail_fast`. Every member also runs in the test stage, so a green gate proves the same thing with or without the canary; the job changes how quickly a failure is heard. The canary imports the full runner's command builder, including explicit shuffle, and forwards caller arguments before its derived file list.
