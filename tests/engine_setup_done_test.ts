@@ -75,29 +75,6 @@ async function assertIncompleteWithoutProof(
   );
 }
 
-Deno.test("setup done runs the gate and records bootstrapped only when green (ADR 0065)", async () => {
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true"); // a passing gate
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(res, "bootstrapped");
-    assertEquals(res.ok, true);
-    assertEquals(res.data.bootstrapped, true);
-    assertEquals(
-      res.data.gate_proven,
-      true,
-      "the gate was the completion proof",
-    );
-    const config = await Deno.readTextFile(join(dir, "discern.toml"));
-    assertStringIncludes(config, "bootstrapped = true");
-    assertStringIncludes(config, 'setup_completion = "proven"');
-  });
-});
-
 Deno.test("setup done refuses denied planned writes before refresh, commit, worktree probe, or Gate", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "touch ../done-gate-ran");
@@ -129,81 +106,6 @@ Deno.test("setup done refuses denied planned writes before refresh, commit, work
     } finally {
       await Deno.chmod(gitDir, originalMode & 0o777);
     }
-  });
-});
-
-Deno.test("successful setup done binds Proof and the worktree probe to the marker-bearing HEAD", async () => {
-  await withTempDir(async (dir) => {
-    const observedHeads = join(
-      dirname(dir),
-      `${crypto.randomUUID()}-setup-heads`,
-    );
-    await readyForDone(
-      dir,
-      `git rev-parse HEAD >> ${JSON.stringify(observedHeads)}`,
-    );
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
-    const authoredHead = await gitOut(dir, "rev-parse", "HEAD");
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const result = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(result, "bootstrapped");
-    const completedHead = await gitOut(dir, "rev-parse", "HEAD");
-
-    assert(
-      completedHead !== authoredHead,
-      "setup done must commit the completion marker before recording Proof",
-    );
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      "bootstrapped = true",
-    );
-    assert(result.data.proof !== undefined);
-    assert(result.data.proof.proof !== undefined);
-    assertEquals(result.data.marker_committed, true);
-    assertEquals(result.data.proof.status, "honored");
-    assertEquals(result.data.proof.head, completedHead);
-    assertEquals(result.data.proof.proof.head, completedHead.slice(0, 12));
-    assertEquals(result.data.proof_line, result.data.proof.proof.line);
-
-    const heads = (await Deno.readTextFile(observedHeads)).trim().split("\n");
-    assert(
-      heads.length >= 2,
-      `the configured Gate must run in the probe and final checkout: ${heads}`,
-    );
-    for (const head of heads) {
-      assertEquals(
-        head,
-        completedHead,
-        "every completion check must read the marker-bearing commit",
-      );
-    }
-    assertEquals(
-      await gitOut(dir, "status", "--porcelain"),
-      "",
-      "successful completion must return a clean final tree",
-    );
-  });
-});
-
-Deno.test("setup done human output relays the same canonical Proof line stored for structured consumers", async () => {
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
-
-    const done = await runAgent(dir, ["setup", "done"]);
-    assertEquals(done.code, 0, done.output);
-    const proof = await inspectGateProof(dir);
-    assertEquals(proof.status, "honored");
-    assert(proof.proof_line !== undefined);
-    assertStringIncludes(done.stdout, proof.proof_line);
-    assert(
-      done.stdout.length <= SETUP_RESULT_MAX_CHARS,
-      `setup done human output exceeded ${SETUP_RESULT_MAX_CHARS} characters`,
-    );
   });
 });
 
@@ -352,43 +254,274 @@ Deno.test("setup done rollback bypasses commit hooks and leaves no transaction h
 // HEAD. The authored setup must therefore be committed before the marker transaction,
 // and the final tree must be fully clean before Proof can be recorded.
 
-Deno.test("setup done refuses while the authored setup is uncommitted, naming what to commit", async () => {
+// `setup done` proves the gate twice — once in the probe worktree, once in the
+// final checkout — so every fact about ONE successful completion rides one
+// run: the structured (--json) completion below, then the human render after
+// it. Each step carries the name of the case it replaced, so a failure still
+// names the behaviour; the refusal on uncommitted authoring runs first, on the
+// same fixture, because its recovery IS the commit the green run needs.
+
+Deno.test("setup done --json: one green completion refuses uncommitted authoring, then records, binds, proves, and commits (ADR 0065, ADR 0090)", async (t) => {
   await withTempDir(async (dir) => {
-    await readyForDone(dir, "true"); // authored — but nothing committed since scaffold
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 1, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(res, "uncommitted");
-    assert(res.message !== undefined);
-    assertEquals(res.ok, false);
-    assertEquals(res.error, "dirty_worktree");
-    const uncommitted: string[] = res.data.uncommitted;
-    assert(
-      uncommitted.some((l) => l.includes("discern.toml")),
-      `the wired config must be listed:\n${done.stdout}`,
+    const observedHeads = join(
+      dirname(dir),
+      `${crypto.randomUUID()}-setup-heads`,
     );
-    assert(
-      uncommitted.some((l) => l.includes("discern/")),
-      `the authored Map/instructions must be listed:\n${done.stdout}`,
-    );
-    assertStringIncludes(res.message, "Commit these as your authoring commits");
-    // Nothing recorded — status keeps reporting setup unfinished.
-    assert(
-      !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
-        "bootstrapped = true",
-      ),
-      "an uncommitted setup must not record completion",
+    // A gate that can only pass when the AUTHORED content traveled into the
+    // probe (before the clean-tree precondition, the probe branched from a HEAD
+    // holding none of it and "proved" a vacuously green gate), and that records
+    // the HEAD each run judged so the probe and the final checkout can be bound
+    // to the marker-bearing commit.
+    await readyForDone(
+      dir,
+      "grep -q Conventions discern/instructions.md && " +
+        `git rev-parse HEAD >> ${JSON.stringify(observedHeads)}`,
     );
 
-    // Commit the authoring work; the same `done` now proceeds to the proof and passes.
+    await t.step(
+      "setup done refuses while the authored setup is uncommitted, naming what to commit",
+      async () => {
+        // authored — but nothing committed since scaffold
+        const done = await runAgent(dir, ["setup", "done", "--json"]);
+        assertEquals(done.code, 1, done.output);
+        const res = decodeCliResult(done.stdout, "setup done");
+        assertResultDataKey(res, "uncommitted");
+        assert(res.message !== undefined);
+        assertEquals(res.ok, false);
+        assertEquals(res.error, "dirty_worktree");
+        const uncommitted: string[] = res.data.uncommitted;
+        assert(
+          uncommitted.some((l) => l.includes("discern.toml")),
+          `the wired config must be listed:\n${done.stdout}`,
+        );
+        assert(
+          uncommitted.some((l) => l.includes("discern/")),
+          `the authored Map/instructions must be listed:\n${done.stdout}`,
+        );
+        assertStringIncludes(
+          res.message,
+          "Commit these as your authoring commits",
+        );
+        // Nothing recorded — status keeps reporting setup unfinished.
+        assert(
+          !(await Deno.readTextFile(join(dir, "discern.toml"))).includes(
+            "bootstrapped = true",
+          ),
+          "an uncommitted setup must not record completion",
+        );
+      },
+    );
+
+    // Commit the authoring work — the atomic-commit discipline the brief asks
+    // of the agent — so the probe worktree (branched from HEAD) sees the wired
+    // config and the completion metadata is all `done` introduces. An ignored
+    // local scratch file (an agent's permission/session file) stays outside
+    // Proof identity and outside the pathspec-limited marker commit.
     await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
-    const again = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(again.code, 0, again.output);
-    const completed = decodeCliResult(again.stdout, "setup done");
-    assertResultDataKey(completed, "bootstrapped");
-    assertEquals(completed.data.bootstrapped, true);
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, ".git", "info", "exclude"),
+      "\n.codex/\n",
+      { append: true },
+    );
+    await Deno.writeTextFile(
+      join(dir, ".codex/session.local.toml"),
+      "permission = 'local'\n",
+    );
+    const authoredHead = await gitOut(dir, "rev-parse", "HEAD");
+
+    // The same `done` now proceeds to the proof and passes.
+    const done = await runAgent(dir, ["setup", "done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const res = decodeCliResult(done.stdout, "setup done");
+    assertResultDataKey(res, "bootstrapped");
+    const completedHead = await gitOut(dir, "rev-parse", "HEAD");
+    const config = await Deno.readTextFile(join(dir, "discern.toml"));
+
+    await t.step(
+      "setup done runs the gate and records bootstrapped only when green (ADR 0065)",
+      () => {
+        assertEquals(res.ok, true);
+        assertEquals(res.data.bootstrapped, true);
+        assertEquals(
+          res.data.gate_proven,
+          true,
+          "the gate was the completion proof",
+        );
+        assertStringIncludes(config, "bootstrapped = true");
+        assertStringIncludes(config, 'setup_completion = "proven"');
+      },
+    );
+
+    await t.step(
+      "successful setup done binds Proof and the worktree probe to the marker-bearing HEAD",
+      async () => {
+        assert(
+          completedHead !== authoredHead,
+          "setup done must commit the completion marker before recording Proof",
+        );
+        assert(res.data.proof !== undefined);
+        assert(res.data.proof.proof !== undefined);
+        assertEquals(res.data.marker_committed, true);
+        assertEquals(res.data.proof.status, "honored");
+        assertEquals(res.data.proof.head, completedHead);
+        assertEquals(res.data.proof.proof.head, completedHead.slice(0, 12));
+        assertEquals(res.data.proof_line, res.data.proof.proof.line);
+
+        const heads = (await Deno.readTextFile(observedHeads)).trim().split(
+          "\n",
+        );
+        assert(
+          heads.length >= 2,
+          `the configured Gate must run in the probe and final checkout: ${heads}`,
+        );
+        for (const head of heads) {
+          assertEquals(
+            head,
+            completedHead,
+            "every completion check must read the marker-bearing commit",
+          );
+        }
+        assertEquals(
+          await gitOut(dir, "status", "--porcelain"),
+          "",
+          "successful completion must return a clean final tree",
+        );
+      },
+    );
+
+    await t.step(
+      "the worktree probe proves the CONFIGURED gate against the authored setup, not an empty tree",
+      () => {
+        assertEquals(res.data.bootstrapped, true);
+        assertEquals(
+          res.data.worktree_proven,
+          true,
+          "the probe must run the configured gate against the authored tree",
+        );
+      },
+    );
+
+    await t.step(
+      "setup done proves the project viable in a worktree and reports it, then tears the probe down (ADR 0090)",
+      async () => {
+        assertEquals(
+          res.data.worktree_proven,
+          true,
+          "the probe proved the gate green in a worktree",
+        );
+        // The throwaway probe left nothing behind — no worktree, no `agent/` branch.
+        const worktrees = await gitOut(dir, "worktree", "list", "--porcelain");
+        assert(
+          !worktrees.includes(".worktrees"),
+          `the probe worktree leaked:\n${worktrees}`,
+        );
+        assertEquals(
+          (await gitOut(dir, "branch", "--list", "agent/*")).trim(),
+          "",
+          "the probe branch leaked",
+        );
+      },
+    );
+
+    await t.step(
+      "setup done commits the completion marker when discern.toml is the only tracked change",
+      async () => {
+        assertEquals(res.data.marker_committed, true);
+        // The marker landed in its own commit; the unrelated local scratch remains.
+        const status = await gitOut(dir, "status", "--porcelain");
+        assertEquals(
+          status.includes("discern.toml"),
+          false,
+          `the marker should be committed independently\n${status}`,
+        );
+        assertStringIncludes(
+          await gitOut(dir, "log", "-1", "--format=%s"),
+          "Complete discern setup",
+        );
+        assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
+        assertStringIncludes(config, "bootstrapped = true");
+        assert(await targetExists(join(dir, ".codex", "session.local.toml")));
+      },
+    );
+  });
+});
+
+Deno.test("setup done (human): one green completion relays Proof and the worktree coverage, ignores a real EXAMPLE mention, and omits attribution under DISCERN_NO_ATTRIBUTION", async (t) => {
+  await withTempDir(async (dir) => {
+    const env = { [DISCERN_NO_ATTRIBUTION]: "1" };
+    await readyForDone(dir, "true", env);
+
+    await t.step(
+      "setup-authored commits omit attribution when DISCERN_NO_ATTRIBUTION is set — the scaffold-wiring commit",
+      async () => {
+        assertEquals(
+          await parsedCommitTrailers(dir),
+          "",
+          "the scaffold-wiring commit should honor the environment opt-out",
+        );
+      },
+    );
+
+    // A genuine doc (no skeleton) that happens to contain the bare word EXAMPLE
+    // and an open paren — the validator must not mistake it for the skeleton's
+    // `_(EXAMPLE — replace during ...)_` placeholder heading.
+    await Deno.writeTextFile(
+      defaultMapPath(dir, "README.md"),
+      "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
+    );
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
+
+    const done = await runAgent(dir, ["setup", "done"], { env });
+    assertEquals(done.code, 0, done.output);
+    const config = await Deno.readTextFile(join(dir, "discern.toml"));
+
+    await t.step(
+      "setup done human output relays the same canonical Proof line stored for structured consumers",
+      async () => {
+        const proof = await inspectGateProof(dir);
+        assertEquals(proof.status, "honored");
+        assert(proof.proof_line !== undefined);
+        assertStringIncludes(done.stdout, proof.proof_line);
+        assert(
+          done.stdout.length <= SETUP_RESULT_MAX_CHARS,
+          `setup done human output exceeded ${SETUP_RESULT_MAX_CHARS} characters`,
+        );
+      },
+    );
+
+    await t.step(
+      "the human render claims the worktree coverage it earned (ADR 0090)",
+      () => {
+        assertTerminalTextIncludes(done.stdout, "runs inside a worktree");
+      },
+    );
+
+    await t.step(
+      "discern setup done ignores a real doc that merely mentions EXAMPLE",
+      () => {
+        assertStringIncludes(config, "bootstrapped = true");
+      },
+    );
+
+    await t.step(
+      "setup-authored commits omit attribution when DISCERN_NO_ATTRIBUTION is set — the completion commit",
+      async () => {
+        // The marker commit landed — the fact the --json journey reads as
+        // `marker_committed` — and carries no trailer.
+        assertStringIncludes(
+          await gitOut(dir, "log", "-1", "--format=%s"),
+          "Complete discern setup",
+        );
+        assertEquals(
+          await parsedCommitTrailers(dir),
+          "",
+          "the setup-completion commit should honor the environment opt-out",
+        );
+      },
+    );
   });
 });
 
@@ -442,70 +575,6 @@ Deno.test("setup done catches an untracked footprint file whose path git quotes 
   });
 });
 
-Deno.test("the worktree probe proves the CONFIGURED gate against the authored setup, not an empty tree", async () => {
-  await withTempDir(async (dir) => {
-    // A gate that can only pass when the AUTHORED content traveled into the probe:
-    // before the clean-tree precondition, the probe branched from a HEAD holding
-    // none of it and "proved" a vacuously green gate.
-    await readyForDone(dir, "grep -q Conventions discern/instructions.md");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(res, "bootstrapped");
-    assertEquals(res.data.bootstrapped, true);
-    assertEquals(
-      res.data.worktree_proven,
-      true,
-      "the probe must run the configured gate against the authored tree",
-    );
-  });
-});
-
-Deno.test("setup done proves the project viable in a worktree and reports it, then tears the probe down (ADR 0090)", async () => {
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true"); // a marker-free project with a passing gate
-    // Commit the setup work so the probe worktree (branched from HEAD) sees the wired
-    // config — the atomic-commit discipline the brief asks of the agent.
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(res, "bootstrapped");
-    assertEquals(res.data.bootstrapped, true);
-    assertEquals(
-      res.data.worktree_proven,
-      true,
-      "the probe proved the gate green in a worktree",
-    );
-    // The throwaway probe left nothing behind — no worktree, no `agent/` branch.
-    const worktrees = await gitOut(dir, "worktree", "list", "--porcelain");
-    assert(
-      !worktrees.includes(".worktrees"),
-      `the probe worktree leaked:\n${worktrees}`,
-    );
-    assertEquals(
-      (await gitOut(dir, "branch", "--list", "agent/*")).trim(),
-      "",
-      "the probe branch leaked",
-    );
-  });
-
-  // The human render claims the coverage it earned.
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true");
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-q", "-m", "setup work", "--no-gpg-sign");
-    const done = await runAgent(dir, ["setup", "done"]);
-    assertEquals(done.code, 0, done.output);
-    assertTerminalTextIncludes(done.stdout, "runs inside a worktree");
-  });
-});
-
 Deno.test("setup done blocks when the gate is green here but red in a worktree — the env-anchored app (ADR 0090)", async () => {
   await withTempDir(async (dir) => {
     await readyForDone(dir, "true");
@@ -555,81 +624,6 @@ Deno.test("setup done blocks when the gate is green here but red in a worktree �
         ".worktrees",
       ),
       "the red probe leaked its worktree",
-    );
-  });
-});
-
-Deno.test("setup done commits the completion marker when discern.toml is the only tracked change", async () => {
-  // The two-field completion marker was written but never committed, so a
-  // diligent atomic-commit setup still ended with a dirty tree. Ignored local
-  // scratch files (for example an agent's permission/session file) do not enter
-  // Proof identity, while the marker commit remains pathspec-limited to discern.toml.
-  await withTempDir(async (dir) => {
-    await readyForDone(dir, "true"); // gitInits + lays a passing, marker-free project
-    // Simulate the agent's atomic commits: wire the harness (MCP etc.) and commit
-    // everything, so the completion metadata is all `done` introduces.
-    await runAgent(dir, ["refresh"]);
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-m", "setup work");
-    await Deno.mkdir(join(dir, ".codex"), { recursive: true });
-    await Deno.writeTextFile(
-      join(dir, ".git", "info", "exclude"),
-      "\n.codex/\n",
-      { append: true },
-    );
-    await Deno.writeTextFile(
-      join(dir, ".codex/session.local.toml"),
-      "permission = 'local'\n",
-    );
-
-    const done = await runAgent(dir, ["setup", "done", "--json"]);
-    assertEquals(done.code, 0, done.output);
-    const res = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(res, "bootstrapped");
-    assertEquals(res.data.bootstrapped, true);
-    assertEquals(res.data.marker_committed, true);
-    // The marker landed in its own commit; the unrelated local scratch remains.
-    const status = await gitOut(dir, "status", "--porcelain");
-    assertEquals(
-      status.includes("discern.toml"),
-      false,
-      `the marker should be committed independently\n${status}`,
-    );
-    assertStringIncludes(
-      await gitOut(dir, "log", "-1", "--format=%s"),
-      "Complete discern setup",
-    );
-    assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      "bootstrapped = true",
-    );
-    assert(await targetExists(join(dir, ".codex", "session.local.toml")));
-  });
-});
-
-Deno.test("setup-authored commits omit attribution when DISCERN_NO_ATTRIBUTION is set", async () => {
-  await withTempDir(async (dir) => {
-    const env = { [DISCERN_NO_ATTRIBUTION]: "1" };
-    await readyForDone(dir, "true", env);
-    assertEquals(
-      await parsedCommitTrailers(dir),
-      "",
-      "the scaffold-wiring commit should honor the environment opt-out",
-    );
-
-    await runAgent(dir, ["refresh"], { env });
-    await git(dir, "add", "-A");
-    await git(dir, "commit", "-m", "setup work");
-    const done = await runAgent(dir, ["setup", "done", "--json"], { env });
-    assertEquals(done.code, 0, done.output);
-    const completed = decodeCliResult(done.stdout, "setup done");
-    assertResultDataKey(completed, "marker_committed");
-    assertEquals(completed.data.marker_committed, true);
-    assertEquals(
-      await parsedCommitTrailers(dir),
-      "",
-      "the setup-completion commit should honor the environment opt-out",
     );
   });
 });
@@ -1679,38 +1673,6 @@ Deno.test("discern setup begin is still callable with --reseed after setup is re
     const forced = await runAgent(dir, ["setup", "begin", "--reseed"]);
     assertEquals(forced.code, 0, forced.output);
     assertStringIncludes(forced.stdout, INSTRUCTIONS_H1);
-  });
-});
-
-Deno.test("discern setup done ignores a real doc that merely mentions EXAMPLE", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir, { bootstrapped: false });
-    // A genuine doc (no skeleton) that happens to contain the bare word EXAMPLE
-    // and an open paren — the validator must not mistake it for the skeleton's
-    // `_(EXAMPLE — replace during ...)_` placeholder heading.
-    await Deno.mkdir(defaultMapPath(dir), { recursive: true });
-    await Deno.writeTextFile(
-      defaultMapPath(dir, "README.md"),
-      "# Docs\n\nSee the sample config (EXAMPLE) in the appendix.\n",
-    );
-    await Deno.mkdir(defaultMapPath(dir, "10-runtime"), { recursive: true });
-    await Deno.writeTextFile(
-      defaultMapPath(dir, "10-runtime", "README.md"),
-      "# Runtime\n\n## Start here\n\nBegin at `main.ts`.\n\n" +
-        "## Boundary\n\nThe runtime owns project execution.\n\n" +
-        "## Non-obvious invariant\n\nPreserve the configured command's exit status.\n",
-    );
-    // ADR 0078: `done` also requires ≥1 wired capability (a derived per-step check).
-    await runAgent(dir, ["config", "set-job", "test", "true"]);
-    await runAgent(dir, ["refresh"]);
-    await gitInit(dir);
-    await git(dir, "checkout", "-q", "-b", SETUP_BRANCH);
-    const done = await runAgent(dir, ["setup", "done"]);
-    assertEquals(done.code, 0, done.output);
-    assertStringIncludes(
-      await Deno.readTextFile(join(dir, "discern.toml")),
-      "bootstrapped = true",
-    );
   });
 });
 
