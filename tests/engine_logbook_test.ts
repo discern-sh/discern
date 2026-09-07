@@ -634,7 +634,14 @@ Deno.test("logbook: unavailable pre-boundary evidence cannot replace the gate's 
   });
 });
 
-Deno.test("logbook: Proof reuse and the one deliberate rerun spelling remain distinct", async () => {
+/**
+ * One proven worktree serves both Proof-shaped logbook contracts: every
+ * registered validation verb records current evidence, and the strict `done`
+ * that follows reuses the Proof that sweep established while the explicit
+ * rerun spelling stays distinct. The registry sweep runs first because its
+ * `done` is the first real gate run; the reuse step reads that same event.
+ */
+Deno.test("logbook: validation evidence, Proof reuse, and the deliberate rerun spelling on one proven worktree", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -646,57 +653,55 @@ Deno.test("logbook: Proof reuse and the one deliberate rerun spelling remain dis
     await Deno.writeTextFile(join(wt, "feature.txt"), "feature\n");
     await git(wt, "add", "feature.txt");
     await git(wt, "commit", "-q", "-m", "add feature", "--no-gpg-sign");
-    const firstRun = await runAgent(wt, ["done", "--json"]);
-    assertEquals(firstRun.code, 0, firstRun.output);
-    // Bare strict done reuses current Proof; the explicit spelling reruns.
-    const reused = await runAgent(wt, ["done", "--json"]);
-    assertEquals(reused.code, 0, reused.output);
-    assertEquals(
-      (await runAgent(wt, ["done", "--rerun", "--json"])).code,
-      0,
+
+    await t.step(
+      "logbook: every registered validation verb records current evidence",
+      async () => {
+        for (const verb of RECORDED_VALIDATION_VERBS) {
+          const result = await runAgent(wt, [verb, "--json"]);
+          assertEquals(result.code, 0, result.output);
+        }
+
+        const events = verbEvents(await readEvents(dir));
+        for (const verb of RECORDED_VALIDATION_VERBS) {
+          const event = events.find((candidate) => candidate.verb === verb);
+          assert(event !== undefined, `${verb} must write a completion event`);
+          assert(
+            event.validation !== undefined,
+            `${verb} must attach validation evidence`,
+          );
+        }
+      },
     );
-    const events = verbEvents(await readEvents(dir));
-    assertEquals(events.length, 3);
-    const [first, reuse, probe] = events;
-    assertEquals(first?.outcome, "ok");
-    assertEquals(first?.flags, undefined);
-    assertEquals(first?.gate_ran, true);
-    assertEquals(reuse?.outcome, "ok");
-    assertEquals(reuse?.gate_ran, false);
-    assertEquals(reuse?.flags, undefined);
-    assertEquals(probe?.outcome, "ok");
-    assertEquals(probe?.gate_ran, true);
-    assertEquals(probe?.flags, ["rerun"]);
-  });
-});
 
-Deno.test("logbook: every registered validation verb records current evidence", async () => {
-  await withTempDir(async (dir) => {
-    await scaffoldEngine(dir);
-    await writeConfig(
-      dir,
-      `[project]\nslug = "logbook-test"\n[jobs]\ntest = "true"\n`,
+    await t.step(
+      "logbook: Proof reuse and the one deliberate rerun spelling remain distinct",
+      async () => {
+        // The sweep above ran the first strict `done` — a real gate run. Bare
+        // strict done now reuses current Proof; the explicit spelling reruns.
+        const reused = await runAgent(wt, ["done", "--json"]);
+        assertEquals(reused.code, 0, reused.output);
+        assertEquals(
+          (await runAgent(wt, ["done", "--rerun", "--json"])).code,
+          0,
+        );
+        const events = verbEvents(await readEvents(dir));
+        // One event per invocation: the registry sweep plus the two dones here.
+        assertEquals(events.length, RECORDED_VALIDATION_VERBS.length + 2);
+        const dones = events.filter((event) => event.verb === "done");
+        assertEquals(dones.length, 3);
+        const [first, reuse, probe] = dones;
+        assertEquals(first?.outcome, "ok");
+        assertEquals(first?.flags, undefined);
+        assertEquals(first?.gate_ran, true);
+        assertEquals(reuse?.outcome, "ok");
+        assertEquals(reuse?.gate_ran, false);
+        assertEquals(reuse?.flags, undefined);
+        assertEquals(probe?.outcome, "ok");
+        assertEquals(probe?.gate_ran, true);
+        assertEquals(probe?.flags, ["rerun"]);
+      },
     );
-    await gitInit(dir);
-    const wt = await addWorktree(dir, "validation-writer-enrollment");
-    await Deno.writeTextFile(join(wt, "feature.txt"), "feature\n");
-    await git(wt, "add", "feature.txt");
-    await git(wt, "commit", "-q", "-m", "add feature", "--no-gpg-sign");
-
-    for (const verb of RECORDED_VALIDATION_VERBS) {
-      const result = await runAgent(wt, [verb, "--json"]);
-      assertEquals(result.code, 0, result.output);
-    }
-
-    const events = verbEvents(await readEvents(dir));
-    for (const verb of RECORDED_VALIDATION_VERBS) {
-      const event = events.find((candidate) => candidate.verb === verb);
-      assert(event !== undefined, `${verb} must write a completion event`);
-      assert(
-        event.validation !== undefined,
-        `${verb} must attach validation evidence`,
-      );
-    }
   });
 });
 
