@@ -303,7 +303,7 @@ async function injectCommittedAcceptanceMarker(
   );
 }
 
-Deno.test("accept lands flagless under a standing grant and records its scopes", async () => {
+Deno.test("accept previews standing authority without landing, then lands flagless under the standing grant and records its scopes", async (t) => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
       dir,
@@ -311,29 +311,58 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
       { "docs/guide.md": "covered\n" },
       "standing",
     );
-    const landed = await runAgent(worktree, ["accept", "--json"]);
-    assertEquals(landed.code, 0, landed.output);
-    const envelope = decodeCliResult(landed.stdout, "accept");
-    assertResultDataKey(envelope, "queue");
-    const prefix = envelope.data.queue?.[0];
-    assert(prefix?.consent !== undefined && prefix.proof_line !== undefined);
-    assertEquals(prefix.scopes_changed, ["map"]);
-    assertEquals(await targetExists(worktree), false);
-    assertEquals(
-      await Deno.readTextFile(join(dir, "docs", "guide.md")),
-      "covered\n",
+
+    await t.step(
+      "accept dry-run reports standing authority without landing",
+      async () => {
+        const preview = await runAgent(worktree, [
+          "accept",
+          "--dry-run",
+          "--json",
+        ]);
+        assertEquals(preview.code, 0, preview.output);
+        const envelope = decodeCliResult(preview.stdout, "accept");
+        assertEquals(envelope.dry_run, true);
+        assertResultDataKey(envelope, "queue");
+        assertEquals(envelope.data.queue?.[0]?.consent, {
+          source: "standing-grant",
+          scopes: ["map"],
+        });
+        assert(await targetExists(worktree));
+        assertEquals(await targetExists(join(dir, "docs", "guide.md")), false);
+      },
     );
 
-    const events = await acceptEvents(dir);
-    const event = events.at(-1);
-    assertSuccessfulLandingEvidence(
-      prefix.consent,
-      prefix.proof_line,
-      event,
-      successfulLandingCase("standing-grant"),
+    await t.step(
+      "accept lands flagless under a standing grant and records its scopes",
+      async () => {
+        const landed = await runAgent(worktree, ["accept", "--json"]);
+        assertEquals(landed.code, 0, landed.output);
+        const envelope = decodeCliResult(landed.stdout, "accept");
+        assertResultDataKey(envelope, "queue");
+        const prefix = envelope.data.queue?.[0];
+        assert(
+          prefix?.consent !== undefined && prefix.proof_line !== undefined,
+        );
+        assertEquals(prefix.scopes_changed, ["map"]);
+        assertEquals(await targetExists(worktree), false);
+        assertEquals(
+          await Deno.readTextFile(join(dir, "docs", "guide.md")),
+          "covered\n",
+        );
+
+        const events = await acceptEvents(dir);
+        const event = events.at(-1);
+        assertSuccessfulLandingEvidence(
+          prefix.consent,
+          prefix.proof_line,
+          event,
+          successfulLandingCase("standing-grant"),
+        );
+        assert(event?.kind === "verb");
+        assertEquals(event.scopes, ["map"]);
+      },
     );
-    assert(event?.kind === "verb");
-    assertEquals(event.scopes, ["map"]);
   });
 });
 
@@ -1723,32 +1752,6 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
       "incomplete",
     );
     assert(await targetExists(worktree));
-  });
-});
-
-Deno.test("accept dry-run reports standing authority without landing", async () => {
-  await withTempDir(async (dir) => {
-    const worktree = await readyWorktree(
-      dir,
-      authorityConfig(["map"]),
-      { "docs/guide.md": "preview\n" },
-      "authority-preview",
-    );
-    const preview = await runAgent(worktree, [
-      "accept",
-      "--dry-run",
-      "--json",
-    ]);
-    assertEquals(preview.code, 0, preview.output);
-    const envelope = decodeCliResult(preview.stdout, "accept");
-    assertEquals(envelope.dry_run, true);
-    assertResultDataKey(envelope, "queue");
-    assertEquals(envelope.data.queue?.[0]?.consent, {
-      source: "standing-grant",
-      scopes: ["map"],
-    });
-    assert(await targetExists(worktree));
-    assertEquals(await targetExists(join(dir, "docs", "guide.md")), false);
   });
 });
 

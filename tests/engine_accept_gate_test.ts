@@ -498,37 +498,6 @@ for (const legacy of [false, true]) {
   });
 }
 
-for (const benign of [true, false]) {
-  Deno.test(`accept: released composition ${benign ? "refreshes and lands" : "fails validation without landing"} after the trunk moves`, async () => {
-    await withTempDir(async (dir) => {
-      await mainWithCheck(dir, true);
-      const wt = await addWorktree(dir, "composed");
-      await commitBranchWork(wt);
-      const done = await runAgent(wt, ["done", "--json"]);
-      assertEquals(done.code, 0, done.output);
-      await advanceMain(dir, benign ? "notes.txt" : "taboo.txt");
-      const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-      assertEquals(accepted.code, benign ? 0 : 1, accepted.output);
-      const result = decodeCliResult(accepted.stdout, "accept");
-      assertResultDataKey(result, "queue");
-      assertEquals(
-        result.data.queue?.at(-1)?.state,
-        benign ? "landed" : "pending",
-      );
-      if (!benign) {
-        assert(
-          result.data.pending?.some((item) =>
-            item.kind === "validation-failed"
-          ),
-          accepted.output,
-        );
-        assertEquals(await targetExists(wt), true);
-      }
-      assertEquals(await targetExists(join(dir, "feature.txt")), benign);
-    });
-  });
-}
-
 Deno.test("accept: stale composition without a declared reusable environment keeps the authored source", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);
@@ -551,23 +520,69 @@ Deno.test("accept: stale composition without a declared reusable environment kee
   });
 });
 
-Deno.test("accept: a new authored commit requires completion and new source authority", async () => {
+Deno.test("accept: a new authored commit requires completion, then released composition refreshes and lands after the trunk moves", async (t) => {
   await withTempDir(async (dir) => {
+    // One completed candidate with a declared reusable environment: a new
+    // authored commit is refused until it is completed, and the completed
+    // source then lands through composition when the trunk moves beneath it.
     await mainWithCheck(dir, true);
-    const wt = await addWorktree(dir, "edited");
+    const wt = await addWorktree(dir, "composed");
     await commitBranchWork(wt);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
-    await Deno.writeTextFile(join(wt, "more.txt"), "more\n");
-    await commitCurrentWorktree(wt);
-    const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(refused.code, 1, refused.output);
-    assertEquals(await targetExists(join(dir, "more.txt")), false);
-    assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
-    const completed = await runAgent(wt, ["done", "--json"]);
-    assertEquals(completed.code, 0, completed.output);
+
+    await t.step(
+      "accept: a new authored commit requires completion and new source authority",
+      async () => {
+        await Deno.writeTextFile(join(wt, "more.txt"), "more\n");
+        await commitCurrentWorktree(wt);
+        const refused = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+        assertEquals(refused.code, 1, refused.output);
+        assertEquals(await targetExists(join(dir, "more.txt")), false);
+        assertEquals(await Deno.readTextFile(join(wt, ".check-count")), "x");
+        const completed = await runAgent(wt, ["done", "--json"]);
+        assertEquals(completed.code, 0, completed.output);
+      },
+    );
+
+    await t.step(
+      "accept: released composition refreshes and lands after the trunk moves",
+      async () => {
+        await advanceMain(dir, "notes.txt");
+        const accepted = await runAgent(wt, [
+          "accept",
+          "--confirmed",
+          "--json",
+        ]);
+        assertEquals(accepted.code, 0, accepted.output);
+        const result = decodeCliResult(accepted.stdout, "accept");
+        assertResultDataKey(result, "queue");
+        assertEquals(result.data.queue?.at(-1)?.state, "landed");
+        assertEquals(await targetExists(join(dir, "feature.txt")), true);
+        assertEquals(await Deno.readTextFile(join(dir, "more.txt")), "more\n");
+      },
+    );
+  });
+});
+
+Deno.test("accept: released composition fails validation without landing after the trunk moves", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir, true);
+    const wt = await addWorktree(dir, "composed");
+    await commitBranchWork(wt);
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    await advanceMain(dir, "taboo.txt");
     const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(accepted.code, 0, accepted.output);
-    assertEquals(await Deno.readTextFile(join(dir, "more.txt")), "more\n");
+    assertEquals(accepted.code, 1, accepted.output);
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assertResultDataKey(result, "queue");
+    assertEquals(result.data.queue?.at(-1)?.state, "pending");
+    assert(
+      result.data.pending?.some((item) => item.kind === "validation-failed"),
+      accepted.output,
+    );
+    assertEquals(await targetExists(wt), true);
+    assertEquals(await targetExists(join(dir, "feature.txt")), false);
   });
 });
 
