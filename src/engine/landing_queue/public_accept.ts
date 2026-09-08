@@ -318,7 +318,7 @@ async function acceptQueueImplementation(
             ) && (await readLandingConvergenceResult(root, landing.data))?.ok
         ) continue;
         const plan = planQueueRetirement(landing, recoveryRecords);
-        // Historical retention is not an effect of this acceptance. Keep a
+        // Retention owned by another effort is not an effect of this acceptance. Keep a
         // requested landing and real recovery visible without relaying every
         // earlier owner's held checkout as part of the current result.
         if (

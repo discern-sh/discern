@@ -1,5 +1,5 @@
 /** A fresh runtime fixes coldness and callback order independently of the suite seed. */
-import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
 import { loadModule } from "../../../src/shared/module_loading.ts";
 import {
   currentOperationLocks,
@@ -24,9 +24,18 @@ Deno.test("cold modules belong to the process and continuations retain their own
     };
     let planned = 0;
     let observed = 0;
+    const delivered: unknown[] = [];
     const ticket = {
-      started: () => Promise.resolve(),
-      settled: () => Promise.resolve(),
+      started: async (pid: number, isolated: boolean) => {
+        assertEquals(caller.getStore(), owner);
+        assertEquals(await planExecutionChild(), undefined);
+        delivered.push(["started", pid, isolated]);
+      },
+      settled: async () => {
+        assertEquals(caller.getStore(), owner);
+        assertEquals(await planExecutionChild(), undefined);
+        delivered.push(["settled"]);
+      },
     };
     await caller.run(
       owner,
@@ -54,7 +63,10 @@ Deno.test("cold modules belong to the process and continuations retain their own
               assertEquals(caller.getStore(), owner);
               assertEquals(planned, 0);
               assertEquals(observed, 0);
-              assertStrictEquals(await planExecutionChild(), ticket);
+              const child = await planExecutionChild();
+              assert(child !== undefined);
+              await child.started(42, true);
+              await child.settled();
               emitCompletionProgress({
                 phase: "pending",
                 state: "caller",
@@ -65,6 +77,7 @@ Deno.test("cold modules belong to the process and continuations retain their own
     );
     assertEquals(planned, 1);
     assertEquals(observed, 1);
+    assertEquals(delivered, [["started", 42, true], ["settled"]]);
   }));
   assertEquals(state.evaluations, 1);
 });

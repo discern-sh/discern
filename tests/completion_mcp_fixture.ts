@@ -2,6 +2,7 @@
 import { z } from "@zod/zod";
 import { engineEnv, engineRunArgs } from "./engine_helpers.ts";
 import { settlePending, waitForPendingCondition } from "./waiting.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 
 const MessageSchema = z.looseObject({
   id: z.union([z.number(), z.string()]).optional(),
@@ -56,7 +57,7 @@ export class CompletionMcpPeer implements AsyncDisposable {
         const line = buffer.slice(0, newline);
         buffer = buffer.slice(newline + 1);
         if (line.trim()) {
-          this.messages.push(MessageSchema.parse(JSON.parse(line)));
+          this.messages.push(decodeWith(MessageSchema, line));
         }
       }
     }

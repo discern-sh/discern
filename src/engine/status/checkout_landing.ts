@@ -10,7 +10,7 @@ export interface CheckoutLandingStatus {
   readonly message: string;
 }
 
-/** Observe one effort without turning historical cleanup into current work. */
+/** Observe only the invoking source's landing and cleanup. */
 export async function checkoutLandingStatus(
   root: string,
   identity: { readonly id: string; readonly branch: string },
