@@ -14,6 +14,7 @@
 
 import { runDeskInteractiveChild } from "../../src/engine/desk/desk.ts";
 import { waitUntil } from "../waiting.ts";
+import { readPidIfReady } from "../process_id.ts";
 
 function signalArg(value: string | undefined): Deno.Signal {
   switch (value) {
@@ -43,8 +44,9 @@ const code = await runDeskInteractiveChild(
 
 // Reaching here at all is the resume half of the contract. The other half:
 // the interrupted child must be gone.
-const childPid = Number((await Deno.readTextFile(pidFile)).trim());
-let childAlive = Number.isFinite(childPid) && childPid > 0;
+const childPid = await readPidIfReady(pidFile);
+if (childPid === undefined) throw new Error("the Desk child did not publish its PID");
+let childAlive = true;
 await waitUntil(() => {
   if (!childAlive) return true;
   try {

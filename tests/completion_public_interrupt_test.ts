@@ -15,6 +15,7 @@ import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { observedRecords } from "../src/engine/landing_queue/repository.ts";
+import { readPidsIfReady } from "./process_id.ts";
 
 const DECLARATION = `
 [gate]
@@ -123,22 +124,23 @@ for (
           try {
             await waitForPendingCondition(
               completion,
-              async () =>
-                scenario === "capacity"
-                  ? text.includes("Tests queued")
-                  : await exists(leader) && await exists(descendant),
+              async () => {
+                if (scenario === "capacity") {
+                  return text.includes("Tests queued");
+                }
+                const ready = await readPidsIfReady([leader, descendant]);
+                if (ready === undefined) {
+                  return false;
+                }
+                pids.push(...ready);
+                return true;
+              },
               "public execution to reach the interruption boundary",
               {
                 settledError: () =>
                   new Error(text),
               },
             );
-            if (scenario !== "capacity") {
-              pids.push(
-                Number(await Deno.readTextFile(leader)),
-                Number(await Deno.readTextFile(descendant)),
-              );
-            }
             engine.kill(signal);
             const [status] = await settlePending(
               completion,

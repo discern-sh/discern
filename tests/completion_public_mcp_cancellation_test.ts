@@ -20,6 +20,7 @@ import {
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { gitOut } from "./engine_helpers.ts";
+import { readPidsIfReady } from "./process_id.ts";
 
 const StatusToolResultSchema = z.object({
   structuredContent: StatusOutputSchema,
@@ -57,7 +58,13 @@ concurrent_test_runs = 1
           await waitForPendingCondition(peer.finished, async () => {
             peer.ensurePending(2);
             if (phase === "producer") {
-              return await pathExists(`${aux}/descendant`);
+              const ready = await readPidsIfReady([
+                `${aux}/leader`,
+                `${aux}/descendant`,
+              ]);
+              if (ready === undefined) return false;
+              pids.push(...ready);
+              return true;
             }
             return peer.messages.some((message) =>
               message.method === "notifications/progress" &&
@@ -65,13 +72,6 @@ concurrent_test_runs = 1
               /capacity|slot|waiting/i.test(JSON.stringify(message))
             );
           }, `MCP completion to reach ${phase}`);
-          if (phase === "producer") {
-            for (const name of ["leader", "descendant"]) {
-              const pid = Number(await Deno.readTextFile(`${aux}/${name}`));
-              assert(Number.isSafeInteger(pid) && pid > 0);
-              pids.push(pid);
-            }
-          }
           await peer.send({
             method: "notifications/cancelled",
             params: {

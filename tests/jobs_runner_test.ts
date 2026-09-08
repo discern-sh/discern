@@ -27,6 +27,7 @@ import {
 } from "./helpers.ts";
 import { lstatIfExists, targetExists } from "../src/shared/fs_presence.ts";
 import { realDelay, waitForPendingCondition, waitUntil } from "./waiting.ts";
+import { readPidIfReady } from "./process_id.ts";
 
 const CWD = Deno.cwd();
 
@@ -650,10 +651,13 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
       signal: external.signal,
       write: () => {},
     });
-    // Give the jobs a moment to start, then cancel from outside.
+    let innerPid: number | undefined;
     await waitForPendingCondition(
       run,
-      async () => await targetExists(join(dir, "inner.pid")),
+      async () => {
+        innerPid = await readPidIfReady(join(dir, "inner.pid"));
+        return innerPid !== undefined;
+      },
       "the timed job's inner process to start",
       { intervalMs: 25 },
     );
@@ -669,9 +673,7 @@ Deno.test("runParallel: an external abort tree-kills every in-flight job promptl
     }
     assert(elapsed < 10_000, `expected interaction abort, took ${elapsed}ms`);
     // The grandchild (the backgrounded inner sh) must be dead too.
-    const innerPid = Number(
-      (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
-    );
+    assert(innerPid !== undefined);
     await waitForExit(innerPid);
   }, { prefix: "discern-job-abort-" });
 });
@@ -755,7 +757,7 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
     });
     await waitForPendingCondition(
       run,
-      async () => await targetExists(join(dir, "current.pid")),
+      async () => await readPidIfReady(join(dir, "current.pid")) !== undefined,
       "the serial job to start",
       { intervalMs: 25 },
     );
@@ -770,8 +772,9 @@ Deno.test("runSerial: an external abort kills the running job and skips the rest
   }, { prefix: "discern-serial-abort-" });
 });
 
-/** Poll until a PID no longer exists (signal 0 probes without sending). */
+/** Poll until the identified process no longer accepts a continue signal. */
 async function waitForExit(pid: number): Promise<void> {
+  assert(Number.isSafeInteger(pid) && pid > 0);
   await waitUntil(
     () => {
       try {
@@ -830,6 +833,7 @@ Deno.test("spawnJob attributes its exact scheduled budget even after scheduler s
       const controller = new AbortController();
       let now = 0;
       let settled = false;
+      let producerPid: number | undefined;
       const budget = { seconds: 1, key: "[jobs.unrelated].timeout" };
       const pending = spawnJob({
         label: "unrelated",
@@ -849,9 +853,10 @@ Deno.test("spawnJob attributes its exact scheduled budget even after scheduler s
       try {
         await waitForPendingCondition(
           pending,
-          async () =>
-            await targetExists(join(dir, "producer.pid")) &&
-            scheduler.pending.size > 0,
+          async () => {
+            producerPid = await readPidIfReady(join(dir, "producer.pid"));
+            return producerPid !== undefined && scheduler.pending.size > 0;
+          },
           "producer readiness and watchdog scheduling",
         );
         assertEquals(
@@ -875,9 +880,8 @@ Deno.test("spawnJob attributes its exact scheduled budget even after scheduler s
           0,
           "settlement cancels escalation and drain timers",
         );
-        await waitForExit(
-          Number(await Deno.readTextFile(join(dir, "producer.pid"))),
-        );
+        assert(producerPid !== undefined);
+        await waitForExit(producerPid);
       } finally {
         if (!settled) {
           controller.abort();

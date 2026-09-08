@@ -2,7 +2,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "@zod/zod";
 import { quoteCommandWord } from "../src/shared/command_evidence.ts";
-import { pathExists, readTextIfExists } from "../src/shared/fs_presence.ts";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import {
   FinishOutputSchema,
   StatusOutputSchema,
@@ -20,6 +20,7 @@ import {
 } from "./completion_mcp_fixture.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { firedHintsFromTexts } from "../src/shared/hints.ts";
+import { readPidsIfReady } from "./process_id.ts";
 
 const StatusResultSchema = z.object({ structuredContent: StatusOutputSchema });
 const FinishResultSchema = z.object({ structuredContent: FinishOutputSchema });
@@ -98,15 +99,16 @@ for (const phase of ["enrollment", "capture", "restore"] as const) {
               peer.finished,
               async () => {
                 peer.ensurePending(2);
-                return await pathExists(aux + "/descendant");
+                const ready = await readPidsIfReady([
+                  aux + "/leader",
+                  aux + "/descendant",
+                ]);
+                if (ready === undefined) return false;
+                pids.push(...ready);
+                return true;
               },
               "the owned " + phase + " child to establish readiness",
             );
-            for (const name of ["leader", "descendant"]) {
-              const pid = Number(await Deno.readTextFile(aux + "/" + name));
-              assert(Number.isSafeInteger(pid) && pid > 0);
-              pids.push(pid);
-            }
             if (phase !== "enrollment") {
               await peer.call(10, "discern_status", { path });
               const active =

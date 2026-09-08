@@ -17,6 +17,7 @@ import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
 import { waitForPendingCondition } from "./waiting.ts";
+import { readPidsIfReady } from "./process_id.ts";
 
 /** Seed native file discovery with an optional practical failing case. */
 async function seedNativeTests(
@@ -154,20 +155,25 @@ Deno.test("queued partition cancellation reaps active children without starting 
       4,
       { cwd: dir, signal: controller.signal, concurrency: 2 },
     );
+    let pids: number[] | undefined;
     try {
       await waitForPendingCondition(
         pending,
-        async () =>
-          await lstatIfExists(join(dir, "0.ready")) !== undefined &&
-          await lstatIfExists(join(dir, "2.ready")) !== undefined,
+        async () => {
+          pids = await readPidsIfReady([
+            join(dir, "0.ready"),
+            join(dir, "2.ready"),
+          ]);
+          return pids !== undefined;
+        },
         "both native test partitions to start",
       );
     } finally {
       controller.abort();
       assertEquals((await pending).code, 1);
     }
-    for (const index of [0, 2]) {
-      const pid = Number(await Deno.readTextFile(join(dir, `${index}.ready`)));
+    assert(pids !== undefined);
+    for (const pid of pids) {
       assertThrows(() => Deno.kill(pid, "SIGTERM"), Deno.errors.NotFound);
     }
     for (const index of [1, 3]) {
