@@ -1,3 +1,5 @@
+import { readEmergencyPreparation } from "./review.ts";
+import type { EnvironmentArtifact } from "../execution/types.ts";
 import { landingNeedsRecovery } from "../landing_queue/convergence.ts";
 /** Read-only emergency subject and short-lived, exact owner-confirmation challenge. */
 import { type Candidate, CandidateSchema } from "../completion/candidate.ts";
@@ -45,6 +47,7 @@ export interface EmergencyPlan {
   readonly reason: string;
   readonly exceptions: EmergencyExceptions;
   readonly observation: CompletionObservation;
+  readonly review?: EnvironmentArtifact;
 }
 
 /** Stable UUID-shaped coordinates are derived from the approved immutable subject, never a branch selector. */
@@ -55,7 +58,7 @@ export function emergencyId(digest: string): string {
 }
 
 /** Emergency integration accepts one source containing actual trunk; update resolves a differing base before review. */
-export async function planEmergency(
+export async function observeEmergencySubject(
   ctx: LifecycleContext,
   reason: string,
 ): Promise<EmergencyPlan> {
@@ -237,22 +240,6 @@ export async function planEmergency(
       "The repair changes protected policy or standard limits without valid approval. Emergency integration cannot weaken ordinary policy; resolve those changes before preparing its plan.",
     );
   }
-  const checkpoints = await inspectCheckpointObligations(
-    ctx.cwd,
-    validation.config,
-    { predecessor: observation.trunk, currentCommit: source.head },
-  );
-  if (
-    checkpoints.drops.length ||
-    checkpoints.entries.some((entry) =>
-      entry.definition.mode === "stop" && entry.obligation.state !== "none" &&
-      entry.obligation.state !== "declared_met"
-    )
-  ) {
-    throw new Error(
-      "Checkpoint judgment or its evidence is outstanding. Resolve the served checkpoint questions before requesting an emergency; this action cannot supply a judgment or variance.",
-    );
-  }
   const exceptions = await emergencyExceptions(
     root,
     validation.snapshot,
@@ -274,6 +261,47 @@ export async function planEmergency(
   };
 }
 
+/** A read-only integration plan requires current checkpoint evidence before exposing confirmation. */
+export async function planEmergency(
+  ctx: LifecycleContext,
+  reason: string,
+  preparation?: string,
+): Promise<EmergencyPlan> {
+  const plan = await observeEmergencySubject(ctx, reason);
+  if (preparation !== undefined) {
+    return {
+      ...plan,
+      review: await readEmergencyPreparation(
+        ctx.cwd,
+        ctx.config,
+        plan.candidate_id,
+        plan.candidate,
+        preparation,
+      ),
+    };
+  }
+  const checkpoints = await inspectCheckpointObligations(
+    ctx.cwd,
+    ctx.config,
+    {
+      predecessor: plan.candidate.expected_predecessor.head,
+      currentCommit: plan.candidate.head,
+    },
+  );
+  if (
+    checkpoints.drops.length ||
+    checkpoints.entries.some((entry) =>
+      entry.definition.mode === "stop" && entry.obligation.state !== "none" &&
+      entry.obligation.state !== "declared_met"
+    )
+  ) {
+    throw new Error(
+      "Checkpoint judgment or its evidence is outstanding. Run accept emergency --prepare --reason <text> to settle checkpoint triggers and answer the served questions. Emergency integration cannot supply a judgment or variance.",
+    );
+  }
+  return plan;
+}
+
 /** Hash every owner-relevant fact; observation counters and unrelated queue entries grant nothing. */
 export async function emergencyToken(
   plan: EmergencyPlan,
@@ -290,6 +318,7 @@ export async function emergencyToken(
     },
     reason: plan.reason,
     exceptions: plan.exceptions,
+    review: plan.review,
   }));
   return `${expires}.${digest}`;
 }

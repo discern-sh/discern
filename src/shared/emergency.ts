@@ -20,8 +20,10 @@ export const EmergencyDataSchema = z.strictObject({
   reason: z.string().optional(),
   exceptions: ExceptionClaimSchema.shape.exceptions.optional(),
   confirmation: z.string().optional(),
+  preparation: z.string().optional(),
   expires_at: z.number().optional(),
   landing_id: z.string().optional(),
-  outcome: z.enum(["preview", "landed", "not-landed", "recovery"]).optional(),
+  outcome: z.enum(["preview", "prepared", "landed", "not-landed", "recovery"])
+    .optional(),
   retirement: z.string().optional(),
 });

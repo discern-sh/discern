@@ -21,7 +21,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { project } from "./completion_public_fixture.ts";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
 import { emergencyResult } from "../src/engine/emergency/action.ts";
 import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
@@ -560,6 +560,204 @@ mode = 'stop'
     assertEquals(
       (await emergencyResult(ctx, { reason: "" })).error,
       "precondition_failed",
+    );
+  });
+});
+
+Deno.test("emergency preparation settles runtime checkpoints without validation and rejects stale review receipts", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      `
+[checkpoints.review]
+paths = ['source']
+question = 'Does this repair preserve the contract?'
+when = 'case "$(cat source)" in invalid) exit 7;; mutate) printf dirty > unexpected;; esac; printf c >> executions'
+mode = 'stop'
+`,
+    );
+    const ctx = await lifecycleContext(
+      path,
+      new Logger({ json: true, noColor: true }),
+    );
+    const before = await gitOut(root, "rev-parse", "main");
+    const options = { reason: "Restore service" };
+    const dry = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--prepare",
+      "--dry-run",
+      "--reason",
+      options.reason,
+      "--json",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    const { targetExists } = await import("../src/shared/fs_presence.ts");
+    assertEquals(await targetExists(`${path}/executions`), false);
+    for (
+      const forbidden of [
+        { prepare: true, confirmed: true },
+        { prepare: true, confirmation: "old" },
+        { prepare: true, preparation: "old" },
+        { prepare: true, recover: "old" },
+        { met: ["review"] },
+      ]
+    ) {
+      assertEquals(
+        (await emergencyResult(ctx, { ...options, ...forbidden })).error,
+        "invalid_arguments",
+      );
+    }
+    const served = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--prepare",
+      "--reason",
+      options.reason,
+      "--json",
+    ]);
+    assertEquals(served.code, 1, served.output);
+    assertStringIncludes(served.output, "awaiting_declaration");
+    assertTerminalTextIncludes(
+      served.output,
+      "Does this repair preserve the contract?",
+    );
+    const prepared = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--prepare",
+      "--reason",
+      options.reason,
+      "--met",
+      "review",
+      "--json",
+    ]);
+    assertEquals(prepared.code, 0, prepared.output);
+    const result = decodeCliResult(prepared.stdout, "accept");
+    assert(result.data !== undefined && "emergency" in result.data);
+    const preparation = result.data.emergency?.preparation;
+    assert(preparation);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "cc");
+    assertEquals(observedRecords(await observeQueue(root, "main")).length, 0);
+    const preview = await emergencyResult(ctx, { ...options, preparation });
+    assertEquals(preview.error, "awaiting_consent", JSON.stringify(preview));
+    const oldToken = preview.data?.emergency?.confirmation;
+    assert(oldToken);
+    assertEquals(
+      await Deno.readTextFile(`${path}/executions`),
+      "cc",
+      "read-only preview must not rerun the trigger",
+    );
+    const { readEmergencyPreparation, emergencyPreparationHandle } =
+      await import("../src/engine/emergency/review.ts");
+    const { planEmergency } = await import("../src/engine/emergency/plan.ts");
+    const plan = await planEmergency(ctx, options.reason, preparation);
+    const artifact = await readEmergencyPreparation(
+      path,
+      ctx.config,
+      plan.candidate_id,
+      plan.candidate,
+      preparation,
+    );
+    const corrupted = emergencyPreparationHandle({
+      ...artifact,
+      digest: "0".repeat(64),
+    });
+    assertEquals(
+      (await emergencyResult(ctx, { ...options, preparation: corrupted }))
+        .error,
+      "precondition_failed",
+    );
+    const { runCheckpointPreflight } = await import(
+      "../src/engine/checkpoints/preflight.ts"
+    );
+    await runCheckpointPreflight(path, ctx.config, {
+      met: [],
+      unmet: { id: "review", why: "Contract review remains incomplete." },
+    });
+    assertEquals(
+      (await emergencyResult(ctx, { ...options, preparation })).error,
+      "precondition_failed",
+    );
+    const unmet = await emergencyResult(ctx, { ...options, prepare: true });
+    assertEquals(unmet.error, "precondition_failed");
+    assertEquals(unmet.data?.emergency?.preparation, undefined);
+    for (const source of ["invalid", "mutate"]) {
+      await Deno.writeTextFile(`${path}/source`, source);
+      await git(path, "add", "source");
+      await git(path, "commit", "-m", `Exercise ${source} checkpoint`);
+      const refusal = await emergencyResult(ctx, { ...options, prepare: true });
+      assert(!refusal.ok, JSON.stringify(refusal));
+      assertEquals(refusal.data?.emergency?.preparation, undefined);
+      assertEquals(await gitOut(root, "rev-parse", "main"), before);
+      if (source === "invalid") {
+        assert((refusal.data?.checkpoint_preparation?.drops?.length ?? 0) > 0);
+      } else {
+        assertEquals(await Deno.readTextFile(`${path}/unexpected`), "dirty");
+        await Deno.remove(`${path}/unexpected`);
+      }
+    }
+    await Deno.writeTextFile(`${path}/source`, "repaired");
+    await git(path, "add", "source");
+    await git(path, "commit", "-m", "Complete repair");
+    assertEquals(
+      (await emergencyResult(ctx, { ...options, preparation })).error,
+      "precondition_failed",
+    );
+    await emergencyResult(ctx, { ...options, prepare: true });
+    const current = await emergencyResult(ctx, {
+      ...options,
+      prepare: true,
+      met: ["review"],
+    });
+    assert(current.ok, JSON.stringify(current));
+    const currentPreparation = current.data?.emergency?.preparation;
+    assert(currentPreparation);
+    const fresh = await emergencyResult(ctx, {
+      ...options,
+      preparation: currentPreparation,
+      confirmed: true,
+      confirmation: oldToken,
+    });
+    assertEquals(fresh.error, "awaiting_consent");
+    assertEquals(await gitOut(root, "rev-parse", "main"), before);
+    const confirmation = fresh.data?.emergency?.confirmation;
+    assert(confirmation);
+    const landed = await emergencyResult(ctx, {
+      ...options,
+      preparation: currentPreparation,
+      confirmed: true,
+      confirmation,
+    });
+    assert(landed.ok, JSON.stringify(landed));
+    const records = observedRecords(await observeQueue(root, "main"));
+    const landing = records.find((record) => record.kind === "landing");
+    assert(
+      landing?.kind === "landing" && landing.data.claim.kind === "exception",
+    );
+    assertEquals(
+      landing.data.claim.review?.path,
+      "environment/emergency-review.json",
+    );
+    const { ExceptionClaimSchema } = await import(
+      "../src/engine/completion/exception_claim.ts"
+    );
+    assert(landing.data.claim.review);
+    assertEquals(
+      ExceptionClaimSchema.safeParse({
+        ...landing.data.claim,
+        review: {
+          ...landing.data.claim.review,
+          candidate_id: "00000000-0000-4000-a000-000000000000",
+        },
+      }).success,
+      false,
+    );
+    assertEquals(records.filter((record) => record.kind === "proof").length, 0);
+    assertEquals(
+      records.filter((record) => record.kind === "evidence").length,
+      0,
     );
   });
 });

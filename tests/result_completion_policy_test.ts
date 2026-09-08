@@ -414,3 +414,29 @@ Deno.test("an advisory cannot waive completion without evidence and recovery", (
     "needs non-blank evidence and next_action",
   );
 });
+
+Deno.test("emergency preparation success requires its receipt and excludes landing claims", () => {
+  const prepared: DiscernResult = {
+    ok: true,
+    verb: "accept",
+    data: { emergency: { outcome: "prepared", preparation: "receipt" } },
+  };
+  assertEquals(evaluateResultCompletion(prepared).ok, true);
+  for (
+    const data of [
+      { emergency: { outcome: "prepared" } },
+      {
+        emergency: {
+          outcome: "prepared",
+          preparation: "receipt",
+          confirmation: "approval",
+        },
+      },
+      { emergency: { outcome: "prepared", preparation: "receipt" }, proof: {} },
+      {
+        emergency: { outcome: "prepared", preparation: "receipt" },
+        landing: {},
+      },
+    ]
+  ) assertEquals(evaluateResultCompletion({ ...prepared, data }).ok, false);
+});

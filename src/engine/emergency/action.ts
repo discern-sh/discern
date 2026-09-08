@@ -1,3 +1,5 @@
+import { emergencyOptionError } from "./arguments.ts";
+import { prepareEmergency } from "./prepare.ts";
 import { acceptancePending } from "../landing_queue/public_result.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
 import { readLandingConvergenceResult } from "../landing_queue/convergence.ts";
@@ -42,6 +44,9 @@ import {
 import { emergencyValidationStatus } from "./obligations.ts";
 
 export interface EmergencyOptions {
+  readonly prepare?: boolean;
+  readonly preparation?: string;
+  readonly met?: readonly string[];
   readonly reason?: string;
   readonly confirmation?: string;
   readonly confirmed?: boolean;
@@ -61,11 +66,21 @@ export async function emergencyResult(
   ctx: LifecycleContext,
   options: EmergencyOptions,
 ): Promise<DiscernResult<AcceptData>> {
-  const result = await runEmergencyResult(ctx, options);
+  const invalid = emergencyOptionError(options);
+  const result: DiscernResult<AcceptData> = invalid === undefined
+    ? await runEmergencyResult(ctx, options)
+    : {
+      ok: false,
+      verb: "accept",
+      error: "invalid_arguments",
+      message: invalid,
+    };
   if (!result.ok) {
     result.hints = hintTexts([
       fire(HINTS["completion-pending"], {
-        action: result.error === AWAITING_CONSENT_SLUG
+        action: options.prepare
+          ? "Follow the preparation result. Repeat accept emergency --prepare with --met only for satisfied served questions; then request the owner-review plan with its preparation receipt."
+          : result.error === AWAITING_CONSENT_SLUG
           ? "Review the displayed emergency plan with the owner. After their fresh explicit approval, repeat accept emergency with the displayed confirmation token and --confirmed."
           : result.data?.emergency?.outcome === "not-landed"
           ? "No integration occurred. Return to the repair worktree and prepare a new emergency plan for fresh owner review."
@@ -84,6 +99,14 @@ async function runEmergencyResult(
   options: EmergencyOptions,
 ): Promise<DiscernResult<AcceptData>> {
   try {
+    if (options.prepare) {
+      return await prepareEmergency(ctx, {
+        reason: options.reason ?? "",
+        met: options.met ?? [],
+        dryRun: options.dryRun ?? false,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+    }
     if (options.recover !== undefined) {
       return await recoverEmergency(ctx, options);
     }
@@ -103,7 +126,11 @@ async function prepareAndIntegrate(
   ctx: LifecycleContext,
   options: EmergencyOptions,
 ): Promise<DiscernResult<AcceptData>> {
-  const plan = await planEmergency(ctx, options.reason ?? "");
+  const plan = await planEmergency(
+    ctx,
+    options.reason ?? "",
+    options.preparation,
+  );
   const now = SYSTEM_CLOCK.wallNow();
   const expires = now + EMERGENCY_CONFIRMATION_MS;
   const confirmation = await emergencyToken(plan, expires);
@@ -135,7 +162,11 @@ async function prepareAndIntegrate(
           plan.exceptions.map((entry) =>
             `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id} (${entry.requirement.context})`
           ).join("\n")
-        }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, --confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
+        }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
+          options.preparation === undefined
+            ? ""
+            : `--preparation ${options.preparation}, `
+        }--confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
     };
   }
   const approvedToken = options.confirmation;
@@ -252,6 +283,7 @@ async function prepareAndIntegrate(
         policy: plan.candidate.policy,
         reason: plan.reason,
         exceptions: plan.exceptions,
+        ...(plan.review === undefined ? {} : { review: plan.review }),
       },
       outcome: { kind: "planned" },
       authority_settlement: "pending",
@@ -271,7 +303,11 @@ async function prepareAndIntegrate(
       ? {}
       : { afterBoundary: options.afterBoundary }),
     audit: async () => {
-      const current = await planEmergency(ctx, plan.reason);
+      const current = await planEmergency(
+        ctx,
+        plan.reason,
+        options.preparation,
+      );
       if (!await emergencyConfirmationCurrent(current, approvedToken)) {
         return { kind: "missing-authority", sources: [plan.candidate.source] };
       }

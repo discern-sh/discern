@@ -1592,6 +1592,7 @@ export const AcceptancePrefixSchema = z.strictObject({
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   emergency: EmergencyDataSchema.optional(),
   queue: z.array(AcceptancePrefixSchema).optional(),

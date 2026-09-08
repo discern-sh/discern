@@ -946,6 +946,19 @@ export function attachEngineCommands(
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
+      "--prepare",
+      "Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.",
+    )
+    .option(
+      "--preparation <receipt:string>",
+      "Emergency only: the checkpoint-preparation receipt for this exact repair and trunk.",
+    )
+    .option(
+      "--met <id:string>",
+      "Emergency preparation only: record a satisfied served checkpoint question (repeatable).",
+      { collect: true },
+    )
+    .option(
       "--reason <text:string>",
       "Emergency only: explain why integration must precede validation.",
     )

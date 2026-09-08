@@ -1065,6 +1065,7 @@ export const TOOLS: McpTool[] = orderTools([
       "words, then end with data.proof_line verbatim; the full review page remains " +
       "available through `discern status --verbose`. " +
       "Use action: emergency with a reason for an explicit exception against actual trunk. " +
+      "For checkpoints, use prepare: true and met for satisfied served questions; pass the returned preparation receipt to the read-only plan. " +
       "Emergency preview lists failed, unrun, and stale obligations; fresh owner approval must name " +
       "its current confirmation token and set confirmed. No ordinary grant authorizes emergency integration. " +
       "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
@@ -1075,6 +1076,15 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       reason: z.string().optional().describe(
         "Emergency reason presented in the exact owner review.",
+      ),
+      prepare: z.boolean().optional().describe(
+        "Emergency only: run checkpoint triggers, serve or record agent judgments, and retain exact review evidence. Runs no validation jobs or integration.",
+      ),
+      preparation: z.string().optional().describe(
+        "Emergency preparation receipt for this exact repair and trunk; it conveys no owner approval.",
+      ),
+      met: z.array(z.string()).optional().describe(
+        "Emergency preparation only: satisfied checkpoint questions already served to the agent.",
       ),
       confirmation: z.string().optional().describe(
         "The owner's currently approved emergency preview token. Requires confirmed; changed subjects need a new review.",

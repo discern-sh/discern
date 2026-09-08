@@ -74,26 +74,40 @@ export async function captureCandidateReview(
   checkpoints: ProofCheckpointsData | undefined,
   proposals: CandidateDecisions["proposals"],
 ): Promise<EnvironmentArtifact> {
-  const candidate = session.execution.candidate;
-  const review = CandidateReviewSchema.parse({
-    version: 1,
-    head: candidate.head,
-    predecessor: candidate.expected_predecessor.head,
-    mode: session.mode,
-    stored: await readOpenQuestions(root),
-    checkpoints: checkpoints ?? null,
-    proposals,
-  });
-  return await saveEnvironmentArtifact(
+  return await recordCandidateReview(
     root,
+    session.execution.candidate,
     {
       attempt_id: session.execution.fence.attempt_id,
       candidate_id: session.execution.candidate_id,
       context: session.context,
     },
-    "candidate-review",
-    review,
+    session.mode,
+    checkpoints,
+    proposals,
   );
+}
+
+/** Retain settled checkpoint evidence independently of machine validation or landing authority. */
+export async function recordCandidateReview(
+  root: string,
+  candidate: Candidate,
+  subject: Pick<EnvironmentArtifact, "attempt_id" | "candidate_id" | "context">,
+  mode: "strict" | "report",
+  checkpoints: ProofCheckpointsData | undefined,
+  proposals: CandidateDecisions["proposals"] = [],
+  name: "candidate-review" | "emergency-review" = "candidate-review",
+): Promise<EnvironmentArtifact> {
+  const review = CandidateReviewSchema.parse({
+    version: 1,
+    head: candidate.head,
+    predecessor: candidate.expected_predecessor.head,
+    mode,
+    stored: await readOpenQuestions(root),
+    checkpoints: checkpoints ?? null,
+    proposals,
+  });
+  return await saveEnvironmentArtifact(root, subject, name, review);
 }
 
 /** A Proof cannot borrow another candidate's review or silently infer missing old evidence. */
@@ -111,13 +125,32 @@ export async function readCandidateReview(
       "Complete candidate review is missing; run done in an eligible environment.",
     );
   }
+  return await readCandidateReviewArtifact(
+    root,
+    candidate,
+    proof.review,
+    proof.mode,
+  );
+}
+
+/** The artifact receipt authenticates bytes; its review must still name the exact change and mode. */
+export async function readCandidateReviewArtifact(
+  root: string,
+  candidate: Candidate,
+  artifact: EnvironmentArtifact,
+  mode: "strict" | "report",
+  name: "candidate-review" | "emergency-review" = "candidate-review",
+): Promise<CandidateReview> {
+  if (artifact.path !== `environment/${name}.json`) {
+    throw new Error("The receipt does not name a candidate review.");
+  }
   const review = CandidateReviewSchema.parse(
-    await readEnvironmentArtifact(root, proof.review),
+    await readEnvironmentArtifact(root, artifact),
   );
   if (
     review.head !== candidate.head ||
     review.predecessor !== candidate.expected_predecessor.head ||
-    review.mode !== proof.mode
+    review.mode !== mode
   ) {
     throw new Error(
       "Candidate review belongs to another subject or enforcement mode.",

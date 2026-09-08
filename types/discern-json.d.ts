@@ -8170,6 +8170,132 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    checkpoint_preparation?: {
+      policy?: string;
+      outstanding?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        question: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
+      }>;
+      declared_met?: Array<{
+        id: string;
+        question?: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
+        declared_at: string;
+        matched?: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
+      }>;
+      declared_unmet?: Array<{
+        id: string;
+        question?: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
+        why: string;
+        declared_at: string;
+        matched?: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
+      }>;
+      advise?: Array<{
+        id: string;
+        mode: "stop" | "advise";
+        question: string;
+        question_file?: string;
+        teach?: string;
+        reference?: string;
+        matched: Array<string>;
+        related?: Array<{
+          kind: "similar_existing";
+          for_path: string;
+          path: string;
+        }>;
+      }>;
+      review?: {
+        enforcement: "reported";
+        status: "not_needed" | "unreviewed";
+        unreviewed?: Array<{
+          id: string;
+          mode: "stop" | "advise";
+          question: string;
+          question_file?: string;
+          teach?: string;
+          reference?: string;
+          matched: Array<string>;
+          related?: Array<{
+            kind: "similar_existing";
+            for_path: string;
+            path: string;
+          }>;
+        }>;
+      };
+      drops?: Array<
+        {
+          scope: "policy";
+          checkpoint: null;
+          mode: null;
+          policy_commit?: string;
+          reason:
+            | "merge_base_unresolved"
+            | "governing_config_unreadable"
+            | "governing_config_invalid"
+            | "open_question_store_unreadable"
+            | "open_question_store_corrupt"
+            | "declaration_evidence_unavailable"
+            | "strand_check_unavailable";
+          account: string;
+        } | {
+          scope: "checkpoint";
+          checkpoint: string;
+          mode: "stop" | "advise";
+          policy_commit: string;
+          reason:
+            | "checkpoint_missing_question"
+            | "checkpoint_question_file_missing"
+            | "checkpoint_question_file_invalid_path"
+            | "checkpoint_question_file_not_regular"
+            | "checkpoint_question_file_oversized"
+            | "checkpoint_question_file_invalid_utf8"
+            | "checkpoint_question_file_unreadable"
+            | "checkpoint_question_source_conflict"
+            | "checkpoint_selector_conflict"
+            | "checkpoint_unknown_scope"
+            | "effort_diff_unreadable"
+            | "trigger_content_unavailable"
+            | "trigger_history_unavailable"
+            | "when_spawn_failed"
+            | "when_timeout"
+            | "when_invalid_exit"
+            | "when_cancelled"
+            | "when_input_failed"
+            | "when_input_cleanup_failed"
+            | "when_output_limit"
+            | "open_question_store_rebuilt"
+            | "subject_unavailable"
+            | "open_question_store_write_failed";
+          account: string;
+        }
+      >;
+      advisories?: Array<string>;
+    };
     emergency_validation?: Array<{
       landing_id: string;
       head: string;
@@ -8235,9 +8361,10 @@ export type DiscernAcceptResult = DiscernResultState & {
         evidence_id: string | null;
       }>;
       confirmation?: string;
+      preparation?: string;
       expires_at?: number;
       landing_id?: string;
-      outcome?: "preview" | "landed" | "not-landed" | "recovery";
+      outcome?: "preview" | "prepared" | "landed" | "not-landed" | "recovery";
       retirement?: string;
     };
     queue?: Array<{

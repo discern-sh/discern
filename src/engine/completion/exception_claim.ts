@@ -7,7 +7,7 @@ import {
   RecordIdSchema,
   SourceRevisionSchema,
 } from "./identity.ts";
-import { RequirementSchema } from "./evidence.ts";
+import { ArtifactSchema, RequirementSchema } from "./evidence.ts";
 /** Fresh exact emergency authority is permanently distinct from passing Proof. */
 export const ExceptionClaimSchema = z.strictObject({
   kind: z.literal("exception"),
@@ -18,10 +18,18 @@ export const ExceptionClaimSchema = z.strictObject({
   candidate_id: RecordIdSchema,
   candidate_head: ObjectIdSchema,
   policy: DigestSchema,
+  review: ArtifactSchema.optional(),
   reason: z.string().min(1),
   exceptions: z.array(z.strictObject({
     requirement: RequirementSchema,
     state: z.enum(["failed", "unrun", "stale"]),
     evidence_id: RecordIdSchema.nullable(),
   })).min(1),
-});
+}).refine(
+  (claim) =>
+    claim.review === undefined ||
+    (claim.review.candidate_id === claim.candidate_id &&
+      claim.review.context === "local" &&
+      claim.review.path === "environment/emergency-review.json"),
+  "Emergency review must name this candidate and its preparation artifact.",
+);

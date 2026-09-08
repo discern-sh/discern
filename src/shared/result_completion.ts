@@ -477,6 +477,19 @@ function requiredFailure(
     }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
+      const emergency = record(data?.emergency);
+      if (emergency?.outcome === "prepared") {
+        return nonBlank(emergency.preparation) !== undefined &&
+            emergency.confirmation === undefined &&
+            emergency.landing_id === undefined &&
+            data?.proof === undefined && data?.proof_line === undefined &&
+            data?.landing === undefined && data?.queue === undefined
+          ? undefined
+          : failed(
+            "precondition_failed",
+            "Emergency preparation requires a review receipt and cannot claim Proof, confirmation, or landing effects.",
+          );
+      }
       if (Array.isArray(data?.queue)) {
         const prefixes = records(data.queue);
         return prefixes.length === data.queue.length &&

@@ -9,9 +9,15 @@ description: Review and record an explicit local integration before required mac
 
 The repair must be committed in its recorded worktree and contain actual trunk. If it is behind, run `discern update`, review and commit the result, then request another plan. The action adds no speculative predecessors. It refuses a source containing another recorded unlanded effort. Checkpoint judgment, protected policy, source identity, and checkout recovery remain preconditions.
 
+## Checkpoint preparation
+
+When checkpoint triggers or declarations are pending, run `discern accept emergency --prepare --reason "Restore service"`. This runs only the canonical checkpoint preflight and serves its questions. Repeat with `--met <id>` for each satisfied served question. An unmet question or unreadable trigger evidence still blocks emergency integration. `--dry-run` previews preparation without running triggers or recording conclusions.
+
+The [preparation action](../../../src/engine/emergency/prepare.ts) retains an immutable review receipt after rechecking clean source and actual trunk. It reserves no validation environment or queue work. Pass the returned `--preparation <receipt>` to both the owner-review preview and its later confirmed call. The [receipt reader](../../../src/engine/emergency/review.ts) checks its bytes, exact source and predecessor, and current declarations before accepting settled trigger evidence. Changes require renewed preparation. The exception record retains this receipt separately from machine evidence and passing Proof.
+
 ## Exact owner decision
 
-The preview changes no project state. After the owner approves the displayed plan, repeat the emergency action with the same reason, `--confirmed`, and its `--confirmation` token. A token expires after 15 minutes. Source, trunk, policy, candidate, reason, and exception changes invalidate it. An ordinary grant or previous emergency supplies no consent.
+The preview changes no project state. After the owner approves the displayed plan, repeat the emergency action with the same reason, `--confirmed`, its `--confirmation` token, and the same preparation receipt when present. A token expires after 15 minutes. Source, trunk, policy, candidate, reason, and exception changes invalidate it. An ordinary grant or previous emergency supplies no consent.
 
 The [planner](../../../src/engine/emergency/plan.ts) binds this exchange. The [machine inventory](../../../src/engine/emergency/evidence.ts) uses the ordinary evidence selector and artifact audit. A failed standard remains failed when its producer exited successfully. Missing contexts remain `unrun`; inapplicable or report-only evidence remains stale.
 
