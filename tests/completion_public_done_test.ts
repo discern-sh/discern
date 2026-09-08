@@ -12,6 +12,9 @@ import {
 import { observedRecords } from "../src/engine/landing_queue/repository.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { completionRecordPath } from "../src/engine/completion/store.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { gitOut } from "./engine_helpers.ts";
 
 Deno.test("E07 public done admits complete evidence and clean standalone remains diagnostic", async () => {
   await withTempDir(async (root) => {
@@ -68,6 +71,40 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
       "differs",
     );
     assertEquals(await readProofPresentation(root, pointer), proof.proof_data);
+    const recordPath = await completionRecordPath(root, presentation);
+    assert(recordPath !== undefined);
+    const recordBytes = await Deno.readTextFile(recordPath);
+    const legacy = JSON.stringify({ ...presentation, version: 2 });
+    await Deno.writeTextFile(recordPath, legacy);
+    const mixed = await runAgent(path, ["done", "--retain-checkout", "--json"]);
+    assertEquals(mixed.code, 0, mixed.output);
+    assertEquals(await Deno.readTextFile(recordPath), legacy);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const trunk = await gitOut(root, "rev-parse", "HEAD");
+    for (
+      const [raw, kind] of [
+        [
+          JSON.stringify({
+            ...presentation,
+            version: ON_DISK_FORMATS.completionRecord.version + 1,
+          }),
+          "record-incompatible",
+        ],
+        ["{", "record-corrupt"],
+      ]
+    ) {
+      assert(raw !== undefined && kind !== undefined);
+      await Deno.writeTextFile(recordPath, raw);
+      const refused = await runAgent(root, ["accept", "--json"]);
+      assertEquals(refused.code, 1, refused.output);
+      const refusal = decodeCliResult(refused.stdout, "accept");
+      assert(refusal.data !== undefined && "pending" in refusal.data);
+      assertEquals(refusal.data.pending?.[0]?.kind, kind, refused.output);
+      assertEquals(await Deno.readTextFile(recordPath), raw);
+      assertEquals(await gitOut(root, "rev-parse", "HEAD"), trunk);
+      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    }
+    await Deno.writeTextFile(recordPath, recordBytes);
     const records = (await observeCompletionRecords(path)).records;
     const standalone = await runAgent(path, ["done", "--standalone", "--json"]);
     assertEquals(standalone.code, 0, standalone.output);
