@@ -185,6 +185,16 @@ for (const edit of [false, true]) {
       await Deno.writeTextFile(`${path}/fail`, "fail this attempt");
       const red = await runAgent(path, ["done", "--json"]);
       assertEquals(red.code, 1, red.output);
+      const failed = decodeCliResult(red.stdout, "done");
+      assert(failed.data !== undefined && "completion" in failed.data);
+      const blocked = failed.data.completion?.pending?.filter((item) =>
+        item.kind === "validation-failed"
+      );
+      assert((blocked?.length ?? 0) > 1, red.output);
+      const retryHints = (failed.hints ?? []).filter((hint) =>
+        hint.includes("deliberate retry of the unchanged subject")
+      );
+      assertEquals(retryHints.length, 1, red.output);
       assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
       await Deno.remove(`${path}/fail`);
       if (edit) {
