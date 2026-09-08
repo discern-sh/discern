@@ -3778,6 +3778,16 @@ export const HINTS = {
       `the gate skips it.`,
   }),
 
+  "result-completion-failed": defineHint<{ verb: string }>({
+    id: "result-completion-failed",
+    category: "next-step",
+    audience: "all",
+    when: "A reported success fails its required result completion contract.",
+    example: { verb: "accept" },
+    template: ({ verb }): string =>
+      `Inspect the preserved effects and failure reported by discern ${verb}. Run discern status in the affected project and follow any recorded recovery action. Report the inconsistent result as a defect; do not repeat an effectful command merely to obtain its output.`,
+  }),
+
   /**
    * Registered fallback for a failure whose domain-specific recovery has not
    * supplied a narrower hint. The serialization invariant makes this an

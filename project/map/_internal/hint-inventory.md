@@ -1338,6 +1338,17 @@ Rendered example:
 
 > Continue setup in this session; do not restart now. The completion handoff will ask you to start a fresh session only after setup is proved and landed, then give the exact activation check.
 
+## `result-completion-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: A reported success fails its required result completion contract.
+
+Rendered example:
+
+> Inspect the preserved effects and failure reported by discern accept. Run discern status in the affected project and follow any recorded recovery action. Report the inconsistent result as a defect; do not repeat an effectful command merely to obtain its output.
+
 ## `setup-awaiting-confirmation`
 
 - Category: `next-step`

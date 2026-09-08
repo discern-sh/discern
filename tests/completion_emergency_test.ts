@@ -724,13 +724,39 @@ mode = 'stop'
     assertEquals(await gitOut(root, "rev-parse", "main"), before);
     const confirmation = fresh.data?.emergency?.confirmation;
     assert(confirmation);
-    const landed = await emergencyResult(ctx, {
-      ...options,
-      preparation: currentPreparation,
-      confirmed: true,
+    const applied = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--reason",
+      options.reason,
+      "--preparation",
+      currentPreparation,
+      "--confirmed",
+      "--confirmation",
       confirmation,
-    });
-    assert(landed.ok, JSON.stringify(landed));
+      "--json",
+    ]);
+    assertEquals(applied.code, 0, applied.output);
+    const landed = decodeCliResult(applied.stdout, "accept");
+    assert(
+      landed.ok && landed.data !== undefined && "emergency" in landed.data,
+      JSON.stringify(landed),
+    );
+    assertEquals(landed.data.emergency?.outcome, "landed");
+    assertEquals(landed.data.emergency?.retirement, "retained");
+    assertEquals(
+      await gitOut(root, "rev-parse", "main"),
+      await gitOut(path, "rev-parse", "HEAD"),
+    );
+    const recovered = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--recover",
+      landed.data.emergency?.landing_id ?? "",
+      "--json",
+    ]);
+    assertEquals(recovered.code, 0, recovered.output);
+    assertEquals(decodeCliResult(recovered.stdout, "accept").ok, true);
     const records = observedRecords(await observeQueue(root, "main"));
     const landing = records.find((record) => record.kind === "landing");
     assert(

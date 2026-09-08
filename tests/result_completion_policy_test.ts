@@ -9,6 +9,8 @@
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
+import { serializeResult } from "../src/shared/result_serialization.ts";
+import { EmergencyDataSchema } from "../src/shared/emergency.ts";
 import { completionExitCode } from "../src/engine/logbook/cli.ts";
 import { renderMcpResult } from "../src/engine/mcp/server.ts";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
@@ -439,4 +441,127 @@ Deno.test("emergency preparation success requires its receipt and excludes landi
       },
     ]
   ) assertEquals(evaluateResultCompletion({ ...prepared, data }).ok, false);
+});
+
+Deno.test("emergency outcomes preserve success only for complete independent landing claims", () => {
+  const emergency = {
+    outcome: "landed",
+    landing_id: "landing",
+    candidate_id: "candidate",
+    reason: "Restore service",
+    exceptions: [],
+    retirement: "retained",
+  };
+  const result: DiscernResult = {
+    ok: true,
+    verb: "accept",
+    data: { emergency },
+  };
+  for (const retirement of ["retained", "retired"]) {
+    assertEquals(
+      serializeResult({
+        ...result,
+        data: { emergency: { ...emergency, retirement } },
+      }).ok,
+      true,
+    );
+  }
+  for (const outcome of EmergencyDataSchema.shape.outcome.unwrap().options) {
+    if (outcome === "landed") continue;
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, outcome } },
+      }).ok,
+      false,
+      outcome,
+    );
+  }
+  for (
+    const field of [
+      "landing_id",
+      "candidate_id",
+      "reason",
+      "exceptions",
+      "retirement",
+    ]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, [field]: undefined } },
+      }).ok,
+      false,
+      field,
+    );
+  }
+  for (const retirement of ["pending", "recovery", "unknown"]) {
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, retirement } },
+      }).ok,
+      false,
+    );
+  }
+  for (
+    const field of ["proof", "proof_line", "proof_note", "landing", "queue"]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({ ...result, data: { emergency, [field]: {} } })
+        .ok,
+      false,
+      field,
+    );
+  }
+  const failed: DiscernResult = {
+    ...result,
+    ok: false,
+    error: "partial_acceptance",
+  };
+  assertEquals(
+    evaluateResultCompletion(failed).ok,
+    false,
+    "A landed ref cannot hide failed settlement or convergence",
+  );
+});
+
+Deno.test("policy-created failures retain registered recovery across every effect contract", () => {
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+    if (!policy?.requiredPostconditions.includes("executed-steps")) continue;
+    const result: DiscernResult = {
+      ok: true,
+      verb: contract.verb,
+      steps: [{
+        step: {
+          kind: "job",
+          label: verbatimStepLabel("future orbit"),
+          disposition: "run",
+        },
+        outcome: "cancelled",
+      }],
+    };
+    const evaluated = evaluateResultCompletion(result);
+    assertEquals(evaluated.ok, false, contract.verb);
+    assertEquals(serializeResult(evaluated).ok, false, contract.verb);
+    assertEquals(
+      evaluateResultCompletion(evaluated),
+      evaluated,
+      "Evaluation must be idempotent",
+    );
+    assertEquals(renderMcpResult(result).isError, true, contract.verb);
+  }
+  const result: DiscernResult = {
+    ok: true,
+    verb: "accept",
+    data: {},
+    hints: hintTexts([
+      fire(HINTS["completion-pending"], {
+        action: "Inspect the recorded transition.",
+      }),
+    ]),
+  };
+  const evaluated = evaluateResultCompletion(result);
+  assertEquals(evaluated.hints?.[0], result.hints?.[0]);
 });
