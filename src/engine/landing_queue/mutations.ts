@@ -1,3 +1,7 @@
+import {
+  completionRecordBlocker,
+  readCompatibleCompletionRecord,
+} from "../completion/compatibility.ts";
 import { emitCompletionEvent } from "../completion/events.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
@@ -26,7 +30,7 @@ import {
   observedRecords,
   observeQueue,
   replaceQueue,
-  requireQueue,
+  REPOSITORY_QUEUE_ID,
 } from "./repository.ts";
 
 export type QueueMutation =
@@ -79,20 +83,19 @@ export async function mutateQueue(input: {
       started_at: clock.wallNow(),
     };
   return await withQueueLock(input.root, async () => {
-    const current = await requireQueue(input.root);
+    const compatible = await readCompatibleCompletionRecord(input.root, {
+      kind: "queue",
+      id: REPOSITORY_QUEUE_ID,
+    });
+    if (compatible.kind !== "recorded") return compatible;
+    if (compatible.record.kind !== "queue") {
+      throw new Error("Queue coordinate returned another family.");
+    }
+    const current = { record: compatible.record, stamp: compatible.stamp };
     if (current.stamp !== input.expected_stamp) return { kind: "replan" };
     const observation = await observeQueue(input.root, input.trunk, clock);
-    if (
-      observation.records.some(({ reading }) =>
-        reading.kind !== "recorded" && reading.kind !== "missing"
-      )
-    ) {
-      return {
-        kind: "environment-unavailable",
-        reason:
-          "Unreadable completion state prevents dependency invalidation. Reconcile its record before changing queue order.",
-      };
-    }
+    const unreadable = completionRecordBlocker(observation);
+    if (unreadable !== undefined) return unreadable;
     const records = observedRecords(observation);
     const candidates = new Map(
       records.filter((record) => record.kind === "candidate").map((
@@ -196,6 +199,17 @@ export async function mutateQueue(input: {
     }
     if (invalidation !== null) queue = invalidation.queue;
     const affected = new Set(invalidation?.candidate_ids ?? []);
+    // Environment attempts own producer truth and return effects. Queue movement
+    // revokes admission only; it cannot cancel or fail those immutable subjects.
+    const executing = new Set(records.flatMap((record) => {
+      if (record.kind !== "environment") return [];
+      const state = record.data.state;
+      return state.kind === "executing" || state.kind === "recovery"
+        ? [state.attempt_id]
+        : state.kind === "idle" && state.returned_attempt_id !== undefined
+        ? [state.returned_attempt_id]
+        : [];
+    }));
     for (const { reading } of observation.records) {
       if (reading.kind !== "recorded" || reading.record.kind !== "attempt") {
         continue;
@@ -203,6 +217,7 @@ export async function mutateQueue(input: {
       const attempt = reading.record;
       if (
         !affected.has(attempt.data.identity.candidate_id) ||
+        executing.has(attempt.id) || attempt.data.subjects.length > 0 ||
         attempt.data.state.kind !== "claimed"
       ) continue;
       const fenced = await writeCompletionRecord(
@@ -213,20 +228,9 @@ export async function mutateQueue(input: {
           data: {
             ...attempt.data,
             state: {
-              kind: "recovery",
-              recovery: {
-                phase: "publish",
-                reason:
-                  `Candidate invalidated by ${change.kind}; reconcile owned execution before another attempt.`,
-                children_quiescent: false,
-                drift: {
-                  kind: "uncaptured",
-                  reason:
-                    "The environment executor retains capture and return ownership.",
-                },
-                retained_paths: [],
-                frozen_cleanup: [],
-              },
+              kind: "finished",
+              outcome: "cancelled",
+              finished_at: clock.wallNow(),
             },
           },
         },

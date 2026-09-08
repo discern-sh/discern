@@ -22,6 +22,8 @@ Reused isolated environments need declared reset procedures. Fresh disposable en
 
 Without an eligible environment, ordered coordination continues. A current source-tip candidate needs no temporary checkout. After real trunk movement, the owning effort can follow the ordinary forward `update` and `done` path. A foreign executor cannot bypass the missing environment contract by calling temporary composition non-speculative.
 
+The public completion companion selects ordinary source execution whenever no temporary candidate installation is needed, including linked worktrees. A differing candidate still uses the declared environment. The executor remains the authority for enforcing environment capacity and preserving owned checkout state.
+
 ## Consequences
 
 - Projects can gain coordination before declaring an environment suitable for speculation.

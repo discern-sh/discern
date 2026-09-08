@@ -21,6 +21,7 @@ import {
 import { mutateQueue } from "../src/engine/landing_queue/mutations.ts";
 import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import {
+  completionRecordPath,
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
@@ -125,7 +126,11 @@ Deno.test("queue Q06/Q08: short claims reserve capacity and superseded publisher
       id: claim.fence.attempt_id,
     });
     assert(attempt.kind === "recorded" && attempt.record.kind === "attempt");
-    assertEquals(attempt.record.data.state.kind, "recovery");
+    assertEquals(attempt.record.data.state, {
+      kind: "finished",
+      outcome: "cancelled",
+      finished_at: COMPLETION_CLOCK.wallNow(),
+    });
     const observation = await observeQueue(root, "main", COMPLETION_CLOCK);
     assertEquals(observation.trunk, trunk);
   });
@@ -260,4 +265,124 @@ Deno.test("queue recovery retains red history without restoring an older verdict
       );
     });
   }
+});
+
+Deno.test("queue invalidation preserves producer and returned-environment actors while closing only scheduling claims", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const { queue } = queueExample(1);
+    await initializeQueue(root, await gitOut(root, "rev-parse", "HEAD"));
+    await replaceQueue(root, await requireQueue(root), queue);
+    const template = COMPLETION_FAMILIES.attempt.schema.parse(
+      completionFixtures().attempt,
+    );
+    const ids = [completionId(800), completionId(801), completionId(802)];
+    for (const [index, id] of ids.entries()) {
+      assertEquals(
+        (await writeCompletionRecord(
+          root,
+          {
+            ...template,
+            id,
+            data: {
+              ...template.data,
+              identity: {
+                ...template.data.identity,
+                id,
+                candidate_id: completionId(100),
+                sequence: index + 1,
+              },
+              subjects: index === 0 ? template.data.subjects : [],
+            },
+          },
+          null,
+          undefined,
+          COMPLETION_CLOCK,
+        )).kind,
+        "written",
+      );
+    }
+    const returned = ids[1];
+    assert(returned !== undefined);
+    const environment = COMPLETION_FAMILIES.environment.schema.parse(
+      completionFixtures().environment,
+    );
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        {
+          ...environment,
+          data: {
+            ...environment.data,
+            state: { kind: "idle", returned_attempt_id: returned },
+          },
+        },
+        null,
+        undefined,
+        COMPLETION_CLOCK,
+      )).kind,
+      "written",
+    );
+    assertEquals(
+      (await mutateQueue({
+        root,
+        trunk: "main",
+        expected_stamp: (await requireQueue(root)).stamp,
+        mutation: { kind: "withdrawn", effort: "effort-0" },
+        clock: COMPLETION_CLOCK,
+      })).kind,
+      "changed",
+    );
+    for (const [index, id] of ids.entries()) {
+      const record = await readCompletionRecord(root, { kind: "attempt", id });
+      assert(record.kind === "recorded" && record.record.kind === "attempt");
+      assertEquals(
+        record.record.data.state.kind,
+        index === 2 ? "finished" : "claimed",
+      );
+    }
+  });
+});
+
+Deno.test("queue claims and mutations preserve distinct compatibility and corruption refusals", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    await initializeQueue(root, await gitOut(root, "rev-parse", "HEAD"));
+    const queue = await requireQueue(root);
+    const path = await completionRecordPath(root, queue.record);
+    assert(path !== undefined);
+    for (
+      const [raw, kind] of [[
+        JSON.stringify({ version: 999, opaque: true }),
+        "record-incompatible",
+      ], ["{", "record-corrupt"]] as const
+    ) {
+      await Deno.writeTextFile(path, raw);
+      const claim = await claimQueueWork({
+        root,
+        expected_stamp: queue.stamp,
+        effort: "effort-0",
+        candidate_id: completionId(100),
+        environment_id: completionId(50),
+        executor: COMPLETION_EXECUTOR,
+        policy: CompletionPolicySchema.parse({}),
+        lease_ms: 50,
+        rerun_of: null,
+        clock: COMPLETION_CLOCK,
+      });
+      assert("kind" in claim);
+      assertEquals(claim.kind, kind);
+      assertEquals(
+        (await mutateQueue({
+          root,
+          trunk: "main",
+          expected_stamp: queue.stamp,
+          mutation: { kind: "trunk-moved" },
+          clock: COMPLETION_CLOCK,
+        })).kind,
+        kind,
+      );
+      assertEquals(await Deno.readTextFile(path), raw);
+    }
+  });
 });

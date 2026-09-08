@@ -215,3 +215,27 @@ Deno.test("public completion names unexpected output and preserves it without Pr
     );
   });
 });
+
+Deno.test("linked source-tip completion does not invoke temporary candidate procedures", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      `
+[execution.local]
+kind = 'borrowed'
+reusable = true
+capacity = 2
+inputs = ['**']
+ignored = ['executions']
+resources = []
+prepare = 'exit 71'
+restore = 'exit 72'
+`,
+    );
+    const done = await runAgent(path, ["done", "--retain-checkout", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    assertEquals((await inspectGateProof(path)).status, "honored");
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+  });
+});

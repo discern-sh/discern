@@ -80,7 +80,18 @@ export function selectEvidence(
   const attempts = valid.filter((record): record is AttemptRecord =>
     record.kind === "attempt" &&
     record.data.purpose === purpose &&
-    record.data.subjects.includes(obligation.subject)
+    record.data.subjects.includes(obligation.subject) &&
+    // A cancelled reservation without a result did not fail this producer.
+    // Completed receipts (including real failures) still participate in order.
+    !(record.data.state.kind === "finished" &&
+      record.data.state.outcome === "cancelled" &&
+      !valid.some((receipt) =>
+        receipt.kind === "evidence" && receipt.data.attempt_id === record.id &&
+        JSON.stringify(receipt.data.applicability) ===
+          JSON.stringify(obligation.applicability) &&
+        (receipt.data.outcome.kind === "passed" ||
+          receipt.data.outcome.kind === "failed")
+      ))
   );
   const latest =
     attempts.sort((a, b) =>
