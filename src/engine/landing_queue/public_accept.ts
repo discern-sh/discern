@@ -285,6 +285,20 @@ export async function acceptQueueResult(
           executor: actor,
           log: ctx.log,
         }, landing);
+        // Historical retention is not an effect of this acceptance. Keep a
+        // requested landing and real recovery visible without relaying every
+        // earlier owner's held checkout as part of the current result.
+        if (
+          retirement.kind === "retained" &&
+          landing.data.source.effort_id !== requested &&
+          !recoveryRecords.some((record) =>
+            record.kind === "retirement" &&
+            record.data.landing_id === landing.id &&
+            (record.data.outcome.kind === "pending" ||
+              record.data.outcome.kind === "recovery")
+          ) &&
+          (await readLandingConvergenceResult(root, landing.data))?.ok
+        ) continue;
         rows.push({
           effort: landing.data.source.effort_id,
           branch: landing.data.source.branch,

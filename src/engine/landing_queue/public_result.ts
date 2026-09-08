@@ -36,6 +36,27 @@ import { RetirementCaptureSchema } from "./retirement.ts";
 
 export type AcceptancePrefix = NonNullable<AcceptData["queue"]>[number];
 
+/** Retention describes checkout ownership separately from the recorded landing. */
+export function retainedCheckoutExplanation(
+  reason: string | undefined,
+): string {
+  switch (reason) {
+    case "unreleased":
+      return "The owner retained this checkout for review or further edits. Inspect its current state with discern status --verbose before releasing it.";
+    case "active-use":
+      return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
+    case "moved-branch":
+      return "The source branch changed after landing. Preserve the new work and run discern status from its worktree.";
+    case "dirty":
+      return "The checkout contains changed files. Preserve and review them before retrying cleanup from the main checkout.";
+    case "ownership-uncertain":
+      return "Checkout ownership could not be verified. Preserve its files and resources and inspect discern status --verbose from the main checkout.";
+    default:
+      return reason ??
+        "Inspect discern status --verbose from the main checkout for the retained checkout's next action.";
+  }
+}
+
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
 export type AcceptancePending =
   | CompletionBlocker
@@ -222,6 +243,11 @@ export async function queueAcceptanceResult(
           : retirement.data.outcome.kind === "recovery"
           ? "recovery"
           : "retained";
+        if (retirement.data.outcome.kind === "retained") {
+          row.retirement_reason = retirement.data.outcome.reason;
+        } else if (retirement.data.outcome.kind === "recovery") {
+          row.retirement_reason = retirement.data.outcome.recovery.reason;
+        }
         if (retirement.data.capture !== undefined) {
           const ignored = RetirementCaptureSchema.parse(
             await readEnvironmentArtifact(root, retirement.data.capture),
@@ -385,6 +411,10 @@ export async function queueAcceptanceResult(
               ? ""
               : "; emergency exception, no passing Proof"
           }${row.state === "landed" ? `; checkout ${row.retirement}` : ""}${
+            row.state === "landed" && row.retirement === "retained"
+              ? `. ${retainedCheckoutExplanation(row.retirement_reason)}`
+              : ""
+          }${
             row.pending.length
               ? "; " + row.pending.map((item) => item.reason).join("; ")
               : ""

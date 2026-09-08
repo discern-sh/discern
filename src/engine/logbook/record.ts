@@ -94,6 +94,7 @@ import { validationEvidence } from "./validation.ts";
 
 /** Everything the recorder learned about the invocation's surroundings. */
 interface RecordingContext {
+  trunk: string;
   commonGitDir: string;
   branch: string | null;
   head: string | null;
@@ -269,7 +270,7 @@ async function gatherContext(
   }
   const clean = status.success ? status.stdout.trim() === "" : null;
   const tree = clean === false ? await treeDiffFingerprint(root) : undefined;
-  return { commonGitDir, branch, head, clean, tree, change, epoch };
+  return { commonGitDir, branch, head, clean, tree, change, epoch, trunk };
 }
 
 /** The envelope's steps as recorded timings (labels, kinds, dispositions,
@@ -415,7 +416,10 @@ interface LiftedData {
 }
 
 /** Reduce an envelope's `data` to the liftable facts it carries, by shape. */
-function liftData(data: unknown): LiftedData {
+function liftData(
+  data: unknown,
+  source: Pick<RecordingContext, "branch" | "head" | "trunk">,
+): LiftedData {
   if (typeof data !== "object" || data === null) {
     return {};
   }
@@ -492,7 +496,13 @@ function liftData(data: unknown): LiftedData {
   const prefixes = z.looseObject({ queue: z.array(AcceptancePrefixSchema) })
     .safeParse(data);
   if (prefixes.success) {
-    const landed = prefixes.data.queue.filter((row) => row.state === "landed");
+    const ownSource = prefixes.data.queue.filter((row) =>
+      row.branch.replace(/^refs\/heads\//u, "") === source.branch &&
+      source.head !== null && row.source_head.startsWith(source.head)
+    );
+    const landed =
+      (source.branch === source.trunk ? prefixes.data.queue : ownSource)
+        .filter((row) => row.state === "landed");
     const single = landed.length === 1 ? landed[0] : undefined;
     if (single?.consent !== undefined) {
       lifted.consent = {
@@ -678,7 +688,7 @@ export function beginRecording(
           ? diagnosticClasses(report.result)
           : undefined;
         const validation = validationEvidence(report.result);
-        const lifted = liftData(report.result?.data);
+        const lifted = liftData(report.result?.data, ctx);
         // A successful payload names the object actually served. Surface input
         // remains the fallback for human-only reads and refused lookups.
         const target = lifted.target ?? report.target;
