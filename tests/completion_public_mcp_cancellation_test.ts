@@ -56,23 +56,28 @@ concurrent_test_runs = 1
         try {
           await using peer = await completionMcpPeer(path, {}, allowance);
           await peer.call(2, "discern_done", { path });
-          await waitForPendingCondition(peer.finished, async () => {
-            peer.ensurePending(2);
-            if (phase === "producer") {
-              const ready = await readPidsIfReady([
-                `${aux}/leader`,
-                `${aux}/descendant`,
-              ]);
-              if (ready === undefined) return false;
-              pids.push(...ready);
-              return true;
-            }
-            return peer.messages.some((message) =>
-              message.method === "notifications/progress" &&
-              JSON.stringify(message).includes("test") &&
-              /capacity|slot|waiting/i.test(JSON.stringify(message))
-            );
-          }, `MCP completion to reach ${phase}`, { allowance });
+          await waitForPendingCondition(
+            peer.finished,
+            async () => {
+              peer.ensurePending(2);
+              if (phase === "producer") {
+                const ready = await readPidsIfReady([
+                  `${aux}/leader`,
+                  `${aux}/descendant`,
+                ]);
+                if (ready === undefined) return false;
+                pids.push(...ready);
+                return true;
+              }
+              return peer.messages.some((message) =>
+                message.method === "notifications/progress" &&
+                JSON.stringify(message).includes("test") &&
+                /capacity|slot|waiting/i.test(JSON.stringify(message))
+              );
+            },
+            `MCP completion to reach ${phase}`,
+            { allowance },
+          );
           await peer.send({
             method: "notifications/cancelled",
             params: {
