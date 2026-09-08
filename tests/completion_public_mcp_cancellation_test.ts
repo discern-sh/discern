@@ -1,5 +1,7 @@
 /** Transport cancellation must reach the source engine and settle owned execution. */
 import { assert, assertEquals } from "@std/assert";
+import { z } from "@zod/zod";
+import { StatusOutputSchema } from "../src/shared/result_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { completionMcpPeer } from "./completion_mcp_fixture.ts";
@@ -15,6 +17,10 @@ import {
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { gitOut } from "./engine_helpers.ts";
+
+const StatusToolResultSchema = z.object({
+  structuredContent: StatusOutputSchema,
+});
 
 /** Probe only PIDs written by this disposable fixture's owned process tree. */
 function alive(pid: number): boolean {
@@ -100,6 +106,10 @@ concurrent_test_runs = 1
           const status = await peer.response(3);
           assertEquals(status.error, undefined);
           assertEquals(
+            StatusToolResultSchema.parse(status.result).structuredContent.ok,
+            true,
+          );
+          assertEquals(
             await gitOut(path, "rev-parse", "HEAD", "HEAD^{tree}"),
             before,
           );
@@ -130,6 +140,10 @@ concurrent_test_runs = 1
           { timeoutMs: 10_000 },
         );
         assertEquals(response.error, undefined);
+        assertEquals(
+          StatusToolResultSchema.parse(response.result).structuredContent.ok,
+          true,
+        );
       });
     });
   });
