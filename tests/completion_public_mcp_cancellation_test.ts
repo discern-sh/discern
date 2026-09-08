@@ -8,7 +8,11 @@ import {
   completionMcpPeer,
   completionProcessAlive as alive,
 } from "./completion_mcp_fixture.ts";
-import { waitForPendingCondition, waitUntil } from "./waiting.ts";
+import {
+  processAllowance,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import {
@@ -48,8 +52,9 @@ concurrent_test_runs = 1
           assert(await slot.tryLock(true));
         }
         const pids: number[] = [];
+        const allowance = processAllowance();
         try {
-          await using peer = await completionMcpPeer(path);
+          await using peer = await completionMcpPeer(path, {}, allowance);
           await peer.call(2, "discern_done", { path });
           await waitForPendingCondition(peer.finished, async () => {
             peer.ensurePending(2);
@@ -67,7 +72,7 @@ concurrent_test_runs = 1
               JSON.stringify(message).includes("test") &&
               /capacity|slot|waiting/i.test(JSON.stringify(message))
             );
-          }, `MCP completion to reach ${phase}`);
+          }, `MCP completion to reach ${phase}`, { allowance });
           await peer.send({
             method: "notifications/cancelled",
             params: {
@@ -78,7 +83,7 @@ concurrent_test_runs = 1
           await waitUntil(
             () => pids.every((pid) => !alive(pid)),
             "the cancelled MCP process tree to stop",
-            { timeoutMs: 10_000 },
+            { allowance },
           );
           await waitUntil(
             async () => {
@@ -90,7 +95,7 @@ concurrent_test_runs = 1
                 );
             },
             "the cancelled MCP attempt to settle",
-            { timeoutMs: 10_000 },
+            { allowance },
           );
           await peer.call(3, "discern_status", { path });
           const status = await peer.response(3);
@@ -122,7 +127,7 @@ concurrent_test_runs = 1
             if (alive(pid)) Deno.kill(pid, "SIGKILL");
           }
         }
-        await using reconnect = await completionMcpPeer(root);
+        await using reconnect = await completionMcpPeer(root, {}, allowance);
         await reconnect.call(2, "discern_status", { path: root });
         const response = await reconnect.response(2);
         assertEquals(response.error, undefined);

@@ -7,6 +7,7 @@ import type {
   TimeoutHandle,
 } from "../src/shared/scheduler.ts";
 import {
+  processAllowance,
   realDelay,
   settlePending,
   TEST_PROCESS_TIMEOUT_MS,
@@ -224,6 +225,63 @@ Deno.test("pending-condition readiness reports early operation settlement", asyn
   assertStringIncludes(
     error.message,
     "was not observed before the pending operation settled",
+  );
+});
+
+Deno.test("processAllowance divides one load-safe budget between a test's waits", async () => {
+  const timing = controlledTiming(4_000);
+  const allowance = processAllowance(timing.clock);
+  const spentMs = 60_000;
+  const first = waitUntil(
+    () => timing.clock.monotonicNow() >= spentMs,
+    "the first drawn wait",
+    {
+      allowance,
+      intervalMs: spentMs,
+      clock: timing.clock,
+      scheduler: timing.scheduler,
+    },
+  );
+  await flushWaitTurn();
+  timing.scheduler.fireNextTimeout();
+  await flushWaitTurn();
+  await first;
+  assertEquals(allowance.remaining(), TEST_PROCESS_TIMEOUT_MS - spentMs);
+  const second = assertRejects(
+    () =>
+      waitForPendingCondition(
+        new Promise<never>(() => {}),
+        () => false,
+        "the second drawn wait",
+        {
+          allowance,
+          intervalMs: TEST_PROCESS_TIMEOUT_MS,
+          clock: timing.clock,
+          scheduler: timing.scheduler,
+        },
+      ),
+    Error,
+  );
+  await flushWaitTurn();
+  timing.scheduler.fireNextTimeout();
+  await flushWaitTurn();
+  const error = await second;
+  assertStringIncludes(error.message, "the second drawn wait");
+  assertStringIncludes(
+    error.message,
+    `budget ${TEST_PROCESS_TIMEOUT_MS - spentMs}ms`,
+  );
+});
+
+Deno.test("waitUntil refuses an explicit timeout combined with a shared allowance", async () => {
+  await assertRejects(
+    () =>
+      waitUntil(() => true, "the over-specified wait", {
+        timeoutMs: 25,
+        allowance: processAllowance(),
+      }),
+    TypeError,
+    "not both",
   );
 });
 

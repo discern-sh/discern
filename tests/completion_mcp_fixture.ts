@@ -2,6 +2,7 @@
 import { z } from "@zod/zod";
 import { engineEnv, engineRunArgs } from "./engine_helpers.ts";
 import {
+  type ProcessAllowance,
   settlePending,
   TEST_PROCESS_TIMEOUT_MS,
   waitForPendingCondition,
@@ -46,6 +47,7 @@ export class CompletionMcpPeer implements AsyncDisposable {
   constructor(
     private readonly child: McpPeerProcess,
     private readonly waitForExit: typeof settlePending = settlePending,
+    private readonly allowance?: ProcessAllowance,
   ) {
     this.writer = child.stdin.getWriter();
     this.finished = child.status;
@@ -92,6 +94,7 @@ export class CompletionMcpPeer implements AsyncDisposable {
       this.finished,
       () => this.messages.some((message) => message.id === id),
       `MCP response ${id}`,
+      this.allowance !== undefined ? { allowance: this.allowance } : {},
     );
     const message = this.messages.find((message) => message.id === id);
     if (message === undefined) {
@@ -133,7 +136,9 @@ export class CompletionMcpPeer implements AsyncDisposable {
       await this.waitForExit(
         this.finished,
         "MCP server shutdown and child settlement",
-        { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+        this.allowance !== undefined
+          ? { allowance: this.allowance }
+          : { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
       );
     } catch (error) {
       this.child.kill("SIGTERM");
@@ -149,15 +154,20 @@ export class CompletionMcpPeer implements AsyncDisposable {
 export async function completionMcpPeer(
   root: string,
   extraEnv: Record<string, string> = {},
+  allowance?: ProcessAllowance,
 ): Promise<CompletionMcpPeer> {
-  const peer = new CompletionMcpPeer(new Deno.Command(Deno.execPath(), {
-    args: engineRunArgs(["mcp"]),
-    cwd: root,
-    env: await engineEnv(extraEnv),
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn());
+  const peer = new CompletionMcpPeer(
+    new Deno.Command(Deno.execPath(), {
+      args: engineRunArgs(["mcp"]),
+      cwd: root,
+      env: await engineEnv(extraEnv),
+      stdin: "piped",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn(),
+    settlePending,
+    allowance,
+  );
   try {
     await peer.send({
       id: 1,
