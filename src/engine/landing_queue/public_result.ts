@@ -258,6 +258,7 @@ export async function queueAcceptanceResult(
         });
       }
       const claim = landing.record.data.claim;
+      if (claim.kind === "exception") row.exception = claim;
       if (claim.kind === "normal") {
         const authority = await readCompletionRecord(root, {
           kind: "authority",
@@ -380,8 +381,10 @@ export async function queueAcceptanceResult(
         ? ""
         : "\n\n" + rows.map((row) =>
           `${row.branch}: ${row.state}${
-            row.state === "landed" ? `; checkout ${row.retirement}` : ""
-          }${
+            row.exception === undefined
+              ? ""
+              : "; emergency exception, no passing Proof"
+          }${row.state === "landed" ? `; checkout ${row.retirement}` : ""}${
             row.pending.length
               ? "; " + row.pending.map((item) => item.reason).join("; ")
               : ""

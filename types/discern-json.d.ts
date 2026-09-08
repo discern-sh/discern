@@ -8368,6 +8368,40 @@ export type DiscernAcceptResult = DiscernResultState & {
       retirement?: string;
     };
     queue?: Array<{
+      exception?: {
+        kind: "exception";
+        authorization_id: string;
+        authorized_at: number;
+        actual_trunk: string;
+        source: {
+          effort_id: string;
+          branch: string;
+          head: string;
+          tree: string;
+        };
+        candidate_id: string;
+        candidate_head: string;
+        policy: string;
+        review?: {
+          attempt_id: string;
+          candidate_id: string;
+          context: string;
+          path: string;
+          digest: string;
+          bytes: number;
+        };
+        reason: string;
+        exceptions: Array<{
+          requirement: {
+            id: string;
+            context: string;
+            kind: "job" | "scope" | "standard";
+            definition: string;
+          };
+          state: "failed" | "unrun" | "stale";
+          evidence_id: string | null;
+        }>;
+      };
       ignored_file_changes?: {
         status:
           | "disabled"

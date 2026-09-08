@@ -15,6 +15,7 @@ import {
   type ResultAdvisoryKind,
   stepResultSatisfiesCompletion,
 } from "./result.ts";
+import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
 
 export const RESULT_REQUIRED_POSTCONDITIONS = [
@@ -411,6 +412,26 @@ function emergencyCompletionFailure(
   );
 }
 
+/** Recovery retains the original authority kind and exact transition subject. */
+function settledPrefixAuthority(prefix: UnknownRecord): boolean {
+  if (prefix.authority_settlement !== "consumed") return false;
+  if (prefix.exception === undefined) {
+    return nonBlank(prefix.authority_id) !== undefined;
+  }
+  const parsed = ExceptionClaimSchema.safeParse(prefix.exception);
+  if (!parsed.success) return false;
+  const claim = parsed.data;
+  return prefix.authority_id === null &&
+    ["proof_line", "proof_note", "consent", "variances", "standard_approvals"]
+      .every((field) => prefix[field] === undefined) &&
+    prefix.effort === claim.source.effort_id &&
+    prefix.branch === claim.source.branch &&
+    prefix.source_head === claim.source.head &&
+    prefix.candidate_id === claim.candidate_id &&
+    prefix.expected_trunk === claim.actual_trunk &&
+    prefix.target === claim.candidate_head;
+}
+
 /** Evaluate one named typed postcondition against an unevaluated result. */
 function requiredFailure(
   postcondition: ResultRequiredPostcondition,
@@ -511,8 +532,7 @@ function requiredFailure(
               nonBlank(prefix.landing_id) !== undefined &&
               nonBlank(prefix.expected_trunk) !== undefined &&
               nonBlank(prefix.target) !== undefined &&
-              nonBlank(prefix.authority_id) !== undefined &&
-              prefix.authority_settlement === "consumed" &&
+              settledPrefixAuthority(prefix) &&
               Array.isArray(prefix.pending) && prefix.pending.length === 0
             )
           ? undefined

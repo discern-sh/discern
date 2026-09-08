@@ -1,3 +1,4 @@
+import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
 import { RetirementEffectsSchema } from "./accept_landing_state.ts";
@@ -1562,6 +1563,7 @@ export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
  * when the server was launched from the trunk). */
 /** Per-prefix facts remain separate so later pending work cannot hide an earlier landing. */
 export const AcceptancePrefixSchema = z.strictObject({
+  exception: ExceptionClaimSchema.optional(),
   ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
   retirement_effects: RetirementEffectsSchema.optional(),
   consent: LandingConsentDataSchema.optional(),

@@ -1819,6 +1819,8 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       result,
       text(data.root) === undefined
         ? undefined
+        : prefixes.some((row) => object(row.exception) !== undefined)
+        ? `Recorded landing outcomes for ${code(data.root)}.`
         : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
@@ -1834,7 +1836,11 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...prefixes.map((row) =>
         `${code(text(row.branch) ?? "candidate")}: ${
           text(row.state) ?? "pending"
-        }; authority ${
+        }; ${
+          object(row.exception) === undefined
+            ? "authority"
+            : "emergency exception, no passing Proof; authorization"
+        } ${
           text(row.authority_settlement) ?? text(row.authority) ?? "pending"
         }; convergence ${text(row.convergence) ?? "pending"}; retirement ${
           text(row.retirement) ?? "pending"
