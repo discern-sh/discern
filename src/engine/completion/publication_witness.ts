@@ -60,7 +60,12 @@ export async function readCompletionPublication(
   }
 }
 
-/** Caller holds the common publication lock. Change the witness before any referenced bytes or revisions. */
+/** Caller holds the common publication lock. Change the witness before any referenced bytes or revisions.
+ * The token invalidates in-memory plans, so atomic visibility suffices: process
+ * death preserves the kernel's writes; machine restart destroys every plan.
+ * Recovery records and artifacts retain their own durability barriers. A lost or
+ * corrupt token refuses reclamation; it never supplies recovery authority.
+ */
 export async function invalidateCompletionPublication(
   path: string,
 ): Promise<void> {
@@ -69,5 +74,5 @@ export async function invalidateCompletionPublication(
   await atomicReplaceJson(path, {
     version: ON_DISK_FORMATS.completionPublication.version,
     token: SYSTEM_SECURE_ENTROPY.uuid(),
-  }, { mode: 0o600, sync: true, trailingNewline: true });
+  }, { mode: 0o600, sync: false, trailingNewline: true });
 }

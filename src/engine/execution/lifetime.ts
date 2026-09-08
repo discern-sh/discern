@@ -3,7 +3,7 @@ import type { z } from "@zod/zod";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { ExecutionIntentSchema } from "./intent.ts";
 import { artifactPath, readExecutionDocument } from "./artifact_read.ts";
-import { saveEnvironmentArtifact } from "./artifacts.ts";
+import { saveExecutionChildReceipt } from "./artifacts.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import {
   OperationLockError,
@@ -169,45 +169,39 @@ export async function withRecordedExecutionChildren<T>(
   token: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  await saveEnvironmentArtifact(
-    root,
-    subject,
-    `children/enrolled-${token}`,
-    true,
-  );
+  await saveExecutionChildReceipt(root, subject, {
+    kind: "enrolled",
+    key: token,
+  });
   const prior = await inspectExecutionChildren(root, subject.attempt_id);
   if (!prior.quiescent) throw new Error(prior.reason);
   return await withExecutionChildren({
     planned: async () => {
       const key = SYSTEM_SECURE_ENTROPY.uuid();
-      await saveEnvironmentArtifact(
-        root,
-        subject,
-        `children/planned-${key}`,
-        { token: token },
-      );
+      await saveExecutionChildReceipt(root, subject, {
+        kind: "planned",
+        key,
+        token,
+      });
       let started: z.infer<typeof StartedChildSchema> | undefined;
       return {
         started: async (pid, isolated) => {
           started = StartedChildSchema.parse({ pid, isolated });
-          await saveEnvironmentArtifact(
-            root,
-            subject,
-            `children/started-${key}`,
-            started,
-          );
+          await saveExecutionChildReceipt(root, subject, {
+            kind: "started",
+            key,
+            ...started,
+          });
         },
         settled: async () => {
           if (
             started !== undefined && started.isolated &&
             executionChildAbsent(started.pid, true)
           ) {
-            await saveEnvironmentArtifact(
-              root,
-              subject,
-              `children/settled-${key}`,
-              true,
-            );
+            await saveExecutionChildReceipt(root, subject, {
+              kind: "settled",
+              key,
+            });
           }
         },
       };
