@@ -33,6 +33,11 @@ export interface OnDiskFormatDefinition {
   readonly version: number;
   readonly versionField: OnDiskVersionField;
   readonly historicalVersions?: readonly number[];
+  readonly schemaContract?: {
+    readonly module: string;
+    readonly export: string;
+    readonly sha256: string;
+  };
   readonly reader: string;
   readonly writers: readonly string[];
   readonly newerVersionPolicy: OnDiskNewerVersionPolicy;
@@ -43,10 +48,32 @@ export const ON_DISK_FORMATS = {
   completionRecord: {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
-    version: 2,
+    version: 3,
+    historicalVersions: [2],
+    schemaContract: {
+      module: "src/engine/completion/records.ts",
+      export: "CompletionRecordSchema",
+      sha256:
+        "0d884c60313328a4581cbf2d60100335cc28a10a25805565b1f9e0b644c47cf3",
+    },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",
     writers: ["src/engine/completion/store.ts"],
+    newerVersionPolicy: "refuse",
+  },
+  emergencyResolution: {
+    id: "emergency-resolution",
+    location: { kind: "git-admin", keys: ["completionArtifacts"] },
+    version: 2,
+    versionField: "version",
+    schemaContract: {
+      module: "src/engine/emergency/obligations.ts",
+      export: "EmergencyResolutionSchema",
+      sha256:
+        "727f025495d5e2481c52bb860149a5d5cac7780983bffe6d8a77637b24c1cf48",
+    },
+    reader: "src/engine/emergency/obligations.ts#resolution",
+    writers: ["src/engine/emergency/obligations.ts"],
     newerVersionPolicy: "refuse",
   },
   acceptanceTransaction: {
@@ -335,8 +362,6 @@ export type OnDiskFormatKey = keyof typeof ON_DISK_FORMATS;
  * than a versioned document. The coverage guard requires every location not
  * claimed by a format to carry one precise reason here. */
 export const UNVERSIONED_GIT_ADMIN_STATE = {
-  completionArtifacts:
-    "attempt-owned opaque output and drift bytes; their digests and ownership live in completion records",
   logbookLifecycleLock: "an operating-system lock with no persisted payload",
   validationHmacKey: "an opaque fixed-length secret key",
   testSlots: "short-lived locked lease files owned by live processes",

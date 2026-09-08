@@ -1,3 +1,5 @@
+import { z } from "@zod/zod";
+import { ExceptionClaimSchema } from "../src/engine/completion/exception_claim.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { RetirementEffectsSchema } from "../src/shared/accept_landing_state.ts";
@@ -6,6 +8,7 @@ import { dirname, join } from "@std/path";
 import {
   completionRecordPath,
   openCompletionRecordStore,
+  parseCompletionRecord,
   readCompletionRecord,
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
@@ -87,7 +90,7 @@ Deno.test("completion reads are effect-free and every family preserves newer and
           [
             JSON.stringify({
               ...fixture,
-              version: ON_DISK_FORMATS.completionRecord.version - 1,
+              version: 1,
             }),
             "older",
           ],
@@ -596,4 +599,138 @@ Deno.test("a resolved completion store keeps reads fresh and later operations fo
     assert(reopened !== undefined);
     assert(reopened.directory !== store.directory);
   });
+});
+
+Deno.test("reviewed version 2 records normalize without granting authority or rewriting observation", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    for (const fixture of Object.values(completionFixtures())) {
+      const raw = JSON.stringify({ ...fixture, version: 2 }, null, 2);
+      const path = await completionRecordPath(root, fixture);
+      assert(path !== undefined);
+      await Deno.mkdir(dirname(path), { recursive: true });
+      await Deno.writeTextFile(path, raw);
+      const observed = await readCompletionRecord(root, fixture);
+      assert(observed.kind === "recorded", JSON.stringify(observed));
+      assertEquals(observed.record, fixture);
+      assertEquals(await Deno.readTextFile(path), raw);
+      if (
+        COMPLETION_FAMILIES[fixture.kind].lifetime === "mutable" &&
+        fixture.kind !== "attempt"
+      ) {
+        assertEquals(
+          (await writeCompletionRecord(
+            root,
+            { ...fixture, revision: 2 },
+            observed.stamp,
+            undefined,
+            COMPLETION_CLOCK,
+          )).kind,
+          "written",
+        );
+        const archive = await completionRecordPath(root, fixture, 1);
+        assert(archive !== undefined);
+        assertEquals(await Deno.readTextFile(archive), raw);
+      }
+    }
+  });
+});
+
+Deno.test("completion version distinguishes the two strict-reader extensions from corruption", async () => {
+  assert(
+    ON_DISK_FORMATS.completionRecord.version > 2,
+    "strict schema extensions require an explicit compatibility revision",
+  );
+  const environment = COMPLETION_FAMILIES.environment.schema.parse(
+    completionFixtures().environment,
+  );
+  const extended = {
+    ...environment,
+    data: {
+      ...environment.data,
+      state: { kind: "idle" as const, returned_attempt_id: completionId(2) },
+    },
+  };
+  for (const value of [environment, extended]) {
+    const result = await parseCompletionRecord(
+      JSON.stringify({ ...value, version: 2 }),
+      value,
+    );
+    assert(result.kind === "recorded", JSON.stringify(result));
+    assertEquals(result.record.data, value.data);
+  }
+  assertEquals(
+    (await parseCompletionRecord(
+      JSON.stringify({ ...extended, version: 2, surprise: true }),
+      extended,
+    )).kind,
+    "invalid",
+  );
+});
+
+Deno.test("strict version-2 readers reject optional additions accepted by the reviewed compatibility reader", async () => {
+  const fixtures = completionFixtures();
+  assert(
+    fixtures.environment.kind === "environment" &&
+      fixtures.landing.kind === "landing" &&
+      fixtures.evidence.kind === "evidence",
+  );
+  // These are the two strict shapes from f6d709fc9; each changed without a version bump.
+  const oldIdle = z.strictObject({ kind: z.literal("idle") });
+  assert(oldIdle.safeParse({ kind: "idle" }).success);
+  const idle = { kind: "idle", returned_attempt_id: completionId(2) };
+  assertEquals(oldIdle.safeParse(idle).success, false);
+  const oldException = z.strictObject(
+    Object.fromEntries(
+      Object.entries(ExceptionClaimSchema.shape).filter(([key]) =>
+        key !== "review"
+      ),
+    ),
+  );
+  const landing = fixtures.landing;
+  const claim = {
+    kind: "exception",
+    authorization_id: completionId(80),
+    authorized_at: 100,
+    actual_trunk: landing.data.expected_trunk,
+    source: landing.data.source,
+    candidate_id: landing.data.candidate_id,
+    candidate_head: landing.data.target,
+    policy: landing.data.policy,
+    reason: "Recorded owner exception",
+    exceptions: [{
+      requirement: {
+        id: "coverage",
+        context: "local",
+        kind: "standard",
+        definition: "a".repeat(64),
+      },
+      state: "unrun",
+      evidence_id: null,
+    }],
+  };
+  assert(oldException.safeParse(claim).success);
+  const artifact = fixtures.evidence.data.artifacts[0];
+  assert(artifact !== undefined);
+  const extended = {
+    ...claim,
+    review: {
+      ...artifact,
+      candidate_id: landing.data.candidate_id,
+      context: "local",
+      path: "environment/emergency-review.json",
+    },
+  };
+  assertEquals(oldException.safeParse(extended).success, false);
+  for (const value of [claim, extended]) {
+    const raw = JSON.stringify({
+      ...landing,
+      version: 2,
+      data: { ...landing.data, claim: value },
+    });
+    const observed = await parseCompletionRecord(raw, landing);
+    assert(observed.kind === "recorded", JSON.stringify(observed));
+    assert(observed.record.kind === "landing");
+    assertEquals(observed.record.data.claim.kind, "exception");
+  }
 });

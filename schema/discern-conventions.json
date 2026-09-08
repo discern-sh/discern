@@ -426,13 +426,24 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 2,
+      "version": 3,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
         "kind": "git-admin",
         "keys": [
           "completionRecords"
+        ]
+      }
+    },
+    "emergency-resolution": {
+      "version": 2,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
         ]
       }
     },

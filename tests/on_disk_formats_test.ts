@@ -1,8 +1,14 @@
 /** Guards for the complete local durable-format registry. */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { join } from "@std/path";
 import { z } from "@zod/zod";
+import { Node, Project, SyntaxKind } from "ts-morph";
 import { GIT_ADMIN_STATE_KEYS } from "../src/shared/git_admin_state.ts";
 import {
   inspectOnDiskRecordVersion,
@@ -189,4 +195,154 @@ Deno.test("authored TypeScript does not inline a durable format version", async 
     [],
     "route durable schema versions through ON_DISK_FORMATS",
   );
+});
+
+Deno.test("registered durable schema contracts require an explicit version and compatibility review", async () => {
+  const { sha256Hex } = await import("../src/shared/sha256.ts");
+  for (const format of Object.values(ON_DISK_FORMATS)) {
+    if (!("schemaContract" in format)) continue;
+    const contract = format.schemaContract;
+    const module = await import(
+      new URL(`../${contract.module}`, import.meta.url).href
+    );
+    const schema = module[contract.export] as z.ZodType;
+    const digest = await sha256Hex(
+      JSON.stringify(
+        z.toJSONSchema(schema, { io: "input", unrepresentable: "any" }),
+      ),
+    );
+    assertEquals(
+      digest,
+      contract.sha256,
+      `${format.id}: durable shape changed. Review reader/writer compatibility, update the format version and migration, then record the reviewed schema digest. Do not regenerate it as routine build output.`,
+    );
+    // A novel optional member breaks a strict reader just as a required member does.
+    const future = z.union([
+      schema,
+      z.strictObject({
+        kind: z.literal("orchard"),
+        payload: z.string().optional(),
+      }),
+    ]);
+    assert(
+      (await sha256Hex(
+        JSON.stringify(
+          z.toJSONSchema(future, { io: "input", unrepresentable: "any" }),
+        ),
+      )) !== contract.sha256,
+    );
+  }
+});
+
+Deno.test("emergency resolution keeps its durable version independently of completion record envelopes", async () => {
+  const { EmergencyResolutionSchema, parseEmergencyResolution } = await import(
+    "../src/engine/emergency/obligations.ts"
+  );
+  const { completionId } = await import("./completion_fixtures.ts");
+  const existing = {
+    version: 2,
+    landing_id: completionId(1),
+    proof: { candidate_id: completionId(2), proof_id: completionId(3) },
+    head: "a".repeat(40),
+    resolved_at: 100,
+  };
+  assertEquals(
+    parseEmergencyResolution(JSON.stringify(existing), "fixture"),
+    existing,
+  );
+  assert(
+    ON_DISK_FORMATS.emergencyResolution.version !==
+      Number(ON_DISK_FORMATS.completionRecord.version),
+  );
+  assertEquals(
+    EmergencyResolutionSchema.safeParse({ ...existing, version: 999 }).success,
+    false,
+  );
+  assertThrows(
+    () =>
+      parseEmergencyResolution(
+        JSON.stringify({ ...existing, version: 999 }),
+        "fixture",
+      ),
+    Error,
+    "written by a newer discern",
+  );
+  assertThrows(
+    () =>
+      parseEmergencyResolution(
+        JSON.stringify({ ...existing, landing_id: false }),
+        "fixture",
+      ),
+    Error,
+    "invalid",
+  );
+});
+
+/** Find schema declarations borrowing a separately reviewed format's version. */
+function borrowedSchemaVersions(path: string, source: string): string[] {
+  const project = new Project({
+    compilerOptions: { noLib: true },
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+  });
+  const parsed = project.createSourceFile(path, source);
+  const borrowed: string[] = [];
+  for (const call of parsed.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression();
+    if (
+      !Node.isPropertyAccessExpression(callee) || callee.getName() !== "literal"
+    ) continue;
+    const argument = call.getArguments()[0];
+    if (
+      !Node.isPropertyAccessExpression(argument) ||
+      argument.getName() !== "version"
+    ) continue;
+    const formatAccess = argument.getExpression();
+    if (
+      !Node.isPropertyAccessExpression(formatAccess) ||
+      formatAccess.getExpression().getText() !== "ON_DISK_FORMATS"
+    ) continue;
+    const key = FORMAT_KEYS.find((key) => key === formatAccess.getName());
+    if (key === undefined) continue;
+    const format = ON_DISK_FORMATS[key];
+    if ("schemaContract" in format && format.schemaContract.module !== path) {
+      borrowed.push(
+        `${path}:${call.getStartLineNumber()}: ${format.id} belongs to ${format.schemaContract.module}`,
+      );
+    }
+  }
+  return borrowed;
+}
+
+Deno.test("reviewed schema versions cannot be borrowed by independent document schemas", async () => {
+  const files = await structuralGuardScope({
+    guard: "tests/on_disk_formats_test.ts#schema-version-ownership",
+    universe: "authored-ts",
+  }, REPO_ROOT);
+  const borrowed: string[] = [];
+  for (const file of files) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, file));
+    if (source.includes("ON_DISK_FORMATS")) {
+      borrowed.push(...borrowedSchemaVersions(file, source));
+    }
+  }
+  assertEquals(
+    borrowed,
+    [],
+    "Register an independent durable schema with its own version and compatibility contract.",
+  );
+  for (const key of FORMAT_KEYS) {
+    if (!("schemaContract" in ON_DISK_FORMATS[key])) continue;
+    const source =
+      `const Orchard = z.strictObject({ version: z.literal(ON_DISK_FORMATS.${key}.version) });`;
+    assertEquals(
+      borrowedSchemaVersions("scripts/orchard_receipt.ts", source).length,
+      1,
+    );
+    assertEquals(
+      borrowedSchemaVersions("scripts/orchard_receipt.ts", `// ${source}`)
+        .length,
+      0,
+    );
+  }
 });

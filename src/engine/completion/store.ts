@@ -45,16 +45,30 @@ export async function parseCompletionRecord(
   selector: RecordSelector,
 ): Promise<CompletionRecordReading> {
   const version = inspectOnDiskJsonVersion("completionRecord", raw);
-  if (version.status === "newer" || version.status === "older") {
+  const supportedOlder = version.status === "older" &&
+    ON_DISK_FORMATS.completionRecord.historicalVersions.some((v) =>
+      v === version.found
+    );
+  if (
+    version.status === "newer" ||
+    (version.status === "older" && !supportedOlder)
+  ) {
     return { kind: version.status, version: version.found };
   }
-  if (version.status !== "current") {
+  if (version.status !== "current" && !supportedOlder) {
     return {
       kind: "invalid",
       reason: "completion record needs its registered version",
     };
   }
-  const parsed = CompletionRecordSchema.safeParse(JSON.parse(raw));
+  // Version 2 has the same reviewed data shapes. Normalize only the envelope;
+  // retain the byte stamp so a later CAS archives the exact original document.
+  const decoded = JSON.parse(raw);
+  const parsed = CompletionRecordSchema.safeParse(
+    supportedOlder
+      ? { ...decoded, version: ON_DISK_FORMATS.completionRecord.version }
+      : decoded,
+  );
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
   if (parsed.data.kind !== selector.kind || parsed.data.id !== selector.id) {
     return {
