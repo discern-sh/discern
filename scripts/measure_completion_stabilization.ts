@@ -276,10 +276,16 @@ await withTempDir(async (aux) => {
       "named lightweight standard after Proof",
       ["standards", "lightweight"],
     );
-    await measure(root, path, counters, "release after standalone measurement", [
-      "done",
-      "--release-checkout",
-    ]);
+    await measure(
+      root,
+      path,
+      counters,
+      "release after standalone measurement",
+      [
+        "done",
+        "--release-checkout",
+      ],
+    );
     await measure(
       root,
       path,
