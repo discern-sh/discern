@@ -298,7 +298,7 @@ async function retainDirs(
     ? undefined
     : await routingFingerprint(cwd, checkout.dirs);
   if (
-    checkout.stale === "publication" && before !== undefined &&
+    publication && checkout.stale !== "topology" && before !== undefined &&
     before === checkout.routing && revision === checkout.revision
   ) {
     checkout.stale = false;

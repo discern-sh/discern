@@ -245,6 +245,8 @@ Deno.test("parallel completion publications serialize inside a common transactio
     await withOperationLock(dir, { command: "setup done" }, async () => {
       let active = 0;
       let maximum = 0;
+      let nestedActive = 0;
+      let nestedMaximum = 0;
       let completed = 0;
       await Promise.all(
         Array.from(
@@ -254,13 +256,22 @@ Deno.test("parallel completion publications serialize inside a common transactio
               active += 1;
               maximum = Math.max(maximum, active);
               try {
-                await withCompletionPublication(dir, async () => {
-                  assertEquals(
-                    await Deno.readTextFile(join(dir, "seed.txt")),
-                    "seed\n",
-                  );
-                  completed += 1;
-                });
+                await Promise.all(Array.from({ length: 4 }, () =>
+                  withCompletionPublication(dir, async () => {
+                    nestedActive += 1;
+                    nestedMaximum = Math.max(nestedMaximum, nestedActive);
+                    try {
+                      await withCompletionPublication(dir, async () => {
+                        assertEquals(
+                          await Deno.readTextFile(join(dir, "seed.txt")),
+                          "seed\n",
+                        );
+                        completed += 1;
+                      });
+                    } finally {
+                      nestedActive -= 1;
+                    }
+                  })));
               } finally {
                 active -= 1;
               }
@@ -268,7 +279,8 @@ Deno.test("parallel completion publications serialize inside a common transactio
         ),
       );
       assertEquals(maximum, 1);
-      assertEquals(completed, 8);
+      assertEquals(nestedMaximum, 1);
+      assertEquals(completed, 32);
     });
   });
 });

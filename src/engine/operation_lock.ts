@@ -463,6 +463,7 @@ const completionPublications = new Map<string, Promise<void>>();
 const currentPublication = new AsyncLocalStorage<{
   readonly key: string;
   active: boolean;
+  readonly children: Map<string, Promise<void>>;
 }>();
 
 /** Completion publications own only the short shared boundary. Cross-process
@@ -497,18 +498,26 @@ export async function withCompletionPublication<T>(
   const enclosing = currentPublication.getStore();
   if (
     spec === undefined ||
-    (enclosing?.active === true && enclosing.key === spec.key) ||
     (held?.boundaries.has("checkout") && held.completionExecution !== true &&
       !held.leases.has(spec.key))
   ) return await run();
-  const previous = completionPublications.get(spec.key);
+  // Nested siblings serialize within their parent; they must not wait on the
+  // parent's global slot while that parent is awaiting their completion.
+  const queue = enclosing?.active === true && enclosing.key === spec.key
+    ? enclosing.children
+    : completionPublications;
+  const previous = queue.get(spec.key);
   const finished = Promise.withResolvers<void>();
-  completionPublications.set(spec.key, finished.promise);
+  queue.set(spec.key, finished.promise);
   try {
     await previous;
     // A preceding publication requires routing verification before replay.
     if (previous !== undefined) invalidateGitDiscovery("publication");
-    const publication = { key: spec.key, active: true };
+    const publication = {
+      key: spec.key,
+      active: true,
+      children: new Map<string, Promise<void>>(),
+    };
     try {
       return await currentPublication.run(publication, run);
     } finally {
@@ -516,8 +525,8 @@ export async function withCompletionPublication<T>(
     }
   } finally {
     finished.resolve();
-    if (completionPublications.get(spec.key) === finished.promise) {
-      completionPublications.delete(spec.key);
+    if (queue.get(spec.key) === finished.promise) {
+      queue.delete(spec.key);
     }
   }
 }
