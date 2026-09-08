@@ -167,63 +167,63 @@ timeout = 8
   });
 });
 
-for (const edit of [false, true]) {
-  Deno.test(`E10 public done retries unchanged subjects across candidate edits: ${edit}`, async () => {
-    await withTempDir(async (root) => {
-      const path = await project(
-        root,
-        ["local"],
-        "",
-        "printf t >> executions; test ! -f fail || exit 1; printf 'DISCERN_METRIC coverage 93\\n'",
-        ["source"],
-      );
-      await Deno.writeTextFile(`${path}/.gitignore`, "fail\n", {
-        append: true,
-      });
-      await git(path, "add", ".gitignore", "discern.toml");
-      await git(path, "commit", "-m", "Declare deliberate rerun subject");
-      await Deno.writeTextFile(`${path}/fail`, "fail this attempt");
-      const red = await runAgent(path, ["done", "--json"]);
-      assertEquals(red.code, 1, red.output);
-      const failed = decodeCliResult(red.stdout, "done");
-      assert(failed.data !== undefined && "completion" in failed.data);
-      const blocked = failed.data.completion?.pending?.filter((item) =>
-        item.kind === "validation-failed"
-      );
-      assert((blocked?.length ?? 0) > 1, red.output);
-      const retryHints = (failed.hints ?? []).filter((hint) =>
-        hint.includes("deliberate retry of the unchanged subject")
-      );
-      assertEquals(retryHints.length, 1, red.output);
-      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-      await Deno.remove(`${path}/fail`);
-      if (edit) {
-        await Deno.writeTextFile(
-          `${path}/unrelated-note`,
-          "An edit outside the declared producer closure.\n",
-        );
-        await git(path, "add", "unrelated-note");
-        await git(path, "commit", "-m", "Add unrelated note");
-      }
-      const refused = await runAgent(path, ["done", "--json"]);
-      assertEquals(refused.code, 1, refused.output);
-      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-      if (edit) {
-        const pending = decodeCliResult(refused.stdout, "done");
-        const detail = JSON.stringify(pending.data);
-        assert(
-          detail.includes("coverage") && detail.includes("attempt") &&
-            detail.includes("--rerun"),
-          detail,
-        );
-      }
-      const rerun = await runAgent(path, ["done", "--rerun", "--json"]);
-      assertEquals(rerun.code, 0, rerun.output);
-      assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
-      assertEquals((await inspectGateProof(path)).status, "honored");
+Deno.test("E10 public done retries unchanged subjects across candidate edits", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      "",
+      "printf t >> executions; test ! -f fail || exit 1; printf 'DISCERN_METRIC coverage 93\\n'",
+      ["source"],
+    );
+    await Deno.writeTextFile(`${path}/.gitignore`, "fail\n", {
+      append: true,
     });
+    await git(path, "add", ".gitignore", "discern.toml");
+    await git(path, "commit", "-m", "Declare deliberate rerun subject");
+    await Deno.writeTextFile(`${path}/fail`, "fail this attempt");
+    const red = await runAgent(path, ["done", "--json"]);
+    assertEquals(red.code, 1, red.output);
+    const failed = decodeCliResult(red.stdout, "done");
+    assert(failed.data !== undefined && "completion" in failed.data);
+    const blocked = failed.data.completion?.pending?.filter((item) =>
+      item.kind === "validation-failed"
+    );
+    assert((blocked?.length ?? 0) > 1, red.output);
+    const retryHints = (failed.hints ?? []).filter((hint) =>
+      hint.includes("deliberate retry of the unchanged subject")
+    );
+    assertEquals(retryHints.length, 1, red.output);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    await Deno.remove(`${path}/fail`);
+    // A refusal is read-only, so the unchanged and edited variants chain on
+    // one candidate: refuse the untouched tree, then refuse again after an
+    // edit outside the producer closure, then accept the deliberate rerun.
+    const refused = await runAgent(path, ["done", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    await Deno.writeTextFile(
+      `${path}/unrelated-note`,
+      "An edit outside the declared producer closure.\n",
+    );
+    await git(path, "add", "unrelated-note");
+    await git(path, "commit", "-m", "Add unrelated note");
+    const edited = await runAgent(path, ["done", "--json"]);
+    assertEquals(edited.code, 1, edited.output);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const pending = decodeCliResult(edited.stdout, "done");
+    const detail = JSON.stringify(pending.data);
+    assert(
+      detail.includes("coverage") && detail.includes("attempt") &&
+        detail.includes("--rerun"),
+      detail,
+    );
+    const rerun = await runAgent(path, ["done", "--rerun", "--json"]);
+    assertEquals(rerun.code, 0, rerun.output);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
+    assertEquals((await inspectGateProof(path)).status, "honored");
   });
-}
+});
 
 Deno.test("public completion names unexpected output and preserves it without Proof", async () => {
   await withTempDir(async (root) => {
