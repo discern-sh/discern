@@ -42,8 +42,10 @@ for (const retained of [false, true]) {
       assertEquals(await gitOut(path, "status", "--porcelain"), "");
       const original = await gitOut(path, "rev-parse", "HEAD");
       const environments = observedRecords(await observeQueue(root, "main"))
-        .filter((record) => record.kind === "environment");
+        .filter((record) => record.kind === "environment")
+        .filter((record) => record.data.state.kind !== "disposed");
       assertEquals(environments.length, 1);
+      assertEquals(environments[0]?.data.state.kind, "idle");
       assertEquals(
         environments[0]?.data.release.kind,
         retained ? "held" : "released",
