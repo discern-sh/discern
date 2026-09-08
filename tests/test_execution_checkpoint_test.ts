@@ -162,6 +162,37 @@ Deno.test("test cost leaves unrelated processes outside the boundary set and ref
   assertThrows(() => selected("", "function {"), Error, "cannot parse");
 });
 
+Deno.test("test cost counts hand-rolled engine spawns through the invocation builders", () => {
+  const fixture = {
+    path: "tests/peer_fixture.ts",
+    text: 'import { engineEnv, engineRunArgs } from "./engine_helpers.ts";\n' +
+      "export async function openPeer(root: string) {\n" +
+      "  return new Deno.Command(Deno.execPath(), {\n" +
+      '    args: engineRunArgs(["mcp"]),\n' +
+      "    cwd: root,\n" +
+      "    env: await engineEnv(),\n" +
+      "  }).spawn();\n" +
+      "}\n",
+  };
+  const importPeer = 'import { openPeer } from "./peer_fixture.ts";';
+  assertEquals(
+    selected(
+      importPeer,
+      `${importPeer} async function test() { await openPeer(dir); }`,
+      [fixture],
+    ),
+    true,
+  );
+  assertEquals(
+    selected(
+      'import { engineEnv } from "./engine_helpers.ts";',
+      'import { engineEnv } from "./engine_helpers.ts";\n' +
+        "async function test() { await engineEnv(); }",
+    ),
+    true,
+  );
+});
+
 Deno.test("test cost host reads committed and dirty candidate bytes without running the fixture", async () => {
   await withTempDir(async (dir) => {
     await Deno.mkdir(`${dir}/tests`);

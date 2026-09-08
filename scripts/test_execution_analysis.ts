@@ -1,9 +1,16 @@
 /** Syntax evidence for reviewing growth in expensive test execution. */
 import { ts } from "ts-morph";
 
-/** Exact production and harness boundaries; wrappers inherit their classification. */
+/**
+ * Exact production and harness boundaries; wrappers inherit their classification.
+ * The engine invocation builders (`engineRunArgs`, `engineEnv`) are roots so a
+ * hand-rolled spawn (`new Deno.Command(Deno.execPath(), …)` around them) counts
+ * without enrolling every cheap subprocess, such as plain Git probes.
+ */
 const BOUNDARIES: Readonly<Record<string, readonly string[]>> = {
   "tests/engine_helpers.ts": [
+    "engineEnv",
+    "engineRunArgs",
     "scaffoldEngine",
     "runAgent",
     "runAgentMerged",
