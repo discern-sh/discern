@@ -4887,13 +4887,16 @@ async function startInFlightFinish(
     params: { name: "discern_done", arguments: {} },
   });
   const pidFile = join(dir, "gate.pid");
+  let jobPid = 0;
   await waitUntil(
-    async () => await targetExists(pidFile),
+    async () => {
+      if (!await targetExists(pidFile)) return false;
+      jobPid = Number((await Deno.readTextFile(pidFile)).trim());
+      return Number.isSafeInteger(jobPid) && jobPid > 0;
+    },
     "the gate's check job to start",
     { timeoutMs: 30_000, intervalMs: 50 },
   );
-  const jobPid = Number((await Deno.readTextFile(pidFile)).trim());
-  assert(Number.isFinite(jobPid) && jobPid > 0, `bad gate.pid: ${jobPid}`);
   return jobPid;
 }
 
