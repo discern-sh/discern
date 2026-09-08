@@ -10,51 +10,7 @@ import {
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
 
-Deno.test("public retained review releases unchanged Proof without another producer", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
-    const retained = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(retained.code, 0, retained.output);
-    for (let repeat = 0; repeat < 2; repeat++) {
-      const released = await runAgent(path, ["done", "--json"]);
-      assertEquals(released.code, 0, released.output);
-      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-      const environments = observedRecords(await observeQueue(root, "main"))
-        .filter((record) => record.kind === "environment");
-      assertEquals(environments.length, 1);
-      assertEquals(environments[0]?.data.release.kind, "released");
-      assert(environments[0]?.data.release.kind === "released");
-      assertEquals(environments[0].data.release.retirement, true);
-    }
-    const feedback = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(feedback.code, 0, feedback.output);
-    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
-    const held = observedRecords(await observeQueue(root, "main")).find((
-      record,
-    ) => record.kind === "environment");
-    assertEquals(held?.data.release.kind, "held");
-    await Deno.writeTextFile(`${path}/source`, "review feedback\n");
-    await git(path, "add", "source");
-    await git(path, "commit", "-m", "Apply review feedback");
-    const revised = await runAgent(path, [
-      "done",
-      "--retain-checkout",
-      "--json",
-    ]);
-    assertEquals(revised.code, 0, revised.output);
-    assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
-  });
-});
-
-Deno.test("public review preview excludes release until its process stops", async () => {
+Deno.test("public retained review, preview, release, and feedback preserve ownership without duplicate producers", async () => {
   await withTempDir(async (root) => {
     await withTempDir(async (aux) => {
       const path = await project(root, ["local"]);
@@ -98,9 +54,38 @@ Deno.test("public review preview excludes release until its process stops", asyn
           timeoutMs: 10_000,
         });
       }
-      const released = await runAgent(path, ["done", "--json"]);
-      assertEquals(released.code, 0, released.output);
+      for (let repeat = 0; repeat < 2; repeat++) {
+        const released = await runAgent(path, ["done", "--json"]);
+        assertEquals(released.code, 0, released.output);
+        assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+        const environments = observedRecords(await observeQueue(root, "main"))
+          .filter((record) => record.kind === "environment");
+        assertEquals(environments.length, 1);
+        assertEquals(environments[0]?.data.release.kind, "released");
+        assert(environments[0]?.data.release.kind === "released");
+        assertEquals(environments[0].data.release.retirement, true);
+      }
+      const feedback = await runAgent(path, [
+        "done",
+        "--retain-checkout",
+        "--json",
+      ]);
+      assertEquals(feedback.code, 0, feedback.output);
       assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+      const held = observedRecords(await observeQueue(root, "main")).find((
+        record,
+      ) => record.kind === "environment");
+      assertEquals(held?.data.release.kind, "held");
+      await Deno.writeTextFile(`${path}/source`, "review feedback\n");
+      await git(path, "add", "source");
+      await git(path, "commit", "-m", "Apply review feedback");
+      const revised = await runAgent(path, [
+        "done",
+        "--retain-checkout",
+        "--json",
+      ]);
+      assertEquals(revised.code, 0, revised.output);
+      assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
     });
   });
 });
