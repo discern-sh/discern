@@ -8,11 +8,7 @@ import {
   completionMcpPeer,
   completionProcessAlive as alive,
 } from "./completion_mcp_fixture.ts";
-import {
-  settlePending,
-  waitForPendingCondition,
-  waitUntil,
-} from "./waiting.ts";
+import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import {
@@ -128,11 +124,7 @@ concurrent_test_runs = 1
         }
         await using reconnect = await completionMcpPeer(root);
         await reconnect.call(2, "discern_status", { path: root });
-        const response = await settlePending(
-          reconnect.response(2),
-          "fresh MCP status after cancellation",
-          { timeoutMs: 10_000 },
-        );
+        const response = await reconnect.response(2);
         assertEquals(response.error, undefined);
         assertEquals(
           StatusToolResultSchema.parse(response.result).structuredContent.ok,

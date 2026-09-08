@@ -1,7 +1,11 @@
 /** A real stdio peer records notifications and sends explicit transport cancellation. */
 import { z } from "@zod/zod";
 import { engineEnv, engineRunArgs } from "./engine_helpers.ts";
-import { settlePending, waitForPendingCondition } from "./waiting.ts";
+import {
+  settlePending,
+  TEST_PROCESS_TIMEOUT_MS,
+  waitForPendingCondition,
+} from "./waiting.ts";
 import { decodeWith } from "./decode_cli_result.ts";
 
 const MessageSchema = z.looseObject({
@@ -11,6 +15,15 @@ const MessageSchema = z.looseObject({
   error: z.unknown().optional(),
 });
 type Message = z.infer<typeof MessageSchema>;
+
+/** The process resources owned by a real peer or its deterministic lifecycle test. */
+interface McpPeerProcess {
+  readonly stdin: WritableStream<Uint8Array>;
+  readonly stdout: ReadableStream<Uint8Array<ArrayBuffer>>;
+  readonly stderr: ReadableStream<Uint8Array<ArrayBuffer>>;
+  readonly status: Promise<Deno.CommandStatus>;
+  kill(signal: Deno.Signal): void;
+}
 
 /** Probe only PIDs written by a disposable fixture's owned process tree. */
 export function completionProcessAlive(pid: number): boolean {
@@ -30,7 +43,10 @@ export class CompletionMcpPeer implements AsyncDisposable {
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>;
   private readonly drained: Promise<void>;
 
-  constructor(private readonly child: Deno.ChildProcess) {
+  constructor(
+    private readonly child: McpPeerProcess,
+    private readonly waitForExit: typeof settlePending = settlePending,
+  ) {
     this.writer = child.stdin.getWriter();
     this.finished = child.status;
     this.drained = Promise.all([this.drain(), this.drainErrors()]).then(
@@ -114,10 +130,10 @@ export class CompletionMcpPeer implements AsyncDisposable {
   async [Symbol.asyncDispose](): Promise<void> {
     await this.writer.close();
     try {
-      await settlePending(
+      await this.waitForExit(
         this.finished,
         "MCP server shutdown and child settlement",
-        { timeoutMs: 10_000 },
+        { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
       );
     } catch (error) {
       this.child.kill("SIGTERM");
