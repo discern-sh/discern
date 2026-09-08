@@ -22,6 +22,11 @@ import {
   type PublicValidationRun,
 } from "../validation/public_run.ts";
 import { runCompleteGate } from "./complete_gate.ts";
+import { settleReviewedCheckout } from "./review_release.ts";
+import {
+  OperationLockError,
+  withCompletionCheckout,
+} from "../operation_lock.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
@@ -1715,11 +1720,60 @@ const DONE_PREAMBLE_OPERATIONS = {
 } satisfies DonePreambleOperations;
 
 /** Report comparisons name the fetched predecessor before checkpoint inspection. */
-function donePreambleOperations(predecessor?: string): DonePreambleOperations {
-  return predecessor === undefined ? DONE_PREAMBLE_OPERATIONS : {
+function donePreambleOperations(
+  predecessor?: string,
+  ownership?: { retain: boolean; signal?: AbortSignal },
+): DonePreambleOperations {
+  return {
     ...DONE_PREAMBLE_OPERATIONS,
-    resolveCheckpointGate: (root, declarations, mode, ci, signal) =>
-      resolveCheckpointGate(root, declarations, mode, ci, signal, predecessor),
+    ...(predecessor === undefined ? {} : {
+      resolveCheckpointGate: (root, declarations, mode, ci, signal) =>
+        resolveCheckpointGate(
+          root,
+          declarations,
+          mode,
+          ci,
+          signal,
+          predecessor,
+        ),
+    } satisfies Partial<DonePreambleOperations>),
+    ...(ownership === undefined ? {} : {
+      reusableGreenProof: async (root) => {
+        try {
+          return await withCompletionCheckout(root, async () => {
+            const reused = await reusableGreenProof(root);
+            if (reused === undefined) return undefined;
+            const pointer = reused.data?.proof?.completion;
+            if (pointer === undefined) return undefined;
+            await settleReviewedCheckout(root, pointer, ownership.retain);
+            return {
+              ...reused,
+              message: `${reused.message} Checkout ${
+                ownership.retain
+                  ? "retained for review or feedback edits in this effort"
+                  : "released for validation and eligible cleanup"
+              }.`,
+            };
+          }, ownership.signal);
+        } catch (error) {
+          return {
+            ok: false,
+            verb: "done",
+            error: "precondition_failed",
+            message: error instanceof OperationLockError
+              ? error.message
+              : `Checkout ownership could not change: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            hints: hintTexts([fire(HINTS["completion-pending"], {
+              action:
+                "Stop preview or watch processes using this checkout and resolve any reported recovery, then retry done. Use done --retain-checkout before feedback edits in the same effort.",
+            })]),
+            data: { gate_ran: false, failed_stage: null, scopes_changed: [] },
+          };
+        }
+      },
+    } satisfies Partial<DonePreambleOperations>),
   };
 }
 
@@ -1818,7 +1872,6 @@ export async function finishResult(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    opts.retainCheckout === true ||
     ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
@@ -1832,7 +1885,10 @@ export async function finishResult(
         (await pinValidatedTree(root)).clean,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
-    donePreambleOperations(opts.policyBase),
+    donePreambleOperations(opts.policyBase, {
+      retain: opts.retainCheckout === true,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+    }),
   );
   if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
@@ -1980,7 +2036,6 @@ export async function runFinish(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    opts.retainCheckout === true ||
     ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
@@ -1993,7 +2048,9 @@ export async function runFinish(
       deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
     },
-    donePreambleOperations(opts.policyBase),
+    donePreambleOperations(opts.policyBase, {
+      retain: opts.retainCheckout === true,
+    }),
   );
   if (preamble.kind === "reuse") {
     observeResult(preamble.result);

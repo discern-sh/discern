@@ -58,7 +58,9 @@ export async function resolveDonePreamble(
     options.mode === "strict" && !options.rerunRequested && !hasDeclarations
   ) {
     const reused = await operations.reusableGreenProof(root);
-    if (reused !== undefined) return { kind: "reuse", result: reused };
+    if (reused !== undefined) {
+      return { kind: reused.ok ? "reuse" : "refuse", result: reused };
+    }
   }
   const checkpoints = await operations.resolveCheckpointGate(
     root,
