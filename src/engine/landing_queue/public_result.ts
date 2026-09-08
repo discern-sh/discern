@@ -32,7 +32,7 @@ import type { QueueEntry } from "./model.ts";
 import type { PublicCandidateAssessment } from "./public_assessment.ts";
 import { readLandingNoteResult } from "./publication.ts";
 import { observedRecords } from "./repository.ts";
-import { RetirementCaptureSchema } from "./retirement.ts";
+import { planQueueRetirement, RetirementCaptureSchema } from "./retirement.ts";
 
 export type AcceptancePrefix = NonNullable<AcceptData["queue"]>[number];
 
@@ -218,6 +218,9 @@ export async function queueAcceptanceResult(
     );
   }
   const noteHints: string[] = [];
+  const completionRecords = rows.some((row) => row.landing_id !== undefined)
+    ? observedRecords(await observeCompletionRecords(root))
+    : [];
   for (const row of rows) {
     if (row.landing_id === undefined) continue;
     try {
@@ -228,27 +231,28 @@ export async function queueAcceptanceResult(
       if (landing.kind !== "recorded" || landing.record.kind !== "landing") {
         continue;
       }
-      const retirements = observedRecords(await observeCompletionRecords(root))
-        .filter((record) =>
-          record.kind === "retirement" &&
-          record.data.landing_id === landing.record.id
-        );
-      for (const retirement of retirements) {
-        if (retirement.kind !== "retirement") continue;
-        if (retirement.data.effects !== undefined) {
+      const plan = planQueueRetirement(landing.record, completionRecords);
+      if (plan.kind !== "inspect") {
+        const retirement = plan.record;
+        const outcome = plan.kind === "settled"
+          ? plan.outcome
+          : plan.record.data.outcome;
+        if (retirement?.data.effects !== undefined) {
           row.retirement_effects = retirement.data.effects;
         }
-        row.retirement = retirement.data.outcome.kind === "retired"
+        row.retirement = outcome.kind === "retired"
           ? "retired"
-          : retirement.data.outcome.kind === "recovery"
+          : outcome.kind === "recovery"
           ? "recovery"
           : "retained";
-        if (retirement.data.outcome.kind === "retained") {
-          row.retirement_reason = retirement.data.outcome.reason;
-        } else if (retirement.data.outcome.kind === "recovery") {
-          row.retirement_reason = retirement.data.outcome.recovery.reason;
+        if (outcome.kind === "retained") {
+          row.retirement_reason = outcome.reason;
+        } else if (outcome.kind === "recovery") {
+          row.retirement_reason = outcome.recovery.reason;
+        } else {
+          delete row.retirement_reason;
         }
-        if (retirement.data.capture !== undefined) {
+        if (retirement?.data.capture !== undefined) {
           const ignored = RetirementCaptureSchema.parse(
             await readEnvironmentArtifact(root, retirement.data.capture),
           ).ignored_file_changes;

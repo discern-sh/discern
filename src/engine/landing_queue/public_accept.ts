@@ -68,7 +68,7 @@ import {
   requireQueue,
   withQueueLock,
 } from "./repository.ts";
-import { retireQueueLanding } from "./retirement.ts";
+import { planQueueRetirement, retireQueueLanding } from "./retirement.ts";
 
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
@@ -277,19 +277,12 @@ export async function acceptQueueResult(
               record.data.outcome.kind === "retired"
             ) && (await readLandingConvergenceResult(root, landing.data))?.ok
         ) continue;
-        const retirement = await retireQueueLanding({
-          ...(options.signal === undefined ? {} : { signal: options.signal }),
-          root,
-          trunk,
-          config: ctx.config,
-          executor: actor,
-          log: ctx.log,
-        }, landing);
+        const plan = planQueueRetirement(landing, recoveryRecords);
         // Historical retention is not an effect of this acceptance. Keep a
         // requested landing and real recovery visible without relaying every
         // earlier owner's held checkout as part of the current result.
         if (
-          retirement.kind === "retained" &&
+          plan.kind === "settled" && plan.outcome.kind === "retained" &&
           landing.data.source.effort_id !== requested &&
           !recoveryRecords.some((record) =>
             record.kind === "retirement" &&
@@ -299,6 +292,14 @@ export async function acceptQueueResult(
           ) &&
           (await readLandingConvergenceResult(root, landing.data))?.ok
         ) continue;
+        const retirement = await retireQueueLanding({
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+          root,
+          trunk,
+          config: ctx.config,
+          executor: actor,
+          log: ctx.log,
+        }, landing);
         rows.push({
           effort: landing.data.source.effort_id,
           branch: landing.data.source.branch,

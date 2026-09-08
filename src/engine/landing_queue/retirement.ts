@@ -132,6 +132,89 @@ async function publish(
   }
 }
 
+export type RetirementPlan =
+  | {
+    kind: "settled";
+    outcome: CompletionRetirement["outcome"];
+    record?: RetirementRecord;
+  }
+  | { kind: "resume"; record: RetirementRecord }
+  | {
+    kind: "inspect";
+    environment: Extract<CompletionRecord, { kind: "environment" }>;
+  };
+
+/** Read the same retirement decision for execution and public projection. */
+export function planQueueRetirement(
+  landing: LandingRecord,
+  records: readonly CompletionRecord[],
+): RetirementPlan {
+  if (
+    landing.data.outcome.kind !== "landed" ||
+    landing.data.authority_settlement !== "consumed"
+  ) {
+    return {
+      kind: "settled",
+      outcome: { kind: "retained", reason: "ownership-uncertain" },
+    };
+  }
+  const prior = records.filter((record): record is RetirementRecord =>
+    record.kind === "retirement" && record.data.landing_id === landing.id
+  );
+  const retired = prior.find((record) =>
+    record.data.outcome.kind === "retired"
+  );
+  if (retired !== undefined) {
+    return { kind: "settled", outcome: retired.data.outcome, record: retired };
+  }
+  const retained = prior.find((record) =>
+    record.data.capture !== undefined && record.data.outcome.kind === "retained"
+  );
+  if (retained !== undefined) {
+    return {
+      kind: "settled",
+      outcome: retained.data.outcome,
+      record: retained,
+    };
+  }
+  const environment = records.find((record) =>
+    record.kind === "environment" &&
+    record.data.ownership.kind === "borrowed" &&
+    sameSource(record.data.ownership.source, landing.data.source) &&
+    record.data.state.kind !== "disposed"
+  );
+  const unfinished = prior.find((record) =>
+    record.data.capture !== undefined &&
+    (record.data.outcome.kind === "pending" ||
+      record.data.outcome.kind === "recovery")
+  );
+  if (unfinished !== undefined) {
+    return { kind: "resume", record: unfinished };
+  }
+  if (environment?.kind !== "environment") {
+    return {
+      kind: "settled",
+      outcome: { kind: "retained", reason: "ownership-uncertain" },
+    };
+  }
+  if (
+    environment.data.release.kind !== "released" ||
+    !environment.data.release.retirement
+  ) {
+    return {
+      kind: "settled",
+      outcome: { kind: "retained", reason: "unreleased" },
+    };
+  }
+  if (environment.data.state.kind !== "idle") {
+    return {
+      kind: "settled",
+      outcome: { kind: "retained", reason: "active-use" },
+    };
+  }
+  return { kind: "inspect", environment };
+}
+
 /** Retained paths and cleanup recovery never undo landing or acquire another grant. */
 export async function retireQueueLanding(
   runtime: RetirementRuntime,
@@ -146,49 +229,16 @@ export async function retireQueueLanding(
       started_at: SYSTEM_CLOCK.wallNow(),
     },
   };
-  if (
-    landing.data.outcome.kind !== "landed" ||
-    landing.data.authority_settlement !== "consumed"
-  ) return { kind: "retained", reason: "ownership-uncertain" };
-  const records = observedRecords(
-    await observeQueue(runtime.root, runtime.trunk),
+  const plan = planQueueRetirement(
+    landing,
+    observedRecords(await observeQueue(runtime.root, runtime.trunk)),
   );
-  const prior = records.filter((record): record is RetirementRecord =>
-    record.kind === "retirement" && record.data.landing_id === landing.id
-  );
-  const retired = prior.find((record) =>
-    record.data.outcome.kind === "retired"
-  );
-  if (retired !== undefined) return retired.data.outcome;
-  const retained = prior.find((record) =>
-    record.data.capture !== undefined && record.data.outcome.kind === "retained"
-  );
-  if (retained !== undefined) return retained.data.outcome;
-  const environment = records.find((record) =>
-    record.kind === "environment" &&
-    record.data.ownership.kind === "borrowed" &&
-    sameSource(record.data.ownership.source, landing.data.source) &&
-    record.data.state.kind !== "disposed"
-  );
-  const unfinished = prior.find((record) =>
-    record.data.capture !== undefined &&
-    (record.data.outcome.kind === "pending" ||
-      record.data.outcome.kind === "recovery")
-  );
-  if (unfinished !== undefined) {
-    return await applyRetirement(runtime, unfinished);
+  if (plan.kind === "settled") return plan.outcome;
+  if (plan.kind === "resume") {
+    return await applyRetirement(runtime, plan.record);
   }
-  if (environment?.kind !== "environment") {
-    return { kind: "retained", reason: "ownership-uncertain" };
-  }
+  const environment = plan.environment;
   const path = environment.data.path;
-  if (
-    environment.data.release.kind !== "released" ||
-    !environment.data.release.retirement
-  ) return { kind: "retained", reason: "unreleased" };
-  if (environment.data.state.kind !== "idle") {
-    return { kind: "retained", reason: "active-use" };
-  }
   try {
     return await withCompletionCheckout(path, async (signal) => {
       signal.throwIfAborted();
