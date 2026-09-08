@@ -51,6 +51,8 @@ Browsers receive Hypertext Markup Language (HTML). `/` and `/agents` negotiate t
 
 Rendered pages may remove frontmatter, source-only comments, and presentation-only markers. Their raw editions remain the authored bytes. Search is built from the same reader-visible Markdown projection as rendering, so source-only comments cannot become search vocabulary or snippets while literal examples inside inline or fenced code remain searchable.
 
+Generated manual references reuse the canonical definitions. Their follow-up links prefer human explanations in the offline manual; contributor-only reading can lead to the public map. [`scripts/manual_codegen.ts`](../../../scripts/manual_codegen.ts) owns these editorial destinations separately from public URL redirects, so a reading choice does not claim historical ownership of a route.
+
 ## Response contract
 
 Every successful HTML response receives a canonical link, a bounded description, Open Graph and Twitter fields, and the static branded card. Document pages add breadcrumb metadata. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.

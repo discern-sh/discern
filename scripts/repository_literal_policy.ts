@@ -67,11 +67,6 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
     reason: "codegen projects the installer repository default",
   },
   {
-    path: "project/manual/30-reference/files-and-ownership.md",
-    counts: { "current-repository": 14 },
-    reason: "the reference links each implementation authority to its source",
-  },
-  {
     path: "project/manual/30-reference/licenses.md",
     counts: { "current-repository": 3 },
     reason: "the license reference links the repository legal documents",
@@ -89,9 +84,8 @@ export const REPOSITORY_LITERAL_POLICIES: readonly RepositoryLiteralPolicy[] = [
   },
   {
     path: "project/manual/30-reference/platforms-and-providers.md",
-    counts: { "current-repository": 5 },
-    reason:
-      "the reference links entropy sources and gives exact release-verification commands",
+    counts: { "current-repository": 3 },
+    reason: "the reference gives exact release-verification commands",
   },
   {
     path: "project/manual/30-reference/proof-and-checkpoint-formats.md",

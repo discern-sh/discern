@@ -1,7 +1,7 @@
 ---
 id: guide-finish-and-land-a-change
 title: "Finish and land a change"
-description: "Prepare, prove, review, hand back, authorize, and land one exact worktree change."
+description: "Ask for a finished change, review the result and its evidence, and decide when it joins the shared project."
 order: 20
 publish: true
 kind: guide
@@ -23,107 +23,86 @@ aliases:
 
 # Finish and land a change
 
-Use this guide when a coding agent has one owned task to carry from an isolated worktree to the shared trunk. It covers the full handoff: get current, run the relevant checks, produce Proof, return the decision to the person responsible, and land only under verified authority.
+When your agent finishes a task, you should have something you can try, an account of what was checked, and a clear explanation of anything still needing your judgment. discern records the checking so you can spend your attention on the result.
 
-A green gate and a landed change are separate outcomes. Green means one clean commit passed the project's checks. Landed means an authorized acceptance later moved that commit onto the trunk.
+Suppose you asked for a search box that helps people find their saved recipes. When the work comes back, you want to try a search, see whether the results make sense, and decide whether the feature belongs in the project. This guide follows that handoff through to landing: adding the finished change to the shared branch, usually called `main`.
 
-## Starting state
+## Ask for a reviewable result
 
-- The person has supplied a bounded task and identified any decisions they retain.
-- The agent is in the main checkout before a new effort, or in the worktree assigned to this effort.
-- The worktree branch contains only this effort's work. Another task's clean worktree is still occupied and must not be adopted.
-- The person has not granted landing authority merely by asking for the work. Authority is checked again at acceptance.
+You can give your agent this request:
+
+> Finish the recipe search and bring it back for review. Show me how to try it, explain what was checked and what still needs attention, and include discern's Proof. Keep the worktree available for review fixes. Wait for my decision before landing it.
+
+**Proof** is discern's record that the project's configured checks passed for a particular committed version of the change. A commit is a saved version in Git, the tool that tracks the project's history.
+
+The request also sets a useful boundary: the agent can complete the work and its checks while you retain the landing decision. If you have already approved landing this task or granted permission for its scope, say so in your brief; discern checks that permission before landing.
 
 ## Start an isolated checkout
 
-**Coding agent:** Call `discern_status` first. If the effort already has a worktree, continue there and pass its absolute path to later discern tools. If it has none, call `discern_start` from the main checkout with a short literal name, then re-root into the returned path.
+Your agent first reads `discern status`. It continues in the task's existing **worktree**, an isolated workspace with its own branch. For a new task, it creates one through `discern start` and moves its file operations there.
 
-The command-line equivalents are:
+The same worktree holds implementation, review fixes, and any resumed sessions. You can keep the returned path with your task notes so another session knows where to continue. [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md) explains how this keeps unfinished changes separate from the shared project.
 
-```sh
-discern status
-discern start --name task-name
-```
+## Prepare the change and its evidence
 
-The start result must name a new branch and worktree path. A refusal names the existing state or the prerequisite that failed; follow its recovery instead of creating a second worktree.
+While working, your agent uses focused checks and `discern prepare`, which runs the project's fast fix-and-check steps. It reviews any rewritten files and commits the intended result before asking for the full gate, the project's configured quality checks.
 
-## 2. Keep the inner loop short
+If other work has landed, your agent follows discern's update or completion instructions. It examines any overlapping changes because two edits can merge successfully and still disagree about how a feature should behave.
 
-**Coding agent:** Make the change in that worktree. Run `discern_prepare` after the last edit and whenever you need the fast fix-and-check loop.
+For the review request above, the final command is:
 
 ```sh
-discern prepare
+discern done --retain-checkout
 ```
 
-Read the complete result. It can rewrite configured files, report a missing related file through coupling, serve a coming checkpoint question, or name a focused reproduction. Review any rewrite before committing it. [Fix a red gate](fix-a-red-gate.md) covers failure recovery.
+The `--retain-checkout` option keeps the workspace under the agent's authoring control for follow-up edits. Ordinary successful `discern done` releases it for later validation and eligible cleanup. Neither command lands the change.
 
-## Bring the trunk into the branch
+Completion includes every required check and measurement context. A context is a declared environment in which the project requires evidence, such as another operating system. If one is unavailable, the agent should explain what remains unverified. Passing the checks available on this machine alone may leave completion pending.
 
-**Coding agent:** If status or a gate precondition says the branch is behind, call `discern_update`. It brings the trunk into this branch, refreshes generated agent surfaces, and names overlapping incoming files.
+Your agent also considers **checkpoints**, the project's written review questions. Recorded conclusions appear in Proof as declared judgments, separately from machine-verified results. A checkpoint that pauses completion needs an answer before work can proceed. A failed check goes through [Fix a red gate](fix-a-red-gate.md).
 
-```sh
-discern update
-```
+## Review what comes back
 
-Re-read every overlapping file even when Git merged it cleanly; two compatible patches can still encode incompatible assumptions. Resolve the combined behavior, rerun the relevant focused checks, and commit one logical change at a time.
-
-After the final edit, run `discern_prepare` again and commit every intended byte. The next step needs a clean `HEAD`.
-
-## 4. Produce Proof on the final commit
-
-**Coding agent:** Call `discern_done` on the clean committed tree.
-
-```sh
-discern done
-```
-
-A successful run produces Proof tied to the branch's current commit. It records the changed files, checks, standards, and any declared checkpoint conclusions. A dirty run can provide gate feedback, but it cannot produce landing Proof.
-
-At a decision point:
-
-- If a `stop` checkpoint fires, inspect its matched paths and question. Record `--met <id>` only when the question is satisfied. Record `--unmet <id> --why "…"` when it is not; the gate may run, while landing waits for the person's variance decision.
-- If a job, standard, generated file, or precondition fails, use the returned diagnostic and next action. Do not treat canceled or skipped jobs as passing.
-- If the gate passes but asks for a real-artifact check, exercise the result along the changed route before handing it back.
-
-## 5. Hand the decision back
-
-**Coding agent:** Report what changed, the behavior you exercised, any decision still held by the person, and the Proof line verbatim. Do not paste the full Proof page.
-
-**Person:** Read the full page with:
+A useful handoff tells you what changed, how to try it, what the agent exercised, and anything still unresolved. It ends with the Proof line. Ask your agent to explain any part you do not recognize, or open the full record from the worktree:
 
 ```sh
 discern status --verbose
 ```
 
-Review behavior, design, risk, and whether this commit should become shared. Proof removes the need to reconstruct which declared checks passed; it does not make the release decision.
+For recipe search, try a recipe you know is present, a word that matches several recipes, and a search with no matches. Look at the wording and the results as someone using the app would. Then compare what you saw with what you requested.
 
-## 6. Apply review feedback without reusing stale evidence
+You can ask:
 
-**Coding agent:** Keep review fixes in the same worktree. Any edit or later commit makes the old Proof stale. Repeat the final sequence:
+> Which of those behaviors have automated checks? What did you try directly? Is there anything this change affects that I haven't seen yet?
 
-1. make the focused change;
-2. run `discern_prepare`;
-3. commit;
-4. run `discern_done` again.
+This helps you choose where to spend more review time. If the task changes something consequential that you cannot assess, ask for an independent review with the relevant expertise. Proof establishes what the configured checks cover; review addresses whether the result meets your needs and whether that coverage is sufficient.
 
-The replacement Proof must name the commit the person is now considering.
+## Apply review feedback
 
-## 7. Land under verified authority
+Give feedback in terms of the outcome you want:
 
-**Person:** Authorize this landing in the current conversation, or rely on an applicable grant already recorded by the project. A standing grant may cover named scopes, and the desk can grant one worktree. Both remain bounded by the final changed paths.
+> When there are no matches, suggest trying another word. Keep the search text so the person can edit it.
 
-**Coding agent:** Follow the authority-aware hint and call `discern_accept`.
+Your agent makes that change in the same worktree, prepares and commits it, then produces fresh Proof. The earlier evidence described an earlier version. The new handoff should show the amended behavior and the evidence that covers it.
 
-```sh
-discern accept
-```
+If the workspace was already released, your agent reads its current state and follows the recovery instructions before editing. If its recorded path is unavailable, identify what happened to that task before creating another workspace. [Recover an interrupted task](recover-an-interrupted-task.md) covers these cases.
 
-Acceptance rechecks the current Proof, branch, trunk, changed paths, checkpoint declarations, and any standard proposals. It refuses read-only when authority is absent or incomplete. A standing or one-worktree grant never authorizes an unmet checkpoint variance or a standard limit proposal; those require the person's explicit approval for the served ids or tokens.
+## Land under verified authority
 
-When acceptance succeeds, discern fast-forwards the trunk, records durable landing evidence, converges the main checkout, tears down the worktree resources, removes the checkout, and deletes the merged branch. A later setup or cleanup failure cannot reverse a trunk move, so read `data.landing` before choosing a recovery.
+When you are satisfied, you can say:
+
+> Land the recipe search change we've reviewed.
+
+Your agent follows the `discern accept` result and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
+
+Acceptance checks the current evidence and permission for each change it will land. It may need to validate a combined version containing earlier ready work. If that introduces a conflict, missing evidence, or a new decision, the result names what needs attention. [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains how evidence follows that combined version.
+
+An unmet checkpoint or a proposed standard limit change needs your explicit decision on that particular exception. General permission to land does not settle either one. The agent should explain the tradeoff and its recommendation before asking you to decide.
 
 ## Completion
 
-The task is complete when `discern accept` reports that the trunk reached the reviewed commit and gives the surviving checkout as the next location. Until then, a green branch is ready for a decision and remains separate from the trunk.
+The acceptance result identifies which changes landed on the shared branch and gives the surviving checkout path. It also reports whether temporary worktrees and resources were removed or retained. A cleanup problem can occur after a successful landing; the agent should distinguish those outcomes and follow the reported recovery.
 
-For the authority model and Proof lifetime, read [Proof, review, and authority](../20-understand/proof.md). For exact result fields and flags, use [MCP tools and results](../30-reference/mcp-and-results.md) and the [CLI reference](../30-reference/cli-reference.md). If acceptance was interrupted, continue with [Recover an interrupted task](recover-an-interrupted-task.md).
+Landing makes the change part of the shared project. Publishing it to users follows your project's release process. Ask your agent for that next step when you are ready to release.
+
+For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).

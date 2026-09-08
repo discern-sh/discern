@@ -1,7 +1,7 @@
 ---
 id: reference-cli
 title: "CLI reference"
-description: "Every public discern command, subcommand, argument, flag, alias, help boundary, exit contract, and terminal documentation-reader behavior."
+description: "Find discern commands and options, understand their results, and use the terminal documentation reader."
 order: 20
 publish: true
 kind: reference
@@ -79,13 +79,26 @@ aliases:
 
 # CLI reference
 
-Look up the exact syntax, arguments, flags, aliases, help ownership, exit behavior, and terminal documentation-reader contract for public `discern` commands. Command entries are generated from the command tree the installed binary dispatches; the reader contract is checked against the real-terminal implementation.
+Find a command, check its options, or look up how the terminal reader works. Your agent usually runs these commands for you; this page is here when you want to understand an invocation or use the terminal yourself.
 
-Prerequisite: none for syntax lookup. Commands that require a configured project return `not_set_up` until setup is complete.
+`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `not_set_up` until setup is complete.
+
+## Find a command
+
+| Area                | Commands                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Your desk           | [`desk`](#discern-desk), [`enter`](#discern-enter)                                                                                                                                                                                                                                                                                                                                      |
+| Agentic loop        | [`status`](#discern-status), [`prepare`](#discern-prepare), [`done`](#discern-done), [`test`](#discern-test), [`queue`](#discern-queue), [`tidy`](#discern-tidy)                                                                                                                                                                                                                        |
+| Worktree lifecycle  | [`start`](#discern-start), [`update`](#discern-update), [`await`](#discern-await), [`accept`](#discern-accept), [`worktree`](#discern-worktree-subcommand), [`identity`](#discern-identity)                                                                                                                                                                                             |
+| Project Scripts     | [`scripts`](#discern-scripts)                                                                                                                                                                                                                                                                                                                                                           |
+| Setup & maintenance | [`setup`](#discern-setup-subcommand), [`upgrade`](#discern-upgrade), [`doctor`](#discern-doctor), [`config`](#discern-config-subcommand), [`refresh`](#discern-refresh), [`uninstall`](#discern-uninstall)                                                                                                                                                                              |
+| Inspect & explore   | [`improvement`](#discern-improvement), [`standards`](#discern-standards), [`checkpoints`](#discern-checkpoints), [`skills`](#discern-skills-subcommand), [`impact`](#discern-impact), [`coupling`](#discern-coupling), [`patterns`](#discern-patterns), [`map`](#discern-map), [`docs`](#discern-docs), [`help`](#discern-help), [`licenses`](#discern-licenses), [`mcp`](#discern-mcp) |
+
+For options shared by commands, see [Global options](#global-options). For keyboard and mouse controls, see [Interactive documentation reader](#interactive-documentation-reader). To interpret a returned status code, see [Exit behavior](#exit-behavior).
 
 ## Global options
 
-These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
+These options apply to commands unless an entry says otherwise. When discern runs another command, options after that boundary belong to the command it runs. For example, options after `discern queue --` are passed to the queued command.
 
 | Option            | Description                                                                                                                                                                  |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -95,67 +108,6 @@ These options are inherited unless a command's entry says otherwise. Tokens beyo
 | `--no-color`      | Disable color (also honors NO_COLOR and non-TTY output).                                                                                                                     |
 | `--plain`         | Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.                                                                      |
 | `--theme <theme>` | Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing. |
-
-## Help, version, and parser-owned flags
-
-No project setup is required to read help or the version. The command parser owns command usage, argument validation, aliases, and option help. `discern <command> --help` and `discern help <command>` read the same command tree as this page.
-
-| Spelling          | Scope         | Meaning                                                 |
-| ----------------- | ------------- | ------------------------------------------------------- |
-| `-h`, `--help`    | Every command | Show command help and exit without running the command. |
-| `-V`, `--version` | Root only     | Show the installed discern version and exit.            |
-
-Options after an exec-style boundary, including `discern queue --` and a project script name, belong to the child command rather than discern.
-
-## Interactive documentation reader
-
-Bare `discern docs` on an interactive terminal opens the grouped documentation reader. The picker searches document titles and paths. `discern map` uses the same reader for the configured project map.
-
-| Context       | Input                            | Contract                                                                                     |
-| ------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
-| Picker        | Type text                        | Filter the grouped document titles and paths.                                                |
-| Picker        | `Up`, `Down`, `Ctrl-P`, `Ctrl-N` | Move one selectable entry. With no document open, `Tab` and `Shift-Tab` also move one entry. |
-| Picker        | `Page Up`, `Page Down`           | Move by one visible picker page.                                                             |
-| Picker        | `Home`, `End`                    | Move to the first or last selectable entry.                                                  |
-| Picker        | `Enter`                          | Open the selected document or run the selected action.                                       |
-| Picker        | `Escape`, `Ctrl-C`, end of input | Leave the reader without changing project state.                                             |
-| Open document | `Tab`, `Shift-Tab`               | Move focus between the picker and document panes.                                            |
-| Open document | `Up`, `Down`, `Ctrl-P`, `Ctrl-N` | Scroll the document by one rendered row.                                                     |
-| Open document | `Page Up`, `Page Down`           | Scroll by one visible document page.                                                         |
-| Open document | `Home`, `End`                    | Jump to the start or end of the document.                                                    |
-| Open document | `[`, `]`                         | Focus the previous or next addressable link.                                                 |
-| Focused link  | `Enter`                          | Follow the link. `Escape` clears link focus and returns to scrolling.                        |
-| Open document | `Escape`, `q`                    | Close the document and retain the picker query and selection.                                |
-
-Admitted relative-document links and heading fragments stay inside the reader. Absolute `http://` and `https://` destinations open in the system browser only after discern restores the terminal. Other external schemes are not supported.
-
-With mouse tracking available, the wheel moves three picker entries or three document rows under the pointer. A left click focuses a pane and selects a picker entry; clicking a link follows it. Other mouse buttons and releases have no product action. Use the terminal application's own selection modifier to select terminal text while tracking is active; discern does not define that modifier.
-
-The rich reader requires ANSI terminal control and at least 32 columns. With the default three chrome rows, the picker-only layout needs 10 total rows, document-only needs 11, and the split layout begins at 18. Between those bounds, the focused pane occupies all usable rows.
-
-If the rich reader cannot start because ANSI control is unavailable or the terminal is too small, discern uses the sequential picker. An internally rendered document then waits at the exact prompt `Press Enter to continue.` and the next picker restores the remembered document selection. `--pager` selects this sequential flow and hands each document to `$PAGER`, or `less -R` when `$PAGER` is unset, when the pager succeeds.
-
-A direct `discern docs <target>` renders and exits without waiting. Bare `discern docs` off a terminal prints the table of contents and never requests input. `--list`, `--json`, and `--raw` never enter the reader; `--search` prints matches. Export writes or returns one Markdown stream, except `--export select` can request a selection on an interactive terminal.
-
-The implementation and real-terminal contract are public in [`src/commands/docs.ts`](https://github.com/jackwh/discern/blob/main/src/commands/docs.ts) and [`tests/docs_test.ts`](https://github.com/jackwh/discern/blob/main/tests/docs_test.ts).
-
-## Exit behavior
-
-| Exit status         | Contract                                                                                                                |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `0`                 | The command completed successfully. A bare predicate exits `0` when true.                                               |
-| `1`                 | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                             |
-| `2`                 | The command grammar or arguments were invalid, including a bare quiet-result invocation.                                |
-| `70`                | discern crashed on an unexpected internal error.                                                                        |
-| `124`               | `discern await` reached its call budget before the watched condition held; its result includes the continuation handle. |
-| `127`               | A child executable selected by an exec-style boundary could not be started.                                             |
-| `129`               | An interrupted run preserved the conventional status derived from SIGHUP.                                               |
-| `130`               | An interrupted run preserved the conventional status derived from SIGINT.                                               |
-| `143`               | An interrupted run preserved the conventional status derived from SIGTERM.                                              |
-| Child status        | `discern queue -- <command>` and `discern scripts <name>` preserve a started child's own exit status.                   |
-| Other signal status | A platform-reported child signal preserves its conventional signal status when available.                               |
-
-Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.
 
 ## Your desk
 
@@ -827,5 +779,66 @@ Usage: `discern mcp [options]`
 | --------------------- | -------------------------------------------------------------------------- |
 | `--long-tool-calls`   | Use the long-call transport profile; await calls may run for 3300 seconds. |
 | `--strict-tool-calls` | Use the strict transport profile; await calls may run for 45 seconds.      |
+
+## Help, version, and parser-owned flags
+
+No project setup is required to read help or the version. The command parser owns command usage, argument validation, aliases, and option help. `discern <command> --help` and `discern help <command>` read the same command tree as this page.
+
+| Spelling          | Scope         | Meaning                                                 |
+| ----------------- | ------------- | ------------------------------------------------------- |
+| `-h`, `--help`    | Every command | Show command help and exit without running the command. |
+| `-V`, `--version` | Root only     | Show the installed discern version and exit.            |
+
+Options after an exec-style boundary, including `discern queue --` and a project script name, belong to the child command rather than discern.
+
+## Interactive documentation reader
+
+Bare `discern docs` on an interactive terminal opens the grouped documentation reader. The picker searches document titles and paths. `discern map` uses the same reader for the configured project map.
+
+| Context       | Input                            | Contract                                                                                     |
+| ------------- | -------------------------------- | -------------------------------------------------------------------------------------------- |
+| Picker        | Type text                        | Filter the grouped document titles and paths.                                                |
+| Picker        | `Up`, `Down`, `Ctrl-P`, `Ctrl-N` | Move one selectable entry. With no document open, `Tab` and `Shift-Tab` also move one entry. |
+| Picker        | `Page Up`, `Page Down`           | Move by one visible picker page.                                                             |
+| Picker        | `Home`, `End`                    | Move to the first or last selectable entry.                                                  |
+| Picker        | `Enter`                          | Open the selected document or run the selected action.                                       |
+| Picker        | `Escape`, `Ctrl-C`, end of input | Leave the reader without changing project state.                                             |
+| Open document | `Tab`, `Shift-Tab`               | Move focus between the picker and document panes.                                            |
+| Open document | `Up`, `Down`, `Ctrl-P`, `Ctrl-N` | Scroll the document by one rendered row.                                                     |
+| Open document | `Page Up`, `Page Down`           | Scroll by one visible document page.                                                         |
+| Open document | `Home`, `End`                    | Jump to the start or end of the document.                                                    |
+| Open document | `[`, `]`                         | Focus the previous or next addressable link.                                                 |
+| Focused link  | `Enter`                          | Follow the link. `Escape` clears link focus and returns to scrolling.                        |
+| Open document | `Escape`, `q`                    | Close the document and retain the picker query and selection.                                |
+
+Admitted relative-document links and heading fragments stay inside the reader. Absolute `http://` and `https://` destinations open in the system browser only after discern restores the terminal. Other external schemes are not supported.
+
+With mouse tracking available, the wheel moves three picker entries or three document rows under the pointer. A left click focuses a pane and selects a picker entry; clicking a link follows it. Other mouse buttons and releases have no product action. Use the terminal application's own selection modifier to select terminal text while tracking is active; discern does not define that modifier.
+
+The rich reader requires ANSI terminal control and at least 32 columns. With the default three chrome rows, the picker-only layout needs 10 total rows, document-only needs 11, and the split layout begins at 18. Between those bounds, the focused pane occupies all usable rows.
+
+If the rich reader cannot start because ANSI control is unavailable or the terminal is too small, discern uses the sequential picker. An internally rendered document then waits at the exact prompt `Press Enter to continue.` and the next picker restores the remembered document selection. `--pager` selects this sequential flow and hands each document to `$PAGER`, or `less -R` when `$PAGER` is unset, when the pager succeeds.
+
+A direct `discern docs <target>` renders and exits without waiting. Bare `discern docs` off a terminal prints the table of contents and never requests input. `--list`, `--json`, and `--raw` never enter the reader; `--search` prints matches. Export writes or returns one Markdown stream, except `--export select` can request a selection on an interactive terminal.
+
+The implementation and real-terminal contract are public in [`src/commands/docs.ts`](https://github.com/jackwh/discern/blob/main/src/commands/docs.ts) and [`tests/docs_test.ts`](https://github.com/jackwh/discern/blob/main/tests/docs_test.ts).
+
+## Exit behavior
+
+| Exit status         | Contract                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `0`                 | The command completed successfully. A bare predicate exits `0` when true.                                               |
+| `1`                 | A controlled failure or refusal, a false bare predicate, or an unmet enforcement threshold.                             |
+| `2`                 | The command grammar or arguments were invalid, including a bare quiet-result invocation.                                |
+| `70`                | discern crashed on an unexpected internal error.                                                                        |
+| `124`               | `discern await` reached its call budget before the watched condition held; its result includes the continuation handle. |
+| `127`               | A child executable selected by an exec-style boundary could not be started.                                             |
+| `129`               | An interrupted run preserved the conventional status derived from SIGHUP.                                               |
+| `130`               | An interrupted run preserved the conventional status derived from SIGINT.                                               |
+| `143`               | An interrupted run preserved the conventional status derived from SIGTERM.                                              |
+| Child status        | `discern queue -- <command>` and `discern scripts <name>` preserve a started child's own exit status.                   |
+| Other signal status | A platform-reported child signal preserves its conventional signal status when available.                               |
+
+Quiet JSON and Markdown results evaluate their completion policy before choosing the controlled exit status. Predicate result modes exit `0` and place the boolean in `data`; bare predicates use `0` or `1`.
 
 For result-envelope fields and Model Context Protocol delivery, see [MCP and results](mcp-and-results.md). For symptom-led recovery, see [Troubleshooting](../40-troubleshooting/README.md).

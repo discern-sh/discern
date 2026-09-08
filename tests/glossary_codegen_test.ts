@@ -37,6 +37,21 @@ Deno.test("the public manual's glossary matches the term registry", async () => 
   const manual = await buildManualProjection(tree.entries);
   const path = `${REPO_AUTHORED_PATHS.manual}/30-reference/glossary.md`;
   const rendered = renderManualGlossaryArtifact(manual);
+  // Product follow-up links must work in the offline human manual, while
+  // contributor-only implementation reading can still use the Map exhibit.
+  for (
+    const destination of [
+      "../20-understand/proof.md",
+      "../20-understand/checkpoints.md",
+      "../20-understand/standards.md",
+      "../10-guides/write-project-instructions.md",
+      "../10-guides/create-and-manage-skills.md",
+      "files-and-ownership.md",
+    ]
+  ) {
+    assertStringIncludes(rendered, `](${destination})`);
+  }
+  assertStringIncludes(rendered, "https://discern.sh/map/engine-internals");
   assertEquals(
     await Deno.readTextFile(path),
     await canonicalGeneratedMarkdown(path, rendered),

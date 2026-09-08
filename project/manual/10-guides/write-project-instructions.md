@@ -1,8 +1,8 @@
 ---
 id: guide-write-project-instructions
 title: "Write project instructions"
-description: "Put durable provider-neutral rules in one source and regenerate every supported agent surface safely."
-order: 100
+description: "Record a working rule once, supply it to your configured coding tools, and confirm a fresh session can use it."
+order: 80
 publish: true
 kind: guide
 aliases:
@@ -20,81 +20,70 @@ aliases:
 
 # Write project instructions
 
-Use this guide when every future coding-agent session must inherit a durable project rule. Author the rule once in the configured instruction source, compile every selected provider surface, and commit source and outputs together.
+A useful correction should last longer than the conversation where you made it. Project instructions let you record a working rule once and supply it to every configured coding tool, so you can build on the lesson in later sessions.
 
-Instructions are always-loaded policy. A multi-step method belongs in a skill, a judgment tied to a narrow change belongs in a checkpoint, and a fact already enforced by code does not need a second prose authority.
+Use this guide for a rule agents should know whenever they work on the project. For a longer method used only on certain tasks, [a skill](create-and-manage-skills.md) is a better home.
 
 ## Starting state
 
-- The project has completed discern setup.
-- The person has approved the rule as durable project policy, or has asked the agent to capture a correction in the project's instructions.
-- The coding agent is in the task's worktree and has read the current compiled instruction file.
-- `[instructions].sources` names the authored file or files. Its default is `discern/instructions.md`.
+The project has completed discern setup. You have a rule you want future work to follow, and your agent will make the instruction change in the current effort's worktree or start one if this is a new task.
+
+For example, after reviewing an unhelpful message in your app, you might say:
+
+> Remember this for future sessions, including when I switch coding tools: when an action fails, explain what happened and give the person a useful next step. Add it to our shared project instructions.
+
+That request authorizes recording the rule. You can also ask your agent to propose wording first if you are still deciding what the rule should be.
 
 ## 1. Find the authored source
 
-**Coding agent:** Read `discern.toml` and resolve `[instructions].sources`. Edit only those authored paths.
+Your agent checks `discern.toml` to find the project instruction source. The default is `discern/instructions.md`; `[instructions].sources` can name other files or groups of files.
 
-```toml
-[instructions]
-sources = ["discern/instructions.md", "docs/agent-policy/*.md"]
-```
+Ask the agent to update an existing rule if one already covers the subject. Keeping one version avoids giving future sessions slightly different instructions in different places.
 
-Source order is declared order, with each glob resolved deterministically. discern's built-in operating instructions are prepended. Project sources extend them; they do not replace them.
+Files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are generated entry points for coding tools. Your agent edits the source and lets discern update those files. A change made only to a generated copy would be overwritten at the next refresh.
 
-Do not edit `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or materialized provider files directly. They are generated outputs and the gate rejects drift from their sources.
+## 2. Write the rule for a fresh reader
 
-## 2. Write one rule for every selected provider
+A good instruction states when it applies and what the agent should do. It should still make sense to a session that has never seen your conversation.
 
-**Coding agent:** State the present rule in provider-neutral language. Use the project's names and paths, identify the condition that triggers the rule, and say why when the reason is not apparent.
+For the message example, the source might contain:
 
-Keep always-loaded prose scarce:
+> When a user action fails, explain what happened and offer a useful next step. Keep the wording accurate to the recovery the app supports.
 
-- Put commands, flags, and exhaustive file lists in a Reference page.
-- Put a repeatable procedure in a skill and leave at most a short instruction pointing to it.
-- Put a hard-to-reverse decision and its rationale in an ADR, with the instruction carrying only the standing rule.
-- Update an existing authority instead of adding the same fact to another source.
+The second sentence matters: a cheerful suggestion that the app cannot fulfill would make the experience worse.
 
-Write for a future session with no memory of the conversation. Avoid provider UI vocabulary unless the rule applies only to that provider and the source boundary says so.
+Read the proposed rule for its effect on future work. Does it apply broadly enough to belong in every session? Does it preserve the distinction you care about? Wording such as “make errors better” leaves the next agent to guess what you meant.
 
-## 3. Preview the compilation
+Keep longer explanations in the project guide and link to them when needed. Instructions stay useful when a session can find the important rules quickly. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) explains the placement choices.
 
-**Coding agent:** Run the read-only plan:
+## 3. Preview and refresh the agent files
 
-```sh
-discern refresh --dry-run
-```
+Your agent previews the change with discern's refresh tool in dry-run mode, or `discern refresh --dry-run`. The preview lists the files discern plans to update.
 
-The result lists every create, update, and removal across compiled instructions, materialized skills, provider integration, and the maintained ADR index. Check that only the intended source-driven outputs will change.
+Refresh covers more than the instruction text: it can also update generated skills, provider integration files, and other managed artifacts. The agent should inspect the plan and explain any change that needs your attention before applying it.
 
-A refusal names an invalid source path, malformed provider configuration, or inaccessible target. Correct that authority and rerun the dry plan.
+The agent then applies refresh. A successful result can say nothing changed if the files were already current. A partial result means some work remains, even if several files were written. The result names the affected part and the supported recovery, so the agent can repair it and retry.
 
-## 4. Compile and inspect the result
+## 4. Review and verify the change
 
-**Coding agent:** Apply the refresh:
+Ask to see the source rule and the wording a configured coding tool will receive. Some providers use the full generated file and others a pointer to it; they should all lead back to the same authored rule.
 
-```sh
-discern refresh
-```
+Your agent runs the preparation checks, reviews any generated changes, and commits the source together with the tracked outputs. It then runs the full gate on that saved version and returns Proof with its report. [Finish and land a change](finish-and-land-a-change.md) covers the landing step.
 
-Review `data.instruction_refresh` and the Git diff. A complete result can list no changed files when everything was already current. A partial result preserves completed effects, sets top-level `ok` false, and gives a safe `discern refresh` retry. Do not infer success from an empty list or from files that happen to exist.
+The gate checks that generated instruction files agree with their sources. That establishes the files are current; it does not establish that an already-running session has reloaded them.
 
-Inspect one compiled output for ordering and wording, then confirm the other outputs are source-derived mirrors or pointers as declared by their providers. Do not correct a compiled copy independently.
+## 5. Confirm future sessions receive it
 
-## 5. Prove and commit source with output
+After landing, open a fresh session in a configured coding tool and ask:
 
-**Coding agent:** Run `discern prepare`. It refreshes instruction surfaces again and checks that the tree converges. Review any rewrite, then commit the authored source and every tracked generated change in the same logical commit.
+> What do our project instructions say about messages shown when an action fails?
 
-Run `discern done` on the clean commit. The gate must leave no stale generated or integration artifact. Any edit after that run stales its Proof and requires another final gate.
+The agent should find the recorded rule through its project instructions. You should not need to paste the rule into that session yourself.
 
-## 6. Confirm future sessions receive it
-
-After the change lands, **person or coding agent:** start a fresh selected-provider session and inspect the loaded project instructions. The new rule should appear from the provider's generated entry point without a second authored copy.
-
-If the file is current but the session does not show the rule, restart the provider session and use [Connect a coding agent](connect-a-coding-agent.md) to verify activation. Generated files establish repository state. An already-running provider may still hold an older version.
+If the source and generated files are current but the session cannot find the rule, ask the agent to check the tool's activation and loading steps. [Connect a coding agent](connect-a-coding-agent.md) explains that recovery. Refreshing files and loading them into a session are separate steps.
 
 ## Completion
 
-The instruction change is complete when one authored source owns the rule, `discern refresh --dry-run` reports no pending change after compilation, source and tracked outputs are committed together, the full gate passes, and a fresh configured provider reads the rule.
+You have one source for the rule, current generated files, a passing gate for the committed change, and a fresh session that can find the instruction. The lesson is now available to future work, rather than depending on your memory of this conversation.
 
-Read [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) for placement choices, [Config reference](../30-reference/config-reference.md) for source syntax, and [Files and ownership](../30-reference/files-and-ownership.md) for generated boundaries.
+[Configuration reference](../30-reference/config-reference.md) holds the source syntax and ordering rules; [Files and ownership](../30-reference/files-and-ownership.md) identifies the generated paths.

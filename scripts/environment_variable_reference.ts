@@ -79,7 +79,7 @@ function renderEnvironmentVariableReferenceDocument(
     "---",
     "title: Environment variables",
     manual
-      ? "description: Every public DISCERN_* input and exported value, with its source, scope, default, and consumer."
+      ? "description: Look up the DISCERN_* settings you can supply and the values discern passes to project commands."
       : "description: Every public DISCERN_* environment variable, grouped by purpose, with defaults and activation behavior.",
     "order: 110",
     "publish: true",
@@ -94,11 +94,11 @@ function renderEnvironmentVariableReferenceDocument(
     "# Environment variables",
     "",
     manual
-      ? "Look up every supported public `DISCERN_*` process input and exported value. Each row states which boundary reads or writes it; descriptions state defaults and activation rules where the variable has them."
+      ? "Environment variables pass settings to a running program. Some let you change how discern starts; others give your project scripts information such as the current worktree or its assigned port. This page lists the supported `DISCERN_*` variables by purpose."
       : "_The public `DISCERN_*` inputs and exported values discern supports, grouped by purpose._",
     "",
     manual
-      ? "Prerequisite: the variable name or integration boundary. Values apply to the current process unless a row says discern exports or writes them. Internal process markers, source-checkout controls, and test-only variables are not public and are intentionally omitted."
+      ? "Find the variable name below to see who sets it, who reads it, and its default where one exists. Setting a variable affects the current process unless its entry says discern exports or writes it. For lasting project settings, use [`discern.toml`](config-reference.md)."
       : "Variables used only by discern's own processes, source checkout, and test suite are omitted.",
     "",
     sections.join("\n\n"),

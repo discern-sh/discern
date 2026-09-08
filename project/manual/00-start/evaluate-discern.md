@@ -1,7 +1,7 @@
 ---
 id: start-evaluate-discern
 title: "Evaluate discern"
-description: "Decide whether discern's practice, local boundary, and authority model fit your project before you install anything."
+description: "See how discern helps you direct coding agents, keep project knowledge, and review finished work before deciding to install it."
 order: 20
 publish: true
 kind: explanation
@@ -15,39 +15,63 @@ aliases:
 
 # Evaluate discern
 
-More of your project's implementation arrives from coding agents, and you're the person who answers for the result. Before you install a tool that will sit inside that workflow, you want three questions settled: what it changes about the work, what it asks of you, and where its authority stops. This page answers them so you can decide without installing anything.
+You have an idea for the next feature. Your coding agent can build it, but you also want the project to remember your decisions, keep existing behavior working, and show you what was checked before you use the result.
+
+discern puts that way of working into your project. Your agent sets it up and operates it; you describe what you want to achieve and review what comes back. This page helps you decide whether it fits, before you install anything.
 
 ## What discern changes
 
-discern installs an engineering practice into a repository. After setup, every coding session in that project inherits the same working conditions:
+Imagine adding search to an app. You explain what people should be able to find, and your agent works on the change in a separate workspace. The current shared version of the project stays apart from the unfinished work.
 
-- **A definition of done the project owns.** The final quality check (the gate) runs the checks the project declares: its own format, build, lint, typecheck, test, and smoke commands. An agent's confidence doesn't decide when work is finished; the project's checks do.
-- **A workspace per task.** Each task runs in an isolated Git worktree, so unfinished work never sits on your shared branch and parallel tasks don't collide in one checkout.
-- **Evidence instead of assertions.** A finished change comes back with [Proof](../20-understand/proof.md): a record that this exact commit passed the declared checks. Passing produces evidence; it never grants permission. Landing on the shared branch waits for authority you supply, once per change or as a recorded standing grant.
-- **Context that survives the session.** Project instructions, reusable skills, and a maintained project guide (the map) are ordinary files in the repository. A new session, or a different coding agent, starts already knowing the project.
+Before reporting the change complete, your agent runs the project's configured checks. discern records which version passed and returns that evidence with the result. You can try the search, ask what the checks cover, and decide whether the change is ready to join the shared project.
 
-The practice is stack-neutral: discern ships none of your toolchain and runs the commands your project declares. It works with Claude Code, Codex, Gemini, Cursor, and GitHub Copilot, and switching among them keeps the instructions and checks you've invested in.
+That sequence brings three useful things together:
+
+- **A consistent meaning of finished.** The project's final quality check, called the **gate**, runs its own commands. Your agent gets failures to investigate while the work is still in progress, and you receive evidence of the checks that passed.
+- **Room for work to move independently.** Each task gets an isolated workspace, called a **worktree**. Several agents can work without editing the same checkout. Changes that affect the same behavior still need coordination and review.
+- **Knowledge the next session can use.** Instructions and a maintained project guide, called the **map**, live in ordinary project files. When an agent records a convention or decision there, a future session can pick it up without another explanation from you.
+
+The completion evidence is called [Proof](../20-understand/proof.md). It belongs to one exact committed version of the change. A passing gate establishes that the configured checks passed; your review covers what those checks cannot decide, including whether the feature is useful and belongs in the product.
 
 ## What it asks of you
 
-A capable coding agent does the operating; you direct it in plain language. Your unavoidable work is judgment. Setup is a one-time agent session, usually 20 to 40 minutes. During it you confirm what setup may write and answer the questions repository evidence can't settle. Daily use adds one recurring moment: reading a change's Proof and deciding whether it lands.
+Setup is a working session with your agent, usually around 20 to 40 minutes of agent effort. The agent studies the project, connects its checks, and writes the project instructions future sessions will inherit. You confirm what setup may change and answer questions about the project's purpose, access, cost, or other choices the files cannot settle.
 
-If nobody on the project works through a coding agent, discern has no operator, and it isn't the right tool yet.
+After setup, you can give ordinary requests:
+
+> Add search to the saved items page. Show me how to try it, explain what you checked, and bring the finished change back for review.
+
+You don't need to learn discern's command sequence to make that request. The agent receives the operating instructions and follows the reported next steps.
+
+You do need time to review results and make decisions. For a small visible change, trying the behavior and understanding the checks may be enough. Changes with broader consequences may need deeper technical review. discern helps you see the evidence available for that decision; it does not supply every kind of expertise a project may need.
+
+## What fits your project
+
+discern works with projects kept in Git, the version-control system that records changes. It supports Claude Code, Codex, Gemini, Cursor, and GitHub Copilot on macOS, Linux, and Windows through WSL 2. The [platforms and providers reference](../30-reference/platforms-and-providers.md) gives the current requirements.
+
+The project's language and tools can vary: discern runs the commands configured for that project. One setup covers an entire Git repository, including a repository with several apps or packages. If you're unsure whether your project is ready, ask your agent to check the prerequisites before installing.
+
+It is most useful when you want to:
+
+- give agents work while keeping unfinished changes separate;
+- understand what was checked before a change becomes shared;
+- preserve project decisions across sessions and supported coding tools;
+- build on a measured improvement without quietly giving it back later.
+
+A coding agent is the day-to-day operator. If your workflow has no coding agent, discern is unlikely to be a useful addition. It also runs locally rather than providing a hosted team dashboard.
 
 ## Where its boundary sits
 
-discern is one self-contained local binary with no model inside. It makes no network calls of its own, requires no API key or account, and runs no service. Install it once at the root of each Git repository. Setup adds the root `discern.toml`, the visible `discern/` folder, marked sections in `.gitignore` and `.gitattributes`, agent instruction files, and configuration for the coding tools you selected. Its activity record (the logbook) stays on your machine and holds metadata about discern's use; it doesn't record your code.
+discern is one local executable with no AI model, account, or API key of its own. Its activity record stays on your machine. Your coding agent still uses its own provider, and your project's commands can contact services as they normally would. [Local control](../20-understand/local-control.md) explains those boundaries.
 
-One installation serves an entire monorepo. Its root configuration can give different packages or services their own checks. A folder that is itself a separate Git repository can have its own discern installation. Adding another `discern.toml` to an ordinary nested folder has no effect.
-
-The boundary also limits what it can promise. discern verifies what your declared checks verify: it doesn't review design, find every defect, or secure the project. It also places no boundary around your coding agent, whose own provider and network behavior stay governed by that tool. [Local control](../20-understand/local-control.md) draws these lines precisely.
+The project's shared branch is called the **trunk**, usually `main`. Moving a completed change onto it is **landing**. discern requires your permission to land: you can decide change by change, or explicitly arrange permission for routine work within a defined scope. Passing the gate supplies evidence, not that permission. Landing also remains separate from publishing or deploying your app.
 
 ## How it leaves
 
-Trying discern doesn't take your work hostage. `discern uninstall` removes discern's wiring and generated integration files and leaves the authored instructions, map, and deferred-work ledger in place as ordinary Markdown, still useful without discern. The binary never updates itself; [upgrades run when you choose](../10-guides/maintain-or-remove-discern.md).
+The instructions, map, and other material you and your agents write remain ordinary files you own. If you later remove discern, its uninstall command removes the integration wiring and keeps that authored material. You also choose when to upgrade; the binary never updates itself. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) explains both operations.
 
 ## Decide
 
-discern fits when a Git repository is receiving real work from coding agents and you want that work to arrive proved, isolated, and landed on your terms. It isn't a fit today if the project isn't in Git, or if no coding agent operates in it. It's also the wrong tool if you want a hosted dashboard over a team: discern runs locally, for the person responsible for the repository.
+If this is the way you'd like your agents to work, [install and set up discern](first-success.md). The setup is reviewed before it lands, and the next tutorial takes you through a small change you can try for yourself.
 
-If it fits, [Install and set up discern](first-success.md) takes one repository through install, setup, and a first reviewed change. If it doesn't, you've spent five minutes and installed nothing.
+For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../20-understand/practice-and-roles.md).

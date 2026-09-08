@@ -1,7 +1,7 @@
 ---
 id: explanation-proof
 title: "Proof"
-description: "What a green gate and its Proof establish, how green differs from landed, who authorizes a landing, and why Proof goes stale."
+description: "Read the evidence that comes with a finished change, understand what it establishes, and see what still needs your judgment."
 order: 30
 publish: true
 kind: explanation
@@ -20,104 +20,116 @@ aliases:
 
 # Proof
 
-A coding agent hands a change back and declares: "I'm done!". But how can you be sure? Checking every claim yourself quickly gets tedious, and rerunning commands and comparing Git state becomes a second job as more work moves in parallel.
+Your agent has added recipe search to your app. You can try it and decide whether the results are useful. But there is another question: did the project's checks pass for the version you are reviewing?
 
-discern uses Proof to do that checking for you. It confirms that the project's declared checks ran and passed, records the exact commit they covered, and shows whether the evidence is still current. You can spend your review time on behavior, design, risk, and the decision to land.
+**Proof** answers that question. It records the configured checks and measurements against the exact committed change they cover. You can see what has been established without reconstructing a session's commands from its conversation.
 
-After a successful `discern done`, the agent returns a one-line summary such as this:
+That gives your review a clearer starting point. You can focus on whether search behaves as you intended, whether the wording helps someone find a recipe, and what the checks leave for you to assess.
 
-> **Proof:** Gate passed for `agent/user-onboarding-fixes-0a7563` at `c5a02addf12a` · 6 files changed (+568 −345) vs `main` · Standards held (8 improved) · 1 checkpoint declared met · View the full Proof: `discern status --verbose`
+## Read a Proof line
 
-The blockquote visually distinguishes Proof from the agent's account, while code styling separates Git identities and the inspection command from prose. The line gives a reviewer the essential facts at a glance; `discern status --verbose` opens the full evidence. The agent receives Proof before landing, so you can review the exact result and decide what becomes part of the project. After an accepted change lands, discern keeps the full Proof as a durable Git note on that commit.
+After successful completion through `discern done`, your agent includes a short Proof line. An illustrative example is:
+
+> **Proof:** Gate passed for `agent/recipe-search-0a7563` at `c5a02addf12a` · 3 files changed (+84 −12) vs `main` · Standards held · 1 checkpoint declared met · View the full Proof: `discern status --verbose`
+
+Each part answers a different question:
+
+| Part of the line            | What you learn                                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gate passed**             | The project's required checks have passing evidence for this change.                                                                    |
+| **Branch and commit**       | Which task and exact saved version the evidence describes. A commit is a version recorded in Git.                                       |
+| **Files changed**           | The size of the change compared with its predecessor. `+84 −12` counts added and removed lines.                                         |
+| **Standards held**          | The change satisfies the project's configured quality limits. A proposed limit change is shown separately when one needs your approval. |
+| **Checkpoint declared met** | The agent recorded its judgment that a review question was satisfied.                                                                   |
+| **View the full Proof**     | Where to inspect the checks, measurements, and recorded conclusions in more detail.                                                     |
+
+You can ask your agent:
+
+> Explain this Proof in terms of the feature I asked for. Which behaviors were checked, what did you try directly, and what should I review?
+
+The line summarizes the record. Open the full Proof from the worktree with `discern status --verbose`, or ask your agent to retrieve it and explain the relevant parts.
 
 ## What green establishes
 
-The gate is the project's definition of done. It runs the declared jobs, such as build, lint, and tests; checks the areas the change touched; and measures the project's standards, its quality measures that may only improve. Green means those declared checks passed for the tree the gate evaluated.
+The **gate** is the set of checks your project requires. These might build the app, test its behavior, check code conventions, and measure limits such as download size. Your project chooses the checks; discern runs them and records their results. Completion requires evidence in every declared context, which can include more than one environment.
 
-That scope matters. Green clears away routine verification, but it can't establish that no defect remains, settle whether the design is right, or say that the project is ready for release — and it doesn't replace running the code for yourself. Those judgments still belong to review and to the project's own release process.
+For recipe search, a test might check that clearing the search box restores the full list. That tells you something useful about that behavior. It cannot tell you whether the search box is pleasant to use on your phone unless the project checks that too.
 
-A green gate also leaves the code where it is. The change remains on its branch in an isolated worktree until `discern accept` has verified landing authority. Passing the gate makes the change eligible for acceptance; it doesn't grant that authority or move the trunk, the project's shared branch. [Who supplies what](#who-supplies-what) explains who makes that decision.
+Proof therefore helps you choose what to investigate next. Try the changed feature, compare it with your request, and ask about areas the checks do not cover. The depth of further review depends on the change and its consequences. A green gate by itself cannot establish that no defects remain or that an application is ready for release.
 
 ## The exact commit it covers
 
-A reviewer's first question about evidence is whether it describes the code in front of them. Before any job runs, the gate pins the current commit and observes the working tree. It checks both again after the run, which matters when a test suite takes long enough for another process to rewrite a file. Proof is recorded only when the passing result still describes that same clean commit. The short hash appears in the Proof line; the stored evidence binds the full hash.
+Evidence needs to describe the version that will become part of the project. Your agent prepares and commits the intended files before completion. discern checks that the source is clean and records the exact candidate it validated: the proposed version to land.
 
-`discern done` can check a tree with uncommitted changes, but it won't record Proof for that state. Proof binds the full committed `HEAD`, a clean tree, checkpoint declarations, and the definitions behind reusable standard measurements; it does not bind a trunk commit. Before reuse, discern still reads the configured local trunk. If the branch is behind, it refuses and tells the agent to run `discern update`; if that local ref cannot be read, it fails closed and tells the agent how to fetch it. A remote-tracking ref alone is insufficient. If the commit moves during the gate, the result may be green for the tree pinned at the start, but it can't become current Proof for the new commit.
+When a task can land directly, that candidate is the agent's committed change. With parallel work, discern may combine it with earlier ready changes or a newer shared branch, then validate the combined result. The Proof names that candidate's commit, which can differ from the commit in the author's worktree.
 
-To produce Proof, the agent brings in the trunk when needed, commits the final tree, and runs `discern done` on that clean commit.
+For example, one task adds recipe search while another changes how recipes are sorted. Each feature may work on its own. The combined version needs evidence too, and any conflict or newly applicable review question needs attention before it can land. Each contributing task also needs its own landing permission.
 
-A failing run doesn't provide Proof. It guides the agent toward the failure so they can resolve it; [Fix a red gate](../10-guides/fix-a-red-gate.md) covers that path.
-
-## From green to live
-
-A change can pass through several states on its way to users:
-
-| State                | What it tells you                                                                                                                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Green**            | The declared checks passed for the tree the gate evaluated. Green alone doesn't say the branch may land.                            |
-| **Ready for review** | Current Proof exists for a clean commit, and the handoff includes the behavior and risks the owner needs to weigh.                  |
-| **Accepted**         | The owner has authorized this landing now, or recorded permission already covers it. The trunk hasn't moved yet.                    |
-| **Landed**           | `discern accept` verified the authority and fast-forwarded the validated commit onto the trunk.                                     |
-| **Released or live** | The project's release process made the landed work available. discern doesn't infer this state from either a green gate or landing. |
-
-Acceptance fast-forwards the exact validated commit onto the trunk, then removes the worktree. Although the branch may be gone, the evidence lives on: the [Proof note](../30-reference/proof-and-checkpoint-formats.md#proof-notes) attached to the landed commit records what passed, the declared conclusions, and the authority that permitted the landing. A future maintainer can recover what was checked without digging through old conversations.
-
-Everything after landing, including deployment and release, belongs to the project. discern doesn't deploy the change or push it to a remote on your behalf; [Local control](local-control.md) explains where its work and evidence stay.
+The authoring worktree remains the place to make corrections. The candidate and its retained evidence let discern account for what was checked even after a temporary validation environment has been returned.
 
 ## Why Proof becomes stale
 
-Suppose a formatter or generator rewrites a file after the gate finishes. The earlier checks still ran, but they ran on different code from the code now waiting to land. Reusing that result would separate the evidence from the change it claims to cover.
+Suppose you ask for a clearer message when a search returns no recipes. The agent makes that improvement after its first green run. The earlier checks still happened, but the version you now want to land has changed.
 
-Proof therefore lasts only while the exact tree and its recorded judgments remain unchanged. These changes make it stale:
+The following can prevent reuse of the earlier Proof:
 
-- a new commit, or an amended commit;
-- a staged file, an uncommitted edit, or an untracked file;
-- regenerated output: a `discern prepare` rewrite changes the tree like any other edit until the agent commits and validates it;
-- a changed checkpoint conclusion or rationale, even when the commit itself hasn't moved. Acceptance depends upon those judgments, so the evidence requires them too.
+- a later commit or amended commit;
+- staged, uncommitted, or untracked files in the source worktree;
+- a changed checkpoint conclusion or rationale;
+- a changed standard proposal or a change to the evidence required for completion.
 
-Later changes are routine. The agent reviews and commits the intended result, then runs `discern done` again so fresh Proof covers it.
+Generated files count as changes too. If a formatter or generator rewrites a file, the agent reviews and commits the intended output before renewing completion.
 
-When nothing has changed, that same exactness works in your favor: `discern done` returns the current green Proof without running another gate job, and `discern accept` reuses it instead of running the gate twice.
+A newer shared branch can also require a new combined candidate. discern checks the applicable evidence again rather than assuming the earlier result covers the combination.
+
+Fresh completion does not always mean repeating every command. discern can reuse passing evidence whose declared inputs and requirements still match, and obtain the evidence that is missing. When current Proof already covers the result, ordinary `discern done` can return it without running gate jobs again. A deliberate repeat uses `--rerun`.
 
 ## Who supplies what
 
-Some review questions can't be settled by a command's exit status. A documentation change may need to preserve a distinction, for example, while a data migration may need a person to judge whether its trade-off is acceptable.
+Proof keeps automated checks, review judgments, and permission distinct:
 
-For those questions, a project configures [checkpoints](checkpoints.md): judgment stops that pair a change trigger with a written question for the agent. When a change matches, `discern done` waits for the agent to weigh the question and record a conclusion, either declared met or declared unmet, with a short rationale for the owner.
+| Contribution             | Who supplies it                                                            | How it helps you                                                   |
+| ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Verified results**     | discern runs the configured commands and records the evidence.             | You can inspect which requirements passed.                         |
+| **Declared conclusions** | Your agent answers the project's checkpoint questions.                     | You can read its reasoning and challenge the conclusion.           |
+| **Landing authority**    | You approve the work now, or the project has a recorded grant covering it. | discern can check whether permission covers the work it will land. |
 
-Proof distinguishes between the kinds of evidence it provides:
+A checkpoint might ask whether a new message gives someone a useful next action. The agent reads the message and records its judgment. Requiring that answer ensures the question receives attention; discern does not independently judge whether the answer is true.
 
-- Job, scope, and standard results are **verified**: discern ran or measured them and recorded the results.
-- Checkpoint conclusions are **declared**: they're the agent's recorded judgment, and Proof labels them as such.
-- A landing is **authorized**: the owner supplied permission for this change or scope, and discern verified that permission against the current work.
+If the agent declares a question unmet, Proof preserves the reason. You can ask for a correction, or approve that specific exception, called a **variance**. General landing permission and recorded grants do not approve a variance. [Checkpoints](checkpoints.md) explains how to weigh one.
 
-A declared-unmet conclusion doesn't turn a green gate red. Its rationale stays visible in Proof, and acceptance stops until the owner either asks for the change to satisfy the checkpoint or authorizes that exact variance in the current conversation. Grants never cover a variance: the point of the rationale is that a person reads it.
-
-If discern can't determine whether a checkpoint applies, Proof names what was skipped and why, so a green run can't hide an unenforced judgment. A continuous integration run (`discern done --ci`) reports the questions that still await review without answering them, and its report-only evidence can't be used to land.
-
-`discern accept` moves the trunk only when it can verify landing authority — a recorded permission for the work to land:
-
-| Source             | What it is                                                                                                                 | Covers                                                       |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Conversation**   | The owner approves in the current conversation, and the agent runs `discern accept --confirmed`.                           | That one landing.                                            |
-| **Standing grant** | Scopes the owner has recorded on the trunk (documentation, for example).                                                   | Any landing whose changed files stay inside a granted scope. |
-| **Effort grant**   | Permission recorded in advance for one worktree when its work is delegated from [the desk](../10-guides/delegate-work.md). | That worktree's landing, once green.                         |
-
-Without authority, `discern accept` doesn't change anything. It reports what would have landed and routes the change back for review. Each call resolves authority from recorded evidence, not from an agent's memory of an earlier conversation.
+Landing permission can come from your approval in the current conversation, a standing grant for named areas of the project, or a grant recorded for one effort. Every contributing change is checked against its permission. This lets routine work proceed within limits you chose while uncovered work comes back for a decision.
 
 ### Approve a Standard limit proposal
 
-A change can cross one of the project's standard limits for a defensible reason. When the agent proposes moving the limit, Proof names the standard, its current and proposed limits, the measured value, and the reason. `discern accept` waits until the owner approves that exact proposal in the conversation. Grants and general permission to land don't bypass this approval.
+Sometimes a useful feature needs more room than an existing standard allows. For example, improved search might add to the app's download size. The agent should first investigate whether the increase can be reduced.
 
-If the owner declines, the agent must restore the trunk limit in the branch, commit the restoration, and run `discern done` again under ordinary enforcement. [Set and raise standards](../10-guides/set-and-raise-standards.md) covers proposing, measuring, and pinning limits.
+If changing the limit is justified, the proposal carries the current limit, proposed limit, measured value, and reason into Proof. You decide whether the benefit is worth that measured tradeoff. Acceptance requires approval of the exact proposal; general permission to land cannot supply it.
+
+If you decline, the agent restores the previous limit and renews completion under that requirement. [Set and raise standards](../10-guides/set-and-raise-standards.md) covers the proposal procedure.
+
+## From green to live
+
+A finished feature passes through different decisions on its way to users:
+
+| State                  | What it tells you                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Green**              | The checks that ran passed. Completion can still require other evidence or recorded judgments.                    |
+| **Ready for review**   | Current Proof exists, and the handoff explains the behavior and any decisions you need to weigh.                  |
+| **Authorized to land** | Your consent or a verified grant covers the relevant work. Any separate exception decisions must also be settled. |
+| **Landed**             | Acceptance moved the validated candidate onto the trunk, the project's shared branch.                             |
+| **Released or live**   | Your project's release process made the change available to its users.                                            |
+
+Ordinary successful `discern done` releases the worktree from authoring control so it can support later validation and eligible cleanup. If the agent expects more local review edits, `--retain-checkout` keeps that control. Releasing a worktree does not land its change.
+
+Acceptance may remove eligible released worktrees and resources after landing. With local Proof notes enabled, which is the default, it attaches the completion evidence to the landed commit. Future maintainers can retrieve that record without the original chat or temporary worktree. The result reports any unfinished note publication or cleanup.
+
+Publication to users belongs to your project. discern does not infer a release from a green gate or a landing. [Local control](local-control.md) explains where its work and evidence stay.
 
 ## Choose the next action
 
-- **Proof hasn't been recorded yet:** the agent runs `discern prepare`, reviews any rewrites, commits the final tree, then runs `discern done`.
-- **Proof is current:** open it in the worktree with `discern status --verbose`, exercise the changed behavior, and weigh the outcome, risks, and open decisions.
-- **Proof is stale:** the agent keeps or undoes the later change, commits the intended result, and runs `discern done` again.
-- **A checkpoint is declared unmet:** read its rationale, then either ask for the change to satisfy it or authorize that exact variance in the conversation.
-- **The change is accepted but hasn't landed:** the agent follows the authority-aware `discern accept` result for that worktree. Its successful result confirms that the trunk moved.
-- **The change has landed:** follow the project's release process if it has one. The work isn't released or live until that process says so.
+For everyday work, ask your agent to bring back the changed behavior, current Proof, and any unresolved decision. If the evidence is incomplete, ask what remains and how it can be obtained. If you request another edit, expect renewed completion for the version you will review.
 
-[Finish and land a change](../10-guides/finish-and-land-a-change.md) gives the end-to-end procedure. [Checkpoints](checkpoints.md) covers declarations, drops, and variance in depth. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact fields and durable formats.
+Diagnostic runs through `discern done --standalone` and reports through `--ci` help investigate or report check results. They do not supply the completion Proof needed to land. [Run the gate in CI](../10-guides/run-the-gate-in-ci.md) explains that reporting route.
+
+[Finish and land a change](../10-guides/finish-and-land-a-change.md) gives the practical handoff. [Fix a red gate](../10-guides/fix-a-red-gate.md) helps when a check fails. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact evidence fields and storage formats.

@@ -1,8 +1,8 @@
 ---
 id: reference-proof-and-checkpoint-formats
 title: "Proof and checkpoint formats"
-description: "Look up Proof note fields, checkpoint states/declarations, variance fields, and the when protocol exactly."
-order: 50
+description: "Look up the fields and states used in Proof notes, checkpoint answers, owner exceptions, and checkpoint commands."
+order: 110
 publish: true
 kind: reference
 aliases:
@@ -36,47 +36,20 @@ aliases:
 
 # Proof and checkpoint formats
 
-Look up Proof note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
+Use this page to inspect stored completion evidence or implement checkpoint integrations. For help deciding what a Proof means for your change, start with [Proof](../20-understand/proof.md).
 
-Prerequisite: a Proof field, checkpoint id/state, declaration, variance, or `when` input you need to interpret. Linked explanations add context but are not required to use these contracts.
-
-## Worktree Gate Proof marker
-
-_A local marker can skip repeated gate work only while its complete evidence still names the exact clean `HEAD`._
-
-The worktree-local marker resolves with:
-
-```sh
-git rev-parse --git-path discern/gate-proof
-```
-
-Its registered JSON format is version 1:
-
-```json
-{
-  "version": 1,
-  "head": "<full commit id>",
-  "mode": "strict",
-  "completion": {
-    "candidate_id": "<candidate id>",
-    "proof_id": "<complete Proof id>"
-  },
-  "proof": { "...": "the structured Proof and both renderings" },
-  "evidence": "<checkpoint declaration evidence identity>"
-}
-```
-
-`head` is the authored source commit pinned before the gate and rechecked before the write. `completion` points to the immutable candidate and its complete evidence in shared repository storage. `mode` is `strict` for landing evidence or `report` for `done --ci`. `proof` is the structured result described below and binds the live standard-proposal set when one exists. `evidence` binds checkpoint declarations. A same-HEAD CI run keeps a complete strict marker instead of replacing it with report-only evidence.
-
-A record missing `completion`, `proof` or `evidence` cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
-
-This worktree-local cache disappears with the worktree. Acceptance writes the durable Proof note below after the exact commit reaches the trunk.
+| Find                                        | Go to                                                                   |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| Read a landed change's evidence             | [Proof notes](#proof-notes)                                             |
+| Fetch or publish notes between clones       | [Carry notes between clones](#carry-notes-between-clones)               |
+| Parse the durable JSON record               | [Proof note format](#proof-note-format)                                 |
+| Inspect the worktree's current Proof marker | [Worktree gate Proof marker](#worktree-gate-proof-marker)               |
+| Interpret a checkpoint state or declaration | [Checkpoint state and declarations](#checkpoint-state-and-declarations) |
+| Author a `when` command                     | [Checkpoint `when` protocol](#checkpoint-when-protocol)                 |
 
 ## Proof notes
 
-_A green landing keeps its structured Proof beside the immutable trunk commit._
-
-After the trunk fast-forward, `discern accept` and `discern setup accept` write the durable Proof record under `refs/notes/discern` ([ADR 0215](https://discern.sh/docs/decisions/0215-landing-receipts-travel-as-git-notes), [ADR 0242](https://discern.sh/docs/decisions/0242-durable-receipts-use-a-versioned-dsse-envelope), [ADR 0313](https://discern.sh/docs/decisions/0313-setup-completion-and-acceptance-bind-one-final-proof)). It adds no trunk commit.
+With local Proof notes enabled, which is the default, acceptance attaches completion evidence to the landed commit under `refs/notes/discern`. The note remains available after temporary worktrees are removed and adds no trunk commit.
 
 Read the current history with:
 
@@ -94,9 +67,7 @@ git notes --ref=discern show <commit>
 
 ### The durable format
 
-The DSSE-compatible Base64 payload separates structured result facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only the `proof` field. `signatures: []` records no signature, and discern signs or verifies nothing today ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts)).
-
-Readers accept additive fields inside the current split v1 envelope. The public major and stored Proof-note format are both 1. A prelaunch v1 note missing complete evidence, or carrying acceptance without settled authority, is stale; the reader preserves its bytes and never supplies the missing facts. Unknown payload types report unsupported; bare private formats are not Proof notes. [Proof note format](proof-and-checkpoint-formats.md) defines the contract and reading rules.
+The note separates structured evidence from its presentation inside a version 1 DSSE-compatible envelope. It contains no runtime telemetry. `signatures: []` means the record is unsigned; discern performs no signature verification. The [format and reading rules](#proof-note-format) below define the fields required for usable evidence and how readers handle unsupported records.
 
 ### Replay keeps the first presentation
 
@@ -143,14 +114,6 @@ git push <remote> refs/notes/discern
 
 GitHub stores the ref but does not render it. Git-native readers and discern consume it.
 
-### Where it lives in code
-
-| Concern                    | Source                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------- |
-| Note, merge, and transport | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts) |
-| Acceptance boundary        | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
-| Setup acceptance boundary  | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)  |
-
 ### Current state and gotchas
 
 - A note covers only the ref you read. Remote publication remains explicit.
@@ -162,9 +125,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 ## Proof note format
 
-_A Proof note is the durable claim that `discern accept` attaches to a landed commit._
-
-A landing writes one JSON Dead Simple Signing Envelope (DSSE) under `refs/notes/discern`. Its schema is <https://discern.sh/schema/v1/discern-proof-note.schema.json>:
+A Proof note is a JSON Dead Simple Signing Envelope (DSSE). The [published schema](https://discern.sh/schema/v1/discern-proof-note.schema.json) defines its complete contract:
 
 ```json
 {
@@ -228,7 +189,7 @@ When `acceptance` is present, its `authority`, `consent`, `variances`, and `stan
 - `payload` preserves the serialized claim. discern writes padded Base64; its reader accepts standard and Base64url alphabets, with or without padding.
 - `signatures` holds Base64 `sig` entries with optional `keyid`. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one. discern's unsigned extension has none.
 
-`subject.commit` is the full commit; `proof` is the closed claim; `presentation` holds its line and page. Optional `checkpoint_drops` retains bounded failed-open accounts. Optional `standard_proposals` retains pending decisions. `commit` is the immutable config-only origin. `measured_commit` is its measured parent. `bound_commit` is the current measured descendant. The remaining fields give fingerprint, limits, measurement, delta, reason, and paths. Optional `mode` identifies report-only CI Proof and is absent in strict local markers; acceptance never writes it as landing evidence. The writer excludes `waited_ms` and other telemetry. A future signature authenticates presentation. Policy remains non-authoritative. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts), [ADR 0307](https://discern.sh/docs/decisions/0307-ci-reports-checkpoint-review-and-proof-retains-drops), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
+`subject.commit` is the full commit; `proof` is the closed claim; `presentation` holds its line and page. Optional `checkpoint_drops` retains bounded failed-open accounts. Optional `standard_proposals` retains pending decisions. `commit` is the immutable config-only origin. `measured_commit` is its measured parent. `bound_commit` is the current measured descendant. The remaining fields give fingerprint, limits, measurement, delta, reason, and paths. Optional `proof.mode` identifies report-only evidence and is omitted for strict Proof. Acceptance never writes report-only evidence as a landing Proof. The writer excludes `waited_ms` and other telemetry. A future signature can authenticate presentation; policy decisions use the structured claim. Optional issuer assertions and `brief` support later provenance work ([ADR 0253](https://discern.sh/docs/decisions/0253-durable-proofs-project-runtime-receipts), [ADR 0307](https://discern.sh/docs/decisions/0307-ci-reports-checkpoint-review-and-proof-retains-drops), [ADR 0339](https://discern.sh/docs/decisions/0339-proposed-standard-limits-and-shared-measurements), [ADR 0354](https://discern.sh/docs/decisions/0354-standard-proposals-renew-descendant-evidence)).
 
 Normal acceptance adds settled authority, consent, variances, and approved `standard_proposals`. A proposal-bearing claim without matching acceptance remains pending; generic consent approves none.
 
@@ -258,17 +219,50 @@ discern neither signs nor verifies today. A later profile chooses the algorithm,
 
 `data.landed_proof` means the note is readable and commit-bound. This path performs no cryptographic verification.
 
-### Where it lives in code
+## Worktree Gate Proof marker
 
-| Concern                     | Source                                                                                                                |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Envelope, payload, issuer   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                       |
-| Writer, reader, cross-check | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts)                        |
-| Published schema            | [`discern-proof-note.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-proof-note.schema.json) |
+The local marker links a clean authored source to the exact candidate and complete evidence used for completion. It supports reuse while those facts remain current.
+
+The worktree-local marker resolves with:
+
+```sh
+git rev-parse --git-path discern/gate-proof
+```
+
+Its registered JSON format is version 1:
+
+```json
+{
+  "version": 1,
+  "head": "<full commit id>",
+  "mode": "strict",
+  "completion": {
+    "candidate_id": "<candidate id>",
+    "proof_id": "<complete Proof id>"
+  },
+  "proof": { "...": "the structured Proof and both renderings" },
+  "evidence": "<checkpoint declaration evidence identity>"
+}
+```
+
+| Field                     | Meaning                                                                                                                                  |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `head`                    | Full authored source commit, checked before and after completion.                                                                        |
+| `completion.candidate_id` | Immutable candidate validated for this source.                                                                                           |
+| `completion.proof_id`     | Complete evidence record in shared repository storage.                                                                                   |
+| `mode`                    | `strict` for landing evidence; `report` identifies report-only evidence where present.                                                   |
+| `proof`                   | Structured Proof and its renderings, including the live standard-proposal set when applicable. Its `head` names the validated candidate. |
+| `evidence`                | Checkpoint declaration evidence identity.                                                                                                |
+
+The authored `head` and candidate `proof.head` can differ when completion combines changes. Current CI reports provide feedback without queue admission or landing Proof, and a report does not replace valid strict evidence.
+
+A record missing `completion`, `proof` or `evidence` cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
+
+This worktree-local cache disappears with the worktree. After landing, the [Proof note](#proof-notes) preserves the evidence on the landed commit when note recording is enabled.
 
 ## Checkpoint state and declarations
 
-A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. This page is the reference for its states, flags, and surfaces. Completion reads governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk or proven queued work it would follow. CI reports use their declared comparison policy. This commit supplies the **policy identity** every report and Proof names. A `stop` checkpoint interlocks `discern done`; an `advise` checkpoint serves its question through the advisory channel and blocks nothing.
+A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. Completion reads governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk or proven queued work it would follow. CI reports use their declared comparison policy. This commit supplies the **policy identity** every report and Proof names. A `stop` checkpoint pauses `discern done` for a recorded conclusion. An `advise` checkpoint presents the question without blocking.
 
 ### Open question states
 
@@ -283,11 +277,11 @@ A fired `stop` checkpoint opens an effort-scoped **[open question](glossary.md#o
 
 Reopening is relevance-sensitive: a declaration stales only when the checkpoint's definition or the matched content changes. Unrelated edits and trunk advances leave it standing.
 
-The structural trigger opens a question. A readable open question whose id still governs in `stop` mode remains active after a later trigger veto. Its projected subject and declaration state therefore outrank an idle structural preview; a recorded question outside the governing policy remains visible as history but does not interlock.
+Once a structural trigger opens a question, a later trigger veto does not close it while that id still governs in `stop` mode. Its current subject and declaration determine whether a conclusion is needed. A recorded question outside the governing policy remains visible as history and does not block completion.
 
 ### Strict obligation states
 
-Every governing row projects one `obligation`, the decision a bare `discern done` would make before gate jobs:
+Each governing checkpoint has an `obligation` describing whether completion needs a conclusion before gate jobs:
 
 | Obligation             | Strict meaning                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------ |
@@ -309,7 +303,7 @@ A current declared-unmet conclusion makes `discern accept` refuse until the owne
 
 ### Read surfaces
 
-`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` route the same obligation through the advisory channel, and `discern done --dry-run` describes the same refusal-or-proceed decision. Every read surface is effect-free: it runs no configured `when` command (an undecided condition reports as `unknown` and “may require”) and writes no open question, declaration, gate marker, or checkpoint lifecycle observation. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints), executable input and output in the [`when` protocol](proof-and-checkpoint-formats.md), and the result contract in [MCP tools & results](mcp-and-results.md).
+`discern checkpoints` (CLI, `--json`, `--markdown`, and the MCP tool `discern_checkpoints`) reports the governing policy with each checkpoint's canonical obligation, question, trigger summary, open-question evidence, and structural preview, plus recorded questions outside the governing policy, observed economics, and fail-open advisories. `discern prepare` and `discern status` expose checkpoint obligations as advice; `discern done --dry-run` previews them. This checkpoint inspection runs no configured `when` command and writes no question, declaration, gate marker, or checkpoint lifecycle observation. An undecided condition reports `unknown` and “may require.” The other configured preparation steps may still change files. Command details live in the [CLI reference](cli-reference.md#discern-checkpoints), executable input and output in the [`when` protocol](#checkpoint-when-protocol), and the result contract in [MCP tools & results](mcp-and-results.md).
 
 ## Checkpoint `when` protocol
 
@@ -319,7 +313,7 @@ A structurally holding checkpoint may delegate its final firing decision to `whe
 {
   "version": 1,
   "checkpoint": { "id": "example", "mode": "stop" },
-  "policy_commit": "<merge-base object id>",
+  "policy_commit": "<governing policy commit id>",
   "changed_files": [
     {
       "path": "src/example.ts",
@@ -333,12 +327,32 @@ A structurally holding checkpoint may delegate its final firing decision to `whe
 }
 ```
 
-`changed_files` is sorted by path and contains the final structurally narrowed changed evidence. Each `kind` is `added`, `modified`, or `deleted`; line counts are non-negative integers and `binary` is a known Boolean. `history` is optional and, when present, describes the ordered merge-base-to-`HEAD` commit list. The object contains no raw file content, environment dump, question, rationale, or secret.
+`changed_files` is sorted by path and contains the final structurally narrowed changed evidence. Each `kind` is `added`, `modified`, or `deleted`; line counts are non-negative integers and `binary` is a known Boolean. `history` is optional and, when present, describes the ordered commit list from the governing policy commit to the evaluated revision. The object contains no raw file content, environment dump, question, rationale, or secret.
 
-The registered input file has mode `0600` and exists only while its command runs. The fixed wall-clock budget is 10 seconds and retained protocol output is capped at 256 KiB. discern removes the file after fire, pass, invalid exit, timeout, cancellation, spawn failure, or input failure, completing cleanup before an interrupt can be re-raised. A cleanup failure or output beyond the cap fails the checkpoint open and leaves a typed drop. `discern checkpoints`, `status`, `prepare`, and every dry run create no input file and run no command.
+The registered input file has mode `0600` and exists only while its command runs. The fixed wall-clock budget is 10 seconds and retained protocol output is capped at 256 KiB. discern removes the file after fire, pass, invalid exit, timeout, cancellation, spawn failure, or input failure, completing cleanup before an interrupt can be re-raised. A cleanup failure or output beyond the cap fails the checkpoint open and leaves a typed drop. `discern checkpoints`, `status`, `prepare`, and dry runs create no checkpoint input file and run no `when` command.
 
 Exit 0 fires and exit 10 passes. Every other exit, spawn or input error, cancellation, timeout, cleanup failure, or output overflow is indeterminate. When the structural trigger holds, an indeterminate `stop` serves its question against the complete structural matched set and records the typed uncertainty; an indeterminate `advise` checkpoint remains non-blocking and reports it. Proof with an indeterminate stop is not reusable, and acceptance requires current-conversation confirmation rather than a recorded grant.
 
 On a decisive fire, `DISCERN_MATCH <path>` lines may narrow the matched set but cannot admit a path absent from `changed_files`. Without a valid declared match, the command retains the structural matched set.
 
-The merge-base governs the command text. The command runs in the candidate worktree, so its scripts, dependencies, configuration, and interpreter resolve there and do not form a hermetic policy dependency closure ([ADR 0308](https://discern.sh/docs/decisions/0308-checkpoint-triggers-use-bounded-facts-and-versioned-input)).
+The governing policy commit supplies the command text. During strict completion, that is the candidate's expected predecessor. The command runs in the candidate worktree, where its scripts, dependencies, configuration, and interpreter resolve. Those dependencies are not independently frozen with the policy command.
+
+## Implementation references
+
+These sources define note storage and publication. The published schema above is the integration contract.
+
+### Where it lives in code
+
+| Concern                    | Source                                                                                         |
+| -------------------------- | ---------------------------------------------------------------------------------------------- |
+| Note, merge, and transport | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts) |
+| Acceptance boundary        | [`lifecycle.ts`](https://github.com/jackwh/discern/blob/main/src/engine/worktree/lifecycle.ts) |
+| Setup acceptance boundary  | [`setup_accept.ts`](https://github.com/jackwh/discern/blob/main/src/commands/setup_accept.ts)  |
+
+### Where it lives in code
+
+| Concern                     | Source                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Envelope, payload, issuer   | [`result_schemas.ts`](https://github.com/jackwh/discern/blob/main/src/shared/result_schemas.ts)                       |
+| Writer, reader, cross-check | [`proof_notes.ts`](https://github.com/jackwh/discern/blob/main/src/engine/gate/proof_notes.ts)                        |
+| Published schema            | [`discern-proof-note.schema.json`](https://github.com/jackwh/discern/blob/main/schema/discern-proof-note.schema.json) |

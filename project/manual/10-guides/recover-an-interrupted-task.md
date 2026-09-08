@@ -1,8 +1,8 @@
 ---
 id: guide-recover-an-interrupted-task
 title: "Recover an interrupted task"
-description: "Resume a partially completed or dropped task from durable state without widening cleanup."
-order: 80
+description: "Pick up an unfinished task, find out what happened during an interrupted landing, or restore retained committed work."
+order: 40
 publish: true
 kind: guide
 aliases:
@@ -20,111 +20,119 @@ aliases:
 
 # Recover an interrupted task
 
-Use this guide when a coding-agent session ended while its worktree still exists, an acceptance stopped partway through, or a worktree drop removed a branch you now need. Recovery begins from repository state and discern's recorded transition evidence. The missing conversation is unnecessary.
+A closed session does not necessarily mean lost work. A task's worktree can hold its files, commits, setup state, and completion evidence after the conversation ends. Start by asking your agent to find out what remains:
 
-The safe action depends on what already happened. Observe first, then resume the same lifecycle command or restore a retained commit. Do not widen cleanup to make the state look tidy.
+> Continue the recipe-search task in its existing worktree. Read discern's status, inspect the saved work, and tell me what finished and what remains. Preserve anything unfamiliar and follow the recovery instructions before making further changes.
 
-## Starting state
-
-- Run from the task's existing worktree when it still exists. Run from the main checkout when status says the worktree is gone.
-- Preserve any returned result, branch name, worktree path, recovery ref, or `data.queue` fields.
-- Do not create a replacement worktree for the same effort until status proves the original is gone and the recovery route calls for one.
+Include the task's worktree path or branch name when you have it, along with the outcome you wanted. Repository records can recover the work's state. A preference or decision that existed only in the old conversation may need explaining again.
 
 ## Resume an unfinished worktree
 
-**Coding agent:** Call `discern_status` with the existing worktree's absolute path. The command-line form is:
+Your agent calls `discern status` at the task's recorded path. If that path is unavailable, it checks the main checkout to learn what happened. It should identify this effort before editing; another task's idle workspace is still another task's workspace.
+
+For example, the recipe-search interface might be committed while a test is still unfinished. A useful update would explain which part you can already try, what the test is checking, and what the agent will do next. You can then correct its understanding before it continues.
+
+The next step follows the observed state:
+
+| What remains                                   | How work continues                                                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Uncommitted changes                            | The agent reads the files and continues from the intended work.                               |
+| Incomplete setup                               | It follows the named setup or environment recovery.                                           |
+| New work on the shared branch                  | It follows discern's update instructions and reviews any overlapping changes.                 |
+| Current Proof                                  | It checks the task's landing and authoring state before deciding whether more work is needed. |
+| A released workspace or interrupted validation | It follows the recorded recovery route before editing.                                        |
+
+Keep the same worktree through the resumed task and its review. If the original cannot be recovered, establish that fact before starting a replacement. [Finish and land a change](finish-and-land-a-change.md) covers the normal path once work resumes.
+
+## Return a workspace after interrupted validation
+
+discern can temporarily use an eligible workspace to validate a candidate, the proposed version of a change. If that process stops before returning the workspace to its author, status names the environment and the recovery action.
+
+You can ask:
+
+> Recover this task's validation workspace. Explain any files or processes that prevent its return, and preserve the retained artifacts.
+
+Your agent previews the return from the owning worktree, using the environment ID supplied by the result:
 
 ```sh
-discern status
+discern done --recover <environment-id> --dry-run
 ```
 
-Read Git state, branch drift, Proof state, resources, pending refresh, and the result's next action. A worktree survives the session that created it; its branch and local Git-admin state carry the effort forward.
+It resolves the reported condition, then runs the same command without `--dry-run`. Recovery checks that child processes have stopped, accounts for retained files, and returns authoring control when the recorded conditions hold. Unfamiliar files or a changed branch can require investigation first.
 
-If the result says setup or environment readiness is incomplete, follow the named `discern worktree ensure` or setup recovery. If the branch is behind, use `discern_update`. If the tree is dirty, inspect and continue the work before running the gate.
-
-A returned session should be able to state its branch, current commit, changed files, last completed discern action, and immediate next action without consulting the earlier chat.
+This recovery action runs no validation and lands no change. After the workspace returns, ordinary `discern done` can reuse applicable passing evidence and obtain anything still missing. Use `--rerun` when the result calls for a deliberate new validation attempt.
 
 ## Recover an interrupted acceptance
 
-Acceptance can move the trunk before later checkout convergence or cleanup fails. Retrying must reconcile that recorded transaction instead of starting a new landing.
+An acceptance can land a change and then stop while updating the main checkout, recording its Proof note, or cleaning up. The first useful question is whether the change reached the shared branch.
 
-### 1. Read the surviving location and effects
+Ask your agent:
 
-**Coding agent:** Inspect the result's `data.root` and `data.queue`. Each queue row names one task and accounts for its own landing:
+> Check the interrupted acceptance. Tell me which changes landed, which remain pending, and what cleanup or recovery is still needed. Continue the recorded recovery for the landing I already approved.
 
-| Field                      | What it establishes                                            |
-| -------------------------- | -------------------------------------------------------------- |
-| `state`                    | Whether this task landed or is still pending.                  |
-| `expected_trunk`, `target` | The exact before-and-after commits for this landing.           |
-| `authority_settlement`     | Whether the landing's recorded authority was consumed.         |
-| `retirement`               | Whether its checkout was retired, retained, or needs recovery. |
-| `pending`                  | The conditions preventing further progress.                    |
+The result accounts for each task separately. A later failure does not undo an earlier landing, and that completed landing does not need a second approval. Any task still awaiting evidence or permission remains pending on its own terms.
 
-Do not assume the original worktree still exists. Continue from the surviving path returned in `data.root`; recovery evidence remains in the repository's shared Git storage after checkout removal.
+### Read the surviving location and effects
 
-### 2. Preview and follow the recorded recovery
+The result's `data.root` gives the surviving checkout path. Your agent continues there even if the original worktree has been removed. Shared repository records retain the landing evidence.
 
-**Coding agent:** Review the remaining work from that location:
+Ask for a summary in terms of the work you recognize. For example:
+
+> The search change landed. The documentation task is waiting for approval. Your old workspace remains because it contains files that need review.
+
+That tells you what is already shared, which decision remains, and what must be preserved. The [completion and landing result reference](../30-reference/mcp-and-results.md#completion-and-landing-results) gives your agent the exact fields behind that account.
+
+### Preview and follow the recorded recovery
+
+From the surviving checkout, your agent previews acceptance:
 
 ```sh
 discern accept --dry-run
 ```
 
-Resolve the condition named by the result. When it calls for a retry, run `discern accept` again. The engine reads the recorded transition, current refs, authority settlement and checkout state before acting. Note publication and checkout retirement can resume after the source checkout is gone; neither repeats the landing nor spends its authority again.
+It follows the reported remedy and retries acceptance when instructed. discern reconciles the recorded landing and resumes unfinished effects without landing that same change again or spending its permission twice.
 
-From the main checkout, acceptance can also advance later ready tasks that each have their own current Proof and authority. Review each row in the preview. **Person:** Supply any new landing decision, standard-proposal approval or checkpoint variance the result requires. A recorded grant cannot supply those last two decisions.
+Acceptance from the main checkout can also advance later ready tasks that have their own evidence and permission. The agent should inspect each row in the preview. A new exception or uncovered task comes back for the decision it needs.
 
-If another actor owns the operation, wait for it to finish before retrying. If recovery reports that a ref, checkout or resource changed unexpectedly, preserve that state and follow the named diagnosis. Do not force refs or delete a retained branch to make the result look complete.
+If another process is handling the operation, let it finish. If files, branches, or resources have changed unexpectedly, preserve them and investigate the named condition. Forcing branch positions or deleting retained files would discard the evidence needed to choose the next step.
 
-### 3. Distinguish landed from retired
+### Distinguish landed from retired
 
-A result can report a failure after an earlier task landed. A later note or retirement failure cannot undo that trunk transition.
+“Landed, workspace retained” can be a valid outcome. The change is already part of the shared project; the workspace remains because it is still held for editing or cannot yet be removed under its cleanup rules.
 
-**Person and coding agent:** Treat each task as landed when its row says so. Continue the named recovery action without asking for a second decision on the same recorded landing. A task still awaiting evidence, judgment or authority remains pending independently.
-
-Recovery is complete when the result accounts for every recorded landing and any checkout, branch or resource that remains. A retained checkout can be the correct result.
+Recovery is accounted for when you know what landed, what remains pending, and why each retained workspace or resource remains. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource conditions.
 
 ## Recover a dropped branch
 
-`discern worktree drop` stores any branch tip it deletes (and any unlanded detached HEAD it discards) under `refs/discern/recovery/` before removing the checkout and prints the full ref. The newest 32 refs remain local to this clone.
+If you dropped a task and later want its committed work back, discern keeps a limited local recovery route. Before deleting a branch tip, `discern worktree drop` saves it under `refs/discern/recovery/` and prints the full reference. The newest 32 references remain in that clone.
 
-### 1. Select the retained commit
-
-Use the printed ref. If that output is unavailable, **coding agent or person:** list retained tips newest first:
+Tell your agent which task you want to restore and provide the printed reference if available. It can otherwise list retained commits:
 
 ```sh
 git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
 ```
 
-Choose by branch identity, timestamp, and commit inspection. Do not select by recency alone when several tasks were dropped.
+The agent checks the branch identity, date, and commit contents. The most recent entry may belong to a different task.
 
-### 2. Restore and inspect a normal branch
+It can create a normal branch at the selected reference without switching the main checkout. This example uses an illustrative reference; substitute the one returned for your task:
 
 ```sh
-git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
+git branch recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
 git log --stat recovered-work
 ```
 
-If work should resume under discern, start a new owned worktree from the recovered commit and re-root into the returned path:
+To resume implementation, it starts a new worktree from that recovered branch and moves into the returned path:
 
 ```sh
 discern start --name recovered-work --from recovered-work
 ```
 
-Run the relevant focused checks, commit any new work, and produce fresh Proof. A recovery ref carries no current worktree Proof or landing authority.
+Review the restored work before relying on it. It needs fresh completion evidence and landing permission for the resumed effort.
 
-### 3. Keep the data-loss boundary visible
-
-The recovery ref retains committed Git objects only. Staged, modified, ignored, and untracked bytes do not belong to the branch tip. A forced drop can therefore destroy them without a discern recovery path.
-
-Keep the recovery ref until the restored branch has been reviewed. Remove it later with `git update-ref -d <ref>` only when the person no longer needs it. Use `git reflog` for lost refs outside discern's drop workflow.
+Recovery references preserve committed Git objects. Edits that were only staged, modified, ignored, or untracked are absent from the saved branch tip. A forced drop can destroy those files without a discern recovery path. Keep the reference until you have checked the restored work; `git reflog` may help with lost references outside discern's drop workflow.
 
 ## When setup itself is ambiguous
 
-A `[worktree.setup].steps` command recorded as `running` may have completed before the process ended. discern refuses automatic replay. Observe the external state, then have the person choose the served `--mark-step-complete <id> --confirmed` or `--retry-step <id> --confirmed` route. [Setup troubleshooting](../40-troubleshooting/setup-and-integrations.md) holds that separate procedure.
+A setup command recorded as running may have completed before the process ended. Repeating it could repeat an external effect, so discern asks for that state to be inspected first.
 
-## Completion
-
-A resumed task is complete when its original worktree again has a grounded next action. Interrupted acceptance is complete when the trunk, checkout, and branch effects are accounted for and converged. Drop recovery is complete when a reviewed normal branch points at the intended retained commit and any resumed work has new Proof.
-
-Use [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) when cleanup ownership, resources, or a reappeared path blocks recovery. Continue recovered implementation through [Finish and land a change](finish-and-land-a-change.md).
+Your agent should explain what it found and recommend whether to mark the step complete or retry it. You decide using the observed result. [Setup troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers the exact confirmation routes.

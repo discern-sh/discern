@@ -20,6 +20,7 @@
  */
 
 import { COMMAND_GROUPS } from "../cli_help.ts";
+import { renderMarkdownHtml } from "../lib/markdown.ts";
 import { repositoryBlobUrl } from "./brand.ts";
 import { renderExitStatusTable } from "./exit_codes.ts";
 
@@ -383,7 +384,7 @@ export function renderCliReferenceModel(
     "---",
     "title: CLI reference",
     manual
-      ? "description: Every public discern command, subcommand, argument, flag, alias, help boundary, exit contract, and terminal documentation-reader behavior."
+      ? "description: Find discern commands and options, understand their results, and use the terminal documentation reader."
       : "description: Every discern command and flag, generated from the live command registry.",
     "order: 10",
     "publish: true",
@@ -396,25 +397,49 @@ export function renderCliReferenceModel(
     "# CLI reference",
     "",
     manual
-      ? "Look up the exact syntax, arguments, flags, aliases, help ownership, exit behavior, and terminal documentation-reader contract for public `discern` commands. Command entries are generated from the command tree the installed binary dispatches; the reader contract is checked against the real-terminal implementation."
+      ? "Find a command, check its options, or look up how the terminal reader works. Your agent usually runs these commands for you; this page is here when you want to understand an invocation or use the terminal yourself."
       : "Use this page to look up the exact syntax and flags for every visible `discern` command. The entries are generated from the command registry the binary dispatches on. `discern <command> --help` prints the same declarations in the terminal.",
     ...(manual
       ? [
         "",
-        "Prerequisite: none for syntax lookup. Commands that require a configured project return `not_set_up` until setup is complete.",
+        "`discern <command> --help` shows the same command options in your terminal. Help works before project setup; commands that need a configured project return `not_set_up` until setup is complete.",
+        "",
+        "## Find a command",
+        "",
+        "| Area | Commands |",
+        "| --- | --- |",
+        ...COMMAND_GROUPS.map((group) => {
+          const links = group.commands.flatMap((name) => {
+            const command = byName.get(name);
+            if (command === undefined || command.hidden) return [];
+            const heading = renderMarkdownHtml(
+              `### \`${commandHeadingLabel(command)}\``,
+            ).headings[0];
+            if (heading === undefined) {
+              throw new Error(`no heading for ${name}`);
+            }
+            return [`[\`${name}\`](#${heading.id})`];
+          });
+          return links.length === 0
+            ? ""
+            : `| ${cell(group.name)} | ${links.join(", ")} |`;
+        }).filter((row) => row !== ""),
+        "",
+        "For options shared by commands, see [Global options](#global-options). For keyboard and mouse controls, see [Interactive documentation reader](#interactive-documentation-reader). To interpret a returned status code, see [Exit behavior](#exit-behavior).",
       ]
       : []),
     "",
     "## Global options",
     "",
-    "These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.",
+    "These options apply to commands unless an entry says otherwise. When discern runs another command, options after that boundary belong to the command it runs. For example, options after `discern queue --` are passed to the queued command.",
     "",
     "| Option | Description |",
     "| --- | --- |",
     ...globalRows,
     "",
-    ...manualContract,
     groups.join("\n\n"),
+    "",
+    ...manualContract,
     ...(manual
       ? [
         "",

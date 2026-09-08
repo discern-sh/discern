@@ -21,11 +21,48 @@ function mapRoute(rel: string): string | undefined {
   return numberedDocRoute(rel, "/docs");
 }
 
-/** Resolve a legacy Map route through the destination-owned manual claims. */
+/** Human reading destinations for concepts shared with the contributor Map.
+ * These are editorial choices, keyed by stable manual identity; definitions
+ * stay shared while the manual's links keep readers in its offline corpus. */
+const MANUAL_CONCEPT_LINK_TARGETS: Readonly<Record<string, string>> = {
+  "00-orientation/concepts.md": "explanation-practice-and-roles",
+  "00-orientation/the-practice.md": "explanation-practice-and-roles",
+  "10-getting-started/README.md": "start-index",
+  "10-getting-started/upgrade-discern.md": "guide-maintain-or-remove-discern",
+  "20-quality-gate/README.md": "explanation-proof",
+  "20-quality-gate/the-proof.md": "explanation-proof",
+  "20-quality-gate/proof-notes.md": "reference-proof-and-checkpoint-formats",
+  "20-quality-gate/checkpoints.md": "explanation-checkpoints",
+  "20-quality-gate/standards.md": "explanation-standards",
+  "20-quality-gate/coupling.md": "explanation-evidence-and-improvement",
+  "20-quality-gate/patterns.md": "explanation-evidence-and-improvement",
+  "20-quality-gate/improvement.md": "guide-improve-the-practice",
+  "20-quality-gate/tidy.md": "guide-maintain-or-remove-discern",
+  "30-worktrees/README.md": "explanation-worktrees-and-trunk",
+  "30-worktrees/landing-authority.md": "explanation-proof",
+  "30-worktrees/the-desk.md": "guide-delegate-work",
+  "30-worktrees/desk-tips.md": "guide-delegate-work",
+  "30-worktrees/the-resources.md": "reference-worktrees-and-status",
+  "40-agent-instructions/README.md": "guide-write-project-instructions",
+  "45-skills/README.md": "guide-create-and-manage-skills",
+  "70-reference/artifact-ownership.md": "reference-files-and-ownership",
+  "70-reference/checkpoint-state.md": "reference-proof-and-checkpoint-formats",
+  "70-reference/the-logbook.md": "reference-logbook",
+};
+
+/** Prefer human concept destinations, then destination-owned legacy routes. */
 function manualTargetForMapPath(
   rel: string,
   manual: ManualProjection,
 ): ManualPage | undefined {
+  const targetId = MANUAL_CONCEPT_LINK_TARGETS[rel];
+  if (targetId !== undefined) {
+    const target = manual.byId.get(targetId);
+    if (target === undefined) {
+      throw new Error(`${rel}: missing manual reading destination ${targetId}`);
+    }
+    return target;
+  }
   const route = mapRoute(rel);
   if (route === undefined) return undefined;
   return manual.byRoute.get(route) ??

@@ -1,8 +1,8 @@
 ---
 id: reference-licenses
 title: "Licenses"
-description: "Look up the license and provenance contract for discern-emitted project payloads."
-order: 110
+description: "Check the licenses for files discern adds to your project and what you need to keep when sharing them."
+order: 90
 publish: true
 kind: reference
 aliases:
@@ -15,18 +15,22 @@ aliases:
 
 # Licenses
 
-Look up the license and provenance contract for discern-emitted project payloads.
+The material discern adds to your project has a different license from discern itself. This page explains which terms apply to each part, so you can identify what you are using or redistributing.
 
-The license boundary below applies to discern-authored material written into a project. Prerequisite: a generated or Shared artifact whose provenance you need to identify.
+## What goes into your project
 
-discern itself is Fair Source under [`FSL-1.1-ALv2`](https://github.com/jackwh/discern/tree/main/LICENSE). An installation also writes discern-authored material into your repository. Those portions are available immediately under the [Apache License, Version 2.0](https://github.com/jackwh/discern/blob/main/LICENSES/Apache-2.0.txt), so discern's Functional Source License does not extend into your project's own material.
+The portions discern supplies are available immediately under the [Apache License, Version 2.0](https://github.com/jackwh/discern/blob/main/LICENSES/Apache-2.0.txt). These include setup scaffolding, built-in instructions and skills, generated framing, and the entries or marked regions discern maintains in shared configuration.
 
-The additional grant covers discern's setup skeletons, built-in instructions and skills, generated framing, and the entries or marked regions it maintains in shared configuration. [`NOTICE`](https://github.com/jackwh/discern/tree/main/NOTICE) states the legal scope and attribution.
+Your own instructions, map pages, skills, configuration, and other authored material keep their existing terms. Provider and third-party material also keep their own terms. For example, an agent file can contain both discern's built-in instructions and your project's instructions: the Apache-2.0 grant applies to the portions discern supplied.
 
-Copyright and license follow authorship. Project instructions, map edits, brief text, environment values, neighboring configuration, authored skills, and third-party material keep their existing terms. Provider-local state receives no discern payload. User-selected documentation exports, Git-admin records, temporary output, the executable, the manual, and discern's source repository remain outside this grant.
+The [files and ownership inventory](files-and-ownership.md#registered-project-paths) identifies those portions for each registered destination. [`NOTICE`](https://github.com/jackwh/discern/blob/main/NOTICE) states the legal scope and attribution.
 
-Many destinations mix those sources. An agent file can combine built-in and project instructions. A provider config can combine discern's entry with the project's neighboring entries. Apache-2.0 applies only to the portions discern supplied.
+## What stays under discern's software license
 
-The [Files and ownership](files-and-ownership.md#registered-project-paths) inventory derives its `Discern-authored portions` column from the same registry as the write boundary. The registry assigns the Apache-2.0 answer to every non-provider-local entry. A guard uses a synthetic future entry to verify that a new registered destination receives the same answer without joining another list ([ADR 0240](https://discern.sh/docs/decisions/0240-discern-authored-project-payloads-use-apache-2-0)).
+discern itself uses the Functional Source License, [`FSL-1.1-ALv2`](https://github.com/jackwh/discern/blob/main/LICENSE). The project-payload grant does not relicense the executable, source repository, or manual. It also excludes user-selected documentation exports, Git-admin records, temporary output, and provider-local state. discern's software license does not extend into your project's own material.
 
-discern does not add a license file, notice, or legal header to your repository. If you redistribute discern-authored portions, you are responsible for the Apache-2.0 redistribution conditions, including giving recipients a copy of the license and preserving applicable notices. Run `discern licenses` to print discern's software license, the project-payload license, `NOTICE`, and notices for third-party software bundled into the binary.
+## Where to find the license texts
+
+Run `discern licenses` to read discern's software license, the project-payload license, `NOTICE`, and notices for third-party software bundled into the binary.
+
+discern does not add a license file, notice, or legal header to your repository. If you redistribute discern-authored portions, you are responsible for the Apache-2.0 redistribution conditions, including giving recipients a copy of the license and preserving applicable notices.

@@ -21,7 +21,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
-| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 22      | —                | —                           |
+| [`repository-literal-policies`](#repository-literal-policies--repository-and-installer-literal-projections)           | `scripts/repository_literal_policy.ts#REPOSITORY_LITERAL_POLICIES`                | 21      | —                | —                           |
 | [`editor-path-policies`](#editor-path-policies--shared-editor-path-policies)                                          | `scripts/repository_files.ts#EDITOR_PATH_POLICIES`                                | 15      | —                | —                           |
 | [`repository-community-files`](#repository-community-files--repository-community-files)                               | `scripts/repository_files.ts#REPOSITORY_COMMUNITY_FILE_POLICIES`                  | 24      | —                | —                           |
 | [`map-tier-publication-postures`](#map-tier-publication-postures--map-tier-publication-rules)                         | `src/lib/paths.ts#MAP_TIER_PUBLICATION_POSTURES`                                  | 4       | —                | —                           |
@@ -100,7 +100,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 47      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 48      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
 | [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 50      | —                | node `bundled-docs`         |
@@ -713,7 +713,7 @@ Every native binary the release builds, executes, documents, checksums, attests,
 Every declared repository identity, canonical install command, or raw-installer command that cannot import the TypeScript authority, with an exact occurrence count and reason.
 
 - Source: `scripts/repository_literal_policy.ts` — `REPOSITORY_LITERAL_POLICIES`
-- Members: 22
+- Members: 21
   - `CLA.md`
   - `README.md`
   - `SECURITY.md`
@@ -721,7 +721,6 @@ Every declared repository identity, canonical install command, or raw-installer 
   - `project/manual/00-start/first-success.md`
   - `project/manual/30-reference/cli-reference.md`
   - `project/manual/30-reference/environment-variables.md`
-  - `project/manual/30-reference/files-and-ownership.md`
   - `project/manual/30-reference/licenses.md`
   - `project/manual/30-reference/logbook.md`
   - `project/manual/30-reference/mcp-and-results.md`
@@ -3095,48 +3094,49 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 47
+- Members: 48
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
   - `start-first-success`
+  - `start-first-real-change`
   - `start-after-setup`
   - `guide-index`
   - `guide-finish-and-land-a-change`
   - `guide-fix-a-red-gate`
-  - `guide-set-and-raise-standards`
-  - `guide-place-and-answer-checkpoints`
-  - `guide-coordinate-parallel-tasks`
-  - `guide-wait-for-another-task`
   - `guide-recover-an-interrupted-task`
   - `guide-delegate-work`
+  - `guide-coordinate-parallel-tasks`
+  - `guide-wait-for-another-task`
   - `guide-write-project-instructions`
   - `guide-create-and-manage-skills`
+  - `guide-set-and-raise-standards`
+  - `guide-place-and-answer-checkpoints`
+  - `guide-improve-the-practice`
   - `guide-connect-a-coding-agent`
   - `guide-run-the-gate-in-ci`
-  - `guide-improve-the-practice`
   - `guide-maintain-or-remove-discern`
   - `understand-index`
   - `explanation-practice-and-roles`
   - `explanation-proof`
+  - `explanation-worktrees-and-trunk`
   - `explanation-checkpoints`
   - `explanation-standards`
-  - `explanation-worktrees-and-trunk`
   - `explanation-instructions-skills-and-map`
-  - `explanation-local-control`
   - `explanation-evidence-and-improvement`
+  - `explanation-local-control`
   - `reference-index`
+  - `reference-glossary`
   - `reference-cli`
   - `reference-config`
-  - `reference-results-and-mcp`
-  - `reference-proof-and-checkpoint-formats`
   - `reference-environment-variables`
-  - `reference-files-and-ownership`
   - `reference-platforms-and-providers`
-  - `reference-worktrees-and-status`
-  - `reference-logbook`
+  - `reference-files-and-ownership`
   - `reference-licenses`
-  - `reference-glossary`
+  - `reference-worktrees-and-status`
+  - `reference-proof-and-checkpoint-formats`
+  - `reference-logbook`
+  - `reference-results-and-mcp`
   - `troubleshooting-index`
   - `troubleshoot-setup-and-integrations`
   - `troubleshoot-gate-and-proof`

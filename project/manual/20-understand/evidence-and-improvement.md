@@ -1,8 +1,8 @@
 ---
 id: explanation-evidence-and-improvement
 title: "Evidence and improvement"
-description: "Understand what local patterns and validation findings can support, and where comparison stops short of causation or ranking."
-order: 90
+description: "Use local findings to understand recurring friction, distinguish observations from explanations, and choose a useful next investigation."
+order: 80
 publish: true
 kind: explanation
 aliases:
@@ -30,51 +30,77 @@ aliases:
 
 # Evidence and improvement
 
-Some project problems only ever arrive as anecdotes. The tests feel flaky. The gate seems slower than it used to be. One agent keeps re-running checks without progress. Anecdotes are hard to act on: they carry no counts, no baseline, and no way to tell a real pattern from a memorable Tuesday.
+The checks feel slower this week. A task needed several attempts before it finished. You wonder whether something in the way the project works could improve, but one memorable task is a weak basis for changing the process.
 
-With the practice running, the project accumulates its own evidence about how work moves. The [Logbook](local-control.md) records one metadata line per run, and `discern patterns` reads that record with a set of named detectors, reporting recurring conditions as plain counts with the evidence behind them and a recommended next step. The report is advisory: it informs and never blocks. The gate and standards remain the only enforcement, so reading the evidence can't change a verdict.
+discern keeps a local activity record, the **logbook**, that can help your agent investigate. Its pattern report turns recorded outcomes and timings into findings with counts and suggested next steps. You can use those findings to decide where to look, without treating a hunch as an established cause.
+
+## Start with a question you recognize
+
+Suppose your agent spends a long time waiting for the final checks on a small change. You might ask:
+
+> Look at the local evidence for our checks. Is this run unusual, or is there a repeated source of avoidable time worth investigating?
+
+The pattern report can show where time went across recorded runs. If tests take most of it, that is an observation. The tests may be essential and already efficient. A recommendation to change them needs more evidence about avoidable cost, such as unnecessary repeated work.
+
+Your agent then inspects the relevant commands or diagnostic output. The report helps choose that investigation; it does not know from a duration alone whether a test should exist.
 
 ## What a finding is
 
-Every finding has a plain-language summary of the condition and, beneath it, the observed evidence: the object and conditions it covers, the count beside its denominator, a label wherever a value is an estimate rather than a measurement, and any limitation that matters. A finding states what was observed; it doesn't assert a cause the record can't support.
+A finding states the condition observed, the evidence supporting it, and a next step. Counts include the population they came from: three failures among four comparable attempts means something different from three among four hundred.
 
-Detectors also know when to stay quiet. Each declares an evidence threshold, and below it the report says there is insufficient evidence rather than extrapolating. A short logbook produces a short report, and an empty one is a normal, named state.
+The report also distinguishes measured values from estimates and identifies limits on the evidence. If an interrupted run's full duration is estimated, that estimate is labeled and comes with the sample used to derive it.
+
+Each detector needs enough qualifying evidence before reporting a pattern. **Insufficient evidence** means the record cannot support the conclusion yet. It does not mean the problem is absent. A new project may have little to report, and that is a useful answer too.
+
+Findings are **advisory**: reading them does not change configuration, fail the gate, or grant permission to make a change.
 
 ## What the detectors watch
 
-Each detector reads the event stream for one kind of recurring evidence. The families give a sense of the coverage:
+The report groups its observations around several questions:
 
-- **Trajectory:** each standard's measured value over time, beside the history of its limit.
-- **Gate fit:** where gate time goes and whether the setup still fits the work — a job dominating the run, queueing for shared test-run slots, verdicts that diverge on matched conditions, and checkpoint hygiene: a question that never fires, fires on nearly every change, or lands mostly under variances.
-- **Workflow behavior:** streaks of red runs, repeated refusals of one kind, edits made directly on the trunk, and whether the advice discern gave was followed.
-- **The task funnel:** red runs before the first green, time from start to acceptance, and update friction trending up.
+- **Are measured improvements lasting?** A standard's trajectory shows its recorded values alongside its limits over time.
+- **Do the checks fit the work?** Findings can identify where gate time goes, waits for shared test capacity, and different results under comparable recorded conditions. They can also flag review questions that rarely fire or repeatedly need exceptions.
+- **Where does work get stuck?** The record can show repeated failed runs or refusals and whether their suggested next actions were followed.
+- **How do tasks move toward landing?** When the necessary events are recorded, the report can follow tasks from start through completion and acceptance, including update friction.
 
-`discern patterns --stats` reads the same record for what went well: accepted changes, green streaks, cycle times, standards trends, and per-checkpoint economics, presented as plain counts you can share.
+Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends. These are accounts of the local history, not promises about the next task.
 
 ## Findings can join into investigations
 
-When compatible findings point toward one workflow problem, the report joins them into a bounded investigation: what the combined evidence may mean, the preferred diagnostic action, and what would disprove that reading. The original findings stay visible underneath, and missing or conflicting evidence prevents the relationship from forming at all. An investigation proposes what to check next. It doesn't claim the cause, rank anything, or change the project.
+Several observations may point toward the same question. Repeated failed runs and evidence of how the agent responded, for example, can support an investigation of the feedback loop.
+
+When the evidence is compatible, discern can present the related findings together with a suggested investigation and what would disprove that interpretation. The original findings remain available. Missing or conflicting evidence prevents the connection from being presented as supported.
+
+This keeps the next task specific. The agent has a question to investigate and a way to challenge its first explanation, rather than an invitation to rewrite the process broadly.
 
 ## Where comparison stops
 
-The report's usefulness depends on what it refuses to conclude:
+A comparison is useful only when you know what changed between the things being compared. discern groups trends by compatible recorded setup, including configuration, discern release, and client version. A tooling change starts a separate series.
 
-- **Observation before recommendation.** A percentage is a statistic, and a statistic alone doesn't produce advice. A job dominating gate time yields an optimization suggestion only when local history also records avoidable cost, such as a check running outside its scope or repeated runs on an unchanged state. A necessary test can dominate the gate and remain unremarked.
-- **Estimates say so.** A value that can only be estimated, like the time a cancelled run would have taken, carries the label and the sample behind it.
-- **Only comparable runs form a trend.** Trends compare runs sharing one setup: the same configuration epoch, discern release, and dominant client version. A tooling change starts a new series rather than masquerading as a workflow change.
+Even matched records leave things unknown. The logbook excludes code, prompts, and command output. It cannot tell you what the agent was trying to implement or why a test failed merely from the run's metadata. Your agent needs the relevant project evidence to investigate the cause.
+
+This matters when a recorded version passes once and fails another time. The difference can justify investigating unstable checks or execution conditions. It does not establish which condition caused it or make either result safe to ignore.
 
 ### Standard trajectory decisions
 
-The gate itself records whether a standard is mechanically eligible to pin and at what value; the report reads that authority rather than re-deriving it. A pin recommendation additionally needs the gain held across recent comparable readings with no reversal. When eligibility coincides with recent reversals or failures, the report offers an investigation instead of pin advice: check whether the headroom is durable before capturing it. Pinning remains your action, through [standards](standards.md).
+Suppose you reduced the amount someone downloads to open the app. You want to preserve the improvement as a tighter [standard](standards.md), a measured limit held by the gate.
+
+The gate records whether that measured gain is eligible to be captured. The pattern report also considers whether the gain held across recent comparable readings. If those readings reverse or fail, it points toward investigating the variation rather than recommending an immediate pin.
+
+A recommendation therefore has two parts: a gain the gate can recognize and history supporting its durability. You still decide whether to capture it. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains that action.
 
 ### Cohorts without rankings
 
-Where enough attributed evidence exists, a finding can split by driver cohort, meaning which coding agent drove the runs, with each population's counts beside its denominator and the unattributed remainder always stated. The report never ranks agents. Task mixes differ by cohort, so the same numbers can describe different work; cohorts may be compared, and agents are not graded. What a split buys you is direction: if one provider's sessions keep hitting a refusal its peers never see, the next thing to check is that provider's compiled instruction file, and a gap every cohort hits is a shared fix.
+When the record supports identifying which coding tools drove enough runs, the report can compare those groups, called **cohorts**. Each group's counts appear with its population, and runs whose driver could not be identified stay visible as an unattributed remainder.
 
-Identity itself is treated as evidence, with the same restraint. Signals can mark a run as agent-driven, corroboration strengthens a reading, and disagreement voids it. No detected identity changes behavior on its own.
+A difference is a place to investigate. If one provider repeatedly encounters an instruction-related refusal, checking its generated instructions and activation may be useful. That does not establish that the provider is worse: different agents may have been given different work, and the record does not contain those task details.
+
+Conflicting identity signals remain unresolved. Identifying a provider does not change how discern treats its work, and the report does not grade agents or people.
 
 ## From evidence to one bounded change
 
-Findings earn their keep when they become decisions. [Improve the practice](../10-guides/improve-the-practice.md) is that loop: read the report, choose one bounded change (an instruction line, a configuration value, a reworded [checkpoint](checkpoints.md) question, a new standard), and let later evidence show whether it helped. `discern improvement` ranks the most valuable next action across the setup when you want a starting point.
+You and your agent can use the findings to choose one improvement: clarify an instruction, adjust a check, or make a review question more relevant. `discern improvement` provides another starting point by examining the configured practice and recommending a next action; `discern patterns` adds the history of how it has been used.
 
-[The logbook](../30-reference/logbook.md) reference lists every recorded field, the stats definitions, and the archive and reset lifecycle. What the record contains and why it stays local is covered in [Local control](local-control.md).
+[Improve the practice](../10-guides/improve-the-practice.md) takes that choice through investigation, implementation, and review. Later comparable evidence can help you assess whether it worked. The original history remains available rather than disappearing when you change a setting.
+
+[Local control](local-control.md) explains where the records live and what they exclude. [The logbook reference](../30-reference/logbook.md) holds exact fields, statistics, and the choices for recording, sealing, and removing history.

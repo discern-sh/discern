@@ -1,7 +1,7 @@
 ---
 id: reference-config
 title: "Config reference"
-description: "Every public discern.toml table, key, type, default, placeholder, and named-table rule generated from the schema the binary enforces."
+description: "Find what each discern.toml setting does, which values it accepts, and what happens when you leave it out."
 order: 30
 publish: true
 kind: reference
@@ -157,11 +157,15 @@ aliases:
 
 # `discern.toml` — config reference
 
-Look up every public `discern.toml` table, key, type, default, placeholder, and named-table rule. The tables below are generated from the same schema the installed binary validates.
+`discern.toml` holds your project's discern settings. Use this page to check what a setting does, which values it accepts, and what happens when you leave it out. Your agent can make the edit for you once you have decided what should change.
 
-Prerequisite: a `discern.toml` file or a planned configuration. A **Default** is the value discern uses when a key is absent. An em dash means the key has no schema default; it does not mean an empty value. Unknown top-level tables and keys are not supported unless the table is explicitly named with `<name>`.
+Start with [jobs](#jobs) for checks, [worktree](#worktree) for task workspaces, [standards](#standardsname) for measured limits, or [checkpoints](#checkpointsname) for review questions. The tables below cover every public setting and come from the schema discern uses to validate your file.
 
 The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`, `[execution.<name>]`, `[checkpoints.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+
+## Read the tables
+
+A **Default** is the value discern uses when you omit a key. An em dash means there is no schema default; it does not mean an empty value. A table marked `<name>` lets you choose a name, such as `[standards.coverage]`. Other table and key names must match the reference.
 
 The published [JSON Schema](https://discern.sh/schema/v1/discern-config.schema.json) is the external machine-readable contract. For editing and validation recovery, see [Configuration and setup troubleshooting](../40-troubleshooting/setup-and-integrations.md).
 

@@ -1,8 +1,8 @@
 ---
 id: explanation-standards
 title: "Standards"
-description: "Understand Standards as one-way retained gains, including why a passing number is not an arbitrary quality score."
-order: 50
+description: "Keep a measured improvement from quietly disappearing as the project changes."
+order: 60
 publish: true
 kind: explanation
 aliases:
@@ -14,51 +14,60 @@ aliases:
 
 # Standards
 
-A project earns an improvement: test coverage climbs, the bundle shrinks, the last lint suppressions come out. Months later the gain has eroded. Nobody decided to give it back; it slipped away one reasonable-looking change at a time. Asking agents to "keep quality high" doesn't prevent this, because an adjective can't be enforced. A number can.
+You reduce how much someone needs to download to open your app. It is a worthwhile improvement, especially for people on a slow connection. Then new features arrive, the download grows, and a few months later the saving has disappeared. Nobody chose to give it up.
 
-A standard is a quality measure that can only improve. Each entry under `[standards]` in `discern.toml` names a measurement, which direction is better, and the current limit. Every run of the project's final quality check (the gate) measures it and compares the limit against the trunk's: a floor may only rise, a ceiling may only fall, and a change that would make the number worse fails.
-
-A project holding the line on lint suppressions might keep:
-
-```toml
-[standards.lint_suppressions]
-  direction = "down"
-  limit = 12
-  run = "./tools/count-suppressions"
-```
-
-The `run` command can be anything that prints `DISCERN_METRIC lint_suppressions <number>`: a measuring tool in any language can feed a standard, with no plugin to build. The last matching metric line supplies the value. That metric protocol, not the command's exit code, decides the standard verdict; a missing or non-numeric value fails.
+A **standard** makes a measured limit part of the project's working rules. Your agent can keep building features, but a change that crosses the limit needs attention before ordinary completion can pass. You get to decide whether a useful addition is worth changing the limit.
 
 ## What a limit records
 
-The number never grades the project against an outside scale. A limit of 12 doesn't mean 12 is good; it means some past change reached 12, and the project has decided not to fall behind its own achievement. That's why a passing standard tells you something specific: the project is at least as good, on this measure, as it has ever proven itself to be.
+Suppose the app's initial download measures 1,200 kilobytes, or kB. The project sets 1,200 as its maximum. That number is a **ceiling**: lower is better. A measure such as test coverage uses a **floor**, where higher is better.
 
-The comparison runs against the limit committed on the trunk, the project's shared branch. A branch can't edit the limit it is being judged by: a loosened or deleted limit fails the gate the same way a worsened measurement does. The rule a change must satisfy was agreed before the change existed.
+The limit records a decision about this project. It does not mean every app should fit in 1,200 kB, or that this app is good in every other respect. It means the project has reached this size and wants future work to preserve it.
+
+The project's configured checks, called the **gate**, require the measurement to meet its limit. They also check that a branch has not weakened or deleted an existing standard to make its work pass. The measurement's meaning is protected too; changing what gets counted is not a way around the limit.
 
 ## Capturing a gain
 
-When a change improves a measure, the improvement can become the new baseline. `discern standards --pin` tightens each improved limit to the measured value and commits that limit change on its own, so the history shows what moved and why. A configured `margin` can leave a little headroom between the measurement and the new limit, for measures that drift on unrelated changes.
+Now imagine an agent removes unused material from the initial download. It measures 900 kB. You can ask:
 
-Pinning is mechanical so the record stays trustworthy: a recorded limit moves because a measurement moved. Suppose the cleanup above removes 3 suppressions. The measure reads 9, the pin sets the limit to 9, and every later branch inherits that ceiling. A branch that reintroduces a suppression measures 10 and fails; the ground the cleanup earned stays earned.
+> Keep this improvement for future changes. Pin the download-size standard, leaving the headroom we agreed, and show me the new limit.
+
+**Pinning** records a tighter limit from a measured improvement. The command is `discern standards --pin`, which changes the selected limits and makes a separate commit. A configured **margin** leaves some room for ordinary variation when the limit tightens.
+
+Here is an illustrative sequence with a 100 kB margin:
+
+| Change                 | Measured size | Held ceiling | What happens                                            |
+| ---------------------- | ------------- | ------------ | ------------------------------------------------------- |
+| Establish the standard | 1,200 kB      | 1,200 kB     | The current app meets the limit.                        |
+| Remove unused material | 900 kB        | 1,200 kB     | The app passes with an improvement available to retain. |
+| Pin that improvement   | 900 kB        | 1,000 kB     | The new ceiling includes 100 kB of headroom.            |
+| Add a small feature    | 960 kB        | 1,000 kB     | The feature fits within the held limit.                 |
+| Add a larger feature   | 1,040 kB      | 1,000 kB     | The standard needs attention.                           |
+
+The margin affects the new limit when pinning. It is not extra allowance added to every verdict: 1,040 still exceeds the 1,000 ceiling.
+
+Pinning supplies a policy change and measurement evidence. The new commit still needs the normal completion and landing process. Once the tighter limit lands, later tasks inherit it, including tasks run by an agent that never saw the original improvement.
 
 ## When the work itself crosses a limit
 
-Sometimes a change grows the number for a defensible reason: a real feature adds bundle size, or a migration must temporarily add code. The agent must never loosen the limit to pass. Moving a limit is your decision.
+The larger feature might be worth its extra download. Perhaps it adds a useful way to find saved items. The standard brings the cost into the decision while you can still choose what to do.
 
-With your agreement, the agent proposes the new limit from the committed change, and the [Proof](proof.md#approve-a-standard-limit-proposal) carries the proposal to acceptance: the standard, its current and proposed limits, the measured value, and the reason. Landing waits until you approve that exact proposal in the conversation; recorded grants never cover it. If you decline, the agent restores the trunk's limit and the gate runs under ordinary enforcement — which usually means the change must shed what it added.
+First, the agent investigates whether the increase is avoidable. If a needed part of the feature causes it, the agent should show the value, the limit, the reason, and the alternatives. Cutting unrelated useful content to make a number pass would miss the point.
+
+You can keep the limit and change the feature, or ask for a measured proposal to revise the limit. That proposal goes through a separate approval: ordinary permission to land does not approve a weaker standard. [Set and raise standards](../10-guides/set-and-raise-standards.md#respond-when-a-standard-fires) walks through the decision.
 
 ## Standards that survive daily use
 
-Several parts of the design keep a standard sustainable rather than a tax on every change:
+Choose the quantity that expresses what you care about. A total download size can matter directly to someone opening the app. A count of test-covered lines becomes more useful as a percentage when the project grows. A count of uses of an obsolete feature may be worth reducing all the way to zero.
 
-- **Rates.** `per` divides the measurement by a size, so a healthy, growing project isn't punished for growth. A ceiling on suppressions per thousand lines stays meaningful as the codebase doubles.
-- **Replay.** `inputs` names the files a measurement reads. When those files and the complete standard definition are unchanged, the gate reuses the recorded value and its original measured commit instead of measuring again. Replay does not record a new measurement at the current commit, and the no-loosening check still runs.
-- **On-demand measurement.** A measurement too slow for every run moves to `discern standards`, which measures on request. The check that no limit was loosened has no off switch.
+The measurement should give a repeatable result for the same project state. A timing that changes with network traffic or other work on the machine can create interruptions unrelated to the change. Your agent can recommend a stable measure and explain what it leaves out.
 
-Over time, the project's own record shows each standard's trajectory, and [patterns](evidence-and-improvement.md#standard-trajectory-decisions) can recommend a pin when the headroom looks durable rather than momentary.
+Every configured standard remains required for completion in its required environments. Expensive measurements can share production with existing checks, and discern can reuse applicable recorded evidence when the full declared inputs and conditions still match. Running `discern standards` separately can measure a value while you work; it does not replace the full gate.
 
 ## What a number can't hold
 
-Not every quality dimension reduces to a measurement, and a poorly chosen metric can hold the wrong thing steady. Standards guard the measures the project chose to define; design judgment, review, and [checkpoints](checkpoints.md) carry the questions that can't be counted. Together they make up the practice's answer to "did this change make the project worse?": the countable part is enforced, and the rest is asked at the moment it matters.
+A smaller download does not prove that the app is easier to use. High test coverage does not prove that its tests ask the right questions. A standard preserves the measure you chose, so choosing and reviewing that measure remain important.
 
-[Set and raise standards](../10-guides/set-and-raise-standards.md) is the working procedure: choosing a metric worth defending, responding when a standard fires, and the falling-ceiling route for driving a legacy pattern to zero. The [config reference](../30-reference/config-reference.md) lists every field.
+[Checkpoints](checkpoints.md) handle questions that need an agent's judgment, and your review decides whether the result serves the people using the software. Together, these practices give future work more of the context behind what you value.
+
+Use [Set and raise standards](../10-guides/set-and-raise-standards.md) to add a useful measure or retain a gain. The [configuration reference](../30-reference/config-reference.md#standardsname) contains the exact fields and measurement protocol.

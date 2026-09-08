@@ -172,7 +172,7 @@ Deno.test("the published docs site covers exactly the manual registry", async ()
   }
 });
 
-Deno.test("the manual cover stays small while its derived browse tree stays complete", async () => {
+Deno.test("the manual cover shows task guidance before its complete browse tree", async () => {
   const site = await loadDocsSite();
   const res = await get("/docs", BROWSER);
   const html = await res.text();
@@ -211,12 +211,21 @@ Deno.test("the manual cover stays small while its derived browse tree stays comp
     dom.window.document.querySelector(".docs-complete-browse details"),
     null,
   );
-  assert(dom.window.document.querySelector(".docs-complete-browse") !== null);
-  assertEquals(dom.window.document.querySelector("#the-sections"), null);
-  assertEquals(
-    dom.window.document.querySelectorAll(".docs-manual-index table").length,
-    0,
+  const completeBrowse = dom.window.document.querySelector(
+    ".docs-complete-browse",
   );
+  const taskTable = dom.window.document.querySelector(
+    ".docs-manual-details table",
+  );
+  assert(completeBrowse !== null);
+  assert(taskTable !== null);
+  assert(dom.window.document.querySelector("#find-your-next-task") !== null);
+  assert(
+    (taskTable.compareDocumentPosition(completeBrowse) &
+      dom.window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    "the authored task table comes before the complete directory",
+  );
+  assertEquals(dom.window.document.querySelector("#the-sections"), null);
   assertEquals(
     nav?.querySelector("[data-nav-sections]")?.hasAttribute(
       "data-nav-default",
@@ -325,7 +334,7 @@ Deno.test("the manual cover renders its authored root and raw-reader colophon", 
     site.frontDoors.map((page) => page.route),
   );
   const rawIndex = await (await get("/docs.md", BROWSER)).text();
-  assertStringIncludes(rawIndex, "## The sections");
+  assertStringIncludes(rawIndex, "## Find your next task");
   assertStringIncludes(rawIndex, "<!-- BEGIN MANUAL FRONT DOORS -->");
   indexDom.window.close();
 
@@ -799,11 +808,9 @@ Deno.test("first eligible glossary mentions render summaries and longest matches
   const links = [...document.querySelectorAll<HTMLAnchorElement>(
     ".discern-glossary-term__definition a",
   )].map((link) => link.getAttribute("href"));
-  assert(links.includes("/docs/reference/glossary#gate-job"));
-  assert(links.includes("/docs/reference/glossary#stage"));
-  assert(links.includes("/docs/reference/glossary#scope"));
-  assert(links.includes("/docs/reference/glossary#standard"));
-  assert(!html.includes("Every job is labeled"));
+  assertEquals(links, ["/docs/reference/glossary#gate"]);
+  assertStringIncludes(html, "A named check or operation scheduled by the");
+  assert(!html.includes("A project declares its jobs"));
   assert(!html.includes("../20-quality-gate"));
 
   const glossaryLinks = [...document.querySelectorAll<HTMLAnchorElement>(

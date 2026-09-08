@@ -1,7 +1,7 @@
 ---
 id: reference-index
 title: "Reference"
-description: "Reach the exact public contract by command, configuration, state, file, provider, or term."
+description: "Look up commands, settings, supported tools, files, and result formats."
 order: 0
 publish: true
 kind: reference
@@ -15,22 +15,35 @@ aliases:
 
 # Reference
 
-Reach the exact public contract by command, configuration, state, file, provider, or term.
+Use these pages when you need a precise answer about a command, setting, file, or result. They keep the details available while the guides focus on getting work done.
 
-## In this section
+If you have a goal but don't yet know the relevant command, start with the [guides](../10-guides/README.md).
 
-- [CLI reference](cli-reference.md): Look up every live command, subcommand, argument, flag, alias, and help owner.
-- [Config reference](config-reference.md): Look up every public discern.toml table, key, type, default, placeholder, and named-table rule.
-- [MCP and results](mcp-and-results.md): Look up MCP tools/resources, DiscernResult, JSON/Markdown delivery, schemas, versions, exits, and continuation/duration policy.
-- [Proof and checkpoint formats](proof-and-checkpoint-formats.md): Look up Proof note fields, checkpoint states, declarations, variance fields, and the `when` protocol.
-- [Environment variables](environment-variables.md): Look up every public input/exported environment variable, source, scope, and consumer.
-- [Files and ownership](files-and-ownership.md): Look up authored/shared/generated/runtime files, write ownership, setup/uninstall boundaries, temporary retention, and registered paths.
-- [Platforms and providers](platforms-and-providers.md): Look up supported platforms, prerequisites, provider-specific files/hooks, reload needs, identity limits, and secure-random boundary.
-- [Worktrees and status](worktrees-and-status.md): Look up worktree identity, environment/resources, status fields, session findings, and shell-opening contracts.
-- [Logbook](logbook.md): Look up local logbook fields, storage, epochs, rotation, archive/reset lifecycle, and practice-stat definitions.
-- [Licenses](licenses.md): Look up the license and provenance contract for discern-emitted project payloads.
-- [Glossary](glossary.md): Look up every canonical product term and its exact definition.
+- [Glossary](glossary.md): find a plain definition of an unfamiliar term.
 
-The CLI, configuration, environment-variable, schema, and ownership regions are generated from live authorities. The remaining pages are checked against their registries so a new public member either enrolls automatically or fails the reference guard by name.
+## Commands and settings
 
-Prerequisite: know the command, key, field, state, path, provider, or term you want to look up. For a procedure, use [Guides](../10-guides/README.md). For a mental model, use [Understand](../20-understand/README.md). For symptom-led recovery, use [Troubleshooting](../40-troubleshooting/README.md).
+| Look up                                                 | Reference                                         |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| A command, flag, exit code, or terminal reader control. | [CLI reference](cli-reference.md)                 |
+| A setting in `discern.toml`, its type, or its default.  | [Config reference](config-reference.md)           |
+| An environment variable that discern reads or exports.  | [Environment variables](environment-variables.md) |
+
+## Installation and project files
+
+| Look up                                                                | Reference                                             |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- |
+| Supported platforms, coding tools, and their connection requirements.  | [Platforms and providers](platforms-and-providers.md) |
+| Which file to edit, which files are generated, and what removal keeps. | [Files and ownership](files-and-ownership.md)         |
+| The license for discern and the material it writes into a project.     | [Licenses](licenses.md)                               |
+
+## Results and recorded evidence
+
+| Look up                                                           | Reference                                                       |
+| ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| A task's identity, environment, resources, or status fields.      | [Worktrees and status](worktrees-and-status.md)                 |
+| Proof records, checkpoint declarations, and their exact formats.  | [Proof and checkpoint formats](proof-and-checkpoint-formats.md) |
+| The local activity record and its storage, fields, and retention. | [Logbook](logbook.md)                                           |
+| MCP tools, structured results, schemas, and integrations.         | [MCP and results](mcp-and-results.md)                           |
+
+The [explanations](../20-understand/README.md) help interpret these details. For a result that failed or refused to proceed, [troubleshooting](../40-troubleshooting/README.md) helps you find the next step.

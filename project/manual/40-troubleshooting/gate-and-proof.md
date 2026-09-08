@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-gate-and-proof
 title: "Gate and Proof"
-description: "Recover from a gate that refuses, fails, rewrites files, or passes without Proof — and know which conclusions belong to the owner."
+description: "Find why checks stopped or Proof is missing, repair the cause, and know when a decision is needed."
 order: 30
 publish: true
 kind: troubleshooting
@@ -21,87 +21,106 @@ aliases:
 
 # Gate and Proof
 
-The agent ran `discern done` and didn't get the green result you were expecting — or got green without the Proof that makes the work reviewable. Gate failures are designed to be recoverable: each one names its failed stage, carries a diagnostic with the exact command that reproduces it, and states the next step. This page helps you match what you're seeing to its class, so the agent recovers with the smallest change — and so neither of you trades away evidence, or an owner decision, to make a result turn green.
+Start with the first failure in the result. You can ask your agent:
 
-A pair of rules hold everywhere on this page. Recovery never means weakening the project's declared checks: a loosened standard, a hand-edited generated file, or a deleted check clears the symptom by removing the protection. And green establishes evidence rather than permission — [Proof](../20-understand/proof.md) explains what a green gate does and doesn't authorize.
+> Explain what stopped the gate in terms of my change. Fix the cause, verify that correction, and tell me what remains unverified or needs my decision.
+
+A red gate gives you a chance to resolve a problem before the change lands. You do not need to interpret every log line yourself. The agent should turn the diagnostic into a specific repair and explain its effect on the requested work.
 
 ## Read the failure before acting
 
-A failed `discern done` names its failed stage and returns one diagnostic per problem. Each diagnostic identifies the tool, a message, the captured output, and a `reproduce_cmd` — the exact command that reruns that failure alone:
+Open the diagnostic's captured output. Its `reproduce_cmd` names the command for investigating that failure alone; `output_path`, when supplied, leads to the full log. Retrieve that saved output if the displayed result was cut short.
 
-> **test** — test failed (exit 1) · reproduce: `sh scripts/test.sh`
+For example, a failed search test should lead to an explanation such as “Searching by an ingredient misses recipes whose title doesn't contain it,” followed by a repair and a focused test. The error could also come from a missing dependency or an incorrect check. The diagnostic is evidence to investigate, not a diagnosis to assume.
 
-The agent iterates on that reproduce command, or on `discern prepare` for fix and check failures, rather than rerunning the full gate each time. When the project keeps a gotchas document, a failure it recognizes arrives with the recorded fix inlined in the result.
-
-The result is the first authority. If its message and diagnostics genuinely don't explain the failure, the classes below distinguish the less obvious causes.
+[Fix a red gate](../10-guides/fix-a-red-gate.md) gives the full working procedure. The cases below cover results that need a different next step.
 
 ## The gate refuses before running anything
 
-A refusal is not a failed check: nothing ran, and the message names what to change.
+Read the next action and whether the result says the gate ran. Common cases are:
 
-- **The branch doesn't contain the current trunk.** Another task landed while this one was in flight. The agent runs `discern update` to bring the trunk in, re-reads any files the update names as overlapping, then reruns `discern done`. The same recovery applies when the trunk advances _during_ a gate run: the result is green for the tree it tested, but the branch is now behind.
-- **A checkpoint awaits the agent's judgment.** The refusal lists each fired question and its changed paths. See [a checkpoint needs an answer](#a-checkpoint-needs-an-answer) below.
-- **This exact tree already passed.** `discern done` reports that green Proof already covers the current commit and runs nothing. That's confirmation, not an error — the evidence is current. `discern done --rerun` repeats the full gate anyway and records that it was a rerun.
-- **discern can't write its own state.** The result names the path that was denied. Allow the current invocation to write it and rerun; a successful probe confirms write access at that moment only — discern doesn't change your system's permissions.
+| What the result names                             | Next step                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A checkpoint needs judgment                       | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).                                                         |
+| A workspace needs recovery                        | Follow the recorded environment recovery before editing it. See [returning a workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). |
+| The branch or its proposed landing needs updating | Follow the printed update or completion action. Acceptance may compose and validate the change in an eligible released workspace.                                                     |
+| A state path cannot be written                    | Resolve access to the exact path named, then retry.                                                                                                                                   |
+| The same validation input already failed          | Fix the cause first. Use `--rerun` when the result requires a deliberate new attempt on unchanged input.                                                                              |
 
-Each refusal is safe to retry after its named step: the command re-checks its preconditions from the current state.
+An already passing result is different: discern can reuse applicable evidence without running its jobs again. A result that says no gate ran is therefore not, by itself, a refusal. Read its completion state and any missing requirements.
 
 ## A job failed
 
-The most common red gate: a configured check (build, lint, types, tests, or a changed scope's own gate) found a real problem in the change. The diagnostic carries the failing command and output. [Fix a red gate](../10-guides/fix-a-red-gate.md) is the working procedure: reproduce narrowly, fix, and return.
+Have the agent reproduce the named failure, inspect its cause, and make the smallest appropriate repair. For fix and check stages, `discern prepare` may be the useful inner loop. For a test failure, the diagnostic's narrower command usually gives a faster answer.
 
-Nearby results invite misreading:
+Two nearby states deserve attention:
 
-- **A pass that prints errors.** A job can exit successfully while printing error-like lines — a suite that swallows failures, for instance. The result flags this loud success and points at the captured output; have the agent review it rather than trusting the exit code alone.
-- **Queued tests.** When the project caps concurrent test runs, a gate arriving while every slot is busy reports that its tests are queued and starts them as a slot frees. The run isn't stuck, and waiting is correct. The same cap is why agents wrap direct test commands in `discern queue -- <command>` instead of racing the fleet.
+- **A successful job printed error-like output.** Read the captured log and check whether the job swallowed a failure. The exit status alone does not settle that question.
+- **Tests are queued.** If the project caps concurrent test runs, a busy queue waits for a slot. Direct test commands should use `discern queue -- <command>` under the same configured cap.
+
+Return to ordinary `discern done` once the correction is ready on a clean, committed tree. That verifies the required checks, including any affected by the repair.
 
 ## The gate finished with a different tree than it started
 
-You committed a clean tree, and the result says files changed anyway. The gate never commits its own output — it stops and shows you, because a green result must describe the tree that would land, with nothing left over. The diagnostic tells you which cause you have:
+Inspect the named paths and diff before committing or removing anything. A passing check must apply to the version that receives Proof; unexpected changes can prevent that.
 
-**A stage rewrote a tracked file** (the result calls it a strand, or `tree_drift`). A formatter normalized something, a build refreshed a manifest, a test updated a snapshot. The diagnostic names each file, the stage that changed it, and a capped diff; `git diff` reproduces the full picture. Decide whether the rewrite is intended output (usually it is), then commit it and rerun `discern done`. If the job should never write at all, change its command to a verify-only form instead.
+| Reported change                                         | Recovery                                                                                                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| A stage rewrote a tracked file (`tree_drift`)           | Review the diff. Commit intended output, or correct a command that should only verify files. Then run completion again.                  |
+| Unexpected output appeared among source files           | Preserve it for inspection. Put temporary output in a narrowly ignored or declared output location; commit only intended source changes. |
+| A declared generator is stale (`generated_drift`)       | Run the regeneration command named for `[generated.<name>]`, review its output, and commit the intended result.                          |
+| discern-maintained instructions or integrations drifted | Run `discern refresh`, then review and commit the tracked changes. Edit authored sources to change their content.                        |
 
-**Unexpected build output appeared among source files.** The diagnostic names checkout changes and points the agent to `git status --short`. Your agent checks whether those files are intended source edits or temporary output. Source edits need review and a commit. Temporary output belongs in a narrowly ignored directory or outside the checkout, with the project's declared environment outputs updated where applicable. The project's source checks should respect those ignore rules while the commands run, because cleanup afterward cannot prevent another check from reading temporary files. discern preserves unexpected files for inspection; a shared checkout alone cannot identify which concurrent command wrote them.
+If generation immediately produces different bytes again from the same input, investigate the generator before making another commit. Repeatedly accepting those differences will not give you a stable result.
 
-**A declared generator's output was stale** (`generated_drift`). The change edited a source without regenerating what's derived from it. The diagnostic names the owning `[generated.<name>]` group and its exact regeneration command. Run that command, commit the regeneration, and rerun. If the tree goes dirty again immediately after committing the regeneration, stop: the generator is producing different bytes from the same input, and that nondeterminism is the defect to fix — not a file to keep re-committing.
+If unexpected files were left by interrupted validation, use the [workspace recovery procedure](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). Preserve anything it cannot account for. Temporary files can affect another concurrent check even if a later cleanup removes them.
 
-**discern's own maintained artifacts drifted.** Compiled agent instructions, materialized skills, or other refresh-managed files no longer match their authored sources — commonly after editing a source directly, or after an upgrade. The agent runs `discern refresh`, reviews the rewrite, and commits it. The direction matters: to change these files, edit the authored source (`[instructions].sources`, `[skills].dir`), never the generated copy — refresh overwrites generated copies by design. If the result instead reports generated artifacts _tracked_ that should be ignored, it names the exact `git rm -r --cached` command to run before refreshing.
-
-Recovery is complete when `discern done` runs green from a clean commit — and stays clean.
+For normal source repair, success is a clean final commit with complete Proof. During composition, discern can also regenerate declared outputs for the proposed landing; read the result to distinguish that managed work from a source change requiring your agent's attention.
 
 ## Green, but no Proof
 
-The gate can pass while telling you it recorded no Proof. The checks ran; what's missing is the durable claim that they describe one exact commit that could land:
+Read the completion state and missing requirements. Passing jobs can be useful progress while completion is still pending.
 
-- **The tree was dirty.** Uncommitted edits mean there's no single commit for the evidence to bind to. This is normal mid-iteration — `discern prepare` and `discern test` are the faster loop there. Before handoff, the agent commits the final tree and reruns `discern done` on the clean commit.
-- **The commit moved during the run.** Something amended or committed while the gate ran, so the passing result describes a tree that's no longer HEAD. Rerun on the final commit.
-- **Proof couldn't be written.** The result identifies the storage or recovery failure. Preserve the recorded evidence and follow that diagnosis. Acceptance can refresh stale evidence only in an eligible released environment; otherwise the source agent follows the printed `update`, `done`, and acceptance steps.
-- **The run was standalone.** `discern done --standalone` provides complete diagnostics without queue admission or landing Proof. Run ordinary `discern done` on the final clean commit when the task is ready for review.
-- **It was a CI run.** `discern done --ci` produces report-only evidence and reports open checkpoint questions without answering them. That's its job; report-only Proof can never be used to land. [Run the gate in CI](../10-guides/run-the-gate-in-ci.md) covers the setup.
+| Why Proof is missing                                         | What completes the task                                                                                                                                   |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A required validation context has not run                    | Run the next context named by the result, using `discern done --context <name>` where requested.                                                          |
+| Uncommitted changes or a commit that moved during validation | Review and commit the final intended state, then run ordinary completion.                                                                                 |
+| Evidence storage or workspace recovery is incomplete         | Preserve the recorded state and follow its specific recovery action.                                                                                      |
+| The run used `--standalone`                                  | Run ordinary `discern done` when ready. Standalone diagnostics do not admit the task to completion or issue landing Proof.                                |
+| The run used `--ci`                                          | Treat it as a CI report. CI does not admit the task to completion or produce landing Proof. See [Run the gate in CI](../10-guides/run-the-gate-in-ci.md). |
+
+Returning a workspace through `done --recover` also does not run validation or create Proof. After recovery, ordinary `done` can reuse applicable passing evidence and obtain what is still missing.
 
 ## Proof was current and went stale
 
-`discern status` or `discern accept` reports that Proof no longer covers the branch. Some edit arrived after the green run — a commit, an uncommitted change, a regenerated file, or a changed checkpoint conclusion. This is routine: Proof binds to one exact tree and its recorded judgments, so anything that changes either retires the old evidence. The agent commits the intended final state and reruns `discern done`; fresh Proof covers the new tree. [Proof](../20-understand/proof.md#why-proof-becomes-stale) explains why staleness is the feature doing its job.
+Ask the agent what changed since validation. A new source commit, a new predecessor on the trunk, or a changed checkpoint judgment can require fresh evidence for the proposed landing.
+
+For source edits, commit the intended final change and run `discern done`. If the trunk moved, follow the result: acceptance may compose and validate the new candidate in an eligible released workspace, or ask the source agent to update and complete the work again.
+
+Success is current Proof for the exact proposed landing, with no required evidence missing. [Why Proof becomes stale](../20-understand/proof.md#why-proof-becomes-stale) explains the boundary.
 
 ## A standard failed
 
-A standard is a project measure held at a limit that may only improve. Distinct failures share the word:
+First distinguish a worse measurement from a measurement that could not run.
 
-- **The measured value got worse.** Cut the waste the change introduced until the measure recovers. Sometimes the work itself legitimately grew the number — a feature that genuinely adds code to a size budget, say. That's not the agent's call to absorb: report it, because moving a limit is an owner decision made on the trunk. A branch that edits the limit to pass fails the gate on that edit itself.
-- **The limits couldn't be verified.** The never-loosen comparison reads the trunk, and in a shallow CI clone the trunk branch may be absent. The result names the exact fetch to run — typically `git fetch origin main:main` — so the comparison has both sides.
+- **The value exceeded its limit.** Have the agent explain what grew or fell and try remedies within the requested work. If a justified change still needs a different limit, it should present the measured tradeoff for your decision and use the standard-limit proposal procedure. Editing a limit merely to pass does not supply that approval.
+- **The governing limits could not be read.** Follow the diagnostic. A shallow CI clone may be missing the configured local trunk ref; the result supplies the fetch command needed to compare the policies.
+- **The measurement command failed.** Repair its named command or prerequisite before drawing conclusions about the value.
 
-[Set and raise standards](../10-guides/set-and-raise-standards.md) covers responding to a firing standard in depth, including the owner-approval path for a limit that should move.
+[Set and raise standards](../10-guides/set-and-raise-standards.md) covers measurement, repair, and the approval procedure for a proposed limit.
 
 ## A checkpoint needs an answer
 
-A checkpoint pairs a change trigger with a written question the agent must judge — so when `discern done` refuses until it's answered, the design is working:
+Have the agent read the question and inspect the change it names. For example, a change to saved recipes might ask whether existing saved data remains readable. An answer should explain the evidence relevant to that question.
 
-- **Awaiting declaration.** The refusal lists each question and its changed paths. The agent judges the question against the change, then declares in the same breath as the gate: `discern done --met <id>` when the change satisfies it, or `discern done --unmet <id> --why "<rationale>"` when it doesn't.
-- **Declared unmet, and now landing is blocked.** A green gate with an unmet conclusion stops at `discern accept`, which serves the question and rationale back for review. Only the owner can authorize that exact variance, in the current conversation — no recorded grant covers one. The alternative is always available: change the work until the question is satisfied, declare it met, and rerun.
-- **A conclusion was recorded but reopened.** Later edits to the matching paths unbind the earlier answer, and its Proof goes stale with it. The agent judges the question again against the current change.
+- **Awaiting declaration.** The agent records `discern done --met <id>` if the change satisfies the served question, or `discern done --unmet <id> --why "<rationale>"` if it does not.
+- **Declared unmet.** The checks may still pass. Landing requires the owner to approve that exact exception in the current conversation; a recorded landing grant does not cover it. The agent can instead change the work, judge it again, and complete validation.
+- **A recorded answer reopened.** The change or the proposed landing no longer matches the answer's subject. Judge the served question again using the current version.
 
-[Checkpoints](../20-understand/checkpoints.md) explains declarations, drops, and variance as a model; [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact states.
+[Checkpoint states and declarations](../30-reference/proof-and-checkpoint-formats.md#checkpoint-state-and-declarations) provides the exact states. [Checkpoints](../20-understand/checkpoints.md) explains how the questions help a project retain decisions that tests cannot make.
 
 ## When to stop
 
-Stop and involve a person when the next step is a decision rather than a repair: authorizing a variance, moving a standard limit, accepting a landing, or choosing whether a generated rewrite belongs in this change's scope. Those are owner conclusions; a recovered symptom doesn't grant them. And if the same failure returns identically after its named recovery has been applied, stop retrying. Capture the result (`discern done --json`) and treat it as a defect to report rather than a loop to win.
+Bring a decision to the owner when it changes the agreed outcome, approves an unmet checkpoint, changes a protected standard limit, or authorizes landing without existing authority. Routine investigation and repair can continue within the authorized task.
+
+If the named remedy does not resolve the problem, keep the original result and the failed recovery's output. Investigate the new evidence or report the unresolved condition. Repeated full gate runs are not a substitute for understanding a recurring failure.

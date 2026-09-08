@@ -1,7 +1,7 @@
 ---
 id: guide-fix-a-red-gate
 title: "Fix a red gate"
-description: "Use a failed gate result to select a bounded fix and return to evidence-bearing state."
+description: "Understand a failed check, give your agent a useful recovery request, and recognize when the change is ready again."
 order: 30
 publish: true
 kind: guide
@@ -14,92 +14,92 @@ aliases:
   - "diagnostics"
 ---
 
-# Fix a red Gate
+# Fix a red gate
 
-Use this guide after `discern done`, `discern prepare`, or a focused test returns a failure. The aim is to turn the result into one bounded investigation, correct the underlying cause, and return to a clean full-Gate run that can produce Proof.
+A red gate means the change needs attention before discern can record its completion. Give the failure to your agent and ask it to investigate:
 
-When the gate fails, the failed result is the starting evidence. Preserve it until you have used its diagnostic, captured output, and reproduction command.
+> Find out why this check failed, fix the cause, and check for the same problem elsewhere. Keep working in this task's worktree. Bring back the result with fresh Proof, and explain any decision that needs me.
 
-## Starting state
+Include the result or its saved output if you have it. Your agent can use the diagnostic, the explanation of the failure, to find the affected command and files. You do not need to interpret a long test log before asking for help.
 
-- The coding agent is in the task's assigned worktree.
-- A discern result has `ok: false`, or a gate job is visibly red.
-- No one has changed the project merely to silence the check.
+## Find out what failed
 
-## 1. Identify the first actionable failure
+The gate runs checks chosen for your project. A failure might mean the feature behaves incorrectly, a generated file needs updating, or a required tool is unavailable. These call for different remedies, so your agent starts with the reported evidence.
 
-**Coding agent:** Read `diagnostics[]` before the general message. The first diagnostic should name the failed job or precondition, its location, the command that reproduces it, and either captured output or a path to the full output.
+Ask for an explanation such as “Search crashes when the box is empty,” or “The test could not start because its required tool is missing.” The explanation should distinguish what the agent observed from what it still needs to investigate.
 
-If the result is truncated, use its structured or stored output route. Do not rerun an effectful command only to recover text that the first run already recorded.
-
-With fail-fast enabled, sibling jobs may be canceled as soon as one fails. A canceled or skipped job has no verdict. Work on the reported failure first, then rerun the full gate.
+If other checks were canceled after the first failure, their results remain unknown. They will need evidence too before completion. The agent should retrieve captured output when a result is abbreviated, rather than repeat an operation merely to see its text again.
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A job or precondition stopped the gate before current Proof could be recorded.
+**Failed:** A check or prerequisite needs attention; current completion Proof is unavailable.
 
-**Next action:** Run the first diagnostic's `reproduce_cmd`, correct the reported cause, then return to `discern done`.
+**Next action:** Your agent follows the diagnostic's recovery or reproduction command, then returns to the full completion check after resolving the cause.
 
 <!-- /discern-workflow -->
 
-## 2. Take the route that matches the evidence
+## Follow the failure through a fix
 
-| Observed failure                                       | Coding agent's next action                                                                                                  | Evidence that the route worked                                   |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Dirty tree, missing commit, or branch behind the trunk | Inspect `discern status`, commit intended work, or follow the `discern_update` hint.                                        | The precondition clears on the next dry run or gate call.        |
-| One declared job failed                                | Run its `reproduce_cmd`, diagnose the cause, and use the smallest focused check while editing.                              | The reproducing command passes for the same inputs.              |
-| `generated_drift`                                      | Change the owning source and run the named generator. Never hand-edit the derived file.                                     | Regeneration leaves the artifact current.                        |
-| `tree_drift` or stranded output                        | Review the diagnostic diff. Commit intended output, or make the job verify without rewriting.                               | `git status` remains clean after the producing stage.            |
-| A standard breached                                    | Keep the trunk limit. Remove the regression, or report intrinsic growth to the person who owns the limit decision.          | `discern standards <name>` reports the held or approved value.   |
-| A checkpoint awaits a declaration                      | Inspect the served question and matched paths, then declare met or unmet truthfully.                                        | The result records the current declaration state.                |
-| Timeout, missing executable, or invalid installation   | Use the named command or run `discern doctor`; change a timeout only when the command is valid and expected to take longer. | Doctor passes and the focused command starts and exits normally. |
+Imagine your agent adds recipe search. The project's test for clearing the search box fails: it expects the full recipe list, but the app shows no recipes.
 
-For a product bug, reproduce before changing code and leave a focused regression guard that covers the defect class. A patch that changes only the shown instance is incomplete when the same predicate can fail elsewhere.
+Your agent reproduces that behavior with the focused test named in the failure. It then investigates why an empty search is treated as “no matches,” corrects the behavior, and checks for other places using the same search logic. A regression test records the expectation so a later edit can catch the same mistake.
 
-## 3. Re-enter through the shortest safe loop
+You can review this without reading the implementation: enter a search, clear it, and see whether the list returns. Ask the agent to show that the test failed before the correction and passed afterward. The full gate then checks the change against the rest of the project's requirements.
 
-**Coding agent:** During diagnosis, run the diagnostic's reproduction command or the project's focused test. When that passes, prepare the complete tree.
+## When to stop for a person
+
+Most repair work can continue within the task you already requested. A decision belongs with you when fixing the failure changes what the project is meant to do or which requirements it will hold.
+
+| What the agent found                                                  | What you need to consider                                                                                                                                   |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The test expects behavior you now want to change.                     | Confirm the intended behavior, so the agent can update the feature and the test together.                                                                   |
+| The change exceeds a standard, such as the app's download-size limit. | Ask what caused the increase, what can be reduced, and what you gain by keeping it. [Standards](../20-understand/standards.md) explains the limit decision. |
+| A checkpoint question is declared unmet.                              | Read the reason, then request a correction or explicitly approve that exception. [Checkpoints](../20-understand/checkpoints.md) explains the choice.        |
+| A required environment, credential, or service is unavailable.        | Ask what remains unverified and what access or environment would allow the check to run.                                                                    |
+| The proposed repair would remove or weaken a required check.          | Ask why the existing check no longer serves the project and what would replace its coverage.                                                                |
+
+The agent should investigate reasonable fixes before bringing a tradeoff back. A useful decision request includes the observed problem, the options, and a recommendation you can assess.
+
+## Return to a checked result
+
+While editing, your agent uses the smallest relevant check so each attempt gives prompt feedback. It then prepares the complete change:
 
 <!-- discern-workflow:command -->
 
-**Run in:** the assigned worktree root.
+**Run in:** this task's worktree, where the agent made the fix.
 
 ```sh
 discern prepare
 ```
 
-**Expected result:** Fixers, regeneration, refresh, and checks pass; any intended rewrites remain visible for review.
+**Expected result:** The configured preparation steps pass, with any rewritten files available for the agent to review and commit.
 
-**If this fails:** Treat its first diagnostic as the next bounded failure before committing.
+**If this fails:** Follow the new diagnostic before attempting completion.
 
 <!-- /discern-workflow -->
 
-`prepare` runs fixers, regeneration, instruction refresh, and checks without the full test stage. Review any files it rewrites. Commit the complete fix only after the tree has converged.
+After reviewing and committing the final files, the agent runs `discern done`. It collects the required evidence, including checks that were canceled or unavailable earlier. A focused test passing establishes the repair it covers; current Proof shows that the complete change met the configured gate.
 
-If `[gate].concurrent_test_runs` is positive, send direct test commands through the repository queue:
+If the same failed inputs are being retried, discern may request an explicit `discern done --rerun`. For example, a missing service may have been restored without a source edit. The agent should follow that instruction after establishing why another attempt is useful. Changing an unrelated file does not necessarily change the inputs of the failed check.
 
-```sh
-discern queue -- <focused-test-command>
-```
+## Technical routes for a reported failure
 
-This respects the fleet-wide test cap. It does not replace the final gate.
+These details help if you are following the repair in a terminal. The diagnostic's own next action remains the starting point.
 
-## 4. Prove the recovered state
+| Reported condition                                | Route forward                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Uncommitted files or a branch that needs updating | Inspect the task's state, review the intended files, and follow the commit or `discern update` instruction.                                      |
+| A project check failed                            | Use its `reproduce_cmd` and captured output to investigate.                                                                                      |
+| `generated_drift`                                 | Edit the owning source and run the named generator.                                                                                              |
+| `tree_drift` or unexpected output                 | Inspect and preserve the reported files before deciding whether they belong in the change or the producing command needs correction.             |
+| Missing execution context                         | Supply evidence in the required context; a local pass alone may be incomplete.                                                                   |
+| Execution recovery is pending                     | Follow [Recover an interrupted task](recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation) before resuming validation. |
+| Timeout or a missing executable                   | Use the reported environment remedy or `discern doctor`; extend a timeout only after establishing that the command is valid and needs more time. |
 
-**Coding agent:** On the final clean commit, run:
-
-```sh
-discern done
-```
-
-Read all remaining diagnostics. A pass is complete only when the full run is green and emits Proof for the current `HEAD`. If a different job now fails, treat that result as the next bounded failure rather than assuming it is fallout from the first one.
-
-## When to stop for a person
-
-Stop and report the measured facts when recovery requires a decision outside the task's authority: weakening a standard, changing required project checks, accepting an unmet checkpoint, widening a scope, supplying credentials, or deciding that a failing behavior is now intended. Name the value or check, why the current work cannot satisfy it, and the next valid choices.
+Projects can limit concurrent test runs. When `[gate].concurrent_test_runs` is positive, the agent runs direct tests through `discern queue -- <focused-test-command>` so parallel tasks share that capacity.
 
 ## Completion
 
-Recovery is complete when the original reproduction passes, the final committed tree stays clean through `discern done`, and the new Proof names that commit. Continue with [Finish and land a change](finish-and-land-a-change.md).
+Look for a handoff that explains the cause, the correction, what was tried, and any remaining decision. It should include fresh Proof for the completed change. You can then continue with [Finish and land a change](finish-and-land-a-change.md).
 
-Use [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md) for generated or stranded output, [Config reference](../30-reference/config-reference.md) for job and timeout fields, and [MCP tools and results](../30-reference/mcp-and-results.md) for the diagnostic envelope.
+For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.

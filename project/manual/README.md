@@ -1,7 +1,7 @@
 ---
 id: manual-home
 title: "The discern manual"
-description: "Learn discern, do real work with it, understand its evidence and authority model, and reach exact contracts and recovery."
+description: "Set up discern, direct your agents, review their work, and recover when something goes wrong."
 order: 0
 publish: true
 kind: tutorial
@@ -15,38 +15,43 @@ aliases:
 
 # The discern manual
 
-discern installs an engineering practice into a Git repository: a final quality check the project defines (the gate), an isolated workspace for each task, and shared instructions every coding agent inherits. The outcome is practical. You can hand more of the work to coding agents and still know what's ready, because each change returns with evidence for its exact commit and lands only with your authority.
+You have something you want to build, and coding agents can help carry the work. discern gives that work a shared practice: instructions the project keeps, a separate workspace for each task, and checks that record what passed before a change is ready for your decision.
 
-This manual serves two readers. If you're deciding whether discern belongs in your project, [Evaluate discern](00-start/evaluate-discern.md) answers that without installing anything. If discern is already running in your project, start from what you're trying to do:
+Your agent operates discern. This manual helps you direct the work, understand what comes back, and decide what belongs in your project. If you're still considering it, [evaluate discern](00-start/evaluate-discern.md) explains what adoption involves and where its promises stop.
 
 ## Start here
 
 <!-- BEGIN MANUAL FRONT DOORS -->
 
-- [Install and set up discern](00-start/first-success.md)
-- [Finish and land a change](10-guides/finish-and-land-a-change.md)
-- [Understand Proof](20-understand/proof.md)
-- [Look up an exact contract](30-reference/README.md)
-- [Recover from a problem](40-troubleshooting/README.md)
+- [Get your project ready for coding agents](00-start/first-success.md)
+- [Turn a larger idea into tasks agents can carry](10-guides/delegate-work.md)
+- [Understand the evidence behind finished work](20-understand/proof.md)
+- [Make future sessions remember a rule or procedure](20-understand/instructions-skills-and-map.md)
+- [Get help when something goes wrong](40-troubleshooting/README.md)
 
 <!-- END MANUAL FRONT DOORS -->
 
-## The sections
+## Find your next task
 
-Every published page lives in one section, and the sections are organized by the job you came with:
+You can give your agent a request in your own words. These guides explain what happens next and what to look for in the result.
 
-| Section                                         | Its job                                                                         |
-| ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Start](00-start/README.md)                     | Evaluate discern, reach a first landed change, and understand what setup added. |
-| [Guides](10-guides/README.md)                   | Accomplish one outcome from a named starting state and recognize the result.    |
-| [Understand](20-understand/README.md)           | Build the mental models: states, evidence, and who holds which authority.       |
-| [Reference](30-reference/README.md)             | Look up exact commands, configuration, formats, files, platforms, and defaults. |
-| [Troubleshooting](40-troubleshooting/README.md) | Go from an observable symptom to a safe recovery and a clear stopping point.    |
+| What you want to do                                           | Where to begin                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Review a change and make it part of the project.              | [Finish and land a change](10-guides/finish-and-land-a-change.md)         |
+| Keep several tasks moving at once.                            | [Coordinate parallel tasks](10-guides/coordinate-parallel-tasks.md)       |
+| Keep an improvement from slipping away.                       | [Set and raise standards](10-guides/set-and-raise-standards.md)           |
+| Have agents ask an important review question when it matters. | [Place and answer checkpoints](10-guides/place-and-answer-checkpoints.md) |
+| Resume work after a session ends.                             | [Recover an interrupted task](10-guides/recover-an-interrupted-task.md)   |
+| Find a ready-made procedure for recurring work.               | [Create and manage skills](10-guides/create-and-manage-skills.md)         |
+
+The [guides](10-guides/README.md) cover everyday tasks. [Understand](20-understand/README.md) explains the ideas behind them, and [Reference](30-reference/README.md) has commands, settings, supported coding tools, and exact formats.
 
 ## Read it anywhere
 
-These pages are one manual with several deliveries. The website at [discern.sh/docs](https://discern.sh/docs) serves them with search. Append `.md` to any page's address for its raw Markdown. Installed, `discern docs` opens the same manual offline in a terminal reader: type to search, press Enter to open a page, press `q` to close it. `--raw`, `--pager`, and direct targets serve scripts. Coding agents read the same pages through the `discern_docs` MCP tool. Every published page is browsable and searchable on each of these surfaces; this front door is only a starting selection.
+The website at [discern.sh/docs](https://discern.sh/docs) includes search. You can also run `discern docs` to read the same manual offline in your terminal: type to search, press Enter to open a page, and press `q` to close it. Your agent can retrieve these pages through `discern_docs`.
 
-## The manual and the Map
+Append `.md` to a web page's address for its raw Markdown. The [CLI reference](30-reference/cli-reference.md#interactive-documentation-reader) covers direct targets, raw output, and paging.
 
-This manual is where the product is taught. discern's own development also keeps a map: the live account its coding agents maintain of its codebase, because discern is built under its own practice. You can inspect that map [at discern.sh/map](https://discern.sh/map). Read it as working evidence, and read the [decision records](https://discern.sh/docs/decisions) for why discern works the way it does.
+## See the practice in use
+
+discern is developed using its own checks, workspaces, and project instructions. Its agents maintain a [map of the codebase](https://discern.sh/map), which you can read to see the project knowledge they work from. The [decision records](https://discern.sh/docs/decisions) explain why the product works the way it does.

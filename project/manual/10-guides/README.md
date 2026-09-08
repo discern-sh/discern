@@ -1,7 +1,7 @@
 ---
 id: guide-index
 title: "Guides"
-description: "Find the procedure that matches the outcome and current state."
+description: "Ask for work, review results, and keep your project improving."
 order: 0
 publish: true
 kind: guide
@@ -26,48 +26,38 @@ aliases:
 
 # Guides
 
-Start with what you need to accomplish and the state you have now. Each guide carries one outcome from named prerequisites to observable completion, including the decisions that still belong to the person responsible.
+Start with something you want to accomplish. Each guide gives you a useful request for your agent, explains what happens next, and helps you recognize the result. You can use your own words; the examples show how to make your intent clear.
 
-If discern is not installed and set up yet, begin with the [quickstart](../00-start/first-success.md). Use Understand for concepts and tradeoffs, Reference for complete contracts, and Troubleshooting when you already have a symptom.
+If discern is new to the project, begin with [installation and setup](../00-start/first-success.md).
 
-## Choose the outcome
+## Make and review changes
 
-| Current situation                                                                | Outcome and guide                                               |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| One worktree change must be prepared, reviewed, authorized, and landed.          | [Finish and land a change](finish-and-land-a-change.md)         |
-| `discern prepare` or `discern done` returned a failure.                          | [Fix a red gate](fix-a-red-gate.md)                             |
-| A deterministic quality number must stop regressing, or an existing limit fired. | [Set and raise standards](set-and-raise-standards.md)           |
-| A narrow change needs a recurring judgment, or a fired question needs an answer. | [Place and answer checkpoints](place-and-answer-checkpoints.md) |
-| Several worktrees must run, update, share capacity, or compose safely.           | [Coordinate parallel tasks](coordinate-parallel-tasks.md)       |
-| One task must pause for a sibling branch or the trunk.                           | [Wait for another task](wait-for-another-task.md)               |
-| A session, acceptance, setup step, or dropped branch needs recovery.             | [Recover an interrupted task](recover-an-interrupted-task.md)   |
-| A substantial objective needs one or more self-contained agent briefs.           | [Delegate substantial work](delegate-work.md)                   |
-| Every future coding-agent session must inherit a project rule.                   | [Write project instructions](write-project-instructions.md)     |
-| A recurring method should become a reusable agent playbook.                      | [Create and manage skills](create-and-manage-skills.md)         |
-| A supported coding agent must be wired or its local action is missing.           | [Connect a coding agent](connect-a-coding-agent.md)             |
-| The project's declared gate should run as a required remote check.               | [Run the gate in CI](run-the-gate-in-ci.md)                     |
-| Local evidence should identify the next bounded practice improvement.            | [Improve the practice](improve-the-practice.md)                 |
-| The install needs diagnosis, formatting, upgrade, or removal.                    | [Maintain or remove discern](maintain-or-remove-discern.md)     |
+- [Finish and land a change](finish-and-land-a-change.md): take a request through implementation and checks, review the outcome, and decide whether to add it to the shared project.
+- [Fix a red gate](fix-a-red-gate.md): understand a failed check and let your agent work through the cause.
+- [Recover an interrupted task](recover-an-interrupted-task.md): continue work after a session ends or an operation stops partway through.
 
-## What every guide makes visible
+## Give your agents more work
 
-Each procedure names:
+- [Delegate substantial work](delegate-work.md): turn a larger goal into tasks with clear results and responsibilities.
+- [Coordinate parallel tasks](coordinate-parallel-tasks.md): keep several tasks moving in separate workspaces.
+- [Wait for another task](wait-for-another-task.md): let one agent receive another's work without making you carry progress messages between them.
 
-- the person, coding agent, or discern as the actor for each consequential step;
-- the repository state required before the first action;
-- the result or evidence expected at decision points;
-- the refusal route and the next safe action;
-- the completion condition and one useful destination afterward.
+## Keep what the project learns
 
-When a discern command returns a next-action hint, follow that result. The guide explains the decision boundary; the live result knows the current branch, commit, config, and recovery state.
+- [Write project instructions](write-project-instructions.md): make a rule available to future sessions and supported coding tools.
+- [Create and manage skills](create-and-manage-skills.md): use the bundled playbooks and capture procedures worth repeating.
+- [Set and raise standards](set-and-raise-standards.md): preserve a measured improvement as a limit future changes must meet.
+- [Place and answer checkpoints](place-and-answer-checkpoints.md): have an agent consider a review question when a relevant change occurs.
+- [Improve the practice](improve-the-practice.md): use the project's recorded experience to choose what to improve next.
 
-## Shared boundaries
+## Look after the setup
 
-- A green gate is evidence about one clean commit. It does not move the trunk or grant authority.
-- Any later edit or commit makes that Proof stale. Run the full gate again on the new final tree.
-- A checkpoint conclusion is the coding agent's declared judgment. Only the person can authorize a variance for a declared-unmet conclusion.
-- Standing and one-worktree grants remain bounded by final changed paths. They do not cover checkpoint variances or standard limit proposals.
-- Generated files are outputs. Change their authored source and run the owning refresh or generator.
-- Another task's worktree remains occupied even when it is clean.
+- [Connect a coding agent](connect-a-coding-agent.md): add another supported coding tool and confirm that it can use discern.
+- [Run the gate in CI](run-the-gate-in-ci.md): run the project's checks in continuous integration, where shared changes are checked remotely.
+- [Maintain or remove discern](maintain-or-remove-discern.md): diagnose the installation, upgrade it, or remove its wiring while keeping your authored work.
 
-For the reasoning behind these boundaries, read [The practice and its roles](../20-understand/practice-and-roles.md). For complete command and config contracts, use [Reference](../30-reference/README.md). For a result that already failed or refused, start with [Troubleshooting](../40-troubleshooting/README.md).
+## When you need more context
+
+The guides explain the flow; a command's returned result identifies the next action for the project as it stands now. If something differs from the example, ask your agent to explain that result and follow its recovery instructions.
+
+[Understand](../20-understand/README.md) explains the concepts behind the work. [Reference](../30-reference/README.md) supplies exact command and setting details. [Troubleshooting](../40-troubleshooting/README.md) starts from symptoms you can recognize.

@@ -20,7 +20,7 @@ export const MANUAL_GLOSSARY_REL = "30-reference/glossary.md";
 /** The Manual navigation policy for the generated glossary. */
 export const MANUAL_GLOSSARY_METADATA = {
   id: "reference-glossary",
-  order: 120,
+  order: 10,
 } as const satisfies GeneratedManualMetadata;
 
 /**

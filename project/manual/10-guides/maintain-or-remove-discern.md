@@ -21,110 +21,85 @@ aliases:
 
 # Maintain or remove discern
 
-Use this guide to diagnose an installation, format the surfaces discern owns, bring a project forward after replacing the binary, or remove discern's wiring while retaining project-authored work. Choose one outcome below; each has a different starting state and completion condition.
+discern's setup belongs to your project. You can inspect it, keep it current, or remove its wiring while retaining the instructions, skills, and project knowledge you have written.
 
-discern never checks the network for a newer release and never replaces its own binary. Project upgrade and binary replacement are separate acts.
+Choose the task you need: [diagnose a problem](#diagnose-the-installation), [format discern's files](#format-discern-owned-surfaces), [upgrade](#upgrade-the-project), or [remove discern](#remove-discern-from-the-repository). Your agent can handle most maintenance; removal includes a terminal operation for you.
 
 ## Diagnose the installation
 
-Start here when a command, configured job, provider integration, Git safety setting, or worktree environment appears wrong.
+When an integration or command stops working, you can ask:
 
-**Person or coding agent:** From anywhere inside the project, run:
+> Check this project's discern installation and explain what's wrong. Repair what you can within the existing setup, then tell me whether anything needs access, a restart, or a decision from me.
 
-```sh
-discern doctor
-```
+Your agent starts with `discern doctor`. Doctor is read-only: it checks configuration, required commands, generated files, integrations, and other parts of the installation, then names the recovery for anything it finds.
 
-Doctor is read-only. It checks config and schema validity, configured commands on `PATH`, Git recovery and identity, generated files, skills, integrations, resource commands, and logbook storage. A failure names the observed fact and recovery; apply that action and rerun doctor.
+A missing command and a broken configuration need different fixes. The agent should explain the observed problem before changing settings, apply the reported remedy, and run doctor again. A passing result establishes the installation checks; a repaired coding-tool connection also needs a successful call from a fresh session.
 
-For a bug report or machine consumer, capture the structured result:
-
-```sh
-discern doctor --json
-```
-
-Diagnosis is complete when doctor passes or the result identifies an external decision or prerequisite the person must supply. Use [Troubleshooting](../40-troubleshooting/README.md) to match that symptom to its recovery family.
+For a bug report, `discern doctor --json` captures a structured result. [Troubleshooting](../40-troubleshooting/README.md) helps match a symptom to a recovery.
 
 ## Format discern-owned surfaces
 
-Use this path when configured instruction sources, the map, the TODO ledger, or root `discern.toml` need canonical formatting.
+If your instructions, map, work ledger, or `discern.toml` have become hard to scan, ask:
 
-**Coding agent:** Work in the task's owned worktree. Preview first:
+> Format the files discern manages, review the changes, and bring them back through the project's checks.
 
-```sh
-discern tidy --dry-run
-```
+In the task's worktree, the agent previews `discern tidy --dry-run` and applies `discern tidy`. The planner parses every target before writing. A malformed file stops the run without changing the targets, so the agent can correct it first.
 
-Review the named files, then apply both Markdown and TOML formatting:
+Tidy covers the configured instruction sources, map, TODO ledger, and root config. It does not format application source, authored skills, generated agent files, or arbitrary repository files. Your project's own formatter remains responsible for those.
 
-```sh
-discern tidy
-```
-
-Use `discern tidy md` or `discern tidy toml` only when the task intentionally covers one type. The planner parses every target before the first write; a malformed file refuses the run and leaves all targets unchanged.
-
-Review the diff. Tidy does not format application source, authored skills, generated agent files, or files outside the configured owned surfaces. When the project has its own formatter, keep that formatter first and discern tidy last in the serial fix-stage job.
-
-Run `discern prepare`, commit the formatting, and run the full gate. Formatting is complete when a second `discern tidy --dry-run` reports no changes and the gate stays green.
+The agent reviews the diff, prepares and commits it, and runs the gate. A second tidy preview should report no changes. For a narrower task, `discern tidy md` or `discern tidy toml` formats only the selected type.
 
 ## Upgrade the project
 
-Use this path after the person decides to install a newer discern binary.
+Updating the installed program and updating a project's setup are separate steps. discern does not check the network for newer releases or replace its own binary.
 
 ### 1. Replace and identify the binary
 
-**Person:** Use the same supported installer used for the first install. The [quickstart](../00-start/first-success.md) holds the current command and platform prerequisites.
-
-Open a new shell, then verify which program will run:
+Once you decide to install a newer version, use the supported installer described in [installation and setup](../00-start/first-success.md). Open a new shell and check which program will run:
 
 ```sh
 which discern
 discern --version
 ```
 
-If the project says its schema is newer than this binary, stop and install a binary at least as new as the project. An older binary refuses to stamp the config backward.
+If the project reports a schema newer than the installed program, install a version that understands it. The schema describes the configuration format; an older program will refuse to stamp it backward.
 
 ### 2. Preview from a clean upgrade worktree
 
-**Coding agent:** Keep the upgrade diff isolated in one worktree and commit or otherwise recover any existing edits first.
+Give your agent a bounded request:
+
+> Update this project's setup for the installed discern version. Preview the changes, preserve our authored instructions and skills, and bring the upgrade back with its check results.
+
+The agent uses an isolated worktree and reviews any existing edits before upgrading. It runs:
 
 ```sh
 discern upgrade --check
 discern upgrade --dry-run
 ```
 
-`--check` exits nonzero when project migrations are pending. The dry run lists migrations, fixed scaffold reconciliation, managed Git-ignore and attribute fragments, and instruction or skill refresh without writing.
-
-Review the plan. `--allow-dirty` bypasses the clean-tree guard and makes the resulting diff harder to attribute; use it only when the person has supplied another recoverable snapshot and accepts that tradeoff.
+`--check` reports whether migrations are pending. A migration brings older configuration into the format the installed version expects. The dry run shows those changes and the refresh of discern's generated and shared files.
 
 ### 3. Apply, review, and prove
 
-```sh
-discern upgrade
-```
+Your agent runs `discern upgrade`, inspects the changes, and follows any partial-operation recovery. Your authored instructions, skills, scripts, and map remain project-owned; the plan identifies which managed settings or files need changes.
 
-The command runs pending migrations in order, validates before stamping the schema version, reconciles discern-owned shared entries, and refreshes generated instructions, skills, and integrations. Project-owned instruction sources, authored skills, scripts, map pages, and configured values remain owned by the project.
+It then uses [Finish and land a change](finish-and-land-a-change.md) to prepare the result for review. After landing, restart coding-tool sessions so their discern connection loads the installed version and current setup. The agent checks `discern doctor`, `discern upgrade --check`, and the fresh connection.
 
-Review every changed file. Follow a partial refresh recovery until top-level `ok` is true. Run `discern prepare`, commit the complete upgrade diff, then run `discern done`.
-
-After the change lands, **person:** close and restart provider sessions so their MCP process loads the new binary and embedded material. Then verify:
-
-```sh
-discern doctor
-discern upgrade --check
-```
-
-The upgrade is complete when the installed version is the intended one, the project check reports no pending migration, doctor passes, fresh provider sessions activate, and the landed diff has current Proof.
+The upgrade is complete when the intended version is installed, no migrations remain, and the changed setup has passed its checks and works in a fresh session.
 
 ## Remove discern from the repository
 
-Use this path only after the person decides the repository should stop using discern. Uninstall is a CLI-only owner operation.
+You can stop using discern without throwing away the project knowledge you built. Ask your agent to help prepare:
+
+> Help me remove discern from this repository. Identify unfinished work and resources that need attention, then explain the removal preview and what will remain for me to keep.
+
+Uninstall is a CLI-only owner operation. The steps below happen in the main checkout after active work is resolved.
 
 ### 1. Close active work safely
 
-**Person:** From the main checkout, inspect `discern status`. Land work that should be kept, or review and explicitly drop work that should be discarded. Reclaim orphaned resources through `discern worktree prune`.
+Read `discern status`. Land work you want to keep, and review any work you want discarded before explicitly dropping it. Follow the reported cleanup instructions for orphaned resources.
 
-Uninstall refuses while a discern worktree is in flight or the resource ledger still records provisioned resources. Those records hold the destroy commands needed for safe cleanup.
+Uninstall refuses while any linked Git worktree remains registered, including a completed checkout you retained, or while the resource ledger records provisioned resources. Those records include the information needed to remove external resources, so deleting the records first would lose the cleanup instructions.
 
 ### 2. Preview what leaves and what stays
 
@@ -132,9 +107,9 @@ Uninstall refuses while a discern worktree is in flight or the resource ledger s
 discern uninstall --dry-run
 ```
 
-Read the complete plan. It should remove generated files, discern-owned entries in shared integration files, managed ignore and attribute blocks, and discern's Git-admin runtime state. It keeps `discern.toml`, project-owned instructions, authored skills, map content, and drop recovery refs that may be the only names for user commits.
+Review the complete plan. It removes discern's generated files, its entries in shared integration files, managed ignore and attribute blocks, and its Git-admin runtime state. It keeps `discern.toml`, your authored instructions and skills, map content, and recovery refs that may be the only remaining names for your commits.
 
-If the plan names a shared setting it cannot remove safely, handle that exact setting after reviewing its owner. Do not delete the surrounding shared file.
+If a shared setting cannot be removed safely, inspect that setting's ownership before changing it. The [files and ownership reference](../30-reference/files-and-ownership.md) explains the full boundary.
 
 ### 3. Apply and inspect the repository diff
 
@@ -142,20 +117,12 @@ If the plan names a shared setting it cannot remove safely, handle that exact se
 discern uninstall
 ```
 
-Confirm the prompt after reviewing the plan. Use `--yes` only in an already-authorized non-interactive run.
+Confirm the prompt after reviewing the plan. `--yes` is available for a non-interactive run you have already authorized.
 
-Inspect `git status` and commit the removal according to the repository's ordinary process. Review retained recovery refs before deleting any with `git update-ref -d <ref>`.
+Inspect `git status` and commit the removal through the repository's ordinary process. Keep recovery refs until you have reviewed the work they preserve.
 
 ### 4. Remove the binary separately
 
-```sh
-which discern
-```
+Repository uninstall keeps the shared discern program installed. Other projects may still use it. If none do and you want to remove it, use `which discern` to identify the installed program before deleting it.
 
-**Person:** Delete that installed binary only when no other project on the machine needs it. Repository uninstall does not remove a shared program from the machine.
-
-Removal is complete when the repository no longer carries discern's generated or shared wiring, project-owned content named by the plan remains, no active resource is orphaned, and the person has made a separate decision about the installed binary.
-
-## Reference and recovery
-
-[Files and ownership](../30-reference/files-and-ownership.md) lists the full footprint and uninstall boundary. [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers partial refresh and activation, while [worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers resources or cleanup that block removal.
+Removal is complete when the planned wiring has gone, your authored content remains, and no active resource is left without its cleanup record. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup that prevents uninstall.

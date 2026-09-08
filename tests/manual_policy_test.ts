@@ -327,7 +327,7 @@ code must not count
 
 Deno.test("manual product-voice staging maps diagnostics to exact authored sources", async () => {
   await withStagedManualProse(REPO_ROOT, async (stage) => {
-    assertEquals(stage.pages.length, 47);
+    assertEquals(stage.pages.length, 48);
     assertEquals(stage.sources.size, stage.pages.length);
     for (const page of stage.pages) {
       const staged = join(

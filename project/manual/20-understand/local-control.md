@@ -1,8 +1,8 @@
 ---
 id: explanation-local-control
 title: "Local control"
-description: "Understand local evidence, network/model boundaries, write authority, and what discern deliberately does not secure or decide."
-order: 80
+description: "See what discern runs, writes, and records on your machine, and how those boundaries differ from your coding agent and project commands."
+order: 90
 publish: true
 kind: explanation
 aliases:
@@ -17,41 +17,64 @@ aliases:
 
 # Local control
 
-Adding a tool to a serious project raises questions before the first run. What does it send, and to whom? What does it decide on its own? What may it write? For a tool that sits in the middle of your development workflow, those answers should be short and checkable.
+Before adding a tool to your project, you may want to know where its records go, what it can change, and whether it adds another service to manage. discern keeps its own work local: it contains no AI model, needs no account or API key, and sends no telemetry.
 
-discern is a local, deterministic program. It contains no AI model, needs no API key, makes no network requests of its own, and sends no telemetry. Its verdicts come from running the commands your project declares, and its records stay on your machine. The intelligence in your workflow comes from your coding agents; discern supplies the working conditions, the checks, and the evidence.
+Your coding agent and project commands still have their own behavior. Understanding that distinction helps you choose permissions and review the setup without assuming that one local tool makes the whole workflow offline.
 
 ## No model inside
 
-The verdict of the project's final quality check (the gate) is the result of your project's own commands, run the same way every time. That's what makes the answer reproducible: however many times the gate runs, the same tree gets the same treatment, with no model variance and no per-run cost. Where the practice needs judgment, a [checkpoint](checkpoints.md) question, the judgment comes from the coding agent operating discern and is recorded as declared. discern never calls a model to decide anything.
+discern runs the checks your project configures and records their results. It does not ask a model whether your code is finished. Where a review question needs judgment, a [checkpoint](checkpoints.md) asks the coding agent operating discern, and records that agent's answer as a judgment.
 
-The boundary is worth stating precisely, because it describes discern itself and nothing more. Your coding agents reach their own model providers. Your project's commands, and any checkpoint command you configure, do whatever they do, network included. discern doesn't constrain them, and "no model inside" never means your agents stopped using one. It means the practice adds no model dependency, key, or hosted service of its own, and discern's own commands run without a network.
+For example, when your agent improves a search page, discern can run the project's search tests. The tests determine whether their assertions pass. A question about whether the new message is helpful still needs someone to assess it; discern does not turn that assessment into a test result.
+
+There is no additional model call or model bill from discern itself. Your coding agent continues to use its provider, and configured commands may call paid services. Checks may also take time and use your machine's resources.
+
+## What can use the network
+
+The discern executable makes no network requests of its own. The installer uses the network to download it, and you choose when to download an update.
+
+Other parts of your workflow can still connect:
+
+- Your coding agent may send context to its model provider under that tool's settings.
+- A configured test, build, setup step, or other project command can contact the services it normally uses.
+- Git can send or fetch project history when you or your agent invoke those operations.
+
+If you need to know what a particular setup will contact, ask:
+
+> Review the commands configured for this project. Explain which use the network or paid services and what data they send.
+
+That review should examine the actual commands and provider settings. discern does not restrict their access, and a local gate does not establish that its commands are offline.
 
 ## What stays on your machine
 
-The **Logbook** is discern's local activity record. With recording on, each run appends one line of metadata: the command, branch, outcome, duration, change size, and measured standard values. No code, no prompts, no command output, no file contents, and no checkpoint rationales enter it. It lives inside the repository's Git administrative area, and it never leaves the machine: an architectural test in discern's own gate keeps network interfaces out of the logbook's code path, so adding one would fail discern's own build.
+The **logbook** is a local activity record. It holds metadata about discern use, such as command names, branches, outcomes, durations, and measured quality values. It excludes source code, prompts, command output, file contents, and checkpoint rationales.
 
-The record has one switch, `[project].logbook = false`, and sealing or removing its history requires a terminal-confirmed owner action. What the record powers, and what its analysis can and can't support, is the subject of [Evidence and improvement](evidence-and-improvement.md).
+The record lives in Git's administrative storage rather than tracked project files. discern does not upload it. It can help your agent investigate repeated failures or slow checks; [Evidence and improvement](evidence-and-improvement.md) explains that use, and [the logbook reference](../30-reference/logbook.md) lists the recorded fields.
 
-Proof takes the same stance. A landed change's evidence is recorded as a durable note in your repository, locally, by default. Sharing Proof history with a remote is a separate, explicit configuration, carried by your ordinary Git transport rather than by discern, and there is no push mapping: publishing evidence stays a distinct act. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact commands.
+You can turn recording off with `[project].logbook = false`. Sealing or removing existing history uses an owner command that asks for confirmation in a terminal. The reference explains those choices and which features depend on recording.
+
+A landed change's **Proof** is also recorded locally by default, as a note attached to its Git commit. You can explicitly configure fetching of other Proof notes through ordinary Git transport; publishing notes remains a separate Git action. discern does not automatically upload them. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) gives the sharing and removal commands.
 
 ## What discern may write
 
-Write authority follows one rule: placement is consent. A file at its standard discern location carries permission because putting it there was the decision; a path you pointed a config key at is licensed because you supplied the path. Everything else is off-limits, and an architectural test rejects writes outside the declared surface. In practice the footprint is the root `discern.toml`, the visible `discern/` folder, each configured agent's declared files, marked regions of shared files such as `.gitignore`, generated outputs, and a worktree's own environment file.
+Setup explains its proposed changes before you approve them. Its footprint includes the root `discern.toml`, authored material under `discern/` by default, and the instruction and integration files for your selected coding tools. Later operations also create task workspaces and keep local evidence in Git's administrative storage.
 
-Effectful commands compute a plan before applying it, so `--dry-run` is a faithful preview that changes nothing, and a command that will touch Git state proves it has permission at that boundary before starting. An interrupted operation leaves a state that can be resumed or repaired.
+The full [files and ownership reference](../30-reference/files-and-ownership.md) identifies the managed paths and how to change them. Your own material in shared settings files stays outside discern's marked sections or owned keys.
 
-Leaving is part of the contract: `discern uninstall` removes discern's wiring and keeps what you authored. The instructions, map, skills, and scripts remain ordinary files at the paths you chose.
+For configurable authored paths, choosing a location gives discern permission to manage that location. If you point the map setting at an existing documentation folder, for example, you are choosing that folder as the project guide agents will maintain. Keep that consequence in mind when changing a path; it is more than a label.
 
-The binary itself is one self-contained file that needs only `git` and a POSIX `sh` beside it, and its releases are verifiable: the installer checks the published checksum before replacing anything, and [Platforms and providers](../30-reference/platforms-and-providers.md) records the signing and provenance details per platform.
+You can ask your agent to preview a supported effectful operation with `--dry-run` before applying it. The preview describes the planned changes without making them. Permission for discern's files does not replace your coding agent's own filesystem permissions or authorize arbitrary work elsewhere.
 
 ## What discern does not secure or decide
 
-The boundaries matter as much as the assurances:
+Your coding agent's permissions govern what it may read, run, or edit. discern supplies a working process and checks; it is not a sandbox around the agent.
 
-- **It is not a sandbox.** discern doesn't restrict what your coding agent may read, run, or change; the agent's own permission system governs that. Configure that boundary there.
-- **It doesn't certify security or correctness.** Green establishes that the declared checks passed for one exact tree. It doesn't establish that the software is secure, correct, or fit for production, and running locally doesn't vet your dependencies or providers.
-- **It doesn't ship.** discern neither deploys nor pushes on your behalf. Everything after landing belongs to the project's own release process.
-- **It doesn't decide what lands.** A passing gate makes a change eligible; the authority stays with you. [Proof](proof.md) explains how that decision is recorded and verified.
+The gate's evidence also has a defined scope: it records that the project's configured checks passed for an exact version. A security review, a real-device check, or an assessment of suitability may still be needed when the change calls for it.
 
-[Files and ownership](../30-reference/files-and-ownership.md) is the complete inventory of what discern writes and who owns each file. [The logbook](../30-reference/logbook.md) lists every recorded field. To weigh these boundaries before installing, read [Evaluate discern](../00-start/evaluate-discern.md).
+Landing a change onto the shared branch requires your permission, either given for the current change or explicitly recorded for a defined scope. A passing gate supplies evidence for that decision. It does not grant permission, publish the project, or deploy the app. [Proof](proof.md) explains the distinction.
+
+## Upgrades and removal stay your choice
+
+The binary does not check for updates or replace itself. The installer verifies the published checksum before replacing an existing installation; [Platforms and providers](../30-reference/platforms-and-providers.md) covers platform signing and release provenance.
+
+If you remove discern, the uninstall operation removes its wiring while retaining the instructions, map, skills, scripts, and other project-authored material. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md) shows the supported procedure. What you and your agents have written remains available to read and use.

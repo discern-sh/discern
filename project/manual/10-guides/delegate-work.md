@@ -1,8 +1,8 @@
 ---
 id: guide-delegate-work
 title: "Delegate substantial work"
-description: "Shape substantial work into owned seams, dispatch it deliberately, and inspect decisions in one place."
-order: 90
+description: "Turn a large idea into clear tasks, give agents what they need, and review what comes back."
+order: 50
 publish: true
 kind: guide
 aliases:
@@ -21,89 +21,95 @@ aliases:
 
 # Delegate substantial work
 
-Use this guide when a goal deserves a fresh coding-agent task, several independent streams, or staged work that will build on an earlier result. The outcome is a set of self-contained briefs, one owned worktree per stream, a declared landing order, and a return path that does not make the person relay status between agents.
+A substantial idea often needs more than a longer prompt. You might want to add several features, refresh every help page, or improve an app before sharing it. The useful first step is to turn that ambition into tasks with results you can recognize.
 
-The person controls dispatch and every landing decision. A planning agent may prepare the briefs and offer to launch them, but it does not start sessions, worktrees, or sub-agents until the person accepts the stated topology.
+Your agent can help you make that plan. discern's delegation skill guides it through finding work that can run together, writing complete briefs, and arranging an independent review. You can spend your attention on what the work should achieve while the briefs carry the detail into fresh sessions.
 
 ## Starting state
 
-- The person and planning agent have discussed a broad goal, its constraints, and why it matters.
-- No delegated session has started yet.
-- The planning agent can inspect the project instructions, relevant code and docs, current fleet, and available capacity.
-- Any unresolved choice that would change the deliverable is either answered by the person or assigned to the receiving agent with a required rationale.
+Use this guide once discern is set up in the project and you have an outcome in mind. You do not need a file list or an engineering plan: the planning agent inspects the project and proposes those.
 
-## 1. Ask the agent to use the delegation Skill
+Give it the context only you can supply, such as who needs the change, what already frustrates them, and anything you want to preserve.
 
-**Person:** Ask the planning agent to use `discern-delegate-work`.
+## 1. Ask the agent to use the delegation skill
 
-**Planning agent:** State the goal as one observable result. Identify the concrete changes, exclusions, likely files, and decisions. Challenge a proposed split when its streams would edit the same authority or generated output.
+Imagine you have an app that keeps a reading list. Finding a book is awkward, the phone layout needs attention, and new readers need clearer instructions. You could ask:
 
-The skill is the operating procedure for prompt design, dispatch consent, staged dependencies, and adversarial review. This guide keeps the person-facing decisions visible.
+> Use discern-delegate-work to plan these improvements: make books easy to find, make the reading list comfortable to use on a phone, and improve the getting-started help. Suggest which tasks can run together. Keep the existing features, explain any decisions you need from me, and show me the briefs before starting the work.
 
-## 2. Choose the smallest topology that fits
+The skill is a playbook for your agent. It helps the agent turn the request into specific outcomes and decide how to hand them off. It does not launch an extra model inside discern; the work runs in your coding-agent environment.
 
-**Planning agent:** Present the proposed topology before writing or launching tasks.
+## 2. Decide which tasks can run together
 
-| Work pattern                                              | Task arrangement                                                         | Landing rule                                                                         |
-| --------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| One bounded outcome                                       | One brief, one session, one worktree                                     | That branch proves and lands under its own authority.                                |
-| Independent internal investigations with one final change | One brief that asks the receiving agent to use sub-agents when available | The receiving task owns one branch and one final Proof.                              |
-| Independent delivery streams with disjoint files          | One brief, session, and worktree per stream                              | Fix an order; each later stream updates after earlier landings.                      |
-| A later stage must include an earlier unlanded tree       | One brief per stage                                                      | Earlier stages stop green and stay available; the final composed branch alone lands. |
+Your agent should bring back a small plan you can assess. For the reading-list example, a proposal might look like this:
 
-When files or registries overlap, merge the streams or put the shared authority in an earlier stage. Parallel edits to one source of truth postpone the collision rather than removing it.
+| Task                    | What you will be able to review                             | What may affect the split                                      |
+| ----------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
+| Find a book             | Search the list by title or author.                         | Search and layout might change the same screen.                |
+| Use the list on a phone | Read titles and reach the controls at a narrow screen size. | Shared screen changes may belong with search.                  |
+| Improve the help        | Follow the instructions to add and find a first book.       | The final instructions depend on the finished search behavior. |
+
+This is an illustrative plan; your agent needs to check the actual project before recommending it. Two features that sound independent may rely on the same code.
+
+Each task should have a result you can describe and review. If the split makes a simple change harder to explain, ask the agent to combine it. A single task can still use sub-agents for independent research or review while keeping one workspace and one finished change.
+
+For genuinely separate tasks, each agent receives its own **worktree**: a workspace and branch for that effort. Where one task needs another's result, the plan can put them in stages. The later agent can [wait for the earlier task](wait-for-another-task.md) without asking you to carry progress messages between sessions.
 
 ## 3. Make every brief stand alone
 
-**Planning agent:** Write each brief for a fresh agent that has no access to this conversation. Include:
+A fresh agent does not inherit the planning conversation. Your planning agent writes a complete brief for each task, including the context, relevant files, expected behavior, exclusions, and checks. It also records any dependency and the worktree the task should use.
 
-- a title and one-line human outcome;
-- the literal worktree name to pass to `discern_start`;
-- the first orientation and re-root actions;
-- background that the repository does not record;
-- ordered required changes anchored in real files, tests, and existing patterns;
-- owned files, exclusions, and sibling work already in flight;
-- unresolved decisions the receiving agent must make and explain;
-- measurable and user-visible completion conditions;
-- the `discern_prepare`, commit, `discern_done`, and acceptance sequence;
-- landing authority, or an instruction to stop at Proof when none is recorded.
+Read each brief as if it were the only instruction the next agent would receive. Look especially for three things:
 
-For a saved programme brief, include the final move into the adjacent `_done/` directory. For multiple streams, give each one a key such as `1A` and a literal slug-first worktree name such as `billing-1a`.
+- **A visible result.** “Search finds books by title or author” gives you something to try.
+- **A meaningful boundary.** “Keep the way books are added” preserves a part of the app you already like.
+- **A review plan.** The brief explains how the result will be checked and who will review it.
 
-## 4. State dependencies without making a person the messenger
+You can leave technical choices to the receiving agent and ask it to explain their consequences. Product choices need enough direction to avoid guesswork: for example, whether search should include books you have already read.
 
-For an independently landed dependency, the later brief names the earlier branch and waits for it to be landed. For below-trunk composition, it waits for the earlier branch to become green.
+A useful follow-up is:
 
-**Planning agent:** Put an exact returned worktree selector into the dependent brief after the earlier task starts, and retain its branch for a landing watch that may begin after cleanup. Tell the receiving agent to use `discern-await-the-fleet` and follow the met result's composition hint. Do not guess identity from the requested name.
+> Read these briefs as a fresh agent. What would you have to guess? Fill in what you can learn from the project, and bring me the remaining product decisions.
 
-The waiting agent receives the commit or trunk transition from repository evidence. The person can leave both tasks running without carrying “ready” messages between them.
+## 4. Arrange dependencies and landing
 
-## 5. Return dispatch to the person
+Decide whether you want to review separate improvements as they finish, or review a combined result. To **land** a change is to add it to the project's shared branch, usually `main`.
 
-**Planning agent:** Present every finished brief as a complete copyable block. Outside the briefs, state:
+Independent tasks can land separately. A staged change can build on earlier checked work before it lands. In the reading-list example, the help writer could use the completed search feature to write accurate instructions while you review the feature itself.
 
-- how many sessions and worktrees will start;
-- whether one receiving session will use sub-agents;
-- which streams run together and which wait;
-- shared capacity or setup requirements;
-- the within-wave landing order;
-- the authority each landing branch must satisfy.
+The planning agent records that arrangement in the briefs and gives each dependent task the exact branch identity returned when its prerequisite starts. You do not need to coordinate the moment of handover yourself.
 
-Offer to dispatch if the environment supports it, then wait.
+Starting work and approving its landing are separate decisions. Ask the planning agent to state where tasks will stop for your review and where an existing recorded permission allows them to continue. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
 
-**Person:** Review the briefs and topology. Launching them, or explicitly accepting the dispatch offer, authorizes only that described set. A changed stream count, dependency, or ownership boundary returns for a new decision.
+## 5. Start the agreed tasks
 
-**Planning agent:** After launch, record each returned branch and path. A result that is still preparing a worktree is not a branch identity for a dependent task.
+Before launch, you should have copyable briefs and a clear account of how many sessions will run, which tasks wait for others, and how their results come back for review. The agent should also flag limits in your environment that affect the plan, such as available agent slots or test capacity.
 
-## 6. Inspect decisions from the Desk
+Launch the briefs yourself, or accept the agent's offer to launch the described set where your environment supports it. If the proposed set changes, review the revised arrangement before starting the additional work.
 
-**Person:** From the main checkout, run bare `discern`.
+The agent records each returned branch and path so feedback reaches the same effort later. [Coordinate parallel tasks](coordinate-parallel-tasks.md) covers following the work once it is running.
 
-The desk groups the fleet by current state and offers valid actions for the selected worktree. Use it to start a task, open a configured coding-agent CLI found on `PATH`, inspect a branch, or record a one-worktree landing grant. It owns child sessions it launches.
+## 6. Review what comes back
 
-Treat the desk as a decision surface. A tip below status is advisory, and a clean worktree remains occupied. Use `discern status --verbose` when you need the full evidence behind a row.
+Try the result against the request. For search, find a book by title, find another by author, and try a search with no matches. Ask your agent to show what the project's checks established and what still needs judgment.
 
-The selected task determines which actions are available, recommended, disabled, or require confirmation. This guarded projection keeps their labels and command evidence aligned with the live desk registry:
+An independent reviewing agent can examine the code, compare the implementation with the brief, and investigate concerns you cannot assess yourself:
+
+> Review this task against its brief and current Proof. Try the promised behavior, inspect the changed code, and tell me what falls short or still needs my decision.
+
+Use the review to decide whether the result serves your readers. Passing checks supply evidence about the configured requirements; they do not decide whether the feature is useful or pleasant to use.
+
+Send any corrections back to the same effort. Its agent follows the reported worktree state, makes the changes, and renews completion evidence. See [Finish and land a change](finish-and-land-a-change.md) for reviewing and accepting the result.
+
+## Completion
+
+The handoff is ready when you understand the proposed tasks, each fresh agent has a complete brief, and the review and landing arrangements are clear. The work is complete when those results have been reviewed and the landing result says what reached the shared branch and what remains pending.
+
+## Inspect decisions from the desk
+
+From the main checkout, bare `discern` opens the desk. It groups the fleet—the project's worktrees—by current state and offers actions for the selected task. Use `discern status --verbose` when you need the full evidence behind a row. A clean worktree still belongs to its effort.
+
+The selected task determines which actions are available, recommended, disabled, or require confirmation. The table below follows the live desk registry.
 
 <!-- BEGIN DESK ACTION REGISTRY -->
 
@@ -128,24 +134,10 @@ The selected task determines which actions are available, recommended, disabled,
 
 <!-- END DESK ACTION REGISTRY -->
 
-Grant and revoke remain person-only actions inside `discern desk`. Every lifecycle action rechecks current state after confirmation.
+Grant and revoke are actions you perform inside `discern desk`. Every lifecycle action rechecks current state after confirmation. For a task that cannot continue, **Show recovery steps** explains the observed problem and the next action; **Retry setup** appears when its recorded setup can be replayed.
 
-Broken, setup-incomplete, and Git-unreadable tasks recommend **Show recovery steps**. The read-only detail names the failed command, verified identities, unavailable facts, and one next step. **Retry setup** appears only when the setup journal makes replay safe. **Park** removes a clean healthy checkout and its resources while retaining the branch and task wording. **Reclaim** retains a contained stage's branch because a live successor carries its work. **Drop** remains the destructive path for an effort the person intends to discard.
+**Park** keeps a task's branch and wording while removing its clean checkout. **Reclaim** keeps an earlier stage's branch when a later branch contains its work. **Drop** discards an effort you have decided to abandon. [Worktree recovery](../40-troubleshooting/worktrees-and-resources.md) explains these choices in more detail.
 
-## 7. Review returned work independently
+## Bundled skills
 
-When a task reports green, **person or reviewing agent:** inspect the branch diff against the trunk, compare every deliverable with the brief, exercise the real outcome, and read its current Proof. Check for scope drift, a weakened test or policy, a hand-edited generated file, an uncured defect class, and decisions made without the required owner input.
-
-Send focused feedback back to the same worktree. Any resulting commit stales its Proof, so the receiving agent must run the final gate again. A green report remains unlanded until the recorded authority covers the final changed paths and any separate variance or standard proposal.
-
-## The bundled catalog
-
-### Bundled Skills
-
-`discern skills list` shows the effective bundled and project-authored skills. Name the relevant skill in a brief instead of copying its full procedure. Delegation commonly composes with `discern-await-the-fleet`, `discern-cure-a-bug`, `discern-write-adr`, and `discern-teach-the-project`. [Create and manage skills](create-and-manage-skills.md) covers customization and exclusions.
-
-## Completion
-
-Delegation is ready when the person has reviewed the full brief set, each stream owns disjoint in-flight files or a stated stage boundary, every literal worktree name and dependency is known, dispatch authority is explicit, and the landing rule is written into each brief. It is complete when every returned branch has been reviewed against its brief and either landed under verified authority or remains at current Proof for a person to decide.
-
-Use [Coordinate parallel tasks](coordinate-parallel-tasks.md) for worktree composition, [Wait for another task](wait-for-another-task.md) for a dependency procedure, and [Proof, review, and authority](../20-understand/proof.md) for the landing boundary.
+Delegation is one of discern's reusable playbooks. You can also ask for help curing a recurring bug, documenting part of the project, or preserving a lesson for future sessions. [Create and manage skills](create-and-manage-skills.md) shows useful requests and how to adapt the available skills. `discern skills list` lists bundled and project-authored skills and marks exclusions.

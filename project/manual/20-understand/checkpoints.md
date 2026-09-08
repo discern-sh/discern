@@ -1,8 +1,8 @@
 ---
 id: explanation-checkpoints
 title: "Checkpoints"
-description: "Understand triggered judgment, met/unmet declarations, drops, and the owner's separate variance decision."
-order: 40
+description: "Put important review questions where changes need them, with the agent's judgment visible in the result."
+order: 50
 publish: true
 kind: explanation
 aliases:
@@ -23,66 +23,93 @@ aliases:
 
 # Checkpoints
 
-Some review questions have no exit status. Is this migration's trade-off acceptable? Does this large deletion keep anything it shouldn't lose? Is this new dependency worth carrying? A test can't answer those, so they usually wait for a person — and as you delegate more work, they either interrupt you constantly or get skipped.
+An agent changes how someone deletes a reading list. The tests pass: the button works, the list disappears, and the remaining lists are intact. There is still a question worth asking: will someone understand what they are about to lose, with a reasonable chance to change their mind?
 
-A checkpoint puts such a question into the project. It pairs a trigger, the kind of change that makes the question relevant, with a written question the coding agent must weigh and answer on the record before the project's final quality check (the gate) runs. The judgment happens at the moment a matching change exists, made by the agent who has the change in front of them, and the recorded answer travels with the evidence to your review.
+A **checkpoint** puts a review question like that into the project. It has a **trigger**, which selects the changes that need attention, and a question for your coding agent to consider. A required answer becomes part of the change's completion evidence, so it can reach your review without relying on you to remember to ask.
 
-A checkpoint is one entry in `discern.toml`. A project that wants API changes considered before they land might keep:
+## A question at the right moment
 
-```toml
-[checkpoints.api-compatibility]
-  paths = ["lib/api/**"]
-  mode = "stop"
-  question = "Does this change preserve compatibility for published API consumers, or state the break and its migration path?"
-```
+For the reading-list app, you might ask:
 
-Any change under `lib/api/` now carries that question with it. A longer question can live in a tracked project file instead of the config; [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) covers authoring both.
+> When we change how lists are deleted, have the agent judge whether the flow makes the consequences clear and gives people a reasonable way to avoid an accidental loss.
 
-## What happens at the Gate
+Your agent can turn that request into a checkpoint aimed at the relevant files. When a later task changes them, discern presents the question. The agent examines the actual change and records its conclusion.
 
-When a change matches a `stop` checkpoint, `discern done` refuses before any job runs and serves the open question (the question now awaiting an answer for this change) together with the files that matched. The agent weighs it against the change and records a conclusion:
+A test can verify that a confirmation dialog appears. Judging whether its wording, timing, and choices are appropriate takes a broader view of the experience. The checkpoint creates a place for that judgment alongside the tests.
 
-- **Declared met:** the agent judges the question satisfied and runs `discern done --met api-compatibility`. The declaration is recorded and the gate continues in the same run.
-- **Declared unmet:** the truthful answer is no, and satisfying the question sits outside this task. The agent runs `discern done --unmet api-compatibility --why "<rationale>"`, with a short rationale written for you. The gate still runs and can pass; the consequence comes later, at landing.
+## What happens at the gate
 
-The questions don't wait for the finish line. `discern prepare` and `discern status` name the questions a change has already triggered, so the agent can answer while the reasoning is fresh.
+Checkpoints have two modes:
 
-A checkpoint in `advise` mode serves its question the same way and blocks nothing. Use `stop` for a judgment that must be recorded before work can be called done, and `advise` for a prompt worth seeing.
+- **Stop:** the gate, the project's configured checks, waits until the agent records a conclusion about the matching change.
+- **Advise:** the question appears as advice, without blocking the gate or requiring a recorded declaration.
+
+For a stop checkpoint, the agent can declare the question **met** or **unmet**. Both are useful answers. In this illustrative example:
+
+| The agent finds                                                                        | The conclusion                                                                      | What follows                                                            |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| The dialog names the list and the books it removes, and offers a clear cancel action.  | **Declared met:** the agent judges that people have enough information and control. | The gate can run; you can review the judgment alongside its results.    |
+| A new bulk-delete action removes several lists immediately, without a warning or undo. | **Declared unmet:** the agent explains the risk and why it remains.                 | The gate can still run, but landing needs a separate decision from you. |
+
+`discern status` and `discern prepare` identify relevant questions early. At completion, `discern done` serves any required question still awaiting an answer. The agent has the changed content in front of it when it decides.
 
 ## A declaration is the agent's judgment
 
-The gate verifies that a required conclusion exists. It never verifies that the conclusion is right — no machine can. [Proof](proof.md) therefore keeps the vocabulary apart: job and standard results are **verified**, machine-run and machine-measured, while checkpoint conclusions are **declared**, the agent's recorded judgment, labeled as such wherever they appear.
+**Declared met** means the agent reached a conclusion. It does not mean discern independently verified that conclusion. discern contains no model that judges the design.
 
-That separation is what makes the record trustworthy. A declared-met conclusion tells you which questions were considered and by whom; it doesn't launder the agent's judgment into a machine result. When you review Proof, you can see both kinds of evidence and weigh them differently.
+[Proof](proof.md), the completion evidence, keeps the distinction visible. Machine checks are verified within their stated scope; checkpoint answers are declared by the agent. You can ask why the agent reached its conclusion, inspect the experience yourself, or ask another agent to review it.
+
+That makes a checkpoint more useful than a general reminder to “be careful.” You know which question was considered for this particular change.
 
 ## Declared unmet, and your variance
 
-A declared-unmet conclusion is a valid, useful answer. The work can still go green, and it then waits. `discern accept` refuses to land while a current unmet conclusion stands, serving you the question, the matched files, and the agent's rationale.
+An unmet answer gives you a concrete decision. You might ask the agent to add a confirmation or undo action. If you decide the remaining tradeoff is acceptable for this change, you can authorize a **variance**: permission to land despite the stated unmet question.
 
-Only you can resolve that. Either ask for the change to satisfy the question, or authorize a **variance**: permission to land despite this unmet conclusion, given in the current conversation, naming the declared-unmet set as it stands. Recorded grants never cover a variance, and the agent can't accept its own judgment. The rationale exists so that a person reads it before the work becomes shared.
+The agent explains the current question, affected work, and reason before you decide. A general instruction to land, or a permission recorded in advance, does not approve that exception. The variance applies to the exact current declaration and change; it does not weaken the question for future tasks.
+
+An unmet conclusion can therefore be honest without leaving the agent unable to finish its investigation. The checks still establish what they can, while the decision that needs you stays visible.
+
+## Questions already available
+
+discern includes checkpoints for recurring problems in agent-written projects. These examples show what they help you notice:
+
+| Problem                                                             | What the bundled question asks the agent to consider                                                                        |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| A cleanup removes code that another part of the app still needs.    | **Deletion-heavy change:** is the removal supported by checks for remaining uses, with related tests and docs kept current? |
+| A second version of an existing feature appears beside the first.   | **Parallel implementation:** should the original have been changed instead, so future fixes do not have two places to go?   |
+| One small request expands into unrelated repairs.                   | **Effort sprawl:** is this still one change you can understand and review?                                                  |
+| An image or other binary file adds hidden maintenance work.         | **New binary asset:** are its source, permissions, size, and future update path clear?                                      |
+| A feature changes but the project's explanation of it stays behind. | **Map drift:** does the project documentation still describe how the code behaves?                                          |
+| Every session receives more and more instruction text.              | **Instruction economy:** does the added text belong in every session, or would it work better where it is needed?           |
+
+The shipped questions about code-change shapes use advise mode. The built-in questions about authored project knowledge use stop mode, because that material guides later sessions. Projects can choose their enabled set and override the defaults; `discern checkpoints` shows what applies to yours.
 
 ## The answer binds to the change
 
-A declaration is an answer about the change the agent examined, so it stays valid only while that examination does. An unrelated edit elsewhere leaves the conclusion standing. A change to the matched content, to the set of matched files, or to the question itself reopens it, and the agent must declare again against the current state. `discern checkpoints` reports each question's state (open, declared met, declared unmet, or reopened) without changing anything.
+The agent's answer applies to the question and content it examined. Editing unrelated work can leave the answer valid. Changing the matched content, its file set, or the question reopens it, so the agent must judge the changed work again.
 
-Proof depends on the same binding: a changed conclusion or rationale makes recorded Proof stale even when the commit hasn't moved, because acceptance relies on those judgments along with the code.
+A changed declaration also affects Proof, even if the code commit stays the same. The record includes the judgment as well as the machine checks. The agent follows the returned instructions to review the new subject and renew the evidence.
 
 ## Trigger composition
 
-A trigger describes the changes that make its question relevant, built from facts discern can read in the diff. It selects changed paths, by pattern or by a named scope, and can narrow from there: the kind of change, literal text being added or removed, the size of the change, and similar bounded facts. When the structured fields can't express the condition, a project `when` command can make the final call: exit 0 fires, exit 10 passes, and every other outcome is indeterminate. Every configured field must hold together for the checkpoint to fire, and a trigger with no path selector watches the complete diff. The [config reference](../30-reference/config-reference.md) lists every field and its semantics, and the recipes in [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) show combinations for common review moments.
+A trigger starts with relevant files or a named project scope. It can narrow the selection by what changed: a new file, removed text, a large deletion, or another supported condition. This helps a question appear where it is useful rather than on every task.
 
-## The trunk governs the questions
+Your agent can choose those details. [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) shows the workflow, and the [configuration reference](../30-reference/config-reference.md) lists the fields and the optional `when` command for conditions that need a script.
 
-The checkpoint policy for a task comes from its branch's merge point with the trunk, the project's shared branch. A branch can't rewrite the question it is being asked, and a policy edit on a branch takes effect for other tasks only after it lands — where, like any `discern.toml` change, it reaches your review.
+## The existing policy governs the questions
 
-When uncertainty prevents a checkpoint from being enforced (a rule that can't be resolved, a trigger fact or question file that can't be read), it is recorded as a **drop**: which checkpoint, and why. An indeterminate stop conservatively serves the question over its complete structural match; Proof carrying that drop is not reused, and landing requires your current-conversation confirmation even when a grant exists. An indeterminate advise checkpoint remains non-blocking. A green run can't hide an unenforced judgment.
+A change is assessed against the committed policy that precedes it. Editing a checkpoint in the same change does not rewrite its own review requirement. New questions and policy changes are work for you to review, too.
 
-Continuous integration keeps the same separation. `discern done --ci` runs the machine checks and reports which questions still await review, without answering them, and its report-only evidence can't be used to land. Workflow configuration can't stand in for judgment.
+In ordinary work, checkpoint inspection uses the branch's shared starting point with the trunk. Completion of a queued candidate uses its recorded predecessor, which may include earlier ready work. The result identifies the governing policy so the agent can explain which question applies.
+
+If discern cannot resolve a question or evaluate part of its trigger, it records that uncertainty as a **drop**, including the reason. An uncertain stop trigger serves the question over the full matching content; the uncertainty stays in Proof and cannot be hidden by reusing it or relying on a recorded landing grant. An uncertain advise trigger remains non-blocking. Your agent should explain the actual missing evidence and the next action.
+
+In continuous integration, `discern done --ci` can report unanswered questions while running machine checks. That report does not answer them or supply evidence that can authorize landing.
 
 ## Interruptions have to earn their keep
 
-A `stop` checkpoint taxes every matching change, so each one should earn its interruption the way a good reviewer's does. A rule agents need while shaping most decisions belongs in the always-loaded instructions; a repeatable method belongs in a skill; a rule a machine can decide belongs in a gate job or a standard; a decision only you may make stays with consent at landing. A checkpoint earns its place when a specific kind of change raises a question that genuinely needs judgment at that moment.
+A checkpoint is worth keeping when a matching change raises a useful question. A question that fires constantly can become routine noise; one that never fires may miss the work it was meant to catch.
 
-A fresh install activates a small built-in set (one, for example, asks whether a deletion-heavy change is proven safe), and the project adds its own. The record shows how the economics work out in practice: how often each checkpoint fires and how it was answered, so a dead, noisy, or frequently varied question can be reworded or retired. [Improve the practice](../10-guides/improve-the-practice.md) covers reading that evidence.
+You can ask the agent to review which checkpoints are useful, using their recorded history. If the rule can be decided by a machine, it may belong in a test or [standard](standards.md). A general convention belongs in [project instructions](instructions-skills-and-map.md). Questions that need judgment at a particular change are the checkpoint's role.
 
-[Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) is the working procedure, with recipes for common review moments. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) holds the exact states, declaration fields, and trigger protocol, and the [config reference](../30-reference/config-reference.md) lists every trigger field.
+Use [Place and answer checkpoints](../10-guides/place-and-answer-checkpoints.md) to add or tune a question. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) contains the exact states and declaration fields.

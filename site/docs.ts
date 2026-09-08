@@ -1346,14 +1346,14 @@ export function docsIndexShell(
   const [introduction, details] = manualLandingParts(rendered.html);
   const article = decorateDocumentHtml(`${introduction}
   ${frontDoorsHtml(site)}
+  <div class="docs-manual-details">
+${details}
+  </div>
   <section class="docs-complete-browse docs-complete-browse--expanded" aria-label="Complete manual">
     <div class="docs-chapters">
       ${completeBrowseHtml(site.sections)}
     </div>
   </section>
-  <div class="docs-manual-details">
-${details}
-  </div>
 `);
   const main = `<article class="doc-body docs-cover docs-manual-index${
     authoredHeadingNumberClass(rendered.toc)

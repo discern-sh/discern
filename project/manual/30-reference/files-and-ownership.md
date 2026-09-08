@@ -1,8 +1,8 @@
 ---
 id: reference-files-and-ownership
 title: "Files and ownership"
-description: "Look up authored/shared/generated/runtime files, write ownership, setup/uninstall boundaries, temporary retention, and registered paths."
-order: 70
+description: "Find which files you can edit, what discern maintains, where local records live, and what removal keeps."
+order: 80
 publish: true
 kind: reference
 aliases:
@@ -20,7 +20,7 @@ aliases:
 
 Use this reference to decide which files you or your agent may edit, which discern may rewrite, and what remains after removal. Knowing those boundaries helps you protect the project's work while keeping generated files current.
 
-Start with the file path or edit/removal question you need to resolve. The inventory names the project files discern manages; later tables cover its local working records inside Git and the operating system's temporary directory.
+Start with [the ownership table](#the-ownership-contract) for what to edit, or [registered project paths](#registered-project-paths) to find a particular file. For local records, use [Git configuration](#clone-local-git-configuration), [runtime state](#runtime-state-inside-git), [Git refs](#git-refs), or [temporary files](#temporary-files-and-crash-records). [Removing it all](#removing-it-all) explains what uninstall keeps.
 
 Project-owned files remain yours to change. Shared files contain entries discern maintains alongside yours. Generated files are rebuilt from their source, so your agent changes the source to keep an edit from being overwritten.
 
@@ -34,7 +34,7 @@ File ownership is an operational term for edit and overwrite authority. It does 
 | [Shared](glossary.md#shared-file)               | Yes, outside discern's marked region or named entry.                               | It may replace its region or entry and preserves the rest.          |
 | [Generated](glossary.md#generated-file)         | Ask your agent to edit the instructions or skill source and run `discern refresh`. | Yes. `refresh` and `upgrade` rebuild it from its reviewable source. |
 
-The coding agent creates and maintains provider-local files. discern only ignores their registered paths. Other untracked provider files have no entry.
+The coding tool creates and maintains provider-local files, such as its machine-local permission settings. discern only ignores their registered paths. Other untracked provider files have no entry.
 
 ## Repository boundary
 
@@ -42,7 +42,7 @@ Each Git repository has one discern installation and one `discern.toml` at its r
 
 ## License for discern-authored portions
 
-The discern-authored portions of every canonical project artifact are available immediately under [Apache-2.0](licenses.md). The `Discern-authored portions` column derives from the write-boundary registry, so a future registered destination joins the grant automatically. Project, user, provider, and third-party portions keep their existing terms.
+The `Discern-authored portions` column identifies material covered by the [Apache-2.0 project-payload grant](licenses.md). Project, user, provider, and third-party portions keep their existing terms. Ownership in this table tells you who may edit or overwrite a file; authorship determines its license.
 
 ## Provenance classes
 
@@ -52,7 +52,7 @@ Shared and generated artifacts also declare one provenance class:
 - **Comment-incapable:** no marker because JSON forbids comments.
 - **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
 
-Registry tests enforce classification and both marker rules ([ADR 0211](https://discern.sh/docs/decisions/0211-agent-context-artifacts-carry-no-provenance-marker)).
+A missing marker does not make an artifact project-owned. Use the inventory below to identify its source before editing.
 
 ## Registered project paths
 
@@ -115,8 +115,6 @@ The ignore reconciler owns only its marked block and exact standalone rules that
 
 These are the only Git configuration entries discern writes. discern stores all of them in clone-local configuration.
 
-The project's final quality check (the gate) produces evidence for the exact checked change (Proof). A Proof note preserves the account of a landed change in Git. Passing checks supplies evidence; your permission determines whether the change may land. Later edits make Proof stale because the files waiting to land differ from those that passed.
-
 | Key or keyed pattern                                            | Scope        | Writer                           | Uninstall behavior                                                               |
 | --------------------------------------------------------------- | ------------ | -------------------------------- | -------------------------------------------------------------------------------- |
 | `merge.discern-generated.driver`                                | Clone-local  | Setup and refresh reconciliation | Removes the common value and obsolete worktree-local copies.                     |
@@ -174,20 +172,22 @@ Repository records use the common Git directory; worktree records disappear with
 
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
-Acceptance atomically moves the project's shared branch (the trunk) and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
+Ordinary acceptance atomically updates the trunk and a shared marker under `refs/discern/landings/<id>`. That marker survives checkout retirement and supports recovery without repeating the landing. Candidate refs keep the composed commits available while discern gathers and records their evidence.
 
 ## Git refs
 
-| Ref or namespace                                                 | Writer                                              | Lifecycle                                                | Uninstall |
-| ---------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------- | --------- |
-| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.          | Retained  |
-| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence. | Retained  |
-| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                          | Retained  |
-| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                        | Retained  |
-| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                               | Retained  |
-| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.            | Retained  |
+| Ref or namespace                                                 | Writer                                              | Lifecycle                                                                 | Uninstall |
+| ---------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- | --------- |
+| `refs/heads/discern-setup`                                       | `setup begin`                                       | Landed or retained as an ordinary local branch.                           | Retained  |
+| `refs/heads/<repository.branch_prefix><worktree-id>`             | `start`                                             | Deleted only with positive lifecycle ownership evidence.                  | Retained  |
+| `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                                           | Retained  |
+| `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                                         | Retained  |
+| `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                                                | Retained  |
+| `refs/discern/landings/<id>`                                     | Queue acceptance                                    | Shared landing and recovery evidence, retained after checkout retirement. | Retained  |
+| `refs/discern/candidates/<candidate-id>/<attempt-id>`            | Candidate composition                               | Keeps composed candidate commits reachable.                               | Retained  |
+| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | Worktree-local acceptance recovery                  | Temporary compare-and-swap recovery evidence.                             | Retained  |
 
-Uninstall never deletes a ref. Its result lists each concrete private discern ref that remains and gives one exact `git update-ref -d '<ref>'` command per ref as optional cleanup. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
+Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for retained private refs. Those suggestions do not enumerate the shared candidate and landing namespaces. Keep their recovery evidence unless you have established it is no longer needed. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
 
 ## Temporary files and crash records
 
@@ -212,30 +212,15 @@ For symptom-led preservation and cleanup, see [Crashes and local state](../40-tr
 
 `discern uninstall` removes generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, the whole `discern/` runtime-state namespace under Git's administrative directories, the common generated-merge driver and its obsolete checkout-local copies, and only marked Proof note fetch mappings ([ADR 0104](https://discern.sh/docs/decisions/0104-uninstall-is-the-exit-honesty-verb)). Preview with `discern uninstall --dry-run`.
 
-It keeps project-owned files, `discern.toml`, unmarked Git configuration, checkout-specific configuration the project still needs, and every ref. It reports retained private refs and optional exact cleanup commands without running them. It names Shared settings that it cannot clean without bundled templates. It refuses while a worktree is in flight or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only, performs no remote operation, and leaves normal Git hooks to run with Git's usual exit semantics. Delete the binary reported by `which discern`.
+It keeps project-owned files, `discern.toml`, unmarked Git configuration, checkout-specific configuration the project still needs, and every ref. It reports retained private refs and optional exact cleanup commands without running them. It names Shared settings that it cannot clean without bundled templates. It refuses while any linked Git worktree remains registered, including a completed checkout you retained, or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only, performs no remote operation, and leaves normal Git hooks to run with Git's usual exit semantics. Remove the installed binary separately only when no other project on the machine needs it. [Maintain or remove discern](../10-guides/maintain-or-remove-discern.md#remove-discern-from-the-repository) walks through the decision and removal.
 
 ## Where it lives in code
 
-| Concept                            | File                                                                                                                       |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Ownership declarations             | [`src/lib/artifact_ownership.ts`](https://github.com/jackwh/discern/blob/main/src/lib/artifact_ownership.ts)               |
-| Provenance classes                 | [`src/shared/file_ownership.ts`](https://github.com/jackwh/discern/blob/main/src/shared/file_ownership.ts)                 |
-| Source paths                       | [`src/shared/paths_registry.ts`](https://github.com/jackwh/discern/blob/main/src/shared/paths_registry.ts)                 |
-| Provider paths                     | [`src/lib/providers.ts`](https://github.com/jackwh/discern/blob/main/src/lib/providers.ts)                                 |
-| Git-admin state                    | [`src/shared/git_admin_state.ts`](https://github.com/jackwh/discern/blob/main/src/shared/git_admin_state.ts)               |
-| Atomic state replacement           | [`src/shared/atomic_write.ts`](https://github.com/jackwh/discern/blob/main/src/shared/atomic_write.ts)                     |
-| Ownership forcing function         | [`tests/artifact_ownership_test.ts`](https://github.com/jackwh/discern/blob/main/tests/artifact_ownership_test.ts)         |
-| Rename enrollment guard            | [`tests/atomic_write_enrolment_test.ts`](https://github.com/jackwh/discern/blob/main/tests/atomic_write_enrolment_test.ts) |
-| Provenance guards                  | [`tests/artifact_provenance_test.ts`](https://github.com/jackwh/discern/blob/main/tests/artifact_provenance_test.ts)       |
-| Write-surface guard                | [`tests/paths_write_surface_test.ts`](https://github.com/jackwh/discern/blob/main/tests/paths_write_surface_test.ts)       |
-| The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](https://github.com/jackwh/discern/blob/main/src/lib/agent_gitignore.ts)                     |
-| The managed `.gitattributes` block | [`src/lib/agent_gitattributes.ts`](https://github.com/jackwh/discern/blob/main/src/lib/agent_gitattributes.ts)             |
-| Git config and ref inventory       | [`src/engine/git_footprint.ts`](https://github.com/jackwh/discern/blob/main/src/engine/git_footprint.ts)                   |
-| Uninstall                          | [`src/commands/uninstall.ts`](https://github.com/jackwh/discern/blob/main/src/commands/uninstall.ts)                       |
+The [artifact ownership map](https://discern.sh/map/reference/artifact-ownership) links the registries and implementation behind this inventory. Use it when contributing to discern or checking how an ownership rule is enforced.
 
 ## See also
 
 - [Proof](../20-understand/proof.md): what passing checks establishes and why later edits make that evidence stale.
 - [Licenses for project payloads](licenses.md): the authorship boundary and downstream redistribution responsibility.
-- [Agent integrations](../10-guides/connect-a-coding-agent.md): the exact file table per coding agent.
+- [Platforms and providers](platforms-and-providers.md): the exact file table per coding tool.
 - [Trust and your data](../20-understand/local-control.md): the network, telemetry, and execution contract on one screen.

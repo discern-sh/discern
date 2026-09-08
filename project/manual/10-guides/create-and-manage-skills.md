@@ -1,8 +1,8 @@
 ---
 id: guide-create-and-manage-skills
 title: "Create and manage skills"
-description: "Author, customize, exclude, use, and teach a focused skill without bloating always-loaded instructions."
-order: 110
+description: "Discover useful requests for discern's bundled skills, then create or adapt a reusable method for your own project."
+order: 90
 publish: true
 kind: guide
 aliases:
@@ -22,114 +22,93 @@ aliases:
   - "project memory"
 ---
 
-# Create and manage Skills
+# Create and manage skills
 
-Use this guide when a recurring coding-agent task needs a focused playbook with decisions, steps, and a testable completion condition. Project-authored skills join discern's bundled set and become available to every configured provider without making their full procedure part of every session's instructions.
+Some tasks benefit from a method you would not want to explain from scratch each time: investigate a recurring bug, divide a large idea into tasks, or preserve a lesson for the next agent. A **skill** gives your coding agent a focused playbook for that work.
 
-The person decides which practices the project should carry. The coding agent authors the smallest durable playbook, verifies discovery, and keeps one source for each skill.
+discern comes with skills you can use immediately after setup. Start with a request in ordinary language. Your agent can find the relevant skill, read its procedure, and apply it to your project. You can later add your own methods or adapt the bundled ones.
 
-## Starting state
+## Try a bundled skill
 
-- The project has completed setup and `[skills].dir` points to the authored skill directory. Its default is `discern/skills`.
-- The proposed content is a recurring multi-step method. A universal rule belongs in instructions; a deterministic action belongs in a project script; a change-triggered judgment belongs in a checkpoint.
-- The coding agent has checked `discern skills list` for an existing skill that should be updated or customized.
+The requests below show what each bundled skill helps accomplish. You can name the skill explicitly, or describe the task and let your agent select it.
 
-## Author a project Skill
+| Ask your agent                                                                                  | The method and what comes back                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| “Help me divide this feature into tasks that several agents can work on.”                       | `discern-delegate-work` prepares complete briefs, identifies dependencies, and offers independent review. See [Delegate work](delegate-work.md).                          |
+| “Wait for the saved-items task to land, then build search on top of it.”                        | `discern-await-the-fleet` waits for the named work in another effort, then brings it into the dependent task. See [Wait for another task](wait-for-another-task.md).      |
+| “This bug keeps returning. Find the cause and check for it everywhere it can occur.”            | `discern-cure-a-bug` investigates the cause, fixes the affected cases, and leaves a practical check against recurrence.                                                   |
+| “Clean up the unused and duplicated code without changing how the app works.”                   | `discern-clear-the-decks` verifies each removal, makes small changes, and establishes a measure to keep the clutter from growing back.                                    |
+| “We reduced how much people download to open the app. Help us keep that improvement.”           | `discern-set-the-standard` chooses a useful measurement and sets a limit the gate can hold. See [Set and raise standards](set-and-raise-standards.md).                    |
+| “When a form changes, make sure someone considers whether its questions are clear.”             | `discern-place-a-checkpoint` turns that concern into a focused review question for relevant changes. See [Place and answer checkpoints](place-and-answer-checkpoints.md). |
+| “Update our project guide to explain how saved lists work.”                                     | `discern-document-subsystem` checks the code and refreshes the relevant section of the configured project guide.                                                          |
+| “Remember what we learned here so the next session can use it.”                                 | `discern-teach-the-project` finds the right existing home for the lesson or creates the smallest useful one. See [Teach a durable lesson](#teach-a-durable-lesson).       |
+| “Record why we chose to let people use saved lists without signing in.”                         | `discern-write-adr` records a significant decision, its reasons, and the alternatives in an Architecture Decision Record (ADR).                                           |
+| “These three parts of the app repeat the same list of choices. Give that information one home.” | `discern-write-it-once` finds one source for a shared fact and connects the places that depend on it, with checks to keep them aligned.                                   |
 
-### 1. Define the trigger and outcome
+These are methods, not extra models or automatic permission to act. Your agent still needs to understand the project, honor the task's scope, and verify its changes.
 
-**Coding agent:** Name the requests and situations that should load the skill. State the user-visible outcome and the decisions an agent must make along the way. If the procedure is one fixed command sequence, create a project script instead.
+Ask “which skills are available in this project?” to see the known skills, including the project's additions and customizations. Your agent uses `discern skills list`, which also marks excluded skills. A skill can be known to discern without being supplied to the coding tool; the current session may also need its integration refreshed.
 
-Use the `skill-creator` skill when the current agent provides it. It checks the package structure and helps keep the instructions scoped.
+## Starting state for a new skill
 
-### 2. Create one Skill directory
+Create a skill when your project has a recurring method that involves judgment. For example, reviewing the wording of a new screen requires understanding its purpose, checking different states, and deciding whether the instructions help.
 
-Under `[skills].dir`, add `<skill-name>/SKILL.md` with lower-kebab-case `name` and a description rich in real trigger phrases:
+A rule every session needs belongs in [project instructions](write-project-instructions.md). A fixed command sequence is better expressed as a project script. Your agent should first check whether an existing skill already covers the work, so the project has one method to maintain.
 
-```md
----
-name: review-data-migration
-description: Review a data migration before landing. Use when a task adds or changes a migration, alters stored data, or needs a rollback and lock-safety review.
----
+## Author a project skill
 
-# Review a data migration
+### 1. Describe when to use it and what to return
 
-## Starting state
+Give your agent a request such as:
 
-...
+> Create a skill for reviewing the words people see in our app. Use it when we add or change labels, instructions, errors, or confirmation messages. It should check the wording in context and bring back the revised copy with any questions we need to decide.
 
-## Procedure
+The description should name situations you encounter. The expected result should be something you can review, rather than an open-ended instruction to improve everything.
 
-...
+### 2. Review the playbook
 
-## Done when
+Your agent creates one directory under the configured skill source, `discern/skills/` by default. It contains a `SKILL.md` with a name, a description used for discovery, and the procedure.
 
-...
-```
+Read that procedure as a method you are choosing for future work. It should explain what the agent needs before starting, the judgments to make, how to verify the result, and what to do when information is missing. For a wording review, that might mean trying the screen's success and failure states before proposing new text.
 
-Write for a capable agent with no memory of the authoring session. Put prerequisites, decision points, safe failure routes, and a falsifiable “Done when” in the file. Keep deterministic helper logic in scripts beside the skill and link deeper theory or exhaustive contracts instead of copying them.
+The agent can use its skill-authoring tools when available. The [configuration reference](../30-reference/config-reference.md) holds directory settings; the authored `SKILL.md` remains the source you and your agents maintain.
 
-### 3. Preview and materialize
+### 3. Refresh and try a real request
 
-**Coding agent:** Run:
+The agent previews and applies `discern refresh`, then checks `discern skills list`. The new skill should appear once, with the intended authored source. Generated skill folders are maintained by discern; edits belong in the source directory.
 
-```sh
-discern refresh --dry-run
-discern refresh
-discern skills list
-```
+Try a representative request in a fresh configured coding-agent session opened in the worktree containing the new skill. For example:
 
-The dry run should name the expected materialization targets. The applied result should make the skill appear once in the effective list, with its authored source. Project-authored skills override bundled skills with the same name.
+> Review the messages on our new saved-items screen using the wording-review skill.
 
-### 4. Exercise discovery and procedure
+The agent should read the playbook and return what it promises. Also try an ordinary request that should lead it to discover the skill without being named. If discovery is unreliable, the agent can clarify the description. If it loads for unrelated work, narrow the situations it names.
 
-Start a representative request in a fresh configured-provider session. The agent should select the skill from its description, read the full `SKILL.md`, follow its decisions, and recognize the declared completion condition.
+### 4. Verify and keep the result
 
-If it does not load, strengthen the description with the phrases people and agents use for that task. If it loads for unrelated requests, narrow the triggers. If the steps leave a real decision undefined, revise the procedure and rerun the same scenario.
+Your agent prepares and commits the authored skill, runs the full gate, and brings it back for review. A successful trial matters alongside those checks: a valid file can still describe an unhelpful procedure. [Finish and land a change](finish-and-land-a-change.md) covers making it part of the shared project.
 
-Run `discern prepare`, commit the authored skill, and run the full gate. Materialized skill directories are generated and commonly gitignored; the authored directory is the project authority.
+## Customize a bundled skill
 
-## Customize a bundled Skill
+When a bundled method needs a lasting project-specific change, ask your agent to adapt it. The agent uses `discern skills eject` with that skill's exact name to copy it into your authored directory, then edits the copy and refreshes.
 
-**Coding agent:** Preview ejection, then copy the built-in into the authored directory:
+A project-authored skill with the same name overrides the bundled version. This leaves one effective method, while putting responsibility for its customized wording in your project. Try the changed procedure before landing it. A preference for just one task can stay in that task's request.
 
-```sh
-discern skills eject discern-skill-name --dry-run
-discern skills eject discern-skill-name
-```
+## Exclude an unused skill
 
-Edit that authored copy. Its matching name overrides the bundled version, so there is no second selection rule to maintain. Run `discern refresh`, inspect `discern skills list`, and exercise the changed path before committing.
+You can ask your agent to remove a skill from the project's available set. It records the exact name in `[skills].exclude`, refreshes the integration, and verifies that `discern skills list` marks it as excluded. Your authored files remain available; the skill is no longer supplied through discern's materialized set.
 
-Use this route only when the project needs a lasting difference. A one-task instruction belongs in the task brief.
-
-## Exclude an unused Skill
-
-**Person:** Decide that the project should no longer load the named skill. **Coding agent:** add its exact name to config:
-
-```toml
-[skills]
-exclude = ["discern-skill-name"]
-```
-
-Run `discern refresh --dry-run`, apply it, and confirm the name is absent from `discern skills list`. An unknown exclusion warns because it may be a stale name; resolve that warning rather than treating it as a successful removal.
+An unknown name produces a warning, so the agent should resolve that warning before treating the exclusion as successful. If a session already loaded that skill, start a fresh session to test the change.
 
 ## Teach a durable lesson
 
-When a session produces a correction, hard-won procedure, or unrecorded decision, **coding agent:** offer at a natural pause to use `discern-teach-the-project`.
+You do not need to decide the right file before asking the project to remember something:
 
-That skill routes the lesson to one smallest authority:
+> Capture the lesson from this task so future agents can use it. Update an existing source if it already belongs somewhere, and tell me where you recorded it.
 
-- instructions for a rule every session needs;
-- a skill for a recurring method;
-- a checkpoint for a judgment made relevant by a diff;
-- a project script for a deterministic action;
-- documentation for durable context;
-- an ADR for a significant decision and its rationale.
+The teach-the-project skill distinguishes a standing rule, a reusable method, project context, a review question, a fixed command, and a significant decision. It puts the lesson where the next relevant session can find it. [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) shows those choices through an example.
 
-**Person:** approve whether the lesson should persist. **Coding agent:** update an existing authority when one already owns it, then compile or verify that surface. Do not leave a second copy in session notes or an unrelated page.
+If the agent notices a possible lesson itself, it offers to capture it at a natural pause. You can decide that the lesson is useful beyond this task or leave it in the conversation.
 
 ## Completion
 
-A skill change is complete when one authored `SKILL.md` owns the method, `discern skills list` shows the intended effective set, a representative request exercises selection and completion, refresh reports no pending materialization, and the full gate passes. A taught lesson is complete only when the chosen project surface is live and the person knows where it was recorded.
-
-Read [Instructions, skills, and the map](../20-understand/instructions-skills-and-map.md) for placement tradeoffs, [Config reference](../30-reference/config-reference.md) for skill settings, and [Connect a coding agent](connect-a-coding-agent.md) when one provider cannot see a materialized skill.
+A useful skill is available in the configured coding tools and works on a representative request. A changed skill also has a verified, committed source, ready for your landing decision. When a lesson was captured, the report should name what was recorded, where it lives, and how the agent checked it.

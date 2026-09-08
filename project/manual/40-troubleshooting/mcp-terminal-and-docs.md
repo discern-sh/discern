@@ -1,7 +1,7 @@
 ---
 id: troubleshoot-mcp-terminal-and-docs
 title: "MCP, terminal, and docs"
-description: "Recover missing or expiring MCP tool calls, continue an unfinished wait, resolve a docs target, and read results when the terminal, pager, or browser degrades."
+description: "Restore missing agent tools, continue a wait, find a documentation page, or read a result when an interface fails."
 order: 50
 publish: true
 kind: troubleshooting
@@ -20,22 +20,27 @@ aliases:
 
 # MCP, terminal, and docs
 
-The agent surface and the reading surfaces are built to degrade politely. A tool call that can't finish returns a continuation instead of failing, a missing tool always has a command-line twin, and a broken pager falls back to plain output. So when something here looks wrong, the right question is rarely "how do I force it". It's "which designed fallback applies". That keeps you working, and it keeps the agent from inventing polling loops or retry counts the product already made unnecessary.
+If your agent cannot call a discern tool, it can usually continue through the corresponding CLI command. If a result is hard to read, use `--markdown` or `--json`, or open the saved output named in the result.
+
+A useful request is:
+
+> Check which interface is failing and use its supported fallback. If an earlier command may have completed, inspect its result or current state before running it again.
 
 ## The discern tools are missing from the session
 
-The agent's session doesn't list `discern_status` and its siblings, or calls to them fail as unknown. Which recovery applies depends on when the tools were last seen:
+Use `discern status --markdown` or `--json` from the task's worktree to keep working while you restore the integration. Then choose the relevant repair:
 
-- **Never in this session.** The provider reads its MCP registration when a session starts, so files generated after the session began aren't loaded yet. Start a fresh session and have the agent invoke the exact callable by name — namespaced on hosts that namespace, such as `mcp__discern__discern_status`. If a fresh session still lacks the tools, `discern doctor` verifies the integration files exist and parse; [Setup and integrations](setup-and-integrations.md#the-tools-dont-appear-in-the-agents-session) covers first-time activation, including the provider-side trust approval discern can't grant.
-- **Working earlier, failing now.** The MCP server process outlives upgrades, so after `discern upgrade` a session can keep talking to the old build. discern detects the mismatch and says so in results: restart the agent session (or reload its MCP servers) so the server matches the installed binary. Until then, results from the two builds can disagree — including rewriting generated files differently — so the restart is worth doing promptly.
+| Symptom                                            | Repair                                                                                                                                                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tools have never appeared in this session          | Start a fresh session after setup. Have the agent find and invoke the exact registered tool name. If it remains absent, follow [first-time activation](setup-and-integrations.md#the-tools-dont-appear-in-the-agents-session). |
+| Results report a version mismatch after an upgrade | Restart the agent session or reload its MCP servers. The existing server process may still be running the earlier build.                                                                                                       |
+| A tool runs against the wrong checkout             | Give it the task's absolute `path`. Also check the shell's working directory: a tool changing its target does not move the shell.                                                                                              |
 
-Either way, work needn't stop: every discern MCP tool fronts a CLI verb, and `discern <verb> --json` (structured) or `--markdown` (prose) returns the same result envelope. The [MCP and results reference](../30-reference/mcp-and-results.md) lists the tool-to-verb registry.
+Success means the status tool answers from the intended worktree using the expected version. The [MCP and results reference](../30-reference/mcp-and-results.md#model-context-protocol-tools) lists tool names and parameters.
 
 ## A long call ended without an answer
 
-A `discern_await` watch can reach the end of its reliable transport window before its condition holds. The result is `ok: true` with `data.met: false` — an unfinished wait, not a failure (the CLI equivalent exits `124` for scripts). It carries a continuation that preserves the original condition and everything observed so far, including a change that happens between calls.
-
-Follow the continuation rather than re-posing the watch. Through MCP:
+For `discern_await`, look for `ok: true` and `data.met: false`. That means the watch has not finished. Follow its returned continuation with the newest handle:
 
 ```
 discern_await
@@ -43,32 +48,43 @@ discern_await
   resume: C1-BKJD-X4GQ-05
 ```
 
-The command-line result names its own form: `discern await --resume C1-BKJD-X4GQ-05`. Continue with the newest handle until `data.met` is `true` or the dependency stops mattering — there is no retry count to manage, and no reason to add sleeps between calls.
+The CLI form is `discern await --resume C1-BKJD-X4GQ-05`. Replace the example handle with the one returned. The continuation preserves the original condition and observations, including a change between calls. No extra sleep or polling loop is needed.
 
-Neighboring states are commonly confused with this one:
+The watch is complete when `data.met` is `true`. Ending it because the dependency no longer matters is also a valid choice. For scripts, an unfinished CLI wait exits `124`.
 
-- **A refusal (`ok: false`) has no continuation.** The watch as posed can't be answered — a branch name that doesn't resolve, a green watch on a worktree that's gone. Follow the refusal's recovery instead of resuming; [Wait for another task](../10-guides/wait-for-another-task.md#handle-a-refusal) covers the cases.
-- **A slow call is not a stuck call.** discern sizes each generated tool's window to the provider's transport limits, reserving room to deliver the result. Most providers get a call windowed a little under an hour; one strict surface is capped at seconds and leans on continuations instead. The exact per-provider durations and the timeout policy live in [MCP and results](../30-reference/mcp-and-results.md) and [Platforms and providers](../30-reference/platforms-and-providers.md).
+Other endings need a different action:
+
+- **A refusal (`ok: false`).** Follow its recovery. A branch that does not resolve or a green watch whose worktree is gone cannot be fixed by resuming the old request. See [wait refusals](../10-guides/wait-for-another-task.md#handle-a-refusal).
+- **The host cut off a call with no discern result.** Inspect status and available saved output. A transport timeout does not establish whether an effectful command completed, so do not repeat it just to recover the missing display.
+
+Provider limits determine how long a call can reliably wait. The [MCP reference](../30-reference/mcp-and-results.md) and [provider reference](../30-reference/platforms-and-providers.md) describe those limits.
 
 ## A docs or map target won't resolve
 
-`discern docs <target>` (or `discern_docs`) reports no match, or more than one:
+Use a path returned by discern:
 
-- **Ambiguous.** The result lists the candidates; rerun the same command with one exact listed path as the target.
-- **Not found.** Use a suggested path when the result offers one. Otherwise run the command with no target to see the index, or search in task language — then retry with a path the result returned. Guessing variations of a path converges slower than reading the index once.
+- **Ambiguous target:** choose one exact path from the listed candidates.
+- **No match:** try a suggested path, or run `discern docs` or `discern map` without a target to read its index. Search in the language of your task, then open a returned path.
+
+Use `docs` for discern's manual and `map` for the project's own documentation. You have resolved the problem when the returned page describes the topic you intended; a similarly named page may belong to a different section.
 
 ## The terminal output looks broken
 
-Rendering degrades in layers, and each layer has a switch:
+Choose the smallest presentation fix:
 
-- **The pager failed.** Paged reading is opt-in; when the configured `$PAGER` (or the `less -R` default) can't run, discern says so and prints the document plainly instead. The content is complete — only the scrolling is gone. Fix or unset `$PAGER` to choose the path you want.
-- **Color or width is wrong.** Set `NO_COLOR=1` to drop color entirely; discern also narrows to the terminal's reported width and prints plain output when not attached to a terminal.
-- **An agent is reading decorated output.** Human terminal decoration doesn't belong in agent context. Agents pass `--markdown` or `--json`, which bypass the interactive presentation entirely.
+| Symptom                                        | What to do                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| The pager failed                               | Read the plain output discern prints instead. Fix or unset `$PAGER` before the next paged read; the default is `less -R`. |
+| Color is unreadable                            | Set `NO_COLOR=1`.                                                                                                         |
+| Decoration or wrapping gets in the agent's way | Request `--markdown` or `--json` for subsequent commands.                                                                 |
+| A diagnostic was truncated                     | Open its `output_path` or the saved output named in the result.                                                           |
+
+For an effectful command that already ran, retrieve its existing result or inspect status before deciding whether any new action is needed.
 
 ## A browser didn't open
 
-Commands that hand off to a browser (opening the hosted docs, a desk link) report when the handoff fails or the platform has no launcher, and the URL stays printed in the result. Open it yourself in any browser; nothing else about the command's work depended on the handoff.
+Open the URL printed in the result in your browser. A failed browser launch does not, by itself, mean the preceding command failed; read the command's own outcome separately.
 
 ## When to stop
 
-Stop resuming a wait when the dependency no longer matters: ending a watch early is a valid outcome. Stop working around a version mismatch once you've seen the restart notice; two builds writing the same files gets worse with patience. And transport limits belong to the providers: when a vendor's window changes, the durable fix is discern's generated configuration catching up, which is worth reporting.
+End a watch when its dependency no longer matters. If a version mismatch persists after restarting the MCP server, keep the installed and reported version information for a report. If the host repeatedly cuts off a call before discern can return a result, use the CLI where available and report the affected provider and command.

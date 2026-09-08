@@ -1,8 +1,8 @@
 ---
 id: start-after-setup
 title: "After setup"
-description: "Read the setup diff with confidence: what you author, what discern shares with you, what it regenerates, and what stays outside the repository."
-order: 40
+description: "Understand the files setup added, review what future agents will inherit, and know where to make your next improvement."
+order: 50
 publish: true
 kind: explanation
 aliases:
@@ -15,58 +15,77 @@ aliases:
 
 # After setup
 
-Setup hands you a branch and asks for a landing decision, so the diff on `discern-setup` deserves a reading before you say yes. This page makes that reading fast. Every file in the diff belongs to a group, each group has one owner, and each has one supported way to change it. Knowing the groups tells you what you're agreeing to maintain, and what discern maintains for you.
+Setup leaves your project with instructions, checks, and a guide that future agents can use. These files are worth a look: they show what the agent understood about your project, and they give you somewhere lasting to put corrections and decisions.
 
-The same groups keep mattering after you land. When you want to change how agents work in the project, the group a file belongs to says whether you edit it, configure it, or regenerate it. For the exhaustive path-by-path inventory, including what removal leaves behind, use [Files and ownership](../30-reference/files-and-ownership.md).
+This page helps you review that result and find the right place for later changes. You can ask your agent to show the relevant files and explain them; you do not need to learn the whole file inventory first.
+
+## Review what future sessions will inherit
+
+Start with a request:
+
+> Show me the project purpose, the most important instructions, and the list of active checks. Explain what you learned during setup and anything we still need to decide.
+
+Read for meaning. Does the purpose describe the thing you are building? Do the instructions preserve what matters to you? Does the guide explain the project accurately? If your app stores personal reading lists, for example, a rule about preserving saved items should say what that means when agents change the app.
+
+Then ask what the checks cover. “The tests pass” tells you less than “the tests check that saved items remain after reopening the app.” The agent should explain any gaps as well as the checks that passed.
+
+You can correct a misunderstanding in ordinary language:
+
+> People should be able to read their saved lists without an internet connection. Make sure the project guide and instructions reflect that, and explain whether our checks cover it.
+
+The agent updates the source files and verifies the revised setup. You are shaping the understanding later sessions will inherit.
 
 ## Files you and your agents author
 
-These are project sources. They carry your project's knowledge, they're yours to edit, and your agents maintain them as the project changes:
+Most of the material you will want to read lives in the visible `discern/` folder. These are ordinary project files, written and maintained by you and your agents. The paths below are the defaults; setup may use paths you chose instead.
 
 <!-- discern-workflow:artifact-ownership -->
 
-| Path                      | Ownership     | What it contains                                                      | How to change it                                         |
-| ------------------------- | ------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
-| `discern/instructions.md` | Project-owned | Instructions shared by every configured coding agent.                 | Edit the Markdown, then run `discern refresh`.           |
-| `discern/map/`            | Project-owned | The maintained project guide (the map) agents keep current.           | Edit the authored Markdown. `[map].dir` can relocate it. |
-| `discern/TODO.md`         | Project-owned | Deferred work the agents keep visible.                                | Edit it like any tracked project file.                   |
-| `discern/brief.md`        | Project-owned | The project description recorded during setup, when one was captured. | Update it when the project's purpose materially moves.   |
-| `discern/skills/`         | Project-owned | Skills your project authors or overrides, once it has any.            | Add or edit each skill at its source.                    |
-| `discern/scripts/`        | Project-owned | Project-specific executables reached through `discern scripts`.       | Edit and test the executable itself.                     |
+| Path                      | Ownership     | What it contains                                     | How to change it                              |
+| ------------------------- | ------------- | ---------------------------------------------------- | --------------------------------------------- |
+| `discern/instructions.md` | Project-owned | Working rules supplied to every configured agent.    | Edit the source, then run `discern refresh`.  |
+| `discern/map/`            | Project-owned | The maintained project guide, called the map.        | Update the Markdown as the project changes.   |
+| `discern/TODO.md`         | Project-owned | Work deferred for a later task.                      | Add or revise entries in the file.            |
+| `discern/brief.md`        | Project-owned | The project description, when captured during setup. | Update it when the project's purpose changes. |
+| `discern/skills/`         | Project-owned | Reusable agent playbooks your project authors.       | Add or edit a skill at its source.            |
+| `discern/scripts/`        | Project-owned | The project's own supporting commands.               | Edit and test the command itself.             |
 
 <!-- /discern-workflow -->
 
-Setup writes the instruction source, the map, and the deferred-work ledger for every project. The other paths appear when your project first uses them. The `discern/` folder holds authored material only; generated copies live elsewhere, which is what keeps this folder safe to edit.
+Setup writes the instructions, map, and deferred-work list for every project. The other paths appear as the project uses them. You can explore reusable playbooks in [Create and manage skills](../10-guides/create-and-manage-skills.md).
 
 ## Files discern shares with you
 
-`discern.toml` at the repository root is the configuration. The values are yours: the gate's commands, the worktree location, every setting the [config reference](../30-reference/config-reference.md) lists. `discern upgrade` may restore missing sections or refresh the explanatory banners around them; it doesn't replace values you set.
+The root `discern.toml` is the configuration. It names the commands the gate runs, where task workspaces go, and the other choices that shape the practice. Your agent can explain or change these settings for you. [Configuration reference](../30-reference/config-reference.md) has the exact keys.
 
-Your `.gitignore` gains one marked block, which discern rebuilds to cover materialized skills and machine-local settings. Your `.gitattributes` gains a separate marked block for generated-file merging and Markdown diffs. Keep your own rules outside those blocks and both can evolve without collisions.
+Some existing files gain clearly marked sections. `.gitignore` keeps generated and machine-local material out of Git; `.gitattributes` configures how certain files are compared or merged. Your own rules stay outside discern's marked sections.
 
-Setup adds the files each selected coding tool needs to work with discern. Depending on the tool, those files connect the MCP server, run a command when a session starts, or grant a small set of permissions. Setup leaves unrelated settings alone.
-
-Claude Code keeps every permission rule already in its shared settings file. Codex allows `git add` and `git commit` so an agent can save its work. Those Codex rules apply wherever the commands run, but they don't allow `git push`, `git reset`, other Git commands, or general shell access. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) lists the files added for each tool.
+Setup also connects the coding tools you selected. The new settings may load discern's tools, run session-start actions, or permit particular commands. Ask the agent to highlight any permission changes during review. [Connect a coding agent](../10-guides/connect-a-coding-agent.md) explains each provider's settings and trust steps.
 
 ## Files discern regenerates
 
-Agent files such as `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` combine discern's built-in operating instructions with your `discern/instructions.md`. They're committed, so a new clone starts with the same written instructions. The MCP server, session hooks, and generated skill folders still need the discern binary on that machine. Install discern, run `discern refresh`, and open a new coding-agent session after cloning.
+You may also see `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`. These are how supported coding tools find the operating instructions. discern generates them by combining its built-in instructions with your project's instruction source.
 
-Never edit a compiled file by hand. Change the source and run `discern refresh`; the gate fails a tracked generated file that has drifted from its source, which is how the copies stay trustworthy. Materialized skill folders, such as `.claude/skills/`, follow the same rule with less ceremony: Git ignores them and `discern refresh` rebuilds them.
+When you want to change a rule, edit the source rather than a generated copy. For example:
+
+> Ask before adding a new external service. Put that rule in our shared project instructions and refresh the agent files.
+
+The agent changes `discern/instructions.md`, then runs `discern refresh`. The refresh supplies the updated rule to each configured tool. The gate detects tracked copies that no longer match their source and requires your agent to correct them before completion.
+
+Generated skill folders work similarly: refresh rebuilds them from the skill sources. After cloning the project onto another machine, install discern there, ask your agent to refresh, and open a fresh session. Git carries the written instructions, while refresh restores the local integration pieces.
 
 ## One repository, one installation
 
-Install discern once at the root of each Git repository. In a monorepo, the root `discern.toml` can give different parts of the repository their own checks. A folder that is itself a separate Git repository can have its own discern installation. Adding another `discern.toml` to an ordinary nested folder has no effect.
+Set up discern once at the root of each Git repository. A repository containing several apps or packages can give them their own checks through that root configuration. A nested folder only gets a separate installation if it is itself a separate Git repository.
 
 ## What stays outside the repository
 
-Parts of the practice never join the diff:
+Task workspaces live beside your project by default, under `<repo>.worktrees`. Each holds one effort's work until discern can retire it. The landing result tells your agent whether cleanup completed or needs attention.
 
-- **Task workspaces.** The first `discern start` creates a sibling folder, `<repo>.worktrees` by default, holding one isolated worktree per task. `discern accept` removes a worktree when its work lands, and `discern worktree prune` clears abandoned leftovers.
-- **The logbook.** discern's local activity record lives inside the repository's Git directory, holds metadata about discern use rather than code or command output, and never enters tracked files. [Local control](../20-understand/local-control.md) covers where evidence lives and what leaves your machine, which is nothing on discern's account.
+The local activity record, called the **logbook**, lives in Git's administrative storage and is not a tracked project file. It records metadata about discern use, excluding code and command output. [Local control](../20-understand/local-control.md) explains the records and network boundaries.
 
 ## The decision the diff supports
 
-`discern setup done` normally runs the full gate and records [Proof](../20-understand/proof.md) for the setup branch. If setup was marked unproven, discern records that state and refuses to land the branch. The agent can finish the missing work and run `discern setup done` again.
+Before setup lands, its **Proof** records that the configured checks passed for the exact saved version you are reviewing. If setup is still unproven, your agent needs to finish verification first.
 
-Once the branch has Proof, review whether its instructions, map, and checks describe the project you want future sessions to inherit. If they do, follow the landing step in the [tutorial](first-success.md#5-review-and-land-setup). If they don't, ask the agent to revise the branch and prove the new version.
+Once the files describe your project and you understand the checks and open work, return to [review and land setup](first-success.md#5-review-and-land-setup). If something is wrong, ask the agent to revise it and verify the new version. The full [files and ownership reference](../30-reference/files-and-ownership.md) remains available for any path you want to inspect more closely.

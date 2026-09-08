@@ -2,7 +2,7 @@
 id: guide-connect-a-coding-agent
 title: "Connect a coding agent"
 description: "Connect one supported coding agent using the shared setup path and the provider-specific facts it needs."
-order: 120
+order: 130
 publish: true
 kind: guide
 aliases:
@@ -14,88 +14,63 @@ aliases:
 
 # Connect a coding agent
 
-Use this guide to add Claude Code, Codex, Gemini CLI, Cursor, or GitHub Copilot CLI to an existing discern project, or to recover when a configured provider cannot call discern. These providers follow one repository procedure. Their trust step, fresh-session action, and callable name differ.
+You can try another coding tool without teaching the project all over again. discern gives each configured tool the project's instructions and skills, plus a connection to its checks and workflow. The tools may work differently, but the practice you have built stays in the project.
 
-Repository wiring and live activation are separate. `discern refresh` can prove the committed files are current. Only a fresh provider session that invokes its local discern action proves that provider loaded them.
+This guide adds a supported coding agent to a project that has already completed discern setup. Install the coding tool first, then ask your current agent:
 
-## Starting state
+> Add Cursor alongside the coding tools this project already uses. Keep our existing instructions and skills, show me any trust steps I need to complete, and help me check that a new Cursor session can use discern.
 
-- The discern binary is available on `PATH` and the project has completed setup.
-- The coding agent works in an owned worktree for the config change.
-- The person has installed the provider and chosen whether it should receive this project's instructions, skills, hooks, and MCP connection.
-- The person can complete provider trust or approval prompts. discern cannot grant vendor authority.
+Replace Cursor with your chosen tool. [Platforms and providers](../30-reference/platforms-and-providers.md) lists the supported tools and their requirements.
 
 ## 1. Select the provider once
 
-**Person and coding agent:** Choose from the supported config ids: `claude_code`, `codex`, `gemini`, `cursor`, and `copilot`.
+Your agent makes the configuration change in an isolated worktree, the workspace for this task. It checks the existing provider list before adding the new tool, so the edit keeps the tools you still use.
 
-Set the complete desired list under `[project]`:
+For example, a project using Codex and Cursor has:
 
 ```toml
 [project]
 agents = ["codex", "cursor"]
 ```
 
-Omitting `agents` uses the default pair, Claude Code and Codex. An explicit empty list selects no provider. Treat the configured list as the authority; do not maintain separate provider switches elsewhere.
-
-On a fresh setup, discern recommends a list from installed command-line tools, editor commands, and conventional application locations. The person may change that list before setup completes.
+This is the complete desired list. Omitting `agents` uses the default pair, Claude Code and Codex; an explicit empty list selects no provider. The [config reference](../30-reference/config-reference.md#project) gives the supported values.
 
 ## 2. Preview and apply the shared wiring
 
-**Coding agent:** Run:
+Your agent previews the changes with `discern refresh --dry-run`. It then runs `discern refresh` and reviews the result. Refresh creates or updates the selected tools' instructions, skills, hooks, and MCP registration. MCP is the connection that lets an agent call discern's tools directly.
 
-```sh
-discern refresh --dry-run
-```
+Some integration files also contain settings belonging to your project. Refresh changes discern's entries while preserving unrelated content. If it reports a partial refresh, the agent follows the recovery until the whole operation succeeds; files already written are kept.
 
-Review each planned create, update, and removal. Provider config can be shared with the project or another provider, so refresh merges discern's entry while preserving unrelated content.
-
-Apply the plan:
-
-```sh
-discern refresh
-```
-
-Inspect the result, run `discern doctor`, and review the Git diff. A complete result reports current compiled instructions, skills, hooks, MCP registration, and any provider-specific worktree support. A partial refresh preserves completed writes and gives a retry; follow it until top-level `ok` is true.
-
-Run `discern prepare`, commit the config and every tracked integration change, then run `discern done`. The provider will not load project-local changes from this branch until it opens that worktree or the change lands.
+The agent runs `discern doctor` to check the installation, then prepares, commits, and checks the change through the [usual completion process](finish-and-land-a-change.md). The new tool must open a checkout containing those integration changes. A configuration still on a worktree branch is not yet present in the shared project.
 
 ## 3. Complete the provider-specific activation
 
-After the wiring is present in the checkout the provider will open, **person:** complete the applicable trust action. **Coding agent:** start the fresh session and invoke the listed callable.
+Open a fresh session of the new tool in that checkout. Complete the trust or approval steps identified in the setup or refresh handoff. These belong to the coding tool: discern cannot grant that permission for you.
 
-| Provider           | Person's bounded action                                                                                                                                                                                                   | Fresh-session check                                                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code        | No separate project trust prompt is expected; discern pre-approves its MCP server in the generated settings.                                                                                                              | Close and reopen Claude Code in the project, inspect registered tools, then invoke `mcp__discern__discern_status`.                                          |
-| Codex              | Trust the project directory and approve each committed hook hash before it runs.                                                                                                                                          | Open a new Codex task for this project, inspect registered tools, then invoke `mcp__discern__discern_status`. Restart the app if a new task still lacks it. |
-| Gemini CLI         | Trust the workspace so project settings load. Confirm hooks are enabled in the committed settings.                                                                                                                        | Start a new Gemini CLI session in the trusted workspace, inspect tools, then invoke `discern_status`.                                                       |
-| Cursor             | Trust the workspace and approve the discern MCP tools on first use. For Local sessions editing sibling worktrees, either allow external file edits in Cursor settings or start the session with Cursor's worktree option. | Reload the Cursor window, start a new agent conversation in that workspace, inspect tools, then invoke `discern_status`.                                    |
-| GitHub Copilot CLI | Add the project to the provider's trusted folders.                                                                                                                                                                        | Start a new Copilot CLI session in the trusted folder, inspect tools, then invoke `discern_status`.                                                         |
+Ask the new agent:
 
-Use the exact action named by the refresh or setup handoff when it differs from a generic host display. MCP hosts may add their namespace to the callable name.
+> Read this project's instructions and call discern's status tool. Tell me which project and worktree you're in, whether discern is connected, and what its next action says.
+
+The tool may need a new conversation, a window reload, or an application restart before it loads the connection. The [provider reference](../30-reference/platforms-and-providers.md) gives the specific action and callable name for each tool.
+
+A successful refresh means the files are current. A successful status call from the new session shows that the tool loaded its connection. Your next task needs the running connection as well as current files.
 
 ## 4. Recover a missing action locally
 
-If the callable is absent, **coding agent or person:** follow this order:
+If the new agent cannot find discern, ask it to work through the connection problem:
 
-1. Confirm the session opened the intended checkout, including its current branch and absolute path.
-2. Complete the provider's trust or hook approval and start another fresh session.
-3. Run `discern refresh --dry-run` to detect missing repository wiring.
-4. Run `discern doctor` and apply its provider-specific recovery.
-5. Use `discern status --json` as the local command-line fallback while repairing MCP.
+> Check that this session opened the intended checkout and loaded its discern integration. Use the local command-line fallback while diagnosing the connection, and tell me if a trust step or restart needs me.
 
-Do not infer activation from generated files, a successful refresh, or a provider name in config. Those facts establish intent and repository state. The callable returning a local result establishes session activation.
+The agent checks the checkout path, the tool's trust state, the refresh preview, and `discern doctor`. It can use `discern status --json` while repairing the MCP connection. If the program itself cannot be found, a fresh shell and `which discern` help establish whether the tool can see the installed command.
 
-If the provider cannot find `discern`, open a new shell and verify `which discern`. A non-interactive provider shell must receive the same `PATH` or an appropriate absolute command configured by the supported integration.
+[Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) covers the recovery in detail. The successful status call remains the check that the connection is working.
 
 ## 5. Remove a provider from the project
 
-**Person:** approve the new complete provider list. **Coding agent:** remove the id from `[project].agents`, preview `discern refresh`, apply it, and review the planned integration removals. Refresh removes discern-owned entries while preserving shared file content owned by the project or another provider.
+Tell your agent which tools to keep. It updates the complete `[project].agents` list, previews refresh, and applies the integration removals. It reviews and commits the config and tracked output together, then runs the gate.
 
-Commit the config and tracked output together and run the full gate. This removes project wiring; uninstalling the provider application remains outside discern.
+Refresh removes discern-owned entries for the deselected provider while preserving shared content owned by the project or another provider. It does not uninstall the coding tool from your machine.
 
 ## Completion
 
-Connection is complete when the provider id is in the committed config, refresh and doctor are green, the full gate passes, and a fresh trusted session invokes its local status action successfully. Recovery is complete when that callable returns successfully; current files alone do not establish activation.
-
-Use [Platforms and providers](../30-reference/platforms-and-providers.md) for exact files, trust facts, timeouts, and platform support. Use [Setup and integrations troubleshooting](../40-troubleshooting/setup-and-integrations.md) when activation or ownership fails, and [Write project instructions](write-project-instructions.md) for the shared instruction source.
+You can start using the new tool when the connection changes have passed the project's checks and a fresh trusted session calls discern successfully. Your [project instructions](write-project-instructions.md) remain the shared place to change what future sessions should know.

@@ -1,7 +1,7 @@
 ---
 id: reference-environment-variables
 title: "Environment variables"
-description: "Every public DISCERN_* input and exported value, with its source, scope, default, and consumer."
+description: "Look up the DISCERN_* settings you can supply and the values discern passes to project commands."
 order: 60
 publish: true
 kind: reference
@@ -31,9 +31,9 @@ aliases:
 
 # Environment variables
 
-Look up every supported public `DISCERN_*` process input and exported value. Each row states which boundary reads or writes it; descriptions state defaults and activation rules where the variable has them.
+Environment variables pass settings to a running program. Some let you change how discern starts; others give your project scripts information such as the current worktree or its assigned port. This page lists the supported `DISCERN_*` variables by purpose.
 
-Prerequisite: the variable name or integration boundary. Values apply to the current process unless a row says discern exports or writes them. Internal process markers, source-checkout controls, and test-only variables are not public and are intentionally omitted.
+Find the variable name below to see who sets it, who reads it, and its default where one exists. Setting a variable affects the current process unless its entry says discern exports or writes it. For lasting project settings, use [`discern.toml`](config-reference.md).
 
 ## Installation
 

@@ -1,8 +1,8 @@
 ---
 id: guide-place-and-answer-checkpoints
 title: "Place and answer checkpoints"
-description: "Place a scarce judgment stop, answer it with evidence, and route an unmet conclusion to the owner."
-order: 50
+description: "Make a recurring review question part of the workflow, and understand the decisions its answers bring back."
+order: 110
 publish: true
 kind: guide
 aliases:
@@ -12,119 +12,137 @@ aliases:
   - "checkpoint examples"
 ---
 
-# Place and answer Checkpoints
+# Place and answer checkpoints
 
-Use this guide for a review question that becomes relevant when a narrow kind of change occurs and that a machine cannot decide. A checkpoint pairs a deterministic trigger with a question for the coding agent. It can stop the gate until the agent records a conclusion, or serve the question as advice.
+A checkpoint helps you carry a useful review question into future tasks. Instead of remembering to raise it every time, you have the project present it when the relevant kind of change appears.
 
-The coding agent owns the declared conclusion. The person responsible owns policy placement and the decision to land a declared-unmet conclusion. discern records those roles separately from machine-verified gate results.
+Your agent proposes where the question belongs, implements the trigger, and answers it when it fires. You review the policy and decide whether to allow a change that leaves a required question unmet.
 
 ## Starting state
 
-To place a checkpoint, begin with a recurring review question, examples of the changes that should trigger it, and the person's agreement that it belongs in project policy. To answer one, begin in the worktree where `discern prepare`, `discern checkpoints`, or `discern done` served the question and its matched paths.
+You can start with a concern in ordinary language. For example, in an app that keeps reading lists, you want deletion to feel deliberate and understandable:
 
-## Place a Checkpoint
+> Use discern-place-a-checkpoint to make agents review changes to list deletion. The question should ask whether people can understand what will be removed and have a reasonable way to avoid an accidental loss. Suggest a trigger that catches the relevant changes without interrupting unrelated work.
+
+If a checkpoint has already fired on a task, go to [Answer a fired checkpoint](#answer-a-fired-checkpoint). You do not need to add another rule to handle the existing question.
+
+## Place a checkpoint
 
 ### 1. Put the rule on the right rung
 
-**Coding agent:** Invoke the `discern-place-a-checkpoint` skill. Use a checkpoint only when a diff introduces the concern, a machine cannot settle it, and the question deserves attention on each matching change.
+The agent first checks whether a checkpoint is the right home for your concern. It is useful when a specific change raises a question that cannot be fully answered by a repeatable machine check.
 
-Route other rules elsewhere:
+For list deletion, tests can establish that Cancel leaves the list intact. An agent still needs to judge whether the dialog clearly describes the loss and offers appropriate choices. That is a reasonable review question.
 
-- a rule needed throughout most work belongs in project instructions;
-- a recurring method belongs in a skill;
-- a numeric rule belongs in a standard or gate job;
-- a decision only the person may make remains an authority decision.
+If the concern is “Cancel must not delete anything,” ask for a test. If it is a convention relevant to most work, put it in [project instructions](write-project-instructions.md). This keeps checkpoints focused on the moments that deserve a judgment.
 
-Use `mode = "stop"` when every matching change must record a conclusion. Use `mode = "advise"` for a heuristic that should inform without blocking.
+Choose the mode with the agent:
+
+- **Stop** requires an answer before the gate runs. Use it when every matching change should receive the review.
+- **Advise** presents the question without blocking. Use it for a useful hint whose trigger may also match harmless changes.
 
 ### 2. Write one narrow trigger and one answerable question
 
-**Coding agent:** Prefer a named scope or a small path set. Add predicates only to remove irrelevant changes. The question should name what must be true for this matched change and permit a real unmet answer.
+Your agent identifies the files that make the question relevant. It should explain a change that would trigger it and one that would not. You can judge whether that distinction fits the concern without choosing file patterns yourself.
 
-This minimal example stops changes to migrations:
+An illustrative reading-list project might use:
 
 ```toml
-[checkpoints.migration-safety]
-paths = ["migrations/**"]
+[checkpoints.list-deletion]
+paths = ["src/lists/**"]
 mode = "stop"
-question = "Does each migration state its lock behavior and rollback path?"
-teach = "The owner needs the operating risk before this change can land."
+question = "Does the delete flow make clear which saved books will be removed and give people a reasonable way to avoid an accidental loss?"
+teach = "Review the wording, available choices, and recovery from a mistaken deletion."
 ```
 
-Keep secrets out of `question`, `teach`, and `reference`; they can appear in terminal output, MCP results, CI, and Proof. Use the [Config reference](../30-reference/config-reference.md) for selectors, thresholds, delta predicates, and the `when` protocol instead of copying the full field catalogue into this procedure.
+Your agent should replace the example path with the actual files or an existing scope in your project, and narrow the trigger if unrelated list changes would produce too many interruptions.
+
+Read the question as something an agent might have to answer “no.” A useful question leaves room for an honest unmet conclusion; “Have you been careful?” gives neither the agent nor you much to assess.
+
+The optional `teach` text explains what to consider. Longer questions can live in a tracked project file through `question_file`. Keep secrets out of both forms, since questions and reasons can appear in reports and Proof. The [configuration reference](../30-reference/config-reference.md) lists the remaining selectors and trigger options.
 
 ### 3. Land the policy before testing governance
 
-Checkpoint definitions come from the effort's merge base with the trunk. A branch that adds or edits a checkpoint does not govern its own gate.
+Review the question, examples of when it fires, and its stop or advise mode. Your agent commits the policy change, runs the full gate, and brings it back for landing through the normal review process.
 
-**Coding agent:** Commit the policy change, run the full gate, and return it for owner review. **Person:** decide whether the question, trigger, and mode should govern future work, then authorize its landing.
-
-After the policy lands, **coding agent or person:** confirm it from the trunk:
+A new question does not govern the same change that introduces it. Once the policy lands on the trunk, the project's shared branch, the agent can confirm the installed question with:
 
 ```sh
 discern checkpoints
 ```
 
-The result must list the id, mode, question, and trigger summary.
+The result lists the question, trigger, and mode. It also shows the policy source used for inspection. Completion evaluates the policy preceding its selected candidate; the agent follows the served question if queued work changes that context.
 
 ### 4. Exercise the trigger and refusal
 
-**Coding agent:** In a new worktree with a representative matching change, preview the strict decision:
+Ask the agent to demonstrate the behavior with representative changes, including a change that should leave the checkpoint quiet. This checks whether the trigger reaches the moment you intended.
+
+A matching worktree can preview completion with:
 
 ```sh
 discern done --dry-run
 ```
 
-For a `stop` checkpoint, run bare `discern done` once and verify that it refuses before any gate job, serves the question, names the matched evidence, and offers both declaration routes. For `advise`, verify that the question appears without preventing the gate.
+For stop mode, an ordinary `discern_done` with no declaration should serve the question and wait for the agent's conclusion before running the gate. For advise mode, the question should appear without preventing the checks.
 
-If the checkpoint never fires, fires on most work, or matches the wrong paths, revise the trunk policy. Do not compensate by declaring a noisy question met on every branch.
+The useful evidence is the actual question as a future agent will receive it, the matched content, and the expected behavior for both matching and unrelated work. If it appears everywhere, narrow the trigger before treating repeated answers as a success.
 
-## Answer a fired Checkpoint
+## Answer a fired checkpoint
 
 ### 1. Judge the current subject
 
-**Coding agent:** Read the served question, teaching note, and matched paths. Inspect the content named by the result. `discern checkpoints` is a read-only way to recover the current open-question state.
+When a question appears, the agent reads it with the matched content and any teaching note. You can ask:
 
-If the question is satisfied for that subject, run:
+> Review the checkpoint against the actual change. Explain what supports your answer, and record an unmet conclusion if the concern remains.
 
-```sh
-discern done --met checkpoint-id
-```
+For the delete-list example, a supported answer might describe the list name and book count shown in the dialog, how Cancel behaves, and whether an accidental deletion can be recovered. It should reflect the implementation, not just the intended design.
 
-If it is not satisfied, either change the work and re-evaluate, or record the current conclusion with an owner-facing reason:
+The agent records a satisfied conclusion with:
 
 ```sh
-discern done --unmet checkpoint-id --why "Reason this change does not satisfy the question"
+discern done --met list-deletion
 ```
 
-The gate records the declaration before it runs. A met declaration is still agent judgment; discern does not verify its truth. An unmet declaration lets the gate run and carries its rationale into Proof.
+If the question is unmet, it can improve the work or record that conclusion with a reason:
+
+```sh
+discern done --unmet list-deletion --why "Bulk deletion takes effect immediately, with no confirmation or undo"
+```
+
+An unmet declaration allows the gate to run while preserving the reason for your review. A met declaration is still the agent's judgment: discern verifies that the required answer was recorded, not that the answer is true.
 
 ### 2. Re-evaluate after relevant edits
 
-A declaration binds to the resolved definition and matched content. A relevant edit reopens the question. Changed declaration evidence also makes existing Proof stale, even when `HEAD` has not changed.
+If the agent changes the delete flow again, its earlier answer may no longer apply. A relevant edit reopens the question. The agent reviews the new content, records a fresh conclusion, and renews the gate evidence.
 
-**Coding agent:** Read the question again, record a fresh conclusion, and rerun the gate. Do not reuse the earlier declaration or Proof for changed evidence.
+Changing the conclusion or its rationale also changes the evidence, even without a new code commit. `discern checkpoints` can recover the current question state; an old Proof should not be used to describe a changed judgment.
 
-### 3. Route an unmet conclusion to the person
+### 3. Decide what to do with an unmet conclusion
 
-A green gate with a declared-unmet checkpoint remains unlanded.
+The agent should bring you the question, affected work, reason it remains unmet, and practical alternatives. Ask for a change if the concern should be resolved before landing. You can also approve a **variance**, an exception for the exact current declaration and change.
 
-**Person:** Review the rationale. Require work that makes the conclusion met, or authorize a variance for this declaration and commit. A standing scope grant, one-worktree grant, or generic landing consent cannot authorize the variance.
+For example, an immediate bulk-delete action might be unacceptable for people's saved reading lists. That decision is easier when the agent shows the actual behavior and the missing protection, rather than presenting only a green test result.
 
-When the person explicitly approves it in the current conversation, **coding agent:** pass every current unmet id at acceptance:
+If you explicitly approve the exception, the agent names the current unmet checkpoint at acceptance:
 
 ```sh
-discern accept --confirmed --variance checkpoint-id
+discern accept --confirmed --variance list-deletion
 ```
 
-The id set must match the current declared-unmet set. A later relevant edit creates a new subject and requires a new decision.
+Where several questions are unmet, the accepted set must match them all. A standing permission, an earlier task grant, or a general “land it” does not approve a variance. Relevant changes require a fresh decision about the new declaration.
 
-## Tune the Checkpoint after real use
+## Tune the checkpoint after real use
 
-**Person and coding agent:** Review `discern checkpoints` and `discern patterns` after several efforts. Frequent firing, frequent variances, or no firing are evidence to narrow the trigger, rewrite the question, change `stop` to `advise`, move a mechanical rule into the gate, or remove the policy. Those changes govern only after they land on the trunk.
+After the question has appeared on real tasks, ask:
+
+> Review this checkpoint's history. Is it catching useful decisions, firing on unrelated work, or repeatedly needing exceptions? Recommend a better question or trigger if needed.
+
+The agent can inspect `discern checkpoints` and `discern patterns`. The recorded frequency and outcomes support the review; they do not tell you whether the agent's judgments were correct.
+
+Narrowing the trigger, changing the wording, choosing advise mode, or removing an unhelpful checkpoint can all be sensible policy decisions. If the question becomes fully testable, move that check into the gate. Review policy changes through the same workflow as the original addition.
 
 ## Completion
 
-Placement is complete when the trunk lists the intended policy and a representative change demonstrates the expected fire or advise path. Answering is complete when the current subject has a declared conclusion, the gate result preserves that qualification, and any unmet variance is either resolved in the work or explicitly authorized by the person before landing.
+Placement succeeds when the question asks something worth considering and representative changes show it appears at the right time. On a task, the current declaration should explain what the agent concluded; any unmet concern is either resolved or explicitly accepted by you before landing.
 
-Read [Checkpoints and judgment](../20-understand/checkpoints.md) for the model, [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) for states and protocols, and [Finish and land a change](finish-and-land-a-change.md) for the surrounding lifecycle.
+[Checkpoints](../20-understand/checkpoints.md) shows the model and useful built-in questions. [Proof and checkpoint formats](../30-reference/proof-and-checkpoint-formats.md) contains the exact states and protocols, and [Finish and land a change](finish-and-land-a-change.md) covers the surrounding review.

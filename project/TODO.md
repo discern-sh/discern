@@ -30,6 +30,8 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Complete the Git ref footprint inventory.** Enrol shared candidate refs and landing markers in the canonical footprint, align uninstall's retained-ref reporting with the actual created namespaces, and guard future ref writers against missing inventory entries. The manual describes current retention, but the runtime inventory omits these namespaces. Evidence: `src/engine/git_footprint.ts`; `src/shared/git_conventions.ts`; `src/engine/landing_queue/publication.ts`; `src/engine/worktree/git.ts`; `project/manual/30-reference/files-and-ownership.md`.
+
 - [ ] **Bind the machine edition's checkable claims to their guards.** The "Checkable claims" section names six falsifiers as hand-authored prose; render it from a registry whose entries cite the guard test that proves each one, so the section and the suite cannot drift. Evidence: `site/text/discern.txt`; `scripts/brand/claims.ts`; `tests/evidence_basis_guard_test.ts`.
 
 - [ ] **Cite claim slugs from the public landing copy.** The trust page declares its claims as typed slug references that its test resolves; the landing copy carries none, and the `claim-annotation` mechanical check stays deferred for want of an authority. Give the fresh landing copy typed claim citations and lift the deferral. Evidence: `site/page-src/trust.tsx`; `scripts/brand/vale.ts`; `tests/site_trust_test.ts`.

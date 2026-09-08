@@ -1,8 +1,8 @@
 ---
 id: guide-improve-the-practice
 title: "Improve the practice"
-description: "Inspect local evidence, coupling, and improvement findings, then make one bounded practice change."
-order: 140
+description: "Use the project's local record to choose a useful improvement, test it, and see whether it helps later work."
+order: 120
 publish: true
 kind: guide
 aliases:
@@ -18,89 +18,73 @@ aliases:
 
 # Improve the practice
 
-Use this guide when the project has no immediate workflow failure, but you want the next improvement to come from observed evidence rather than a generic checklist. discern can rank a next action across its installed practice, show recurring local patterns, and identify files that often change together. These are advisory surfaces; the person decides what work is worth doing.
+Sometimes the work is moving, but the process keeps getting in the way. Checks take a long time, the same refusal returns, or agents need repeated reminders. You want to improve the way the project works without starting a broad cleanup on a hunch.
 
-The outcome is one bounded change with a named reason, owner, verification, and destination. A score or finding alone does not alter the gate.
+discern can inspect the configured practice and its local activity record, then suggest where to investigate. This guide helps you and your agent turn that evidence into one useful change. The reports advise; they do not change your settings or approve work on their own.
 
 ## Starting state
 
-- Run read-only review against the trunk when you want the state shared by future tasks. Use a task worktree when investigating an in-flight change.
-- The logbook is enabled when you expect `discern patterns` to use recent local activity. Its records stay local and contain metadata only.
-- The person can decide whether a recommendation belongs in the current backlog and whether it changes project policy.
+Use this guide when the project is set up and you have time to improve its working process. For an immediate failure, start with [Troubleshooting](../40-troubleshooting/README.md).
 
-## 1. Ask for the highest-value next action
+Your agent can review the shared project's state without creating a new worktree. It needs an effort's worktree when it begins making changes. Historical findings depend on the local logbook, so a new project or one with recording turned off may have little evidence yet.
 
-**Person or coding agent:** Run:
+## 1. Ask where an improvement would help
 
-```sh
-discern improvement --markdown
-```
+Give your agent a request:
 
-The result combines deterministic checks with open review questions across the gate, setup, instructions, map, worktrees, standards, checkpoints, and skills. Read `data.next_action`, its evidence, and any decision it assigns to the person.
+> Review how this project is working with discern. Find one improvement supported by the available evidence, explain why it is worth doing, and propose how we would tell whether it helped.
 
-Use a category only when you have already bounded the review:
+Your agent uses discern's improvement tool, or `discern improvement --markdown`, to inspect the current setup. The report combines mechanical checks and review questions across the project's instructions, checks, documentation, and other parts of the practice. Its next action gives the agent a place to start.
 
-```sh
-discern improvement --category standards --markdown
-```
+Ask for the practical consequence. “The instructions need attention” should become an account of what is missing, which task it affects, and what a change would improve. A score alone is not a reason to add more rules.
 
-Do not chase the numeric health score by changing unrelated work. The score summarizes the current audit; the evidence and recommended action explain what would improve the practice.
+If you already have a concern, include it: “Focus on why completing small changes has started taking longer.” The agent can narrow the review to the relevant part of the practice.
 
-## 2. Add local history when it can answer the question
+## 2. Look for supporting history
 
-**Coding agent:** Run `discern patterns` when the recommendation concerns repeated behavior, gate fit, funnel flow, or standard movement.
+When the question concerns repeated behavior, your agent reads the local pattern report with `discern patterns`. It can show where check time goes, which refusals recur, or how a measured quality value has changed.
 
-```sh
-discern patterns --markdown
-```
+For example, suppose the tests take most of the gate's time. That fact alone does not make them wasteful. They may be doing necessary work. Your agent should look for a supported source of avoidable time, such as repeated runs under unchanged conditions, and inspect the relevant commands before recommending a change.
 
-Each finding should state observed counts and a next investigation. Below its evidence threshold, the result reports insufficient evidence. Treat that as an unknown. It supplies no evidence about whether the pattern is absent.
+The report gives counts, the runs those counts came from, and limits on the comparison. If it says **insufficient evidence**, the cause remains unknown. You can leave the practice as it is or choose a small investigation; there is no need to invent an improvement to complete the review.
 
-The person may decline collection by setting `[project].logbook = false`. Existing records remain until an owner confirms their reset or archive; the [logbook reference](../30-reference/logbook.md) owns those operations.
+[Evidence and improvement](../20-understand/evidence-and-improvement.md) explains how to read these findings. [The logbook reference](../30-reference/logbook.md) covers recording choices and stored fields.
 
-## 3. Check related files while a change is open
+## 3. Inspect the related work
 
-`discern coupling` reads Git history and never blocks. With no arguments, it reports habitual partners missing from the current change:
+The local record can point to a problem, but it does not contain the code or command output that explains it. Your agent follows the finding into the configuration, instructions, source, or available diagnostic output.
 
-```sh
-discern coupling
-```
+If the question concerns files that may need to change together, the agent can also use `discern coupling`. This reads Git history to identify files that often changed together. It is a prompt to inspect a relationship, not a requirement to edit every suggested file.
 
-For one file or a pair:
+For example, an implementation file and a test file may often change together. The agent should check whether the current change needs that test updated, and explain a material omission during review. History can help it remember where to look; the actual task determines what needs changing.
 
-```sh
-discern coupling path/to/file
-discern coupling path/to/file path/to/partner
-```
+## 4. Choose one improvement
 
-**Coding agent:** Inspect the cited history and decide whether the partner belongs in this change. A historical relationship is evidence to review. Edit a related file only when the task requires it. Record why a named partner was included or left unchanged when the choice is material to review.
+The proposal should name the evidence, the expected benefit, and the way to verify it. A useful request is:
 
-## 4. Route the finding to one change type
+> Show me the proposed change, the evidence behind it, and what we will compare afterwards. Explain any tradeoff before changing a standing rule or check.
 
-**Person and coding agent:** Choose the smallest project surface that addresses the evidence:
+Choose the home that matches the problem:
 
-| Finding                                               | Appropriate change                                                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| A declared check is missing, slow, or misleading      | Adjust the owning gate job or scope and exercise its failure path.                                  |
-| A deterministic number should never regress           | Add or tune a standard through [Set and raise standards](set-and-raise-standards.md).               |
-| A narrow change needs a recurring judgment            | Place or tune a checkpoint through [Place and answer checkpoints](place-and-answer-checkpoints.md). |
-| Agents repeat a multi-step method poorly              | Create or improve a skill.                                                                          |
-| Every session needs one standing rule                 | Update the authored project instructions.                                                           |
-| Durable project context is false or missing           | Update the owning map page.                                                                         |
-| The observation is weak or the cost exceeds the value | Record no project change; keep or gather the stated evidence.                                       |
+| What the investigation supports                                    | A possible change                                                     |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Future sessions lack an important rule                             | Update [project instructions](write-project-instructions.md).         |
+| A recurring method needs clearer steps or decisions                | Improve a [skill](create-and-manage-skills.md).                       |
+| The project guide describes the wrong behavior                     | Correct the relevant map page from the code.                          |
+| A measured quality gain is worth keeping                           | Establish or tighten a [standard](set-and-raise-standards.md).        |
+| A review question is missing or poorly targeted                    | Add or tune a [checkpoint](place-and-answer-checkpoints.md).          |
+| A configured check is missing, misleading, or doing avoidable work | Adjust the owning command or configuration and verify what it checks. |
 
-Policy changes remain the person's decision. An advisory cannot authorize a new blocker, weaken a standard, or move the trunk.
+You may also decide the evidence is too weak or the improvement too costly. A recommendation does not authorize weakening a standard, adding a new blocking rule, or landing a change.
 
-## 5. Implement and verify one bounded improvement
+## 5. Try the change and review the result
 
-**Coding agent:** Start or continue one owned worktree for the selected action. State the current evidence, expected improvement, and a way to observe it after the change.
+Your agent implements the chosen improvement in its effort's worktree. It checks the behavior that should improve: a real request for a skill, a fresh session for instructions, or a passing and failing example for a new automated check.
 
-Exercise the relevant path: a failing and passing detector for a standard or gate job, a representative trigger for a checkpoint, a real request for a skill, or a fresh session for instructions. Run `discern prepare`, commit, and run the full gate.
+It then prepares and commits the change, runs the full gate, and returns the result with Proof. Review whether the improvement addresses the original problem and whether its cost is reasonable. [Finish and land a change](finish-and-land-a-change.md) covers the landing decision.
 
-After landing, rerun the original advisory from the trunk. The old finding should be resolved, narrowed, or replaced by a clear next action. A changed score without that behavioral result is insufficient.
+After landing, the agent checks the original concern again. Some improvements are visible immediately, such as a previously missing instruction. Others need later work to supply enough comparable runs. Old history remains in the logbook, so a successful change does not necessarily make its original finding disappear at once.
 
 ## Completion
 
-The review is complete when one finding has traceable evidence and an owner decision. The improvement is complete when one project authority changed, its real path was exercised, the full gate passed, and the original observation shows the intended result after landing.
-
-Read [Evidence and improvement](../20-understand/evidence-and-improvement.md) for the model and [MCP tools and results](../30-reference/mcp-and-results.md) for structured fields. If the review exposes an operational failure, use [Troubleshooting](../40-troubleshooting/README.md).
+A useful review ends with a supported recommendation or a clear explanation of why the evidence does not justify a change. An implemented improvement should have passing checks and an account of what improved, or what later observation is still needed.

@@ -1,8 +1,8 @@
 ---
 id: reference-results-and-mcp
 title: "MCP and results"
-description: "Look up MCP tools/resources, DiscernResult, JSON/Markdown delivery, schemas, versions, exits, and continuation/duration policy."
-order: 40
+description: "Find discern's agent tools and learn how to read their results, errors, and continuation instructions."
+order: 130
 publish: true
 kind: reference
 aliases:
@@ -45,11 +45,21 @@ aliases:
 
 Use this reference to understand what your agent can ask discern to do, which result confirms the outcome, and where your approval is required. It lists exact MCP inputs, result formats, schemas, exit codes, and continuation limits.
 
-Prerequisite: the command, tool, resource URI, result field, or schema id you need to look up. A configured project is required for project-operating tools; `discern_docs` is project-independent.
+| Find                                           | Go to                                                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Choose Markdown, JSON, terminal, or MCP output | [Result formats and delivery](#result-formats-and-delivery)                                       |
+| Tool names and accepted inputs                 | [Model Context Protocol tools](#model-context-protocol-tools)                                     |
+| Read a success, failure, or partial result     | [The `DiscernResult` envelope](#the-discernresult-envelope)                                       |
+| Interpret completion and landing evidence      | [Completion and landing results](#completion-and-landing-results)                                 |
+| Resume a long-running watch                    | [Call duration and continuation](#call-duration-and-continuation)                                 |
+| Resource URIs                                  | [Model Context Protocol resources](#model-context-protocol-resources)                             |
+| Exit codes, schemas, or TypeScript types       | [CLI exit codes](#cli-exit-codes) and [Published schemas and types](#published-schemas-and-types) |
+
+Project-operating tools require a configured project. `discern_docs` can read the bundled manual without one. To connect an agent, follow [Connect a coding agent](../10-guides/connect-a-coding-agent.md).
 
 ## Result formats and delivery
 
-_One policy-evaluated `DiscernResult` can be presented in the terminal, as authored Markdown, as compact JSON, or through MCP._
+Every result describes the same operation and verdict, whichever presentation you choose.
 
 | Surface               | Result                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------- |
@@ -76,37 +86,33 @@ Default doctor JSON and `discern_doctor` return environment and actionable check
 
 `setup begin` emits the operating contract and first page; `setup step <n>` emits one page. Each shares its parsed operational spine across structured, human, and Markdown surfaces. `setup done` returns Proof, assurance, derived inventory, and one phase-valid action.
 
-See [MCP tools and result contracts](mcp-and-results.md) for the tool registry, envelope fields, schemas, resources, and exit codes.
-
 ## Model Context Protocol tools and result contracts
 
-_Model Context Protocol (MCP) tools and quiet CLI results share one prepared `DiscernResult`. Structured and Markdown projections support different modes of consumption without changing the underlying verdict._
-
-Choose among terminal, Markdown, JSON, and MCP delivery through [Result formats and delivery](mcp-and-results.md). Each projects the same prepared result in a different form; none is reserved for a particular reader.
+Model Context Protocol (MCP) lets a coding agent call discern directly. The tools below use the same result contracts as the CLI. Use their structured fields for integrations and their Markdown for reading or relaying the outcome.
 
 ### Model Context Protocol tools
 
-| Tool                        | Purpose                                                                                                                                                                   | Effect contract                                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `discern_status`            | Report the current branch, gate inputs, standards, Proof, fleet state, unfinished setup assurance, and verified landing authority.                                        | Read-only and idempotent.                                                                           |
-| `discern_start`             | Create and set up a new isolated worktree, then report its prospective landing authority.                                                                                 | Mutating; each successful call creates a new worktree.                                              |
-| `discern_done`              | Run the full gate and return steps, diagnostics, an optional Proof, and verified landing authority. `ci: true` explicitly reports checkpoint review without declarations. | Runs project commands; fix-stage commands may rewrite.                                              |
-| `discern_prepare`           | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                                                                                       | Runs project commands; fixers and regenerations may rewrite.                                        |
-| `discern_test`              | Run the test stage on demand; `discern_done` includes it.                                                                                                                 | Runs project commands.                                                                              |
-| `discern_update`            | Merge the selected base into this branch and re-materialize generated files.                                                                                              | Mutating and idempotent for the same inputs.                                                        |
-| `discern_await`             | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                                     | Read-only and idempotent; timeouts return a normal result.                                          |
-| `discern_standards`         | Measure standards, compare limits, and optionally pin improvements.                                                                                                       | Runs project commands; pinning changes and commits config.                                          |
-| `discern_standards_propose` | Record or preview one exact, commit-bound proposal for an intrinsically breached standard.                                                                                | Mutating, closed-world, and idempotent; commits only the config limit.                              |
-| `discern_accept`            | Land an authorized worktree and tear down its resources and branch.                                                                                                       | Ordinary landing requires consent or a verified grant; emergency requires fresh exact confirmation. |
-| `discern_impact`            | List the scopes the current change activates.                                                                                                                             | Read-only and idempotent.                                                                           |
-| `discern_coupling`          | Report historical co-change partners for the current diff or named files.                                                                                                 | Read-only, idempotent, and advisory.                                                                |
-| `discern_patterns`          | Report findings, investigation paths, or Stats from the active logbook or a selected sealed archive.                                                                      | Read-only, idempotent, and advisory; lifecycle actions are CLI-only.                                |
-| `discern_refresh`           | Rebuild generated Instructions, skills, integrations, and the ADR index, or return their complete preview.                                                                | Mutating, closed-world, and idempotent; `dry_run: true` is read-only.                               |
-| `discern_map`               | Index, search, or read the project's agent-maintained map.                                                                                                                | Read-only and idempotent.                                                                           |
-| `discern_docs`              | Index, search, or read discern's bundled public manual.                                                                                                                   | Read-only, idempotent, and project-independent.                                                     |
-| `discern_doctor`            | Check config, commands, repository shape, and integration health.                                                                                                         | Read-only and idempotent.                                                                           |
-| `discern_improvement`       | Rank the next improvement and return the supporting health audit.                                                                                                         | Read-only and idempotent.                                                                           |
-| `discern_checkpoints`       | Report governing checkpoints, strict obligations, open-question declaration state, and structural evidence.                                                               | Read-only and idempotent.                                                                           |
+| Tool                        | Purpose                                                                                                                                                | Effect contract                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `discern_status`            | Report the current branch, gate inputs, standards, Proof, fleet state, unfinished setup assurance, and verified landing authority.                     | Read-only and idempotent.                                                                           |
+| `discern_start`             | Create and set up a new isolated worktree, then report its prospective landing authority.                                                              | Mutating; each successful call creates a new worktree.                                              |
+| `discern_done`              | Validate a completion candidate, collect required evidence, and return Proof when complete. `ci: true` reports checkpoint review without declarations. | Runs project commands; ordinary successful completion releases the checkout unless retained.        |
+| `discern_prepare`           | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                                                                    | Runs project commands; fixers and regenerations may rewrite.                                        |
+| `discern_test`              | Run the test stage on demand; `discern_done` includes it.                                                                                              | Runs project commands.                                                                              |
+| `discern_update`            | Merge the selected base into this branch and re-materialize generated files.                                                                           | Mutating and idempotent for the same inputs.                                                        |
+| `discern_await`             | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                  | Read-only and idempotent; timeouts return a normal result.                                          |
+| `discern_standards`         | Measure standards, compare limits, and optionally pin improvements.                                                                                    | Runs project commands; pinning changes and commits config.                                          |
+| `discern_standards_propose` | Record or preview one exact, commit-bound proposal for an intrinsically breached standard.                                                             | Mutating, closed-world, and idempotent; commits only the config limit.                              |
+| `discern_accept`            | Land validated candidates with permission for each source; remove eligible released worktrees and resources.                                           | Ordinary landing requires consent or a verified grant; emergency requires fresh exact confirmation. |
+| `discern_impact`            | List the scopes the current change activates.                                                                                                          | Read-only and idempotent.                                                                           |
+| `discern_coupling`          | Report historical co-change partners for the current diff or named files.                                                                              | Read-only, idempotent, and advisory.                                                                |
+| `discern_patterns`          | Report findings, investigation paths, or Stats from the active logbook or a selected sealed archive.                                                   | Read-only, idempotent, and advisory; lifecycle actions are CLI-only.                                |
+| `discern_refresh`           | Rebuild generated Instructions, skills, integrations, and the ADR index, or return their complete preview.                                             | Mutating, closed-world, and idempotent; `dry_run: true` is read-only.                               |
+| `discern_map`               | Index, search, or read the project's agent-maintained map.                                                                                             | Read-only and idempotent.                                                                           |
+| `discern_docs`              | Index, search, or read discern's bundled public manual.                                                                                                | Read-only, idempotent, and project-independent.                                                     |
+| `discern_doctor`            | Check config, commands, repository shape, and integration health.                                                                                      | Read-only and idempotent.                                                                           |
+| `discern_improvement`       | Rank the next improvement and return the supporting health audit.                                                                                      | Read-only and idempotent.                                                                           |
+| `discern_checkpoints`       | Report governing checkpoints, strict obligations, open-question declaration state, and structural evidence.                                            | Read-only and idempotent.                                                                           |
 
 The input object is strict: undeclared keys are rejected. Optional keys by tool are:
 
@@ -132,13 +138,19 @@ The input object is strict: undeclared keys are rejected. Optional keys by tool 
 | `discern_doctor`            | `verbose`, `path`                                                                                                                              |
 | `discern_improvement`       | `category`, `min_score`, `path`                                                                                                                |
 
+#### Completion options
+
 For completion, `context` names the declared execution context supplied by the call and defaults to `local`. Every required context must supply applicable evidence before a candidate receives Proof. `standalone: true` provides diagnostics without queue admission or Proof. `policy_base` accepts a fetched comparison ref only for a standalone CI report. `retain_checkout: true` keeps authoring control after completion; the default releases an eligible checkout for later validation and retirement. None of these options grants landing authority.
 
 For checkout recovery, your agent calls `discern_done` with `recover` set to the owned environment id. The action returns the checkout and settles its reservation without validation or landing. Recovery cannot be combined with validation, release, policy, or judgment options.
 
+#### Emergency integration
+
 If checkpoint questions block emergency planning, your agent first supplies `action: "emergency"`, `prepare: true`, and the `reason`. Preparation runs checkpoint triggers and serves their questions without running validation jobs. The agent records satisfied served questions through `met`, an array of checkpoint ids, and receives a `preparation` receipt. That receipt goes into the later preview and confirmed call. Changed revisions or declarations require fresh preparation; an unmet question still blocks emergency integration. `dry_run: true` previews preparation without running triggers or recording answers. Preparation cannot be combined with confirmation or transition recovery.
 
 Omitting `action` selects ordinary acceptance. For emergency integration, your agent calls `discern_accept` with `action: "emergency"` and a `reason`. You review the displayed trunk, repair revision, reason, and checks that failed, never ran, or have stale evidence before your agent supplies `confirmed` and the plan’s `confirmation` token. The token expires after 15 minutes; a changed plan needs fresh approval. The repair must include actual trunk and exclude other unlanded efforts. Checkpoint judgments and protected policy remain prerequisites. The exception has its own record type and cannot serve as passing Proof. This action does not push, deploy, or change external branch protections. `recover` resumes an interrupted emergency by landing id.
+
+#### Choose a project or worktree
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
@@ -202,24 +214,13 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 | `message`     | Evaluated failures     | Explanatory failure or refusal.                                                                            |
 | `waited_ms`   | Test-slot wait         | Milliseconds spent waiting for a configured concurrent-test slot.                                          |
 
-#### Closed result vocabularies
-
-- Step `kind`: `job`, `scope-gate`, `merge-check`, `standards-limits-check`, `tracked-artifacts-check`, `instructions-check`, `skills-check`, `tracked-refresh-check`, `resource-create`, `resource-destroy`, `git`, `task-metadata`, `setup-step`, `repository-ensure`, `checkout-clean-check`, `setup-ensure`, `env`, `refresh`, `tidy`, `standard`.
-- Step `disposition`: `run`, `skip`, `gate`.
-- Step `outcome`: `ok`, `failed`, `skipped`, `cancelled`.
-- Diagnostic `severity`: `error`, `warning`.
-- `failed_stage`: `fix`, `build`, `check`, `test`, `check/test`, `scope_gates`, `tree_drift`, `generated_drift`, `refresh_drift`, `tracked_artifacts`, `instructions`, `skills`, `skill_frontmatter`, `adr_numbers`, `adr_index`, `map_integrity`, `merge`, `standards`, `write_access`.
-- Advisory `kind`: `acceptance-cleanup-incomplete`, `checkpoint-evidence-dropped`, `checkout-clean-observation-unavailable`, `doctor-warning`, `execution-cap-unavailable`, `generated-attribute-pattern-untranslated`, `ignored-file-observation-unavailable`, `landing-authority-unverified`, `optional-resource-unavailable`, `proof-recording-unavailable`, `setup-unproven-completion`, `setup-machinery-commit-failed`, `setup-marker-commit-failed`, `standards-limits-unverified`, `uninstall-strip-incomplete`.
-
-The registered `error` slugs are: `active_worktrees`, `ambiguous`, `apply_failed`, `awaiting_consent`, `awaiting_declaration`, `awaiting_standard_approval`, `awaiting_variance`, `below_min_score`, `brief_unparseable`, `checkout_failed`, `checkpoint_evidence_unavailable`, `config_template_unavailable`, `confirmation_required`, `conflict`, `desk_already_active`, `detached_head`, `diagrams_misaligned`, `dirty_worktree`, `edit_error`, `gate_failed`, `gitignore_template_unavailable`, `identity_error`, `incomplete`, `internal_error`, `invalid_arguments`, `invalid_config`, `invalid_config_file`, `invalid_migrated_config`, `invalid_settings_file`, `invalid_toml`, `invalid_value`, `no_docs`, `no_map`, `no_repository`, `no_such_step`, `no_target`, `not_found`, `not_initialized`, `not_main_checkout`, `not_on_setup_branch`, `not_on_trunk`, `not_set_up`, `partial_acceptance`, `partial_materialization`, `partial_refresh`, `pin_failed`, `precondition_failed`, `proposal_failed`, `proposal_stale`, `provisioned_resources`, `read_error`, `renamed_command`, `renamed_config_key`, `report_only_proof`, `schema_version_too_new`, `script_not_a_command`, `script_not_executable`, `setup_plan_failed`, `skills_eject_failed`, `tables_malformed`, `templates_not_found`, `tidy_parse_failed`, `tidy_write_failed`, `unchanged_tree_rerun`, `unknown_category`, `unknown_command`, `unknown_key`, `unknown_standard`, and `write_access`.
-
 `ok: true` means every required outcome in the producing verb's completion policy holds. Required writes, validation, compilation, cleanup, and final checks cannot fail under a successful envelope. An explicitly optional degradation remains successful only when `advisories[]` carries its permitted `kind`, non-empty `evidence`, and `next_action`. Hints do not waive required work ([ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
 
 `ok` and the execution state form independent discriminated contracts. A failed gate run can carry diagnostics and completed steps beside its classified error. A required late failure can carry typed partial-effect data and recovery because `ok: false` does not imply rollback. A refusal can carry a review `plan` without claiming `dry_run: true`. Serialization omits undefined fields. Branch on `ok`, then `verb`, before reading `data` ([ADR 0334](https://discern.sh/docs/decisions/0334-result-envelopes-encode-valid-structural-states)).
 
 A failed JSON, Markdown, or MCP result always includes a registered next action. JSON and `structuredContent` carry it in `hints`; Markdown places it at the end of the presentation. Owner decisions occupy a separate Owner attention section before caller actions. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](https://discern.sh/docs/decisions/0266-public-failure-recovery-is-classified-by-error-family)).
 
-`setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in terminal, JSON, and Markdown CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
+`setup begin` checks the required setup permission before applying its plan. Ordinary acceptance checks permission separately for each landing. A result awaiting consent can still describe earlier tasks that already landed, so read its per-task outcomes before retrying. The result names the decision and continuation command. Dry runs need no permission because they only show the plan.
 
 Setup consent is not write authority. Effectful commands probe plan-derived targets before mutation; denial returns `write_access`, the exact path and retry, with phase unchanged. Read-only commands do not probe ([Setup command boundaries](../40-troubleshooting/setup-and-integrations.md)).
 
@@ -229,15 +230,50 @@ Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments
 
 `status` identifies the project in `data.project`. Its default structured projection retains the main fleet row and at most six non-main rows, selected by attention, current-checkout, recent-activity, and lexical priority. Every repeated collection is capped at six. `fleet_total` and positive `projection.omitted` counts preserve exact omissions under dotted paths with zero-based array indexes. Config refusals carry `projection`. Every sampled readable row carries one `gate_proof`, whose status is `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. `report_only` is current for its commit but cannot authorize landing because checkpoint review was not enforced. An honored marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the structured-result boundary. Collision rows retain identities and shared-path counts. `discern status --verbose --json` and MCP `verbose: true` restore complete repeated collections and landing history with `projection: { mode: "full" }` and no omission map; terminal `--verbose` also holds collision paths and full Proof pages. See [Status and session hints](worktrees-and-status.md) for the dashboard and projections.
 
-A green `done` result uses compact `data.proof`; `data.gate_ran` says whether gate work ran or current Proof was reused. `data.mode = "report"` and checkpoint `review` are present only for the explicit CI lane; `checkpoint_drops` retains classified fail-open evidence. A successful `accept` carries only its consent-qualified `data.proof_line` plus any retained drops; the paste-ready review page remains available through terminal `discern status --verbose`. These projections remove repeated renderings while preserving the claim needed to report the result.
+#### Completion and landing results
+
+For `done`, inspect `data.completion` as well as the top-level verdict:
+
+| Field or value                          | Meaning                                                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `completion.kind: "complete"`           | Required candidate evidence is complete. Read the returned Proof and any landing decision.                                 |
+| `completion.kind: "pending"`            | Evidence, judgment, environment readiness, or recovery remains unresolved.                                                 |
+| `completion.kind: "diagnostic"`         | Standalone feedback; no queue admission or landing Proof.                                                                  |
+| `completion.context`                    | Declared execution context supplied by this call.                                                                          |
+| `completion.candidate_id`, `proof_id`   | Identities when available.                                                                                                 |
+| `completion.pending`, `pending_reasons` | Structured conditions and explanations for unfinished completion.                                                          |
+| `data.proof`                            | Compact Proof when completion produced it.                                                                                 |
+| `data.gate_ran`                         | Whether gate work ran. `false` can indicate current-Proof reuse or a stop before gate work, such as a checkpoint question. |
+| `data.producer_executions`              | Recorded execution counts by producer.                                                                                     |
+
+Explicit CI reports use `data.mode: "report"` and report checkpoint review without answering questions. Their feedback does not provide landing Proof. `checkpoint_drops` preserves classified uncertainty about checkpoint enforcement.
+
+Ordinary acceptance returns `data.queue`, with one row per evaluated task. Inspect every row: a later pending task does not undo an earlier landing.
+
+| Queue-row field                            | Contract                                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `effort`, `branch`, `source_head`          | Identify the authored source.                                                                                   |
+| `candidate_id`, `expected_trunk`, `target` | Candidate and exact transition, or `null` when unavailable.                                                     |
+| `state`                                    | `ready`, `pending`, or `landed`.                                                                                |
+| `pending`                                  | Conditions that still need attention.                                                                           |
+| `consent`                                  | Permission source for the row, when available; `source` is `conversation`, `standing-grant`, or `effort-grant`. |
+| `authority_settlement`                     | `pending`, `consumed`, or `restored`, when recorded.                                                            |
+| `note`                                     | `pending`, `published`, or `recovery`, when recorded.                                                           |
+| `retirement`                               | `retained`, `retired`, or `recovery`.                                                                           |
+| `convergence`                              | `pending`, `passed`, or `failed`, when recorded for main-checkout convergence.                                  |
+| `proof_line`                               | The row's consent-qualified Proof line, when available.                                                         |
+
+`data.pending` carries outstanding conditions for the call. `data.root` names the surviving checkout, including after removal of the invoking worktree. A landed row may also carry `proof_note`, `variances`, `standard_approvals`, and retained checkpoint review or drops. The published schema defines every optional field.
+
+When available, top-level `data.proof_line` is the final landing Proof line to relay. A single-row result may also expose `data.proof_note`. Older optional top-level fields, including `data.consent` and `data.landing`, remain in the schema; current ordinary acceptance uses the per-task queue account. See [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#recover-an-interrupted-acceptance) for recovery.
+
+#### Setup results
 
 An unlanded successful `setup done` carries Proof, canonical completion inventory, qualitative `inventory.project_context`, and landing state. It carries no reactivation or improvement advice. Project context includes the derived primary-subsystem handoff, project principles, and instruction sources. After successful `setup accept`, registry-derived `data.reactivation` carries each provider's exact check, local recovery, and command-line fallback. `data.activation_context` explains why a fresh session is necessary. `data.optional_improvement` remains conditional on activation verification. An in-place completion already on the trunk projects the same ordered activation contract.
 
 `setup done` failures distinguish unfinished authoring, uncommitted paths, and exact owned rollback. Transactions name `stage`, `rollback`, retained `state`, `next_action`, and `recovery`; nested diagnostics keep location, rule, and reproduce command.
 
 Applied `setup` and `upgrade` results carry `data.instruction_refresh`. `status: "complete"` means the required instruction refresh completed, even when `compiled` is empty because every artifact was current. `status: "partial"` makes top-level `ok` false and carries the completed artifacts, non-empty failure evidence, `effects_preserved: true`, and `recovery: { command: "discern refresh", safe_to_retry: true }`. The partial result reports prior scaffold or migration effects rather than pretending they rolled back.
-
-A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal Proof line and `data.proof_line` repeat that evidence.
 
 #### Plans and executed steps
 
@@ -265,6 +301,17 @@ Patterns results always carry `data.investigations`. Each entry cites source ids
 #### Diagnostics
 
 Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It may also include normalized `output`, `truncated`, `output_path`, `file`, `line`, `col`, `rule`, and `fix_available`. Use `reproduce_cmd` for the smallest direct rerun; use `output_path` when the inline capture was truncated.
+
+#### Closed result vocabularies
+
+- Step `kind`: `job`, `scope-gate`, `merge-check`, `standards-limits-check`, `tracked-artifacts-check`, `instructions-check`, `skills-check`, `tracked-refresh-check`, `resource-create`, `resource-destroy`, `git`, `task-metadata`, `setup-step`, `repository-ensure`, `checkout-clean-check`, `setup-ensure`, `env`, `refresh`, `tidy`, `standard`.
+- Step `disposition`: `run`, `skip`, `gate`.
+- Step `outcome`: `ok`, `failed`, `skipped`, `cancelled`.
+- Diagnostic `severity`: `error`, `warning`.
+- `failed_stage`: `fix`, `build`, `check`, `test`, `check/test`, `scope_gates`, `tree_drift`, `generated_drift`, `refresh_drift`, `tracked_artifacts`, `instructions`, `skills`, `skill_frontmatter`, `adr_numbers`, `adr_index`, `map_integrity`, `merge`, `standards`, `write_access`.
+- Advisory `kind`: `acceptance-cleanup-incomplete`, `checkpoint-evidence-dropped`, `checkout-clean-observation-unavailable`, `doctor-warning`, `execution-cap-unavailable`, `generated-attribute-pattern-untranslated`, `ignored-file-observation-unavailable`, `landing-authority-unverified`, `optional-resource-unavailable`, `proof-recording-unavailable`, `setup-unproven-completion`, `setup-machinery-commit-failed`, `setup-marker-commit-failed`, `standards-limits-unverified`, `uninstall-strip-incomplete`.
+
+The registered `error` slugs are: `active_worktrees`, `ambiguous`, `apply_failed`, `awaiting_consent`, `awaiting_declaration`, `awaiting_standard_approval`, `awaiting_variance`, `below_min_score`, `brief_unparseable`, `checkout_failed`, `checkpoint_evidence_unavailable`, `config_template_unavailable`, `confirmation_required`, `conflict`, `desk_already_active`, `detached_head`, `diagrams_misaligned`, `dirty_worktree`, `edit_error`, `gate_failed`, `gitignore_template_unavailable`, `identity_error`, `incomplete`, `internal_error`, `invalid_arguments`, `invalid_config`, `invalid_config_file`, `invalid_migrated_config`, `invalid_settings_file`, `invalid_toml`, `invalid_value`, `no_docs`, `no_map`, `no_repository`, `no_such_step`, `no_target`, `not_found`, `not_initialized`, `not_main_checkout`, `not_on_setup_branch`, `not_on_trunk`, `not_set_up`, `partial_acceptance`, `partial_materialization`, `partial_refresh`, `pin_failed`, `precondition_failed`, `proposal_failed`, `proposal_stale`, `provisioned_resources`, `read_error`, `renamed_command`, `renamed_config_key`, `report_only_proof`, `schema_version_too_new`, `script_not_a_command`, `script_not_executable`, `setup_plan_failed`, `skills_eject_failed`, `tables_malformed`, `templates_not_found`, `tidy_parse_failed`, `tidy_write_failed`, `unchanged_tree_rerun`, `unknown_category`, `unknown_command`, `unknown_key`, `unknown_standard`, and `write_access`.
 
 ### Model Context Protocol resources
 
@@ -321,16 +368,12 @@ Quiet result modes map exit `0` to evaluated `ok: true` and controlled nonzero t
 
 #### Compatibility by schema version
 
-Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
+A package release can retain the same public schema `$id`. Breaking changes require a new schema major, with the earlier major still published. Within a major, use the additions permitted by each contract in the table above; consumers should tolerate optional result fields and newly introduced error slugs.
 
-Every public schema is append-only within its major version relative to the highest valid predecessor release tag. A release tag at `HEAD` excludes itself from selection; without a predecessor the first publication remains unarmed. Untagged trunk changes are provisional. Every generated artifact compiles strictly as JSON Schema Draft 2020-12. The artifact records its compatibility policy, and same-major comparisons use the policy from the tagged artifact. Existing configuration defaults are structural within a major. A breaking major adds a publication, artifact, and route while retaining the earlier major.
+Runtime validation remains strict. Unknown or malformed configuration keys fail even though later releases may introduce new optional keys. The published configuration schema is an authoring snapshot: refresh a cached copy before validating configuration from a newer release. The bounded setup recipe also rejects an unsupported declared major.
 
-The v1 result publication uses discriminated envelopes and explicit completion contracts. Setup and upgrade consumers use `data.instruction_refresh`; a partial required refresh is a failed command even though its payload preserves completed effects. A successful `setup accept` that has nothing to land carries `data.completion = { status: "no_op", reason }` rather than omitting its landing outcome; `reason` distinguishes `no_git_repository` from `already_on_target`. Contradictory fixtures and lying success states are invalid ([ADR 0334](https://discern.sh/docs/decisions/0334-result-envelopes-encode-valid-structural-states), [ADR 0349](https://discern.sh/docs/decisions/0349-top-level-success-follows-completion-policies)).
+The v1 result contract separates success, failure, previews, and applied effects. For example, `data.instruction_refresh.status: "partial"` means a required refresh failed even when earlier setup or upgrade effects remain. A successful `setup accept` with nothing to land carries `data.completion = { status: "no_op", reason }`; `reason` distinguishes `no_git_repository` from `already_on_target`.
 
-The comparison permits the table's additions, reordered contract unions, and the first MCP exposure of an existing CLI contract. In config schemas, a new named property must accept every value admitted for that name by the trunk object's `additionalProperties` schema. Its named schema may add members to the catchall's `type` set; `oneOf` stays under structural comparison. Tuple schemas compare `prefixItems` by position.
+Schemas use JSON Schema Draft 2020-12. The release source contains `types/discern-json.d.ts`, and the result schema publishes `x-discern-contracts` metadata for each verb's completion requirements and permitted advisories. Use these artifacts from the release you integrate with.
 
-A result-role aggregate may widen only when its definition contains `oneOf` and annotation keywords, and the trunk exposes 1 acyclic same-instance route to it from the top-level branches. A recognized aggregate cannot add named properties. The route must be a pure top-level `$ref` to the aggregate. Constrained references and applicators such as `allOf` or `dependentSchemas` count as routes but cannot grant widening authority. Repeated references and wrapper branches count separately. An ambiguous aggregate and a nested union stay closed.
-
-The same rule permits a role's first aggregate when the trunk has no registry references for that role, every current role reference introduces a definition, 1 new aggregate contains only `oneOf` and annotation keywords with the full current reference set, and 1 pure top-level entrypoint is its sole route. The comparison rejects policy drift, arbitrary metadata that tries to authorize a union change, removals, and changes to existing types, required result fields, or validation ([ADR 0208](https://discern.sh/docs/decisions/0208-public-contracts-version-by-schema-major)).
-
-The published config schemas are closed authoring snapshots. Refresh a cached copy before validating newer optional keys. At runtime, both live `discern.toml` and the bounded setup recipe are strict: an unknown or malformed key fails, and the recipe also refuses an unsupported declared major. See [Runtime data boundaries](https://discern.sh/map/development/runtime-data-boundaries).
+For the rules used to publish and compare schema versions, see [Runtime data boundaries](https://discern.sh/map/development/runtime-data-boundaries). The compatibility checks cover required fields, defaults, types, reference paths, and contract unions; those publication details do not change how callers interpret a result.

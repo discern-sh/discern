@@ -1,8 +1,8 @@
 ---
 id: guide-set-and-raise-standards
 title: "Set and raise standards"
-description: "Add a meaningful standard, respond without weakening it, and pin an earned gain."
-order: 40
+description: "Choose a useful measure, retain an improvement, and make informed decisions when a limit is reached."
+order: 100
 publish: true
 kind: guide
 aliases:
@@ -12,112 +12,131 @@ aliases:
   - "metric ceilings"
 ---
 
-# Set and raise Standards
+# Set and raise standards
 
-Use this guide when a project has a deterministic quality number that future changes must preserve. A standard holds today's earned ground: a floor may rise, or a ceiling may fall. It is the wrong tool for a question that needs judgment or an aspirational target the project has not reached.
+Use a standard when an improvement matters enough that future changes should preserve a measured limit. Your agent handles the measurement and configuration. You decide what is worth holding and whether a later tradeoff justifies changing it.
 
-The person responsible decides whether the metric deserves to block work and owns any proposal to move a limit in the weaker direction. The coding agent designs and tests the measurement, follows the `discern-set-the-standard` skill, and never loosens an existing limit to pass.
+For example, you can track the amount someone downloads to open your app. Keeping that size in view helps prevent a useful saving from disappearing as agents add features.
 
 ## Starting state
 
-- The project already runs discern from a clean worktree.
-- The person has named the quality to preserve and accepts that a breach will stop the gate.
-- The current trunk has a measurable baseline. The initial limit will describe that baseline rather than a future goal.
+The project should already be set up with discern. Bring the quality you care about; you do not need to know its measuring tool or the files involved.
 
-## Add a Standard
+> Use discern-set-the-standard to propose a limit for the app's initial download size. Explain exactly what it would measure, the current value, and how it would handle normal growth. I want to review the proposal before it becomes project policy.
+
+The skill guides your agent through choosing, wiring, and checking the measure. If the concern cannot be judged by a repeatable number, the agent may recommend a [checkpoint](place-and-answer-checkpoints.md) or another kind of check instead.
+
+## Add a standard
 
 ### 1. Choose a defensible number
 
-**Coding agent:** Invoke the `discern-set-the-standard` skill. Confirm that the measurement is deterministic, affordable, meaningful, and owned.
+Ask the agent to explain the proposal in terms you can assess:
 
-Classify the number before writing config:
+- **Meaning:** What would an increase or decrease tell us about the app?
+- **Repeatability:** Will the same project state give the same result?
+- **Cost:** Can the project afford to measure it during completion?
+- **Growth:** Will useful new features change the number even when nothing has got worse?
 
-- An invariant, such as suppressions or uses of a deprecated API, holds a raw count.
-- A quality that moves with healthy project growth, such as coverage, usually holds a rate with `per` and `scale`.
-- A growing total, such as an asset size, needs a defensible rate or an explicit `margin`. A zero-margin ceiling at today's total will block the next legitimate increase.
+For download size, define which files and units count. For a growing quantity, consider a rate or deliberate headroom. For something the project intends to remove, such as remaining uses of an obsolete implementation, a raw count can be appropriate.
 
-Use `direction = "up"` for a floor and `direction = "down"` for a ceiling.
+Start with a limit the project currently meets. A hoped-for improvement belongs in a task plan; setting that future value as today's limit would block ordinary work before the improvement exists.
 
 ### 2. Add the measurement and current limit
 
-**Coding agent:** Keep the measurement command in the repository. It must read the tree and emit:
+After you agree the proposal, your agent writes the measuring command and adds the standard to `discern.toml`. It records what the number means so future agents can understand the reason for it.
 
-```text
-DISCERN_METRIC metric-name 41
-```
-
-Add one table to `discern.toml`. This ceiling example holds the current count of suppressions:
+An illustrative project that currently measures 1,200 kB might use:
 
 ```toml
-[standards.suppressions]
+[standards.download_size]
 direction = "down"
-limit = 41
-run = "tools/count-suppressions"
-inputs = ["src/**", "tests/**"]
+limit = 1200
+margin = 100
+run = "tools/measure-download-size"
 ```
 
-Declare `inputs` only for every path the metric reads. A narrow list can replay an old measurement after a relevant change. Share an expensive producer with the jobs or standards that already need it. Declare its full input closure and applicable toolchain and environment facts, and give it a justified time budget. Every standard remains required for completion.
+Here, `down` makes the limit a maximum. `up` would make it a minimum. The 100 kB margin leaves headroom when a later improvement is pinned; the current limit is still 1,200 kB.
+
+`tools/measure-download-size` is a project-specific script the agent would provide, not a command shipped by discern. It builds or reads the agreed files and emits the measurement:
+
+```text
+DISCERN_METRIC download_size 1200
+```
+
+The producer must complete successfully and supply a valid measurement. A missing number, a failed command, or a value outside the limit needs attention.
+
+If the project already produces this measurement during another check, the agent can reuse that producer. It should declare all relevant inputs, toolchain facts, and environment conditions so old evidence is reused only when applicable. The [configuration reference](../30-reference/config-reference.md#standardsname) holds those fields.
 
 ### 3. Exercise both outcomes
 
-**Coding agent:** Run the named standard through the primary agent tool, `discern_standards`, or its command-line equivalent:
+Ask the agent to demonstrate that the standard accepts the current app and catches a representative breach. A test in a disposable fixture can show the failure without leaving the project in that state.
+
+The agent measures a named standard with `discern_standards`, or:
 
 ```sh
-discern standards suppressions
+discern standards download_size
 ```
 
-Record the measured value and confirm it passes at the proposed limit. In a temporary local change or hermetic fixture, set the limit beyond the measured value and verify that the same command refuses. Restore the real current limit before committing. This proves the detector catches the failure it claims to guard.
+You should receive the measured value, held limit, and evidence that the failing case is detected. The agent then runs `discern_prepare`, commits the intended change, and runs `discern_done`. Review and land the policy through [Finish and land a change](finish-and-land-a-change.md).
 
-Run `discern prepare`, commit the measurement, config, and current documentation, then run the full gate. The person reviews and lands this as a policy change. Until the table reaches the trunk, it does not establish a shared baseline for other efforts.
+## Respond when a standard fires
 
-## Respond when a Standard fires
+### 1. Understand the increase
 
-### 1. Preserve the trunk limit
+A breach deserves investigation before a policy decision. Ask:
 
-**Coding agent:** Read the measured value, limit, direction, and delta from the result. Never delete the standard or weaken its limit in the branch. The gate compares the branch definition with the trunk and refuses that regression.
+> Explain the measured change and what caused it. Look for reasonable fixes within this task. If the increase is part of the feature we want, show me that tradeoff rather than cutting unrelated useful work.
 
-If this task introduced avoidable instances, remove those instances within the task's scope and rerun the named standard. Do not offset legitimate growth by degrading unrelated code or documentation.
+For example, after a previous improvement lowered the ceiling to 1,000 kB, a new feature might measure 1,040 kB. The agent should explain the extra 40 kB and what it buys. A broken measuring command is a different problem and needs repair, not a new size limit.
 
-### 2. Escalate intrinsic growth with measured facts
+The agent keeps the held limit while it investigates. Removing the standard, shrinking what gets measured, or raising the limit by hand would change the rule instead of resolving the result.
 
-When the requested work necessarily moves the metric in the wrong direction, stop and report:
+### 2. Decide whether the tradeoff is worthwhile
 
-> `<standard>` measured `<value>`, a `<delta>` change. `<reason the growth belongs to this work>`. The current limit is `<limit>`.
+If a reasonable implementation can fit the existing limit, have the agent make that change. If the extra size is justified, ask for a formal proposal. You can also defer the feature or choose a smaller version.
 
-**Person:** Decide whether to change the work, keep the limit, or review a proposed new limit. A task brief, standing landing grant, or generic acceptance does not approve a weaker standard.
+Your decision should be about the outcome. For example: is the new search useful enough to justify the additional download, and is there a simpler alternative with the same benefit?
+
+Permission to land the feature does not also approve weakening its standard. That separate decision keeps the measurement's cost visible.
 
 ### 3. Finalize an approved proposal
 
-After the person agrees that a proposal is warranted, **coding agent:** finish the implementation and commit its final tree. Then run:
+Once you agree a proposal is warranted, the agent finishes the implementation and commits its final tree. It then runs:
 
 ```sh
-discern standards propose standard-name --reason "owner-facing reason"
+discern standards propose download_size --reason "The agreed search feature increases the initial download"
 ```
 
-The command measures the named standard on the clean `HEAD` and creates or renews the proposal evidence. Follow its next action, produce current Proof, and hand the proposal token back with the measured value and reason.
+The command measures the named standard, creates the proposal's configuration commit, and records its value and reason. The agent follows the result's next action and produces current [Proof](../20-understand/proof.md).
 
-At acceptance, **person:** approve that exact value-and-reason tuple. **Coding agent:** pass the served token with current conversational consent:
+Review the exact old limit, proposed limit, measurement, and reason together. If you approve that proposal, the agent uses its returned token at acceptance:
 
 ```sh
 discern accept --confirmed --approve-standard <token>
 ```
 
-Acceptance refuses if the token set does not match the current proposal set. An edit or changed measurement creates a different decision and requires renewed evidence.
+The token must match the current proposal. Further edits may require renewed measurement and proposal evidence; the agent follows the reported recovery rather than carrying forward an old approval for a different value.
 
 ## Pin an earned improvement
 
-When an ordinary change improves a standard, the result may offer to retain the gain. On the clean commit with current gate evidence, **coding agent:** run:
+When a change improves an existing measure, ask to retain the gain:
+
+> Pin the download-size improvement, keeping our configured margin. Show me the measured value and the new ceiling, then finish the resulting change through the gate.
+
+On a clean committed tree, the agent runs:
 
 ```sh
-discern standards --pin standard-name
+discern standards --pin download_size
 ```
 
-Pin tightens the limit in the allowed direction, commits that config change, and reuses compatible evidence when available. A configured `margin` leaves the declared headroom. Review the result before acceptance; the tighter limit becomes the baseline only after it lands.
+If the old ceiling is 1,200 kB, the new measurement is 900 kB, and the margin is 100 kB, pinning sets the ceiling to 1,000 kB. It commits that limit change separately. Pinning cannot loosen a limit, and an improvement smaller than the margin may leave nothing to pin.
 
-When a ceiling reaches zero, replace the transition metric with an always-on check that fails on the first new instance, then retire the standard as part of that owner-reviewed change.
+discern reuses compatible measurement evidence when available. Pinning itself does not establish completion for the new commit: follow the result and renew the full gate evidence before landing.
+
+For a count you intend to reduce to zero, ask the agent to plan a permanent check for the first new instance. Keep the standard until any replacement policy has been explicitly reviewed; deleting a held standard on an ordinary branch fails the gate.
 
 ## Completion
 
-A new standard is complete when its passing and failing paths have both been observed, its limit equals the current trunk baseline, the full gate passes, and the owner has landed the policy. A response to a breach is complete when the metric is back within the held limit or the exact proposal has current Proof and explicit owner approval.
+A useful standard has an understandable purpose, a working detector, and a limit the project can meet. Once its policy lands, later work must satisfy it. When an improvement is pinned or a limit proposal is approved, the final completion evidence should describe that exact change.
 
-Read [Standards and retained gains](../20-understand/standards.md) for the model, [Config reference](../30-reference/config-reference.md#standardsname) for every key, and [Fix a red gate](fix-a-red-gate.md) when a measurement fails operationally.
+[Standards](../20-understand/standards.md) explains retained gains with a worked example. [Fix a red gate](fix-a-red-gate.md) helps when the measurement cannot run, and the [configuration reference](../30-reference/config-reference.md#standardsname) lists every setting.
