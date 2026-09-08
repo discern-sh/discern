@@ -13,7 +13,7 @@ aliases:
 
 # Make and review your first change
 
-A small improvement is a good way to learn the whole discern workflow. You can see whether the result helps, understand what your agent checked, and make a landing decision without needing to follow every line of code.
+A small improvement is a good way to learn discern's complete workflow. You can see whether the result helps, understand what your agent checked, and make a landing decision without needing to follow every line of code.
 
 This tutorial uses a search page that says “No results” when it finds nothing. You will ask your agent to make that message more helpful, try the result, and decide whether to add it to the shared project. The same pattern works for a clearer button label or a short explanation beside a form.
 

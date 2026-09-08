@@ -49,7 +49,7 @@ Your agent should bring back a small plan you can assess. For the reading-list e
 | Use the list on a phone | Read titles and reach the controls at a narrow screen size. | Shared screen changes may belong with search.                  |
 | Improve the help        | Follow the instructions to add and find a first book.       | The final instructions depend on the finished search behavior. |
 
-This is an illustrative plan; your agent needs to check the actual project before recommending it. Two features that sound independent may rely on the same code.
+This is an illustrative plan; your agent needs to check the actual project before recommending it. Features that sound independent may rely on the same code.
 
 Each task should have a result you can describe and review. If the split makes a simple change harder to explain, ask the agent to combine it. A single task can still use sub-agents for independent research or review while keeping one workspace and one finished change.
 
@@ -59,7 +59,7 @@ For genuinely separate tasks, each agent receives its own **worktree**: a worksp
 
 A fresh agent does not inherit the planning conversation. Your planning agent writes a complete brief for each task, including the context, relevant files, expected behavior, exclusions, and checks. It also records any dependency and the worktree the task should use.
 
-Read each brief as if it were the only instruction the next agent would receive. Look especially for three things:
+Read each brief as if it were the only instruction the next agent would receive. Check that it explains:
 
 - **A visible result.** “Search finds books by title or author” gives you something to try.
 - **A meaningful boundary.** “Keep the way books are added” preserves a part of the app you already like.

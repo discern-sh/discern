@@ -54,7 +54,7 @@ The report gives counts, the runs those counts came from, and limits on the comp
 
 The local record can point to a problem, but it does not contain the code or command output that explains it. Your agent follows the finding into the configuration, instructions, source, or available diagnostic output.
 
-If the question concerns files that may need to change together, the agent can also use `discern coupling`. This reads Git history to identify files that often changed together. It is a prompt to inspect a relationship, not a requirement to edit every suggested file.
+If the question concerns files that may need to change together, the agent can also use `discern coupling`. This reads Git history to identify files that often changed together. Use the suggestions to decide which relationships need inspection.
 
 For example, an implementation file and a test file may often change together. The agent should check whether the current change needs that test updated, and explain a material omission during review. History can help it remember where to look; the actual task determines what needs changing.
 

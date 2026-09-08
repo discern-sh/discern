@@ -31,7 +31,7 @@ A red gate gives you a chance to resolve a problem before the change lands. You 
 
 Open the diagnostic's captured output. Its `reproduce_cmd` names the command for investigating that failure alone; `output_path`, when supplied, leads to the full log. Retrieve that saved output if the displayed result was cut short.
 
-For example, a failed search test should lead to an explanation such as “Searching by an ingredient misses recipes whose title doesn't contain it,” followed by a repair and a focused test. The error could also come from a missing dependency or an incorrect check. The diagnostic is evidence to investigate, not a diagnosis to assume.
+For example, a failed search test should lead to an explanation such as “Searching by an ingredient misses recipes whose title doesn't contain it,” followed by a repair and a focused test. The error could also come from a missing dependency or an incorrect check. Ask the agent to investigate the diagnostic before choosing a repair.
 
 [Fix a red gate](../10-guides/fix-a-red-gate.md) gives the full working procedure. The cases below cover results that need a different next step.
 
@@ -53,7 +53,7 @@ An already passing result is different: discern can reuse applicable evidence wi
 
 Have the agent reproduce the named failure, inspect its cause, and make the smallest appropriate repair. For fix and check stages, `discern prepare` may be the useful inner loop. For a test failure, the diagnostic's narrower command usually gives a faster answer.
 
-Two nearby states deserve attention:
+Check which evidence state applies:
 
 - **A successful job printed error-like output.** Read the captured log and check whether the job swallowed a failure. The exit status alone does not settle that question.
 - **Tests are queued.** If the project caps concurrent test runs, a busy queue waits for a slot. Direct test commands should use `discern queue -- <command>` under the same configured cap.

@@ -26,6 +26,7 @@ import { REGISTERS } from "../scripts/brand/model.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/mechanical_checks.ts";
 import {
   coveragePartitionIssues,
+  renderValeRule,
   renderVoiceEnforcementCoverageDoc,
   resolveValeSource,
   VALE_DISPOSITIONS,
@@ -332,4 +333,99 @@ Deno.test("rule ids are unique per style and PascalCase", () => {
     assert(!seen.has(key), `${key} is declared twice`);
     seen.add(key);
   }
+});
+
+Deno.test("canonical casing keeps linked titles and catches errors inside labels", async () => {
+  const rule = VALE_STYLE_RULES.find((candidate) =>
+    candidate.register === "product" && candidate.id === "CanonicalTermCase"
+  );
+  assert(rule !== undefined);
+  const cases = [
+    { text: "This is not proof that another file must change.", count: 0 },
+    { text: "Read [Practice and roles](page.md).", count: 0 },
+    {
+      text: "For details, read [Standard examples][guide].\n\n[guide]: page.md",
+      count: 0,
+    },
+    {
+      text:
+        "For details, read [Review the **Standard**][guide].\n\n[guide]: page.md",
+      count: 1,
+    },
+    { text: "See [Gate and Proof troubleshooting](page.md).", count: 0 },
+    { text: "Read [Worktrees and the trunk](page.md).", count: 0 },
+    {
+      text:
+        "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../20-understand/practice-and-roles.md).",
+      count: 0,
+    },
+    {
+      text:
+        "For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.",
+      count: 0,
+    },
+    {
+      text:
+        "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md).",
+      count: 0,
+    },
+    {
+      text: "Read [**Standard** examples][guide].\n\n[guide]: /the-Gate",
+      count: 0,
+    },
+    { text: "[Read the Gate](page.md).", count: 1 },
+    {
+      text: "Read [Review the **Standard**][guide].\n\n[guide]: page.md",
+      count: 1,
+    },
+    { text: "Run the **Gate**.", count: 1 },
+    { text: "Run the Gate and inspect the proof line.", count: 2 },
+    { text: "Read the proof notes.", count: 1 },
+    { text: "Read the Proof notes.", count: 0 },
+    { text: "# Read the Gate\n\nGate remains visible.", count: 0 },
+    { text: "A label\n\nGate remains visible.", count: 0 },
+    {
+      text: "Read ``the Gate and `proof note` `` before continuing.",
+      count: 0,
+    },
+    { text: "    Read the Gate and proof note.\n", count: 0 },
+    { text: "Return data.proof and data.proof.line to the caller.", count: 0 },
+  ];
+  await withTempDir(async (dir) => {
+    const style = join(dir, "styles", "DiscernProduct");
+    await Deno.mkdir(style, { recursive: true });
+    await Deno.writeTextFile(
+      join(style, "CanonicalTermCase.yml"),
+      renderValeRule(rule),
+    );
+    const config = join(dir, "vale.ini");
+    await Deno.writeTextFile(
+      config,
+      `StylesPath = ${join(dir, "styles")}\nMinAlertLevel = suggestion\n` +
+        "[*.md]\nBasedOnStyles = DiscernProduct\n",
+    );
+    for (const [index, fixture] of cases.entries()) {
+      await writeGeneratedFixture(dir, `case-${index}.md`, fixture.text);
+    }
+    const run = await runVale(REPO_ROOT, [
+      `--config=${config}`,
+      "--output=JSON",
+      "--minAlertLevel=suggestion",
+      dir,
+    ]);
+    const output = decodeWith(
+      ValeOutputSchema,
+      new TextDecoder().decode(run.stdout),
+    );
+    for (const [index, fixture] of cases.entries()) {
+      const alerts = generatedFixtureAlerts(output, `case-${index}.md`);
+      assertEquals(
+        alerts.filter((alert) =>
+          alert.Check === "DiscernProduct.CanonicalTermCase"
+        ).length,
+        fixture.count,
+        fixture.text,
+      );
+    }
+  });
 });

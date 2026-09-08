@@ -1,7 +1,8 @@
-# Two em dashes in one sentence is a chain (voice skill: banned moves). A
-# period, a colon, or parentheses handles what the second dash is doing.
+# A pair of em dashes may enclose one short explanatory aside. Counting dashes
+# cannot distinguish that from a chain of independent statements, so the writer
+# decides whether the sentence needs separate clauses or sentences.
 extends: occurrence
-message: "More than one em dash in this sentence: rebuild it with a period, colon, or parentheses."
+message: "Review the paired em dashes: do they enclose one useful aside, or would separate sentences make the clauses easier to follow?"
 level: warning
 scope: sentence
 max: 1

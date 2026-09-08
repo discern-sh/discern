@@ -19,7 +19,7 @@ aliases:
 
 Before adding a tool to your project, you may want to know where its records go, what it can change, and whether it adds another service to manage. discern keeps its own work local: it contains no AI model, needs no account or API key, and sends no telemetry.
 
-Your coding agent and project commands still have their own behavior. Understanding that distinction helps you choose permissions and review the setup without assuming that one local tool makes the whole workflow offline.
+discern itself makes no network requests. It does not block network access for your agent or your project's code.
 
 ## No model inside
 

@@ -32,20 +32,20 @@ discern comes with skills you can use immediately after setup. Start with a requ
 
 The requests below show what each bundled skill helps accomplish. You can name the skill explicitly, or describe the task and let your agent select it.
 
-| Ask your agent                                                                                  | The method and what comes back                                                                                                                                            |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| “Help me divide this feature into tasks that several agents can work on.”                       | `discern-delegate-work` prepares complete briefs, identifies dependencies, and offers independent review. See [Delegate work](delegate-work.md).                          |
-| “Wait for the saved-items task to land, then build search on top of it.”                        | `discern-await-the-fleet` waits for the named work in another effort, then brings it into the dependent task. See [Wait for another task](wait-for-another-task.md).      |
-| “This bug keeps returning. Find the cause and check for it everywhere it can occur.”            | `discern-cure-a-bug` investigates the cause, fixes the affected cases, and leaves a practical check against recurrence.                                                   |
-| “Clean up the unused and duplicated code without changing how the app works.”                   | `discern-clear-the-decks` verifies each removal, makes small changes, and establishes a measure to keep the clutter from growing back.                                    |
-| “We reduced how much people download to open the app. Help us keep that improvement.”           | `discern-set-the-standard` chooses a useful measurement and sets a limit the gate can hold. See [Set and raise standards](set-and-raise-standards.md).                    |
-| “When a form changes, make sure someone considers whether its questions are clear.”             | `discern-place-a-checkpoint` turns that concern into a focused review question for relevant changes. See [Place and answer checkpoints](place-and-answer-checkpoints.md). |
-| “Update our project guide to explain how saved lists work.”                                     | `discern-document-subsystem` checks the code and refreshes the relevant section of the configured project guide.                                                          |
-| “Remember what we learned here so the next session can use it.”                                 | `discern-teach-the-project` finds the right existing home for the lesson or creates the smallest useful one. See [Teach a durable lesson](#teach-a-durable-lesson).       |
-| “Record why we chose to let people use saved lists without signing in.”                         | `discern-write-adr` records a significant decision, its reasons, and the alternatives in an Architecture Decision Record (ADR).                                           |
-| “These three parts of the app repeat the same list of choices. Give that information one home.” | `discern-write-it-once` finds one source for a shared fact and connects the places that depend on it, with checks to keep them aligned.                                   |
+| Ask your agent                                                                            | The method and what comes back                                                                                                                                            |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| “Help me divide this feature into tasks that several agents can work on.”                 | `discern-delegate-work` prepares complete briefs, identifies dependencies, and offers independent review. See [Delegate work](delegate-work.md).                          |
+| “Wait for the saved-items task to land, then build search on top of it.”                  | `discern-await-the-fleet` waits for the named work in another effort, then brings it into the dependent task. See [Wait for another task](wait-for-another-task.md).      |
+| “This bug keeps returning. Find the cause and check for it everywhere it can occur.”      | `discern-cure-a-bug` investigates the cause, fixes the affected cases, and leaves a practical check against recurrence.                                                   |
+| “Clean up the unused and duplicated code without changing how the app works.”             | `discern-clear-the-decks` verifies each removal, makes small changes, and establishes a measure to keep the clutter from growing back.                                    |
+| “We reduced how much people download to open the app. Help us keep that improvement.”     | `discern-set-the-standard` chooses a useful measurement and sets a limit the gate can hold. See [Set and raise standards](set-and-raise-standards.md).                    |
+| “When a form changes, make sure someone considers whether its questions are clear.”       | `discern-place-a-checkpoint` turns that concern into a focused review question for relevant changes. See [Place and answer checkpoints](place-and-answer-checkpoints.md). |
+| “Update our project guide to explain how saved lists work.”                               | `discern-document-subsystem` checks the code and refreshes the relevant section of the configured project guide.                                                          |
+| “Remember what we learned here so the next session can use it.”                           | `discern-teach-the-project` finds the right existing home for the lesson or creates the smallest useful one. See [Teach a durable lesson](#teach-a-durable-lesson).       |
+| “Record why we chose to let people use saved lists without signing in.”                   | `discern-write-adr` records a significant decision, its reasons, and the alternatives in an Architecture Decision Record (ADR).                                           |
+| “These parts of the app repeat the same list of choices. Give that information one home.” | `discern-write-it-once` finds one source for a shared fact and connects the places that depend on it, with checks to keep them aligned.                                   |
 
-These are methods, not extra models or automatic permission to act. Your agent still needs to understand the project, honor the task's scope, and verify its changes.
+Skills teach your agent a method to follow. The agent still needs to understand your project to know when and how to use it.
 
 Ask “which skills are available in this project?” to see the known skills, including the project's additions and customizations. Your agent uses `discern skills list`, which also marks excluded skills. A skill can be known to discern without being supplied to the coding tool; the current session may also need its integration refreshed.
 
@@ -91,7 +91,7 @@ Your agent prepares and commits the authored skill, runs the full gate, and brin
 
 When a bundled method needs a lasting project-specific change, ask your agent to adapt it. The agent uses `discern skills eject` with that skill's exact name to copy it into your authored directory, then edits the copy and refreshes.
 
-A project-authored skill with the same name overrides the bundled version. This leaves one effective method, while putting responsibility for its customized wording in your project. Try the changed procedure before landing it. A preference for just one task can stay in that task's request.
+A project-authored skill with the same name overrides the bundled version. This leaves one effective method, while putting responsibility for its customized wording in your project. Try the changed procedure before landing it. A preference for a particular task can stay in its request.
 
 ## Exclude an unused skill
 

@@ -61,7 +61,7 @@ Keep each effort in its worktree through review and resumed sessions. An idle or
 
 ## Confirm isolation beyond the checkout
 
-Separate files are only part of a working environment. Two copies of an app may also need different development-server ports or test databases. Otherwise, one task's test could change the data another task is using.
+Separate files are only part of a working environment. Each copy of an app may need its own development-server port or test database. Otherwise, one task's test could change the data another task is using.
 
 discern prepares the resources declared for each worktree. Your agent can inspect them with `discern identity --resources` and use their returned values. You can ask it to check this without choosing port numbers or writing database setup commands yourself:
 

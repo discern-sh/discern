@@ -1,7 +1,8 @@
-# Singular and scope emphasis (voice skill: banned words). These forms sometimes
-# carry a real distinction, so they remain warnings for the writer to judge.
+# Avoid stock singular and scope emphasis. Keep this detector blocking.
+# Name the selected item or relevant scope directly; do not substitute another
+# empty intensifier to evade the pattern.
 extends: existence
-message: "'%s' is seasoning, not information: cut it, or replace it with the fact."
+message: "Remove the emphasis in '%s'; name the relevant item or scope directly. Do not replace an empty intensifier with a synonym."
 ignorecase: true
 level: warning
 nonword: true

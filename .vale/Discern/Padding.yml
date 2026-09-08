@@ -1,8 +1,8 @@
-# The high-frequency padding words (voice skill: banned words). Suggestion
-# severity: each occasionally carries meaning ("just" as "only"), so this rule
-# prompts a look rather than asserting a defect.
+# These qualifiers can change meaning. Review them in context rather than
+# equating their presence with a defect. Avoid calling difficult work easy;
+# an easy-to-use goal can describe the user's intended outcome.
 extends: existence
-message: "'%s' is usually padding: delete it unless it changes the meaning."
+message: "Review '%s': keep a qualifier that changes meaning; remove empty reassurance or claims that difficult work is easy."
 ignorecase: true
 level: suggestion
 tokens:

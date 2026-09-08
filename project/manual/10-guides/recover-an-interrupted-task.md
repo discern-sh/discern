@@ -114,7 +114,7 @@ git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/
 
 The agent checks the branch identity, date, and commit contents. The most recent entry may belong to a different task.
 
-It can create a normal branch at the selected reference without switching the main checkout. This example uses an illustrative reference; substitute the one returned for your task:
+It can create a normal branch at the selected reference without switching the main checkout. Use the reference returned for your task in place of this example:
 
 ```sh
 git branch recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd

@@ -7,7 +7,7 @@
  * scans `_internal/brand/`, so it switches on when the brand pages promote
  * out of `_private`; the product and agent styles join the map-wide scan
  * beside the authored house style (`.vale/Discern/`), which keeps the
- * shared banned canon — these styles add only what it does not cover.
+ * shared voice patterns — these styles add only what it does not cover.
  *
  * Every rule cites its registry sources (a banned word or move, a voice
  * rule or principle, a proposed mechanical check from the copy review), and
@@ -108,10 +108,11 @@ export interface ValeStyleRule {
 
 /**
  * The generated rule set, in rendering order. The authored house style
- * already blocks the shared banned canon map-wide (hype vocabulary,
+ * already detects the shared voice patterns map-wide (hype vocabulary,
  * contrast-frames, scene-setting, self-narration, and the rest), so a rule
- * appears here only when it adds enforcement the house style does not
- * carry; each comment names any sibling coverage.
+ * appears here only when it adds coverage the house style does not carry.
+ * EDITORIAL_PROSE_RULES in scripts/prose_lib.ts keeps selected house rules
+ * visible for review without blocking; each comment names sibling coverage.
  */
 export const VALE_STYLE_RULES = [
   // ── brand: scans _internal/brand/ (active once the pages promote) ──
@@ -348,9 +349,9 @@ export const VALE_STYLE_RULES = [
     id: "CanonicalTermCase",
     register: "product",
     comment:
-      "Running prose capitalizes Proof and its family only. Every glossary entry declares its case; headings, sentence starts, exact identifiers, and external proper names retain their own casing.",
+      "Running prose capitalizes product Proof and its family only; ordinary proof remains lowercase. Automatic lowercase enforcement covers unambiguous Proof line/note forms. Every glossary entry declares its case; headings, sentence starts, linked-title starts, exact identifiers, and external proper names retain their own casing.",
     message:
-      "Canonical product-term casing ('%s'): capitalize Proof and its family only; lowercase other glossary concepts in running prose.",
+      "Canonical product-term casing ('%s'): capitalize product Proof line/note forms; lowercase other glossary concepts in running prose.",
     level: "warning",
     sources: [
       {
@@ -361,9 +362,10 @@ export const VALE_STYLE_RULES = [
     ],
     contract: {
       bad: "Run the Gate, then read the proof line.",
-      safe: "Run the gate, then read the Proof line.",
+      safe:
+        "Read [Gate and Proof troubleshooting](page.md). A finding is not proof of its cause.",
       residual:
-        "Registry-derived running-prose positions are enforced; headings, sentence starts, exact identifiers, and external names remain editorial.",
+        "Registry-derived running-prose positions and unambiguous lowercase proof line/note forms are enforced. Bare proof requires semantic review. The shared Vale caller rechecks casing findings against parsed Markdown boundaries; capitalization inside a label is still checked. Headings, sentence starts, exact identifiers, and external names retain their own casing.",
     },
     check: {
       extends: "existence",
@@ -1216,6 +1218,8 @@ export function renderVoiceEnforcementCoverageDoc(): string {
     "",
     "A semantic residual records the fact a machine would need before enforcement could be sound. Covered rows name the exact authority, guard, generated target where one exists, and test.",
     "",
+    "A Vale row identifies detector coverage. Blocking alerts are selected by selectProseGateAlerts in scripts/prose_lib.ts; EDITORIAL_PROSE_RULES names the context-sensitive house rules that remain visible for review without blocking. Unlisted discern-authored alerts and error-severity findings retain their enforcement. A detected pattern still needs the judgment described in its residual.",
+    "",
     "| Proposal | Register | Mechanism | Authority | Guard | Target | Test | Residual status |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
@@ -1234,7 +1238,7 @@ export function renderVoiceEnforcementCoverageDoc(): string {
     "",
     "## Supplemental generated rules",
     "",
-    "These rules enforce signed-off voice canon outside the proposal registry. The register Vale-style canonical set owns their membership and generated files.",
+    "These detectors cover voice canon outside the proposal registry; the shared alert selector determines which findings block. The register Vale-style canonical set owns their membership and generated files.",
     "",
     "| Rule | Register | Authority | Guard | Target | Test | Residual status |",
     "| --- | --- | --- | --- | --- | --- | --- |",

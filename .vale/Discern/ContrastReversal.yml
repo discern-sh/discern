@@ -1,9 +1,8 @@
-# The appositive contrast-frame — "X, not Y." / "X, never Y." — the reversed
-# twin of ContrastFrame's "not X, but Y" (voice skill: banned moves). Same
-# budget: docs one per page and only when the distinction does real work;
-# marketing zero.
+# The "X, not Y" / "X, never Y" family can explain a consequential boundary.
+# This is an editorial prompt, with no per-page budget. Lookup entries may
+# repeat a necessary distinction for readers who arrive directly at that entry.
 extends: existence
-message: "Reversed contrast-frame ('%s'): state the true half plainly, unless the distinction does real work."
+message: "Avoid '%s': state the behavior directly, unless a likely misunderstanding has a practical consequence that needs this distinction."
 ignorecase: true
 level: warning
 nonword: true

@@ -17,7 +17,7 @@ aliases:
 
 Setup leaves your project with instructions, checks, and a guide that future agents can use. These files are worth a look: they show what the agent understood about your project, and they give you somewhere lasting to put corrections and decisions.
 
-This page helps you review that result and find the right place for later changes. You can ask your agent to show the relevant files and explain them; you do not need to learn the whole file inventory first.
+This page helps you review that result and find the right place for later changes. You can ask your agent to show the relevant files and explain what each does.
 
 ## Review what future sessions will inherit
 

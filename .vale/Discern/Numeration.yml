@@ -1,8 +1,8 @@
-# Counting a set out loud in prose (voice skill: banned moves). The spelled-out
-# count duplicates the list it introduces, so it is wrong the day the set
-# grows. Warning severity: occasionally the number IS the fact.
+# Avoid counted list introductions: they duplicate an inventory that can drift.
+# Keep the detector blocking; explain useful quantities without counting a set
+# merely to introduce it. Changing a spelled-out count to digits is not a fix.
 extends: existence
-message: "Counted set ('%s'): the number drifts when the set changes — let the list carry the count, or name the members."
+message: "Remove the counted introduction '%s'; name the items or let the list speak. Keep quantities only when the quantity itself matters; do not evade this rule with digits."
 ignorecase: true
 level: warning
 scope: sentence

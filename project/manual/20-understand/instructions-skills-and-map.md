@@ -30,7 +30,7 @@ Your agent fixes the behavior and adds appropriate checks. You also ask:
 
 The next session can now discover both the rule and its reason. It does not need your account of the train journey. The project carries the useful knowledge, while the checks cover the behavior they can verify.
 
-Different parts of that knowledge do different jobs. Keeping those jobs clear helps the next agent find what it needs without loading the whole project's history.
+Different parts of that knowledge do different jobs. Keeping those jobs clear helps the next agent find the guidance and decisions relevant to its task.
 
 ## Instructions: what every session must know
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env sh
 # desc: lint one or more map pages with the full house-voice rules, warnings included
 #
-# The gate's prose check only *blocks* on error-severity findings; the
-# warning-tier rules (contrast-frames, counted sets, em-dash chains) are
-# advisory. This is the loop that shows them for the pages you're writing:
+# The gate blocks errors and house-style findings except rules registered
+# for editorial review in scripts/prose_lib.ts. This loop shows all findings
+# for the pages you are writing:
 #
 #   discern scripts prose-page project/map/10-getting-started/quickstart.md
 #
-# A page in the reference corpus measures zero Discern alerts; hold new and
-# rewritten pages to that bar.
+# Resolve blocking defects and judge the editorial findings in context.
+# Keep a flagged construction when it helps the reader understand or act.
 
 set -eu
 

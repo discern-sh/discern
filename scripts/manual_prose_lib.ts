@@ -43,7 +43,10 @@ export interface StagedManualProse {
 /** The shared Manual prose-policy verdict used by the gate and Canon Editor. */
 export interface ManualProseCheckResult {
   readonly code: number;
+  /** Blocking findings, shared by the gate and Canon Editor. */
   readonly alerts: ValeReport;
+  /** Full source-mapped findings, including non-blocking editorial review. */
+  readonly reviewAlerts: ValeReport;
   readonly raw: string;
   readonly stderr: string;
   readonly issue?: string;
@@ -157,45 +160,47 @@ export async function withStagedManualProse<T>(
 export async function checkManualProse(
   repoRoot: string,
   sources?: readonly string[],
+  run: typeof runVale = runVale,
 ): Promise<ManualProseCheckResult> {
   return await withStagedManualProse(repoRoot, async (stage) => {
-    const run = await runVale(repoRoot, [
+    const execution = await run(repoRoot, [
       "--minAlertLevel",
       "suggestion",
       "--output=JSON",
       stage.dir,
     ]);
     const decoder = new TextDecoder();
-    const raw = decoder.decode(run.stdout);
-    const stderr = decoder.decode(run.stderr);
+    const raw = decoder.decode(execution.stdout);
+    const stderr = decoder.decode(execution.stderr);
     let parsed: ValeReport;
     try {
       parsed = decodeValeReport(raw, "Vale output for the manual prose gate");
     } catch (error) {
       return {
-        code: run.code === 0 ? 1 : run.code,
+        code: execution.code === 0 ? 1 : execution.code,
         alerts: {},
+        reviewAlerts: {},
         raw,
         stderr,
         issue: error instanceof Error ? error.message : String(error),
       };
     }
-    const selected = valeReportSchema.parse(selectProseGateAlerts(parsed));
-    const mapped: ValeReport = {};
-    for (const [path, alerts] of Object.entries(selected)) {
+    const reviewAlerts: ValeReport = {};
+    for (const [path, findings] of Object.entries(parsed)) {
       const source = manualProseSource(path, stage);
-      mapped[source] ??= [];
-      mapped[source].push(...alerts);
+      reviewAlerts[source] ??= [];
+      reviewAlerts[source].push(...findings);
     }
+    const alerts = valeReportSchema.parse(selectProseGateAlerts(reviewAlerts));
     const rawHasAlerts = Object.values(parsed).some((alerts) =>
       alerts.length > 0
     );
-    const code = run.code !== 0 && !rawHasAlerts
-      ? run.code
-      : valeAlertCount(mapped) > 0
+    const code = execution.code !== 0 && !rawHasAlerts
+      ? execution.code
+      : valeAlertCount(alerts) > 0
       ? 1
       : 0;
-    return { code, alerts: mapped, raw, stderr };
+    return { code, alerts, reviewAlerts, raw, stderr };
   }, sources);
 }
 

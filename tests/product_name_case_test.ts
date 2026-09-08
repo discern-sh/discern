@@ -270,3 +270,73 @@ Deno.test("the glossary case detector leaves relay placeholders alone", () => {
   );
   assertEquals(hits, []);
 });
+
+Deno.test("canonical casing respects Markdown structure and ordinary proof", () => {
+  const cases = [
+    { text: "This is not proof that another file must change.", expected: [] },
+    { text: "Several proofs explain the result.", expected: [] },
+    { text: "Read [Practice and roles](page.md).", expected: [] },
+    { text: "See [Gate and Proof troubleshooting](page.md).", expected: [] },
+    { text: "Read [Worktrees and the trunk](page.md).", expected: [] },
+    {
+      text:
+        "For a closer look at the everyday relationship between you, the agent, and the project, read [Practice and roles](../20-understand/practice-and-roles.md).",
+      expected: [],
+    },
+    {
+      text:
+        "For a specific evidence or output problem, see [Gate and Proof troubleshooting](../40-troubleshooting/gate-and-proof.md). The [result reference](../30-reference/mcp-and-results.md) explains diagnostic fields.",
+      expected: [],
+    },
+    {
+      text:
+        "Status requires a discern project. Linked-worktree lifecycle fields require a Git repository with at least one commit. For a practical introduction, read [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md).",
+      expected: [],
+    },
+    {
+      text: "Read [**Standard** examples][guide].\n\n[guide]: /the-Gate",
+      expected: [],
+    },
+    { text: "[Read the Gate](page.md).", expected: ["Gate"] },
+    {
+      text: "Read [Review the **Standard**][guide].\n\n[guide]: page.md",
+      expected: ["Standard"],
+    },
+    { text: "Run the **Gate**.", expected: ["Gate"] },
+    { text: "The _Worktrees_ remain visible.", expected: ["Worktree"] },
+    {
+      text: "Run the Gate and inspect the proof line.",
+      expected: ["Gate", "Proof"],
+    },
+    { text: "Read the proof notes.", expected: ["Proof"] },
+    { text: "Read the Proof notes.", expected: [] },
+    { text: "# Read the Gate\n\nGate remains visible.", expected: [] },
+    { text: "A label\n\nGate remains visible.", expected: [] },
+    {
+      text: "Read ``the Gate and `proof note` `` before continuing.",
+      expected: [],
+    },
+    { text: "    Read the Gate and proof note.\n", expected: [] },
+    { text: "Read <https://example.test/the-Gate> for details.", expected: [] },
+  ];
+  for (const { text, expected } of cases) {
+    const prose = runningMarkdownProse(text).replace(DOTTED_IDENTIFIER, "");
+    const actual = runningProseCaseRules().filter((rule) =>
+      new RegExp(rule.pattern).test(prose)
+    ).map((rule) => rule.term).sort();
+    assertEquals(actual, expected, text);
+  }
+});
+
+Deno.test("Markdown casing findings retain authored line numbers", () => {
+  const source =
+    "---\ntitle: Metadata\n---\n\n# Read the Gate\n\nRead [the **Gate**](page.md).\n";
+  const rule = runningProseCaseRules().find((entry) => entry.term === "Gate");
+  if (rule === undefined) throw new Error("Gate is missing from the glossary");
+  const findings = bannedPhraseLines(
+    "fixture.md",
+    runningMarkdownProse(source),
+    new RegExp(rule.pattern, "g"),
+  );
+  assertEquals(findings, ['fixture.md:7 contains "the Gate"']);
+});

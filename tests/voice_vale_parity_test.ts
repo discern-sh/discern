@@ -1,8 +1,8 @@
 /**
- * The voice canon and Vale are one executable contract. Canonical bans render
- * into the generated voice skills; the authored Discern style is the gate's
- * mechanical enforcement. These fixtures run the real Vale binary, so a rule
- * that parses but cannot fire is no coverage at all.
+ * The voice canon and Vale share a detector contract. Word and rhetorical
+ * patterns render into the voice skills; the authored Discern style detects
+ * their mechanical forms. The shared selector distinguishes blocking defects
+ * from editorial prompts. These fixtures exercise the real Vale binary.
  *
  * The contract is exact in both directions:
  *
@@ -10,9 +10,10 @@
  *   semantic residual;
  * - every canonical phrase fires through Vale in plain and source-wrapped
  *   prose, while the same literal remains legal in a Markdown code span;
- * - every house rule declared at error severity has a bad and protected case.
+ * - every house rule declared at error severity has a bad and protected case;
+ * - every editorial rule remains detectable without blocking useful prose.
  *
- * A new canon row or error rule therefore enrols itself by failing this test.
+ * A new canon row, error rule, or editorial disposition needs a proving case.
  */
 
 import { basename, dirname, join } from "@std/path";
@@ -20,6 +21,10 @@ import { assert, assertEquals } from "@std/assert";
 import { z } from "@zod/zod";
 import { BANNED_MOVES, BANNED_WORDS } from "../scripts/brand/voice.ts";
 import { runVale } from "../scripts/vale_lib.ts";
+import {
+  EDITORIAL_PROSE_RULES,
+  selectProseGateAlerts,
+} from "../scripts/prose_lib.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
@@ -48,7 +53,7 @@ interface MechanicalCase {
 }
 
 interface WordContract {
-  /** Checks allowed to enforce every canonical `phrases` entry in this row. */
+  /** Detectors allowed to recognize every canonical `phrases` entry. */
   checks?: readonly `Discern.${string}`[];
   /** Mechanical cases for bans that are not representable as phrase lists. */
   cases?: readonly MechanicalCase[];
@@ -82,8 +87,8 @@ const WORD_CONTRACTS = {
   "the-shape-of": { checks: ["Discern.Jargon"] },
   "load-bearing": { checks: ["Discern.Jargon"] },
   "unnecessary-enumeration": { checks: ["Discern.Seasoning"] },
-  "drama-adverbs": { checks: ["Discern.MaturedSeasoning"] },
-  "sincerity-vouching": { checks: ["Discern.MaturedSeasoning"] },
+  "drama-adverbs": { checks: ["Discern.ContextualQualifiers"] },
+  "sincerity-vouching": { checks: ["Discern.ContextualQualifiers"] },
   "rides-along": { checks: ["Discern.MaturedSeasoning"] },
   "hedging": { checks: ["Discern.Hedging"] },
   "passive-fault-dodging": {
@@ -158,7 +163,7 @@ const MOVE_CONTRACTS = {
       check: "Discern.EmDashChain",
     }],
     residual:
-      "A chain is mechanical; a single em dash may be a valid parenthetical and needs editorial judgment.",
+      "Dash counts identify possible chains; one useful paired aside remains legitimate and needs editorial judgment.",
   },
   "typographic-applause": {
     deferred:
@@ -170,7 +175,7 @@ const MOVE_CONTRACTS = {
       check: "Discern.Numeration",
     }],
     residual:
-      "The warning finds prose that introduces a set; numbers that are themselves facts remain legal.",
+      "Counted introductions remain blocking. Useful quantities still require judgment; changing inventories retain their structural checks.",
   },
 } as const satisfies Record<BannedMoveId, MoveContract>;
 
@@ -182,7 +187,7 @@ const ERROR_RULE_FIXTURES = {
   Hedging: "You may want to consider using the command.",
   Hype: "This is a powerful workflow.",
   Jargon: "The branch has the right posture.",
-  MaturedSeasoning: "The Gate quietly records the result.",
+  MaturedSeasoning: "The note rides along with the change.",
   Emoji: "The Gate passed 🚀.",
   RecapHeading: "# Summary\n\nThe page ends here.",
   RhetoricalSuspense: "The catch? The config must exist.",
@@ -192,6 +197,53 @@ const ERROR_RULE_FIXTURES = {
   TrailingModifier: "The command reports the result, every time.",
   VendorSpeak: "The workflow leverages the cache.",
 } as const satisfies Record<string, string>;
+
+/** Legitimate uses and weak wording share syntax; both must remain reviewable. */
+const EDITORIAL_RULE_FIXTURES = {
+  "Discern.ContrastFrame": {
+    useful: "This is not a sandbox, but a working practice.",
+    weak: "This is not speed, but magic.",
+  },
+  "Discern.ContrastReversal": {
+    useful:
+      "discern verifies that the answer was recorded, not that it is true.",
+    weak: "This is progress, not ordinary work.",
+  },
+  "Discern.Padding": {
+    useful: "Make the form easy to use.",
+    weak: "It is really easy.",
+  },
+  "Discern.ContextualQualifiers": {
+    useful: "Record an honest unmet conclusion.",
+    weak: "This is an honest and quietly deliberate improvement.",
+  },
+  "Discern.EmDashChain": {
+    useful: "It groups the fleet—the project's worktrees—by current state.",
+    weak:
+      "The command checks state — the result is stable — the branch remains clean.",
+  },
+} as const satisfies Record<
+  keyof typeof EDITORIAL_PROSE_RULES,
+  { readonly useful: string; readonly weak: string }
+>;
+
+const BLOCKING_REVIEW_FIXTURES = {
+  "Discern.Numeration": "Two things remain.",
+  "Discern.Seasoning": "Keep the whole effort in its worktree.",
+} as const;
+
+/** Meaningful examples whose syntax may or may not trigger a detector. */
+const CONTEXTUAL_PROSE_EXAMPLES = [
+  "Retry after 3 seconds.",
+  "Describe the purpose, scope, and review method.",
+  "discern does not block network access for your agent.",
+  "Use the reference returned for your task.",
+  "Review the paths so deletion feels deliberate.",
+  "Try a deliberately failing test change.",
+  "Explain exactly what it would measure.",
+  "A failed write must not silently discard the saved value.",
+  "An honest account includes the checks that did not run.",
+] as const;
 
 /** Every regex pattern written in a list or scalar by an authored rule. */
 async function stylePatterns(
@@ -288,7 +340,7 @@ function protectedLiteral(text: string): string {
   return `The literal \`${text}\` appears in source.`;
 }
 
-Deno.test("every canonical banned phrase fires through Vale", async () => {
+Deno.test("every canonical word pattern remains detectable through Vale", async () => {
   await withTempDir(async (dir) => {
     const expectedIds = BANNED_WORDS.map((entry) => entry.id).sort();
     assertEquals(Object.keys(WORD_CONTRACTS).sort(), expectedIds);
@@ -309,7 +361,7 @@ Deno.test("every canonical banned phrase fires through Vale", async () => {
       if (phrases.length > 0) {
         assert(
           (contract.checks?.length ?? 0) > 0,
-          `${entry.id} declares phrases but no enforcing check`,
+          `${entry.id} declares phrases but no detector`,
         );
       }
       for (const [index, phrase] of phrases.entries()) {
@@ -374,7 +426,7 @@ Deno.test("every canonical banned phrase fires through Vale", async () => {
   });
 });
 
-Deno.test("every banned move is mechanical or has an explicit residual", async () => {
+Deno.test("every rhetorical pattern is detectable or has an explicit residual", async () => {
   await withTempDir(async (dir) => {
     const expectedIds = BANNED_MOVES.map((entry) => entry.id).sort();
     assertEquals(Object.keys(MOVE_CONTRACTS).sort(), expectedIds);
@@ -416,6 +468,96 @@ Deno.test("every banned move is mechanical or has an explicit residual", async (
         `${fixture.protectedRel} must protect the literal example`,
       );
     }
+  });
+});
+
+Deno.test("editorial voice patterns stay visible without blocking useful prose", async () => {
+  assertEquals(
+    Object.keys(EDITORIAL_RULE_FIXTURES).sort(),
+    Object.keys(EDITORIAL_PROSE_RULES).sort(),
+    "each editorial disposition needs a real-Vale proving pair",
+  );
+  await withTempDir(async (dir) => {
+    for (const [check, fixture] of Object.entries(EDITORIAL_RULE_FIXTURES)) {
+      await writeFixture(
+        dir,
+        `00-orientation/useful-${check}.md`,
+        fixture.useful,
+      );
+      await writeFixture(dir, `00-orientation/weak-${check}.md`, fixture.weak);
+    }
+    for (const [check, body] of Object.entries(BLOCKING_REVIEW_FIXTURES)) {
+      await writeFixture(dir, `00-orientation/blocking-${check}.md`, body);
+    }
+    for (const [index, body] of CONTEXTUAL_PROSE_EXAMPLES.entries()) {
+      await writeFixture(dir, `00-orientation/context-${index}.md`, body);
+    }
+    const output = await lintFixtures(dir);
+    for (const check of Object.keys(EDITORIAL_RULE_FIXTURES)) {
+      for (const kind of ["useful", "weak"]) {
+        const rel = `00-orientation/${kind}-${check}.md`;
+        const alerts = fixtureAlerts(output, rel);
+        assert(
+          hasCheck(alerts, check),
+          `${rel} must remain visible for review`,
+        );
+        assertEquals(
+          selectProseGateAlerts({ [rel]: alerts }),
+          {},
+          `${rel} requires editorial judgment, not an automatic prose failure`,
+        );
+      }
+    }
+    for (const check of Object.keys(BLOCKING_REVIEW_FIXTURES)) {
+      const rel = `00-orientation/blocking-${check}.md`;
+      const alerts = fixtureAlerts(output, rel).filter((alert) =>
+        alert.Check === check
+      );
+      assert(hasCheck(alerts, check), `${check} must be detected`);
+      assertEquals(
+        selectProseGateAlerts({ [rel]: alerts }),
+        { [rel]: alerts },
+        `${check} must remain blocking`,
+      );
+    }
+    for (const [index] of CONTEXTUAL_PROSE_EXAMPLES.entries()) {
+      const rel = `00-orientation/context-${index}.md`;
+      assertEquals(
+        selectProseGateAlerts({ [rel]: fixtureAlerts(output, rel) }),
+        {},
+        `${rel} keeps its useful meaning without a blocking finding`,
+      );
+    }
+  });
+});
+
+Deno.test("project vocabulary accepts URI and nonce forms without hiding a typo", async () => {
+  await withTempDir(async (dir) => {
+    const accepted = "00-orientation/technical-words.md";
+    const misspelled = "00-orientation/technical-typo.md";
+    await writeFixture(
+      dir,
+      accepted,
+      "Read the URI and compare the URIs. Record a nonce and retain used nonces.",
+    );
+    await writeFixture(dir, misspelled, "Record a nonnce before proceeding.");
+    const output = await lintFixtures(dir);
+    assert(
+      !hasCheck(fixtureAlerts(output, accepted), "Vale.Spelling"),
+      "the singular and plural technical words must be accepted",
+    );
+    const typoAlerts = fixtureAlerts(output, misspelled).filter((alert) =>
+      alert.Check === "Vale.Spelling"
+    );
+    assert(
+      typoAlerts.length > 0,
+      "a nearby misspelling must still be detected",
+    );
+    assertEquals(
+      selectProseGateAlerts({ [misspelled]: typoAlerts })[misspelled],
+      typoAlerts,
+      "genuine spelling errors remain blocking",
+    );
   });
 });
 
@@ -463,6 +605,12 @@ Deno.test("every error-level house rule proves its block and code-span escape", 
         badAlerts.find((alert) => alert.Check === check)?.Severity,
         "error",
         `${rule} must fire at its declared severity`,
+      );
+      const namedAlerts = badAlerts.filter((alert) => alert.Check === check);
+      assertEquals(
+        selectProseGateAlerts({ [rule]: namedAlerts })[rule],
+        namedAlerts,
+        `${rule} must retain its blocking gate disposition`,
       );
       assert(
         !hasCheck(

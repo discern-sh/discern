@@ -477,12 +477,12 @@ Avoid repeated templates that have become recognizable model mannerisms:`,
       kind: "banned-moves",
       heading: "Banned moves",
       intro:
-        "These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.",
+        "Avoid these patterns by default. The entries describe narrow exceptions, not reasons to add the pattern. Review a flagged sentence for a clearer direct explanation before retaining it. Selected detectors prompt editorial review; blocking findings still require correction.",
     }, {
       kind: "banned-words",
       heading: "Banned words",
       intro:
-        "Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.",
+        "Each entry explains the failure to avoid and the reason for it. Context-sensitive qualifiers may stay when they change scope, timing, visibility, intent, degree, or meaning. Remove reassurance, drama, and praise that add no information. Unrelated bans remain in force.",
     }, {
       kind: "rules",
       id: "ontology-firewall",
@@ -834,7 +834,7 @@ After introduction, use the canonical term.
 
 ### Audiences and gates
 
-In running prose, capitalize **Proof** and its family (**Proof line**, **Proof note**) only. Write every other glossary concept — including gate, map, standard, desk, logbook, fleet, skill, and checkpoint — in lowercase except at sentence or title start or when spelling an exact identifier or external proper name.
+In running prose, capitalize **Proof** when naming discern's recorded completion evidence, including **Proof line** and **Proof note**. Use lowercase **proof** in its ordinary meaning. Write other glossary concepts — including gate, map, standard, desk, logbook, fleet, skill, and checkpoint — in lowercase except at sentence or title start, including linked titles, or when spelling an exact identifier or external proper name.
 
 Formats and features are described by capability, never by the reader they were designed for:
 
@@ -970,7 +970,10 @@ State:
 - examples that match live commands;
 - example values with personality: \`ada\`, \`apollo-11\`, \`margaret@hamilton.space\` — never \`foo\` or \`user1\`;
 - explicit links to deeper reference;
-- no marketing superlatives.`,
+- no marketing superlatives;
+- the ordinary path before exceptions: include a caveat only when omitting it could change the reader’s decision or action;
+- direct explanations before contrasts: do not invent a mistaken assumption for the reader;
+- permission described through the person’s decision, without surrounding a simple step with legal qualifications.`,
     }, {
       kind: "prose",
       heading: "Tone by state",
@@ -1098,17 +1101,17 @@ Better:
       kind: "banned-moves",
       heading: "Banned moves",
       intro:
-        "These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.",
+        "Avoid these patterns by default. The entries describe narrow exceptions, not reasons to add the pattern. Review a flagged sentence for a clearer direct explanation before retaining it. Selected detectors prompt editorial review; blocking findings still require correction.",
     }, {
       kind: "banned-words",
       heading: "Banned words",
       intro:
-        "Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.",
+        "Each entry explains the failure to avoid and the reason for it. Context-sensitive qualifiers may stay when they change scope, timing, visibility, intent, degree, or meaning. Remove reassurance, drama, and praise that add no information. Unrelated bans remain in force.",
     }, {
       kind: "prose",
       heading: "Enforcement",
       body:
-        `The mechanical subset of these rules is encoded as a Vale style at \`.vale/Discern/\`, linted over every map page in the gate. When it flags a line, fix the prose rather than suppressing the rule, then re-check the page with \`discern scripts prose-page <page…>\`; new or rewritten pages pass at zero alerts. The lint catches the checkable subset; the rest of this skill still applies.`,
+        `Vale detects the mechanical subset of these rules in the linted map and manual. New or rewritten pages must have zero blocking findings. Review editorial alerts as opportunities to improve the sentence, not invitations to justify it. Try a direct explanation first; retain a flagged construction only when it carries necessary meaning. Counted introductions and scope intensifiers remain blocking. The shared \`EDITORIAL_PROSE_RULES\` policy in \`scripts/prose_lib.ts\` names the selected advisory rules; other blocking rules remain enforced. Re-check map pages with \`discern scripts prose-page <page…>\` and use \`scripts/manual_prose_check.ts --review\` for manual pages. Review the full alerts as well as the blocking result. A passing check does not replace editorial judgment.`,
     }, {
       kind: "mechanics",
       heading: "Mechanics",
@@ -1689,18 +1692,19 @@ Avoid marketing headlines without explanatory context.`,
 } as const satisfies Record<Register, VoiceDefinition>;
 
 /**
- * The banned-words canon, carried from the retired voice-and-tone skill by
- * owner selection (2026-08-08). One row per ban; `registers` picks the
- * skills that render it, and `phrases` is the mechanically bannable subset
- * the Vale parity guard holds to `.vale/Discern/`.
+ * The word-pattern canon. Each row records the failure to avoid and any
+ * legitimate contextual use; `registers` picks the skills that render it.
+ * `phrases` is the mechanically detectable subset the Vale parity guard
+ * holds to `.vale/Discern/`. The shared prose selector owns gate disposition.
  */
 export const BANNED_WORDS = [
   {
     id: "padding",
     avoid: `"simply," "just," "easy," "obviously," "actually," "really"`,
     why:
-      "Padding that costs the writer nothing and charges the struggling reader double",
-    instead: "Delete it. The sentence stands alone.",
+      "Empty reassurance can dismiss the reader's difficulty; some qualifiers instead change the meaning",
+    instead:
+      "Keep a meaningful qualifier. Do not call a difficult task easy; an easy-to-use goal is valid. Remove empty reassurance. Simply and obviously remain banned.",
     phrases: ["simply", "just", "easy", "obviously", "actually", "really"],
     registers: ["product"],
   },
@@ -1792,24 +1796,29 @@ export const BANNED_WORDS = [
     avoid:
       `"the one \`<noun>\`," "the whole \`<noun>\`," and unnecessary enumeration ("all three checks," "both files")`,
     why:
-      "Totalizing emphasis that adds nothing and goes stale the day the set grows",
-    instead: "State the actual scope, or drop the emphasis",
+      "Emphasis needs a real scope or selection to explain; an independent count of a changing inventory can drift",
+    instead:
+      "Remove “the whole” and “the one” emphasis by default. Name the relevant scope or selected object directly. Do not replace an empty intensifier with a synonym: delete the claim when it adds no useful information. State completeness only when it changes what the reader needs to know or do.",
     phrases: ["the one file", "the whole tree"],
     registers: ["product", "brand"],
   },
   {
     id: "drama-adverbs",
     avoid: `"silently," "quietly," "deliberately," "deliberate," "exactly"`,
-    why: "Drama adverbs seasoning a spec",
-    instead: "The plain claim; name the mechanism instead",
+    why:
+      "A qualifier can describe visibility, timing, intent, or precision, or add only drama",
+    instead:
+      "Keep it when it changes scope, timing, visibility, intent, degree, or meaning. Remove it when it supplies only reassurance, drama, or praise.",
     phrases: ["silently", "quietly", "deliberately", "deliberate", "exactly"],
     registers: ["product", "brand"],
   },
   {
     id: "sincerity-vouching",
     avoid: `"honest," "honestly," "honesty"`,
-    why: "Prose vouching for its own sincerity",
-    instead: "Delete it; the facts carry the sincerity",
+    why:
+      "Self-praise adds no evidence; a truthful conclusion can be a meaningful distinction",
+    instead:
+      "Keep honest when it distinguishes a truthful account, including an unmet conclusion. Remove claims that merely praise the prose's sincerity.",
     phrases: ["honest", "honestly", "honesty"],
     registers: ["product", "brand"],
   },
@@ -1853,16 +1862,16 @@ export const BANNED_WORDS = [
 ] as const satisfies readonly BannedWord[];
 
 /**
- * The banned-moves canon — the machine-tell patterns carried from the
- * retired voice-and-tone skill by owner selection (2026-08-08). Rendered
- * identically into the product and brand skills.
+ * The rhetorical-pattern canon, rendered identically into the product and
+ * brand skills. Context-sensitive patterns retain their editorial conditions;
+ * detection alone does not establish that a sentence fails those conditions.
  */
 export const BANNED_MOVES = [
   {
     id: "contrast-frames",
     name: "Contrast-frames",
     text:
-      `"not X, but Y," "isn't X, it's Y," and the reversed "X, not Y." State the true half plainly.`,
+      `Avoid contrast framing such as “not X, but Y” or “X, not Y.” State what happens and what the reader does next. Keep a contrast only when it corrects a likely misunderstanding with a practical consequence that a direct explanation would leave unclear. Do not invent a mistaken belief for the reader or use a contrast to praise the preferred choice. Repeat a necessary distinction in a lookup entry only when readers need it there.`,
   },
   {
     id: "aphoristic-antithesis",
@@ -1897,7 +1906,7 @@ export const BANNED_MOVES = [
     id: "em-dash-splices",
     name: "Em-dash splices",
     text:
-      "Never split with an em dash what a period or colon can handle. Two em dashes in one sentence is a chain: rebuild the sentence.",
+      "Paired em dashes may enclose one short explanatory aside. Prefer separate sentences when a reader would otherwise have to hold several clauses in mind. Avoid chains of independent statements used for emphasis.",
   },
   {
     id: "typographic-applause",
@@ -1909,7 +1918,7 @@ export const BANNED_MOVES = [
     id: "counting-the-set",
     name: "Counting the set out loud",
     text:
-      `"Watch for four moments," "Two things remain." The spelled-out count duplicates the list it introduces and is wrong the day the set grows. Let the list carry the count; a number is welcome when the number itself is the fact.`,
+      "Avoid counting a list merely to introduce it: “Two things remain,” “Watch for four moments,” or “the six files that need updating.” Let the list or its name carry the information. Retain a number only when the quantity itself helps the reader act or understand, such as a retry delay or a measured result. Derive counts of changing product inventories; never maintain a second count in prose. Changing a spelled-out count to digits does not cure redundant counting.",
   },
 ] as const satisfies readonly BannedMove[];
 

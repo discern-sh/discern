@@ -561,7 +561,7 @@ Deno.test("brand-path severity cannot downgrade house errors on other map pages"
       "# Voice fixture",
       "",
       "We leverage a robust system.",
-      "It quietly records state.",
+      "The note rides along with the change.",
       "Obviously, the command works.",
       "In a world where agents work, this is the shape of the workflow.",
       "",

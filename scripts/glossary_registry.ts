@@ -152,8 +152,10 @@ export function runningProseCaseRules(
       if (entry.term === "Proof") {
         rules.push({
           term: entry.term,
-          expected: "Proof, Proof line, or Proof note",
-          pattern: String.raw`\bproof(?:s|'s|\s+(?:line|note)(?:s|'s)?)?\b`,
+          expected: "Proof line or Proof note",
+          // Bare proof also has an ordinary English meaning. Only these
+          // unambiguous product forms support an automatic casing verdict.
+          pattern: String.raw`\bproof\s+(?:line|note)(?:s|['’]s)?\b`,
         });
       }
       continue;
@@ -353,7 +355,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "The two ways a [checkpoint](#checkpoint) can present its question. `stop` waits for a recorded conclusion before the [gate](#gate) runs; `advise` presents the question without blocking. Stop is the default mode. Heuristic built-in triggers use advise. A [declared unmet](#declared-unmet) answer allows checks to run, but still needs the owner's [variance](#variance) before landing.",
+      "How a [checkpoint](#checkpoint) presents its question. `stop` waits for a recorded conclusion before the [gate](#gate) runs; `advise` presents the question without blocking. Stop is the default mode. Heuristic built-in triggers use advise. A [declared unmet](#declared-unmet) answer allows checks to run, but still needs the owner's [variance](#variance) before landing.",
   },
   {
     term: "Coupling",

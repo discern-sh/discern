@@ -11,6 +11,22 @@ Use the [product-voice Skill](../../../skills/discern-product-voice/SKILL.md) as
 
 ## The voice lock
 
+### Be generous toward the reader
+
+Assume the reader arrives without the surrounding conversation or repository context. Give the missing premise before introducing a rule, and introduce depth as the page earns it. A short page that makes the reader guess is not a simpler page.
+
+Use familiar examples, such as finding a saved item, reading a list on a phone, or recovering from an accidental deletion. Show what the person can ask, what they will see, and what they decide. Explain the benefit through the problem the step solves, without adding a slogan to each procedure.
+
+Let each page do its own teaching while keeping exact reference facts in one home. Repeat an essential distinction when applying it to a new situation; link duplicated inventories and protocols to their reference. Use headings, examples, tables, and the existing reading components to make the next useful part visible.
+
+### Explain the task without defensive qualifications
+
+Describe the ordinary path first. Add a caveat where leaving it out could change what the reader decides or does. Do not invent assumptions for the reader, deny capabilities they have not asked about, or append internal recovery details to an otherwise complete explanation.
+
+When permission matters, say who decides and what happens next. Prefer “you grant permission before the change lands” to an abstract contrast between evidence and authority. Keep exact distinctions in the relevant reference, and repeat them in a guide only when its next step depends on them.
+
+Treat a style alert as an opportunity to improve the sentence before defending its construction. Ask whether deleting the qualifier or final caveat would change the reader’s understanding or action. If it would not, remove it. Counts and scope intensifiers remain blocking; do not dodge them by changing digits or substituting another intensifier.
+
 ### Give the reader a reason to care before the first H2
 
 Every page states its human value in the opening paragraphs, above the first `##` heading. That opening is where a reader decides whether the rest deserves attention.
@@ -41,7 +57,7 @@ The actors vary by page; the addressee doesn't. A page about work only agents pe
 
 Prefer one authentic artifact over another paragraph of description. A Proof line, a short result, a configuration fragment, or an observable file can make an abstract promise tangible. The artifact must come from, or be validated against, the current product and must work in an external project; repository-only fixtures are not public examples.
 
-When an operation exists on both the agent surface and the command line, show the MCP call as the leading artifact (the tool name with its arguments in a fenced block), and the command-line equivalent after it. MCP is the primary surface, and readers anchor on a page's first code block; don't let that anchor be the secondary surface. The wait guide demonstrates the pattern.
+Lead an agent-operated procedure with a useful request the human can give, or a result they can recognize. Show an MCP call or command when it helps the reader understand or perform the step. MCP remains the agent's primary interface, but a page does not need an invocation merely to establish that fact. Exact transport syntax belongs in Reference when it adds no understanding to the human journey.
 
 Do not force an artifact into a page whose subject has no useful visible form. Demonstrate a real product object only when it materially improves understanding.
 
@@ -65,7 +81,7 @@ Complete the [manual evidence worksheet](../../_private/planning/public-manual-w
 
 1. Verify live commands, config, code, tests, and the relevant technical feature entry. These establish product truth.
 2. Read the paired entry in `project/map/_internal/feature-canon-plain.md` for coverage and translation ideas. Never copy it as final wording.
-3. Select the public value from the [Human Benefit Canon](../feature-canon-human-benefits.md). Read the paired [Agent Benefit Canon](../feature-canon-agent-benefits.md) entry for the agent's operating consequence, and the [Demand Canon](demand-canon.md) for the human situation that makes the capability matter. Agent ergonomics is also a human benefit, but it does not justify a claim beyond the live product basis.
+3. Select the public value from the [Human Benefit Canon](../feature-canon-human-benefits.md). Read the paired [Agent Benefit Canon](../feature-canon-agent-benefits.md) entry for the agent's operating consequence, and the [Demand Canon](demand-canon.md) for the human situation that makes the capability matter. Read the [Consequence Canon](consequence-canon.md) before drafting to connect the capability to what changes for the reader. Agent ergonomics is also a human benefit, but it does not justify a claim beyond the live product basis.
 4. Apply the register bridge in order: product truth → human moment → plain proposition → product nouns as proof.
 5. Draft in product voice. Define canonical terms at first use, validate every literal example, and check that every linked destination is published for the manual reader.
 
@@ -129,11 +145,11 @@ Use these spines to guide the sequence. The headings may vary with the subject.
 
 Canonical product terms earn their place because they make state and authority exact. Define a term in plain language at first use, then use the same term consistently:
 
-- “the project's final quality check (the Gate)”;
+- “the project's final quality check (the gate)”;
 - “evidence for one exact completed change (Proof)”;
 - “the project's shared branch (the trunk).”
 
-Do not replace `Gate`, `Proof`, `checkpoint`, `grant`, `variance`, or `trunk` with a rotating set of friendlier synonyms. Equally, do not surround those terms with incidental abstractions such as “candidate,” “subject,” “surface,” “product-managed,” or “observed work” when “change,” “branch,” “page,” or “files” says the same thing. Plain words leave the reader more attention for the vocabulary that carries product meaning.
+Do not replace `gate`, `Proof`, `checkpoint`, `grant`, `variance`, or `trunk` with a rotating set of friendlier synonyms. Equally, do not surround those terms with incidental abstractions such as “candidate,” “subject,” “surface,” “product-managed,” or “observed work” when “change,” “branch,” “page,” or “files” says the same thing. Plain words leave the reader more attention for the vocabulary that carries product meaning.
 
 ## Link detail without creating a context cliff
 
@@ -145,7 +161,7 @@ Prefer a published Guide, Explanation, Reference, or Troubleshooting destination
 
 ## Approved transformations
 
-These before/after patterns describe reusable moves from the pilot pair. Adapt them to the subject.
+These before/after patterns describe reusable teaching moves. Adapt them to the subject.
 
 | Before shape                                        | Approved move                                                                                                                    | Reusable rule                                                                             |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

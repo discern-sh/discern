@@ -39,7 +39,7 @@ This is the complete desired list. Omitting `agents` uses the default pair, Clau
 
 Your agent previews the changes with `discern refresh --dry-run`. It then runs `discern refresh` and reviews the result. Refresh creates or updates the selected tools' instructions, skills, hooks, and MCP registration. MCP is the connection that lets an agent call discern's tools directly.
 
-Some integration files also contain settings belonging to your project. Refresh changes discern's entries while preserving unrelated content. If it reports a partial refresh, the agent follows the recovery until the whole operation succeeds; files already written are kept.
+Some integration files also contain settings belonging to your project, so `refresh` changes discern's entries while preserving yours.
 
 The agent runs `discern doctor` to check the installation, then prepares, commits, and checks the change through the [usual completion process](finish-and-land-a-change.md). The new tool must open a checkout containing those integration changes. A configuration still on a worktree branch is not yet present in the shared project.
 

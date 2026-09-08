@@ -87,7 +87,7 @@ A breach deserves investigation before a policy decision. Ask:
 
 > Explain the measured change and what caused it. Look for reasonable fixes within this task. If the increase is part of the feature we want, show me that tradeoff rather than cutting unrelated useful work.
 
-For example, after a previous improvement lowered the ceiling to 1,000 kB, a new feature might measure 1,040 kB. The agent should explain the extra 40 kB and what it buys. A broken measuring command is a different problem and needs repair, not a new size limit.
+For example, after a previous improvement lowered the ceiling to 1,000 kB, a new feature might measure 1,040 kB. The agent should explain the extra 40 kB and what it buys. Repair a broken measuring command before reconsidering the size limit.
 
 The agent keeps the held limit while it investigates. Removing the standard, shrinking what gets measured, or raising the limit by hand would change the rule instead of resolving the result.
 

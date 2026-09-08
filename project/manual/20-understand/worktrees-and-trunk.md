@@ -25,7 +25,7 @@ A worktree contains a separate working copy of the project and has its own branc
 
 A new task normally starts from the trunk through `discern start`. discern also prepares the environment the project declares for it, such as a development-server port and a separate test database. This matters because two agents need more than separate source files if their tests would otherwise change the same data.
 
-The worktree belongs to the whole effort, through implementation, review, and resumed sessions. If you ask for a change to search after reviewing it, the agent continues that effort. A fresh conversation does not mean the work must start again.
+The worktree stays with the effort through implementation, review, and resumed sessions. If you ask for a change to search after reviewing it, the agent continues that effort. A fresh conversation does not mean the work must start again.
 
 The main checkout is the original project directory from which you oversee the tasks. Agents do their task edits in worktrees, so that directory can stay available for inspecting the shared project.
 
@@ -41,7 +41,7 @@ This is a working practice, not a sandbox around the agent. It separates checkou
 
 ## How work and evidence move
 
-Three operations connect a task to other work:
+These commands connect a task to other work:
 
 | Operation       | What it does                                                                       | In the reading-list example                                                |
 | --------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |

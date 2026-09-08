@@ -238,7 +238,7 @@ A held limit for a repeatable project measurement. A `[standards]` entry sets a 
 
 ### Stop / advise
 
-The two ways a [checkpoint](#checkpoint) can present its question. `stop` waits for a recorded conclusion before the [gate](#gate) runs; `advise` presents the question without blocking. Stop is the default mode. Heuristic built-in triggers use advise. A [declared unmet](#declared-unmet) answer allows checks to run, but still needs the owner's [variance](#variance) before landing.
+How a [checkpoint](#checkpoint) presents its question. `stop` waits for a recorded conclusion before the [gate](#gate) runs; `advise` presents the question without blocking. Stop is the default mode. Heuristic built-in triggers use advise. A [declared unmet](#declared-unmet) answer allows checks to run, but still needs the owner's [variance](#variance) before landing.
 
 ### Tidy
 

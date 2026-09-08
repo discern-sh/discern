@@ -3,19 +3,20 @@
  * mirror with frontmatter blanked and `_private` skipped (see
  * scripts/prose_lib.ts), so metadata can never trip the gate and a diagnostic
  * still names the real file and line. Every error blocks map-wide. With
- * `--custom-zero`, every discern-authored voice alert also blocks throughout
- * the staged non-private Map; third-party advisories remain inputs to the
- * prose-density standard.
+ * `--custom-zero`, discern-authored alerts also block except for the explicitly
+ * registered editorial warnings and suggestions. Full review output and the
+ * prose-density standard retain all findings across the staged non-private map.
  *
  * With `--sarif` — how the gate job runs it — findings are emitted as a
  * SARIF 2.1.0 log, which the gate normalizes into one file/line/rule
  * diagnostic per finding instead of one opaque output blob. Without the
- * flag, Vale's line format passes through for human loops.
+ * flag, findings use a compact file/line/rule format for human loops.
  *
  * Also the page-level loop behind `discern scripts prose-page`: pass file
  * arguments (paths to map pages, relative to the working directory) to lint
  * only those pages, and `--min-level=<suggestion|warning|error>` to widen
- * past the gate's error-only default.
+ * past the gate's error-only default. Omit --custom-zero for the full review
+ * report, including the selected editorial rules.
  *
  * Usage: `deno run --allow-read --allow-write --allow-env --allow-run
  * scripts/prose_check.ts <map-dir> [--min-level=<level>] [--sarif]
@@ -80,26 +81,22 @@ const code = await withStagedProseInput(docsDir, async (stage) => {
     );
     code = 2;
   } else {
-    const jsonOutput = sarif || customZero;
     const run = await runVale(repoRoot, [
       "--minAlertLevel",
       customZero ? "suggestion" : minLevel,
-      ...(jsonOutput ? ["--output=JSON"] : []),
+      "--output=JSON",
       ...(targets.length > 0 ? targets : [stage.dir]),
     ]);
     const decoder = new TextDecoder();
     const rawStdout = decoder.decode(run.stdout);
     let stdout = restoreStagePaths(rawStdout, stage.dir, docsDir);
     let parsed: ReturnType<typeof decodeValeReport> | undefined;
-    if (jsonOutput) {
-      try {
-        parsed = decodeValeReport(rawStdout, "Vale output for the prose gate");
-      } catch (error) {
-        // Unparseable Vale output (a crash, a version surprise): fall through
-        // with the restored raw text, so the failure still shows its evidence.
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(message);
-      }
+    try {
+      parsed = decodeValeReport(rawStdout, "Vale output for the prose gate");
+    } catch (error) {
+      // Preserve failed-tool evidence instead of treating it as a clean report.
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(message);
     }
     if (parsed !== undefined) {
       const gateAlerts = customZero ? selectProseGateAlerts(parsed) : parsed;
@@ -114,6 +111,14 @@ const code = await withStagedProseInput(docsDir, async (stage) => {
           stage.dir,
           docsDir,
         );
+      } else {
+        stdout = Object.entries(parsed).flatMap(([path, alerts]) => {
+          const source = restoreStagePaths(path, stage.dir, docsDir);
+          return alerts.map((alert) =>
+            `${source}:${alert.Line ?? "?"}:${alert.Span?.[0] ?? "?"} ` +
+            `${alert.Severity} ${alert.Check ?? "Vale"}: ${alert.Message ?? ""}`
+          );
+        }).join("\n");
       }
       if (customZero) {
         const rawHasAlerts = Object.values(parsed).some((value) =>

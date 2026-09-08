@@ -63,7 +63,7 @@ The report groups its observations around several questions:
 - **Where does work get stuck?** The record can show repeated failed runs or refusals and whether their suggested next actions were followed.
 - **How do tasks move toward landing?** When the necessary events are recorded, the report can follow tasks from start through completion and acceptance, including update friction.
 
-Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends. These are accounts of the local history, not promises about the next task.
+Your agent reads this with `discern patterns`. The `--stats` view also shows recorded accomplishments, such as accepted changes, completion streaks, cycle times, and standard trends.
 
 ## Findings can join into investigations
 
@@ -87,7 +87,7 @@ Suppose you reduced the amount someone downloads to open the app. You want to pr
 
 The gate records whether that measured gain is eligible to be captured. The pattern report also considers whether the gain held across recent comparable readings. If those readings reverse or fail, it points toward investigating the variation rather than recommending an immediate pin.
 
-A recommendation therefore has two parts: a gain the gate can recognize and history supporting its durability. You still decide whether to capture it. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains that action.
+A recommendation combines a gain the gate can recognize with history supporting its durability. You still decide whether to capture it. [Set and raise standards](../10-guides/set-and-raise-standards.md) explains that action.
 
 ### Cohorts without rankings
 

@@ -1,0 +1,14 @@
+# Qualifiers can describe scope, timing, visibility, intent, degree, or meaning.
+# This advisory detector prompts that judgment; it cannot distinguish useful
+# precision from empty reassurance, drama, or praise by the token alone.
+extends: existence
+message: "Review '%s': keep it when it changes scope, timing, visibility, intent, degree, or meaning; remove empty reassurance, drama, or praise."
+ignorecase: true
+level: warning
+nonword: true
+tokens:
+  - '\bsilently\b'
+  - '\bquietly\b'
+  - '\bdeliberate(?:ly)?\b'
+  - '\bhonest(?:y|ly)?\b'
+  - '\bexactly\b'

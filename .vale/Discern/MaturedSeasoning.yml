@@ -1,15 +1,9 @@
-# Seasoning tokens whose corpus sweep found no legitimate prose use (voice
-# skill: banned words). Code spans and link targets remain exempt, so these
-# block the gate without catching a token quoted or linked for instruction.
+# The retained figurative-accompaniment ban. Context-sensitive qualifiers live
+# in ContextualQualifiers; this unrelated wording remains a blocking error.
 extends: existence
-message: "'%s' seasons the claim: state the fact without it."
+message: "Replace '%s' with the concrete action or relationship."
 ignorecase: true
 level: error
 nonword: true
 tokens:
-  - '\bsilently\b'
-  - '\bquietly\b'
-  - '\bdeliberate(?:ly)?\b'
-  - '\bhonest(?:y|ly)?\b'
-  - '\bexactly\b'
   - '\brides?\s+along\b'

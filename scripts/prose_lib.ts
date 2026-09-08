@@ -30,6 +30,7 @@ export const valeAlertSchema = z.looseObject({
   Severity: z.enum(["error", "warning", "suggestion"]),
   Check: z.string().optional(),
   Message: z.string().optional(),
+  Match: z.string().optional(),
   Line: valeCoordinate.optional(),
   Span: z.tuple([valeCoordinate, valeCoordinate]).optional(),
 });
@@ -127,15 +128,39 @@ export function restoreStagePaths(
     .replaceAll(stage, docsDir);
 }
 
+/**
+ * House rules whose matches require editorial judgment. Their alerts remain
+ * visible in review output; a match alone does not establish a prose defect.
+ * Exact ids keep unrelated and newly introduced rules under gate enforcement.
+ */
+export const EDITORIAL_PROSE_RULES = {
+  "Discern.ContrastFrame":
+    "A contrast can correct a misconception that changes the reader's next action.",
+  "Discern.ContrastReversal":
+    "A contrast can distinguish evidence, judgment, permission, or scope.",
+  "Discern.Padding":
+    "A qualifier can express a useful constraint or the reader's desired outcome.",
+  "Discern.ContextualQualifiers":
+    "Qualifiers can change visibility, intent, precision, or meaning.",
+  "Discern.EmDashChain":
+    "Paired dashes may enclose one explanatory aside rather than chain clauses.",
+} as const;
+
+/** Whether a named check is registered for editorial review. */
+export function isEditorialProseCheck(check: unknown): boolean {
+  return typeof check === "string" &&
+    Object.hasOwn(EDITORIAL_PROSE_RULES, check);
+}
+
 /** Whether one Vale check belongs to discern's authored voice styles. */
 function isDiscernVoiceCheck(check: unknown): boolean {
   return typeof check === "string" && check.startsWith("Discern");
 }
 
 /**
- * Select the alerts that block the prose job: every error across the linted
- * map, plus every discern-authored voice alert throughout the staged corpus.
- * Microsoft, Vale, and proselint advisories below error remain density signals.
+ * Select blocking defects: every error and every discern-authored alert except
+ * the registered editorial warnings and suggestions. Unlisted rules retain
+ * enforcement. Full review output and density measures keep the original report.
  */
 export function selectProseGateAlerts(
   vale: unknown,
@@ -150,7 +175,8 @@ export function selectProseGateAlerts(
       if (alert === null || typeof alert !== "object") return false;
       const fields = alert as Record<string, unknown>;
       return fields.Severity === "error" ||
-        isDiscernVoiceCheck(fields.Check);
+        (isDiscernVoiceCheck(fields.Check) &&
+          !isEditorialProseCheck(fields.Check));
     });
     if (alerts.length > 0) selected[path] = alerts;
   }

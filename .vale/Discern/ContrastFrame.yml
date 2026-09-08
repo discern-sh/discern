@@ -1,8 +1,8 @@
-# The "not X, but Y" family — the strongest machine-written fingerprint (voice
-# skill: banned moves). Docs budget: one per page, and only when the
-# distinction does real work; marketing budget: zero.
+# The "not X, but Y" family can correct a plausible misunderstanding. Review
+# whether the distinction changes the reader's next action; remove invented
+# oppositions and contrasts that only praise the preferred choice.
 extends: existence
-message: "Contrast-frame ('not X, but Y'): state the true half plainly, unless the distinction does real work."
+message: "Avoid this contrast: state what happens directly, unless a likely misunderstanding affects the next action and needs an explicit distinction."
 ignorecase: true
 level: warning
 tokens:

@@ -7,6 +7,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
+import { copy } from "@std/fs";
 import { join } from "@std/path";
 import {
   MANUAL_BENEFIT_EXCLUSIONS,
@@ -14,6 +15,7 @@ import {
   manualBenefitCoverageIssues,
 } from "../scripts/manual_benefits.ts";
 import {
+  checkManualProse,
   manualProseSource,
   manualReadingGrade,
   measuredManualProse,
@@ -41,6 +43,8 @@ import {
 } from "../src/shared/manual.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { withTempDir } from "./helpers.ts";
+import { runVale } from "../scripts/vale_lib.ts";
 
 /** Load the repository manual through its canonical strict policy. */
 async function repositoryManual(): Promise<ManualProjection> {
@@ -359,4 +363,82 @@ Deno.test("the Manual prose policy can target one published page without weakeni
     Error,
     "not a published Manual page",
   );
+});
+
+Deno.test("the shared Manual verdict retains editorial review and blocks product and spelling errors", async () => {
+  await withTempDir(async (dir) => {
+    const manualDir = join(dir, "project", "manual");
+    await copy(REPO_AUTHORED_PATHS.manual, manualDir);
+    const source = join(manualDir, "10-guides", "delegate-work.md");
+    const original = await Deno.readTextFile(source);
+    const frontmatter = original.match(
+      /^(---\r?\n[\s\S]*?\r?\n---)(?:\r?\n|$)/u,
+    )?.[1];
+    assert(frontmatter !== undefined);
+    const writeBody = async (body: string): Promise<void> => {
+      await Deno.writeTextFile(
+        source,
+        `${frontmatter}\n# Delegate work\n\n${body}\n`,
+      );
+    };
+    // Keep the strict manual projection in the isolated fixture while running
+    // the actual pinned Vale and authored rules from the repository.
+    const check = (): ReturnType<typeof checkManualProse> =>
+      checkManualProse(
+        dir,
+        [source],
+        (_root, args) => runVale(REPO_ROOT, args),
+      );
+
+    await writeBody(
+      "Record an honest unmet conclusion.\n" +
+        "Make the book easy to find.",
+    );
+    const editorial = await check();
+    assertEquals(editorial.code, 0, editorial.stderr);
+    assertEquals(editorial.alerts, {});
+    const review = editorial.reviewAlerts[source] ?? [];
+    for (
+      const rule of [
+        "Discern.ContextualQualifiers",
+        "Discern.Padding",
+      ]
+    ) {
+      assert(
+        review.some((alert) => alert.Check === rule),
+        `${rule} stays visible`,
+      );
+    }
+    assert(
+      review.every((alert) =>
+        alert.Line !== undefined &&
+        alert.Line > frontmatter.split("\n").length
+      ),
+      "review findings keep their original source line numbers",
+    );
+    assertEquals(Object.keys(editorial.reviewAlerts), [source]);
+
+    await writeBody(
+      "Discern has a mispellling.\n\nThe whole effort matters.\n\nTwo files remain.",
+    );
+    const defective = await check();
+    assertEquals(defective.code, 1);
+    for (
+      const rule of [
+        "DiscernProduct.ProductName",
+        "Vale.Spelling",
+        "Discern.Numeration",
+        "Discern.Seasoning",
+      ]
+    ) {
+      assert(
+        defective.alerts[source]?.some((alert) => alert.Check === rule),
+        `${rule} remains blocking in the shared gate and Canon Editor verdict`,
+      );
+      assert(
+        defective.reviewAlerts[source]?.some((alert) => alert.Check === rule),
+        `${rule} remains visible in full review`,
+      );
+    }
+  });
 });

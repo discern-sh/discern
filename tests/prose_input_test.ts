@@ -16,6 +16,8 @@ import {
 import {
   blankFrontmatter,
   decodeValeReport,
+  EDITORIAL_PROSE_RULES,
+  isEditorialProseCheck,
   restoreStagePaths,
   selectProseGateAlerts,
   valeJsonToSarif,
@@ -198,79 +200,63 @@ Deno.test("valeJsonToSarif feeds the gate's own SARIF normalization", () => {
   assertEquals(diagnostics[1]?.severity, "warning");
 });
 
-Deno.test("whole-map prose holds discern voice alerts at exact zero", () => {
-  const stageDir = "/tmp/discern-prose-contract";
-  const customAlerts = [
-    {
-      path: `${stageDir}/${PUBLIC_SECTION}/published.md`,
-      check: "Discern.Padding",
-      severity: "suggestion",
-    },
-    {
-      path: `${stageDir}/${CONTRIBUTOR_SECTION}/maintainer.md`,
-      check: "DiscernProduct.AgentBlame",
-      severity: "warning",
-    },
-    {
-      path: `${stageDir}/_internal/operations.md`,
-      check: "DiscernAgent.BestJudgment",
-      severity: "warning",
-    },
-    {
-      path: `${stageDir}/_internal/brand/canon.md`,
-      check: "DiscernBrand.StackedSlogans",
-      severity: "suggestion",
-    },
-    {
-      path: `${stageDir}/_adr/decision.md`,
-      check: "Discern.Padding",
-      severity: "suggestion",
-    },
-  ] as const;
-  const selected = selectProseGateAlerts(
-    Object.fromEntries([
-      ...customAlerts.map((fixture) =>
-        [fixture.path, [
-          {
-            Check: fixture.check,
-            Severity: fixture.severity,
-            Message: "Custom advisory blocks wherever its style emits it.",
-          },
-          {
-            Check: "Microsoft.Passive",
-            Severity: "warning",
-            Message: "Third-party advisories stay in the density metric.",
-          },
-        ]] as const
-      ),
-      [`${stageDir}/external-error.md`, [
-        {
-          Check: "Microsoft.Spelling",
-          Severity: "error",
-          Message: "Errors still block everywhere.",
-        },
-      ]],
+Deno.test("editorial prose review excludes only registered non-error findings", () => {
+  const editorialChecks = Object.keys(EDITORIAL_PROSE_RULES);
+  const report = {
+    "published.md": editorialChecks.flatMap((Check) => [
+      { Check, Severity: "warning", Message: "Review in context." },
+      { Check, Severity: "suggestion", Message: "Review in context." },
     ]),
-  );
-
-  for (const fixture of customAlerts) {
-    assertEquals(
-      (selected[fixture.path] ?? []).map((alert) =>
-        (alert as { Check?: unknown }).Check
-      ),
-      [fixture.check],
-      `${fixture.path} must block its custom alert without a path allowlist`,
-    );
+    "internal.md": [
+      { Check: "Discern.NewRule", Severity: "suggestion" },
+      { Check: "Discern.Numeration", Severity: "warning" },
+      { Check: "Discern.Seasoning", Severity: "warning" },
+      { Check: "DiscernProduct.ProductName", Severity: "warning" },
+      { Check: "DiscernProduct.AgentBlame", Severity: "warning" },
+      { Check: "DiscernAgent.BestJudgment", Severity: "warning" },
+      { Check: "DiscernBrand.StackedSlogans", Severity: "suggestion" },
+      { Check: "Microsoft.Passive", Severity: "warning" },
+    ],
+    "errors.md": [
+      { Check: "Vale.Spelling", Severity: "error" },
+      { Check: editorialChecks[0], Severity: "error" },
+    ],
+  };
+  const before = structuredClone(report);
+  const selected = selectProseGateAlerts(report);
+  assertEquals(selected, {
+    "internal.md": report["internal.md"].slice(0, -1),
+    "errors.md": report["errors.md"],
+  });
+  assertEquals(report, before, "review output retains every original finding");
+  for (const check of editorialChecks) assert(isEditorialProseCheck(check));
+  for (
+    const check of [
+      "Discern.NewRule",
+      "Discern.NumerationExtra",
+      "Discern.Numeration",
+      "Discern.Seasoning",
+      "Other.Numeration",
+      "toString",
+      undefined,
+    ]
+  ) {
+    assertEquals(isEditorialProseCheck(check), false, String(check));
   }
-  assertEquals(
-    (selected[`${stageDir}/external-error.md`] ?? []).map((alert) =>
-      (alert as { Check?: unknown }).Check
-    ),
-    ["Microsoft.Spelling"],
-  );
 });
 
-Deno.test("the prose command enforces custom zero across maintained Map tiers", async () => {
+Deno.test("every editorial disposition names an existing authored rule and explains its judgment", async () => {
+  for (const [check, rationale] of Object.entries(EDITORIAL_PROSE_RULES)) {
+    assert(
+      rationale.trim().length > 0,
+      `${check} needs its editorial rationale`,
+    );
+    const file = join(REPO_ROOT, ".vale", `${check.replace(".", "/")}.yml`);
+    assert((await Deno.stat(file)).isFile, `${check} must name a real rule`);
+  }
+});
+
+Deno.test("the prose command separates editorial review from defects across maintained Map tiers", async () => {
   await withTempDir(async (dir) => {
     const map = join(dir, "map");
     const pages = {
@@ -401,7 +387,13 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
       ].sort(),
       [...expectedRules.keys()].sort(),
     );
-    for (const [path, rules] of expectedRules) {
+    const blockingRules = new Map<string, string[]>([
+      [pages.public, ["DiscernProduct.ProductName"]],
+      [pages.contributor, ["DiscernAgent.BestJudgment"]],
+      [pages.operational, ["DiscernProduct.AgentBlame"]],
+      [pages.brand, ["DiscernBrand.GenericVerbs"]],
+    ]);
+    for (const [path, rules] of blockingRules) {
       const results = blockedResults.filter((result) =>
         result.locations[0].physicalLocation.artifactLocation.uri === path
       );
@@ -411,8 +403,8 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
       );
       assertEquals(
         [...new Set(results.map((result) => result.level))].sort(),
-        ["note", "warning"],
-        `${path} must block both custom suggestion and warning severities`,
+        ["warning"],
+        `${path} must block its defect while leaving padding for review`,
       );
     }
     assert(
@@ -424,7 +416,10 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
     );
 
     for (const path of expectedRules.keys()) {
-      await Deno.writeTextFile(path, "# Clean\n\ndiscern records the state.\n");
+      await Deno.writeTextFile(
+        path,
+        "# Review\n\nMake the book easy to find.\n",
+      );
     }
     const clean = await run(["--sarif", "--custom-zero"]);
     assertEquals(clean.code, 0, new TextDecoder().decode(clean.stderr));
@@ -433,6 +428,20 @@ Deno.test("the prose command enforces custom zero across maintained Map tiers", 
       new TextDecoder().decode(clean.stdout),
     );
     assertEquals(cleanSarif.runs[0].results, []);
+    const review = await run(["--min-level=suggestion", "--sarif"]);
+    const reviewSarif = decodeWith(
+      SARIF_LOG_SCHEMA,
+      new TextDecoder().decode(review.stdout),
+    );
+    for (const path of expectedRules.keys()) {
+      assert(
+        reviewSarif.runs[0].results.some((result) =>
+          result.locations[0].physicalLocation.artifactLocation.uri === path &&
+          result.ruleId === "Discern.Padding"
+        ),
+        `${path} keeps editorial findings in full review`,
+      );
+    }
 
     const density = await new Deno.Command(Deno.execPath(), {
       args: [

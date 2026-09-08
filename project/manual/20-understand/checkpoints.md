@@ -39,7 +39,7 @@ A test can verify that a confirmation dialog appears. Judging whether its wordin
 
 ## What happens at the gate
 
-Checkpoints have two modes:
+A checkpoint can stop for an answer or advise without waiting:
 
 - **Stop:** the gate, the project's configured checks, waits until the agent records a conclusion about the matching change.
 - **Advise:** the question appears as advice, without blocking the gate or requiring a recorded declaration.

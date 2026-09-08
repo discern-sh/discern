@@ -28,7 +28,7 @@ discern gives that account a home in the project. Your agent operates the tools 
 
 ## Who does what
 
-**You give the work its purpose.** You know who the app is for and what would make it better. A request such as “help people find a saved item without scrolling through the whole list” gives the agent a useful problem to solve. You can also explain constraints: keep existing lists intact, or make the feature work on a phone.
+**You give the work its purpose.** You know who the app is for and what would make it better. A request such as “help people find a saved item without scrolling through a long list” gives the agent a useful problem to solve. You can also explain constraints: keep existing lists intact, or make the feature work on a phone.
 
 **Your coding agent carries the implementation.** It studies the project, proposes an approach when needed, makes the change, and runs the checks. It investigates failures and brings back questions that need your decision. You can ask for recommendations and explanations without knowing the commands yourself.
 
@@ -70,7 +70,7 @@ The project defines its checks and review questions. discern does not contain an
 
 Suppose you have settled on a rule: opening a saved list should work without an internet connection. Ask your agent to record the rule and establish checks for the behavior it can test. The next agent can read the reason for that choice and face the same checks when changing the app.
 
-That is how an investment in one task can help later work. Written records carry context; executable checks cover the parts that can be tested. Neither requires you to repeat the whole conversation.
+That is how an investment in one task can help later work. Written records carry context; executable checks cover the parts that can be tested. These records spare you from explaining the same decisions again.
 
 The same source instructions are supplied to each configured coding tool. You can change supported providers without maintaining a separate version of the project's rules for each one. Provider-specific features and private conversation history still belong to those tools.
 

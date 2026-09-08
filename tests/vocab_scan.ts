@@ -6,6 +6,8 @@
  * and `vocab_drift_test.ts` (registry-driven retired vocabulary).
  */
 
+export { runningMarkdownProse } from "../scripts/markdown_prose.ts";
+
 export type Literal = { text: string; line: number };
 
 /**
@@ -143,18 +145,6 @@ export function stringLiterals(source: string): Literal[] {
 /** Visible Markdown text: link destinations are addresses, not rendered prose. */
 export function visibleMarkdown(text: string): string {
   return text.replace(/\]\([^)]*\)/g, "]");
-}
-
-/** Running Markdown prose with code, comments, headings, and link targets removed. */
-export function runningMarkdownProse(text: string): string {
-  return visibleMarkdown(text)
-    .replace(/^---\s*\n[^]*?\n---\s*$/m, "")
-    .replace(/<!--[^]*?-->/g, "")
-    .replace(/^(?:```|~~~)[^\n]*\n[^]*?^(?:```|~~~)\s*$/gm, "")
-    .replace(/<https?:\/\/[^>\s]+>/g, "")
-    .replace(/<[a-z][a-z0-9_]*>/g, "")
-    .replace(/`[^`\n]*`/g, "")
-    .replace(/^(?:\{\{[^}\n]+\}\})?#{1,6}\s+.*$/gm, "");
 }
 
 /**

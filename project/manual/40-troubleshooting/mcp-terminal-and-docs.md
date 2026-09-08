@@ -48,7 +48,7 @@ discern_await
   resume: C1-BKJD-X4GQ-05
 ```
 
-The CLI form is `discern await --resume C1-BKJD-X4GQ-05`. Replace the example handle with the one returned. The continuation preserves the original condition and observations, including a change between calls. No extra sleep or polling loop is needed.
+The CLI form is `discern await --resume C1-BKJD-X4GQ-05`. Replace the example handle with the handle in your result. The continuation preserves the original condition and observations, including a change between calls. No extra sleep or polling loop is needed.
 
 The watch is complete when `data.met` is `true`. Ending it because the dependency no longer matters is also a valid choice. For scripts, an unfinished CLI wait exits `124`.
 

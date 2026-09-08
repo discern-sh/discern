@@ -141,6 +141,7 @@ mutex
 namespac(e|ed|es|ing)
 Netlify
 noglob
+nonces?
 npm
 Nx
 OAuth
@@ -252,6 +253,7 @@ untrack(ed|ing|s)
 untrusted
 unwir(ed|ing)
 uppercased
+URIs?
 validators?
 vendored
 Vercel('s)?

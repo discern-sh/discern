@@ -185,7 +185,7 @@ function proseIssueLines(findings: ValeReport): string[] {
 
 /**
  * Hold the rewritten pages to the gate's own prose command — the identical
- * judgment (`--custom-zero`, error-level blockers plus the authored voice),
+ * judgment (`--custom-zero`, blocking defects with editorial advice excluded),
  * moved from `discern done` to save time so a save can never leave a tree
  * the gate's prose job refuses.
  */

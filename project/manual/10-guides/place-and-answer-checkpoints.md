@@ -95,7 +95,7 @@ When a question appears, the agent reads it with the matched content and any tea
 
 > Review the checkpoint against the actual change. Explain what supports your answer, and record an unmet conclusion if the concern remains.
 
-For the delete-list example, a supported answer might describe the list name and book count shown in the dialog, how Cancel behaves, and whether an accidental deletion can be recovered. It should reflect the implementation, not just the intended design.
+For the delete-list example, a supported answer might describe the list name and book count shown in the dialog, how Cancel behaves, and whether an accidental deletion can be recovered. Base the answer on the implemented behavior.
 
 The agent records a satisfied conclusion with:
 

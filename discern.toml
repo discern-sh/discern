@@ -219,9 +219,9 @@
   smoke = "deno task dev --version"
 
   # `prose` lints the map with Vale at the check stage. Error-severity findings
-  # block map-wide; every discern-authored voice alert blocks throughout the
-  # staged non-private Map. Other advisories are held by the [standards.prose]
-  # ceiling. The wrapper stages one frontmatter-blanked mirror first
+  # block map-wide; discern-authored warnings and suggestions block unless
+  # scripts/prose_lib.ts registers the rule for editorial review. All findings
+  # remain in [standards.prose]. The wrapper stages one blanked mirror first
   # (scripts/prose_lib.ts): Vale measures prose, never metadata.
   # `--sarif` makes each finding a file/line/rule diagnostic in the gate's
   # failure recap; drop it (or use `discern scripts prose-page`) for Vale's
@@ -229,7 +229,7 @@
   [jobs.prose]
     stage = "check"
     run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --custom-zero \"${map.dir}\""
-    provides = "docs prose lint (Vale; errors and discern voice alerts block across the non-private Map)"
+    provides = "docs prose lint (Vale; blocking defects across the non-private Map; registered editorial advice retained for review)"
 
   [jobs.manual-prose]
     stage = "check"
