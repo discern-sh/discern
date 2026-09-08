@@ -97,7 +97,13 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
             declaration === null
         ? "source"
         : "recovery",
+    signal?: AbortSignal,
   ): Promise<WorkspaceState> {
+    signal?.throwIfAborted();
+    const bounds = {
+      ...this.options.bounds,
+      ...(signal === undefined ? {} : { signal }),
+    };
     const settings = frozen?.settings ?? this.options.settings;
     const borrowed = environment.ownership.kind === "borrowed"
       ? environment.ownership
@@ -148,10 +154,10 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       );
     }
     const git = observation === "source"
-      ? await observeSourceSnapshot(environment.path, this.options.bounds)
+      ? await observeSourceSnapshot(environment.path, bounds)
       : await captureGitSnapshot(
         environment.path,
-        this.options.bounds,
+        bounds,
         undefined,
         { root: this.options.root, preserve: observation === "recovery" },
       );
@@ -257,7 +263,13 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
   async verify(
     environment: ExecutionEnvironment,
     snapshot: WorkspaceSnapshot,
+    signal?: AbortSignal,
   ): Promise<void> {
+    signal?.throwIfAborted();
+    const bounds = {
+      ...this.options.bounds,
+      ...(signal === undefined ? {} : { signal }),
+    };
     const state = await this.frozen(snapshot);
     if (state.git === null) {
       if (
@@ -274,10 +286,10 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     if (
       JSON.stringify(
         await (state.git.format === SOURCE_OBSERVATION_FORMAT
-          ? observeSourceSnapshot(environment.path, this.options.bounds)
+          ? observeSourceSnapshot(environment.path, bounds)
           : captureGitSnapshotLike(
             environment.path,
-            this.options.bounds,
+            bounds,
             state.git,
             this.options.root,
           )),
@@ -308,9 +320,10 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     plan: ExecutionRecipe,
     source: WorkspaceSnapshot,
   ): Promise<WorkspaceSnapshot> {
+    const bounds = { ...this.options.bounds, signal: execution.signal };
     const original = await this.frozen(source);
     if (plan.action !== "source-tip") requireRestorableSnapshot(original.git);
-    await this.verify(execution.environment, source);
+    await this.verify(execution.environment, source, execution.signal);
     const { path } = execution.environment;
     if (original.git === null) {
       if (
@@ -327,17 +340,17 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         "--detach",
         path,
         execution.candidate.head,
-      ], this.options.bounds);
+      ], bounds);
     } else if (plan.action !== "source-tip") {
       await executionGit(
         path,
         ["switch", "--detach", execution.candidate.head],
-        this.options.bounds,
+        bounds,
       );
     }
     const current = plan.action === "source-tip"
-      ? await observeSourceSnapshot(path, this.options.bounds)
-      : await captureGitSnapshot(path, this.options.bounds, undefined, {
+      ? await observeSourceSnapshot(path, bounds)
+      : await captureGitSnapshot(path, bounds, undefined, {
         root: this.options.root,
         preserve: true,
       });
@@ -351,7 +364,13 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       );
     }
     return await snapshotValue(
-      await this.state(execution.environment, plan.declaration, original),
+      await this.state(
+        execution.environment,
+        plan.declaration,
+        original,
+        undefined,
+        execution.signal,
+      ),
     );
   }
 
@@ -450,7 +469,12 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
           scheduler: this.options.scheduler ?? SYSTEM_SCHEDULER,
         },
       );
-      if (result.result.status !== "ok" || signal.aborted) {
+      if (signal.aborted) {
+        throw new Error(
+          `Environment ${phase} was cancelled; preserve its frozen return contract for recovery.`,
+        );
+      }
+      if (result.result.status !== "ok") {
         throw new Error(
           `Required environment ${phase} failed (exit ${result.result.code}): ${command}. ${
             new TextDecoder().decode(result.output)
@@ -474,6 +498,8 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       execution.environment,
       plan.declaration,
       original,
+      undefined,
+      execution.signal,
     );
     if (plan.action !== "source-tip") requireRestorableSnapshot(state.git);
     if (
@@ -525,7 +551,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       (await this.frozen(source)).git !== null ||
       (await this.frozen(captured)).git !== null
     ) return false;
-    await this.verify(execution.environment, captured);
+    await this.verify(execution.environment, captured, execution.signal);
     try {
       await readExecutionDocument(
         this.options.root,
@@ -545,6 +571,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     source: WorkspaceSnapshot,
     captured: WorkspaceSnapshot,
   ): Promise<void> {
+    const bounds = { ...this.options.bounds, signal: execution.signal };
     const original = await this.frozen(source);
     const drift = await this.frozen(captured);
     const current = drift.git;
@@ -556,7 +583,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       }
       return;
     }
-    await this.verify(environment, captured);
+    await this.verify(environment, captured, execution.signal);
     if (
       original.git !== null &&
       (original.git.git_dir !== current.git_dir ||
@@ -609,7 +636,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       const head = (await executionGit(environment.path, [
         "rev-parse",
         `${borrowed.source.branch}^{commit}`,
-      ], this.options.bounds)).trim();
+      ], bounds)).trim();
       if (head !== borrowed.source.head) {
         throw new Error(
           "The authoring branch moved during execution; preserve the detached checkout and its drift.",
@@ -624,6 +651,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       ),
     );
     for (const file of current.files) {
+      execution.signal.throwIfAborted();
       if (file.kind === "missing" || file.ignored || tracked.has(file.path)) {
         continue;
       }
@@ -636,12 +664,12 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       "--worktree",
       "--",
       ".",
-    ], this.options.bounds);
+    ], bounds);
     if (borrowed !== null && original.git !== null) {
       await executionGit(environment.path, [
         "switch",
         borrowed.source.branch.slice("refs/heads/".length),
-      ], this.options.bounds);
+      ], bounds);
       const indexLock = `${original.git.index_path}.lock`;
       const lock = await Deno.open(indexLock, {
         createNew: true,
@@ -683,6 +711,8 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       execution.environment,
       plan.declaration,
       original,
+      undefined,
+      execution.signal,
     );
     const git = current.git;
     if (plan.action !== "source-tip") requireRestorableSnapshot(git);
@@ -737,7 +767,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       execution.environment.ownership.kind !== "isolated" ||
       !execution.environment.ownership.disposable
     ) throw new Error("This environment has no isolated disposal ownership.");
-    await this.verify(execution.environment, captured);
+    await this.verify(execution.environment, captured, execution.signal);
     const state = await this.frozen(captured);
     if (state.git === null) return;
     requireRestorableSnapshot(state.git);
@@ -753,7 +783,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       "worktree",
       "remove",
       execution.environment.path,
-    ], this.options.bounds);
+    ], { ...this.options.bounds, signal: execution.signal });
     if (await statIfExists(execution.environment.path) !== undefined) {
       throw new Error(
         "Checkout disposal is incomplete; retain the environment record.",

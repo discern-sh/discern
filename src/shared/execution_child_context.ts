@@ -9,7 +9,7 @@ export interface ExecutionChildTicket {
 export interface ExecutionChildren {
   planned(): Promise<ExecutionChildTicket>;
 }
-const CHILDREN = new AsyncLocalStorage<ExecutionChildren>();
+const CHILDREN = new AsyncLocalStorage<ExecutionChildren | undefined>();
 
 /** Install only for the duration of the native exclusive execution. */
 export async function withExecutionChildren<T>(
@@ -23,7 +23,16 @@ export async function withExecutionChildren<T>(
 export async function planExecutionChild(): Promise<
   ExecutionChildTicket | undefined
 > {
-  return await CHILDREN.getStore()?.planned();
+  const observer = CHILDREN.getStore();
+  if (observer === undefined) return undefined;
+  // Receipt publication performs its own administration reads. Instrumenting
+  // those reads would recursively demand another receipt before the first one.
+  const ticket = await CHILDREN.run(undefined, () => observer.planned());
+  return {
+    started: (pid, isolated) =>
+      CHILDREN.run(undefined, () => ticket.started(pid, isolated)),
+    settled: () => CHILDREN.run(undefined, () => ticket.settled()),
+  };
 }
 
 /** Only ESRCH proves absence. Permissions, unsupported signals and live PIDs do not. */

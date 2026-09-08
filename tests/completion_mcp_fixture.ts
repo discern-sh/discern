@@ -24,6 +24,7 @@ export function completionProcessAlive(pid: number): boolean {
 /** Own the server, its input, and its output drain for the fixture's lifetime. */
 export class CompletionMcpPeer implements AsyncDisposable {
   readonly messages: Message[] = [];
+  stderr = "";
   readonly finished: Promise<Deno.CommandStatus>;
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>;
   private readonly drained: Promise<void>;
@@ -31,7 +32,17 @@ export class CompletionMcpPeer implements AsyncDisposable {
   constructor(private readonly child: Deno.ChildProcess) {
     this.writer = child.stdin.getWriter();
     this.finished = child.status;
-    this.drained = this.drain();
+    this.drained = Promise.all([this.drain(), this.drainErrors()]).then(
+      () => {},
+    );
+  }
+
+  private async drainErrors(): Promise<void> {
+    for await (
+      const text of this.child.stderr.pipeThrough(new TextDecoderStream())
+    ) {
+      this.stderr = (this.stderr + text).slice(-65_536);
+    }
   }
 
   private async drain(): Promise<void> {
@@ -128,7 +139,7 @@ export async function completionMcpPeer(
     env: await engineEnv(extraEnv),
     stdin: "piped",
     stdout: "piped",
-    stderr: "null",
+    stderr: "piped",
   }).spawn());
   try {
     await peer.send({

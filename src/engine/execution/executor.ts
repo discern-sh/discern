@@ -536,6 +536,12 @@ class ExecutorImplementation implements EnvironmentExecutor {
     intent: ExecutionIntent,
   ): Promise<EnvironmentReturn> {
     const { workspace, lifetime, root } = this.options;
+    // A stopped producer still owes return work. A cancellation arriving during
+    // that return stops its children and leaves the frozen recovery contract.
+    const recoverySignal = execution.signal.aborted
+      ? new AbortController().signal
+      : execution.signal;
+    execution = { ...execution, signal: recoverySignal };
     let phase: EnvironmentPhase = "capture";
     let drift: CompletionRecovery["drift"] = {
       kind: "uncaptured",
@@ -574,7 +580,6 @@ class ExecutorImplementation implements EnvironmentExecutor {
         ? "restore"
         : "reset";
       await this.phase(execution, phase, true);
-      const recoverySignal = new AbortController().signal;
       if (unprovisioned) {
         await workspace.verify(execution.environment, captured);
       } else if (disposable) {
@@ -664,6 +669,14 @@ class ExecutorImplementation implements EnvironmentExecutor {
         environment: returned.record.data,
       };
     } catch (error) {
+      try {
+        quiescent = await lifetime.quiesce(
+          execution.environment.path,
+          execution.fence.attempt_id,
+        );
+      } catch {
+        quiescent = false;
+      }
       return await this.unfinished(
         execution,
         recoveryFor(

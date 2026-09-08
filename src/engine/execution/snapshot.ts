@@ -26,6 +26,7 @@ export interface CaptureBounds {
   readonly maxFiles: number;
   readonly maxBytes: number;
   readonly gitTimeoutMs: number;
+  readonly signal?: AbortSignal;
 }
 
 /** Both source observation and recovery bind the checkout's owned native index. */
@@ -49,12 +50,14 @@ export async function executionGit(
     readonly scheduler?: Scheduler;
   } = {},
 ): Promise<string> {
+  bounds.signal?.throwIfAborted();
   const result = await runGit(args, {
     cwd: path,
     env: { GIT_OPTIONAL_LOCKS: "0" },
     timeoutMs: bounds.gitTimeoutMs,
     maxOutputBytes: bounds.maxBytes,
     quiesceDescendants: true,
+    ...(bounds.signal === undefined ? {} : { signal: bounds.signal }),
     ...(options.scheduler !== undefined
       ? { scheduler: options.scheduler }
       : {}),

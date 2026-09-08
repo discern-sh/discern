@@ -2,8 +2,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "@zod/zod";
 import { quoteCommandWord } from "../src/shared/command_evidence.ts";
-import { pathExists } from "../src/shared/fs_presence.ts";
-import { StatusOutputSchema } from "../src/shared/result_schemas.ts";
+import { pathExists, readTextIfExists } from "../src/shared/fs_presence.ts";
+import {
+  FinishOutputSchema,
+  StatusOutputSchema,
+} from "../src/shared/result_schemas.ts";
 import {
   observedRecords,
   observeQueue,
@@ -18,6 +21,7 @@ import {
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
 
 const StatusResultSchema = z.object({ structuredContent: StatusOutputSchema });
+const FinishResultSchema = z.object({ structuredContent: FinishOutputSchema });
 
 for (const phase of ["capture", "restore"] as const) {
   Deno.test(
@@ -83,6 +87,7 @@ for (const phase of ["capture", "restore"] as const) {
           }
           const pids: number[] = [];
           const peer = await completionMcpPeer(path, extraEnv);
+          let closed = false;
           try {
             await peer.call(2, "discern_done", { path });
             await waitForPendingCondition(
@@ -177,11 +182,79 @@ for (const phase of ["capture", "restore"] as const) {
                 before,
               );
             }
+            const executions = await readTextIfExists(path + "/executions");
+            await peer[Symbol.asyncDispose]();
+            closed = true;
+            await using reconnect = await completionMcpPeer(path, extraEnv);
+            await reconnect.call(2, "discern_status", { path });
+            const resumed =
+              StatusResultSchema.parse((await reconnect.response(2)).result)
+                .structuredContent;
+            assertEquals(resumed.ok, true);
+            if (environment.data.state.kind === "recovery") {
+              await reconnect.call(3, "discern_done", {
+                path,
+                recover: environment.id,
+              });
+              const recovered =
+                FinishResultSchema.parse((await reconnect.response(3)).result)
+                  .structuredContent;
+              assertEquals(recovered.ok, true, JSON.stringify(recovered));
+              assertEquals(
+                await readTextIfExists(path + "/executions"),
+                executions,
+                "recovery must not repeat producers",
+              );
+            }
+            assertEquals(
+              await gitOut(path, "rev-parse", "HEAD", "HEAD^{tree}"),
+              before,
+            );
+            assert(pids.every((pid) => !completionProcessAlive(pid)));
+            await reconnect.call(4, "discern_done", {
+              path,
+              retain_checkout: true,
+            });
+            const completed =
+              FinishResultSchema.parse((await reconnect.response(4)).result)
+                .structuredContent;
+            assertEquals(completed.ok, true, JSON.stringify(completed));
+            const settled = observedRecords(await observeQueue(root, "main"));
+            assert(
+              settled.every((record) =>
+                record.kind !== "attempt" ||
+                record.data.state.kind === "finished"
+              ),
+            );
+          } catch (error) {
+            const records = observedRecords(await observeQueue(root, "main"));
+            throw new Error(
+              "Cancellation boundary " + phase + ": " + JSON.stringify({
+                children: pids.map((pid) => ({
+                  pid,
+                  alive: completionProcessAlive(pid),
+                })),
+                stderr: peer.stderr,
+                records: records.filter((record) =>
+                  record.kind === "environment" || record.kind === "attempt"
+                )
+                  .map((record) => ({
+                    kind: record.kind,
+                    id: record.id,
+                    state: record.data.state,
+                  })),
+                responses: peer.messages.filter((message) =>
+                  "id" in message && message.id !== 1
+                )
+                  .slice(-2),
+              }),
+              { cause: error },
+            );
           } finally {
             for (const pid of pids) {
               if (completionProcessAlive(pid)) Deno.kill(pid, "SIGKILL");
             }
-            await peer[Symbol.asyncDispose]();
+            if (!closed) await peer[Symbol.asyncDispose]();
           }
         });
       });

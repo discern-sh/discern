@@ -540,6 +540,9 @@ export async function withPublicCompletion<T>(
       environment_id: environmentId,
     };
     if (returned.returned.kind === "recovery-incomplete") {
+      // The executor's environment retains recovery ownership. This actor has
+      // stopped advancing the queue, so its separate scheduling claim must end.
+      await releaseQueueClaim(root, claim, candidate);
       const blocker = {
         kind: "recovery-incomplete" as const,
         record_id: environmentId,
