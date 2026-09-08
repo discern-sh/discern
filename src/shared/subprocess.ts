@@ -843,7 +843,9 @@ export async function runGit(
     // Worktree topology may have changed under every retained discovery answer.
     if (
       invocation !== undefined &&
-      GIT_TOPOLOGY_SUBCOMMANDS.has(invocation.subcommand)
+      GIT_TOPOLOGY_SUBCOMMANDS.has(invocation.subcommand) &&
+      !(invocation.subcommand === "worktree" &&
+        args[invocation.subcommandIndex + 1] === "list")
     ) {
       invalidateGitDiscovery();
     }

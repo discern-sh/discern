@@ -1,4 +1,4 @@
-import { withGitDiscoveryScope } from "../../shared/git_discovery.ts";
+import { withinGitDiscoveryScope } from "../../shared/git_discovery.ts";
 import {
   completionPublicationPath,
   invalidateCompletionPublication,
@@ -31,7 +31,7 @@ export async function saveEnvironmentArtifact(
   beforePublish?: () => Promise<void>,
 ): Promise<EnvironmentArtifact> {
   const canonicalRoot = await Deno.realPath(root);
-  return await withGitDiscoveryScope(() =>
+  return await withinGitDiscoveryScope(() =>
     withRecoveryStorage(canonicalRoot, async (storageCommon) => {
       const raw = encodeExecutionDocument(value);
       const artifact = ArtifactSchema.parse({

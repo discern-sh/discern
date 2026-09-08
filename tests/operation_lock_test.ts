@@ -239,6 +239,40 @@ Deno.test("completion publication holds every competing common-repository mutati
   });
 });
 
+Deno.test("parallel completion publications serialize inside a common transaction and permit nested publication", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    await withOperationLock(dir, { command: "setup done" }, async () => {
+      let active = 0;
+      let maximum = 0;
+      let completed = 0;
+      await Promise.all(
+        Array.from(
+          { length: 8 },
+          () =>
+            withCompletionPublication(dir, async () => {
+              active += 1;
+              maximum = Math.max(maximum, active);
+              try {
+                await withCompletionPublication(dir, async () => {
+                  assertEquals(
+                    await Deno.readTextFile(join(dir, "seed.txt")),
+                    "seed\n",
+                  );
+                  completed += 1;
+                });
+              } finally {
+                active -= 1;
+              }
+            }),
+        ),
+      );
+      assertEquals(maximum, 1);
+      assertEquals(completed, 8);
+    });
+  });
+});
+
 Deno.test("acceptance lock preserves structured write-access evidence", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);
