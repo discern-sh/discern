@@ -11,6 +11,8 @@ import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { git, gitOut, runAgent } from "./engine_helpers.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import { environmentFixture } from "./completion_environments_fixture.ts";
+import { requireEnvironment } from "../src/engine/execution/registry.ts";
 
 Deno.test("source standards and done tolerate unrelated ignored data and registered submodules", async () => {
   await withTempDir(async (root) => {
@@ -108,5 +110,24 @@ restore = 'exit 72'
       await gitOut(path, "symbolic-ref", "HEAD"),
       "refs/heads/agent/",
     );
+  });
+});
+
+Deno.test("source return reads an already frozen recovery manifest in its original observation form", async () => {
+  await withTempDir(async (base) => {
+    const f = await environmentFixture(base, "undeclared");
+    const environment = await requireEnvironment(f.root, f.id);
+    const frozen = await f.workspace.inspect(
+      environment.record.data,
+      null,
+      "recovery",
+    );
+    const execution = await f.claim(
+      f.plan({ ...f.candidate, head: f.source.head, tree: f.source.tree }),
+    );
+    await f.workspace.verifyReturned(execution, {
+      action: "source-tip",
+      declaration: null,
+    }, frozen);
   });
 });

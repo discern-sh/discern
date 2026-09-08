@@ -213,10 +213,15 @@ class ExecutorImplementation implements EnvironmentExecutor {
           ? root
           : environment.path,
         async (signal) => {
+          const sourceRetirementRelease = plan.action === "source-tip" &&
+            environment.release.kind === "released" &&
+            environment.release.retirement;
+          // A cleanup release binds file hashes. Source-only validation must
+          // retain that exact subject without copying restoration payloads.
           const source = await workspace.inspect(
             environment,
             plan.declaration,
-            undefined,
+            sourceRetirementRelease ? "release" : undefined,
             signal,
           );
           if (
@@ -675,7 +680,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
             await workspace.inspect(
               environment,
               intent.recipe.declaration,
-              undefined,
+              environment.release.retirement ? "release" : undefined,
               execution.signal,
             ),
           ),

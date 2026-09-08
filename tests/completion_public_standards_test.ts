@@ -12,6 +12,8 @@ import {
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { requireQueue } from "../src/engine/landing_queue/repository.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { project } from "./completion_public_fixture.ts";
+import { statIfExists } from "../src/shared/fs_presence.ts";
 
 Deno.test("E12 public standards shares dependencies and pin reuses receipts without a passed queue claim", async () => {
   await withTempDir(async (root) => {
@@ -88,5 +90,42 @@ limit = 90
       ),
       [],
     );
+  });
+});
+
+Deno.test("public acceptance validates a released source after standalone measurement and retires it safely", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      `
+[standards.lightweight]
+run = "printf l >> executions; printf 'DISCERN_METRIC lightweight 1\\\\n'"
+direction = 'down'
+limit = 1
+`,
+    );
+    for (
+      const args of [
+        ["done", "--retain-checkout"],
+        ["standards", "lightweight"],
+        ["done", "--release-checkout"],
+      ]
+    ) {
+      const result = await runAgent(path, [...args, "--json"]);
+      assertEquals(result.code, 0, result.output);
+    }
+    const executions = await Deno.readTextFile(`${path}/executions`);
+    assertEquals(executions.split("t").length - 1, 1);
+    assertEquals(executions.split("l").length - 1, 2);
+    const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assert(result.data !== undefined && "queue" in result.data);
+    assertEquals(result.data.queue?.map((row) => [row.state, row.retirement]), [
+      ["landed", "retired"],
+    ]);
+    assertEquals(await statIfExists(path), undefined);
+    assertEquals(await Deno.readTextFile(`${root}/source`), "authored\n");
   });
 });

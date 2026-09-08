@@ -713,7 +713,11 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       execution.environment,
       plan.declaration,
       original,
-      undefined,
+      original.git?.format === SOURCE_OBSERVATION_FORMAT
+        ? "source"
+        : original.git?.format === RELEASE_OBSERVATION_FORMAT
+        ? "release"
+        : "recovery",
       execution.signal,
     );
     const git = current.git;
