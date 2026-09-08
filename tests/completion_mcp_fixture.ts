@@ -156,6 +156,8 @@ export async function completionMcpPeer(
     return peer;
   } catch (error) {
     await peer[Symbol.asyncDispose]();
-    throw error;
+    throw new Error(`MCP initialization failed: ${peer.stderr}`, {
+      cause: error,
+    });
   }
 }

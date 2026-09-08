@@ -23,6 +23,21 @@ export async function declarationIdentity(
   );
 }
 
+/** Resolve the recorded contract, including source execution without borrowing. */
+export async function enrolledDeclaration(
+  environment: ExecutionEnvironment,
+  declarations: readonly EnvironmentDeclaration[],
+): Promise<EnvironmentDeclaration | null> {
+  for (const declaration of [null, ...declarations]) {
+    if (environment.declaration === await declarationIdentity(declaration)) {
+      return declaration;
+    }
+  }
+  throw new Error(
+    "The enrolled execution declaration is unavailable. Preserve its frozen recovery contract and reconcile the intended declaration before release or cleanup.",
+  );
+}
+
 /** Release binds checkout state and ownership independently of candidate selection. */
 export async function releasedSubject(
   environment: ExecutionEnvironment,

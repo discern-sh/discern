@@ -1604,6 +1604,25 @@ export const AcceptancePrefixSchema = z.strictObject({
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  /** Artifact cleanup does not change landing, retirement, or retained evidence. */
+  storage_cleanup: z.discriminatedUnion("state", [
+    z.strictObject({
+      state: z.literal("planned"),
+      planned_files: z.number().int().nonnegative(),
+      retirement_ids: z.array(z.string()),
+    }),
+    z.strictObject({
+      state: z.literal("settled"),
+      removed_files: z.number().int().nonnegative(),
+      retirement_ids: z.array(z.string()),
+    }),
+    z.strictObject({
+      state: z.literal("retained"),
+      removed_files: z.number().int().nonnegative(),
+      retirement_ids: z.array(z.string()),
+      reason: z.string(),
+    }),
+  ]).optional(),
   checkpoint_preparation: GateCheckpointsDataSchema.optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   emergency: EmergencyDataSchema.optional(),
@@ -1960,9 +1979,19 @@ const reappearedWorktreePathSchema = z.strictObject({
 export const StatusDataSchema = z.strictObject({
   execution_recovery: z.array(z.strictObject({
     environment_id: z.string(),
+    attempt_id: z.string().optional(),
+    phase: z.string().optional(),
+    children_quiescent: z.boolean().optional(),
     reason: z.string(),
     retained_paths: z.array(z.string()),
     next_action: z.string(),
+  })).optional(),
+  execution_activity: z.array(z.strictObject({
+    environment_id: z.string(),
+    attempt_id: z.string(),
+    candidate_id: z.string(),
+    phase: z.string(),
+    lease_expires_at: z.number(),
   })).optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),

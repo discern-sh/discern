@@ -33,7 +33,11 @@ import {
   replaceEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
-import { releaseMatchesSnapshot } from "../execution/subjects.ts";
+import {
+  enrolledDeclaration,
+  releaseMatchesSnapshot,
+} from "../execution/subjects.ts";
+import { withRecoveryStorage } from "../execution/storage_lifetime.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import { WorkspaceStateSchema } from "../execution/workspace_state.ts";
@@ -160,16 +164,6 @@ export function planQueueRetirement(
   if (retired !== undefined) {
     return { kind: "settled", outcome: retired.data.outcome, record: retired };
   }
-  const retained = prior.find((record) =>
-    record.data.capture !== undefined && record.data.outcome.kind === "retained"
-  );
-  if (retained !== undefined) {
-    return {
-      kind: "settled",
-      outcome: retained.data.outcome,
-      record: retained,
-    };
-  }
   const environment = records.find((record) =>
     record.kind === "environment" &&
     record.data.ownership.kind === "borrowed" &&
@@ -183,6 +177,22 @@ export function planQueueRetirement(
   );
   if (unfinished !== undefined) {
     return { kind: "resume", record: unfinished };
+  }
+  const retained = prior.find((record) =>
+    record.data.capture !== undefined &&
+    record.data.outcome.kind === "retained" &&
+    !(environment?.kind === "environment" &&
+      environment.data.state.kind === "idle" &&
+      environment.data.release.kind === "released" &&
+      environment.data.release.retirement &&
+      environment.data.release.id !== record.data.release_id)
+  );
+  if (retained !== undefined) {
+    return {
+      kind: "settled",
+      outcome: retained.data.outcome,
+      record: retained,
+    };
   }
   if (environment?.kind !== "environment") {
     return {
@@ -234,105 +244,137 @@ export async function retireQueueLanding(
   const path = environment.data.path;
   try {
     return await withCompletionCheckout(path, async (signal) => {
-      signal.throwIfAborted();
-      const current = await requireEnvironment(runtime.root, environment.id);
-      if (
-        current.record.data.release.kind !== "released" ||
-        !current.record.data.release.retirement ||
-        current.record.data.state.kind !== "idle"
-      ) return { kind: "retained", reason: "unreleased" };
-      const pin = await pinValidatedTree(path);
-      if (
-        pin.head !== landing.data.source.head ||
-        await gitValue(path, ["symbolic-ref", "HEAD"]) !==
-          landing.data.source.branch
-      ) return { kind: "retained", reason: "moved-branch" };
-      if (!pin.clean) return { kind: "retained", reason: "dirty" };
-      const config = await loadConfig(path);
-      const declaration = config.execution.local ?? null;
-      const capabilities = await releasedValidationEnvironment(
-        path,
-        config,
-        landing.data.source,
-        declaration,
-        { environment_id: environment.id, expected_stamp: current.stamp },
-      );
-      const snapshot = await capabilities.workspace.inspect(
-        current.record.data,
-        declaration,
-      );
-      if (
-        !await releaseMatchesSnapshot(current.record.data, snapshot)
-      ) return { kind: "retained", reason: "dirty" };
-      await capabilities.workspace.verify(current.record.data, snapshot);
-      const state = WorkspaceStateSchema.parse(snapshot.value);
-      requireRestorableSnapshot(state.git);
-      const branch = landing.data.source.branch.slice("refs/heads/".length);
-      const ownership = {
-        kind: "worktree" as const,
-        branch,
-        id: state.worktree_id,
-        settings: state.settings,
-        source: "registered" as const,
-      };
-      if (
-        !classifyAutomaticBranchOwnership(ownership).owned ||
-        state.git === null || state.git.branch !== landing.data.source.branch ||
-        state.git.head !== landing.data.source.head
-      ) return { kind: "retained", reason: "ownership-uncertain" };
-      const frozen: LedgerItem[] = [];
-      for (const item of state.ledger) {
-        const entry = parseResourceEntry(item.raw);
+      const captured = await withRecoveryStorage<
+        RetirementRecord | CompletionRetirement["outcome"]
+      >(runtime.root, async () => {
+        signal.throwIfAborted();
+        const current = await requireEnvironment(runtime.root, environment.id);
         if (
-          entry.status !== "recorded" || entry.entry.phase !== "ready" ||
-          entry.entry.worktree_path !== path ||
-          entry.entry.worktree_id !== state.worktree_id ||
-          state.resources[entry.entry.resource_name] !==
-            entry.entry.resource_identity
-        ) return { kind: "retained", reason: "ownership-uncertain" };
-        frozen.push({ path: item.path, entry: entry.entry });
-      }
-      const id = SYSTEM_SECURE_ENTROPY.uuid();
-      const capture = await saveEnvironmentArtifact(
-        runtime.root,
-        {
-          attempt_id: landing.data.attempt_id,
-          candidate_id: landing.data.candidate_id,
-          context: "local",
-        },
-        `retirement-${id}`,
-        {
-          environment: current.record.data,
+          current.record.data.release.kind !== "released" ||
+          !current.record.data.release.retirement ||
+          current.record.data.state.kind !== "idle"
+        ) return { kind: "retained", reason: "unreleased" };
+        const pin = await pinValidatedTree(path);
+        if (
+          pin.head !== landing.data.source.head ||
+          await gitValue(path, ["symbolic-ref", "HEAD"]) !==
+            landing.data.source.branch
+        ) return { kind: "retained", reason: "moved-branch" };
+        if (!pin.clean) return { kind: "retained", reason: "dirty" };
+        const config = await loadConfig(path);
+        const declaration = await enrolledDeclaration(
+          current.record.data,
+          Object.values(config.execution),
+        );
+        const capabilities = await releasedValidationEnvironment(
+          path,
+          config,
+          landing.data.source,
+          declaration,
+          { environment_id: environment.id, expected_stamp: current.stamp },
+        );
+        const snapshot = await capabilities.workspace.inspect(
+          current.record.data,
+          declaration,
+          undefined,
+          signal,
+        );
+        if (
+          !await releaseMatchesSnapshot(current.record.data, snapshot)
+        ) return { kind: "retained", reason: "dirty" };
+        await capabilities.workspace.verify(
+          current.record.data,
           snapshot,
-          ignored_file_changes: await inspectIgnoredFileChanges(
-            path,
-            config.worktree.ignored_file_drift,
-          ),
-        },
-      );
-      const record: RetirementRecord = {
-        version: ON_DISK_FORMATS.completionRecord.version,
-        kind: "retirement",
-        id,
-        revision: 1,
-        data: {
-          landing_id: landing.id,
-          source: landing.data.source,
-          environment_id: environment.id,
-          release_id: current.record.data.release.id,
-          ownership: await sha256Hex(
-            JSON.stringify(current.record.data.ownership),
-          ),
-          frozen_cleanup: frozen.map((item) => item.entry.destroy_command)
-            .filter(Boolean),
-          capture,
-          reservation: current.record.revision + 1,
-          effects: { worktree_removed: false, branch_deleted: false },
-          outcome: { kind: "pending" },
-        },
-      };
-      await publish(runtime, record, null);
-      return await applyRetirement({ ...runtime, signal }, record);
+          signal,
+        );
+        const state = WorkspaceStateSchema.parse(snapshot.value);
+        requireRestorableSnapshot(state.git);
+        const branch = landing.data.source.branch.slice("refs/heads/".length);
+        const ownership = {
+          kind: "worktree" as const,
+          branch,
+          id: state.worktree_id,
+          settings: state.settings,
+          source: "registered" as const,
+        };
+        if (
+          !classifyAutomaticBranchOwnership(ownership).owned ||
+          state.git === null ||
+          state.git.branch !== landing.data.source.branch ||
+          state.git.head !== landing.data.source.head
+        ) return { kind: "retained", reason: "ownership-uncertain" };
+        const frozen: LedgerItem[] = [];
+        for (const item of state.ledger) {
+          const entry = parseResourceEntry(item.raw);
+          if (
+            entry.status !== "recorded" || entry.entry.phase !== "ready" ||
+            entry.entry.worktree_path !== path ||
+            entry.entry.worktree_id !== state.worktree_id ||
+            state.resources[entry.entry.resource_name] !==
+              entry.entry.resource_identity
+          ) return { kind: "retained", reason: "ownership-uncertain" };
+          frozen.push({ path: item.path, entry: entry.entry });
+        }
+        const id = SYSTEM_SECURE_ENTROPY.uuid();
+        const recheck = async (): Promise<void> => {
+          signal.throwIfAborted();
+          if (
+            (await requireEnvironment(runtime.root, environment.id)).stamp !==
+              current.stamp
+          ) {
+            throw new Error(
+              "Retirement ownership changed during capture; preserve the checkout and replan from its current release.",
+            );
+          }
+        };
+        const capture = await saveEnvironmentArtifact(
+          runtime.root,
+          {
+            attempt_id: landing.data.attempt_id,
+            candidate_id: landing.data.candidate_id,
+            context: "local",
+          },
+          `retirement-${id}`,
+          {
+            environment: current.record.data,
+            snapshot,
+            ignored_file_changes: await inspectIgnoredFileChanges(
+              path,
+              config.worktree.ignored_file_drift,
+            ),
+          },
+          recheck,
+        );
+        const record: RetirementRecord = {
+          version: ON_DISK_FORMATS.completionRecord.version,
+          kind: "retirement",
+          id,
+          revision: 1,
+          data: {
+            landing_id: landing.id,
+            source: landing.data.source,
+            environment_id: environment.id,
+            release_id: current.record.data.release.id,
+            ownership: await sha256Hex(
+              JSON.stringify(current.record.data.ownership),
+            ),
+            frozen_cleanup: frozen.map((item) => item.entry.destroy_command)
+              .filter(Boolean),
+            capture,
+            reservation: current.record.revision + 1,
+            effects: { worktree_removed: false, branch_deleted: false },
+            outcome: { kind: "pending" },
+          },
+        };
+        await withCompletionPublication(runtime.root, async () => {
+          await recheck();
+          await publish(runtime, record, null);
+        });
+        return record;
+      });
+      return captured.kind === "retirement"
+        ? await applyRetirement({ ...runtime, signal }, captured)
+        : captured;
     }, runtime.signal);
   } catch (error) {
     if (error instanceof OperationLockError) {
@@ -492,7 +534,7 @@ async function applyRetirement(
         }
         const git = await captureGitSnapshotLike(
           path,
-          bounds,
+          { ...bounds, ...(signal === undefined ? {} : { signal }) },
           state.git,
           runtime.root,
         );
@@ -579,7 +621,12 @@ async function applyRetirement(
         await runtime.afterBoundary?.("resources", record);
         if (
           JSON.stringify(
-            await captureGitSnapshotLike(path, bounds, git, runtime.root),
+            await captureGitSnapshotLike(
+              path,
+              { ...bounds, ...(signal === undefined ? {} : { signal }) },
+              git,
+              runtime.root,
+            ),
           ) !==
             JSON.stringify(git)
         ) return await settle({ kind: "retained", reason: "dirty" });

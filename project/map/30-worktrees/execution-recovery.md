@@ -7,6 +7,10 @@ description: Return an interrupted borrowed checkout without repeating validatio
 
 Checks can finish while checkout return is still blocked. Status shows the environment, retained paths, reason, and next action. Passing evidence alone does not prove that the checkout has returned.
 
+Local status prioritizes recorded execution or recovery before update, authoring, or release. Active facts name the environment, attempt, phase, and lease expiry. Recovery names the interrupted phase and observed child quiescence. Lease expiry alone does not prove that children stopped. Supported MCP progress carries phase changes and canonical wait facts when the client supplies a progress token; repeated unchanged observations are coalesced.
+
+CLI process signals and MCP cancellation notifications reach the operation's cancellation scope. Stopping an outer client wait alone supplies no evidence of delivery. Reconnect and read status to establish whether the children stopped and whether return completed. Cancellation during required return can leave explicit recovery even when production passed. A stopped scheduling actor releases its own claim while the retained environment continues to protect its capacity and files.
+
 Run these commands from the recorded owning worktree. First, review the plan with `discern done --recover <environment-id> --dry-run`. Preserve the artifacts and fix the reported drift. Then run `discern done --recover <environment-id>`.
 
 Recovery proves that child processes have stopped. It captures the current state, applies the frozen return contract, and checks the result. It then releases the matching queue reservation. It runs no validation, moves no trunk ref, and issues no Proof.

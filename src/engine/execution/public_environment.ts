@@ -37,6 +37,7 @@ export async function ownValidationEnvironment(
   source: SourceRevision,
   actor: Executor,
   declaration: EnvironmentDeclaration | null,
+  signal?: AbortSignal,
 ): Promise<
   {
     environmentId: string;
@@ -129,6 +130,7 @@ export async function ownValidationEnvironment(
       actor,
       declaration,
       { lifetime, workspace },
+      { ...(signal === undefined ? {} : { signal }) },
     );
   } catch (error) {
     return {

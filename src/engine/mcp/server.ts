@@ -569,6 +569,9 @@ export const TOOLS: McpTool[] = orderTools([
       retain_checkout: z.boolean().optional().describe(
         "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
       ),
+      release_checkout: z.boolean().optional().describe(
+        "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves. Use separately from retention, recovery, validation, policy, and judgment options.",
+      ),
       standalone: z.boolean().optional().describe(
         "Run complete standalone feedback without queue admission or Proof.",
       ),
@@ -579,6 +582,9 @@ export const TOOLS: McpTool[] = orderTools([
     run: (root, args, signal, context) =>
       finishResult(root, {
         ...(args.recover === undefined ? {} : { recover: args.recover }),
+        ...(args.release_checkout === undefined
+          ? {}
+          : { releaseCheckout: args.release_checkout }),
         ...(args.policy_base === undefined
           ? {}
           : { policyBase: args.policy_base }),
@@ -1074,6 +1080,9 @@ export const TOOLS: McpTool[] = orderTools([
       action: z.literal(EMERGENCY_ACCEPT_ACTION).optional().describe(
         "Select emergency only for an explicit exception. Omit for ordinary acceptance. Emergency previews require fresh exact owner approval; no ordinary grant authorizes them.",
       ),
+      reclaim: z.string().optional().describe(
+        "Retry bounded artifact cleanup for this settled retirement id from the main checkout. Use separately from landing or emergency approval; no validation, landing, or checkout removal runs.",
+      ),
       reason: z.string().optional().describe(
         "Emergency reason presented in the exact owner review.",
       ),
@@ -1135,6 +1144,7 @@ export const TOOLS: McpTool[] = orderTools([
       });
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       return acceptToolResult(root, {
+        ...(args.reclaim === undefined ? {} : { reclaim: args.reclaim }),
         ...parsed.value,
         ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,
@@ -1322,6 +1332,7 @@ function renderMcpHintText(authored: string): string {
 async function acceptToolResult(
   root: string,
   opts: {
+    reclaim?: string;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;
     dryRun?: boolean;

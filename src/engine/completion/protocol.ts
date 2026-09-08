@@ -352,7 +352,7 @@ export interface CompletionEvent {
       readonly producer: string;
       readonly use: "executed" | "reused";
       readonly evidence_id: string;
-      readonly outcome: "passed" | "failed" | "cancelled";
+      readonly outcome: ComponentEvidence["outcome"]["kind"];
       readonly duration_ms: number;
     }
     | {

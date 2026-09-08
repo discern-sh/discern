@@ -5,13 +5,17 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import { createNativeExecutionLifetime } from "../execution/lifetime.ts";
-import { validationWorkspace } from "../execution/public_environment.ts";
+import {
+  ownValidationEnvironment,
+  validationWorkspace,
+} from "../execution/public_environment.ts";
 import {
   releaseExecutionEnvironment,
   replaceEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
-import { declarationIdentity } from "../execution/subjects.ts";
+import { enrolledDeclaration } from "../execution/subjects.ts";
+import { acceptancePending } from "../landing_queue/public_result.ts";
 import { observeSource } from "../landing_queue/composition.ts";
 import { sameSource } from "../landing_queue/model.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
@@ -24,6 +28,8 @@ export async function settleReviewedCheckout(
   root: string,
   proof: CompletionProofPointer,
   retain: boolean,
+  dryRun = false,
+  signal?: AbortSignal,
 ): Promise<void> {
   root = await Deno.realPath(root);
   const candidate = await readCompletionRecord(root, {
@@ -62,12 +68,10 @@ export async function settleReviewedCheckout(
     );
   }
   const config = await loadConfig(root);
-  const declaration = config.execution.local ?? null;
-  if (environment.data.declaration !== await declarationIdentity(declaration)) {
-    throw new Error(
-      "The execution declaration changed; retain its frozen recovery contract and validate the intended source.",
-    );
-  }
+  const declaration = await enrolledDeclaration(
+    environment.data,
+    Object.values(config.execution),
+  );
   const current = await requireEnvironment(root, environment.id);
   const lifetime = createNativeExecutionLifetime(root);
   const workspace = validationWorkspace(
@@ -82,25 +86,49 @@ export async function settleReviewedCheckout(
     started_at: SYSTEM_CLOCK.wallNow(),
   };
   if (!retain) {
+    if (dryRun) {
+      const use = await lifetime.inspect(root);
+      if (!use.quiescent) throw new Error(use.reason);
+      return;
+    }
+    const configured = config.execution.local;
+    const releaseDeclaration = declaration ??
+      (configured?.kind === "borrowed" ? configured : null);
+    const release = releaseDeclaration === declaration
+      ? { environmentId: environment.id, lifetime, workspace }
+      : await ownValidationEnvironment(
+        root,
+        config,
+        source,
+        actor,
+        releaseDeclaration,
+        signal,
+      );
+    if ("kind" in release) throw new Error(acceptancePending(release).reason);
+    const released = release.environmentId === environment.id
+      ? current
+      : await requireEnvironment(root, release.environmentId);
     await releaseExecutionEnvironment(
       root,
-      environment.id,
-      current.stamp,
+      release.environmentId,
+      released.stamp,
       actor,
-      declaration,
-      {
-        lifetime,
-        workspace,
-      },
-      { retirement: true },
+      releaseDeclaration,
+      release,
+      { retirement: true, ...(signal === undefined ? {} : { signal }) },
     );
     return;
   }
   const use = await lifetime.inspect(root);
   if (!use.quiescent) throw new Error(use.reason);
   if (current.record.data.release.kind === "held") return;
-  const snapshot = await workspace.inspect(current.record.data, declaration);
-  await workspace.verify(current.record.data, snapshot);
+  const snapshot = await workspace.inspect(
+    current.record.data,
+    declaration,
+    undefined,
+    signal,
+  );
+  await workspace.verify(current.record.data, snapshot, signal);
   await withCompletionPublication(
     root,
     () =>

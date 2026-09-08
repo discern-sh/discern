@@ -217,6 +217,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     environment: ExecutionEnvironment,
     declaration: EnvironmentDeclaration | null,
     observation?: "source" | "recovery" | "release",
+    signal?: AbortSignal,
   ): Promise<WorkspaceSnapshot> {
     const state = await this.state(
       environment,
@@ -227,6 +228,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
             environment.release.retirement
           ? "recovery"
           : undefined),
+      signal,
     );
     if (
       observation !== "release" &&

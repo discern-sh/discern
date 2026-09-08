@@ -5,6 +5,7 @@ import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, gitOut, runAgent } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { firedHintsFromTexts } from "../src/shared/hints.ts";
+import { pathExists } from "../src/shared/fs_presence.ts";
 
 Deno.test("public acceptance keeps an unrelated historical retained landing out of current cleanup", async () => {
   await withTempDir(async (root) => {
@@ -59,6 +60,57 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
       const prose = visible.stdout.replace(/\s+/g, " ");
       assertStringIncludes(prose, "has landed");
       assertStringIncludes(prose, "has not been released");
+    }
+    const release = await runAgent(earlier, [
+      "done",
+      "--release-checkout",
+      "--json",
+    ]);
+    assertEquals(release.code, 0, release.output);
+    const released = decodeCliResult(release.stdout, "done");
+    assert(released.data !== undefined && "gate_ran" in released.data);
+    assertEquals(released.data.gate_ran, false);
+    assertEquals(await Deno.readTextFile(`${earlier}/executions`), "t");
+    const cleanup = await runAgent(root, ["accept", "--json"]);
+    assertEquals(cleanup.code, 0, cleanup.output);
+    assertEquals(await pathExists(earlier), false);
+    const cleaned = decodeCliResult(cleanup.stdout, "accept");
+    assert(cleaned.data !== undefined && "storage_cleanup" in cleaned.data);
+    assert(cleaned.data.storage_cleanup !== undefined);
+    assertEquals(cleaned.data.storage_cleanup.state, "settled", cleanup.output);
+    const retirement = cleaned.data.storage_cleanup.retirement_ids[0];
+    assert(retirement !== undefined);
+    const beforeRetry = await gitOut(root, "rev-parse", "HEAD");
+    for (const selected of ["not-a-retirement-id", crypto.randomUUID()]) {
+      const refused = await runAgent(root, [
+        "accept",
+        "--reclaim",
+        selected,
+        "--json",
+      ]);
+      assertEquals(refused.code, 1, refused.output);
+      const refusal = decodeCliResult(refused.stdout, "accept");
+      assert(refusal.data !== undefined && "storage_cleanup" in refusal.data);
+      assertEquals(refusal.data.storage_cleanup?.state, "retained");
+      assertEquals(await gitOut(root, "rev-parse", "HEAD"), beforeRetry);
+    }
+    for (const flags of [["--dry-run"], []]) {
+      const retried = await runAgent(root, [
+        "accept",
+        "--reclaim",
+        retirement,
+        ...flags,
+        "--json",
+      ]);
+      assertEquals(retried.code, 0, retried.output);
+      const retry = decodeCliResult(retried.stdout, "accept");
+      assert(retry.data !== undefined && "landing" in retry.data);
+      assertEquals(retry.data.landing, {
+        recovery_performed: false,
+        trunk_landed: false,
+        worktree_removed: false,
+        branch_deleted: false,
+      });
     }
   });
 });

@@ -698,6 +698,27 @@ export async function statusResult(
     checkpointPreview,
     currentSourceLanded: checkoutLanding !== undefined,
   });
+  const recovering =
+    (completionRecovery.data.execution_recovery?.length ?? 0) > 0;
+  const activeExecution = completionRecovery.data.execution_activity?.[0];
+  if (recovering || activeExecution !== undefined) {
+    const nextSteps = new Set(
+      Object.values(HINTS).filter((definition) =>
+        definition.category === "next-step"
+      ).map((definition) => definition.id as string),
+    );
+    hints.splice(
+      0,
+      hints.length,
+      ...hints.filter((hint) => !nextSteps.has(hint.id)),
+    );
+    if (!recovering) {
+      hints.push(fire(HINTS["completion-pending"], {
+        action:
+          "Let the recorded execution finish, or cancel its owning command and follow the resulting recovery. Keep this checkout out of other authoring or release operations while it is active.",
+      }));
+    }
+  }
   hints.push(...completionRecovery.hints);
   if (opts.verbose !== true) {
     hints.push(fire(HINTS["status-full-structured-detail"]));
@@ -705,7 +726,17 @@ export async function statusResult(
   const result: DiscernResult<StatusData> = {
     ok: true,
     verb: "status",
-    ...(checkoutLanding === undefined
+    ...(recovering
+      ? {
+        message:
+          "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action.",
+      }
+      : activeExecution !== undefined
+      ? {
+        message:
+          `Execution ${activeExecution.attempt_id} is in phase ${activeExecution.phase} in environment ${activeExecution.environment_id}.`,
+      }
+      : checkoutLanding === undefined
       ? {}
       : { message: checkoutLanding.message }),
     data,

@@ -80,6 +80,29 @@ Deno.test("retirement projection preserves settled cleanup across every earlier 
     outcome: { kind: "retained", reason: "unreleased" },
   });
   assertEquals(planQueueRetirement(landing, [environment]).kind, "inspect");
+  const retained = {
+    ...sourceRetirement,
+    data: { ...sourceRetirement.data, capture, outcome: outcomes.retained },
+  };
+  assertEquals(planQueueRetirement(landing, [retained, held]).kind, "settled");
+  const freshRelease = structuredClone(environment);
+  if (freshRelease.data.release.kind !== "released") {
+    throw new Error("Fixture needs a release");
+  }
+  freshRelease.data.release.id = completionId(75);
+  assertEquals(
+    planQueueRetirement(landing, [retained, freshRelease]).kind,
+    "inspect",
+  );
+  const recovering = {
+    ...retained,
+    id: completionId(76),
+    data: { ...retained.data, outcome: outcomes.recovery },
+  };
+  assertEquals(
+    planQueueRetirement(landing, [retained, freshRelease, recovering]).kind,
+    "resume",
+  );
   const unrelated: CompletionRecord = {
     ...retired,
     data: { ...retired.data, landing_id: completionId(32) },

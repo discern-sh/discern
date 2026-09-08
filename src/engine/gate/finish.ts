@@ -1,5 +1,6 @@
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { recoveryRequestResult } from "../execution/public_recovery.ts";
+import { releaseCheckoutRequestResult } from "./public_release.ts";
 import {
   emergencyValidationStatus,
   resolveEmergencyValidation,
@@ -1742,12 +1743,18 @@ function donePreambleOperations(
     ...(ownership === undefined ? {} : {
       reusableGreenProof: async (root) => {
         try {
-          return await withCompletionCheckout(root, async () => {
+          return await withCompletionCheckout(root, async (signal) => {
             const reused = await reusableGreenProof(root);
             if (reused === undefined) return undefined;
             const pointer = reused.data?.proof?.completion;
             if (pointer === undefined) return undefined;
-            await settleReviewedCheckout(root, pointer, ownership.retain);
+            await settleReviewedCheckout(
+              root,
+              pointer,
+              ownership.retain,
+              false,
+              signal,
+            );
             return {
               ...reused,
               message: `${reused.message} Checkout ${
@@ -1790,6 +1797,7 @@ export interface FinishResultOptions {
   /** Internal accept capability names an already released slot and its observed stamp. */
   execution?: ReleasedCompletionExecution;
   recover?: string;
+  releaseCheckout?: boolean;
   retainCheckout?: boolean;
   policyBase?: string;
   standalone?: boolean;
@@ -1829,6 +1837,8 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
+  const release = await releaseCheckoutRequestResult(root, opts);
+  if (release !== undefined) return release;
   const recovery = await recoveryRequestResult(root, opts);
   if (recovery !== undefined) return recovery;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
@@ -1998,6 +2008,7 @@ export async function runFinish(
     json: boolean;
     standalone?: boolean;
     recover?: string;
+    releaseCheckout?: boolean;
     retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
@@ -2011,6 +2022,12 @@ export async function runFinish(
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
+  const release = await releaseCheckoutRequestResult(root, opts);
+  if (release !== undefined) {
+    observeResult(release);
+    emitResult(release);
+    return release.ok ? 0 : 1;
+  }
   const recovery = await recoveryRequestResult(root, opts);
   if (recovery !== undefined) {
     observeResult(recovery);

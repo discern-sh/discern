@@ -19,11 +19,12 @@ import {
   completionProcessAlive,
 } from "./completion_mcp_fixture.ts";
 import { waitForPendingCondition, waitUntil } from "./waiting.ts";
+import { firedHintsFromTexts } from "../src/shared/hints.ts";
 
 const StatusResultSchema = z.object({ structuredContent: StatusOutputSchema });
 const FinishResultSchema = z.object({ structuredContent: FinishOutputSchema });
 
-for (const phase of ["capture", "restore"] as const) {
+for (const phase of ["enrollment", "capture", "restore"] as const) {
   Deno.test(
     "real MCP cancellation during " + phase +
       " stops owned children or retains explicit recovery",
@@ -67,7 +68,10 @@ for (const phase of ["capture", "restore"] as const) {
             await git(root, "commit", "-m", "Advance the composed predecessor");
           }
           const extraEnv: Record<string, string> = {};
-          if (phase === "capture") {
+          if (phase === "enrollment") {
+            await Deno.writeTextFile(aux + "/arm", "ready");
+          }
+          if (phase !== "restore") {
             const shim = aux + "/git";
             await writeExecutable(
               shim,
@@ -103,6 +107,17 @@ for (const phase of ["capture", "restore"] as const) {
               assert(Number.isSafeInteger(pid) && pid > 0);
               pids.push(pid);
             }
+            if (phase !== "enrollment") {
+              await peer.call(10, "discern_status", { path });
+              const active =
+                StatusResultSchema.parse((await peer.response(10)).result)
+                  .structuredContent;
+              assert(
+                active.data !== undefined &&
+                  "execution_activity" in active.data,
+              );
+              assertEquals(active.data.execution_activity?.[0]?.phase, phase);
+            }
             await peer.send({
               method: "notifications/cancelled",
               params: {
@@ -129,7 +144,8 @@ for (const phase of ["capture", "restore"] as const) {
                 ) || (state.kind === "recovery" &&
                   !state.recovery.children_quiescent &&
                   state.recovery.retained_paths.length > 0);
-                return records.some((record) => record.kind === "attempt") &&
+                return (phase === "enrollment" ||
+                  records.some((record) => record.kind === "attempt")) &&
                   ownedChildren &&
                   records.every((record) =>
                     record.kind !== "attempt" ||
@@ -175,6 +191,16 @@ for (const phase of ["capture", "restore"] as const) {
                   "execution_recovery" in status.data,
               );
               assert((status.data.execution_recovery?.length ?? 0) > 0);
+              assertEquals(
+                firedHintsFromTexts(status.hints).some((hint) =>
+                  hint.id === "status-branch-behind"
+                ),
+                false,
+              );
+              assertEquals(
+                status.data.execution_recovery?.[0]?.children_quiescent,
+                true,
+              );
             } else {
               assert(pids.every((pid) => !completionProcessAlive(pid)));
               assertEquals(
@@ -219,6 +245,21 @@ for (const phase of ["capture", "restore"] as const) {
               FinishResultSchema.parse((await reconnect.response(4)).result)
                 .structuredContent;
             assertEquals(completed.ok, true, JSON.stringify(completed));
+            const beforeRelease = await readTextIfExists(path + "/executions");
+            await reconnect.call(5, "discern_done", {
+              path,
+              release_checkout: true,
+            });
+            const released =
+              FinishResultSchema.parse((await reconnect.response(5)).result)
+                .structuredContent;
+            assertEquals(released.ok, true, JSON.stringify(released));
+            assert(released.data !== undefined && "gate_ran" in released.data);
+            assertEquals(released.data.gate_ran, false);
+            assertEquals(
+              await readTextIfExists(path + "/executions"),
+              beforeRelease,
+            );
             const settled = observedRecords(await observeQueue(root, "main"));
             assert(
               settled.every((record) =>

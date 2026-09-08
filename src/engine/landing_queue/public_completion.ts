@@ -323,6 +323,7 @@ export async function withPublicCompletion<T>(
         source,
         actor,
         declaration,
+        signal,
       )
       : await releasedValidationEnvironment(
         root,
@@ -349,7 +350,9 @@ export async function withPublicCompletion<T>(
           phase: "pending",
           state: "capacity-wait",
           candidate_id: candidateId,
-          reason: JSON.stringify(value),
+          ...("kind" in value && value.kind === "capacity-unavailable"
+            ? { capacity: value.capacity, reason: value.reason }
+            : { reason: JSON.stringify(value) }),
         }),
       observe: async () =>
         await claimQueueWork({
@@ -414,6 +417,9 @@ export async function withPublicCompletion<T>(
           phase: "pending",
           state: "execution-capacity-wait",
           candidate_id: candidateId,
+          ...(value?.kind === "waiting-for-operation"
+            ? { attempt_id: value.attempt_id }
+            : {}),
           reason: `execution capacity ${
             declaration?.capacity ?? 1
           } is occupied; waiting for an environment return: ${
@@ -679,6 +685,7 @@ export async function withPublicCompletion<T>(
           source,
           actor,
           releaseDeclaration,
+          signal,
         );
       if ("kind" in release) {
         return {
@@ -699,7 +706,7 @@ export async function withPublicCompletion<T>(
         actor,
         releaseDeclaration,
         release,
-        { retirement: true },
+        { retirement: true, signal },
       );
     }
     return {

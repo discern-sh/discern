@@ -268,6 +268,10 @@ export function attachEngineCommands(
       "Keep authoring control after completion; do not release this checkout for later validation or retirement.",
     )
     .option(
+      "--release-checkout",
+      "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves.",
+    )
+    .option(
       "--standalone",
       "Run complete standalone feedback without queue admission or Proof.",
     )
@@ -349,6 +353,9 @@ export function attachEngineCommands(
         );
         return await runFinish(await requireRoot("done", json), {
           ...(o.recover === undefined ? {} : { recover: o.recover }),
+          ...(o.releaseCheckout === undefined
+            ? {}
+            : { releaseCheckout: o.releaseCheckout }),
           ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
           ...(o.retainCheckout === undefined
             ? {}
@@ -946,6 +953,10 @@ export function attachEngineCommands(
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
+      "--reclaim <retirement-id:string>",
+      "Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.",
+    )
+    .option(
       "--prepare",
       "Emergency only: run checkpoint triggers and retain exact review evidence without validation or integration.",
     )
@@ -1002,6 +1013,7 @@ export function attachEngineCommands(
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.accept(ctx, {
+            ...(o.reclaim === undefined ? {} : { reclaim: o.reclaim }),
             ...parsed.value,
             json,
             dryRun: o.dryRun ?? false,

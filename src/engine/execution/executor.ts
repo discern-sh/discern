@@ -212,8 +212,13 @@ class ExecutorImplementation implements EnvironmentExecutor {
         await statIfExists(environment.path) === undefined
           ? root
           : environment.path,
-        async () => {
-          const source = await workspace.inspect(environment, plan.declaration);
+        async (signal) => {
+          const source = await workspace.inspect(
+            environment,
+            plan.declaration,
+            undefined,
+            signal,
+          );
           if (
             !await releaseMatchesSnapshot(environment, source)
           ) {
@@ -282,6 +287,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
             "intent",
             intent,
             async () => {
+              signal.throwIfAborted();
               const current = await requireEnvironment(
                 root,
                 plan.environment_id,
@@ -293,7 +299,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
               }
             },
           );
-          await workspace.verify(environment, source);
+          await workspace.verify(environment, source, signal);
           return await withCompletionPublication(root, async () => {
             const current = await requireEnvironment(root, plan.environment_id);
             if (
@@ -365,6 +371,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
             };
           });
         },
+        this.options.signal,
       );
     } catch (error) {
       return unavailable(errorReason(error));
@@ -418,6 +425,8 @@ class ExecutorImplementation implements EnvironmentExecutor {
       state: phase,
       candidate_id: execution.candidate_id,
       reason: `Environment ${execution.environment_id}: ${phase}.`,
+      environment_id: execution.environment_id,
+      attempt_id: execution.fence.attempt_id,
     });
     await this.options.afterPhase?.(phase, execution);
   }
@@ -489,6 +498,15 @@ class ExecutorImplementation implements EnvironmentExecutor {
         },
       };
     }
+    emitCompletionProgress({
+      phase: "environment",
+      state: "recovery",
+      candidate_id: execution.candidate_id,
+      environment_id: execution.environment_id,
+      attempt_id: execution.fence.attempt_id,
+      reason: recovery.reason,
+      recovery,
+    });
     return { kind: "recovery-incomplete", recovery };
   }
 
@@ -581,7 +599,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
         : "reset";
       await this.phase(execution, phase, true);
       if (unprovisioned) {
-        await workspace.verify(execution.environment, captured);
+        await workspace.verify(
+          execution.environment,
+          captured,
+          execution.signal,
+        );
       } else if (disposable) {
         await workspace.restore(
           execution,
@@ -650,7 +672,12 @@ class ExecutorImplementation implements EnvironmentExecutor {
           ...environment.release,
           subject: await releasedSubject(
             environment,
-            await workspace.inspect(environment, intent.recipe.declaration),
+            await workspace.inspect(
+              environment,
+              intent.recipe.declaration,
+              undefined,
+              execution.signal,
+            ),
           ),
         };
       }
@@ -773,6 +800,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
             await this.options.workspace.verify(
               active.environment,
               intent.source,
+              signal,
             );
             await this.phase(active, "install");
             await this.snapshotArtifact(

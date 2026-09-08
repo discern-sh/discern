@@ -321,6 +321,7 @@ export async function releaseExecutionEnvironment(
   },
   options: {
     readonly retirement?: boolean;
+    readonly signal?: AbortSignal;
     readonly clock?: Clock;
     readonly entropy?: SecureEntropy;
   } = {},
@@ -331,7 +332,7 @@ export async function releaseExecutionEnvironment(
     await statIfExists(observed.record.data.path) === undefined
       ? root
       : observed.record.data.path,
-    async () => {
+    async (signal) => {
       const current = await requireEnvironment(root, id);
       const environment = current.record.data;
       if (
@@ -367,8 +368,9 @@ export async function releaseExecutionEnvironment(
           : declaration === null
           ? "source"
           : "recovery",
+        signal,
       );
-      await capabilities.workspace.verify(environment, snapshot);
+      await capabilities.workspace.verify(environment, snapshot, signal);
       const subject = await releasedSubject(environment, snapshot);
       return await withCompletionPublication(root, async () => {
         const latest = await requireEnvironment(root, id);
@@ -395,6 +397,7 @@ export async function releaseExecutionEnvironment(
         }, clock);
       });
     },
+    options.signal,
   );
 }
 

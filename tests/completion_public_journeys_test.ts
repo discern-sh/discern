@@ -13,7 +13,21 @@ import {
 Deno.test("public retained review, preview, release, and feedback preserve ownership without duplicate producers", async () => {
   await withTempDir(async (root) => {
     await withTempDir(async (aux) => {
-      const path = await project(root, ["local"]);
+      const path = await project(
+        root,
+        ["local"],
+        `
+[execution.local]
+kind = 'borrowed'
+reusable = true
+capacity = 1
+resources = []
+inputs = ['**']
+ignored = ['executions']
+prepare = 'true'
+restore = 'true'
+`,
+      );
       await Deno.mkdir(`${path}/discern/scripts`, { recursive: true });
       const script = `${path}/discern/scripts/preview`;
       await Deno.writeTextFile(
@@ -44,7 +58,11 @@ Deno.test("public retained review, preview, release, and feedback preserve owner
           () => pathExists(`${aux}/ready`),
           "the review preview to start",
         );
-        const release = await runAgent(path, ["done", "--json"]);
+        const release = await runAgent(path, [
+          "done",
+          "--release-checkout",
+          "--json",
+        ]);
         assertEquals(release.code, 1, release.output);
         assert(release.output.includes("checkout"), release.output);
         assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
@@ -55,11 +73,16 @@ Deno.test("public retained review, preview, release, and feedback preserve owner
         });
       }
       for (let repeat = 0; repeat < 2; repeat++) {
-        const released = await runAgent(path, ["done", "--json"]);
+        const released = await runAgent(path, [
+          "done",
+          ...(repeat === 0 ? [] : ["--release-checkout"]),
+          "--json",
+        ]);
         assertEquals(released.code, 0, released.output);
         assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
         const environments = observedRecords(await observeQueue(root, "main"))
-          .filter((record) => record.kind === "environment");
+          .filter((record) => record.kind === "environment")
+          .filter((record) => record.data.state.kind !== "disposed");
         assertEquals(environments.length, 1);
         assertEquals(environments[0]?.data.release.kind, "released");
         assert(environments[0]?.data.release.kind === "released");
@@ -74,7 +97,10 @@ Deno.test("public retained review, preview, release, and feedback preserve owner
       assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
       const held = observedRecords(await observeQueue(root, "main")).find((
         record,
-      ) => record.kind === "environment");
+      ) =>
+        record.kind === "environment" && record.data.state.kind !== "disposed"
+      );
+      assert(held?.kind === "environment");
       assertEquals(held?.data.release.kind, "held");
       await Deno.writeTextFile(`${path}/source`, "review feedback\n");
       await git(path, "add", "source");
