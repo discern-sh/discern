@@ -233,9 +233,30 @@ prepare = 'exit 71'
 restore = 'exit 72'
 `,
     );
-    const done = await runAgent(path, ["done", "--retain-checkout", "--json"]);
+    const done = await runAgent(path, ["done", "--json"]);
     assertEquals(done.code, 0, done.output);
     assertEquals((await inspectGateProof(path)).status, "honored");
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const { loadConfig } = await import("../src/shared/config_schema.ts");
+    const { declarationIdentity } = await import(
+      "../src/engine/execution/subjects.ts"
+    );
+    const environments = observedRecords(await observeCompletionRecords(path))
+      .filter((r) =>
+        r.kind === "environment" && r.data.state.kind !== "disposed"
+      );
+    assertEquals(environments.length, 1);
+    const environment = environments[0];
+    assert(environment?.kind === "environment");
+    assertEquals(
+      environment.data.declaration,
+      await declarationIdentity(
+        (await loadConfig(path)).execution.local ?? null,
+      ),
+    );
+    assert(
+      environment.data.release.kind === "released" &&
+        environment.data.release.retirement,
+    );
   });
 });

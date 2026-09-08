@@ -663,14 +663,39 @@ export async function withPublicCompletion<T>(
       options.mode === "strict" &&
       !options.retainCheckout
     ) {
-      const returnedEnvironment = await requireEnvironment(root, environmentId);
+      // Source execution needs no temporary installation. Its owner's later
+      // release can still enroll the declared borrowed contract for composition.
+      const configured = config.execution[options.context];
+      const releaseDeclaration = declaration ??
+        (configured?.kind === "borrowed" ? configured : null);
+      const release = releaseDeclaration === declaration
+        ? { environmentId, lifetime, workspace }
+        : await ownValidationEnvironment(
+          root,
+          config,
+          source,
+          actor,
+          releaseDeclaration,
+        );
+      if ("kind" in release) {
+        return {
+          ...base,
+          value: result.value,
+          proof_id: admission.proof_id,
+          blockers: [release],
+        };
+      }
+      const returnedEnvironment = await requireEnvironment(
+        root,
+        release.environmentId,
+      );
       await releaseExecutionEnvironment(
         root,
-        environmentId,
+        release.environmentId,
         returnedEnvironment.stamp,
         actor,
-        declaration,
-        { lifetime, workspace },
+        releaseDeclaration,
+        release,
         { retirement: true },
       );
     }
