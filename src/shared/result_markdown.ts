@@ -13,6 +13,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
+import { DIAGNOSTIC_SEVERITIES } from "./result.ts";
 import {
   boolean,
   code,
@@ -344,7 +345,31 @@ function envelopeEvidence(
       existing.count++;
     }
   }
-  const displayed = [...distinct.values()].slice(0, MAX_DIAGNOSTICS);
+  const families = new Set<string>();
+  const ranked = [...distinct.values()].map((entry) => {
+    const family = JSON.stringify([
+      entry.diagnostic.severity,
+      entry.diagnostic.tool,
+      entry.diagnostic.rule,
+    ]);
+    const representative = !families.has(family);
+    families.add(family);
+    const severity = DIAGNOSTIC_SEVERITIES.findIndex((value) =>
+      value === entry.diagnostic.severity
+    );
+    return {
+      ...entry,
+      representative,
+      severity: severity < 0 ? DIAGNOSTIC_SEVERITIES.length : severity,
+    };
+  });
+  // Sample distinct declared rules at each severity before more instances of
+  // the same rule. This ranks observations; it does not merge their evidence.
+  ranked.sort((a, b) =>
+    a.severity - b.severity ||
+    Number(b.representative) - Number(a.representative)
+  );
+  const displayed = ranked.slice(0, MAX_DIAGNOSTICS);
   for (const { diagnostic, count } of displayed) {
     const tool = text(diagnostic.tool) ?? "diagnostic";
     const message = text(diagnostic.message) ??
@@ -372,7 +397,7 @@ function envelopeEvidence(
   if (remaining > 0) {
     facts.push(omitted(remaining, "diagnostic"));
   }
-  const firstOutput = verbatimText(diagnostics[0]?.output);
+  const firstOutput = verbatimText(displayed[0]?.diagnostic.output);
   if (firstOutput !== undefined) {
     markdown.push(
       `### First diagnostic output\n\n${
