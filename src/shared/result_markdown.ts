@@ -327,7 +327,25 @@ function envelopeEvidence(
   }
 
   const diagnostics = records(result.diagnostics);
-  for (const diagnostic of diagnostics.slice(0, MAX_DIAGNOSTICS)) {
+  const distinct = new Map<
+    string,
+    { diagnostic: Record<string, unknown>; count: number }
+  >();
+  for (const diagnostic of diagnostics) {
+    // Compare complete observations. Different locations, rules, severities,
+    // recovery commands, or evidence must remain distinct findings.
+    const key = JSON.stringify(
+      Object.keys(diagnostic).sort().map((name) => [name, diagnostic[name]]),
+    );
+    const existing = distinct.get(key);
+    if (existing === undefined) {
+      distinct.set(key, { diagnostic, count: 1 });
+    } else {
+      existing.count++;
+    }
+  }
+  const displayed = [...distinct.values()].slice(0, MAX_DIAGNOSTICS);
+  for (const { diagnostic, count } of displayed) {
     const tool = text(diagnostic.tool) ?? "diagnostic";
     const message = text(diagnostic.message) ??
       "No diagnostic message was recorded.";
@@ -344,11 +362,15 @@ function envelopeEvidence(
         rule === undefined ? "" : ` [rule ${code(rule)}]`
       }: ${capText(message, MAX_DIAGNOSTIC_MESSAGE)}${
         reproduce === undefined ? "" : ` Reproduce with ${code(reproduce)}.`
-      }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}`,
+      }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}${
+        count === 1 ? "" : ` Repeated ${count} times.`
+      }`,
     );
   }
-  if (diagnostics.length > MAX_DIAGNOSTICS) {
-    facts.push(omitted(diagnostics.length - MAX_DIAGNOSTICS, "diagnostic"));
+  const remaining = diagnostics.length -
+    displayed.reduce((sum, entry) => sum + entry.count, 0);
+  if (remaining > 0) {
+    facts.push(omitted(remaining, "diagnostic"));
   }
   const firstOutput = verbatimText(diagnostics[0]?.output);
   if (firstOutput !== undefined) {

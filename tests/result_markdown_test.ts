@@ -37,6 +37,36 @@ import { productSentence } from "../src/shared/product_sentence.ts";
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
 
+Deno.test("routine diagnostics coalesce exact repeats and preserve distinct evidence", () => {
+  const repeated = {
+    tool: "validation",
+    severity: "error",
+    message: "The checkout lock is occupied.",
+    reproduce_cmd: "discern status --verbose",
+    output_path: "/tmp/lock-evidence",
+  };
+  const diagnostics = [
+    ...Array.from({ length: 8 }, () => ({ ...repeated })),
+    { ...repeated, output_path: "/tmp/another-lock-evidence" },
+    {
+      ...repeated,
+      message: "The required measurement failed.",
+      rule: "required-measurement",
+    },
+  ];
+  const original = structuredClone(diagnostics);
+  const rendered = renderResultMarkdown({
+    ok: false,
+    verb: "future",
+    diagnostics,
+  }, resultPresenterForVerb("future"));
+  assertStringIncludes(rendered, "Repeated 8 times.");
+  assertStringIncludes(rendered, "/tmp/another-lock-evidence");
+  assertStringIncludes(rendered, "required-measurement");
+  assertEquals(rendered.includes("diagnostics omitted"), false);
+  assertEquals(diagnostics, original);
+});
+
 Deno.test("routine diagnostic summaries bound large messages while preserving structured evidence", () => {
   const diagnostics = Array.from({ length: 20 }, (_, index) => ({
     tool: "future-check",
