@@ -11,6 +11,16 @@ const MessageSchema = z.looseObject({
 });
 type Message = z.infer<typeof MessageSchema>;
 
+/** Probe only PIDs written by a disposable fixture's owned process tree. */
+export function completionProcessAlive(pid: number): boolean {
+  try {
+    Deno.kill(pid, "SIGCONT");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Own the server, its input, and its output drain for the fixture's lifetime. */
 export class CompletionMcpPeer implements AsyncDisposable {
   readonly messages: Message[] = [];
@@ -62,6 +72,17 @@ export class CompletionMcpPeer implements AsyncDisposable {
     return message;
   }
 
+  /** A living server does not prove that a particular tool call is still active. */
+  ensurePending(id: number): void {
+    const response = this.messages.find((message) => message.id === id);
+    if (response !== undefined) {
+      throw new Error(
+        "MCP call settled before fixture readiness: " +
+          JSON.stringify(response),
+      );
+    }
+  }
+
   async call(
     id: number,
     name: string,
@@ -99,11 +120,12 @@ export class CompletionMcpPeer implements AsyncDisposable {
 /** Start the source engine and complete the public protocol handshake. */
 export async function completionMcpPeer(
   root: string,
+  extraEnv: Record<string, string> = {},
 ): Promise<CompletionMcpPeer> {
   const peer = new CompletionMcpPeer(new Deno.Command(Deno.execPath(), {
     args: engineRunArgs(["mcp"]),
     cwd: root,
-    env: await engineEnv(),
+    env: await engineEnv(extraEnv),
     stdin: "piped",
     stdout: "piped",
     stderr: "null",

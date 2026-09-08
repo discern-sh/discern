@@ -4,7 +4,10 @@ import { z } from "@zod/zod";
 import { StatusOutputSchema } from "../src/shared/result_schemas.ts";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
-import { completionMcpPeer } from "./completion_mcp_fixture.ts";
+import {
+  completionMcpPeer,
+  completionProcessAlive as alive,
+} from "./completion_mcp_fixture.ts";
 import {
   settlePending,
   waitForPendingCondition,
@@ -21,16 +24,6 @@ import { gitOut } from "./engine_helpers.ts";
 const StatusToolResultSchema = z.object({
   structuredContent: StatusOutputSchema,
 });
-
-/** Probe only PIDs written by this disposable fixture's owned process tree. */
-function alive(pid: number): boolean {
-  try {
-    Deno.kill(pid, "SIGCONT");
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 for (const phase of ["producer", "capacity"] as const) {
   Deno.test(`real MCP cancellation during ${phase} preserves source and supports reconnect`, async () => {
@@ -62,6 +55,7 @@ concurrent_test_runs = 1
           await using peer = await completionMcpPeer(path);
           await peer.call(2, "discern_done", { path });
           await waitForPendingCondition(peer.finished, async () => {
+            peer.ensurePending(2);
             if (phase === "producer") {
               return await pathExists(`${aux}/descendant`);
             }
