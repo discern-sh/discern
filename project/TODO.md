@@ -58,6 +58,22 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟢 Test & tooling hygiene
 
+- [ ] **Bound red test-stage runs with fail-fast.** A red gate currently runs the full suite before reporting; pass a bounded fail-fast to the gate's test invocation so red runs stop after a few named failures while green runs stay complete for coverage. Reconcile with partitioned, shuffled scheduling before enabling. Evidence: `scripts/run_tests.ts`; `scripts/test_partitions.ts`.
+
+- [ ] **Schedule changed test files into the earliest partitions.** Failures caused by the current diff should surface in the opening minutes of the test stage, not wherever the shuffle lands them; order changed test modules (and tests importing changed source) first while preserving seeded shuffle reproducibility. Evidence: `scripts/test_partitions.ts`; `scripts/run_tests.ts`.
+
+- [ ] **Publish the expensive-execution weight as a falling-ceiling standard.** The cost analyzer already computes a repetition-weighted expensive-call total per file; sum it suite-wide and hold it under a `[standards]` falling ceiling so growth needs arithmetic as well as the checkpoint's judgment. Evidence: `scripts/test_execution_analysis.ts`; `discern.toml`.
+
+- [ ] **Design a contention-safe suite-cost standard.** Wall time is a property of the machine's afternoon, not the change; measure test-stage cost as child CPU seconds with an admissibility rule (no concurrent queued suite, canary duration inside its usual band) and a generous ratcheted limit, carrying the prior reading forward when a sample is contaminated. Evidence: `discern.toml`; `scripts/run_tests.ts`.
+
+- [ ] **Surface gate-duration drift from the logbook.** Median green `done` duration per config epoch is already recorded; a project-scoped detector that flags a sustained upward trend would have named this week's regression a run earlier than the owner's patience did. Evidence: `src/engine/logbook/detectors.ts`; `tests/engine_patterns_test.ts`.
+
+- [ ] **Act on canary-audit findings with the cost bar disposing.** The audit ranks recorded per-file failures against membership; wire its verdict into an enrol-or-refuse flow where failure evidence proposes and the seconds bar disposes, recording each refusal with its measurement. Evidence: `scripts/canary_audit.ts`; `scripts/canary_registry.ts`.
+
+- [ ] **Reduce the per-invocation engine boot tax in journey tests.** Completion journeys are already consolidated into chained steps, so their remaining cost is roughly ten seconds of engine boot per step times the step count; profile where a source-run boot spends its time and shrink it, which pays across every journey at once. Evidence: `tests/engine_helpers.ts`; `tests/completion_public_done_test.ts`.
+
+- [ ] **Apply the execution-review ladder to the emergency suite.** The emergency tests spend around two summed minutes across fifteen registrations with several full-journey scaffolds; review them against the smallest-sufficient-execution ladder the way the completion family was. Evidence: `tests/completion_emergency_test.ts`; `project/map/80-development/test-execution-review.md`.
+
 - [ ] **Publish the opt-in managed GitHub gate after launch.** Replace the one-shot scaffold with a deterministic ejectable workflow after release assets and managed-version authority exist, then add annotations, summaries, and deferred-Standard measurement. Evidence: `project/map/_private/planning/managed-ci-workstreams`; `.github/workflows`.
 
 - [ ] **Follow up the Vale upgrades.** ADR 0337 was necessary because a local Homebrew upgrade of Vale created a version mismatch with the codebase. That was worked around, but the longer-term issue is that the upgraded Vale version changed its parser to detect many more previously undetected issues. The newer version should be considered 'correct', but due to ongoing work the project's pinned version stayed the same. Update the project's pinned Vale to its latest release, then fix the previously undetected issues it finds. Evidence: `project/map/_adr/0337-vale-self-provisions-from-tracked-release-integrity.md`
