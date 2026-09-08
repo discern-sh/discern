@@ -35,7 +35,7 @@ export async function recoveryStoragePath(
 /** Hold from payload observation through manifest publication. Reclamation never waits on an active writer. */
 export async function withRecoveryStorage<T>(
   root: string,
-  operation: () => Promise<T>,
+  operation: (commonGitDirectory: string) => Promise<T>,
   exclusive = false,
 ): Promise<T> {
   const held = storageLeases.getStore();
@@ -55,7 +55,7 @@ export async function withRecoveryStorage<T>(
     }
     return await storageLeases.run(
       new Map([...(held ?? []), [root, current]]),
-      operation,
+      () => operation(current.common),
     );
   }
   const path = await resolveContainedProjectWritePath(
@@ -78,7 +78,7 @@ export async function withRecoveryStorage<T>(
     }
     return await storageLeases.run(
       new Map([...(held ?? []), [root, { common, exclusive }]]),
-      operation,
+      () => operation(common),
     );
   } finally {
     lock.close();
