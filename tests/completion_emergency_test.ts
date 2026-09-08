@@ -1,5 +1,6 @@
+import { gitOperationMarkerPath } from "../src/shared/git_admin_paths.ts";
+import { PROOF_NOTES_REF } from "../src/shared/git_conventions.ts";
 import { recordExceptionNote } from "../src/engine/emergency/note.ts";
-import { join } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
 import {
@@ -136,10 +137,15 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
       assert(unavailable.reason);
     });
     await git(root, "notes", "--ref=discern", "remove", exception.data.target);
-    const notesLock = join(
+    const notesLock = await gitOperationMarkerPath(
       root,
-      await gitOut(root, "rev-parse", "--git-path", "refs/notes/discern.lock"),
+      `${PROOF_NOTES_REF}.lock`,
+      async (cwd, args) => ({
+        success: true,
+        stdout: await gitOut(cwd, ...args),
+      }),
     );
+    assert(notesLock);
     await Deno.writeTextFile(notesLock, "another notes writer");
     const locked = await recordExceptionNote(root, exception);
     assertEquals(locked.status, "record_failed");
