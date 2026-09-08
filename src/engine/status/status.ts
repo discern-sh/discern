@@ -1,4 +1,5 @@
 import { completionRecoveryStatus } from "./completion_recovery.ts";
+import { checkoutLandingStatus } from "./checkout_landing.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -321,6 +322,9 @@ export async function statusResult(
   // identity derives from the configured trunk branch rather than worktree
   // metadata.
   const worktree = await buildCheckoutIdentityBlock(root, cfg);
+  const checkoutLanding = location === "worktree" && worktree !== null
+    ? await checkoutLandingStatus(root, worktree)
+    : undefined;
 
   // Fleet decision. The fleet is only worth surveying from the main checkout (the
   // supervisor view) or when a worktree explicitly asks via --all — so a plain
@@ -692,6 +696,7 @@ export async function statusResult(
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
+    currentSourceLanded: checkoutLanding !== undefined,
   });
   hints.push(...completionRecovery.hints);
   if (opts.verbose !== true) {
@@ -700,6 +705,9 @@ export async function statusResult(
   const result: DiscernResult<StatusData> = {
     ok: true,
     verb: "status",
+    ...(checkoutLanding === undefined
+      ? {}
+      : { message: checkoutLanding.message }),
     data,
     ...(opts.verbose === true ? { wireProjection: "full" as const } : {}),
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
@@ -1030,6 +1038,8 @@ interface HintContext {
    * and both `done` paths): each required stop question, served early. Empty
    * while setup is unfinished. */
   checkpointPreview: FiredHint[];
+  /** A durable landing names this effort's exact current committed source. */
+  currentSourceLanded: boolean;
 }
 
 /**
@@ -1204,8 +1214,9 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
     }
     if (
-      g.behind_trunk === UNKNOWN_GIT_COUNT ||
-      (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk))
+      !ctx.currentSourceLanded &&
+      (g.behind_trunk === UNKNOWN_GIT_COUNT ||
+        (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk)))
     ) {
       hints.push(
         fire(HINTS["status-branch-behind"], {
@@ -1223,7 +1234,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       ahead: g.ahead_trunk,
       behind: g.behind_trunk,
     };
-    if (isLandingCandidate(readinessFacts)) {
+    if (!ctx.currentSourceLanded && isLandingCandidate(readinessFacts)) {
       // accept would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
@@ -1494,6 +1505,7 @@ function renderStatusHuman(
   out.raw(
     renderStatusDashboard(result.data, result.hints, {
       terminal,
+      ...(result.message === undefined ? {} : { message: result.message }),
       width: terminal.size.columns,
       verbose: render.verbose ?? false,
       nowMs: render.nowMs,

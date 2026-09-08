@@ -2,8 +2,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
-import { addWorktree, git, runAgent } from "./engine_helpers.ts";
+import { addWorktree, git, gitOut, runAgent } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { firedHintsFromTexts } from "../src/shared/hints.ts";
 
 Deno.test("public acceptance keeps an unrelated historical retained landing out of current cleanup", async () => {
   await withTempDir(async (root) => {
@@ -37,5 +38,27 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
     ]);
     assertEquals(result.data?.queue?.map((row) => row.retirement), ["retired"]);
     assertEquals(await Deno.readTextFile(`${earlier}/source`), "authored\n");
+    const retainedStatus = await runAgent(earlier, ["status", "--json"]);
+    assertEquals(retainedStatus.code, 0, retainedStatus.output);
+    const status = decodeCliResult(retainedStatus.stdout, "status");
+    assertStringIncludes(
+      status.message ?? "",
+      await gitOut(earlier, "rev-parse", "HEAD"),
+    );
+    assertStringIncludes(status.message ?? "", "has landed");
+    assertStringIncludes(status.message ?? "", "has not been released");
+    assertEquals(
+      firedHintsFromTexts(status.hints).some((hint) =>
+        hint.id === "status-branch-behind"
+      ),
+      false,
+    );
+    for (const surface of [["--plain", "--no-color"], ["--markdown"]]) {
+      const visible = await runAgent(earlier, ["status", ...surface]);
+      assertEquals(visible.code, 0, visible.output);
+      const prose = visible.stdout.replace(/\s+/g, " ");
+      assertStringIncludes(prose, "has landed");
+      assertStringIncludes(prose, "has not been released");
+    }
   });
 });
