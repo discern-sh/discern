@@ -51,11 +51,11 @@ Deno.test("fresh public accept checks desk source authority and never lands twic
       );
       assertEquals(
         blockedResult.data.pending?.[0]?.kind,
-        "environment-unavailable",
+        "record-corrupt",
       );
       assert(
         blockedResult.data.pending?.[0]?.reason.includes(
-          `Completion candidate/${candidate.id} is invalid`,
+          `Completion record candidate/${candidate.id} is invalid`,
         ),
         blocked.output,
       );

@@ -322,7 +322,8 @@ async function acceptQueueImplementation(
         // requested landing and real recovery visible without relaying every
         // earlier owner's held checkout as part of the current result.
         if (
-          plan.kind === "settled" && plan.outcome.kind === "retained" &&
+          requested !== undefined && plan.kind === "settled" &&
+          plan.outcome.kind === "retained" &&
           landing.data.source.effort_id !== requested &&
           !recoveryRecords.some((record) =>
             record.kind === "retirement" &&
