@@ -489,6 +489,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
         driver: Promise.resolve({}),
       });
       observeCheckpointActivity({
+        advise: [{ id: "api-advice" }, { id: "api-advice" }],
         fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
         declared: [{
           id: "api-review",
@@ -497,6 +498,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
           elapsed_ms: 5,
         }],
       });
+      observeCheckpointActivity({ advise: [{ id: "api-advice" }] });
       await recording.finish({
         verb: "done",
         surface,
@@ -525,6 +527,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
     for (const event of [cli, mcp]) {
       assert(event !== undefined);
       assertEquals(event.checkpoints, {
+        advise: [{ id: "api-advice" }],
         fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
         declared: [{
           id: "api-review",
