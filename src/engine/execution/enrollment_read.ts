@@ -4,6 +4,7 @@ import { z } from "@zod/zod";
 import { EnvironmentSchema } from "../completion/environment.ts";
 import { RecordIdSchema } from "../completion/identity.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import { completionRecordVersionSupported } from "../completion/version.ts";
 import { inspectOnDiskJsonVersion } from "../../shared/on_disk_formats.ts";
 
 // This conservative projection supplies presence and identity, never write authority.
@@ -44,7 +45,9 @@ export async function enrolledEnvironments(
       join(directory, "environment", entry.name),
     );
     if (
-      inspectOnDiskJsonVersion("completionRecord", raw).status !== "current"
+      !completionRecordVersionSupported(
+        inspectOnDiskJsonVersion("completionRecord", raw),
+      )
     ) {
       throw new Error(
         `Environment ${entry.name} has no supported current version; preserve its record for reconciliation.`,

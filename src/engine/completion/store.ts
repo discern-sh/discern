@@ -1,4 +1,5 @@
 /** Common-admin record IO. Observation has no effects; publication is a short CAS. */
+import { completionRecordVersionSupported } from "./version.ts";
 import { dirname, join } from "@std/path";
 import {
   atomicReplaceJson,
@@ -46,9 +47,7 @@ export async function parseCompletionRecord(
 ): Promise<CompletionRecordReading> {
   const version = inspectOnDiskJsonVersion("completionRecord", raw);
   const supportedOlder = version.status === "older" &&
-    ON_DISK_FORMATS.completionRecord.historicalVersions.some((v) =>
-      v === version.found
-    );
+    completionRecordVersionSupported(version);
   if (
     version.status === "newer" ||
     (version.status === "older" && !supportedOlder)

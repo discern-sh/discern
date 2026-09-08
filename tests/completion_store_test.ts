@@ -734,3 +734,31 @@ Deno.test("strict version-2 readers reject optional additions accepted by the re
     assertEquals(observed.record.data.claim.kind, "exception");
   }
 });
+
+Deno.test("read-only environment enrollment and canonical storage agree on reviewed historical records", async () => {
+  const { enrolledEnvironments } = await import(
+    "../src/engine/execution/enrollment_read.ts"
+  );
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const fixture = completionFixtures().environment;
+    const path = await completionRecordPath(root, fixture);
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    for (
+      const version of [
+        ...ON_DISK_FORMATS.completionRecord.historicalVersions,
+        ON_DISK_FORMATS.completionRecord.version,
+      ]
+    ) {
+      const raw = JSON.stringify({ ...fixture, version });
+      await Deno.writeTextFile(path, raw);
+      const stored = await readCompletionRecord(root, fixture);
+      assertEquals(stored.kind, "recorded");
+      assertEquals((await enrolledEnvironments(root)).map((r) => r.id), [
+        fixture.id,
+      ]);
+      assertEquals(await Deno.readTextFile(path), raw);
+    }
+  });
+});
