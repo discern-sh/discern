@@ -50,6 +50,7 @@ export type ResultMarkdownPresenter = (
 const MAX_LIST_ITEMS = 6;
 const MAX_DIAGNOSTICS = 3;
 const MAX_DIAGNOSTIC_OUTPUT = 2_400;
+const MAX_DIAGNOSTIC_MESSAGE = 900;
 
 /** The state lead shared by every effectful Markdown preview. */
 export const RESULT_MARKDOWN_DRY_RUN_LEAD = "**Dry run: nothing changed.**";
@@ -341,7 +342,7 @@ function envelopeEvidence(
     facts.push(
       `${code(tool)}${location}${
         rule === undefined ? "" : ` [rule ${code(rule)}]`
-      }: ${message}${
+      }: ${capText(message, MAX_DIAGNOSTIC_MESSAGE)}${
         reproduce === undefined ? "" : ` Reproduce with ${code(reproduce)}.`
       }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}`,
     );

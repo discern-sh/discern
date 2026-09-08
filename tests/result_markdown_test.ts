@@ -36,6 +36,31 @@ import { productSentence } from "../src/shared/product_sentence.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
+
+Deno.test("routine diagnostic summaries bound large messages while preserving structured evidence", () => {
+  const diagnostics = Array.from({ length: 20 }, (_, index) => ({
+    tool: "future-check",
+    severity: "error",
+    rule: `finding-${index}`,
+    message: `Finding ${index}: ${"detailed evidence ".repeat(2000)}`,
+    reproduce_cmd: `run-focused-check ${index}`,
+    output_path: `/tmp/evidence-${index}`,
+  }));
+  const original = structuredClone(diagnostics);
+  const rendered = renderResultMarkdown({
+    ok: false,
+    verb: "future",
+    diagnostics,
+  }, resultPresenterForVerb("future"));
+  assert(
+    rendered.length < 8000,
+    `routine summary contains ${rendered.length} characters`,
+  );
+  assertStringIncludes(rendered, "17 additional diagnostics omitted");
+  assertStringIncludes(rendered, "/tmp/evidence-0");
+  assertStringIncludes(rendered, "run-focused-check 0");
+  assertEquals(diagnostics, original);
+});
 const UNCOVERED = Array.from(
   { length: 9 },
   (_, index) => ({
