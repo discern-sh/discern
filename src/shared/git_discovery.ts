@@ -15,14 +15,21 @@
  * never reinterprets git. Every hit is validated against the checkout's current
  * real path and the presence of its administration directory. Failures are
  * never retained. Lock acquisition and every topology-changing git invocation
- * mark the scope stale: the next query re-observes the administration
- * directories with one git process, and the answers derived from them survive
- * only when that observation is unchanged. The scope ends with its operation.
+ * mark the scope stale. Ordinary boundaries re-observe administration with Git.
+ * Short publications may reuse an observation only when bounded routing bytes
+ * and directory identities agree with a witness captured around fresh Git
+ * discovery. Changed or uncertain routing falls back to Git. The scope ends with its operation.
  * Outside any scope a query runs fresh, exactly as before.
  */
 
 import { AsyncLocalStorage } from "./module_loading.ts";
-import { directoryExists, realPathIfExists } from "./fs_presence.ts";
+import {
+  directoryExists,
+  lstatIfExists,
+  realPathIfExists,
+} from "./fs_presence.ts";
+import { dirname, join, resolve } from "@std/path";
+import { readBoundedText } from "./bounded_file.ts";
 
 /** The narrow result discovery replays or forwards from its runner. */
 export interface GitDiscoveryResult {
@@ -81,7 +88,11 @@ interface CheckoutDiscovery {
   /** Exact stdout per content-addressed object spec. */
   readonly objects: Map<string, string>;
   /** Set by a boundary; the next query re-observes the directories. */
-  stale: boolean;
+  stale: false | "publication" | "topology";
+  /** Filesystem routing agreed on both sides of the last fresh Git observation. */
+  routing?: string | undefined;
+  /** An in-flight observation cannot clear a later topology invalidation. */
+  revision: number;
 }
 
 interface GitDiscoveryScope {
@@ -110,18 +121,31 @@ export async function withGitDiscoveryScope<T>(
   }
 }
 
+/** Reuse a live owning operation; standalone callers still close their own scope. */
+export async function withinGitDiscoveryScope<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  return liveScope() === undefined
+    ? await withGitDiscoveryScope(operation)
+    : await operation();
+}
+
 /**
- * Mark every retained answer stale in the current operation and those
- * enclosing it: each checkout re-observes its administration directories
- * before answering again.
+ * Mark retained answers stale throughout the owning operation. A publication
+ * cannot downgrade a pending topology re-observation into filesystem reuse.
  */
-export function invalidateGitDiscovery(): void {
+export function invalidateGitDiscovery(
+  boundary: "topology" | "publication" = "topology",
+): void {
   for (
     let scope = SCOPE.getStore();
     scope !== undefined;
     scope = scope.parent
   ) {
-    for (const checkout of scope.checkouts.values()) checkout.stale = true;
+    for (const checkout of scope.checkouts.values()) {
+      if (boundary === "topology") checkout.revision += 1;
+      if (checkout.stale !== "topology") checkout.stale = boundary;
+    }
   }
 }
 
@@ -184,7 +208,12 @@ async function checkoutDiscovery(
   if (key === undefined) return undefined;
   let checkout = scope.checkouts.get(key);
   if (checkout === undefined) {
-    checkout = { adminPaths: new Map(), objects: new Map(), stale: false };
+    checkout = {
+      adminPaths: new Map(),
+      objects: new Map(),
+      stale: false,
+      revision: 0,
+    };
     scope.checkouts.set(key, checkout);
   }
   return checkout;
@@ -195,6 +224,52 @@ function dropDerived(checkout: CheckoutDiscovery): void {
   checkout.position = undefined;
   checkout.adminPaths.clear();
   checkout.objects.clear();
+}
+
+/** Observe routing inputs without deriving Git's answers. Symlinks or unknown
+ * file identities cannot authorize reuse. Directory contents and timestamps
+ * are excluded: writing a receipt does not change repository routing. */
+async function routingFingerprint(
+  cwd: string,
+  dirs: readonly [string, string],
+): Promise<string | undefined> {
+  const paths = new Set([resolve(cwd, dirs[0]), resolve(cwd, dirs[1])]);
+  paths.add(join(resolve(cwd, dirs[0]), "commondir"));
+  for (let ancestor = resolve(cwd);; ancestor = dirname(ancestor)) {
+    paths.add(ancestor);
+    paths.add(join(ancestor, ".git"));
+    if (dirname(ancestor) === ancestor) break;
+  }
+  const facts: unknown[] = [];
+  for (const path of paths) {
+    try {
+      const stat = await lstatIfExists(path);
+      if (stat === undefined) {
+        facts.push([path, null]);
+        continue;
+      }
+      if (stat.isSymlink || stat.ino === null || stat.dev === null) {
+        return undefined;
+      }
+      if (!stat.isDirectory && (!stat.isFile || stat.size > 65_536)) {
+        return undefined;
+      }
+      facts.push([
+        path,
+        stat.dev,
+        stat.ino,
+        stat.isDirectory ? null : await readBoundedText(path, 65_536),
+      ]);
+    } catch (error) {
+      if (
+        error instanceof Deno.errors.NotCapable ||
+        error instanceof Deno.errors.PermissionDenied
+      ) return undefined;
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      facts.push([path, null]);
+    }
+  }
+  return JSON.stringify(facts);
 }
 
 /**
@@ -209,12 +284,30 @@ async function retainDirs(
   cwd: string,
   run: GitDiscoveryRunner,
 ): Promise<readonly [string, string] | undefined> {
-  if (checkout.dirs !== undefined && !checkout.stale) {
-    if (await directoryExists(checkout.dirs[0])) return checkout.dirs;
-    checkout.dirs = undefined;
-    dropDerived(checkout);
+  if (checkout.dirs !== undefined && checkout.stale === false) {
+    if (await directoryExists(checkout.dirs[0])) {
+      if (checkout.stale === false) return checkout.dirs;
+    } else {
+      checkout.dirs = undefined;
+      dropDerived(checkout);
+    }
+  }
+  const revision = checkout.revision;
+  const publication = checkout.stale === "publication";
+  const before = !publication || checkout.dirs === undefined
+    ? undefined
+    : await routingFingerprint(cwd, checkout.dirs);
+  if (
+    publication && checkout.stale !== "topology" && before !== undefined &&
+    before === checkout.routing && revision === checkout.revision
+  ) {
+    checkout.stale = false;
+    return checkout.dirs;
   }
   const lines = twoLines(await run(cwd, [...ADMIN_DIR_ARGS]));
+  const after = !publication || lines === undefined
+    ? undefined
+    : await routingFingerprint(cwd, lines);
   if (
     lines === undefined || checkout.dirs === undefined ||
     checkout.dirs[0] !== lines[0] || checkout.dirs[1] !== lines[1]
@@ -222,7 +315,11 @@ async function retainDirs(
     dropDerived(checkout);
   }
   checkout.dirs = lines;
-  checkout.stale = false;
+  checkout.routing =
+    revision === checkout.revision && before !== undefined && before === after
+      ? after
+      : undefined;
+  if (revision === checkout.revision) checkout.stale = false;
   return lines;
 }
 

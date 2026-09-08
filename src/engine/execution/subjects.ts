@@ -1,3 +1,5 @@
+import { RECOVERY_MANIFEST_FORMAT } from "./snapshot_schema.ts";
+import { RELEASE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
 /** Pure release subjects shared by observation and effectful registration. */
 import {
   type EnvironmentDeclaration,
@@ -21,6 +23,21 @@ export async function declarationIdentity(
   );
 }
 
+/** Resolve the recorded contract, including source execution without borrowing. */
+export async function enrolledDeclaration(
+  environment: ExecutionEnvironment,
+  declarations: readonly EnvironmentDeclaration[],
+): Promise<EnvironmentDeclaration | null> {
+  for (const declaration of [null, ...declarations]) {
+    if (environment.declaration === await declarationIdentity(declaration)) {
+      return declaration;
+    }
+  }
+  throw new Error(
+    "The enrolled execution declaration is unavailable. Preserve its frozen recovery contract and reconcile the intended declaration before release or cleanup.",
+  );
+}
+
 /** Release binds checkout state and ownership independently of candidate selection. */
 export async function releasedSubject(
   environment: ExecutionEnvironment,
@@ -32,7 +49,11 @@ export async function releasedSubject(
     // Recovery keeps exact index bytes. Release identity uses the captured
     // entries, staged patch and complete files; native capture rejects index
     // flags and layouts whose semantics those observations cannot preserve.
-    const { index: _index, ...git } = state.data.git;
+    const { index: _index, ...captured } = state.data.git;
+    const git = captured.format === RECOVERY_MANIFEST_FORMAT ||
+        captured.format === RELEASE_OBSERVATION_FORMAT
+      ? { ...captured, format: RELEASE_OBSERVATION_FORMAT }
+      : captured;
     identity = await sha256Hex(JSON.stringify({ ...state.data, git }));
   }
   return await releaseDigest(environment, identity);

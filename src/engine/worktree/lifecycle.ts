@@ -3,6 +3,7 @@ import type { FinishResultSurface } from "../gate/finish.ts";
 import type { LandingConvergenceResult } from "../landing_queue/convergence.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { acceptQueueResult } from "../landing_queue/public_accept.ts";
+import { reclaimRetirementResult } from "../landing_queue/retirement_storage.ts";
 /**
  * The worktree lifecycle entry points — worktree setup, ensure, accept,
  * teardown, and prune. These compose the identity, resource, and git layers into
@@ -350,6 +351,7 @@ export interface WorktreeSetupOptions extends WorktreeOpOptions {
  * `variance` names each declared-unmet checkpoint the owner authorizes landing
  * (repeatable); the set must equal the current declared-unmet set exactly. */
 export interface AcceptOpOptions extends WorktreeOpOptions {
+  reclaim?: string;
   emergency?: EmergencyOptions;
   confirmed?: boolean;
   variance?: string[];
@@ -1970,6 +1972,7 @@ export async function accept(
   opts: AcceptOpOptions,
 ): Promise<void> {
   const result = await acceptResult(ctx, {
+    ...(opts.reclaim === undefined ? {} : { reclaim: opts.reclaim }),
     ...(opts.emergency === undefined ? {} : { emergency: opts.emergency }),
     dryRun: opts.dryRun ?? false,
     confirmed: opts.confirmed ?? false,
@@ -2005,6 +2008,7 @@ export async function accept(
 export async function acceptResult(
   ctx: LifecycleContext,
   opts: {
+    reclaim?: string;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;
     validationSurface?: FinishResultSurface;
@@ -2016,6 +2020,27 @@ export async function acceptResult(
   },
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (opts.reclaim !== undefined) {
+    if (
+      opts.emergency !== undefined || opts.confirmed ||
+      (opts.variance?.length ?? 0) > 0 ||
+      (opts.approveStandard?.length ?? 0) > 0
+    ) {
+      return {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message:
+          "Storage reclamation cannot be combined with landing or emergency approval. Run accept --reclaim separately.",
+      };
+    }
+    return await reclaimRetirementResult(
+      ctx.cwd,
+      opts.reclaim,
+      opts.dryRun,
+      opts.signal,
+    );
+  }
   if (opts.emergency !== undefined) {
     if (
       (opts.variance?.length ?? 0) > 0 ||

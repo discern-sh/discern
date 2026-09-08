@@ -39,6 +39,8 @@ import {
 } from "./decode_cli_result.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { waitForPendingCondition } from "./waiting.ts";
+import { DiagnosticSchema } from "../src/shared/result_schemas.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
 
 type StandardsJson = CliResultForCommand<"standards">;
 
@@ -505,12 +507,20 @@ Deno.test("standards: every failing verdict, unreadable metric and timeout is re
 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 1, r.output);
-    // The envelope carries every reason too: a caller that can't hear the live
-    // narration (MCP, --json) must read the same words from diagnostics[], never
-    // be left with a bare failed step.
+    // The bounded envelope links complete evidence for every failure, including
+    // verdicts beyond the inline sample, without rerunning the measurement.
     const json = await runAgent(dir, ["standards", "--json"]);
     assertEquals(json.code, 1, json.output);
     const obj = parseStandardsJson(json.stdout);
+    const evidence = obj.diagnostic_evidence;
+    assert(evidence !== undefined);
+    assertEquals(obj.diagnostics?.length, evidence.shown);
+    assert(evidence.total > evidence.shown);
+    const raw = await Deno.readTextFile(evidence.path);
+    assertEquals(new TextEncoder().encode(raw).length, evidence.bytes);
+    assertEquals(await sha256Hex(raw), evidence.digest);
+    obj.diagnostics = decodeWith(z.array(DiagnosticSchema), raw);
+    assertEquals(obj.diagnostics.length, evidence.total);
     assertEquals(obj.ok, false);
 
     await t.step(

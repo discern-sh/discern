@@ -194,6 +194,8 @@ export interface StatusDashboardOptions {
   width: number;
   verbose?: boolean;
   nowMs: number;
+  /** The result core's current-source landing and checkout explanation. */
+  message?: string;
 }
 
 /** Whole days since an ISO timestamp, or undefined when absent/unparseable. */
@@ -1443,6 +1445,12 @@ export function renderStatusDashboard(
     leadingBlankLines: 0,
   });
   const blocks: StatusComponent[] = [heading];
+  if (options.message !== undefined) {
+    blocks.push(c.presenter.present(renderParagraphCli, {
+      content: terminalMultiline(options.message),
+      maxWidth: width,
+    }));
+  }
 
   if (data.location === "main") {
     blocks.push(mainCheckoutLine(data, width, c));

@@ -15,7 +15,8 @@ import {
   type ResultAdvisoryKind,
   stepResultSatisfiesCompletion,
 } from "./result.ts";
-import { firedHintsFromTexts } from "./hints.ts";
+import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
+import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
 
 export const RESULT_REQUIRED_POSTCONDITIONS = [
   "declared-outcome",
@@ -390,6 +391,47 @@ function instructionRefreshFailure(
   return undefined;
 }
 
+/** Emergency success is separate from ordinary Proof and queue acceptance. */
+function emergencyCompletionFailure(
+  data: Record<string, unknown>,
+  emergency: Record<string, unknown>,
+): RequiredPostconditionFailure | undefined {
+  const independent = ["proof", "proof_line", "proof_note", "landing", "queue"]
+    .every((key) => data[key] === undefined);
+  const prepared = emergency.outcome === "prepared" &&
+    nonBlank(emergency.preparation) !== undefined &&
+    emergency.confirmation === undefined && emergency.landing_id === undefined;
+  const landed = emergency.outcome === "landed" &&
+    ["landing_id", "candidate_id", "reason"].every((key) =>
+      nonBlank(emergency[key]) !== undefined
+    ) && Array.isArray(emergency.exceptions) &&
+    (emergency.retirement === "retained" || emergency.retirement === "retired");
+  return independent && (prepared || landed) ? undefined : failed(
+    "partial_acceptance",
+    "Emergency success requires a preparation receipt or a recorded landing with settled cleanup. It cannot carry ordinary Proof or acceptance claims. Preserve the recorded effects before recovery.",
+  );
+}
+
+/** Recovery retains the original authority kind and exact transition subject. */
+function settledPrefixAuthority(prefix: UnknownRecord): boolean {
+  if (prefix.authority_settlement !== "consumed") return false;
+  if (prefix.exception === undefined) {
+    return nonBlank(prefix.authority_id) !== undefined;
+  }
+  const parsed = ExceptionClaimSchema.safeParse(prefix.exception);
+  if (!parsed.success) return false;
+  const claim = parsed.data;
+  return prefix.authority_id === null &&
+    ["proof_line", "proof_note", "consent", "variances", "standard_approvals"]
+      .every((field) => prefix[field] === undefined) &&
+    prefix.effort === claim.source.effort_id &&
+    prefix.branch === claim.source.branch &&
+    prefix.source_head === claim.source.head &&
+    prefix.candidate_id === claim.candidate_id &&
+    prefix.expected_trunk === claim.actual_trunk &&
+    prefix.target === claim.candidate_head;
+}
+
 /** Evaluate one named typed postcondition against an unevaluated result. */
 function requiredFailure(
   postcondition: ResultRequiredPostcondition,
@@ -478,17 +520,8 @@ function requiredFailure(
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
       const emergency = record(data?.emergency);
-      if (emergency?.outcome === "prepared") {
-        return nonBlank(emergency.preparation) !== undefined &&
-            emergency.confirmation === undefined &&
-            emergency.landing_id === undefined &&
-            data?.proof === undefined && data?.proof_line === undefined &&
-            data?.landing === undefined && data?.queue === undefined
-          ? undefined
-          : failed(
-            "precondition_failed",
-            "Emergency preparation requires a review receipt and cannot claim Proof, confirmation, or landing effects.",
-          );
+      if (emergency !== undefined) {
+        return emergencyCompletionFailure(data ?? {}, emergency);
       }
       if (Array.isArray(data?.queue)) {
         const prefixes = records(data.queue);
@@ -499,8 +532,7 @@ function requiredFailure(
               nonBlank(prefix.landing_id) !== undefined &&
               nonBlank(prefix.expected_trunk) !== undefined &&
               nonBlank(prefix.target) !== undefined &&
-              nonBlank(prefix.authority_id) !== undefined &&
-              prefix.authority_settlement === "consumed" &&
+              settledPrefixAuthority(prefix) &&
               Array.isArray(prefix.pending) && prefix.pending.length === 0
             )
           ? undefined
@@ -860,5 +892,8 @@ export function evaluateResultCompletion<TData>(
     ok: false,
     error: failure.error,
     message: failure.message,
+    hints: appendHintTexts(result.hints, [
+      fire(HINTS["result-completion-failed"], { verb: result.verb }),
+    ]),
   };
 }

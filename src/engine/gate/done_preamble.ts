@@ -46,7 +46,8 @@ export async function resolveDonePreamble(
     declarations: DeclarationRequest;
     rerunRequested: boolean;
     ciRecovery: boolean;
-    deferCheckpoints?: boolean;
+    /** Candidate selection may change the exact tree whose rerun is judged. */
+    deferRerunGuard?: boolean;
     signal?: AbortSignal;
   },
   operations: DonePreambleOperations,
@@ -57,9 +58,10 @@ export async function resolveDonePreamble(
     options.mode === "strict" && !options.rerunRequested && !hasDeclarations
   ) {
     const reused = await operations.reusableGreenProof(root);
-    if (reused !== undefined) return { kind: "reuse", result: reused };
+    if (reused !== undefined) {
+      return { kind: reused.ok ? "reuse" : "refuse", result: reused };
+    }
   }
-  if (options.deferCheckpoints) return { kind: "proceed" };
   const checkpoints = await operations.resolveCheckpointGate(
     root,
     options.declarations,
@@ -68,7 +70,7 @@ export async function resolveDonePreamble(
     options.signal,
   );
   if (checkpoints.kind === "refuse") return checkpoints;
-  if (options.mode === "strict") {
+  if (options.mode === "strict" && !options.deferRerunGuard) {
     const refusal = await operations.unchangedTreeRerunRefusal(
       root,
       options.rerunRequested,

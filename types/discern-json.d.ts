@@ -517,6 +517,14 @@ export type DiscernRootResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -651,6 +659,14 @@ export type DiscernSetupResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -816,6 +832,14 @@ export type DiscernSetupBeginResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -1062,6 +1086,14 @@ export type DiscernSetupVerifyResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -1234,6 +1266,14 @@ export type DiscernSetupStepResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -1431,6 +1471,14 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -1762,6 +1810,14 @@ export type DiscernSetupAcceptResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2044,6 +2100,14 @@ export type DiscernUpgradeResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2258,6 +2322,14 @@ export type DiscernUninstallResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2410,6 +2482,14 @@ export type DiscernDoctorResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2615,6 +2695,14 @@ export type DiscernLicensesResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2764,6 +2852,14 @@ export type DiscernTriangleResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -2901,6 +2997,14 @@ export type DiscernMapResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -3127,6 +3231,14 @@ export type DiscernDocsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -3353,6 +3465,14 @@ export type DiscernHelpResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -3489,6 +3609,14 @@ export type DiscernConfigResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -3665,6 +3793,14 @@ export type DiscernDoneResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -4043,6 +4179,14 @@ export type DiscernPrepareResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -4200,6 +4344,14 @@ export type DiscernTestResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -4357,6 +4509,14 @@ export type DiscernImprovementResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -4597,6 +4757,14 @@ export type DiscernCheckpointsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -4891,6 +5059,14 @@ export type DiscernStandardsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5067,6 +5243,14 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5243,6 +5427,14 @@ export type DiscernRefreshResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5391,6 +5583,14 @@ export type DiscernTidyResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5525,6 +5725,14 @@ export type DiscernImpactResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5669,6 +5877,14 @@ export type DiscernCouplingResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -5829,6 +6045,14 @@ export type DiscernAwaitResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -6006,6 +6230,14 @@ export type DiscernPatternsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -6443,6 +6675,14 @@ export type DiscernPatternsResetResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -6594,6 +6834,14 @@ export type DiscernPatternsSealResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -6744,6 +6992,14 @@ export type DiscernPatternsArchivesResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -6888,6 +7144,14 @@ export type DiscernDeskResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -7022,6 +7286,14 @@ export type DiscernEnterResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -7156,6 +7428,14 @@ export type DiscernStatusResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -7183,9 +7463,19 @@ export type DiscernStatusResult = DiscernResultState & {
   data?: {
     execution_recovery?: Array<{
       environment_id: string;
+      attempt_id?: string;
+      phase?: string;
+      children_quiescent?: boolean;
       reason: string;
       retained_paths: Array<string>;
       next_action: string;
+    }>;
+    execution_activity?: Array<{
+      environment_id: string;
+      attempt_id: string;
+      candidate_id: string;
+      phase: string;
+      lease_expires_at: number;
     }>;
     emergency_validation?: Array<{
       landing_id: string;
@@ -7694,6 +7984,14 @@ export type DiscernStartResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -7862,6 +8160,14 @@ export type DiscernWorktreeRenameResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -8011,6 +8317,14 @@ export type DiscernWorktreeEnsureResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -8145,6 +8459,14 @@ export type DiscernAcceptResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -8170,6 +8492,20 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    storage_cleanup?: {
+      state: "planned";
+      planned_files: number;
+      retirement_ids: Array<string>;
+    } | {
+      state: "settled";
+      removed_files: number;
+      retirement_ids: Array<string>;
+    } | {
+      state: "retained";
+      removed_files: number;
+      retirement_ids: Array<string>;
+      reason: string;
+    };
     checkpoint_preparation?: {
       policy?: string;
       outstanding?: Array<{
@@ -8368,6 +8704,40 @@ export type DiscernAcceptResult = DiscernResultState & {
       retirement?: string;
     };
     queue?: Array<{
+      exception?: {
+        kind: "exception";
+        authorization_id: string;
+        authorized_at: number;
+        actual_trunk: string;
+        source: {
+          effort_id: string;
+          branch: string;
+          head: string;
+          tree: string;
+        };
+        candidate_id: string;
+        candidate_head: string;
+        policy: string;
+        review?: {
+          attempt_id: string;
+          candidate_id: string;
+          context: string;
+          path: string;
+          digest: string;
+          bytes: number;
+        };
+        reason: string;
+        exceptions: Array<{
+          requirement: {
+            id: string;
+            context: string;
+            kind: "job" | "scope" | "standard";
+            definition: string;
+          };
+          state: "failed" | "unrun" | "stale";
+          evidence_id: string | null;
+        }>;
+      };
       ignored_file_changes?: {
         status:
           | "disabled"
@@ -8830,6 +9200,14 @@ export type DiscernUpdateResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -8992,6 +9370,14 @@ export type DiscernIdentityResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9139,6 +9525,14 @@ export type DiscernScriptsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9279,6 +9673,14 @@ export type DiscernWorktreeResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9413,6 +9815,14 @@ export type DiscernWorktreeSetupResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9547,6 +9957,14 @@ export type DiscernWorktreeTeardownResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9681,6 +10099,14 @@ export type DiscernWorktreeDropResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9815,6 +10241,14 @@ export type DiscernWorktreeParkResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -9949,6 +10383,14 @@ export type DiscernWorktreePruneResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -10083,6 +10525,14 @@ export type DiscernSkillsResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -10217,6 +10667,14 @@ export type DiscernSkillsListResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:
@@ -10359,6 +10817,14 @@ export type DiscernSkillsEjectResult = DiscernResultState & {
     rule?: string;
     fix_available?: boolean;
   }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
   hints?: Array<string>;
   advisories?: Array<{
     kind:

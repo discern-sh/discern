@@ -20,6 +20,8 @@ A Proof cannot move to a new commit without the complete Gate result for that co
 
 The resource-ledger format includes its `intent` and `ready` phases. Intent persists complete ownership and frozen cleanup before create; ready is written only after create succeeds. Its transition and forward-version behavior use the same registered contract.
 
+Completion schema exports can carry a reviewed digest in the format registry. The completion family union enrolls optional fields and new families in that guard. A strict-reader extension requires a version and compatibility decision even when a new field is optional. The explicit version-2 completion reader changes only the envelope in memory, retains byte identity, and archives the original on a later mutable transition. It never infers authority.
+
 ## Consequences
 
 - A mixed-version fleet cannot silently downgrade local evidence or replay effects under a schema it does not understand.

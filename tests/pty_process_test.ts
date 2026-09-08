@@ -8,6 +8,7 @@ import { fromFileUrl, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { ptyOutputContains, runPtyProcess } from "./fixtures/pty_process.ts";
 import { realPtyTest } from "./real_pty.ts";
+import { readPidIfReady } from "./process_id.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const PTY_CHILD_PROGRAM = join(
@@ -341,9 +342,10 @@ realPtyTest({
       assertStringIncludes(error.message, "phase 1/1 complete");
       assertStringIncludes(error.message, "timeout child ready");
 
-      const pid = (await Deno.readTextFile(pidPath)).trim();
+      const pid = await readPidIfReady(pidPath);
+      assert(pid !== undefined);
       const probe = await new Deno.Command("ps", {
-        args: ["-p", pid, "-o", "pid="],
+        args: ["-p", String(pid), "-o", "pid="],
         stdout: "piped",
         stderr: "null",
       }).output();

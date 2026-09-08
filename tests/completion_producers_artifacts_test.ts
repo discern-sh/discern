@@ -476,8 +476,8 @@ Deno.test("environment publications reuse checked storage and retain immutable b
     );
     assertEquals(
       published.queries,
-      3,
-      "queue identity, acquisition identity, and checked storage",
+      2,
+      "source storage discovery and fresh publication preflight",
     );
     assertEquals(await readEnvironmentArtifact(root, published.value), value);
     assertEquals(

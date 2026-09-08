@@ -1,3 +1,4 @@
+import { completionRecordPath } from "../src/engine/completion/store.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 /** Public acceptance uses complete immutable evidence and the recorded desk decision. */
 import { assert, assertEquals } from "@std/assert";
@@ -31,6 +32,49 @@ Deno.test("fresh public accept checks desk source authority and never lands twic
     assertEquals(done.code, 0, done.output);
     const before = await gitOut(root, "rev-parse", "main");
     const source = await gitOut(path, "rev-parse", "HEAD");
+    const admitted = observedRecords(await observeQueue(root, "main"));
+    const candidate = admitted.find((record) => record.kind === "candidate");
+    assert(candidate?.kind === "candidate");
+    const candidatePath = await completionRecordPath(root, {
+      kind: "candidate",
+      id: candidate.id,
+    });
+    assert(candidatePath);
+    const candidateBytes = await Deno.readTextFile(candidatePath);
+    try {
+      await Deno.writeTextFile(candidatePath, "unreadable candidate");
+      const blocked = await runAgent(path, ["accept", "--json"]);
+      assertEquals(blocked.code, 1, blocked.output);
+      const blockedResult = decodeCliResult(blocked.stdout, "accept");
+      assert(
+        blockedResult.data !== undefined && "pending" in blockedResult.data,
+      );
+      assertEquals(
+        blockedResult.data.pending?.[0]?.kind,
+        "record-corrupt",
+      );
+      assert(
+        blockedResult.data.pending?.[0]?.reason.includes(
+          `Completion record candidate/${candidate.id} is invalid`,
+        ),
+        blocked.output,
+      );
+      assertEquals(await gitOut(root, "rev-parse", "main"), before);
+      assertEquals(
+        await Deno.readTextFile(candidatePath),
+        "unreadable candidate",
+      );
+      assertEquals(
+        observedRecords(await observeQueue(root, "main")).filter((record) =>
+          record.kind !== "candidate"
+        ),
+        admitted.filter((record) => record.kind !== "candidate"),
+        "Unreadable evidence must not create authority, claim work, or mutate the queue",
+      );
+    } finally {
+      await Deno.writeTextFile(candidatePath, candidateBytes);
+    }
+
     const refused = await runAgent(path, ["accept", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     assert(refused.output.includes("awaiting_consent"), refused.output);

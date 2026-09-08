@@ -1,6 +1,11 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
-import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
+import type {
+  CompletionCapacity,
+  CompletionEvent,
+  ValidationSubject,
+} from "./protocol.ts";
+import type { CompletionRecovery } from "./environment.ts";
 import type { ComponentEvidence } from "./evidence.ts";
 
 /** The next piece of work or the exact reason it is pending, without output-log payloads. */
@@ -9,6 +14,10 @@ export interface CompletionProgress {
   readonly state: string;
   readonly candidate_id: string | null;
   readonly reason: string;
+  readonly capacity?: CompletionCapacity;
+  readonly environment_id?: string;
+  readonly attempt_id?: string;
+  readonly recovery?: CompletionRecovery;
 }
 export type CompletionObservationFact =
   | { readonly kind: "event"; readonly event: CompletionEvent }
@@ -93,11 +102,7 @@ export function emitComponentUse(
       use,
       evidence_id: evidenceId,
       duration_ms: durationMs,
-      outcome: component.outcome.kind === "passed"
-        ? "passed"
-        : component.outcome.kind === "cancelled"
-        ? "cancelled"
-        : "failed",
+      outcome: component.outcome.kind,
     },
   ));
 }

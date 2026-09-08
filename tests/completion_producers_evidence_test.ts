@@ -707,3 +707,89 @@ Deno.test("evaluator audits only selectable newest evidence and never falls back
     }
   });
 });
+
+Deno.test("cancelled work cannot invent or erase producer failure, and completed siblings remain reusable", async () => {
+  const snap = await snapshot();
+  const baseline = await passing(snap);
+  const cancelled = claimed(snap, baseline.plan, 2);
+  const neutral = recorded(cancelled, []).map((record) =>
+    CompletionRecordSchema.parse({
+      ...record,
+      data: {
+        ...record.data,
+        state: { kind: "finished", outcome: "cancelled", finished_at: 120 },
+      },
+    })
+  );
+  const demand = baseline.plan.demand;
+  const reused = planValidation(
+    snap,
+    observation([...baseline.records, ...neutral]),
+    demand,
+  );
+  assertEquals(reused.reused.length, snap.requirements.length);
+  assertEquals(reused.blockers, []);
+  const failed = baseline.records.map((record) =>
+    record.kind !== "evidence" ? record : CompletionRecordSchema.parse({
+      ...record,
+      data: {
+        ...record.data,
+        outcome: { kind: "failed", reason: "real producer failure" },
+      },
+    })
+  );
+  assert(
+    planValidation(snap, observation([...failed, ...neutral]), demand).blockers
+      .every((b) => b.kind === "validation-failed"),
+  );
+  const completed = await passing(snap, "local", 3);
+  const interrupted = completed.records.map((record) =>
+    record.kind !== "attempt" ? record : CompletionRecordSchema.parse({
+      ...record,
+      data: {
+        ...record.data,
+        state: { kind: "finished", outcome: "cancelled", finished_at: 120 },
+      },
+    })
+  );
+  const receipts = planValidation(
+    snap,
+    observation([...failed, ...interrupted]),
+    demand,
+  );
+  assertEquals(receipts.reused.length, snap.requirements.length);
+  assertEquals(receipts.blockers, []);
+});
+
+Deno.test("partial input observation cannot assemble the complete candidate Proof", async () => {
+  const snap = await snapshot();
+  const produced = await passing(snap);
+  const records = [...produced.records, assemblyRecord(snap)];
+  assertEquals(
+    assembleCandidate(
+      snap,
+      snap.candidate_id,
+      snap.candidate,
+      snap.requirements,
+      records,
+      "strict",
+      new Set(),
+      COMPLETION_CLOCK,
+    ).kind,
+    "complete",
+  );
+  const partial = { ...snap, obligations: snap.obligations.slice(1) };
+  assertEquals(
+    assembleCandidate(
+      partial,
+      snap.candidate_id,
+      snap.candidate,
+      snap.requirements,
+      records,
+      "strict",
+      new Set(),
+      COMPLETION_CLOCK,
+    ).kind,
+    "incomplete",
+  );
+});

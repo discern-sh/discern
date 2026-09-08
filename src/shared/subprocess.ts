@@ -20,6 +20,10 @@
  */
 
 import type { GitAdminPathRunner } from "./git_admin_paths.ts";
+import {
+  type ExecutionChildTicket,
+  planExecutionChild,
+} from "./execution_child_context.ts";
 import { operationLockChildEnv } from "./operation_lock_context.ts";
 import { spawnedByEnv } from "./invocation_context.ts";
 import {
@@ -515,6 +519,8 @@ async function boundedChildOutput(
     readonly maxOutputBytes: number;
     /** Stop descendants in the detached child group after its leader settles. */
     readonly quiesceDescendants?: boolean | undefined;
+    readonly signal?: AbortSignal | undefined;
+    readonly ticket?: ExecutionChildTicket | undefined;
     readonly scheduler: Scheduler;
   },
 ): Promise<{
@@ -546,6 +552,8 @@ async function boundedChildOutput(
       : 0,
     exceeded: false,
   };
+  opts.signal?.addEventListener("abort", terminate, { once: true });
+  if (opts.signal?.aborted) terminate();
   let timer: TimeoutHandle | undefined;
   if (opts.timeoutMs !== undefined) {
     timer = opts.scheduler.scheduleTimeout(() => {
@@ -566,27 +574,36 @@ async function boundedChildOutput(
     terminate,
     captureAbort.signal,
   );
-  const status = await child.status;
-  if (opts.quiesceDescendants) {
-    await quiesceProcessGroup(child.pid, opts.scheduler);
+  try {
+    await opts.ticket?.started(
+      child.pid,
+      opts.quiesceDescendants === true && Deno.build.os !== "windows",
+    );
+    const status = await child.status;
+    if (opts.quiesceDescendants) {
+      await quiesceProcessGroup(child.pid, opts.scheduler);
+    }
+    const [stdout, stderr, inputError] = await Promise.all([
+      stdoutPromise,
+      stderrPromise,
+      inputPromise,
+    ]);
+    return {
+      output: { success: status.success, code: status.code, stdout, stderr },
+      timedOut,
+      outputLimitExceeded: budget.exceeded,
+      ...(inputError !== undefined ? { inputError } : {}),
+    };
+  } catch (error) {
+    terminate();
+    await child.status;
+    await Promise.allSettled([stdoutPromise, stderrPromise, inputPromise]);
+    throw error;
+  } finally {
+    if (timer !== undefined) opts.scheduler.cancelTimeout(timer);
+    opts.signal?.removeEventListener("abort", terminate);
+    await opts.ticket?.settled();
   }
-  const [stdout, stderr, inputError] = await Promise.all([
-    stdoutPromise,
-    stderrPromise,
-    inputPromise,
-  ]);
-  if (timer !== undefined) opts.scheduler.cancelTimeout(timer);
-  return {
-    output: {
-      success: status.success,
-      code: status.code,
-      stdout,
-      stderr,
-    },
-    timedOut,
-    outputLimitExceeded: budget.exceeded,
-    ...(inputError !== undefined ? { inputError } : {}),
-  };
 }
 
 /** Options for {@link discernMergeArgs}. */
@@ -648,6 +665,8 @@ export async function runGit(
     stdin?: string;
     /** Optional caller-owned wall-clock bound. Omitted for ordinary Git calls. */
     timeoutMs?: number;
+    /** Cancel this invocation and settle its owned process group before returning. */
+    signal?: AbortSignal;
     /** Optional caller-owned combined stdout/stderr ceiling. */
     maxOutputBytes?: number;
     /**
@@ -662,6 +681,7 @@ export async function runGit(
     environmentPermissionFallback?: GitEnvironmentPermissionFallback;
   },
 ): Promise<GitResult> {
+  opts.signal?.throwIfAborted();
   const invocation = gitInvocation(args);
   if (invocation?.subcommand === "commit") {
     return {
@@ -729,11 +749,14 @@ export async function runGit(
         Deno.build.os !== "windows",
     });
     if (opts.quiesceDescendants ?? false) {
+      const ticket = await planExecutionChild();
       const bounded = await boundedChildOutput(command.spawn(), {
         ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
         maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
         quiesceDescendants: true,
+        signal: opts.signal,
+        ticket,
         scheduler,
       });
       output = bounded.output;
@@ -744,14 +767,15 @@ export async function runGit(
       }
     } else if (
       opts.stdin === undefined && opts.timeoutMs === undefined &&
-      opts.maxOutputBytes === undefined
+      opts.maxOutputBytes === undefined && opts.signal === undefined
     ) {
       output = await command.output();
-    } else if (opts.maxOutputBytes !== undefined) {
+    } else if (opts.maxOutputBytes !== undefined || opts.signal !== undefined) {
       const bounded = await boundedChildOutput(command.spawn(), {
         ...(opts.stdin !== undefined ? { stdin: opts.stdin } : {}),
         ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
-        maxOutputBytes: opts.maxOutputBytes,
+        maxOutputBytes: opts.maxOutputBytes ?? Number.MAX_SAFE_INTEGER,
+        signal: opts.signal,
         scheduler,
       });
       output = bounded.output;
@@ -819,12 +843,15 @@ export async function runGit(
     // Worktree topology may have changed under every retained discovery answer.
     if (
       invocation !== undefined &&
-      GIT_TOPOLOGY_SUBCOMMANDS.has(invocation.subcommand)
+      GIT_TOPOLOGY_SUBCOMMANDS.has(invocation.subcommand) &&
+      !(invocation.subcommand === "worktree" &&
+        args[invocation.subcommandIndex + 1] === "list")
     ) {
       invalidateGitDiscovery();
     }
   }
   const dec = new TextDecoder();
+  opts.signal?.throwIfAborted();
   return {
     success: output.success && !timedOut && !outputLimitExceeded,
     code: timedOut

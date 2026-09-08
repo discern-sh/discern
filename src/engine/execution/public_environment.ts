@@ -1,3 +1,5 @@
+import { worktreeGitKey } from "../worktree/git.ts";
+import { errorReason, recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -35,6 +37,7 @@ export async function ownValidationEnvironment(
   source: SourceRevision,
   actor: Executor,
   declaration: EnvironmentDeclaration | null,
+  signal?: AbortSignal,
 ): Promise<
   {
     environmentId: string;
@@ -89,6 +92,10 @@ export async function ownValidationEnvironment(
     environmentId = SYSTEM_SECURE_ENTROPY.uuid();
   }
   const workspace = validationWorkspace(root, config, environmentId, settings);
+  const resources = declaration?.resources ??
+    (await worktreeGitKey(root) === undefined
+      ? []
+      : Object.keys(config.worktree.resources));
   if (
     (await readCompletionRecord(root, {
       kind: "environment",
@@ -104,8 +111,10 @@ export async function ownValidationEnvironment(
           worktree_id: identity.id,
           seed: identity.seed,
           resources: Object.fromEntries(
-            (declaration?.resources ?? []).map(
-              (name) => [name, resourceForId(settings.slug, identity.id, name)],
+            resources.map(
+              (
+                name,
+              ) => [name, resourceForId(settings.slug, identity.id, name)],
             ),
           ),
         },
@@ -113,14 +122,23 @@ export async function ownValidationEnvironment(
     }, declaration);
   }
   const enrolled = await requireEnvironment(root, environmentId);
-  await releaseExecutionEnvironment(
-    root,
-    environmentId,
-    enrolled.stamp,
-    actor,
-    declaration,
-    { lifetime, workspace },
-  );
+  try {
+    await releaseExecutionEnvironment(
+      root,
+      environmentId,
+      enrolled.stamp,
+      actor,
+      declaration,
+      { lifetime, workspace },
+      { ...(signal === undefined ? {} : { signal }) },
+    );
+  } catch (error) {
+    return {
+      kind: "recovery-incomplete",
+      record_id: environmentId,
+      recovery: recoveryFor("capture", errorReason(error), root, [], true),
+    };
+  }
   return { environmentId, workspace, lifetime };
 }
 

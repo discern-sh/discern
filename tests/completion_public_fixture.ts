@@ -41,5 +41,5 @@ ${extra}`,
   await Deno.writeTextFile(`${path}/source`, "authored\n");
   await git(path, "add", "source");
   await git(path, "commit", "-m", "Author source");
-  return path;
+  return await Deno.realPath(path);
 }

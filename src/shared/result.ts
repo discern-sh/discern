@@ -467,6 +467,13 @@ export type ErrorSlug = (typeof ERROR_SLUGS)[number];
  * schema-backed type so a core that builds the wrong payload is a compile error.
  */
 interface DiscernResultFields<TData> {
+  /** Internal exact diagnostic snapshot; only its retrievable reference crosses the wire. */
+  diagnosticEvidence?: {
+    raw: string;
+    path: string;
+    digest: string;
+    bytes: number;
+  };
   /** The verb that produced this result ("done", "accept", "doctor", …). */
   verb: string;
   /** Milliseconds spent waiting for a configured test-run slot. */

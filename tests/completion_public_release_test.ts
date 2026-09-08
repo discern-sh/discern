@@ -9,7 +9,7 @@ import {
   observedRecords,
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
-import { decodeBase64 } from "@std/encoding/base64";
+import { verifyRecoveryPayload } from "../src/engine/execution/payloads.ts";
 import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
 import { WorkspaceStateSchema } from "../src/engine/execution/workspace_state.ts";
 import { statIfExists } from "../src/shared/fs_presence.ts";
@@ -42,8 +42,10 @@ for (const retained of [false, true]) {
       assertEquals(await gitOut(path, "status", "--porcelain"), "");
       const original = await gitOut(path, "rev-parse", "HEAD");
       const environments = observedRecords(await observeQueue(root, "main"))
-        .filter((record) => record.kind === "environment");
+        .filter((record) => record.kind === "environment")
+        .filter((record) => record.data.state.kind !== "disposed");
       assertEquals(environments.length, 1);
+      assertEquals(environments[0]?.data.state.kind, "idle");
       assertEquals(
         environments[0]?.data.release.kind,
         retained ? "held" : "released",
@@ -114,7 +116,9 @@ for (const retained of [false, true]) {
         );
         assert(executions !== undefined);
         assertEquals(
-          new TextDecoder().decode(decodeBase64(executions.contents)),
+          await Deno.readTextFile(
+            await verifyRecoveryPayload(root, executions.contents),
+          ),
           "tt",
         );
         assertEquals(await Deno.readTextFile(`${root}/source`), "authored\n");

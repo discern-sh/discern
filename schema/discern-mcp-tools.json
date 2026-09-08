@@ -158,6 +158,10 @@
             "description": "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",
             "type": "boolean"
           },
+          "release_checkout": {
+            "description": "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves. Use separately from retention, recovery, validation, policy, and judgment options.",
+            "type": "boolean"
+          },
           "standalone": {
             "description": "Run complete standalone feedback without queue admission or Proof.",
             "type": "boolean"
@@ -256,6 +260,10 @@
             "description": "Select emergency only for an explicit exception. Omit for ordinary acceptance. Emergency previews require fresh exact owner approval; no ordinary grant authorizes them.",
             "type": "string",
             "const": "emergency"
+          },
+          "reclaim": {
+            "description": "Retry bounded artifact cleanup for this settled retirement id from the main checkout. Use separately from landing or emergency approval; no validation, landing, or checkout removal runs.",
+            "type": "string"
           },
           "reason": {
             "description": "Emergency reason presented in the exact owner review.",

@@ -12,6 +12,9 @@ import {
 import { observedRecords } from "../src/engine/landing_queue/repository.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { completionRecordPath } from "../src/engine/completion/store.ts";
+import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { gitOut } from "./engine_helpers.ts";
 
 Deno.test("E07 public done admits complete evidence and clean standalone remains diagnostic", async () => {
   await withTempDir(async (root) => {
@@ -68,6 +71,40 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
       "differs",
     );
     assertEquals(await readProofPresentation(root, pointer), proof.proof_data);
+    const recordPath = await completionRecordPath(root, presentation);
+    assert(recordPath !== undefined);
+    const recordBytes = await Deno.readTextFile(recordPath);
+    const legacy = JSON.stringify({ ...presentation, version: 2 });
+    await Deno.writeTextFile(recordPath, legacy);
+    const mixed = await runAgent(path, ["done", "--retain-checkout", "--json"]);
+    assertEquals(mixed.code, 0, mixed.output);
+    assertEquals(await Deno.readTextFile(recordPath), legacy);
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const trunk = await gitOut(root, "rev-parse", "HEAD");
+    for (
+      const [raw, kind] of [
+        [
+          JSON.stringify({
+            ...presentation,
+            version: ON_DISK_FORMATS.completionRecord.version + 1,
+          }),
+          "record-incompatible",
+        ],
+        ["{", "record-corrupt"],
+      ]
+    ) {
+      assert(raw !== undefined && kind !== undefined);
+      await Deno.writeTextFile(recordPath, raw);
+      const refused = await runAgent(root, ["accept", "--json"]);
+      assertEquals(refused.code, 1, refused.output);
+      const refusal = decodeCliResult(refused.stdout, "accept");
+      assert(refusal.data !== undefined && "pending" in refusal.data);
+      assertEquals(refusal.data.pending?.[0]?.kind, kind, refused.output);
+      assertEquals(await Deno.readTextFile(recordPath), raw);
+      assertEquals(await gitOut(root, "rev-parse", "HEAD"), trunk);
+      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    }
+    await Deno.writeTextFile(recordPath, recordBytes);
     const records = (await observeCompletionRecords(path)).records;
     const standalone = await runAgent(path, ["done", "--standalone", "--json"]);
     assertEquals(standalone.code, 0, standalone.output);
@@ -148,6 +185,16 @@ for (const edit of [false, true]) {
       await Deno.writeTextFile(`${path}/fail`, "fail this attempt");
       const red = await runAgent(path, ["done", "--json"]);
       assertEquals(red.code, 1, red.output);
+      const failed = decodeCliResult(red.stdout, "done");
+      assert(failed.data !== undefined && "completion" in failed.data);
+      const blocked = failed.data.completion?.pending?.filter((item) =>
+        item.kind === "validation-failed"
+      );
+      assert((blocked?.length ?? 0) > 1, red.output);
+      const retryHints = (failed.hints ?? []).filter((hint) =>
+        hint.includes("deliberate retry of the unchanged subject")
+      );
+      assertEquals(retryHints.length, 1, red.output);
       assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
       await Deno.remove(`${path}/fail`);
       if (edit) {
@@ -212,6 +259,51 @@ Deno.test("public completion names unexpected output and preserves it without Pr
       !(await observeCompletionRecords(path)).records.some((entry) =>
         entry.selector.kind === "proof"
       ),
+    );
+  });
+});
+
+Deno.test("linked source-tip completion does not invoke temporary candidate procedures", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      `
+[execution.local]
+kind = 'borrowed'
+reusable = true
+capacity = 2
+inputs = ['**']
+ignored = ['executions']
+resources = []
+prepare = 'exit 71'
+restore = 'exit 72'
+`,
+    );
+    const done = await runAgent(path, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    assertEquals((await inspectGateProof(path)).status, "honored");
+    assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
+    const { loadConfig } = await import("../src/shared/config_schema.ts");
+    const { declarationIdentity } = await import(
+      "../src/engine/execution/subjects.ts"
+    );
+    const environments = observedRecords(await observeCompletionRecords(path))
+      .filter((r) =>
+        r.kind === "environment" && r.data.state.kind !== "disposed"
+      );
+    assertEquals(environments.length, 1);
+    const environment = environments[0];
+    assert(environment?.kind === "environment");
+    assertEquals(
+      environment.data.declaration,
+      await declarationIdentity(
+        (await loadConfig(path)).execution.local ?? null,
+      ),
+    );
+    assert(
+      environment.data.release.kind === "released" &&
+        environment.data.release.retirement,
     );
   });
 });

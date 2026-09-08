@@ -44,10 +44,13 @@ export interface ExecutionWorkspace {
   inspect(
     environment: ExecutionEnvironment,
     declaration: EnvironmentDeclaration | null,
+    observation?: "source" | "recovery" | "release",
+    signal?: AbortSignal,
   ): Promise<WorkspaceSnapshot>;
   verify(
     environment: ExecutionEnvironment,
     snapshot: WorkspaceSnapshot,
+    signal?: AbortSignal,
   ): Promise<void>;
   install(
     execution: ClaimedExecution,

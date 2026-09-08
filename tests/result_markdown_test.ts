@@ -36,6 +36,100 @@ import { productSentence } from "../src/shared/product_sentence.ts";
 
 const PROOF_SENTINEL = "FULL-PROOF-PAGE".repeat(8_000);
 const DRY_RUN_LEAD = "**Dry run: nothing changed.**";
+
+Deno.test("routine diagnostics keep distinct failing rules visible among repeated instances", () => {
+  const diagnostics = [
+    {
+      tool: "validator",
+      severity: "warning",
+      message: "Advisory finding.",
+      reproduce_cmd: "inspect-advice",
+      output: "WARNING_OUTPUT",
+    },
+    ...Array.from({ length: 8 }, (_, index) => ({
+      tool: "validator",
+      severity: "error",
+      rule: "checkout-exclusion",
+      message: "The checkout lock is occupied.",
+      reproduce_cmd: "discern status --verbose",
+      output_path: "/tmp/lock-evidence-" + index,
+    })),
+    {
+      tool: "validator",
+      severity: "error",
+      rule: "required-measurement",
+      message: "The required measurement failed.",
+      reproduce_cmd: "inspect-measurement",
+    },
+  ];
+  const original = structuredClone(diagnostics);
+  const rendered = renderResultMarkdown({
+    ok: false,
+    verb: "future",
+    diagnostics,
+  }, resultPresenterForVerb("future"));
+  assertStringIncludes(rendered, "required-measurement");
+  assertStringIncludes(rendered, "/tmp/lock-evidence-0");
+  assertStringIncludes(rendered, "/tmp/lock-evidence-1");
+  assertStringIncludes(rendered, "7 additional diagnostics omitted");
+  assertEquals(rendered.includes("WARNING_OUTPUT"), false);
+  assertEquals(diagnostics, original);
+});
+
+Deno.test("routine diagnostics coalesce exact repeats and preserve distinct evidence", () => {
+  const repeated = {
+    tool: "validation",
+    severity: "error",
+    message: "The checkout lock is occupied.",
+    reproduce_cmd: "discern status --verbose",
+    output_path: "/tmp/lock-evidence",
+  };
+  const diagnostics = [
+    ...Array.from({ length: 8 }, () => ({ ...repeated })),
+    { ...repeated, output_path: "/tmp/another-lock-evidence" },
+    {
+      ...repeated,
+      message: "The required measurement failed.",
+      rule: "required-measurement",
+    },
+  ];
+  const original = structuredClone(diagnostics);
+  const rendered = renderResultMarkdown({
+    ok: false,
+    verb: "future",
+    diagnostics,
+  }, resultPresenterForVerb("future"));
+  assertStringIncludes(rendered, "Repeated 8 times.");
+  assertStringIncludes(rendered, "/tmp/another-lock-evidence");
+  assertStringIncludes(rendered, "required-measurement");
+  assertEquals(rendered.includes("diagnostics omitted"), false);
+  assertEquals(diagnostics, original);
+});
+
+Deno.test("routine diagnostic summaries bound large messages while preserving structured evidence", () => {
+  const diagnostics = Array.from({ length: 20 }, (_, index) => ({
+    tool: "future-check",
+    severity: "error",
+    rule: `finding-${index}`,
+    message: `Finding ${index}: ${"detailed evidence ".repeat(2000)}`,
+    reproduce_cmd: `run-focused-check ${index}`,
+    output_path: `/tmp/evidence-${index}`,
+  }));
+  const original = structuredClone(diagnostics);
+  const rendered = renderResultMarkdown({
+    ok: false,
+    verb: "future",
+    diagnostics,
+  }, resultPresenterForVerb("future"));
+  assert(
+    rendered.length < 8000,
+    `routine summary contains ${rendered.length} characters`,
+  );
+  assertStringIncludes(rendered, "17 additional diagnostics omitted");
+  assertStringIncludes(rendered, "/tmp/evidence-0");
+  assertStringIncludes(rendered, "run-focused-check 0");
+  assertEquals(diagnostics, original);
+});
 const UNCOVERED = Array.from(
   { length: 9 },
   (_, index) => ({

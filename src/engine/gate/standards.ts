@@ -1,3 +1,4 @@
+import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { fmtRate, standardHeld } from "../validation/metrics.ts";
 import { measureDeclaredStandards } from "../validation/measurement.ts";
 /**
@@ -312,7 +313,7 @@ async function executeStandardPlan(
           ? {}
           : { rule: TIMEOUT_DIAGNOSTIC_RULE }),
         message: pending !== undefined
-          ? `Measurement is pending (${pending.kind}): ${
+          ? `Measurement did not complete (${pending.kind}): ${
             "reason" in pending
               ? pending.reason
               : pending.kind === "recovery-incomplete"
@@ -1227,6 +1228,7 @@ export async function standardsResult(
   if (firedHints.length > 0) {
     result.hints = hintTexts(firedHints);
   }
+  await retainResultDiagnostics(root, result);
   return result;
 }
 

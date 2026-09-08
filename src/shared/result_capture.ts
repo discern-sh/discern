@@ -209,8 +209,14 @@ export function observeCheckpointActivity(
   if (reopened !== undefined) merged.reopened = reopened;
   const declared = appended(merged.declared, partial.declared);
   if (declared !== undefined) merged.declared = declared;
+  // Advice has no subject fingerprint: repeated preflights deliver one id in
+  // this invocation's result, even when composition requires re-evaluation.
   const advise = appended(merged.advise, partial.advise);
-  if (advise !== undefined) merged.advise = advise;
+  if (advise !== undefined) {
+    merged.advise = [
+      ...new Map(advise.map((entry) => [entry.id, entry])).values(),
+    ];
+  }
   const variances = appended(merged.variances, partial.variances);
   if (variances !== undefined) merged.variances = variances;
   const abandoned = appended(merged.abandoned, partial.abandoned);

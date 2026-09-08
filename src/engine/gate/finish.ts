@@ -1,4 +1,6 @@
+import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { recoveryRequestResult } from "../execution/public_recovery.ts";
+import { releaseCheckoutRequestResult } from "./public_release.ts";
 import {
   emergencyValidationStatus,
   resolveEmergencyValidation,
@@ -22,6 +24,7 @@ import {
   type PublicValidationRun,
 } from "../validation/public_run.ts";
 import { runCompleteGate } from "./complete_gate.ts";
+import { reusableGreenProof, reuseReviewedProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
@@ -64,8 +67,6 @@ import {
 import {
   type AdminStateWriteAuthority,
   currentTreeIdentity,
-  gateProofHasCompleteEvidence,
-  inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
@@ -89,7 +90,6 @@ import { fmtRate } from "../validation/metrics.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
-  sameStandardLimitProposalSet,
   staleProposalDiagnostic,
   standardLimitProposalIdentity,
 } from "./standard_proposal_state.ts";
@@ -126,10 +126,7 @@ import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { relatedCheckpointData } from "../checkpoints/related.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
-import {
-  checkpointDropAccounts,
-  isIndeterminateStopDrop,
-} from "../../shared/checkpoint_drops.ts";
+import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import {
   gateCheckpointsData,
   proofCheckpointsData,
@@ -140,7 +137,6 @@ import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   assertMainMerged,
   detectSilentDivergence,
-  inspectResolvedTrunkMerged,
   integrationBranch,
 } from "../worktree/git.ts";
 import {
@@ -271,6 +267,7 @@ async function runGate(
   if (emergencyValidation.length && completed.result.data !== undefined) {
     completed.result.data.emergency_validation = emergencyValidation;
   }
+  await retainResultDiagnostics(root, completed.result);
   return completed;
 }
 
@@ -1657,69 +1654,40 @@ async function gateRunEvidenceIdentity(
   });
 }
 
-/**
- * Reuse the canonical Proof only when it completely proves this exact clean
- * HEAD. This check runs before checkpoint reconciliation, so the optimization
- * cannot mutate conclusions, run fixers, measure Standards, or invoke a
- * configured job. An incomplete marker is a cache miss, never success.
- */
-async function reusableGreenProof(
-  root: string,
-): Promise<DiscernResult<GateData> | undefined> {
-  const proof = await inspectGateProof(root);
-  if (
-    !gateProofHasCompleteEvidence(proof) ||
-    proof.checkpoint_drops?.some((drop) =>
-        drop.reason === "declaration_evidence_unavailable" ||
-        drop.reason === "strand_check_unavailable" ||
-        isIndeterminateStopDrop(drop)
-      ) === true
-  ) {
-    return undefined;
-  }
-  const proposalState = await activeStandardLimitProposalState(root);
-  if (proposalState === undefined) return undefined;
-  const merged = await inspectResolvedTrunkMerged(root, proposalState.trunk);
-  if (
-    merged.kind === "behind" || merged.kind === "missing" ||
-    merged.kind === "unavailable"
-  ) {
-    return undefined;
-  }
-  if (
-    !sameStandardLimitProposalSet(
-      proof.proof_data.standard_proposals ?? [],
-      proposalState.proposals,
-    )
-  ) {
-    return undefined;
-  }
-  return {
-    ok: true,
-    verb: "done",
-    message: "Current green Proof covers this exact tree; no gate job ran.",
-    data: {
-      gate_ran: false,
-      failed_stage: null,
-      scopes_changed: [],
-      proof: proof.proof_data,
-    },
-  };
-}
-
 const DONE_PREAMBLE_OPERATIONS = {
-  reusableGreenProof,
+  reusableGreenProof: (root) =>
+    reusableGreenProof(root, activeStandardLimitProposalState),
   resolveCheckpointGate,
   unchangedTreeRerunRefusal,
   gateRunEvidenceIdentity,
 } satisfies DonePreambleOperations;
 
 /** Report comparisons name the fetched predecessor before checkpoint inspection. */
-function donePreambleOperations(predecessor?: string): DonePreambleOperations {
-  return predecessor === undefined ? DONE_PREAMBLE_OPERATIONS : {
+function donePreambleOperations(
+  predecessor?: string,
+  ownership?: { retain: boolean; signal?: AbortSignal },
+): DonePreambleOperations {
+  return {
     ...DONE_PREAMBLE_OPERATIONS,
-    resolveCheckpointGate: (root, declarations, mode, ci, signal) =>
-      resolveCheckpointGate(root, declarations, mode, ci, signal, predecessor),
+    ...(predecessor === undefined ? {} : {
+      resolveCheckpointGate: (root, declarations, mode, ci, signal) =>
+        resolveCheckpointGate(
+          root,
+          declarations,
+          mode,
+          ci,
+          signal,
+          predecessor,
+        ),
+    } satisfies Partial<DonePreambleOperations>),
+    ...(ownership === undefined ? {} : {
+      reusableGreenProof: (root) =>
+        reuseReviewedProof(
+          root,
+          DONE_PREAMBLE_OPERATIONS.reusableGreenProof,
+          ownership,
+        ),
+    } satisfies Partial<DonePreambleOperations>),
   };
 }
 
@@ -1734,6 +1702,7 @@ export interface FinishResultOptions {
   /** Internal accept capability names an already released slot and its observed stamp. */
   execution?: ReleasedCompletionExecution;
   recover?: string;
+  releaseCheckout?: boolean;
   retainCheckout?: boolean;
   policyBase?: string;
   standalone?: boolean;
@@ -1773,6 +1742,8 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
+  const release = await releaseCheckoutRequestResult(root, opts);
+  if (release !== undefined) return release;
   const recovery = await recoveryRequestResult(root, opts);
   if (recovery !== undefined) return recovery;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
@@ -1818,7 +1789,6 @@ export async function finishResult(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    opts.retainCheckout === true ||
     ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
@@ -1828,11 +1798,14 @@ export async function finishResult(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
-      deferCheckpoints: !opts.standalone &&
+      deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
-    donePreambleOperations(opts.policyBase),
+    donePreambleOperations(opts.policyBase, {
+      retain: opts.retainCheckout === true,
+      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
+    }),
   );
   if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
@@ -1940,6 +1913,7 @@ export async function runFinish(
     json: boolean;
     standalone?: boolean;
     recover?: string;
+    releaseCheckout?: boolean;
     retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
@@ -1953,6 +1927,12 @@ export async function runFinish(
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
+  const release = await releaseCheckoutRequestResult(root, opts);
+  if (release !== undefined) {
+    observeResult(release);
+    emitResult(release);
+    return release.ok ? 0 : 1;
+  }
   const recovery = await recoveryRequestResult(root, opts);
   if (recovery !== undefined) {
     observeResult(recovery);
@@ -1980,7 +1960,6 @@ export async function runFinish(
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
   const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    opts.retainCheckout === true ||
     ("execution" in opts && opts.execution !== undefined);
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
@@ -1990,10 +1969,12 @@ export async function runFinish(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
-      deferCheckpoints: !opts.standalone &&
+      deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
     },
-    donePreambleOperations(opts.policyBase),
+    donePreambleOperations(opts.policyBase, {
+      retain: opts.retainCheckout === true,
+    }),
   );
   if (preamble.kind === "reuse") {
     observeResult(preamble.result);

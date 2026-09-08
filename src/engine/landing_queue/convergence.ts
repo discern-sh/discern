@@ -1,18 +1,10 @@
 /** Post-landing checkout results are recovery facts, separate from validation Proof. */
-import { z } from "@zod/zod";
-import {
-  DiagnosticSchema,
-  StepResultJsonSchema,
-} from "../../shared/result_schemas.ts";
+import type { z } from "@zod/zod";
 import type { CompletionLanding } from "../completion/outcomes.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 
-export const LandingConvergenceResultSchema = z.strictObject({
-  ok: z.boolean(),
-  steps: z.array(StepResultJsonSchema),
-  diagnostics: z.array(DiagnosticSchema),
-  hints: z.array(z.string()),
-});
+import { LandingConvergenceResultSchema } from "../execution/artifact_contracts.ts";
+export { LandingConvergenceResultSchema } from "../execution/artifact_contracts.ts";
 export type LandingConvergenceResult = z.infer<
   typeof LandingConvergenceResultSchema
 >;

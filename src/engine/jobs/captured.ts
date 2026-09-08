@@ -7,41 +7,11 @@ import { JobOutputRecorder } from "./output_record.ts";
 import type { JobResult } from "./types.ts";
 import { presentJobResult, type RunOptions } from "./runner.ts";
 
-/** Bound protocol memory while retaining original output for reproduction. */
-export const PRODUCER_CAPTURE_BYTES = 16 * 1024 * 1024;
-
-/** Read bounded bytes only when the regular file stays unchanged through EOF. */
-export async function readCompleteCapture(
-  path: string,
-  limit = PRODUCER_CAPTURE_BYTES,
-): Promise<Uint8Array> {
-  const file = await Deno.open(path, { read: true });
-  try {
-    const before = await file.stat();
-    if (!before.isFile || before.size > limit) {
-      throw new Error(
-        "producer capture exceeds its byte bound or is not a file",
-      );
-    }
-    const bytes = new Uint8Array(before.size + 1);
-    let length = 0;
-    while (length < bytes.length) {
-      const read = await file.read(bytes.subarray(length));
-      if (read === null) break;
-      if (read === 0) throw new Error("producer capture read made no progress");
-      length += read;
-    }
-    const after = await file.stat();
-    if (
-      length !== before.size || after.size !== before.size ||
-      after.mtime?.getTime() !== before.mtime?.getTime() ||
-      after.ctime?.getTime() !== before.ctime?.getTime()
-    ) throw new Error("producer capture changed while being read");
-    return bytes.slice(0, length);
-  } finally {
-    file.close();
-  }
-}
+import {
+  BOUNDED_CAPTURE_BYTES as PRODUCER_CAPTURE_BYTES,
+  readBoundedFile as readCompleteCapture,
+} from "../../shared/bounded_file.ts";
+export { PRODUCER_CAPTURE_BYTES, readCompleteCapture };
 
 /** Exact stdout supplies extraction; the ordinary job diagnostic retains both streams. */
 export async function runCapturedCommands(input: {

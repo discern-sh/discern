@@ -3618,6 +3618,18 @@
         },
         {
           "spellings": [
+            "--release-checkout"
+          ],
+          "description": "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
             "--standalone"
           ],
           "description": "Run complete standalone feedback without queue admission or Proof.",
@@ -6359,6 +6371,20 @@
           "type_definition": "",
           "arity": 0,
           "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": false
+        },
+        {
+          "spellings": [
+            "--reclaim"
+          ],
+          "description": "Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.",
+          "type_definition": "<retirement-id:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
           "default": null,
           "hidden": false,
           "global": false

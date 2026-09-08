@@ -369,6 +369,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0383 — Test shell waits require observable transitions](0383-test-shell-waits-require-observable-transitions.md)
 - [0384 — Evaluate lazy modules outside invocation context](0384-evaluate-lazy-modules-outside-invocation-context.md)
 - [0385 — Retain Git discovery within one operation](0385-retain-git-discovery-within-one-operation.md)
+- [0386 — Retain recovery bytes through durable reference graphs](0386-retain-recovery-bytes-through-durable-reference-graphs.md)
 
 <!-- END GENERATED: current ADR records -->
 

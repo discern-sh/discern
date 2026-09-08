@@ -8,7 +8,17 @@
  * guard proves the predicate rather than only recounting today's members.
  */
 
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { renderResultMarkdown } from "../src/shared/result_markdown.ts";
+import { resultPresenterForVerb } from "../src/shared/result_contracts.ts";
+import { serializeResult } from "../src/shared/result_serialization.ts";
+import { ExceptionClaimSchema } from "../src/engine/completion/exception_claim.ts";
+import { EmergencyDataSchema } from "../src/shared/emergency.ts";
 import { completionExitCode } from "../src/engine/logbook/cli.ts";
 import { renderMcpResult } from "../src/engine/mcp/server.ts";
 import { fire, HINTS, hintTexts } from "../src/shared/hints.ts";
@@ -439,4 +449,258 @@ Deno.test("emergency preparation success requires its receipt and excludes landi
       },
     ]
   ) assertEquals(evaluateResultCompletion({ ...prepared, data }).ok, false);
+});
+
+Deno.test("emergency outcomes preserve success only for complete independent landing claims", () => {
+  const emergency = {
+    outcome: "landed",
+    landing_id: "landing",
+    candidate_id: "candidate",
+    reason: "Restore service",
+    exceptions: [],
+    retirement: "retained",
+  };
+  const result: DiscernResult = {
+    ok: true,
+    verb: "accept",
+    data: { emergency },
+  };
+  for (const retirement of ["retained", "retired"]) {
+    assertEquals(
+      serializeResult({
+        ...result,
+        data: { emergency: { ...emergency, retirement } },
+      }).ok,
+      true,
+    );
+  }
+  for (const outcome of EmergencyDataSchema.shape.outcome.unwrap().options) {
+    if (outcome === "landed") continue;
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, outcome } },
+      }).ok,
+      false,
+      outcome,
+    );
+  }
+  for (
+    const field of [
+      "landing_id",
+      "candidate_id",
+      "reason",
+      "exceptions",
+      "retirement",
+    ]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, [field]: undefined } },
+      }).ok,
+      false,
+      field,
+    );
+  }
+  for (const retirement of ["pending", "recovery", "unknown"]) {
+    assertEquals(
+      evaluateResultCompletion({
+        ...result,
+        data: { emergency: { ...emergency, retirement } },
+      }).ok,
+      false,
+    );
+  }
+  for (
+    const field of ["proof", "proof_line", "proof_note", "landing", "queue"]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({ ...result, data: { emergency, [field]: {} } })
+        .ok,
+      false,
+      field,
+    );
+  }
+  const failed: DiscernResult = {
+    ...result,
+    ok: false,
+    error: "partial_acceptance",
+  };
+  assertEquals(
+    evaluateResultCompletion(failed).ok,
+    false,
+    "A landed ref cannot hide failed settlement or convergence",
+  );
+});
+
+Deno.test("policy-created failures retain registered recovery across every effect contract", () => {
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const policy = RESULT_COMPLETION_POLICIES[contract.verb];
+    if (!policy?.requiredPostconditions.includes("executed-steps")) continue;
+    const result: DiscernResult = {
+      ok: true,
+      verb: contract.verb,
+      steps: [{
+        step: {
+          kind: "job",
+          label: verbatimStepLabel("future orbit"),
+          disposition: "run",
+        },
+        outcome: "cancelled",
+      }],
+    };
+    const evaluated = evaluateResultCompletion(result);
+    assertEquals(evaluated.ok, false, contract.verb);
+    assertEquals(serializeResult(evaluated).ok, false, contract.verb);
+    assertEquals(
+      evaluateResultCompletion(evaluated),
+      evaluated,
+      "Evaluation must be idempotent",
+    );
+    assertEquals(renderMcpResult(result).isError, true, contract.verb);
+  }
+  const result: DiscernResult = {
+    ok: true,
+    verb: "accept",
+    data: {},
+    hints: hintTexts([
+      fire(HINTS["completion-pending"], {
+        action: "Inspect the recorded transition.",
+      }),
+    ]),
+  };
+  const evaluated = evaluateResultCompletion(result);
+  assertEquals(evaluated.hints?.[0], result.hints?.[0]);
+});
+
+Deno.test("recovered exception prefixes retain their exact claim without ordinary authority or Proof", () => {
+  const exception = ExceptionClaimSchema.parse({
+    kind: "exception",
+    authorization_id: "11111111-1111-4111-a111-111111111111",
+    authorized_at: 1,
+    actual_trunk: "a".repeat(40),
+    source: {
+      effort_id: "orbit-repair",
+      branch: "refs/heads/orbit-repair",
+      head: "b".repeat(40),
+      tree: "c".repeat(40),
+    },
+    candidate_id: "22222222-2222-4222-a222-222222222222",
+    candidate_head: "b".repeat(40),
+    policy: "d".repeat(64),
+    reason: "Restore the service",
+    exceptions: [{
+      requirement: {
+        id: "audit",
+        context: "local",
+        kind: "job",
+        definition: "e".repeat(64),
+      },
+      state: "unrun",
+      evidence_id: null,
+    }],
+  });
+  const prefix = {
+    effort: exception.source.effort_id,
+    branch: exception.source.branch,
+    source_head: exception.source.head,
+    candidate_id: exception.candidate_id,
+    expected_trunk: exception.actual_trunk,
+    target: exception.candidate_head,
+    state: "landed",
+    landing_id: "33333333-3333-4333-a333-333333333333",
+    authority_id: null,
+    authority_settlement: "consumed",
+    pending: [],
+    retirement: "retained",
+    exception,
+  };
+  const resultFor = (row: unknown): DiscernResult => ({
+    ok: true,
+    verb: "accept",
+    data: { root: "/project", queue: [row], pending: [] },
+  });
+  assertEquals(evaluateResultCompletion(resultFor(prefix)).ok, true);
+  assertEquals(serializeResult(resultFor(prefix)).ok, true);
+  assertStringIncludes(
+    renderResultMarkdown(
+      serializeResult(resultFor(prefix)),
+      resultPresenterForVerb("accept"),
+    ),
+    "emergency exception, no passing Proof",
+  );
+  assertEquals(
+    evaluateResultCompletion({
+      ...resultFor(prefix),
+      ok: false,
+      error: "partial_acceptance",
+    }).ok,
+    false,
+  );
+  for (const key of Object.keys(ExceptionClaimSchema.shape)) {
+    if (key === "review") continue;
+    const broken = { ...exception };
+    Reflect.deleteProperty(broken, key);
+    assertEquals(
+      evaluateResultCompletion(resultFor({ ...prefix, exception: broken })).ok,
+      false,
+      key,
+    );
+  }
+  for (
+    const field of [
+      "effort",
+      "branch",
+      "source_head",
+      "candidate_id",
+      "expected_trunk",
+      "target",
+      "authority_settlement",
+    ]
+  ) {
+    assertEquals(
+      evaluateResultCompletion(resultFor({ ...prefix, [field]: "unrelated" }))
+        .ok,
+      false,
+      field,
+    );
+  }
+  for (
+    const field of [
+      "proof_line",
+      "proof_note",
+      "consent",
+      "variances",
+      "standard_approvals",
+      "authority_id",
+    ]
+  ) {
+    assertEquals(
+      evaluateResultCompletion(resultFor({ ...prefix, [field]: "unrelated" }))
+        .ok,
+      false,
+      field,
+    );
+  }
+  for (const exception of [undefined, null, {}, { kind: "future-orbit" }]) {
+    assertEquals(
+      evaluateResultCompletion(resultFor({ ...prefix, exception })).ok,
+      false,
+    );
+  }
+  const ordinary = {
+    ...prefix,
+    exception: undefined,
+    authority_id: "ordinary-authority",
+  };
+  assertEquals(evaluateResultCompletion(resultFor(ordinary)).ok, true);
+  assertEquals(
+    evaluateResultCompletion({
+      ok: true,
+      verb: "accept",
+      data: { queue: [prefix, ordinary], pending: [] },
+    }).ok,
+    true,
+  );
 });

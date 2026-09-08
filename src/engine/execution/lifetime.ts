@@ -1,5 +1,5 @@
 /** Native exclusion and durable child receipts survive interruption and checkout disposal. */
-import { z } from "@zod/zod";
+import type { z } from "@zod/zod";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { ExecutionIntentSchema } from "./intent.ts";
 import { artifactPath, readExecutionDocument } from "./artifact_read.ts";
@@ -16,11 +16,7 @@ import {
 import { errorReason } from "./types.ts";
 import type { ExecutionLifetime } from "./types.ts";
 
-const StartedChildSchema = z.strictObject({
-  pid: z.number().int().positive(),
-  isolated: z.boolean(),
-});
-
+import { StartedChildSchema } from "./artifact_contracts.ts";
 /** An unrecorded spawn outcome remains uncertain; an expired lease proves nothing. */
 async function inspectExecutionChildren(
   root: string,

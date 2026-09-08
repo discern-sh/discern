@@ -42,6 +42,7 @@ import {
   verbatimStepLabel,
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
+import { sha256Hex } from "../src/shared/sha256.ts";
 import {
   ERROR_FAILURE_RECOVERY,
   ERRORLESS_FAILURE_RECOVERY,
@@ -232,7 +233,7 @@ function defineFaithfulnessCase(
   return (run) => ({ name, contractIds, run });
 }
 
-Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
+Deno.test("envelope schema is locked to serializeResult's wire shape", async () => {
   // The maximal valid applied and preview variants collectively populate every
   // envelope field. If serialization or the schema grows alone, the key-set
   // equality below fails without constructing a contradictory state.
@@ -293,6 +294,13 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
         group: "g",
       }],
     },
+  };
+  const diagnosticBytes = JSON.stringify(maximalApplied.diagnostics);
+  maximalApplied.diagnosticEvidence = {
+    raw: diagnosticBytes,
+    path: "/tmp/discern-diag-demo-evidence.log",
+    digest: await sha256Hex(diagnosticBytes),
+    bytes: new TextEncoder().encode(diagnosticBytes).length,
   };
   const serializedApplied = serializeResult(maximalApplied);
   const serializedPreview = serializeResult(maximalPreview);

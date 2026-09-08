@@ -1,13 +1,8 @@
-/** Retained candidate review binds agent declarations separately from machine receipts. */
-import { z } from "@zod/zod";
-import {
-  type ProofCheckpointsData,
-  ProofCheckpointsSchema,
-  StandardLimitProposalSchema,
-} from "../../shared/result_schemas.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+/** Retained candidate review binds agent declarations separately from machine receipts. */
+import type { z } from "@zod/zod";
+import type { ProofCheckpointsData } from "../../shared/result_schemas.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
-import { ObjectIdSchema } from "../completion/identity.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type { CandidateProof } from "../completion/evidence.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
@@ -16,55 +11,12 @@ import type { CandidateDecisions } from "../landing_queue/authority.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
 import type { EnvironmentArtifact } from "../execution/types.ts";
-import {
-  type OpenQuestionsRead,
-  parseOpenQuestionStore,
-  readOpenQuestions,
-} from "../checkpoints/open_questions.ts";
+import { readOpenQuestions } from "../checkpoints/open_questions.ts";
 import { inspectCheckpointObligations } from "../checkpoints/inspection.ts";
 import { declarationMaterial } from "../checkpoints/evidence.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 
-const storedQuestionsSchema = z.unknown().transform(
-  (value, context): OpenQuestionsRead => {
-    if (typeof value === "object" && value !== null && "status" in value) {
-      if (value.status === "missing") return { status: "missing" };
-      if (value.status === "ok" && "openQuestions" in value) {
-        const questions = parseOpenQuestionStore(
-          JSON.stringify({
-            version: ON_DISK_FORMATS.checkpointOpenQuestions.version,
-            openQuestions: value.openQuestions,
-          }),
-        );
-        if (questions !== undefined) {
-          return { status: "ok", openQuestions: questions };
-        }
-      }
-      if (
-        (value.status === "invalid" || value.status === "unavailable" ||
-          value.status === "newer") &&
-        "reason" in value && typeof value.reason === "string"
-      ) return { status: value.status, reason: value.reason };
-    }
-    context.addIssue({
-      code: "custom",
-      message: "Retained checkpoint questions cannot be read.",
-    });
-    return {
-      status: "invalid",
-      reason: "Retained checkpoint questions cannot be read.",
-    };
-  },
-);
-const CandidateReviewSchema = z.strictObject({
-  version: z.literal(1),
-  head: ObjectIdSchema,
-  predecessor: ObjectIdSchema,
-  mode: z.enum(["strict", "report"]),
-  stored: storedQuestionsSchema,
-  checkpoints: ProofCheckpointsSchema.nullable(),
-  proposals: z.array(StandardLimitProposalSchema),
-});
+import { CandidateReviewSchema } from "../execution/artifact_contracts.ts";
 export type CandidateReview = z.infer<typeof CandidateReviewSchema>;
 
 /** Capture before returning the validation checkout; no owner approval is created here. */
@@ -99,7 +51,7 @@ export async function recordCandidateReview(
   name: "candidate-review" | "emergency-review" = "candidate-review",
 ): Promise<EnvironmentArtifact> {
   const review = CandidateReviewSchema.parse({
-    version: 1,
+    version: ON_DISK_FORMATS.candidateReview.version,
     head: candidate.head,
     predecessor: candidate.expected_predecessor.head,
     mode,

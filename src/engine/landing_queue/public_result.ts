@@ -32,9 +32,30 @@ import type { QueueEntry } from "./model.ts";
 import type { PublicCandidateAssessment } from "./public_assessment.ts";
 import { readLandingNoteResult } from "./publication.ts";
 import { observedRecords } from "./repository.ts";
-import { RetirementCaptureSchema } from "./retirement.ts";
+import { planQueueRetirement, RetirementCaptureSchema } from "./retirement.ts";
 
 export type AcceptancePrefix = NonNullable<AcceptData["queue"]>[number];
+
+/** Retention describes checkout ownership separately from the recorded landing. */
+export function retainedCheckoutExplanation(
+  reason: string | undefined,
+): string {
+  switch (reason) {
+    case "unreleased":
+      return "The checkout has not been released for cleanup. It remains available for review or further edits. Stop active use, then run discern done --release-checkout from this effort and discern accept from the main checkout for eligible cleanup.";
+    case "active-use":
+      return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
+    case "moved-branch":
+      return "The source branch changed after landing. Preserve the new work and run discern status from its worktree.";
+    case "dirty":
+      return "The checkout contains changed files. Preserve and review them before retrying cleanup from the main checkout.";
+    case "ownership-uncertain":
+      return "Checkout ownership could not be verified. Preserve its files and resources and inspect discern status --verbose from the main checkout.";
+    default:
+      return reason ??
+        "Inspect discern status --verbose from the main checkout for the retained checkout's next action.";
+  }
+}
 
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
 export type AcceptancePending =
@@ -197,6 +218,9 @@ export async function queueAcceptanceResult(
     );
   }
   const noteHints: string[] = [];
+  const completionRecords = rows.some((row) => row.landing_id !== undefined)
+    ? observedRecords(await observeCompletionRecords(root))
+    : [];
   for (const row of rows) {
     if (row.landing_id === undefined) continue;
     try {
@@ -207,22 +231,28 @@ export async function queueAcceptanceResult(
       if (landing.kind !== "recorded" || landing.record.kind !== "landing") {
         continue;
       }
-      const retirements = observedRecords(await observeCompletionRecords(root))
-        .filter((record) =>
-          record.kind === "retirement" &&
-          record.data.landing_id === landing.record.id
-        );
-      for (const retirement of retirements) {
-        if (retirement.kind !== "retirement") continue;
-        if (retirement.data.effects !== undefined) {
+      const plan = planQueueRetirement(landing.record, completionRecords);
+      if (plan.kind !== "inspect") {
+        const retirement = plan.record;
+        const outcome = plan.kind === "settled"
+          ? plan.outcome
+          : plan.record.data.outcome;
+        if (retirement?.data.effects !== undefined) {
           row.retirement_effects = retirement.data.effects;
         }
-        row.retirement = retirement.data.outcome.kind === "retired"
+        row.retirement = outcome.kind === "retired"
           ? "retired"
-          : retirement.data.outcome.kind === "recovery"
+          : outcome.kind === "recovery"
           ? "recovery"
           : "retained";
-        if (retirement.data.capture !== undefined) {
+        if (outcome.kind === "retained") {
+          row.retirement_reason = outcome.reason;
+        } else if (outcome.kind === "recovery") {
+          row.retirement_reason = outcome.recovery.reason;
+        } else {
+          delete row.retirement_reason;
+        }
+        if (retirement?.data.capture !== undefined) {
           const ignored = RetirementCaptureSchema.parse(
             await readEnvironmentArtifact(root, retirement.data.capture),
           ).ignored_file_changes;
@@ -258,6 +288,7 @@ export async function queueAcceptanceResult(
         });
       }
       const claim = landing.record.data.claim;
+      if (claim.kind === "exception") row.exception = claim;
       if (claim.kind === "normal") {
         const authority = await readCompletionRecord(root, {
           kind: "authority",
@@ -380,7 +411,13 @@ export async function queueAcceptanceResult(
         ? ""
         : "\n\n" + rows.map((row) =>
           `${row.branch}: ${row.state}${
-            row.state === "landed" ? `; checkout ${row.retirement}` : ""
+            row.exception === undefined
+              ? ""
+              : "; emergency exception, no passing Proof"
+          }${row.state === "landed" ? `; checkout ${row.retirement}` : ""}${
+            row.state === "landed" && row.retirement === "retained"
+              ? `. ${retainedCheckoutExplanation(row.retirement_reason)}`
+              : ""
           }${
             row.pending.length
               ? "; " + row.pending.map((item) => item.reason).join("; ")

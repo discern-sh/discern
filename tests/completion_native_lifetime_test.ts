@@ -14,6 +14,8 @@ import { superviseSpawn } from "../src/engine/owned_child.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
 import { withCompletionPublication } from "../src/engine/operation_lock.ts";
 import { requireEnvironment } from "../src/engine/execution/registry.ts";
+import { runGit } from "../src/shared/subprocess.ts";
+import { executionChildAbsent } from "../src/shared/execution_child_context.ts";
 
 Deno.test("native borrowed execution returns its source and retains common child evidence", async () => {
   await withTempDir(async (base) => {
@@ -103,11 +105,11 @@ Deno.test("uncertain child receipts retain recovery independently of the checkou
   });
 });
 
-Deno.test("both owned spawn boundaries settle receipts and reap on receipt failure", async () => {
+Deno.test("owned spawn boundaries settle receipts and reap on receipt failure", async () => {
   await withTempDir(async (base) => {
     const fixture = await environmentFixture(base, "undeclared");
     for (const fail of [false, true]) {
-      for (const boundary of ["job", "owned"] as const) {
+      for (const boundary of ["job", "owned", "git"] as const) {
         let started = 0;
         let settled = false;
         let child: Deno.ChildProcess | undefined;
@@ -134,6 +136,12 @@ Deno.test("both owned spawn boundaries settle receipts and reap on receipt failu
                 stream: false,
                 write: () => {},
               });
+            } else if (boundary === "git") {
+              const result = await runGit(["rev-parse", "HEAD"], {
+                cwd: fixture.path,
+                quiesceDescendants: true,
+              });
+              if (!result.success) throw new Error(result.stderr);
             } else {
               await superviseSpawn(
                 () => {
@@ -155,6 +163,7 @@ Deno.test("both owned spawn boundaries settle receipts and reap on receipt failu
         else await run();
         assert(started > 0);
         if (child !== undefined) await child.status;
+        assert(executionChildAbsent(started, true));
         if (!fail) assert(settled);
       }
     }

@@ -51,9 +51,7 @@ export async function driveQueueValidation(input: {
     input.claim.attempt.identity.executor,
   );
   if ("kind" in execution) {
-    if (execution.kind !== "recovery-incomplete") {
-      await releaseQueueClaim(input.root, input.claim, candidate, clock);
-    }
+    await releaseQueueClaim(input.root, input.claim, candidate, clock);
     return execution;
   }
   const returned = await input.environment.execute(
@@ -65,13 +63,8 @@ export async function driveQueueValidation(input: {
       );
       for (const component of validation.evidence) {
         await withQueueLock(input.root, async () => {
-          if (
-            !await checkQueueClaim(input.root, input.claim, candidate, clock)
-          ) {
-            throw new Error(
-              "Queue work was superseded before evidence publication.",
-            );
-          }
+          // Immutable evidence belongs to the live producer fence below.
+          // Queue eligibility still gates admission and failed-row mutation.
           const written = await writeCompletionRecord(
             input.root,
             {
@@ -96,6 +89,7 @@ export async function driveQueueValidation(input: {
     },
   );
   if (returned.returned.kind === "recovery-incomplete") {
+    await releaseQueueClaim(input.root, input.claim, candidate, clock);
     return {
       kind: "recovery-incomplete",
       record_id: execution.environment_id,

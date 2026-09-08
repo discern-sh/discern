@@ -131,10 +131,8 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (!gate.result.ok && completed.blockers.length > 0) {
     gate.result.hints = hintTexts([
       ...firedHintsFromTexts(gate.result.hints ?? []),
-      ...completed.blockers.map((blocker) =>
-        fire(HINTS["completion-pending"], {
-          action: completionNextAction(blocker),
-        })
+      ...[...new Set(completed.blockers.map(completionNextAction))].map(
+        (action) => fire(HINTS["completion-pending"], { action }),
       ),
     ]);
   }

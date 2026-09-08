@@ -17,6 +17,7 @@ import {
   type GitDiscoveryRunner,
   invalidateGitDiscovery,
   withGitDiscoveryScope,
+  withinGitDiscoveryScope,
 } from "../src/shared/git_discovery.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -145,6 +146,30 @@ for (const layout of ["main checkout", "subdirectory", "linked worktree"]) {
   });
 }
 
+Deno.test("nested discovery consumers reuse only a live operation and retain boundary invalidation", async () => {
+  await withTempDir(async (dir) => {
+    await seededRepository(dir);
+    const { calls, run } = recording();
+    const query = (): Promise<GitDiscoveryResult> =>
+      discoverGit(dir, { kind: "common-dir" }, run);
+    await withGitDiscoveryScope(async () => {
+      await query();
+      await withinGitDiscoveryScope(query);
+      assertEquals(calls.length, 1);
+      invalidateGitDiscovery();
+      await withinGitDiscoveryScope(query);
+      assertEquals(calls.length, 2);
+    });
+    await withinGitDiscoveryScope(query);
+    await withinGitDiscoveryScope(query);
+    assertEquals(
+      calls.length,
+      4,
+      "standalone callers cannot replay a closed operation",
+    );
+  });
+});
+
 Deno.test("registered administrative paths and pinned objects replay after one query", async () => {
   await withTempDir(async (dir) => {
     await seededRepository(dir);
@@ -193,6 +218,93 @@ Deno.test("registered administrative paths and pinned objects replay after one q
       ["show", "HEAD:./seed.txt"],
       ["show", "HEAD:./seed.txt"],
     ]);
+  });
+});
+
+Deno.test("publication reuse verifies checkout routing and falls back for changed or uncertain paths", async () => {
+  await withTempDir(async (dir) => {
+    await seededRepository(dir);
+    const linked = await Deno.realPath(
+      await addWorktree(dir, "routing-witness"),
+    );
+    const pointer = join(linked, ".git");
+    const originalPointer = await Deno.readTextFile(pointer);
+    const { calls, run } = recording();
+    await withGitDiscoveryScope(async () => {
+      const original = await discoverGit(
+        linked,
+        { kind: "absolute-git-dir" },
+        run,
+      );
+      const publication = async (): Promise<GitDiscoveryResult> => {
+        invalidateGitDiscovery("publication");
+        return await discoverGit(linked, { kind: "absolute-git-dir" }, run);
+      };
+      assertEquals((await publication()).stdout, original.stdout);
+      const observed = calls.length;
+      await Deno.writeTextFile(
+        join(dir, ".git", "receipt"),
+        "ordinary publication\n",
+      );
+      assertEquals((await publication()).stdout, original.stdout);
+      assertEquals(
+        calls.length,
+        observed,
+        "unchanged routing needs no Git process",
+      );
+
+      try {
+        await Deno.writeTextFile(pointer, `gitdir: ${join(dir, ".git")}\n`);
+        const moved = await publication();
+        assert(
+          moved.stdout !== original.stdout,
+          "changed routing must not replay the old directory",
+        );
+        assertEquals(calls.length, observed + 1);
+      } finally {
+        await Deno.writeTextFile(pointer, originalPointer);
+      }
+      assertEquals((await publication()).stdout, original.stdout);
+      const admin = original.stdout.trim();
+      const commonPointer = join(admin, "commondir");
+      const originalCommon = await Deno.readTextFile(commonPointer);
+      // The same destination with changed routing bytes still requires Git.
+      await Deno.writeTextFile(commonPointer, join(dir, ".git") + "\n");
+      const beforeCommon = calls.length;
+      invalidateGitDiscovery("publication");
+      const interrupted = await discoverGit(linked, {
+        kind: "absolute-git-dir",
+      }, async (cwd, args) => {
+        const result = await run(cwd, args);
+        invalidateGitDiscovery();
+        return result;
+      });
+      assertEquals(interrupted.stdout, original.stdout);
+      assertEquals(calls.length, beforeCommon + 1);
+      assertEquals((await publication()).stdout, original.stdout);
+      assertEquals(
+        calls.length,
+        beforeCommon + 2,
+        "an in-flight observation cannot erase a later topology invalidation",
+      );
+      await Deno.writeTextFile(commonPointer, originalCommon);
+
+      const alias = join(dir, "routing-alias");
+      await Deno.symlink(linked, alias);
+      const beforeAlias = calls.length;
+      for (let pass = 0; pass < 2; pass += 1) {
+        invalidateGitDiscovery("publication");
+        assertEquals(
+          (await discoverGit(alias, { kind: "absolute-git-dir" }, run)).stdout,
+          original.stdout,
+        );
+      }
+      assertEquals(
+        calls.length,
+        beforeAlias + 2,
+        "symlink routing cannot authorize the optimization",
+      );
+    });
   });
 });
 
@@ -276,7 +388,10 @@ Deno.test("topology-changing git commands invalidate through the shared funnel",
       assertEquals(calls.length, 1, "status changes no topology");
       await runGit(["worktree", "list", "--porcelain"], { cwd: dir });
       await discoverGit(dir, { kind: "common-dir" }, run);
-      assertEquals(calls.length, 2, "a worktree command observes again");
+      assertEquals(calls.length, 1, "listing worktrees changes no topology");
+      await runGit(["worktree", "prune"], { cwd: dir });
+      await discoverGit(dir, { kind: "common-dir" }, run);
+      assertEquals(calls.length, 2, "a topology mutation observes again");
     });
   });
 });

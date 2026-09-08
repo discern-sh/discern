@@ -31,6 +31,7 @@ import {
   SIGNAL_EXIT_CODES,
 } from "../src/engine/process_signals.ts";
 import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { readPidIfReady } from "./process_id.ts";
 import type { InterruptSurface } from "./spawn_surfaces.ts";
 import {
   addWorktree,
@@ -239,24 +240,22 @@ async function assertInterruptStopsTree(
 
       await waitForSurfaceStart(
         async () => {
-          const [leaderText, descendantText, portText] = await Promise.all([
-            readTextIfExists(run.leaderPidFile),
-            readTextIfExists(run.descendantPidFile),
+          const [leader, descendant, portText] = await Promise.all([
+            readPidIfReady(run.leaderPidFile),
+            readPidIfReady(run.descendantPidFile),
             run.portFile === undefined
               ? Promise.resolve(undefined)
               : readTextIfExists(run.portFile),
           ]);
           if (
-            leaderText === undefined || descendantText === undefined ||
+            leader === undefined || descendant === undefined ||
             (run.portFile !== undefined && portText === undefined)
           ) return false;
-          leaderPid = Number(leaderText.trim());
-          descendantPid = Number(descendantText.trim());
+          leaderPid = leader;
+          descendantPid = descendant;
           if (portText !== undefined) serverPort = Number(portText.trim());
-          return Number.isFinite(leaderPid) && leaderPid > 0 &&
-            Number.isFinite(descendantPid) && descendantPid > 0 &&
-            (run.portFile === undefined ||
-              (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
+          return (run.portFile === undefined ||
+            (Number.isFinite(serverPort) && (serverPort ?? 0) > 0));
         },
         statusPromise,
         drained,

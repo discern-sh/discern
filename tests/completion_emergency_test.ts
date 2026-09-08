@@ -1,5 +1,6 @@
+import { gitOperationMarkerPath } from "../src/shared/git_admin_paths.ts";
+import { PROOF_NOTES_REF } from "../src/shared/git_conventions.ts";
 import { recordExceptionNote } from "../src/engine/emergency/note.ts";
-import { join } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
 import {
@@ -136,10 +137,15 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
       assert(unavailable.reason);
     });
     await git(root, "notes", "--ref=discern", "remove", exception.data.target);
-    const notesLock = join(
+    const notesLock = await gitOperationMarkerPath(
       root,
-      await gitOut(root, "rev-parse", "--git-path", "refs/notes/discern.lock"),
+      `${PROOF_NOTES_REF}.lock`,
+      async (cwd, args) => ({
+        success: true,
+        stdout: await gitOut(cwd, ...args),
+      }),
     );
+    assert(notesLock);
     await Deno.writeTextFile(notesLock, "another notes writer");
     const locked = await recordExceptionNote(root, exception);
     assertEquals(locked.status, "record_failed");
@@ -724,13 +730,39 @@ mode = 'stop'
     assertEquals(await gitOut(root, "rev-parse", "main"), before);
     const confirmation = fresh.data?.emergency?.confirmation;
     assert(confirmation);
-    const landed = await emergencyResult(ctx, {
-      ...options,
-      preparation: currentPreparation,
-      confirmed: true,
+    const applied = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--reason",
+      options.reason,
+      "--preparation",
+      currentPreparation,
+      "--confirmed",
+      "--confirmation",
       confirmation,
-    });
-    assert(landed.ok, JSON.stringify(landed));
+      "--json",
+    ]);
+    assertEquals(applied.code, 0, applied.output);
+    const landed = decodeCliResult(applied.stdout, "accept");
+    assert(
+      landed.ok && landed.data !== undefined && "emergency" in landed.data,
+      JSON.stringify(landed),
+    );
+    assertEquals(landed.data.emergency?.outcome, "landed");
+    assertEquals(landed.data.emergency?.retirement, "retained");
+    assertEquals(
+      await gitOut(root, "rev-parse", "main"),
+      await gitOut(path, "rev-parse", "HEAD"),
+    );
+    const recovered = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--recover",
+      landed.data.emergency?.landing_id ?? "",
+      "--json",
+    ]);
+    assertEquals(recovered.code, 0, recovered.output);
+    assertEquals(decodeCliResult(recovered.stdout, "accept").ok, true);
     const records = observedRecords(await observeQueue(root, "main"));
     const landing = records.find((record) => record.kind === "landing");
     assert(
@@ -758,6 +790,74 @@ mode = 'stop'
     assertEquals(
       records.filter((record) => record.kind === "evidence").length,
       0,
+    );
+
+    // An ordinary acceptance actor may recover the retained exception, but
+    // cannot turn it into Proof or let it authorize the next source revision.
+    const recoveredOrdinary = await runAgent(root, ["accept", "--json"]);
+    assertEquals(recoveredOrdinary.code, 0, recoveredOrdinary.output);
+    const historicalResult = decodeCliResult(
+      recoveredOrdinary.stdout,
+      "accept",
+    );
+    assert(
+      historicalResult.data !== undefined && "queue" in historicalResult.data,
+    );
+    const historicalRow = historicalResult.data.queue?.[0];
+    assertEquals(
+      Reflect.get(historicalRow ?? {}, "exception"),
+      landing.data.claim,
+    );
+    assertEquals(historicalRow?.proof_line, undefined);
+    assertEquals(historicalRow?.proof_note, undefined);
+    assertEquals(historicalResult.data.proof_line, undefined);
+    assertTerminalTextIncludes(recoveredOrdinary.output, "no passing Proof");
+
+    await Deno.writeTextFile(`${path}/followup`, "validated repair\n");
+    await git(path, "add", "followup");
+    await git(path, "commit", "-m", "Validate a later repair");
+    const source = await gitOut(path, "rev-parse", "HEAD");
+    const pendingReview = await runAgent(path, [
+      "done",
+      "--retain-checkout",
+      "--json",
+    ]);
+    assertEquals(pendingReview.code, 1, pendingReview.output);
+    assertStringIncludes(pendingReview.output, "awaiting_declaration");
+    const completed = await runAgent(path, [
+      "done",
+      "--retain-checkout",
+      "--met",
+      "review",
+      "--json",
+    ]);
+    assertEquals(completed.code, 0, completed.output);
+    const unapproved = await runAgent(path, ["accept", "--json"]);
+    assertEquals(unapproved.code, 1, unapproved.output);
+    assertStringIncludes(unapproved.output, "missing-authority");
+    assertEquals(await gitOut(root, "rev-parse", "main"), landing.data.target);
+    const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    assertEquals(await gitOut(root, "rev-parse", "main"), source);
+    const acceptedResult = decodeCliResult(accepted.stdout, "accept");
+    assert(acceptedResult.data !== undefined && "queue" in acceptedResult.data);
+    assertEquals(acceptedResult.data.queue?.length, 2);
+    assertEquals(acceptedResult.data.queue?.[0]?.proof_line, undefined);
+    assertStringIncludes(
+      acceptedResult.data.proof_line ?? "",
+      source.slice(0, 12),
+    );
+    const settled = observedRecords(await observeQueue(root, "main"));
+    assertEquals(settled.find((record) => record.id === landing.id), landing);
+    const repeated = await runAgent(path, ["accept", "--json"]);
+    assertEquals(repeated.code, 0, repeated.output);
+    assertEquals(
+      observedRecords(await observeQueue(root, "main")).filter((record) =>
+        record.kind === "landing" || record.kind === "authority"
+      ),
+      settled.filter((record) =>
+        record.kind === "landing" || record.kind === "authority"
+      ),
     );
   });
 });

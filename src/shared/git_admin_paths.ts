@@ -27,6 +27,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  completionPublication: {
+    path: "discern/completion/publication.json",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   completionArtifacts: {
     path: "discern/completion/artifacts",
     scope: "common",

@@ -26,7 +26,32 @@ import type {
 import type { CompletionRecord, RecordSelector } from "./records.ts";
 import type { CompletionRecordReading, PublicationFence } from "./store.ts";
 
+/** Capacity facts describe the enforcing boundary, not a combined invented limit. */
+export interface CompletionCapacity {
+  readonly setting:
+    | "completion.concurrency"
+    | "completion.lookahead"
+    | "execution.capacity";
+  readonly limit: number;
+  readonly occupied: number;
+  readonly reserved: number;
+  readonly blockers: readonly string[];
+  readonly wake_condition: string;
+}
+
 export type CompletionBlocker =
+  | { readonly kind: "cancelled"; readonly reason: string }
+  | {
+    readonly kind: "record-incompatible" | "record-corrupt";
+    readonly record_id: string;
+    readonly reason: string;
+  }
+  | {
+    readonly kind: "capacity-unavailable";
+    readonly reason: string;
+    readonly capacity: CompletionCapacity;
+    readonly transient: boolean;
+  }
   | { readonly kind: "missing-judgment"; readonly subjects: readonly string[] }
   | {
     readonly kind: "missing-authority";
@@ -327,7 +352,7 @@ export interface CompletionEvent {
       readonly producer: string;
       readonly use: "executed" | "reused";
       readonly evidence_id: string;
-      readonly outcome: "passed" | "failed" | "cancelled";
+      readonly outcome: ComponentEvidence["outcome"]["kind"];
       readonly duration_ms: number;
     }
     | {

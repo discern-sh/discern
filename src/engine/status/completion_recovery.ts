@@ -2,24 +2,27 @@
 import type { StatusData } from "../../shared/result_schemas.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { emergencyValidationStatus } from "../emergency/obligations.ts";
-import { executionRecoveryStatus } from "../execution/public_recovery.ts";
+import { executionStatus } from "../execution/public_recovery.ts";
 
 /** Pair outstanding validation and checkout recovery with their registered next actions. */
 export async function completionRecoveryStatus(root: string): Promise<{
-  data: Pick<StatusData, "emergency_validation" | "execution_recovery">;
+  data: Pick<
+    StatusData,
+    "emergency_validation" | "execution_recovery" | "execution_activity"
+  >;
   hints: FiredHint[];
 }> {
   const [emergency, execution] = await Promise.all([
     emergencyValidationStatus(root),
-    executionRecoveryStatus(root),
+    executionStatus(root),
   ]);
   return {
     data: {
       ...(emergency.length ? { emergency_validation: emergency } : {}),
-      ...(execution.length ? { execution_recovery: execution } : {}),
+      ...execution,
     },
     hints: [
-      ...execution.map((row) =>
+      ...(execution.execution_recovery ?? []).map((row) =>
         fire(HINTS["execution-recovery"], { id: row.environment_id })
       ),
       ...emergency.filter((row) => row.state === "outstanding").map((row) =>
@@ -27,4 +30,40 @@ export async function completionRecoveryStatus(root: string): Promise<{
       ),
     ],
   };
+}
+
+/** Active execution and recovery supersede ordinary authoring and landing directions. */
+export function completionStatusPresentation(
+  recovery: Awaited<ReturnType<typeof completionRecoveryStatus>>,
+  ordinaryHints: readonly FiredHint[],
+  landingMessage?: string,
+): { hints: FiredHint[]; message?: string } {
+  const recovering = (recovery.data.execution_recovery?.length ?? 0) > 0;
+  const active = recovery.data.execution_activity?.[0];
+  const hints = [...ordinaryHints];
+  if (recovering || active !== undefined) {
+    const nextSteps = new Set(
+      Object.values(HINTS).filter((definition) =>
+        definition.category === "next-step"
+      ).map((definition) => definition.id as string),
+    );
+    hints.splice(
+      0,
+      hints.length,
+      ...hints.filter((hint) => !nextSteps.has(hint.id)),
+    );
+    if (!recovering) {
+      hints.push(fire(HINTS["completion-pending"], {
+        action:
+          "Let the recorded execution finish, or cancel its owning command and follow the resulting recovery. Keep this checkout out of other authoring or release operations while it is active.",
+      }));
+    }
+  }
+  hints.push(...recovery.hints);
+  const message = recovering
+    ? "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action."
+    : active !== undefined
+    ? `Execution ${active.attempt_id} is in phase ${active.phase} in environment ${active.environment_id}.`
+    : landingMessage;
+  return { hints, ...(message === undefined ? {} : { message }) };
 }

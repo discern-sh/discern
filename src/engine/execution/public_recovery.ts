@@ -3,7 +3,7 @@ import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 /** Explicit checkout return uses frozen intent; it never runs validation or publishes Proof. */
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type { GateData } from "../../shared/result_schemas.ts";
+import type { GateData, StatusData } from "../../shared/result_schemas.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -184,35 +184,56 @@ export async function recoverCompletionResult(
 }
 
 /** Read-only local obligations remain visible even if temporary detachment hides a branch. */
-export async function executionRecoveryStatus(
+export async function executionStatus(
   root: string,
-): Promise<
-  {
-    environment_id: string;
-    reason: string;
-    retained_paths: string[];
-    next_action: string;
-  }[]
-> {
+): Promise<Pick<StatusData, "execution_activity" | "execution_recovery">> {
   const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
     cwd: root,
   });
-  if (!inside.success || inside.stdout.trim() !== "true") return [];
+  if (!inside.success || inside.stdout.trim() !== "true") return {};
   const records = observedRecords(
     await observeCompletionRecords(root, SYSTEM_CLOCK, ["environment"]),
   );
   const canonical = await Deno.realPath(root);
-  return records.flatMap((record) =>
-    record.kind === "environment" && record.data.path === canonical &&
-      record.data.state.kind === "recovery"
-      ? [{
+  const activity: NonNullable<StatusData["execution_activity"]> = [];
+  const recovery: NonNullable<StatusData["execution_recovery"]> = [];
+  for (const record of records) {
+    if (record.kind !== "environment" || record.data.path !== canonical) {
+      continue;
+    }
+    const state = record.data.state;
+    if (state.kind === "executing") {
+      activity.push({
         environment_id: record.id,
-        reason: record.data.state.recovery.reason,
-        retained_paths: record.data.state.recovery.retained_paths,
+        attempt_id: state.attempt_id,
+        candidate_id: state.candidate_id,
+        phase: state.phase,
+        lease_expires_at: state.claim.expires_at,
+      });
+    }
+    if (state.kind === "recovery") {
+      recovery.push({
+        environment_id: record.id,
+        attempt_id: state.attempt_id,
+        phase: state.recovery.phase,
+        children_quiescent: state.recovery.children_quiescent,
+        reason: state.recovery.reason,
+        retained_paths: state.recovery.retained_paths,
         next_action: executionRecoveryCommand(record.id),
-      }]
-      : []
-  );
+      });
+    }
+  }
+  return {
+    ...(activity.length ? { execution_activity: activity } : {}),
+    ...(recovery.length ? { execution_recovery: recovery } : {}),
+  };
+}
+
+/** Recovery consumers share the status observation instead of reconstructing its fields. */
+export async function executionRecoveryStatus(
+  root: string,
+): Promise<NonNullable<StatusData["execution_recovery"]>> {
+  return (await executionStatus(root)).execution_recovery ?? [];
 }
 
 /** Recovery and validation are separate actions, including across CLI and MCP. */
@@ -221,6 +242,7 @@ export function recoveryArgumentConflict(options: {
   rerun?: boolean;
   standalone?: boolean;
   retainCheckout?: boolean;
+  releaseCheckout?: boolean;
   context?: string;
   policyBase?: string;
   met?: string[];
@@ -229,7 +251,8 @@ export function recoveryArgumentConflict(options: {
 }): boolean {
   return options.ci === true || options.rerun === true ||
     options.standalone === true ||
-    options.retainCheckout === true || options.context !== undefined ||
+    options.retainCheckout === true || options.releaseCheckout === true ||
+    options.context !== undefined ||
     options.policyBase !== undefined ||
     (options.met?.length ?? 0) > 0 || options.unmet !== undefined ||
     options.execution !== undefined;

@@ -1,4 +1,10 @@
 import { capText } from "../../shared/result.ts";
+import type { DiscernResult } from "../../shared/result.ts";
+import {
+  DIAGNOSTIC_SUMMARY_BYTES,
+  DIAGNOSTIC_SUMMARY_LIMIT,
+} from "../../shared/diagnostic_summary.ts";
+import { sha256Hex } from "../../shared/sha256.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
@@ -9,6 +15,31 @@ export interface DiagnosticOutputFields {
   output_path?: string;
 }
 
+/** Offload only oversized results. A failed write keeps complete inline evidence. */
+export async function retainResultDiagnostics(
+  root: string,
+  result: DiscernResult,
+): Promise<void> {
+  const diagnostics = result.diagnostics;
+  if (diagnostics === undefined) return;
+  const raw = JSON.stringify(diagnostics);
+  const bytes = new TextEncoder().encode(raw).length;
+  if (
+    diagnostics.length <= DIAGNOSTIC_SUMMARY_LIMIT &&
+    bytes <= DIAGNOSTIC_SUMMARY_BYTES
+  ) return;
+  if (result.diagnosticEvidence?.raw === raw) return;
+  const path = await writeFullOutput(root, raw);
+  if (path !== undefined) {
+    result.diagnosticEvidence = {
+      raw,
+      path,
+      bytes,
+      digest: await sha256Hex(raw),
+    };
+  }
+}
+
 /** Persist uncapped diagnostic text in the temp-artifact registry when possible. */
 async function writeFullOutput(
   root: string,
@@ -16,11 +47,12 @@ async function writeFullOutput(
 ): Promise<string | undefined> {
   let recordedPath: string | undefined;
   await bestEffort("diagnostic-full-output-record", async () => {
-    recordedPath = await makeTempArtifact(
+    const path = await makeTempArtifact(
       "diag",
       await tempArtifactScopeFor(root),
     );
-    await Deno.writeTextFile(recordedPath, fullText);
+    await Deno.writeTextFile(path, fullText);
+    recordedPath = path;
   });
   return recordedPath;
 }

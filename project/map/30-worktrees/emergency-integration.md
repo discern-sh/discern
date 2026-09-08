@@ -23,9 +23,9 @@ The [planner](../../../src/engine/emergency/plan.ts) binds this exchange. The [m
 
 ## Integration and recovery
 
-The action records the immutable exception subject before moving the trunk through the [shared publisher](../../../src/engine/landing_queue/publication.ts). The expected trunk, source ref, candidate ref, receiving checkout, and common recovery marker retain their ordinary checks. Queue predictions are reconciled after the real trunk movement. Retirement uses the existing release and ownership requirements.
+The action records the immutable exception subject before moving the trunk through the [shared publisher](../../../src/engine/landing_queue/publication.ts). The expected trunk, source ref, candidate ref, receiving checkout, and common recovery marker retain their ordinary checks. Queue predictions are reconciled after the real trunk movement. Retirement uses the existing release and ownership requirements. A retained checkout is a valid emergency outcome when cleanup is not authorized. The public result keeps that state separate from failed convergence or interrupted cleanup, and never supplies ordinary Proof.
 
-`discern accept emergency --recover <landing-id>` reconciles only the recorded transition, note publication, receiving-checkout convergence, and eligible retirement. A pre-transition interruption remains unlanded. A post-transition failure retains the integration and its recovery obligation. Recovery never replays authorization or manufactures Proof.
+`discern accept emergency --recover <landing-id>` reconciles only the recorded transition, note publication, receiving-checkout convergence, and eligible retirement. A pre-transition interruption remains unlanded. A post-transition failure retains the integration and its recovery obligation. Recovery never replays authorization or manufactures Proof. Ordinary acceptance can finish this same recovery before assessing a later candidate. Its per-landing result retains the exact exception claim and labels it as having no passing Proof. The later candidate still needs its own current evidence and authority.
 
 The exception lives in common completion records and an unsigned DSSE note. Its claim kind cannot parse as passing Proof. Existing notes are never overwritten. Common records survive source-checkout removal; note publication failure leaves a recovery action.
 

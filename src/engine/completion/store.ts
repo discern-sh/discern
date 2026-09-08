@@ -1,4 +1,6 @@
+import { invalidateCompletionPublication } from "./publication_witness.ts";
 /** Common-admin record IO. Observation has no effects; publication is a short CAS. */
+import { completionRecordVersionSupported } from "./version.ts";
 import { dirname, join } from "@std/path";
 import {
   atomicReplaceJson,
@@ -45,16 +47,28 @@ export async function parseCompletionRecord(
   selector: RecordSelector,
 ): Promise<CompletionRecordReading> {
   const version = inspectOnDiskJsonVersion("completionRecord", raw);
-  if (version.status === "newer" || version.status === "older") {
+  const supportedOlder = version.status === "older" &&
+    completionRecordVersionSupported(version);
+  if (
+    version.status === "newer" ||
+    (version.status === "older" && !supportedOlder)
+  ) {
     return { kind: version.status, version: version.found };
   }
-  if (version.status !== "current") {
+  if (version.status !== "current" && !supportedOlder) {
     return {
       kind: "invalid",
       reason: "completion record needs its registered version",
     };
   }
-  const parsed = CompletionRecordSchema.safeParse(JSON.parse(raw));
+  // Reviewed older envelopes omit only optional fields. Normalize the envelope;
+  // retain the byte stamp so a later CAS archives the exact original document.
+  const decoded = JSON.parse(raw);
+  const parsed = CompletionRecordSchema.safeParse(
+    supportedOlder
+      ? { ...decoded, version: ON_DISK_FORMATS.completionRecord.version }
+      : decoded,
+  );
   if (!parsed.success) return { kind: "invalid", reason: parsed.error.message };
   if (parsed.data.kind !== selector.kind || parsed.data.id !== selector.id) {
     return {
@@ -68,6 +82,7 @@ export async function parseCompletionRecord(
 /** Read fresh records through a directory resolved for one operation. */
 export interface CompletionRecordStore {
   readonly directory: string;
+  readonly publicationPath: string;
   readonly path: (selector: RecordSelector, revision?: number) => string;
   readonly read: (
     selector: RecordSelector,
@@ -113,6 +128,13 @@ function completionStoreAt(directory: string): CompletionRecordStore {
     join(directory, recordRelativePath(selector, revision));
   return {
     directory,
+    publicationPath: join(
+      GIT_ADMIN_STATE.completionRecords.path.split("/").reduce(
+        (parent) => dirname(parent),
+        directory,
+      ),
+      GIT_ADMIN_STATE.completionPublication.path,
+    ),
     path,
     read: (selector, revision) => readStoredRecord(path, selector, revision),
   };
@@ -345,6 +367,7 @@ export async function writeCompletionRecord(
           clock.wallNow(),
         );
         if (lost !== undefined) return { kind: "claim-lost", reason: lost };
+        await invalidateCompletionPublication(store.publicationPath);
         if (current.kind === "recorded") {
           const blocked = await preserveRevision(
             store,

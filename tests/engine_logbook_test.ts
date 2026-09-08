@@ -25,6 +25,7 @@ import {
   defaultMapPath,
   git,
   gitInit,
+  gitOut,
   readLogbookEvents as readEvents,
   runAgent,
   scaffoldEngine,
@@ -48,12 +49,70 @@ import {
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 import { RECORDED_VALIDATION_VERBS } from "../src/engine/logbook/validation.ts";
+import { AcceptancePrefixSchema } from "../src/shared/result_schemas.ts";
 
 /** Just the verb events, in order. */
 function verbEvents(
   events: LogbookEvent[],
 ): Extract<LogbookEvent, { kind: "verb" }>[] {
   return events.filter((e) => e.kind === "verb");
+}
+
+for (const state of AcceptancePrefixSchema.shape.state.options) {
+  Deno.test(`logbook: landing cleanup belongs to the recorded ${state} source rather than every returned row`, async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const path = await addWorktree(dir, "fresh-arrival");
+      const head = await gitOut(path, "rev-parse", "HEAD");
+      const recording = beginRecording(path, {
+        verb: "future-landing-surface",
+        surface: "mcp",
+        driver: Promise.resolve({}),
+      });
+      await recording.finish({
+        verb: "future-landing-surface",
+        surface: "mcp",
+        outcome: "ok",
+        durationMs: 1,
+        result: {
+          ok: true,
+          verb: "future-landing-surface",
+          data: {
+            queue: [false, true].map((current) => ({
+              effort: current ? "fresh-arrival" : "earlier-review",
+              branch: `refs/heads/agent/${
+                current ? "fresh-arrival" : "earlier-review"
+              }`,
+              source_head: head,
+              candidate_id: null,
+              expected_trunk: null,
+              target: head,
+              state: current ? state : "landed",
+              retirement: current ? "retired" : "retained",
+              pending: [],
+              retirement_effects: {
+                worktree_removed: current,
+                branch_deleted: current,
+              },
+            })),
+          },
+        },
+      });
+      const event = verbEvents(await readEvents(dir)).at(-1);
+      assertEquals(
+        event?.landing,
+        state === "landed"
+          ? {
+            recovery_performed: false,
+            trunk_landed: true,
+            worktree_removed: true,
+            branch_deleted: true,
+          }
+          : undefined,
+      );
+    });
+  });
 }
 
 /** Stable hint identities from the exact result an MCP caller received. */
@@ -430,6 +489,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
         driver: Promise.resolve({}),
       });
       observeCheckpointActivity({
+        advise: [{ id: "api-advice" }, { id: "api-advice" }],
         fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
         declared: [{
           id: "api-review",
@@ -438,6 +498,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
           elapsed_ms: 5,
         }],
       });
+      observeCheckpointActivity({ advise: [{ id: "api-advice" }] });
       await recording.finish({
         verb: "done",
         surface,
@@ -466,6 +527,7 @@ Deno.test("logbook: checkpoint observations drain onto the event on either surfa
     for (const event of [cli, mcp]) {
       assert(event !== undefined);
       assertEquals(event.checkpoints, {
+        advise: [{ id: "api-advice" }],
         fired: [{ id: "api-review", definition: "d1", subject: "s1" }],
         declared: [{
           id: "api-review",

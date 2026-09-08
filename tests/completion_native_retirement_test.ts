@@ -253,9 +253,29 @@ for (const change of ["resource", "uncertain-child"] as const) {
 }
 
 // The complete producer path: a public accept settles this landing before release.
-Deno.test("retirement accepts a timestamp-only index refresh after release", async () => {
+Deno.test("retirement accepts a fresh owner release after captured retention and an index refresh", async () => {
   await withTempDir(async (root) => {
     const f = await landed(root, { accept: true });
+    const retained = await retireQueueLanding({
+      ...f.runtime,
+      afterBoundary: async (phase) => {
+        if (phase === "planned") {
+          await Deno.writeTextFile(
+            `${f.path}/review-note`,
+            "feedback in this checkout\n",
+          );
+        }
+      },
+    }, f.landing);
+    assertEquals(retained, { kind: "retained", reason: "dirty" });
+    assert(await statIfExists(f.path) !== undefined);
+    await Deno.remove(`${f.path}/review-note`);
+    const released = await runAgent(f.path, [
+      "done",
+      "--release-checkout",
+      "--json",
+    ]);
+    assertEquals(released.code, 0, released.output);
     await Deno.utime(`${f.path}/discern.toml`, 1234567890, 1234567890);
     await git(f.path, "status", "--porcelain");
     const result = await retireQueueLanding(f.runtime, f.landing);

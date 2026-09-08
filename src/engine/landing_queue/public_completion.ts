@@ -1,3 +1,6 @@
+import { completionRecordBlocker } from "../completion/compatibility.ts";
+import { waitForCompletionCapacity } from "../completion/capacity.ts";
+import { emitCompletionProgress } from "../completion/events.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { emitComponentUse } from "../completion/events.ts";
 import { producerLabel } from "../validation/public_run.ts";
@@ -32,7 +35,7 @@ import {
   ownValidationEnvironment,
   releasedValidationEnvironment,
 } from "../execution/public_environment.ts";
-import { inLinkedWorktree, integrationBranch } from "../worktree/git.ts";
+import { integrationBranch } from "../worktree/git.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { compositionRecipe } from "./generation.ts";
@@ -64,6 +67,7 @@ import {
 import { publishAdmission } from "./admission.ts";
 
 import {
+  observeClaimCapacity,
   releaseExecutionEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
@@ -187,6 +191,13 @@ export async function withPublicCompletion<T>(
       kind: "queue",
       id: REPOSITORY_QUEUE_ID,
     });
+    const unsupported = completionRecordBlocker({
+      records: [{
+        selector: { kind: "queue", id: REPOSITORY_QUEUE_ID },
+        reading: queueReading,
+      }],
+    });
+    if (unsupported !== undefined) return unsupported;
     if (queueReading.kind === "missing") await initializeQueue(root, trunkHead);
     let queue = await requireQueue(root);
     if (queue.record.data.trunk !== trunkHead) {
@@ -290,9 +301,7 @@ export async function withPublicCompletion<T>(
       throw new Error("Candidate predecessor ancestry is unavailable.");
     }
     const temporary = !contained.success || candidate.head !== source.head;
-    const declaration = !temporary && !await inLinkedWorktree(root)
-      ? null
-      : config.execution[options.context] ?? (temporary ? undefined : null);
+    const declaration = temporary ? config.execution[options.context] : null;
     if (declaration === undefined) {
       return {
         kind: "environment-unavailable",
@@ -314,6 +323,7 @@ export async function withPublicCompletion<T>(
         source,
         actor,
         declaration,
+        signal,
       )
       : await releasedValidationEnvironment(
         root,
@@ -330,19 +340,33 @@ export async function withPublicCompletion<T>(
       ? finishedValidationAttempts(records)[0]?.id ?? null
       : null;
     const leaseMs = await completionLease(config);
-    queue = await requireQueue(root);
-    const claim = await claimQueueWork({
-      root,
-      expected_stamp: queue.stamp,
-      effort: source.effort_id,
-      candidate_id: candidateId,
-      candidate,
-      environment_id: environmentId,
-      executor: actor,
-      policy: config.completion,
-      lease_ms: leaseMs,
-      rerun_of: rerunOf,
-      mode: options.mode,
+    const claim = await waitForCompletionCapacity({
+      signal,
+      waiting: (value) =>
+        "kind" in value && value.kind === "capacity-unavailable" &&
+        value.transient,
+      onWait: (value) =>
+        emitCompletionProgress({
+          phase: "pending",
+          state: "capacity-wait",
+          candidate_id: candidateId,
+          ...("kind" in value && value.kind === "capacity-unavailable"
+            ? { capacity: value.capacity, reason: value.reason }
+            : { reason: JSON.stringify(value) }),
+        }),
+      observe: async () =>
+        await claimQueueWork({
+          root,
+          effort: source.effort_id,
+          candidate_id: candidateId,
+          candidate,
+          environment_id: environmentId,
+          executor: actor,
+          policy: config.completion,
+          lease_ms: leaseMs,
+          rerun_of: rerunOf,
+          mode: options.mode,
+        }),
     });
     if ("kind" in claim) {
       return claim;
@@ -384,6 +408,35 @@ export async function withPublicCompletion<T>(
       await releaseQueueClaim(root, claim, candidate);
       return environmentPlan;
     }
+    const capacity = await waitForCompletionCapacity({
+      signal,
+      waiting: (value) =>
+        value !== null && value.kind === "waiting-for-operation",
+      onWait: (value) =>
+        emitCompletionProgress({
+          phase: "pending",
+          state: "execution-capacity-wait",
+          candidate_id: candidateId,
+          ...(value?.kind === "waiting-for-operation"
+            ? { attempt_id: value.attempt_id }
+            : {}),
+          reason: `execution capacity ${
+            declaration?.capacity ?? 1
+          } is occupied; waiting for an environment return: ${
+            JSON.stringify(value)
+          }`,
+        }),
+      observe: async () =>
+        await observeClaimCapacity(
+          root,
+          (await requireEnvironment(root, environmentId)).record.data,
+          declaration?.capacity ?? 1,
+        ),
+    });
+    if (capacity !== null) {
+      await releaseQueueClaim(root, claim, candidate);
+      return capacity;
+    }
     const execution = await executor.claim(environmentPlan, actor);
     if ("kind" in execution) {
       await releaseQueueClaim(root, claim, candidate);
@@ -391,6 +444,7 @@ export async function withPublicCompletion<T>(
     }
     let executionFailure: string | undefined;
     let compositionFailure: CompletionBlocker | undefined;
+    let publicationFailure: CompletionBlocker | undefined;
     const returned = await executor.execute(execution, async (claimed) => {
       try {
         if (!reusable) {
@@ -432,11 +486,8 @@ export async function withPublicCompletion<T>(
         });
         for (const component of result.validation?.outcome.evidence ?? []) {
           await withQueueLock(root, async () => {
-            if (!await checkQueueClaim(root, claim, candidate)) {
-              throw new Error(
-                "Queue work expired or was superseded before component publication.",
-              );
-            }
+            // The producer claim binds immutable applicability. Queue admission
+            // has a separate fence and may already have lost eligibility.
             const evidenceId = SYSTEM_SECURE_ENTROPY.uuid();
             const written = await writeCompletionRecord(
               root,
@@ -451,9 +502,21 @@ export async function withPublicCompletion<T>(
               claimed.fence,
             );
             if (written.kind !== "written") {
-              throw new Error(
-                `Component publication ${written.kind}; preserve the attempt.`,
-              );
+              publicationFailure =
+                written.kind === "newer" || written.kind === "older" ||
+                  written.kind === "invalid" || written.kind === "unavailable"
+                  ? completionRecordBlocker({
+                    records: [{
+                      selector: { kind: "evidence", id: evidenceId },
+                      reading: written,
+                    }],
+                  })
+                  : {
+                    kind: "stale-evidence",
+                    evidence_ids: [],
+                    reason: "artifact-unavailable",
+                  };
+              return;
             }
             emitComponentUse(
               { ...claimed, candidate },
@@ -483,6 +546,9 @@ export async function withPublicCompletion<T>(
       environment_id: environmentId,
     };
     if (returned.returned.kind === "recovery-incomplete") {
+      // The executor's environment retains recovery ownership. This actor has
+      // stopped advancing the queue, so its separate scheduling claim must end.
+      await releaseQueueClaim(root, claim, candidate);
       const blocker = {
         kind: "recovery-incomplete" as const,
         record_id: environmentId,
@@ -500,7 +566,7 @@ export async function withPublicCompletion<T>(
     if (signal.aborted) {
       await releaseQueueClaim(root, claim, candidate);
       const cancelled = {
-        kind: "environment-unavailable" as const,
+        kind: "cancelled" as const,
         reason:
           "Completion was cancelled; its environment and queue claim have returned.",
       };
@@ -512,10 +578,15 @@ export async function withPublicCompletion<T>(
       await releaseQueueClaim(root, claim, candidate);
       if (compositionFailure !== undefined) return compositionFailure;
       return {
-        kind: "environment-unavailable",
+        kind: "validation-failed",
+        evidence_ids: [],
         reason: executionFailure ??
           "Candidate execution did not produce a result. Inspect its durable attempt and recovery.",
       };
+    }
+    if (publicationFailure !== undefined) {
+      await releaseQueueClaim(root, claim, candidate);
+      return { ...base, value: result.value, blockers: [publicationFailure] };
     }
     if (result.blockers !== undefined && result.blockers.length > 0) {
       await releaseQueueClaim(root, claim, candidate);
@@ -527,6 +598,7 @@ export async function withPublicCompletion<T>(
       validation.outcome.blockers.length > 0
     ) {
       await withQueueLock(root, async () => {
+        if (!await checkQueueClaim(root, claim, candidate)) return;
         await settleQueueClaim(root, claim, "failed");
         const current = await requireQueue(root);
         await mutateQueue({
@@ -544,7 +616,24 @@ export async function withPublicCompletion<T>(
           : [{ kind: "validation-failed", evidence_ids: [] }],
       };
     }
-    const assembly = await claimQueueAssembly(root, claim, candidate, 60_000);
+    const assembly = await withQueueLock(
+      root,
+      async () =>
+        await checkQueueClaim(root, claim, candidate)
+          ? await claimQueueAssembly(root, claim, candidate, 60_000)
+          : null,
+    );
+    if (assembly === null) {
+      return {
+        ...base,
+        value: result.value,
+        blockers: [{
+          kind: "stale-evidence",
+          evidence_ids: [],
+          reason: "predecessor-changed",
+        }],
+      };
+    }
     await validation.evaluator.observe(candidateId);
     const admission = await publishAdmission({
       root,
@@ -583,15 +672,41 @@ export async function withPublicCompletion<T>(
       options.mode === "strict" &&
       !options.retainCheckout
     ) {
-      const returnedEnvironment = await requireEnvironment(root, environmentId);
+      // Source execution needs no temporary installation. Its owner's later
+      // release can still enroll the declared borrowed contract for composition.
+      const configured = config.execution[options.context];
+      const releaseDeclaration = declaration ??
+        (configured?.kind === "borrowed" ? configured : null);
+      const release = releaseDeclaration === declaration
+        ? { environmentId, lifetime, workspace }
+        : await ownValidationEnvironment(
+          root,
+          config,
+          source,
+          actor,
+          releaseDeclaration,
+          signal,
+        );
+      if ("kind" in release) {
+        return {
+          ...base,
+          value: result.value,
+          proof_id: admission.proof_id,
+          blockers: [release],
+        };
+      }
+      const returnedEnvironment = await requireEnvironment(
+        root,
+        release.environmentId,
+      );
       await releaseExecutionEnvironment(
         root,
-        environmentId,
+        release.environmentId,
         returnedEnvironment.stamp,
         actor,
-        declaration,
-        { lifetime, workspace },
-        { retirement: true },
+        releaseDeclaration,
+        release,
+        { retirement: true, signal },
       );
     }
     return {

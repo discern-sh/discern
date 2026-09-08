@@ -13,6 +13,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
+import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
   code,
@@ -50,6 +51,7 @@ export type ResultMarkdownPresenter = (
 const MAX_LIST_ITEMS = 6;
 const MAX_DIAGNOSTICS = 3;
 const MAX_DIAGNOSTIC_OUTPUT = 2_400;
+const MAX_DIAGNOSTIC_MESSAGE = 900;
 
 /** The state lead shared by every effectful Markdown preview. */
 export const RESULT_MARKDOWN_DRY_RUN_LEAD = "**Dry run: nothing changed.**";
@@ -326,7 +328,23 @@ function envelopeEvidence(
   }
 
   const diagnostics = records(result.diagnostics);
-  for (const diagnostic of diagnostics.slice(0, MAX_DIAGNOSTICS)) {
+  const evidence = object(result.diagnostic_evidence);
+  const repeats = Array.isArray(evidence?.repeats) ? evidence.repeats : [];
+  const displayed = sampleDiagnostics(diagnostics, MAX_DIAGNOSTICS).map(
+    (entry) => ({
+      ...entry,
+      count: number(repeats[diagnostics.indexOf(entry.diagnostic)]) ??
+        entry.count,
+    }),
+  );
+  if (typeof evidence?.path === "string") {
+    facts.push(
+      `Complete diagnostic evidence: ${code(evidence.path)} (${
+        number(evidence.total) ?? diagnostics.length
+      } observations).`,
+    );
+  }
+  for (const { diagnostic, count } of displayed) {
     const tool = text(diagnostic.tool) ?? "diagnostic";
     const message = text(diagnostic.message) ??
       "No diagnostic message was recorded.";
@@ -341,15 +359,19 @@ function envelopeEvidence(
     facts.push(
       `${code(tool)}${location}${
         rule === undefined ? "" : ` [rule ${code(rule)}]`
-      }: ${message}${
+      }: ${capText(message, MAX_DIAGNOSTIC_MESSAGE)}${
         reproduce === undefined ? "" : ` Reproduce with ${code(reproduce)}.`
-      }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}`,
+      }${outputPath === undefined ? "" : ` Full output: ${code(outputPath)}.`}${
+        count === 1 ? "" : ` Repeated ${count} times.`
+      }`,
     );
   }
-  if (diagnostics.length > MAX_DIAGNOSTICS) {
-    facts.push(omitted(diagnostics.length - MAX_DIAGNOSTICS, "diagnostic"));
+  const remaining = (number(evidence?.total) ?? diagnostics.length) -
+    displayed.reduce((sum, entry) => sum + entry.count, 0);
+  if (remaining > 0) {
+    facts.push(omitted(remaining, "diagnostic"));
   }
-  const firstOutput = verbatimText(diagnostics[0]?.output);
+  const firstOutput = verbatimText(displayed[0]?.diagnostic.output);
   if (firstOutput !== undefined) {
     markdown.push(
       `### First diagnostic output\n\n${
@@ -1819,6 +1841,8 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       result,
       text(data.root) === undefined
         ? undefined
+        : prefixes.some((row) => object(row.exception) !== undefined)
+        ? `Recorded landing outcomes for ${code(data.root)}.`
         : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
@@ -1834,7 +1858,11 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...prefixes.map((row) =>
         `${code(text(row.branch) ?? "candidate")}: ${
           text(row.state) ?? "pending"
-        }; authority ${
+        }; ${
+          object(row.exception) === undefined
+            ? "authority"
+            : "emergency exception, no passing Proof; authorization"
+        } ${
           text(row.authority_settlement) ?? text(row.authority) ?? "pending"
         }; convergence ${text(row.convergence) ?? "pending"}; retirement ${
           text(row.retirement) ?? "pending"

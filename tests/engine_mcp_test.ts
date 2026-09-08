@@ -42,6 +42,7 @@ import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
+import { readPidIfReady } from "./process_id.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import {
   AWAIT_WATCH_POLICY,
@@ -4887,13 +4888,16 @@ async function startInFlightFinish(
     params: { name: "discern_done", arguments: {} },
   });
   const pidFile = join(dir, "gate.pid");
+  let jobPid: number | undefined;
   await waitUntil(
-    async () => await targetExists(pidFile),
+    async () => {
+      jobPid = await readPidIfReady(pidFile);
+      return jobPid !== undefined;
+    },
     "the gate's check job to start",
     { timeoutMs: 30_000, intervalMs: 50 },
   );
-  const jobPid = Number((await Deno.readTextFile(pidFile)).trim());
-  assert(Number.isFinite(jobPid) && jobPid > 0, `bad gate.pid: ${jobPid}`);
+  assert(jobPid !== undefined);
   return jobPid;
 }
 

@@ -69,6 +69,10 @@ Readable worktrees also carry activity, one `gate_proof`, and authority. Newer r
 
 Ahead and behind are non-negative integers, `"unknown"` after a failed or malformed count, and `null` on local status when the trunk is missing. Only a number can support readiness or containment ([ADR 0328](../_adr/0328-absence-and-unknown-observations-stay-distinct.md)).
 
+When this effort's exact committed source has already landed, local status names that source and explains the separate checkout state. Status does not suggest updating an already-landed source as a cleanup step merely because later work reached the trunk. Local feedback stays visible as changed files. The [source-bound projection](../../../src/engine/status/checkout_landing.ts) reads the same retirement decision as acceptance; historical cleanup from other efforts cannot supply this result.
+
+An intentionally retained checkout remains available for review. Stop active use and run `discern done --release-checkout` from that effort, then `discern accept` from main for eligible cleanup. A new owner release can make an earlier retained capture eligible again; unfinished recovery still takes precedence. Local `execution_activity` and `execution_recovery` facts come from the enrolled environment. Their phase and recovery action take priority over ordinary update or authoring hints ([Execution recovery](execution-recovery.md)).
+
 `last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or logbook time. Disabling the logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
 `fleet_collisions` pairs branches sharing changed files and retains the shared-file count; `adr_collisions` retains each contested number and its claimant branches, including branches without worktrees. Their path lists stay out of structured results. Terminal `--verbose` shows those paths, and a later `update` result names the shared paths that need re-reading. Full stored Proof pages appear only through terminal `--verbose`; structured modes carry the compact Proof claim ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-Proof states remain `ok: true`; operational refusals do not.
@@ -97,6 +101,6 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 ## Current state and gotchas
 
 - `status` never runs the Gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
-- Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it; its maintenance state appears under Owner attention.
+- Fleet worktrees belong to separate efforts. A clean or landed sibling can still be held for review or further edits. Its recorded release and cleanup checks govern retirement.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.

@@ -31,6 +31,7 @@ import {
   STAGES,
 } from "../src/shared/capabilities.ts";
 import { escapedDaemonCommand, withTempDir } from "./helpers.ts";
+import { readPidIfReady } from "./process_id.ts";
 import {
   gitInit,
   runAgent,
@@ -173,9 +174,8 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       `the watchdog should fire within a ~1s budget, took ${elapsed}ms`,
     );
     // The whole process group was tree-killed — the backgrounded grandchild is dead.
-    const innerPid = Number(
-      (await Deno.readTextFile(join(dir, "inner.pid"))).trim(),
-    );
+    const innerPid = await readPidIfReady(join(dir, "inner.pid"));
+    assert(innerPid !== undefined);
     await waitForExit(innerPid);
   }, { prefix: "discern-timeout-" });
 });

@@ -25,7 +25,31 @@ Deno.test("capacity observations distinguish live, expired, recovering and retur
     });
     assertEquals(
       await observeClaimCapacity(f.root, released, 2, f.clock),
+      await observeClaimCapacity(f.root, released, 1, f.clock),
+      "spare capacity cannot bypass the same checkout's ownership",
+    );
+    assert(released.ownership.kind === "borrowed");
+    const otherPath = { ...released, path: `${f.path}-independent` };
+    assertEquals(
+      await observeClaimCapacity(f.root, otherPath, 2, f.clock),
+      await observeClaimCapacity(f.root, released, 1, f.clock),
+      "a distinct checkout still excludes a shared resource handle",
+    );
+    assertEquals(
+      await observeClaimCapacity(
+        f.root,
+        {
+          ...otherPath,
+          ownership: {
+            ...released.ownership,
+            identity: { ...released.ownership.identity, resources: {} },
+          },
+        },
+        2,
+        f.clock,
+      ),
       null,
+      "a distinct checkout with independent resources can use spare capacity",
     );
     const expired = await observeClaimCapacity(f.root, released, 1, {
       ...f.clock,

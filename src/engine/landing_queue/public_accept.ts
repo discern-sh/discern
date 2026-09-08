@@ -68,7 +68,9 @@ import {
   requireQueue,
   withQueueLock,
 } from "./repository.ts";
-import { retireQueueLanding } from "./retirement.ts";
+import { planQueueRetirement, retireQueueLanding } from "./retirement.ts";
+import { completionRecordBlocker } from "../completion/compatibility.ts";
+import { reclaimRetirementStorage } from "./retirement_storage.ts";
 
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
@@ -83,6 +85,50 @@ export interface PublicAcceptOptions {
 
 /** Public entry points share this actor; status and dry-run never instantiate a publication claim. */
 export async function acceptQueueResult(
+  ctx: LifecycleContext,
+  options: PublicAcceptOptions,
+): Promise<DiscernResult<AcceptData>> {
+  const main = await mainRepoPath(ctx.cwd);
+  const result = await acceptQueueImplementation(ctx, options);
+  if (
+    options.dryRun || main === undefined || result.data?.queue === undefined
+  ) return result;
+  const landings = new Set(
+    result.data.queue.filter((row) => row.retirement === "retired").map((row) =>
+      row.landing_id
+    ),
+  );
+  if (landings.size === 0) return result;
+  const retirements = observedRecords(
+    await observeQueue(main, integrationBranch(ctx.config.repository.trunk)),
+  )
+    .filter((record) => record.kind === "retirement")
+    .filter((record) =>
+      record.data.outcome.kind === "retired" &&
+      landings.has(record.data.landing_id)
+    )
+    .map((record) => record.id);
+  const storage = await reclaimRetirementStorage(
+    main,
+    retirements,
+    false,
+    options.signal,
+  );
+  return {
+    ...result,
+    data: { ...result.data, storage_cleanup: storage },
+    ...(storage.state === "retained"
+      ? {
+        message: `${
+          result.message ?? "Acceptance state recorded."
+        } Recovery artifact cleanup remains pending: ${storage.reason} Preserve these artifacts and retry each returned retirement id with discern accept --reclaim <retirement-id> from the main checkout.`,
+      }
+      : {}),
+  };
+}
+
+/** Advance authorized prefixes and finish their checkout retirement before artifact cleanup. */
+async function acceptQueueImplementation(
   ctx: LifecycleContext,
   options: PublicAcceptOptions,
 ): Promise<DiscernResult<AcceptData>> {
@@ -195,15 +241,9 @@ export async function acceptQueueResult(
   };
   try {
     let observation = await observeQueue(root, trunk);
-    const unreadable = observation.records.find((item) =>
-      item.reading.kind !== "recorded" && item.reading.kind !== "missing"
-    );
+    const unreadable = completionRecordBlocker(observation);
     if (unreadable !== undefined) {
-      return queueAcceptanceResult(root, rows, [{
-        kind: "environment-unavailable",
-        reason:
-          `Completion ${unreadable.selector.kind}/${unreadable.selector.id} is ${unreadable.reading.kind}; preserve it for recovery.`,
-      }]);
+      return queueAcceptanceResult(root, rows, [unreadable]);
     }
     const queue = observedRecords(observation).find((record) =>
       record.kind === "queue"
@@ -276,6 +316,22 @@ export async function acceptQueueResult(
               record.data.landing_id === landing.id &&
               record.data.outcome.kind === "retired"
             ) && (await readLandingConvergenceResult(root, landing.data))?.ok
+        ) continue;
+        const plan = planQueueRetirement(landing, recoveryRecords);
+        // Retention owned by another effort is not an effect of this acceptance. Keep a
+        // requested landing and real recovery visible without relaying every
+        // earlier owner's held checkout as part of the current result.
+        if (
+          requested !== undefined && plan.kind === "settled" &&
+          plan.outcome.kind === "retained" &&
+          landing.data.source.effort_id !== requested &&
+          !recoveryRecords.some((record) =>
+            record.kind === "retirement" &&
+            record.data.landing_id === landing.id &&
+            (record.data.outcome.kind === "pending" ||
+              record.data.outcome.kind === "recovery")
+          ) &&
+          (await readLandingConvergenceResult(root, landing.data))?.ok
         ) continue;
         const retirement = await retireQueueLanding({
           ...(options.signal === undefined ? {} : { signal: options.signal }),

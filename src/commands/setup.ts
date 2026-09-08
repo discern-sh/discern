@@ -3616,7 +3616,7 @@ async function proveFinalSetupTree(
     return {
       ok: false,
       stage: "done",
-      detail:
+      detail: gate.message ??
         "the quality gate is not green; fix the failures, then run `discern setup done` again",
       ...(gate.diagnostics === undefined
         ? {}
@@ -3624,6 +3624,7 @@ async function proveFinalSetupTree(
       nextAction: diagnosticRecovery?.nextAction ??
         "discern done",
       recovery: diagnosticRecovery?.recovery ??
+        gate.hints?.join(" ") ??
         "Use the gate's first diagnostic and reproduce command, correct that failure, then retry `discern setup done`.",
     };
   }

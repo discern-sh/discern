@@ -12,6 +12,7 @@
  */
 
 import { dirname, join, resolve } from "@std/path";
+import { AsyncLocalStorage } from "../shared/module_loading.ts";
 import { withTrackedRun } from "./jobs/interrupt.ts";
 import { SYSTEM_CLOCK } from "../shared/clock.ts";
 import { SYSTEM_SCHEDULER } from "../shared/scheduler.ts";
@@ -459,14 +460,20 @@ export async function withAcceptanceRecoveryBoundary<T>(
 
 /** Concurrent local publications share a FIFO; the OS lock still excludes other processes. */
 const completionPublications = new Map<string, Promise<void>>();
+const currentPublication = new AsyncLocalStorage<{
+  readonly key: string;
+  active: boolean;
+  readonly children: Map<string, Promise<void>>;
+}>();
 
 /** Completion publications own only the short shared boundary. Cross-process
  * contention waits at most ten seconds before any callback effect runs. Return
  * publications use the same bounded wait after cancellation; ordinary operation
  * locks and invalid lock-order acquisitions remain non-blocking refusals.
  * The callback may reuse the common directory resolved by its locked write
- * preflight; absent a project preflight, it resolves storage itself. No path
- * scope survives this publication or its FIFO wait. */
+ * preflight; absent a project preflight, it resolves storage itself. No
+ * publication capability survives its callback. Independent publications share
+ * the FIFO even when their enclosing operation already owns the common lock. */
 export async function withCompletionPublication<T>(
   cwd: string,
   operation: (commonGitDirectory?: string) => Promise<T>,
@@ -488,23 +495,38 @@ export async function withCompletionPublication<T>(
     );
   const held = currentOperationLocks();
   const spec = (await resolveLockSpecs(cwd, "common"))?.[0];
+  const enclosing = currentPublication.getStore();
   if (
-    spec === undefined || held?.leases.has(spec.key) ||
-    (held?.boundaries.has("checkout") && held.completionExecution !== true)
+    spec === undefined ||
+    (held?.boundaries.has("checkout") && held.completionExecution !== true &&
+      !held.leases.has(spec.key))
   ) return await run();
-  const previous = completionPublications.get(spec.key);
+  // Nested siblings serialize within their parent; they must not wait on the
+  // parent's global slot while that parent is awaiting their completion.
+  const queue = enclosing?.active === true && enclosing.key === spec.key
+    ? enclosing.children
+    : completionPublications;
+  const previous = queue.get(spec.key);
   const finished = Promise.withResolvers<void>();
-  completionPublications.set(spec.key, finished.promise);
+  queue.set(spec.key, finished.promise);
   try {
     await previous;
-    // A publication this one waited for: administration is observed again
-    // before any retained answer replays.
-    if (previous !== undefined) invalidateGitDiscovery();
-    return await run();
+    // A preceding publication requires routing verification before replay.
+    if (previous !== undefined) invalidateGitDiscovery("publication");
+    const publication = {
+      key: spec.key,
+      active: true,
+      children: new Map<string, Promise<void>>(),
+    };
+    try {
+      return await currentPublication.run(publication, run);
+    } finally {
+      publication.active = false;
+    }
   } finally {
     finished.resolve();
-    if (completionPublications.get(spec.key) === finished.promise) {
-      completionPublications.delete(spec.key);
+    if (queue.get(spec.key) === finished.promise) {
+      queue.delete(spec.key);
     }
   }
 }
@@ -679,9 +701,9 @@ async function withPolicyLock<T>(
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
     }
-    // Newly held exclusion: retained discovery re-observes administration
-    // before answering again.
-    invalidateGitDiscovery();
+    // Newly held exclusion rechecks administration. Short publications may
+    // verify the routing witness; other operations require fresh Git.
+    invalidateGitDiscovery(waitForPublication ? "publication" : "topology");
     const leases = new Map(held?.leases ?? []);
     const boundaries = new Set(held?.boundaries ?? []);
     for (const lease of acquiredLeases) {
