@@ -99,6 +99,6 @@ After setup, detectors can add recent logbook observations to `hints[]`. They in
 ## Current state and gotchas
 
 - `status` never runs the Gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
-- Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it; its maintenance state appears under Owner attention.
+- Fleet worktrees belong to separate efforts. A clean or landed sibling can still be held for review or further edits. Its recorded release and cleanup checks govern retirement.
 - A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard and Markdown result are projections. Default JSON and MCP are also bounded for orientation; request verbose structured status only when exact full collections are needed.
