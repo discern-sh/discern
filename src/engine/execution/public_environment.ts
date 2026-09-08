@@ -1,3 +1,4 @@
+import { worktreeGitKey } from "../worktree/git.ts";
 import { errorReason, recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
@@ -90,6 +91,10 @@ export async function ownValidationEnvironment(
     environmentId = SYSTEM_SECURE_ENTROPY.uuid();
   }
   const workspace = validationWorkspace(root, config, environmentId, settings);
+  const resources = declaration?.resources ??
+    (await worktreeGitKey(root) === undefined
+      ? []
+      : Object.keys(config.worktree.resources));
   if (
     (await readCompletionRecord(root, {
       kind: "environment",
@@ -105,12 +110,11 @@ export async function ownValidationEnvironment(
           worktree_id: identity.id,
           seed: identity.seed,
           resources: Object.fromEntries(
-            (declaration?.resources ?? Object.keys(config.worktree.resources))
-              .map(
-                (
-                  name,
-                ) => [name, resourceForId(settings.slug, identity.id, name)],
-              ),
+            resources.map(
+              (
+                name,
+              ) => [name, resourceForId(settings.slug, identity.id, name)],
+            ),
           ),
         },
       },

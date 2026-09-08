@@ -402,8 +402,13 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
       "the fixture stage must be clean for containment to hold",
     );
 
-    // Stage B builds on A — the tip that carries A's work.
+    // Stage B builds on A and provisions its own independent resource.
     const b = await addWorktreeFrom(dir, "b", "agent/a");
+    const setupB = await runAgent(b, ["worktree", "setup"]);
+    assertEquals(setupB.code, 0, setupB.output);
+    const handleB = (await runAgent(b, ["identity", "--resource", "thing"]))
+      .stdout.trim();
+    assert(handleB !== handle);
     await commitFile(b, "b.txt", "b\n", "stage b");
 
     const r = await runAgent(dir, [
@@ -435,6 +440,11 @@ Deno.test("worktree prune --contained reclaims the checkout through the resource
     assert(
       !(await targetExists(join(markers, `${handle}.live`))),
       "the live marker must be gone",
+    );
+
+    assert(
+      await targetExists(join(markers, `${handleB}.live`)),
+      "reclaiming A must preserve B's independently owned resource",
     );
 
     // The branch ref SURVIVES, still reachable and still contained in B.

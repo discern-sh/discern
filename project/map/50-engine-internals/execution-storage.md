@@ -2,7 +2,7 @@
 
 The execution adapter distinguishes source validation, a release observation, and a recovery capture. Start with [the workspace adapter](../../../src/engine/execution/workspace.ts) when deciding which observation an effect needs.
 
-Source validation retains checkout exclusion, Git attachment and index semantics, resource ownership, and the producer's exact input evidence. It does not install another revision or copy ignored files. Both source observation and recovery require the checkout’s native Git index. A source observation cannot authorize restoration or checkout disposal.
+Source validation retains checkout exclusion, Git attachment and index semantics, resource ownership, and the producer's exact input evidence. It does not install another revision or copy ignored files. Both source observation and recovery require the checkout’s native Git index. Linked source worktrees require matching ready ownership for configured worktree resources. The main checkout has no per-worktree resource enrollment. A source observation cannot authorize restoration or checkout disposal.
 
 A release observation hashes local files without storing their bytes. Its semantic subject excludes only raw index cache bytes. A recovery capture stores exact index bytes, working files, link text, and staged binary patches. Manifest and release subjects share native semantics; older exact-byte subjects retain their narrower matching rules. Unsupported indexes and nested repository preservation refuse destructive recovery and retain the checkout.
 
