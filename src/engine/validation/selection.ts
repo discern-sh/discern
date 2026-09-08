@@ -237,6 +237,12 @@ export function assembleCandidate(
       !CompletionRecordSchema.safeParse(record).success
     ) || candidateId !== snapshot.candidate_id ||
     JSON.stringify(candidate) !== JSON.stringify(snapshot.candidate) ||
+    JSON.stringify(
+        snapshot.obligations.map((obligation) =>
+          requirementKey(obligation.requirement)
+        ).sort(),
+      ) !==
+      JSON.stringify(snapshot.requirements.map(requirementKey).sort()) ||
     JSON.stringify(keys) !==
       JSON.stringify(snapshot.requirements.map(requirementKey).sort())
   ) return { kind: "incomplete", blockers: [missing] };

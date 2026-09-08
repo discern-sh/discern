@@ -760,3 +760,36 @@ Deno.test("cancelled work cannot invent or erase producer failure, and completed
   assertEquals(receipts.reused.length, snap.requirements.length);
   assertEquals(receipts.blockers, []);
 });
+
+Deno.test("partial input observation cannot assemble the complete candidate Proof", async () => {
+  const snap = await snapshot();
+  const produced = await passing(snap);
+  const records = [...produced.records, assemblyRecord(snap)];
+  assertEquals(
+    assembleCandidate(
+      snap,
+      snap.candidate_id,
+      snap.candidate,
+      snap.requirements,
+      records,
+      "strict",
+      new Set(),
+      COMPLETION_CLOCK,
+    ).kind,
+    "complete",
+  );
+  const partial = { ...snap, obligations: snap.obligations.slice(1) };
+  assertEquals(
+    assembleCandidate(
+      partial,
+      snap.candidate_id,
+      snap.candidate,
+      snap.requirements,
+      records,
+      "strict",
+      new Set(),
+      COMPLETION_CLOCK,
+    ).kind,
+    "incomplete",
+  );
+});

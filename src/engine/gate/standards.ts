@@ -312,7 +312,7 @@ async function executeStandardPlan(
           ? {}
           : { rule: TIMEOUT_DIAGNOSTIC_RULE }),
         message: pending !== undefined
-          ? `Measurement is pending (${pending.kind}): ${
+          ? `Measurement did not complete (${pending.kind}): ${
             "reason" in pending
               ? pending.reason
               : pending.kind === "recovery-incomplete"

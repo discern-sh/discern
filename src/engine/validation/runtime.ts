@@ -1,3 +1,8 @@
+import {
+  selectedValidationBoundary,
+  selectedValidationInput,
+  type ValidationInputSelection,
+} from "./input_selection.ts";
 import { gitPathRecord } from "../../shared/git_paths.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
@@ -92,6 +97,7 @@ export async function observeCompletionRecords(
 export async function observeValidationInputs(
   root: string,
   toolchain: readonly string[] = [],
+  selection?: ValidationInputSelection,
 ): Promise<ValidationInputs> {
   const listed = await runGit([
     "ls-files",
@@ -99,7 +105,7 @@ export async function observeValidationInputs(
     "--others",
     "--exclude-standard",
     "-z",
-  ], { cwd: root });
+  ], { cwd: root, maxOutputBytes: 16 * 1024 * 1024, timeoutMs: 60_000 });
   if (!listed.success) {
     throw new Error("cannot enumerate declared validation inputs");
   }
@@ -109,8 +115,12 @@ export async function observeValidationInputs(
       ...new Set([...listed.stdout.split("\0").filter(Boolean), ...toolchain]),
     ].sort()
   ) {
+    const requested = selectedValidationInput(path, selection);
+    const boundary = selectedValidationBoundary(path, selection);
+    if (!requested && !boundary) continue;
     const entry = gitPathRecord(path);
     if (entry.kind === "directory") {
+      if (!boundary) continue;
       await containedFile(root, entry.path);
       throw new Error(
         `Validation input ${
@@ -122,10 +132,12 @@ export async function observeValidationInputs(
     const stat = await lstatIfExists(safe);
     if (stat === undefined) continue;
     if (!stat.isFile && !stat.isSymlink) {
+      if (!boundary) continue;
       throw new Error(
         `Validation input is not a regular file or link: ${path}`,
       );
     }
+    if (!requested) continue;
     const bytes = stat.isSymlink
       ? new TextEncoder().encode(await Deno.readLink(safe))
       : await readCompleteCapture(safe);
