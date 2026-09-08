@@ -86,3 +86,36 @@ Deno.test("completion progress failures cannot replace a result or an operation 
   });
   assertEquals(notifications, 0);
 });
+
+Deno.test("MCP progress coalesces unchanged observations but reports every transition", async () => {
+  const notes: CompletionProgressNotification[] = [];
+  await withMcpCompletionProgress(
+    { progressToken: "review" },
+    (notification) => {
+      notes.push(notification);
+      return Promise.resolve();
+    },
+    () => {
+      const waiting = {
+        phase: "queue" as const,
+        state: "waiting",
+        candidate_id: "candidate",
+        reason: "Waiting for a completion slot.",
+      };
+      emitCompletionProgress(waiting);
+      emitCompletionProgress(waiting);
+      emitCompletionProgress({
+        ...waiting,
+        state: "running",
+        reason: "Validating the selected candidate.",
+      });
+      emitCompletionProgress(waiting);
+      return Promise.resolve();
+    },
+  );
+  assertEquals(
+    notes.map((note) => note.params._meta.discern_completion.state),
+    ["waiting", "running", "waiting"],
+  );
+  assertEquals(notes.map((note) => note.params.progress), [1, 2, 3]);
+});

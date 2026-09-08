@@ -25,8 +25,16 @@ export async function withMcpCompletionProgress<T>(
     return await operation();
   }
   let progress = 0;
+  let previous: string | undefined;
   return await withCompletionObserver(async (fact) => {
     if (fact.kind !== "progress") return;
+    const current = JSON.stringify(
+      Object.entries(fact.progress).sort(([left], [right]) =>
+        left.localeCompare(right)
+      ),
+    );
+    if (current === previous) return;
+    previous = current;
     await send({
       method: "notifications/progress",
       params: {
