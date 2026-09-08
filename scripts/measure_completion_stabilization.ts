@@ -164,6 +164,8 @@ async function measure(
   const result = await runAgent(path, [...args, "--json"]);
   const elapsedMs = SYSTEM_CLOCK.monotonicNow() - started;
   const after = await storage(root);
+  const afterTests = (await readTextIfExists(counters.tests))?.length ?? 0;
+  const afterLight = (await readTextIfExists(counters.light))?.length ?? 0;
   let parsed: unknown;
   try {
     parsed = decodeCliResult(result.stdout, args[0]);
@@ -180,14 +182,24 @@ async function measure(
     storage_after: after,
     tests_before: beforeTests,
     light_before: beforeLight,
-    tests_after: (await readTextIfExists(counters.tests))?.length ?? 0,
-    light_after: (await readTextIfExists(counters.light))?.length ?? 0,
+    tests_after: afterTests,
+    light_after: afterLight,
     result: parsed,
   });
   await Deno.writeTextFile(reportPath, JSON.stringify(report, null, 2) + "\n");
   if (result.code !== expectedCode) {
     throw new Error(
       label + " returned " + result.code + "; inspect " + reportPath,
+    );
+  }
+  if (
+    (args[0] === "accept" || args.includes("--release-checkout")) &&
+    (afterTests !== beforeTests || afterLight !== beforeLight)
+  ) {
+    throw new Error(
+      label +
+        " repeated a producer despite unchanged valid evidence; inspect " +
+        reportPath,
     );
   }
 }

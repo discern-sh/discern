@@ -10,7 +10,11 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
-import { requireQueue } from "../src/engine/landing_queue/repository.ts";
+import {
+  observedRecords,
+  requireQueue,
+} from "../src/engine/landing_queue/repository.ts";
+import { measurementCandidate } from "../src/engine/validation/measurement.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { project } from "./completion_public_fixture.ts";
 import { statIfExists } from "../src/shared/fs_presence.ts";
@@ -95,18 +99,24 @@ limit = 90
 
 Deno.test("public acceptance validates a released source after standalone measurement and retires it safely", async () => {
   await withTempDir(async (root) => {
+    const lightCounter = `${root}/.git/light-runs`;
     const path = await project(
       root,
       ["local"],
       `
 [standards.lightweight]
-run = "printf l >> executions; printf 'DISCERN_METRIC lightweight 1\\\\n'"
+run = ${
+        JSON.stringify(
+          `printf l >> executions; printf l >> '${lightCounter}'; printf 'DISCERN_METRIC lightweight 1\\n'`,
+        )
+      }
 direction = 'down'
 limit = 1
 `,
     );
     for (
       const args of [
+        ["standards", "lightweight"],
         ["done", "--retain-checkout"],
         ["standards", "lightweight"],
         ["done", "--release-checkout"],
@@ -117,7 +127,32 @@ limit = 1
     }
     const executions = await Deno.readTextFile(`${path}/executions`);
     assertEquals(executions.split("t").length - 1, 1);
-    assertEquals(executions.split("l").length - 1, 2);
+    assertEquals(executions.split("l").length - 1, 3);
+    assertEquals(await Deno.readTextFile(lightCounter), "lll");
+    const records = observedRecords(await observeCompletionRecords(path));
+    const queue = await requireQueue(path);
+    const candidate = records.find((record) =>
+      record.kind === "candidate" &&
+      record.id === queue.record.data.entries[0]?.candidate_id
+    );
+    assert(candidate?.kind === "candidate");
+    assertEquals(
+      records.filter((record) => record.kind === "candidate").length,
+      2,
+    );
+    for (const order of [records, [...records].reverse()]) {
+      assertEquals(
+        measurementCandidate(order, candidate.data)?.id,
+        candidate.id,
+      );
+      assertEquals(
+        measurementCandidate(order, {
+          ...candidate.data,
+          policy: "0".repeat(64),
+        }),
+        undefined,
+      );
+    }
     const accepted = await runAgent(path, ["accept", "--confirmed", "--json"]);
     assertEquals(accepted.code, 0, accepted.output);
     const result = decodeCliResult(accepted.stdout, "accept");
@@ -127,5 +162,10 @@ limit = 1
     ]);
     assertEquals(await statIfExists(path), undefined);
     assertEquals(await Deno.readTextFile(`${root}/source`), "authored\n");
+    assertEquals(
+      await Deno.readTextFile(lightCounter),
+      "lll",
+      "acceptance must not repeat a still-valid producer after historical measurements",
+    );
   });
 });

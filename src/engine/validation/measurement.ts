@@ -31,6 +31,8 @@ import {
 } from "./public_run.ts";
 import { observeCompletionRecords } from "./runtime.ts";
 import type { Candidate } from "../completion/candidate.ts";
+import type { CompletionRecord } from "../completion/records.ts";
+import { sameSource } from "../landing_queue/model.ts";
 import type {
   CompletionBlocker,
   ValidationPlan,
@@ -55,6 +57,42 @@ import {
   REPOSITORY_QUEUE_ID,
   reserveQueueAttempt,
 } from "../landing_queue/repository.ts";
+
+/** Prefer the exact queued subject over another matching measurement.
+ * Record enumeration order cannot change which candidate owns new receipts. */
+export function measurementCandidate(
+  records: readonly CompletionRecord[],
+  subject: Pick<
+    Candidate,
+    | "source"
+    | "expected_predecessor"
+    | "requirement_set"
+    | "policy"
+    | "composition"
+  >,
+): Extract<CompletionRecord, { kind: "candidate" }> | undefined {
+  const queue = records.find((record) =>
+    record.kind === "queue" && record.id === REPOSITORY_QUEUE_ID
+  );
+  const queued = queue?.kind === "queue"
+    ? queue.data.entries.find((entry) =>
+      sameSource(entry.source, subject.source)
+    )?.candidate_id
+    : undefined;
+  const candidates = records.filter((
+    record,
+  ): record is Extract<CompletionRecord, { kind: "candidate" }> =>
+    record.kind === "candidate" &&
+    sameSource(record.data.source, subject.source) &&
+    record.data.head === subject.source.head &&
+    record.data.expected_predecessor.head ===
+      subject.expected_predecessor.head &&
+    record.data.requirement_set === subject.requirement_set &&
+    record.data.policy === subject.policy &&
+    record.data.composition.procedure === subject.composition.procedure
+  ).sort((a, b) => a.id.localeCompare(b.id));
+  return candidates.find((record) => record.id === queued) ?? candidates[0];
+}
 
 /** The environment attempt records only its demanded subjects. The queue supplies sequence numbers, never a passed queue claim. */
 export async function measureDeclaredStandards(
@@ -127,16 +165,19 @@ export async function measureDeclaredStandards(
       {},
     );
     const policy = await predecessorPolicyIdentity(root, predecessor.head);
-    const prior = observedRecords(await observeCompletionRecords(root)).find((
-      record,
-    ) =>
-      record.kind === "candidate" && record.data.source.head === source.head &&
-      record.data.source.effort_id === source.effort_id &&
-      record.data.head === source.head &&
-      record.data.expected_predecessor.head === predecessor.head &&
-      record.data.requirement_set === requirementSet &&
-      record.data.policy === policy &&
-      record.data.composition.procedure === recipe.identity.procedure
+    const prior = measurementCandidate(
+      observedRecords(await observeCompletionRecords(root)),
+      {
+        source,
+        expected_predecessor: predecessor,
+        requirement_set: requirementSet,
+        policy,
+        composition: {
+          ...recipe.identity,
+          merge_commit: null,
+          regeneration_commit: null,
+        },
+      },
     );
     const candidateId = prior?.kind === "candidate"
       ? prior.id
