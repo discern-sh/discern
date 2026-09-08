@@ -699,7 +699,7 @@ Deno.test("pin: refuses when HEAD moves during measurement and writes nothing", 
       "Source HEAD changed during validation",
     );
     assertStringIncludes(r.stderr, beforeHead);
-    assertTerminalTextIncludes(r.stderr, "Retry recovery for environment");
+    assertTerminalTextIncludes(r.stderr, "discern done --recover");
     assertEquals(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "mid-measure",
@@ -739,7 +739,7 @@ Deno.test("pin: refuses when measurement dirties the worktree and writes nothing
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(r.stderr, "Unexpected checkout changes");
     assertStringIncludes(r.stderr, "mid-measure.txt");
-    assertTerminalTextIncludes(r.stderr, "Retry recovery for environment");
+    assertTerminalTextIncludes(r.stderr, "discern done --recover");
     assertEquals(
       await gitOut(dir, "rev-parse", "HEAD"),
       beforeHead,

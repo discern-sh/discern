@@ -1,3 +1,4 @@
+import { runGit } from "../../shared/subprocess.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 /** Explicit checkout return uses frozen intent; it never runs validation or publishes Proof. */
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -193,6 +194,10 @@ export async function executionRecoveryStatus(
     next_action: string;
   }[]
 > {
+  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: root,
+  });
+  if (!inside.success || inside.stdout.trim() !== "true") return [];
   const records = observedRecords(
     await observeCompletionRecords(root, SYSTEM_CLOCK, ["environment"]),
   );

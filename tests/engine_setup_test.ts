@@ -13,6 +13,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join, relative } from "@std/path";
 import { walk } from "@std/fs";
+import { completionRecoveryStatus } from "../src/engine/status/completion_recovery.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import {
@@ -672,6 +673,7 @@ Deno.test("the map gate is a structured not_set_up result under --json", async (
 Deno.test("done/prepare/test/standards run before setup is recorded, carrying the in-progress hint (ADR 0065)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
+    assertEquals(await completionRecoveryStatus(dir), { data: {}, hints: [] });
     // The gate proof verbs are usable during setup so the agent can iterate while
     // wiring capabilities (and test a standard it wires) — but each leads with the
     // "setup unfinished" advisory so a green run can't be mistaken for done.
@@ -683,6 +685,7 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
         res.error !== "not_set_up",
         `${verb} must not redirect to setup pre-setup: ${r.output}`,
       );
+      assert(res.error !== "internal_error", `${verb} crashed: ${r.output}`);
       assertHasHint(res, HINTS["setup-unfinished-gate"]);
     }
   });

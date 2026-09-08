@@ -1,3 +1,5 @@
+import { recordExceptionNote } from "../src/engine/emergency/note.ts";
+import { join } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
 import { decodeJson } from "../src/shared/runtime_decode.ts";
 import {
@@ -128,6 +130,30 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
       "exception payload",
     );
     assertEquals(payload.claim, exception.data.claim);
+    await withTempDir(async (outside) => {
+      const unavailable = await recordExceptionNote(outside, exception);
+      assertEquals(unavailable.status, "record_failed");
+      assert(unavailable.reason);
+    });
+    await git(root, "notes", "--ref=discern", "remove", exception.data.target);
+    const notesLock = join(
+      root,
+      await gitOut(root, "rev-parse", "--git-path", "refs/notes/discern.lock"),
+    );
+    await Deno.writeTextFile(notesLock, "another notes writer");
+    const locked = await recordExceptionNote(root, exception);
+    assertEquals(locked.status, "record_failed");
+    assert(locked.reason);
+    assertEquals(await Deno.readTextFile(notesLock), "another notes writer");
+    await Deno.remove(notesLock);
+    assertEquals(
+      (await recordExceptionNote(root, exception)).status,
+      "recorded",
+    );
+    assertEquals(
+      (await recordExceptionNote(root, exception)).status,
+      "already_present",
+    );
     assertEquals(ProofNotePayloadSchema.safeParse(payload).success, false);
     assertEquals(
       (await readProofNoteAt(root, exception.data.target)).status,

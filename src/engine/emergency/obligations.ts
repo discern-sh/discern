@@ -131,6 +131,10 @@ export async function resolveEmergencyValidation(
 export async function emergencyValidationStatus(
   root: string,
 ): Promise<EmergencyValidation[]> {
+  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: root,
+  });
+  if (!inside.success || inside.stdout.trim() !== "true") return [];
   const rows: EmergencyValidation[] = [];
   for (
     const record of observedRecords(

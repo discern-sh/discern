@@ -15,6 +15,18 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 Deno.test("fresh public accept checks desk source authority and never lands twice", async () => {
   await withTempDir(async (root) => {
     const path = await project(root, ["local"]);
+    const initialTrunk = await gitOut(root, "rev-parse", "main");
+    const emptyPreview = await runAgent(path, [
+      "accept",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(emptyPreview.code, 0, emptyPreview.output);
+    const previewResult = decodeCliResult(emptyPreview.stdout, "accept");
+    assert(previewResult.data !== undefined && "pending" in previewResult.data);
+    assertEquals(previewResult.data.pending?.[0]?.kind, "missing-evidence");
+    assertEquals(await gitOut(root, "rev-parse", "main"), initialTrunk);
+    assertEquals(observedRecords(await observeQueue(root, "main")).length, 0);
     const done = await runAgent(path, ["done", "--retain-checkout", "--json"]);
     assertEquals(done.code, 0, done.output);
     const before = await gitOut(root, "rev-parse", "main");

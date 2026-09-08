@@ -3,7 +3,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
-import { git, runAgent } from "./engine_helpers.ts";
+import { git, gitOut, runAgent } from "./engine_helpers.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import {
   observedRecords,
@@ -48,6 +48,23 @@ ignored = ['executions']
     assert(environment?.kind === "environment", stopped.output);
     const evidence = records.filter((record) => record.kind === "evidence");
     assert(evidence.length > 0);
+    assertEquals(
+      (await recoverCompletionResult(root, environment.id)).ok,
+      false,
+    );
+    assert(environment.data.ownership.kind === "borrowed");
+    const source = environment.data.ownership.source;
+    const priorSource = await gitOut(root, "rev-parse", source.branch);
+    const otherHead = await gitOut(root, "rev-parse", "main");
+    assert(priorSource !== otherHead);
+    await git(root, "update-ref", source.branch, otherHead, priorSource);
+    const changedSource = await recoverCompletionResult(path, environment.id);
+    assertStringIncludes(changedSource.message ?? "", "source branch changed");
+    await git(root, "update-ref", source.branch, priorSource, otherHead);
+    assertEquals(
+      (await requireEnvironment(path, environment.id)).record,
+      environment,
+    );
     const preview = await recoverCompletionResult(path, environment.id, true);
     assert(preview.ok, JSON.stringify(preview));
     assertEquals(
