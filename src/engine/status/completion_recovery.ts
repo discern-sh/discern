@@ -31,3 +31,39 @@ export async function completionRecoveryStatus(root: string): Promise<{
     ],
   };
 }
+
+/** Active execution and recovery supersede ordinary authoring and landing directions. */
+export function completionStatusPresentation(
+  recovery: Awaited<ReturnType<typeof completionRecoveryStatus>>,
+  ordinaryHints: readonly FiredHint[],
+  landingMessage?: string,
+): { hints: FiredHint[]; message?: string } {
+  const recovering = (recovery.data.execution_recovery?.length ?? 0) > 0;
+  const active = recovery.data.execution_activity?.[0];
+  const hints = [...ordinaryHints];
+  if (recovering || active !== undefined) {
+    const nextSteps = new Set(
+      Object.values(HINTS).filter((definition) =>
+        definition.category === "next-step"
+      ).map((definition) => definition.id as string),
+    );
+    hints.splice(
+      0,
+      hints.length,
+      ...hints.filter((hint) => !nextSteps.has(hint.id)),
+    );
+    if (!recovering) {
+      hints.push(fire(HINTS["completion-pending"], {
+        action:
+          "Let the recorded execution finish, or cancel its owning command and follow the resulting recovery. Keep this checkout out of other authoring or release operations while it is active.",
+      }));
+    }
+  }
+  hints.push(...recovery.hints);
+  const message = recovering
+    ? "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action."
+    : active !== undefined
+    ? `Execution ${active.attempt_id} is in phase ${active.phase} in environment ${active.environment_id}.`
+    : landingMessage;
+  return { hints, ...(message === undefined ? {} : { message }) };
+}

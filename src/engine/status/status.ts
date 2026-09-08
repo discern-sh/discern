@@ -1,4 +1,7 @@
-import { completionRecoveryStatus } from "./completion_recovery.ts";
+import {
+  completionRecoveryStatus,
+  completionStatusPresentation,
+} from "./completion_recovery.ts";
 import { checkoutLandingStatus } from "./checkout_landing.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
@@ -322,9 +325,7 @@ export async function statusResult(
   // identity derives from the configured trunk branch rather than worktree
   // metadata.
   const worktree = await buildCheckoutIdentityBlock(root, cfg);
-  const checkoutLanding = location === "worktree" && worktree !== null
-    ? await checkoutLandingStatus(root, worktree)
-    : undefined;
+  const checkoutLanding = await checkoutLandingStatus(root, worktree, location);
 
   // Fleet decision. The fleet is only worth surveying from the main checkout (the
   // supervisor view) or when a worktree explicitly asks via --all — so a plain
@@ -666,7 +667,7 @@ export async function statusResult(
     ? checkpointInspectionHints(await inspectCheckpointObligations(root, cfg))
     : [];
 
-  const hints = await buildStatusHints({
+  const ordinaryHints = await buildStatusHints({
     root,
     location,
     mainBranch,
@@ -698,47 +699,18 @@ export async function statusResult(
     checkpointPreview,
     currentSourceLanded: checkoutLanding !== undefined,
   });
-  const recovering =
-    (completionRecovery.data.execution_recovery?.length ?? 0) > 0;
-  const activeExecution = completionRecovery.data.execution_activity?.[0];
-  if (recovering || activeExecution !== undefined) {
-    const nextSteps = new Set(
-      Object.values(HINTS).filter((definition) =>
-        definition.category === "next-step"
-      ).map((definition) => definition.id as string),
-    );
-    hints.splice(
-      0,
-      hints.length,
-      ...hints.filter((hint) => !nextSteps.has(hint.id)),
-    );
-    if (!recovering) {
-      hints.push(fire(HINTS["completion-pending"], {
-        action:
-          "Let the recorded execution finish, or cancel its owning command and follow the resulting recovery. Keep this checkout out of other authoring or release operations while it is active.",
-      }));
-    }
-  }
-  hints.push(...completionRecovery.hints);
+  const { hints, ...presentation } = completionStatusPresentation(
+    completionRecovery,
+    ordinaryHints,
+    checkoutLanding?.message,
+  );
   if (opts.verbose !== true) {
     hints.push(fire(HINTS["status-full-structured-detail"]));
   }
   const result: DiscernResult<StatusData> = {
     ok: true,
     verb: "status",
-    ...(recovering
-      ? {
-        message:
-          "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action.",
-      }
-      : activeExecution !== undefined
-      ? {
-        message:
-          `Execution ${activeExecution.attempt_id} is in phase ${activeExecution.phase} in environment ${activeExecution.environment_id}.`,
-      }
-      : checkoutLanding === undefined
-      ? {}
-      : { message: checkoutLanding.message }),
+    ...presentation,
     data,
     ...(opts.verbose === true ? { wireProjection: "full" as const } : {}),
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),

@@ -24,11 +24,7 @@ import {
   type PublicValidationRun,
 } from "../validation/public_run.ts";
 import { runCompleteGate } from "./complete_gate.ts";
-import { settleReviewedCheckout } from "./review_release.ts";
-import {
-  OperationLockError,
-  withCompletionCheckout,
-} from "../operation_lock.ts";
+import { reusableGreenProof, reuseReviewedProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
@@ -71,8 +67,6 @@ import {
 import {
   type AdminStateWriteAuthority,
   currentTreeIdentity,
-  gateProofHasCompleteEvidence,
-  inspectGateProof,
   inspectLastGateRun,
   pinValidatedTree,
   preflightAdminStateWrites,
@@ -96,7 +90,6 @@ import { fmtRate } from "../validation/metrics.ts";
 import { verifyTrunkLimits } from "./standard_limits.ts";
 import {
   inspectActiveStandardLimitProposals,
-  sameStandardLimitProposalSet,
   staleProposalDiagnostic,
   standardLimitProposalIdentity,
 } from "./standard_proposal_state.ts";
@@ -133,10 +126,7 @@ import { inspectCheckpointNotes } from "../checkpoints/inspection.ts";
 import { relatedCheckpointData } from "../checkpoints/related.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { AWAITING_DECLARATION_SLUG } from "../../shared/declarations.ts";
-import {
-  checkpointDropAccounts,
-  isIndeterminateStopDrop,
-} from "../../shared/checkpoint_drops.ts";
+import { checkpointDropAccounts } from "../../shared/checkpoint_drops.ts";
 import {
   gateCheckpointsData,
   proofCheckpointsData,
@@ -147,7 +137,6 @@ import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   assertMainMerged,
   detectSilentDivergence,
-  inspectResolvedTrunkMerged,
   integrationBranch,
 } from "../worktree/git.ts";
 import {
@@ -1665,58 +1654,9 @@ async function gateRunEvidenceIdentity(
   });
 }
 
-/**
- * Reuse the canonical Proof only when it completely proves this exact clean
- * HEAD. This check runs before checkpoint reconciliation, so the optimization
- * cannot mutate conclusions, run fixers, measure Standards, or invoke a
- * configured job. An incomplete marker is a cache miss, never success.
- */
-async function reusableGreenProof(
-  root: string,
-): Promise<DiscernResult<GateData> | undefined> {
-  const proof = await inspectGateProof(root);
-  if (
-    !gateProofHasCompleteEvidence(proof) ||
-    proof.checkpoint_drops?.some((drop) =>
-        drop.reason === "declaration_evidence_unavailable" ||
-        drop.reason === "strand_check_unavailable" ||
-        isIndeterminateStopDrop(drop)
-      ) === true
-  ) {
-    return undefined;
-  }
-  const proposalState = await activeStandardLimitProposalState(root);
-  if (proposalState === undefined) return undefined;
-  const merged = await inspectResolvedTrunkMerged(root, proposalState.trunk);
-  if (
-    merged.kind === "behind" || merged.kind === "missing" ||
-    merged.kind === "unavailable"
-  ) {
-    return undefined;
-  }
-  if (
-    !sameStandardLimitProposalSet(
-      proof.proof_data.standard_proposals ?? [],
-      proposalState.proposals,
-    )
-  ) {
-    return undefined;
-  }
-  return {
-    ok: true,
-    verb: "done",
-    message: "Current green Proof covers this exact tree; no gate job ran.",
-    data: {
-      gate_ran: false,
-      failed_stage: null,
-      scopes_changed: [],
-      proof: proof.proof_data,
-    },
-  };
-}
-
 const DONE_PREAMBLE_OPERATIONS = {
-  reusableGreenProof,
+  reusableGreenProof: (root) =>
+    reusableGreenProof(root, activeStandardLimitProposalState),
   resolveCheckpointGate,
   unchangedTreeRerunRefusal,
   gateRunEvidenceIdentity,
@@ -1741,47 +1681,12 @@ function donePreambleOperations(
         ),
     } satisfies Partial<DonePreambleOperations>),
     ...(ownership === undefined ? {} : {
-      reusableGreenProof: async (root) => {
-        try {
-          return await withCompletionCheckout(root, async (signal) => {
-            const reused = await reusableGreenProof(root);
-            if (reused === undefined) return undefined;
-            const pointer = reused.data?.proof?.completion;
-            if (pointer === undefined) return undefined;
-            await settleReviewedCheckout(
-              root,
-              pointer,
-              ownership.retain,
-              false,
-              signal,
-            );
-            return {
-              ...reused,
-              message: `${reused.message} Checkout ${
-                ownership.retain
-                  ? "retained for review or feedback edits in this effort"
-                  : "released for validation and eligible cleanup"
-              }.`,
-            };
-          }, ownership.signal);
-        } catch (error) {
-          return {
-            ok: false,
-            verb: "done",
-            error: "precondition_failed",
-            message: error instanceof OperationLockError
-              ? error.message
-              : `Checkout ownership could not change: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            hints: hintTexts([fire(HINTS["completion-pending"], {
-              action:
-                "Stop preview or watch processes using this checkout and resolve any reported recovery, then retry done. Use done --retain-checkout before feedback edits in the same effort.",
-            })]),
-            data: { gate_ran: false, failed_stage: null, scopes_changed: [] },
-          };
-        }
-      },
+      reusableGreenProof: (root) =>
+        reuseReviewedProof(
+          root,
+          DONE_PREAMBLE_OPERATIONS.reusableGreenProof,
+          ownership,
+        ),
     } satisfies Partial<DonePreambleOperations>),
   };
 }

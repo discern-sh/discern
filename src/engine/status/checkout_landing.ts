@@ -13,8 +13,10 @@ export interface CheckoutLandingStatus {
 /** Observe only the invoking source's landing and cleanup. */
 export async function checkoutLandingStatus(
   root: string,
-  identity: { readonly id: string; readonly branch: string },
+  identity: { readonly id: string; readonly branch: string } | null,
+  location: "worktree" | "main",
 ): Promise<CheckoutLandingStatus | undefined> {
+  if (location !== "worktree" || identity === null) return undefined;
   const head = await runGit(["rev-parse", "HEAD"], { cwd: root });
   if (!head.success) return undefined;
   const sourceHead = head.stdout.trim();
