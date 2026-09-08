@@ -26,7 +26,7 @@ import { SnapshotSchema } from "../src/engine/execution/snapshot_schema.ts";
 import { WorkspaceStateSchema } from "../src/engine/execution/workspace_state.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { parsePorcelainZ } from "../src/shared/git_paths.ts";
-import { decodeBase64 } from "@std/encoding/base64";
+import { verifyRecoveryPayload } from "../src/engine/execution/payloads.ts";
 import { completionFixtures, completionId } from "./completion_fixtures.ts";
 import { COMPLETION_FAMILIES } from "../src/engine/completion/records.ts";
 import {
@@ -220,9 +220,12 @@ Deno.test("V05 staged binary and new files are captured before return and cannot
     assert(capture.git !== null);
     assertStringIncludes(capture.git.staged_patch, "GIT binary patch");
     assertEquals(
-      decodeBase64(
-        capture.git.files.find((file) => file.path === "binary")?.contents ??
-          "",
+      await Deno.readFile(
+        await verifyRecoveryPayload(
+          f.root,
+          capture.git.files.find((file) => file.path === "binary")?.contents ??
+            "",
+        ),
       ),
       new Uint8Array([0, 1, 2]),
     );
@@ -230,9 +233,15 @@ Deno.test("V05 staged binary and new files are captured before return and cannot
     for (const path of newFiles) {
       assertEquals(status.find((entry) => entry.path === path)?.status, "??");
       assertEquals(
-        new TextDecoder().decode(decodeBase64(
-          capture.git.files.find((file) => file.path === path)?.contents ?? "",
-        )),
+        new TextDecoder().decode(
+          await Deno.readFile(
+            await verifyRecoveryPayload(
+              f.root,
+              capture.git.files.find((file) => file.path === path)?.contents ??
+                "",
+            ),
+          ),
+        ),
         "candidate write",
       );
     }

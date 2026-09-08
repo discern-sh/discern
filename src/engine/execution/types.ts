@@ -44,6 +44,7 @@ export interface ExecutionWorkspace {
   inspect(
     environment: ExecutionEnvironment,
     declaration: EnvironmentDeclaration | null,
+    observation?: "source" | "recovery" | "release",
   ): Promise<WorkspaceSnapshot>;
   verify(
     environment: ExecutionEnvironment,

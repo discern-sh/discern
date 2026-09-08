@@ -134,6 +134,8 @@ export const EnvironmentSchema = z.strictObject({
       candidate_id: RecordIdSchema,
       release_id: RecordIdSchema,
       claim: ClaimSchema,
+      /** Latest retained capture; immutable revisions retain earlier captures. */
+      capture: ArtifactSchema.optional(),
       phase: z.enum([
         "prepare",
         "install",

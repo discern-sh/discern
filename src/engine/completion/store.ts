@@ -1,3 +1,4 @@
+import { invalidateCompletionPublication } from "./publication_witness.ts";
 /** Common-admin record IO. Observation has no effects; publication is a short CAS. */
 import { completionRecordVersionSupported } from "./version.ts";
 import { dirname, join } from "@std/path";
@@ -60,7 +61,7 @@ export async function parseCompletionRecord(
       reason: "completion record needs its registered version",
     };
   }
-  // Version 2 has the same reviewed data shapes. Normalize only the envelope;
+  // Reviewed older envelopes omit only optional fields. Normalize the envelope;
   // retain the byte stamp so a later CAS archives the exact original document.
   const decoded = JSON.parse(raw);
   const parsed = CompletionRecordSchema.safeParse(
@@ -81,6 +82,7 @@ export async function parseCompletionRecord(
 /** Read fresh records through a directory resolved for one operation. */
 export interface CompletionRecordStore {
   readonly directory: string;
+  readonly publicationPath: string;
   readonly path: (selector: RecordSelector, revision?: number) => string;
   readonly read: (
     selector: RecordSelector,
@@ -126,6 +128,13 @@ function completionStoreAt(directory: string): CompletionRecordStore {
     join(directory, recordRelativePath(selector, revision));
   return {
     directory,
+    publicationPath: join(
+      GIT_ADMIN_STATE.completionRecords.path.split("/").reduce(
+        (parent) => dirname(parent),
+        directory,
+      ),
+      GIT_ADMIN_STATE.completionPublication.path,
+    ),
     path,
     read: (selector, revision) => readStoredRecord(path, selector, revision),
   };
@@ -358,6 +367,7 @@ export async function writeCompletionRecord(
           clock.wallNow(),
         );
         if (lost !== undefined) return { kind: "claim-lost", reason: lost };
+        await invalidateCompletionPublication(store.publicationPath);
         if (current.kind === "recorded") {
           const blocked = await preserveRevision(
             store,

@@ -1,3 +1,6 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+export const WORKSPACE_STATE_FORMAT =
+  `${ON_DISK_FORMATS.executionWorkspaceState.id}-v${ON_DISK_FORMATS.executionWorkspaceState.version}` as const;
 /** Recovery artifact shape, independent of the adapter's process machinery. */
 import { z } from "@zod/zod";
 import { NameSchema } from "../completion/identity.ts";
@@ -17,7 +20,7 @@ export const ExecutionIdentitySettingsSchema = z.strictObject({
 }));
 
 export const WorkspaceStateSchema = z.strictObject({
-  format: z.literal("execution-workspace-state-v1"),
+  format: z.literal(WORKSPACE_STATE_FORMAT),
   git: GitSnapshotSchema.nullable(),
   settings: ExecutionIdentitySettingsSchema,
   worktree_id: NameSchema,

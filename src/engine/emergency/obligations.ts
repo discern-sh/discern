@@ -6,11 +6,7 @@ import {
 /** Current validation resolves a new obligation record; the original exception stays immutable. */
 import { z } from "@zod/zod";
 import type { EmergencyValidation } from "../../shared/emergency.ts";
-import {
-  type CompletionProofPointer,
-  CompletionProofPointerSchema,
-} from "../../shared/completion_proof.ts";
-import { ObjectIdSchema, RecordIdSchema } from "../completion/identity.ts";
+import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { artifactPath } from "../execution/artifact_read.ts";
@@ -22,13 +18,8 @@ import { observedRecords, withQueueLock } from "../landing_queue/repository.ts";
 import type { LandingRecord } from "../landing_queue/publication.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
-export const EmergencyResolutionSchema = z.strictObject({
-  version: z.literal(ON_DISK_FORMATS.emergencyResolution.version),
-  landing_id: RecordIdSchema,
-  proof: CompletionProofPointerSchema,
-  head: ObjectIdSchema,
-  resolved_at: z.number(),
-});
+import { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
+export { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
 const resolutionName = (landing: LandingRecord): string =>
   `emergency-validation-${landing.id}`;
 

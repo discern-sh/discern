@@ -63,6 +63,12 @@
         "kind": "directory",
         "validation": false
       },
+      "completionPublication": {
+        "path": "discern/completion/publication.json",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
       "completionArtifacts": {
         "path": "discern/completion/artifacts",
         "scope": "common",
@@ -426,13 +432,101 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 3,
+      "version": 4,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {
         "kind": "git-admin",
         "keys": [
           "completionRecords"
+        ]
+      }
+    },
+    "completion-publication": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionPublication"
+        ]
+      }
+    },
+    "execution-git-snapshot": {
+      "version": 1,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "execution-source-observation": {
+      "version": 1,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "execution-git-manifest": {
+      "version": 2,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "execution-release-observation": {
+      "version": 2,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "execution-workspace-state": {
+      "version": 1,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "execution-intent": {
+      "version": 1,
+      "version_field": "format",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
+        ]
+      }
+    },
+    "candidate-review": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "completionArtifacts"
         ]
       }
     },

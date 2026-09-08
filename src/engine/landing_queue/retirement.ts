@@ -1,12 +1,10 @@
 import { inspectIgnoredFileChanges } from "../worktree/ignored.ts";
-import { IgnoredFileChangeSummarySchema } from "../../shared/ignored_file_changes.ts";
 import type { RetirementEffects } from "../../shared/accept_landing_state.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
 import { emitCompletionEvent } from "../completion/events.ts";
 import type { Executor } from "../completion/identity.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Landing evidence lives in common storage; retirement consumes only an exact owner release. */
-import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -16,7 +14,6 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { readTextIfExists, statIfExists } from "../../shared/fs_presence.ts";
 import type { CompletionRecord } from "../completion/records.ts";
-import { EnvironmentSchema } from "../completion/environment.ts";
 import type { CompletionRetirement } from "../completion/outcomes.ts";
 import {
   readCompletionRecord,
@@ -39,10 +36,9 @@ import {
 import { releaseMatchesSnapshot } from "../execution/subjects.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
-import { SnapshotSchema } from "../execution/snapshot_schema.ts";
 import { WorkspaceStateSchema } from "../execution/workspace_state.ts";
 import {
-  captureGitSnapshot,
+  captureGitSnapshotLike,
   requireRestorableSnapshot,
 } from "../execution/snapshot.ts";
 import { recoveryFor } from "../execution/types.ts";
@@ -69,11 +65,8 @@ import { sameSource } from "./model.ts";
 import type { LandingRecord } from "./publication.ts";
 
 type RetirementRecord = Extract<CompletionRecord, { kind: "retirement" }>;
-export const RetirementCaptureSchema = z.strictObject({
-  ignored_file_changes: IgnoredFileChangeSummarySchema.optional(),
-  environment: EnvironmentSchema,
-  snapshot: SnapshotSchema,
-});
+import { RetirementCaptureSchema } from "../execution/artifact_contracts.ts";
+export { RetirementCaptureSchema } from "../execution/artifact_contracts.ts";
 export const RETIREMENT_BOUNDARIES = [
   "planned",
   "resources",
@@ -447,7 +440,12 @@ async function applyRetirement(
             reason: "ownership-uncertain",
           });
         }
-        const git = await captureGitSnapshot(path, bounds);
+        const git = await captureGitSnapshotLike(
+          path,
+          bounds,
+          state.git,
+          runtime.root,
+        );
         requireRestorableSnapshot(git);
         if (
           git.head !== record.data.source.head ||
@@ -530,7 +528,9 @@ async function applyRetirement(
         }
         await runtime.afterBoundary?.("resources", record);
         if (
-          JSON.stringify(await captureGitSnapshot(path, bounds)) !==
+          JSON.stringify(
+            await captureGitSnapshotLike(path, bounds, git, runtime.root),
+          ) !==
             JSON.stringify(git)
         ) return await settle({ kind: "retained", reason: "dirty" });
         if (

@@ -9,7 +9,7 @@ import {
   observedRecords,
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
-import { decodeBase64 } from "@std/encoding/base64";
+import { verifyRecoveryPayload } from "../src/engine/execution/payloads.ts";
 import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
 import { WorkspaceStateSchema } from "../src/engine/execution/workspace_state.ts";
 import { statIfExists } from "../src/shared/fs_presence.ts";
@@ -116,7 +116,9 @@ for (const retained of [false, true]) {
         );
         assert(executions !== undefined);
         assertEquals(
-          new TextDecoder().decode(decodeBase64(executions.contents)),
+          await Deno.readTextFile(
+            await verifyRecoveryPayload(root, executions.contents),
+          ),
           "tt",
         );
         assertEquals(await Deno.readTextFile(`${root}/source`), "authored\n");

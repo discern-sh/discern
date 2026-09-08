@@ -284,7 +284,18 @@ Deno.test("completion records survive linked checkout removal and are observed t
     assert(
       (await runGit(["worktree", "remove", linked], { cwd: main })).success,
     );
-    const reading = await readCompletionRecord(main, fixture);
+    const cwd = Deno.cwd;
+    Deno.cwd = (): string => {
+      throw new Deno.errors.NotFound(
+        "The retired caller has no working directory.",
+      );
+    };
+    let reading: Awaited<ReturnType<typeof readCompletionRecord>>;
+    try {
+      reading = await readCompletionRecord(main, fixture);
+    } finally {
+      Deno.cwd = cwd;
+    }
     assert(reading.kind === "recorded");
     assertEquals(reading.record, fixture);
   });

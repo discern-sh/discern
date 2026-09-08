@@ -1,3 +1,4 @@
+import { errorReason, recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -104,23 +105,34 @@ export async function ownValidationEnvironment(
           worktree_id: identity.id,
           seed: identity.seed,
           resources: Object.fromEntries(
-            (declaration?.resources ?? []).map(
-              (name) => [name, resourceForId(settings.slug, identity.id, name)],
-            ),
+            (declaration?.resources ?? Object.keys(config.worktree.resources))
+              .map(
+                (
+                  name,
+                ) => [name, resourceForId(settings.slug, identity.id, name)],
+              ),
           ),
         },
       },
     }, declaration);
   }
   const enrolled = await requireEnvironment(root, environmentId);
-  await releaseExecutionEnvironment(
-    root,
-    environmentId,
-    enrolled.stamp,
-    actor,
-    declaration,
-    { lifetime, workspace },
-  );
+  try {
+    await releaseExecutionEnvironment(
+      root,
+      environmentId,
+      enrolled.stamp,
+      actor,
+      declaration,
+      { lifetime, workspace },
+    );
+  } catch (error) {
+    return {
+      kind: "recovery-incomplete",
+      record_id: environmentId,
+      recovery: recoveryFor("capture", errorReason(error), root, [], true),
+    };
+  }
   return { environmentId, workspace, lifetime };
 }
 

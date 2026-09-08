@@ -658,7 +658,7 @@ Deno.test("standards propose refuses failed measurements", async () => {
     assertEquals(failed.code, 1, failed.output);
     assertTerminalTextIncludes(
       String(decodeCliResult(failed.stdout, "standards propose").message),
-      "did not yield a numeric metric",
+      "could not complete",
     );
   });
 });

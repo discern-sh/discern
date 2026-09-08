@@ -1,8 +1,17 @@
+import { SOURCE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
+import { RECOVERY_MANIFEST_FORMAT } from "./snapshot_schema.ts";
+import { RELEASE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
+import { WORKSPACE_STATE_FORMAT } from "./workspace_state.ts";
+import { copyRecoveryPayload } from "./payloads.ts";
+import { observeSourceSnapshot } from "./source_snapshot.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 /** Git/resource adapter. Its caller must supply the exclusive lifetime capability. */
 import { globToRegExp } from "@std/path";
 import { decodeBase64 } from "@std/encoding/base64";
-import { atomicReplaceBytes } from "../../shared/atomic_write.ts";
+import {
+  atomicReplaceBytes,
+  removeIfExists,
+} from "../../shared/atomic_write.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { readTextIfExists, statIfExists } from "../../shared/fs_presence.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
@@ -42,6 +51,7 @@ import { readExecutionDocument } from "./artifact_read.ts";
 import {
   type CaptureBounds,
   captureGitSnapshot,
+  captureGitSnapshotLike,
   containedFile,
   executionGit,
   requireRestorableSnapshot,
@@ -80,6 +90,13 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     environment: ExecutionEnvironment,
     declaration: EnvironmentDeclaration | null,
     frozen?: WorkspaceState,
+    observation: "source" | "recovery" | "release" =
+      frozen?.git?.format === RELEASE_OBSERVATION_FORMAT
+        ? "release"
+        : frozen?.git?.format === SOURCE_OBSERVATION_FORMAT ||
+            declaration === null
+        ? "source"
+        : "recovery",
   ): Promise<WorkspaceState> {
     const settings = frozen?.settings ?? this.options.settings;
     const borrowed = environment.ownership.kind === "borrowed"
@@ -95,7 +112,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         ) => [name, resourceForId(settings.slug, id, name)]),
       );
     const base = {
-      format: "execution-workspace-state-v1" as const,
+      format: WORKSPACE_STATE_FORMAT,
       settings: ExecutionIdentitySettingsSchema.parse(settings),
       worktree_id: id,
       seed: borrowed?.identity.seed ?? identity.seed,
@@ -130,7 +147,14 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         "Environment enrollment must use the canonical checkout path.",
       );
     }
-    const git = await captureGitSnapshot(environment.path, this.options.bounds);
+    const git = observation === "source"
+      ? await observeSourceSnapshot(environment.path, this.options.bounds)
+      : await captureGitSnapshot(
+        environment.path,
+        this.options.bounds,
+        undefined,
+        { root: this.options.root, preserve: observation === "recovery" },
+      );
     const common = await resolveCommonGitDir(environment.path);
     const expectedCommon = await resolveCommonGitDir(this.options.root);
     if (common === undefined || common !== expectedCommon) {
@@ -165,7 +189,7 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
       const entries = gitKey === undefined
         ? []
         : await captureWorktreeResourceLedger(common, gitKey, environment.path);
-      for (const name of declaration?.resources ?? []) {
+      for (const name of Object.keys(resources)) {
         const item = entries.find(({ entry }) => entry.resource_name === name);
         if (
           item === undefined || item.entry.phase !== "ready" ||
@@ -186,9 +210,22 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
   async inspect(
     environment: ExecutionEnvironment,
     declaration: EnvironmentDeclaration | null,
+    observation?: "source" | "recovery" | "release",
   ): Promise<WorkspaceSnapshot> {
-    const state = await this.state(environment, declaration);
-    if (declaration !== null) requireRestorableSnapshot(state.git);
+    const state = await this.state(
+      environment,
+      declaration,
+      undefined,
+      observation ??
+        (environment.release.kind === "released" &&
+            environment.release.retirement
+          ? "recovery"
+          : undefined),
+    );
+    if (
+      observation !== "release" &&
+      state.git?.format !== SOURCE_OBSERVATION_FORMAT
+    ) requireRestorableSnapshot(state.git);
     if (environment.ownership.kind === "borrowed") {
       const source = environment.ownership.source;
       if (
@@ -236,7 +273,14 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
     }
     if (
       JSON.stringify(
-        await captureGitSnapshot(environment.path, this.options.bounds),
+        await (state.git.format === SOURCE_OBSERVATION_FORMAT
+          ? observeSourceSnapshot(environment.path, this.options.bounds)
+          : captureGitSnapshotLike(
+            environment.path,
+            this.options.bounds,
+            state.git,
+            this.options.root,
+          )),
       ) !== JSON.stringify(state.git)
     ) {
       throw new Error(
@@ -291,7 +335,12 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         this.options.bounds,
       );
     }
-    const current = await captureGitSnapshot(path, this.options.bounds);
+    const current = plan.action === "source-tip"
+      ? await observeSourceSnapshot(path, this.options.bounds)
+      : await captureGitSnapshot(path, this.options.bounds, undefined, {
+        root: this.options.root,
+        preserve: true,
+      });
     if (
       current.head !== execution.candidate.head ||
       current.tree !== execution.candidate.tree || current.status !== "" ||
@@ -600,14 +649,24 @@ class GitExecutionWorkspace implements ExecutionWorkspace {
         mode: 0o600,
       });
       try {
-        await atomicReplaceBytes(
-          original.git.index_path,
-          decodeBase64(original.git.index),
-          { mode: 0o600, sync: true },
-        );
+        if (original.git.format === RECOVERY_MANIFEST_FORMAT) {
+          await copyRecoveryPayload(
+            this.options.root,
+            original.git.index,
+            indexLock,
+          );
+          await lock.sync();
+          await Deno.rename(indexLock, original.git.index_path);
+        } else {
+          await atomicReplaceBytes(
+            original.git.index_path,
+            decodeBase64(original.git.index),
+            { mode: 0o600, sync: true },
+          );
+        }
       } finally {
         lock.close();
-        await Deno.remove(indexLock);
+        await removeIfExists(indexLock);
       }
     }
     // The restored checkout is a fresh observation for later discovery.

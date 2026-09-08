@@ -5,14 +5,14 @@ import {
 } from "./convergence.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
-import { z } from "@zod/zod";
+import type { z } from "@zod/zod";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { Logger } from "../../lib/log.ts";
 import { recordLandingProofNote } from "../worktree/accept_proof_recording.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { readEnvironmentArtifact } from "../execution/artifact_read.ts";
-import { AcceptProofNoteSchema } from "../../shared/result_schemas.ts";
+import { LandingNoteResultSchema } from "../execution/artifact_contracts.ts";
 import {
   emitCompletionEvent,
   emitCompletionProgress,
@@ -296,12 +296,6 @@ async function settleAdvanced(
     authority_settlement: cleaned ? "consumed" : "pending",
   });
 }
-
-const LandingNoteResultSchema = z.strictObject({
-  proof_note: AcceptProofNoteSchema.optional(),
-  hints: z.array(z.string()),
-  reason: z.string().optional(),
-});
 
 /** Retained note diagnostics survive retirement and do not repeat any publication effect. */
 export async function readLandingNoteResult(

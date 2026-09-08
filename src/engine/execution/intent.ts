@@ -1,3 +1,6 @@
+import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+export const EXECUTION_INTENT_FORMAT =
+  `${ON_DISK_FORMATS.executionIntent.id}-v${ON_DISK_FORMATS.executionIntent.version}` as const;
 /** Frozen attempt artifacts supplement the canonical environment phase record. */
 import { z } from "@zod/zod";
 import { EnvironmentDeclarationSchema } from "../../shared/config_schema.ts";
@@ -9,7 +12,7 @@ import { readExecutionDocument } from "./artifact_read.ts";
 import { releaseMatchesSnapshot } from "./subjects.ts";
 import { SnapshotSchema } from "./snapshot_schema.ts";
 export const ExecutionIntentSchema = z.strictObject({
-  format: z.literal("execution-intent-v1"),
+  format: z.literal(EXECUTION_INTENT_FORMAT),
   environment_id: RecordIdSchema,
   environment: EnvironmentSchema,
   candidate_id: RecordIdSchema,

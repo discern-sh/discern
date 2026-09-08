@@ -108,6 +108,9 @@ function futureVersionFixture(key: OnDiskFormatKey): string {
   if (format.versionField === "header") {
     return `discern crash report format ${future}\n`;
   }
+  if (format.versionField === "format") {
+    return JSON.stringify({ format: `${format.id}-v${future}` });
+  }
   if (format.versionField === "payloadType") {
     return JSON.stringify({
       payloadType:

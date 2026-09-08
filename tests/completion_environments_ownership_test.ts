@@ -22,6 +22,7 @@ import {
   resolveIdentity,
 } from "../src/engine/worktree/identity.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { observeSourceSnapshot } from "../src/engine/execution/source_snapshot.ts";
 import { captureGitSnapshot } from "../src/engine/execution/snapshot.ts";
 import { readEnvironmentArtifact } from "../src/engine/execution/artifact_read.ts";
 import { saveEnvironmentArtifact } from "../src/engine/execution/artifacts.ts";
@@ -215,6 +216,20 @@ Deno.test("V05 incomplete bounded capture and symlink ancestors refuse without r
       maxBytes: 1024,
       gitTimeoutMs: TEST_PROCESS_TIMEOUT_MS,
     };
+    const index = join(
+      await gitOut(f.path, "rev-parse", "--absolute-git-dir"),
+      "index",
+    );
+    const alternate = join(base, "alternate-index");
+    const originalIndex = await Deno.readFile(index);
+    await Deno.writeFile(alternate, originalIndex);
+    await assertRejects(
+      () => observeSourceSnapshot(f.path, bounds, alternate),
+      Error,
+      "alternate Git index",
+    );
+    assertEquals(await Deno.readFile(index), originalIndex);
+    assertEquals(await Deno.readFile(alternate), originalIndex);
     await assertRejects(
       () => captureGitSnapshot(f.path, bounds, "alternate-index"),
       Error,
@@ -223,7 +238,7 @@ Deno.test("V05 incomplete bounded capture and symlink ancestors refuse without r
     await assertRejects(
       () => captureGitSnapshot(f.path, bounds),
       Error,
-      "capture",
+      "Capture file limit",
     );
     await Deno.mkdir(join(f.path, "alias-target"));
     await Deno.writeTextFile(join(f.path, "alias-target", "bytes"), "preserve");
