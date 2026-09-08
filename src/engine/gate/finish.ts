@@ -1828,7 +1828,7 @@ export async function finishResult(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
-      deferCheckpoints: !opts.standalone &&
+      deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
@@ -1990,7 +1990,7 @@ export async function runFinish(
       declarations,
       rerunRequested,
       ciRecovery: terminal.ciRequestsStaticOutput,
-      deferCheckpoints: !opts.standalone &&
+      deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
     },
     donePreambleOperations(opts.policyBase),
