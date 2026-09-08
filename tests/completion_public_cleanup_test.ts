@@ -1,5 +1,5 @@
 /** Historical retention stays separate from current landing and cleanup. */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, runAgent } from "./engine_helpers.ts";
@@ -17,6 +17,7 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
     const first = await runAgent(earlier, ["accept", "--confirmed", "--json"]);
     assertEquals(first.code, 0, first.output);
     const firstResult = decodeCliResult(first.stdout, "accept");
+    assertStringIncludes(firstResult.message ?? "", "has not been released");
     assert(firstResult.data !== undefined && "queue" in firstResult.data);
     assertEquals(firstResult.data?.queue?.map((row) => row.retirement), [
       "retained",

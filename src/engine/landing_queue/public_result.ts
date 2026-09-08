@@ -42,7 +42,7 @@ export function retainedCheckoutExplanation(
 ): string {
   switch (reason) {
     case "unreleased":
-      return "The owner retained this checkout for review or further edits. Inspect its current state with discern status --verbose before releasing it.";
+      return "The checkout has not been released for cleanup. It remains available for review or further edits. Inspect its current state with discern status --verbose before releasing it.";
     case "active-use":
       return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
     case "moved-branch":
