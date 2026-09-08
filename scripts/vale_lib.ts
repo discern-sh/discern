@@ -10,6 +10,7 @@ import {
 } from "./vale_toolchain.ts";
 
 import { resolve } from "@std/path";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { runningMarkdownProse } from "./markdown_prose.ts";
 import { valeReportSchema } from "./prose_lib.ts";
 
@@ -41,21 +42,17 @@ async function sourceBackedCasing(
         alert.Check === "DiscernProduct.CanonicalTermCase"
       )
     ) continue;
-    let prose: string;
-    try {
-      prose = runningMarkdownProse(
-        await Deno.readTextFile(resolve(repoRoot, path)),
-      );
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+    const source = await readTextIfExists(resolve(repoRoot, path));
+    if (source === undefined) {
       for (const alert of alerts) {
         if (alert.Check !== "DiscernProduct.CanonicalTermCase") continue;
         alert.Message = `${alert.Message ?? "Canonical casing finding"} ` +
-          `Source context could not be checked (${reason}); the finding is retained.`;
+          "Source context is no longer available; the finding is retained.";
       }
       changed = true;
       continue;
     }
+    const prose = runningMarkdownProse(source);
     const lines = prose.split("\n");
     parsed.data[path] = alerts.filter((alert) => {
       if (
