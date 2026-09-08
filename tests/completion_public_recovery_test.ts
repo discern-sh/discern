@@ -10,9 +10,12 @@ import {
   requireQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { requireEnvironment } from "../src/engine/execution/registry.ts";
-import { recoverCompletionResult } from "../src/engine/execution/public_recovery.ts";
+import {
+  executionRecoveryStatus,
+  recoverCompletionResult,
+} from "../src/engine/execution/public_recovery.ts";
 
-Deno.test("public recovery preserves unexpected ignored artifacts and reuses passing evidence after owner reconciliation", async () => {
+Deno.test("public recovery preserves unexpected ignored artifacts from a temporary candidate and reuses passing evidence after owner reconciliation", async () => {
   await withTempDir(async (root) => {
     const path = await project(
       root,
@@ -36,16 +39,35 @@ ignored = ['executions']
     );
     await git(path, "add", ".gitignore");
     await git(path, "commit", "-m", "Declare ignored probe");
+    await Deno.writeTextFile(
+      join(root, "predecessor.txt"),
+      "landed predecessor\n",
+    );
+    await git(root, "add", "predecessor.txt");
+    await git(root, "commit", "-m", "Require a differing temporary candidate");
     const stopped = await runAgent(path, ["done", "--json"]);
     assertTerminalTextIncludes(
       stopped.output,
       "Ignored state outside the declaration changed",
     );
     const records = observedRecords(await observeCompletionRecords(path));
+    assert(
+      records.some((record) =>
+        record.kind === "candidate" &&
+        record.data.head !== record.data.source.head
+      ),
+    );
     const environment = records.find((record) =>
       record.kind === "environment" && record.data.state.kind === "recovery"
     );
     assert(environment?.kind === "environment", stopped.output);
+    const status = await executionRecoveryStatus(path);
+    assertEquals(status.map((item) => item.environment_id), [environment.id]);
+    assertStringIncludes(
+      status[0]?.next_action ?? "",
+      `--recover ${environment.id}`,
+    );
+    assertEquals(await executionRecoveryStatus(root), []);
     const evidence = records.filter((record) => record.kind === "evidence");
     assert(evidence.length > 0);
     assertEquals(
@@ -116,6 +138,7 @@ ignored = ['executions']
     const returned = await requireEnvironment(path, environment.id);
     assertEquals(returned.record.data.state.kind, "idle");
     assertEquals(returned.record.data.release.kind, "held");
+    assertEquals(await executionRecoveryStatus(path), []);
     const queue = await requireQueue(path);
     assert(
       queue.record.data.entries.every((entry) => entry.state !== "active"),

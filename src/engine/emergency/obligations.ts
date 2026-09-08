@@ -1,32 +1,42 @@
-import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
+import {
+  inspectOnDiskRecordVersion,
+  newerOnDiskFormatMessage,
+  ON_DISK_FORMATS,
+} from "../../shared/on_disk_formats.ts";
 /** Current validation resolves a new obligation record; the original exception stays immutable. */
 import { z } from "@zod/zod";
 import type { EmergencyValidation } from "../../shared/emergency.ts";
-import {
-  type CompletionProofPointer,
-  CompletionProofPointerSchema,
-} from "../../shared/completion_proof.ts";
-import { ObjectIdSchema, RecordIdSchema } from "../completion/identity.ts";
+import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { saveEnvironmentArtifact } from "../execution/artifacts.ts";
 import { artifactPath } from "../execution/artifact_read.ts";
 import { readTextIfExists } from "../../shared/fs_presence.ts";
-import { decodeJson } from "../../shared/runtime_decode.ts";
+import { decodeJson, decodeUnknown } from "../../shared/runtime_decode.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { observedRecords, withQueueLock } from "../landing_queue/repository.ts";
 import type { LandingRecord } from "../landing_queue/publication.ts";
 import { runGit } from "../../shared/subprocess.ts";
 
-export const EmergencyResolutionSchema = z.strictObject({
-  version: z.literal(ON_DISK_FORMATS.completionRecord.version),
-  landing_id: RecordIdSchema,
-  proof: CompletionProofPointerSchema,
-  head: ObjectIdSchema,
-  resolved_at: z.number(),
-});
+import { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
+export { EmergencyResolutionSchema } from "../execution/artifact_contracts.ts";
 const resolutionName = (landing: LandingRecord): string =>
   `emergency-validation-${landing.id}`;
+
+/** Classify forward skew before interpreting an independent resolution document. */
+export function parseEmergencyResolution(
+  raw: string,
+  source: string,
+): z.infer<typeof EmergencyResolutionSchema> {
+  const value = decodeJson(z.unknown(), raw, source);
+  const version = inspectOnDiskRecordVersion("emergencyResolution", value);
+  if (version.status === "newer") {
+    throw new Error(
+      newerOnDiskFormatMessage("emergencyResolution", version.found),
+    );
+  }
+  return decodeUnknown(EmergencyResolutionSchema, value, source);
+}
 
 /** Validate the retained later Proof before reporting an obligation as resolved. */
 async function resolution(
@@ -40,7 +50,7 @@ async function resolution(
   );
   const raw = await readTextIfExists(path);
   if (raw === undefined) return undefined;
-  const value = decodeJson(EmergencyResolutionSchema, raw, path);
+  const value = parseEmergencyResolution(raw, path);
   if (value.landing_id !== landing.id) {
     throw new Error(
       "The emergency validation receipt names another landing. Preserve it for recovery.",
@@ -116,7 +126,7 @@ export async function resolveEmergencyValidation(
         },
         resolutionName(record),
         {
-          version: ON_DISK_FORMATS.completionRecord.version,
+          version: ON_DISK_FORMATS.emergencyResolution.version,
           landing_id: record.id,
           proof: pointer,
           head: complete.candidate.head,

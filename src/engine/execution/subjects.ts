@@ -1,3 +1,5 @@
+import { RECOVERY_MANIFEST_FORMAT } from "./snapshot_schema.ts";
+import { RELEASE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
 /** Pure release subjects shared by observation and effectful registration. */
 import {
   type EnvironmentDeclaration,
@@ -32,7 +34,11 @@ export async function releasedSubject(
     // Recovery keeps exact index bytes. Release identity uses the captured
     // entries, staged patch and complete files; native capture rejects index
     // flags and layouts whose semantics those observations cannot preserve.
-    const { index: _index, ...git } = state.data.git;
+    const { index: _index, ...captured } = state.data.git;
+    const git = captured.format === RECOVERY_MANIFEST_FORMAT ||
+        captured.format === RELEASE_OBSERVATION_FORMAT
+      ? { ...captured, format: RELEASE_OBSERVATION_FORMAT }
+      : captured;
     identity = await sha256Hex(JSON.stringify({ ...state.data, git }));
   }
   return await releaseDigest(environment, identity);

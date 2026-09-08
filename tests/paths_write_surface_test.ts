@@ -122,6 +122,22 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ["src/lib/agent_gitattributes.ts", "the .gitattributes block writer"],
   // runtime worktree state
   [
+    "src/engine/completion/publication_witness.ts",
+    "the registry-resolved common Git-admin publication witness, invalidated before record or artifact mutation",
+  ],
+  [
+    "src/engine/execution/payloads.ts",
+    "streamed immutable recovery bytes and private staging under the registry-resolved common Git-admin artifact directory",
+  ],
+  [
+    "src/engine/execution/reclamation.ts",
+    "unreferenced recovery artifacts under the registry-resolved common Git-admin directory, removed only after complete reference and publication checks",
+  ],
+  [
+    "src/engine/execution/storage_lifetime.ts",
+    "the recovery storage lifetime lock inside the registry-resolved common Git-admin artifact directory",
+  ],
+  [
     "src/engine/completion/store.ts",
     "completion records and revision history — registry-resolved common Git-admin state, published through the atomic writer",
   ],

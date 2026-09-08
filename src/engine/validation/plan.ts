@@ -1,3 +1,4 @@
+import { selectDemandObligations } from "./demand.ts";
 /** Demand-driven producer closure; scope and stage labels never suppress requirements. */
 import type {
   CompletionObservation,
@@ -6,7 +7,7 @@ import type {
   ValidationPlan,
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
-import { requirementKey, type ValidationSnapshot } from "./catalog.ts";
+import type { ValidationSnapshot } from "./catalog.ts";
 import { finishedValidationAttempts, selectEvidence } from "./selection.ts";
 import { standardHeld } from "./metrics.ts";
 
@@ -46,47 +47,13 @@ export function planValidation(
     });
     return plan;
   }
-  let selected = snapshot.obligations.filter((o) =>
-    o.requirement.context === demand.context
+  let selected = selectDemandObligations(
+    snapshot.requirements,
+    snapshot.obligations,
+    snapshot.producers,
+    demand,
+    snapshot.candidate,
   );
-  if (
-    demand.kind === "done" || demand.kind === "standards" ||
-    demand.kind === "pin" || demand.kind === "proposal" ||
-    demand.kind === "standalone"
-  ) {
-    const requested = new Set(demand.requirements.map(requirementKey));
-    if (
-      requested.size !== demand.requirements.length ||
-      demand.requirements.some((r) =>
-        !snapshot.requirements.some((known) =>
-          requirementKey(known) === requirementKey(r)
-        )
-      ) ||
-      (demand.kind === "done" &&
-        requested.size !== snapshot.requirements.length)
-    ) throw new Error("demand does not name the declared requirements");
-    selected = selected.filter((o) =>
-      requested.has(requirementKey(o.requirement))
-    );
-  } else if (demand.kind === "diagnostic") {
-    if (
-      JSON.stringify(demand.source) !==
-        JSON.stringify(snapshot.candidate.source) ||
-      demand.base !== snapshot.candidate.expected_predecessor.head ||
-      snapshot.candidate.dependencies.length !== 0
-    ) {
-      throw new Error(
-        "diagnostic comparison needs the same source/base and cannot remove a real dependency",
-      );
-    }
-    selected = selected.filter((o) =>
-      requirementKey(o.requirement) ===
-        requirementKey(demand.failing_requirement)
-    );
-    if (selected.length !== 1) {
-      throw new Error("unknown diagnostic requirement");
-    }
-  }
   const finished = finishedValidationAttempts(records);
   const boundary = finished.find((attempt) => attempt.id === rerunOf);
   const producers = new Map<string, ProducerDemand>();

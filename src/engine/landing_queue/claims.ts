@@ -1,3 +1,8 @@
+import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
+import {
+  completionRecordBlocker,
+  readCompatibleCompletionRecord,
+} from "../completion/compatibility.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Short work claims fence publication while environment leases own checkout effects. */
 import type { Candidate } from "../completion/candidate.ts";
@@ -20,11 +25,12 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import { withQueueLock } from "./repository.ts";
-import { orderedEntries, sameSource } from "./model.ts";
+import { expectedPredecessor, orderedEntries, sameSource } from "./model.ts";
 import {
   observedRecords,
   observeQueue,
   replaceQueue,
+  REPOSITORY_QUEUE_ID,
   requireQueue,
   reserveQueueAttempt,
 } from "./repository.ts";
@@ -83,14 +89,28 @@ export function workCapacity(
       (!sourceTip || entries[0]?.authority_id !== null)
     ? 1
     : 0;
+  const depth = !sourceTip && index > policy.lookahead;
   if (
-    (!sourceTip && index > policy.lookahead) ||
-    active.length + retainedExecutions >= policy.concurrency - reserved
+    depth || active.length + retainedExecutions >= policy.concurrency - reserved
   ) {
     return {
-      kind: "environment-unavailable",
-      reason:
-        "Completion capacity or speculative lookahead is exhausted; approved head work retains a slot.",
+      kind: "capacity-unavailable",
+      transient: false,
+      capacity: {
+        setting: depth ? "completion.lookahead" : "completion.concurrency",
+        limit: depth ? policy.lookahead : policy.concurrency,
+        occupied: active.length + retainedExecutions,
+        reserved,
+        blockers: active.flatMap((entry) =>
+          entry.candidate_id === null ? [] : [entry.candidate_id]
+        ),
+        wake_condition: depth
+          ? "The selected effort moves inside speculative lookahead after a predecessor lands or is withdrawn."
+          : "An active queue reservation and any associated execution return release a slot.",
+      },
+      reason: depth
+        ? "The candidate is outside completion.lookahead. Complete the preceding effort, then retry discern done."
+        : "completion.concurrency is occupied or reserved for head work. Complete the head effort or reconcile retained execution before retrying discern done.",
     };
   }
   return undefined;
@@ -99,7 +119,8 @@ export function workCapacity(
 /** The selected ID exists before composition/validation; green admission happens separately. */
 export async function claimQueueWork(input: {
   readonly root: string;
-  readonly expected_stamp: string;
+  /** Omission permits a fresh lock-held observation only with a checked candidate. */
+  readonly expected_stamp?: string;
   readonly effort: string;
   readonly candidate_id: string;
   readonly environment_id: string;
@@ -120,21 +141,24 @@ export async function claimQueueWork(input: {
     throw new TypeError("A work claim requires a finite positive lease.");
   }
   return await withQueueLock(input.root, async () => {
-    let current = await requireQueue(input.root);
-    if (current.stamp !== input.expected_stamp) return { kind: "replan" };
+    const compatible = await readCompatibleCompletionRecord(input.root, {
+      kind: "queue",
+      id: REPOSITORY_QUEUE_ID,
+    });
+    if (compatible.kind !== "recorded") return compatible;
+    if (compatible.record.kind !== "queue") {
+      throw new Error("Queue coordinate returned another family.");
+    }
+    let current = { record: compatible.record, stamp: compatible.stamp };
+    if (
+      input.expected_stamp === undefined
+        ? input.candidate === undefined
+        : current.stamp !== input.expected_stamp
+    ) return { kind: "replan" };
     const entries = orderedEntries(current.record.data);
     const observation = await observeQueue(input.root, "HEAD", clock);
-    if (
-      observation.records.some(({ reading }) =>
-        reading.kind !== "recorded" && reading.kind !== "missing"
-      )
-    ) {
-      return {
-        kind: "environment-unavailable",
-        reason:
-          "Unreadable completion state prevents capacity and publication checks. Reconcile its record before selecting work.",
-      };
-    }
+    const unreadable = completionRecordBlocker(observation);
+    if (unreadable !== undefined) return unreadable;
     const proposed = input.candidate;
     const sourceTip = proposed !== undefined &&
       proposed.head === proposed.source.head &&
@@ -143,6 +167,28 @@ export async function claimQueueWork(input: {
         entry.source.effort_id === input.effort &&
         sameSource(entry.source, proposed.source)
       );
+    if (proposed !== undefined) {
+      const selected = entries.find((entry) =>
+        entry.source.effort_id === input.effort
+      );
+      const candidates = new Map(
+        observedRecords(observation).filter((r) => r.kind === "candidate").map((
+          r,
+        ) => [r.id, r.data]),
+      );
+      const predecessor = expectedPredecessor(
+        current.record.data,
+        input.effort,
+        candidates,
+      );
+      if (
+        selected === undefined ||
+        !sameSource(selected.source, proposed.source) ||
+        (!sourceTip &&
+          ("kind" in predecessor ||
+            predecessor.head !== proposed.expected_predecessor.head))
+      ) return { kind: "replan" };
+    }
     const blocked = workCapacity(
       entries,
       input.effort,
@@ -150,6 +196,9 @@ export async function claimQueueWork(input: {
       sourceTip,
       retainedExecutionCount(entries, observation),
     );
+    if (blocked?.kind === "capacity-unavailable") {
+      return queueCapacityBlocker(blocked, entries, observation);
+    }
     if (blocked !== undefined) return blocked;
     const entry = entries.find((item) =>
       item.source.effort_id === input.effort
@@ -495,4 +544,61 @@ export async function claimLandingAttempt(input: {
       effort: entry.source.effort_id,
     };
   });
+}
+
+/** A capacity refusal is transient only when a live actor can satisfy its wake condition. */
+export function queueCapacityBlocker(
+  blocked: Extract<CompletionBlocker, { kind: "capacity-unavailable" }>,
+  entries: ReturnType<typeof orderedEntries>,
+  observation: CompletionObservation,
+): CompletionBlocker {
+  const records = observedRecords(observation);
+  const owners: string[] = [];
+  for (const record of records) {
+    if (record.kind !== "environment") continue;
+    const state = record.data.state;
+    if (state.kind === "recovery") {
+      return {
+        kind: "recovery-incomplete",
+        record_id: record.id,
+        recovery: state.recovery,
+      };
+    }
+    if (state.kind !== "executing") continue;
+    if (state.claim.expires_at <= observation.observed_at) {
+      return {
+        kind: "environment-unavailable",
+        reason:
+          `Environment ${record.id} has an expired execution and still occupies capacity. Run ${
+            executionRecoveryCommand(record.id)
+          } from its owning worktree before retrying.`,
+      };
+    }
+    owners.push(state.attempt_id);
+  }
+  for (const entry of entries.filter((entry) => entry.state === "active")) {
+    const actor = records.find((record) =>
+      record.kind === "attempt" &&
+      record.data.identity.candidate_id === entry.candidate_id &&
+      record.data.state.kind === "claimed" &&
+      record.data.state.claim.expires_at > observation.observed_at
+    );
+    if (actor === undefined) {
+      return {
+        kind: "environment-unavailable",
+        reason:
+          `Queue reservation for ${entry.source.effort_id} has no live actor. Reconcile its recorded attempt and execution through discern done --recover <environment-id> before retrying.`,
+      };
+    }
+    owners.push(actor.id);
+  }
+  // A producer finishing cannot move a lookahead position; that requires landing.
+  const transient = blocked.capacity.setting === "completion.concurrency" &&
+    owners.length > 0 &&
+    blocked.capacity.limit > blocked.capacity.reserved;
+  return {
+    ...blocked,
+    transient,
+    capacity: { ...blocked.capacity, blockers: [...new Set(owners)] },
+  };
 }

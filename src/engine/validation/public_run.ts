@@ -1,3 +1,6 @@
+import { selectDemandObligations } from "./demand.ts";
+import { validationInputSelection } from "./input_selection.ts";
+import { resolveProducerGraph } from "./catalog.ts";
 import type { ProducerBoundary } from "./execute.ts";
 import { protocolOutputPath, readArtifact } from "./artifacts.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -142,16 +145,38 @@ export async function executePublicValidation(input: {
     overrides,
     hostEnv,
   );
-  const toolchain = Object.values(configured.producers).flatMap((recipe) =>
-    recipe.toolchain
+  const graph = resolveProducerGraph(
+    configured.producers,
+    configured.obligations,
   );
-  const inputs = await observeValidationInputs(root, toolchain);
+  const declarations = configured.obligations.map((entry, index) => {
+    const producer = graph.selectors[index];
+    if (producer === undefined) throw new Error("Missing declared producer.");
+    return { ...entry, producer };
+  });
+  const selected = demand.kind === "done"
+    ? declarations
+    : selectDemandObligations(
+      declarations.map((entry) => entry.requirement),
+      declarations,
+      graph.producers,
+      demand,
+      input.claimed.candidate,
+    );
+  const selection = validationInputSelection(
+    graph.producers,
+    selected,
+    demand.kind === "test" ? demand.producers : [],
+  );
+  const toolchain = selection.toolchain;
+  const inputs = await observeValidationInputs(root, toolchain, selection);
   const snapshot = await prepareValidationSnapshot({
     candidate_id: input.claimed.candidate_id,
     candidate: input.claimed.candidate,
     producers: configured.producers,
     ordering: configured.ordering,
     obligations: configured.obligations,
+    observedRequirements: selected.map((entry) => entry.requirement),
     inputs,
     conditions: await candidateConditions(
       input.claimed.candidate_id,
@@ -201,7 +226,9 @@ export async function executePublicValidation(input: {
         : { presentation: input.capacity.runner }),
       verifyConditions: async () => {
         if (
-          JSON.stringify(await observeValidationInputs(root, toolchain)) !==
+          JSON.stringify(
+            await observeValidationInputs(root, toolchain, selection),
+          ) !==
             JSON.stringify(inputs)
         ) throw new Error("Candidate inputs changed during validation.");
       },

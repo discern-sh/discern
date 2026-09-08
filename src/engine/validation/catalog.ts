@@ -251,6 +251,8 @@ export async function prepareValidationSnapshot(source: {
   readonly candidate: Candidate;
   readonly producers: Readonly<Record<string, ProducerDeclaration>>;
   readonly obligations: readonly ObligationDeclaration[];
+  /** Omitted for complete observation; partial observations cannot assemble Proof. */
+  readonly observedRequirements?: readonly Requirement[];
   readonly inputs: ValidationInputs;
   readonly conditions: readonly ValidationConditions[];
 }): Promise<ValidationSnapshot> {
@@ -293,6 +295,12 @@ export async function prepareValidationSnapshot(source: {
       declaration === undefined || normalized === undefined ||
       selector === undefined
     ) throw new Error("incomplete declaration");
+    if (
+      input.observedRequirements !== undefined &&
+      !input.observedRequirements.some((requirement) =>
+        requirementKey(requirement) === requirementKey(declaration.requirement)
+      )
+    ) continue;
     const condition = conditions.get(declaration.requirement.context);
     if (condition === undefined) {
       throw new Error(

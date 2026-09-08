@@ -22,6 +22,8 @@ Ordered coordination is the default. Speculation requires an eligible environmen
 
 Concurrency and speculative depth bound compute. Queue length is not the compute budget. Approved head work receives priority. A changed dependency invalidates affected candidates; an unrelated queue revision does not invalidate every Proof.
 
+Queue invalidation closes short queue actors while leaving the environment actor responsible for producer receipts and return. Public completion checks queue eligibility again before assembly or a failed-row mutation. Capacity waits depend on a live actor and re-read the enforcing reservation state after each wake. Recovery, expired ownership, and eligibility requiring a separate landing return an action instead of waiting without a possible release.
+
 ## Consequences
 
 - Landing can reuse a proven prefix, but approval alone does not promise instant completion.

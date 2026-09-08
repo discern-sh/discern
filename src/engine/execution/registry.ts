@@ -29,14 +29,13 @@ import {
 } from "../../shared/entropy.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import { registeredWorktreeRecord } from "../worktree/git.ts";
-import { withCompletionPublication } from "../operation_lock.ts";
+import {
+  withCompletionCheckout,
+  withCompletionPublication,
+} from "../operation_lock.ts";
 import { recoveryFor } from "./types.ts";
 import type { ExecutionLifetime, ExecutionWorkspace } from "./types.ts";
-import {
-  declarationIdentity,
-  releasedSubject,
-  releaseMatchesSnapshot,
-} from "./subjects.ts";
+import { declarationIdentity, releasedSubject } from "./subjects.ts";
 import { enrolledEnvironments } from "./enrollment_read.ts";
 
 type EnvironmentRecord = Extract<CompletionRecord, { kind: "environment" }>;
@@ -231,11 +230,33 @@ export async function observeClaimCapacity(
   clock: Clock = SYSTEM_CLOCK,
 ): Promise<CompletionBlocker | null> {
   if (environment.ownership.kind !== "borrowed") return null;
-  const occupied = (await enrollmentRecords(root)).filter((record) =>
-    record.data.ownership.kind === "borrowed" &&
-    (record.data.state.kind === "executing" ||
-      record.data.state.kind === "recovery")
+  const sourceDeclaration = await declarationIdentity(null);
+  const sourceExecution = environment.declaration === sourceDeclaration;
+  const handles = new Set(
+    Object.values(environment.ownership.identity.resources),
   );
+  const active = (await enrollmentRecords(root)).filter((record) =>
+    record.data.state.kind === "executing" ||
+    record.data.state.kind === "recovery"
+  );
+  const sharesResources = (record: EnvironmentRecord): boolean =>
+    record.data.path === environment.path ||
+    (record.data.ownership.kind === "borrowed" &&
+      Object.values(record.data.ownership.identity.resources).some((handle) =>
+        handles.has(handle)
+      ));
+  const conflicts = active.filter(sharesResources);
+  // Source execution owns its checkout and actual resources. Its demanded
+  // producers acquire their real test capacity; it never occupies a temporary slot.
+  const occupied = conflicts.length > 0
+    ? conflicts
+    : sourceExecution
+    ? []
+    : active.filter((record) =>
+      record.data.ownership.kind === "borrowed" &&
+      record.data.declaration !== sourceDeclaration
+    );
+  if (conflicts.length > 0) capacity = 1;
   if (occupied.length < capacity) return null;
   for (const record of occupied) {
     const state = record.data.state;
@@ -261,16 +282,16 @@ export async function observeClaimCapacity(
       };
     }
   }
-  const active = occupied.find((record) =>
+  const running = occupied.find((record) =>
     record.data.state.kind === "executing"
   )?.data.state;
-  if (active?.kind !== "executing") {
+  if (running?.kind !== "executing") {
     throw new Error("Occupied execution capacity has no owning attempt.");
   }
   return {
     kind: "waiting-for-operation",
-    attempt_id: active.attempt_id,
-    expires_at: active.claim.expires_at,
+    attempt_id: running.attempt_id,
+    expires_at: running.claim.expires_at,
   };
 }
 
@@ -305,54 +326,76 @@ export async function releaseExecutionEnvironment(
   } = {},
 ): Promise<RecordedEnvironment> {
   const clock = options.clock ?? SYSTEM_CLOCK;
-  return await withCompletionPublication(root, async () => {
-    const current = await requireEnvironment(root, id);
-    const environment = current.record.data;
-    if (current.stamp !== expectedStamp || environment.state.kind !== "idle") {
-      throw new Error(
-        "Environment changed or is not idle; observe and replan the release.",
+  const observed = await requireEnvironment(root, id);
+  return await withCompletionCheckout(
+    await statIfExists(observed.record.data.path) === undefined
+      ? root
+      : observed.record.data.path,
+    async () => {
+      const current = await requireEnvironment(root, id);
+      const environment = current.record.data;
+      if (
+        current.stamp !== expectedStamp || environment.state.kind !== "idle"
+      ) {
+        throw new Error(
+          "Environment changed or is not idle; observe and replan the release.",
+        );
+      }
+      if (
+        environment.ownership.kind === "borrowed"
+          ? environment.ownership.source.effort_id !== owner.originating_effort
+          : environment.ownership.owner_operation !== owner.operation_id
+      ) {
+        throw new Error(
+          "Only the recorded source owner or isolated environment owner can release this environment.",
+        );
+      }
+      if (environment.declaration !== await declarationIdentity(declaration)) {
+        throw new Error(
+          "The declaration changed; retain this environment's frozen contract and enroll the new source separately.",
+        );
+      }
+      const use = await capabilities.lifetime.inspect(environment.path);
+      if (!use.quiescent) {
+        throw new Error(`Environment use is not quiescent: ${use.reason}`);
+      }
+      const snapshot = await capabilities.workspace.inspect(
+        environment,
+        declaration,
+        options.retirement
+          ? "release"
+          : declaration === null
+          ? "source"
+          : "recovery",
       );
-    }
-    if (
-      environment.ownership.kind === "borrowed"
-        ? environment.ownership.source.effort_id !== owner.originating_effort
-        : environment.ownership.owner_operation !== owner.operation_id
-    ) {
-      throw new Error(
-        "Only the recorded source owner or isolated environment owner can release this environment.",
-      );
-    }
-    if (environment.declaration !== await declarationIdentity(declaration)) {
-      throw new Error(
-        "The declaration changed; retain this environment's frozen contract and enroll the new source separately.",
-      );
-    }
-    const use = await capabilities.lifetime.inspect(environment.path);
-    if (!use.quiescent) {
-      throw new Error(`Environment use is not quiescent: ${use.reason}`);
-    }
-    const snapshot = await capabilities.workspace.inspect(
-      environment,
-      declaration,
-    );
-    await capabilities.workspace.verify(environment, snapshot);
-    if (
-      environment.release.kind === "released" &&
-      await releaseMatchesSnapshot(environment, snapshot) &&
-      environment.release.retirement === (options.retirement ?? false)
-    ) return current;
-    return await replaceEnvironment(root, current, {
-      ...environment,
-      release: {
-        kind: "released",
-        id: (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid(),
-        at: clock.wallNow(),
-        owner: owner.originating_effort,
-        subject: await releasedSubject(environment, snapshot),
-        retirement: options.retirement ?? false,
-      },
-    }, clock);
-  });
+      await capabilities.workspace.verify(environment, snapshot);
+      const subject = await releasedSubject(environment, snapshot);
+      return await withCompletionPublication(root, async () => {
+        const latest = await requireEnvironment(root, id);
+        if (latest.stamp !== current.stamp) {
+          throw new Error(
+            "Environment ownership or revision changed during release observation; preserve the checkout and replan.",
+          );
+        }
+        if (
+          environment.release.kind === "released" &&
+          environment.release.subject === subject &&
+          environment.release.retirement === (options.retirement ?? false)
+        ) return current;
+        return await replaceEnvironment(root, current, {
+          ...environment,
+          release: {
+            kind: "released",
+            id: (options.entropy ?? SYSTEM_SECURE_ENTROPY).uuid(),
+            at: clock.wallNow(),
+            owner: owner.originating_effort,
+            subject,
+            retirement: options.retirement ?? false,
+          },
+        }, clock);
+      });
+    },
+  );
 }
 
 /** Project the recorded execution state before planning any release or reuse. */

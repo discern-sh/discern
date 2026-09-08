@@ -1,3 +1,5 @@
+import { validationInputSelection } from "./input_selection.ts";
+import { resolveProducerGraph } from "./catalog.ts";
 /** Read-only candidate assessment shares the exact evaluator used by public completion. */
 import {
   type DiscernConfig,
@@ -95,12 +97,23 @@ export async function observeCandidateValidation(input: {
     config,
     scopesForPaths(paths, config),
   );
+  const graph = resolveProducerGraph(
+    configured.producers,
+    configured.obligations,
+  );
+  const selection = validationInputSelection(
+    graph.producers,
+    configured.obligations.map((entry, index) => {
+      const producer = graph.selectors[index];
+      if (producer === undefined) throw new Error("Missing declared producer.");
+      return { ...entry, producer };
+    }),
+  );
   const inputs = await observeCandidateInputs(
     root,
     candidate.head,
-    Object.values(configured.producers).flatMap((producer) =>
-      producer.toolchain
-    ),
+    selection.toolchain,
+    selection,
   );
   const snapshot = await prepareValidationSnapshot({
     candidate_id,

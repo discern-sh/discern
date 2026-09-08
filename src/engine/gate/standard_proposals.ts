@@ -534,9 +534,9 @@ async function proposalMeasurement(
       ok: false,
       result: proposalFailure(
         "precondition_failed",
-        `standard '${standard.name}' did not yield a numeric metric in its targeted measurement${
-          diagnostic === undefined ? "" : `: ${diagnostic.message}`
-        }. Fix the command or emitted metric, then retry this proposal command; it measures only the named standard.`,
+        diagnostic === undefined
+          ? `Standard '${standard.name}' did not yield a finite numeric metric. Check its producer output and extractor, then retry the proposal.`
+          : `Measurement for standard '${standard.name}' could not complete: ${diagnostic.message} Resolve the reported condition, then retry this proposal command.`,
         diagnostic,
       ),
     };

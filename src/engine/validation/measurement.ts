@@ -2,6 +2,7 @@ import {
   emitCompletionProgress,
   emitComponentUse,
 } from "../completion/events.ts";
+import { errorReason } from "../execution/types.ts";
 import { producerLabel } from "./public_run.ts";
 import { SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
 import {
@@ -315,8 +316,14 @@ export async function measureDeclaredStandards(
       return { ...returned.returned, record_id: environmentId };
     }
     if (returned.validation === null) {
-      throw failure ??
-        new Error("Measurement execution did not return evidence.");
+      return {
+        kind: "validation-failed",
+        evidence_ids: [],
+        attempt_id: claimed.fence.attempt_id,
+        reason: failure === undefined
+          ? "Measurement execution did not return evidence."
+          : errorReason(failure),
+      };
     }
     return returned.validation;
   }, externalSignal);

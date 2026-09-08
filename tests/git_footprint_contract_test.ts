@@ -118,6 +118,12 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     "directory",
     false,
   ],
+  completionPublication: [
+    "discern/completion/publication.json",
+    "common",
+    "file",
+    false,
+  ],
   completionArtifacts: [
     "discern/completion/artifacts",
     "common",

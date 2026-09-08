@@ -26,6 +26,10 @@ Absence is not version 1. A record must carry its registered in-band version bef
 
 The registry-level guard constructs a future-version carrier for every member and verifies classification and recovery wording. Store-specific tests own the stronger behavior: whether reads refuse or omit advisory data, and whether update, removal, expiry, recovery, and garbage collection preserve the exact bytes. The resource suite additionally proves the registered `intent` → `ready` transition and cleanup-before-retry boundary ([ADR 0367](../_adr/0367-worktree-local-state-records-intent-before-effects.md)).
 
+Completion records have an explicit reader for the reviewed historical data shapes. It normalizes the envelope version in memory and retains the original byte stamp. An ordinary mutable transition archives the original bytes before writing the current version. Immutable evidence is read without rewriting it. Compatibility supplies no missing fields, passing outcome, or authority. Recovery reclamation retains attempts written before explicit capture references; normal envelope adaptation does not invent a complete recovery graph. Unsupported versions and corrupt records retain distinct results through queue selection.
+
+The completion registry entry also binds its schema export to a reviewed digest. The guard traverses the full schema union, so optional fields and new families change the digest too. A changed digest requires version and compatibility review; normal code generation does not update it. Behavioral tests remain responsible for refinements that JSON Schema cannot express.
+
 ## Changing a format
 
 1. Change the member's version in [`on_disk_formats.ts`](../../../src/shared/on_disk_formats.ts); never add a writer-local version constant.

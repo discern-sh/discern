@@ -178,7 +178,7 @@ Deno.test("queue Q01/Q06: complete demand admits once without preflight and surv
             false,
             retained,
           )?.kind,
-          "environment-unavailable",
+          "capacity-unavailable",
         );
       }
       continueRun.resolve();

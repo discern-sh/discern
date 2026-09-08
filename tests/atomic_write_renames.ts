@@ -11,6 +11,12 @@ export interface RegisteredRename {
 /** Every authored Deno rename whose purpose is not durable-state replacement. */
 export const REGISTERED_RENAMES = [
   {
+    path: "src/engine/execution/workspace.ts",
+    enclosingFunction: "restore",
+    reason:
+      "Git index restoration streams a verified payload into Git's exclusive index.lock and publishes that exact lock file; the small-file writer cannot preserve this lock protocol.",
+  },
+  {
     path: "tests/completion_public_diagnostics_test.ts",
     enclosingFunction:
       'Deno.test("E11 dirty deletion and rename retain public diagnostics without completion records")',

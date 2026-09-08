@@ -1,3 +1,6 @@
+import { EXECUTION_INTENT_FORMAT } from "./intent.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
+import { withRecoveryStorage } from "./storage_lifetime.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import {
   emitCompletionEvent,
@@ -36,7 +39,10 @@ import {
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
 import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
-import { withCompletionPublication } from "../operation_lock.ts";
+import {
+  withCompletionCheckout,
+  withCompletionPublication,
+} from "../operation_lock.ts";
 import { validationPurpose } from "../completion/protocol.ts";
 import { restoreValidationBinding } from "./validation_binding.ts";
 import { saveEnvironmentArtifact } from "./artifacts.ts";
@@ -64,6 +70,7 @@ import {
   type ExecutionLifetime,
   type ExecutionWorkspace,
   recoveryFor,
+  type WorkspaceSnapshot,
 } from "./types.ts";
 
 export interface EnvironmentExecutorOptions {
@@ -201,145 +208,164 @@ class ExecutorImplementation implements EnvironmentExecutor {
           `Environment has conflicting or uncertain use: ${use.reason}`,
         );
       }
-      const source = await workspace.inspect(environment, plan.declaration);
-      if (
-        !await releaseMatchesSnapshot(environment, source)
-      ) {
-        return unavailable(
-          "Source, index, resources, or ignored state changed after release; return control to its source owner for a new release.",
-        );
-      }
-      const identity = AttemptIdentitySchema.parse(
-        await this.options.reserveAttempt(plan, executor),
-      );
-      if (
-        identity.candidate_id !== plan.candidate_id ||
-        JSON.stringify(identity.executor) !== JSON.stringify(executor)
-      ) {
-        return unavailable(
-          "The reserved attempt names another candidate or executor.",
-        );
-      }
-      const now = this.clock.wallNow();
-      const claim = {
-        token: this.entropy.uuid(),
-        executor,
-        acquired_at: now,
-        expires_at: now + this.options.leaseMs,
-      };
-      const subjects = [
-        ...new Set(
-          await Promise.all(
-            plan.validation.producers.flatMap((producer) =>
-              producer.evidence_subjects.map(applicabilitySubject)
-            ),
-          ),
-        ),
-      ];
-      const attempt: CompletionAttempt = {
-        identity,
-        environment_id: plan.environment_id,
-        subjects,
-        purpose: validationPurpose(plan.validation.demand),
-        mode: plan.validation.demand.mode,
-        state: {
-          kind: plan.validation.demand.kind === "compose"
-            ? "composing"
-            : "claimed",
-          claim,
-        },
-      };
-      const intent = ExecutionIntentSchema.parse({
-        format: "execution-intent-v1",
-        environment_id: plan.environment_id,
-        environment,
-        candidate_id: plan.candidate_id,
-        candidate: plan.validation.candidate,
-        context: plan.validation.demand.context,
-        recipe: { action: plan.action, declaration: plan.declaration },
-        attempt,
-        source,
-      });
-      await saveEnvironmentArtifact(
-        root,
-        {
-          attempt_id: identity.id,
-          candidate_id: plan.candidate_id,
-          context: intent.context,
-        },
-        "intent",
-        intent,
-      );
-      return await withCompletionPublication(root, async () => {
-        const current = await requireEnvironment(root, plan.environment_id);
-        if (
-          current.stamp !== plan.expected_stamp ||
-          environmentAvailability(current.record.data, this.clock.wallNow())
-              .kind !== "available"
-        ) {
-          return unavailable(
-            "The environment changed before claim; observe and replan.",
+      return await withCompletionCheckout(
+        await statIfExists(environment.path) === undefined
+          ? root
+          : environment.path,
+        async () => {
+          const source = await workspace.inspect(environment, plan.declaration);
+          if (
+            !await releaseMatchesSnapshot(environment, source)
+          ) {
+            return unavailable(
+              "Source, index, resources, or ignored state changed after release; return control to its source owner for a new release.",
+            );
+          }
+          const identity = AttemptIdentitySchema.parse(
+            await this.options.reserveAttempt(plan, executor),
           );
-        }
-        await workspace.verify(current.record.data, source);
-        await verifyClaimCapacity(
-          root,
-          environment,
-          plan.declaration?.capacity ?? 1,
-        );
-        const claimed = await replaceEnvironment(root, current, {
-          ...environment,
-          state: {
-            kind: "executing",
-            attempt_id: identity.id,
-            candidate_id: plan.candidate_id,
-            release_id: environment.release.kind === "released"
-              ? environment.release.id
-              : "",
-            claim,
-            phase: "install",
-          },
-        }, this.clock);
-        const written = await writeCompletionRecord(
-          root,
-          {
-            version: ON_DISK_FORMATS.completionRecord.version,
-            kind: "attempt",
-            id: identity.id,
-            revision: 1,
-            data: attempt,
-          },
-          null,
-          undefined,
-          this.clock,
-        );
-        if (written.kind !== "written") {
-          const recovery = recoveryFor(
-            "install",
-            `Attempt publication failed (${written.kind}). Recover this environment before another claim.`,
-            environment.path,
-            cleanupCommands(intent),
-          );
-          await replaceEnvironment(root, claimed, {
-            ...claimed.record.data,
-            state: { kind: "recovery", attempt_id: identity.id, recovery },
-          }, this.clock);
-          return {
-            kind: "recovery-incomplete",
-            record_id: plan.environment_id,
-            recovery,
+          if (
+            identity.candidate_id !== plan.candidate_id ||
+            JSON.stringify(identity.executor) !== JSON.stringify(executor)
+          ) {
+            return unavailable(
+              "The reserved attempt names another candidate or executor.",
+            );
+          }
+          const now = this.clock.wallNow();
+          const claim = {
+            token: this.entropy.uuid(),
+            executor,
+            acquired_at: now,
+            expires_at: now + this.options.leaseMs,
           };
-        }
-        return {
-          fence: { attempt_id: identity.id, token: claim.token },
-          attempt,
-          environment_id: plan.environment_id,
-          environment: claimed.record.data,
-          candidate_id: plan.candidate_id,
-          candidate: plan.validation.candidate,
-          signal: this.options.signal ?? new AbortController().signal,
-        };
-      });
+          const subjects = [
+            ...new Set(
+              await Promise.all(
+                plan.validation.producers.flatMap((producer) =>
+                  producer.evidence_subjects.map(applicabilitySubject)
+                ),
+              ),
+            ),
+          ];
+          const attempt: CompletionAttempt = {
+            identity,
+            environment_id: plan.environment_id,
+            subjects,
+            purpose: validationPurpose(plan.validation.demand),
+            mode: plan.validation.demand.mode,
+            state: {
+              kind: plan.validation.demand.kind === "compose"
+                ? "composing"
+                : "claimed",
+              claim,
+            },
+          };
+          const intent = ExecutionIntentSchema.parse({
+            format: EXECUTION_INTENT_FORMAT,
+            environment_id: plan.environment_id,
+            environment,
+            candidate_id: plan.candidate_id,
+            candidate: plan.validation.candidate,
+            context: plan.validation.demand.context,
+            recipe: { action: plan.action, declaration: plan.declaration },
+            attempt,
+            source,
+          });
+          const intentArtifact = await saveEnvironmentArtifact(
+            root,
+            {
+              attempt_id: identity.id,
+              candidate_id: plan.candidate_id,
+              context: intent.context,
+            },
+            "intent",
+            intent,
+            async () => {
+              const current = await requireEnvironment(
+                root,
+                plan.environment_id,
+              );
+              if (current.stamp !== observed.stamp) {
+                throw new Error(
+                  "Environment ownership changed during capture; preserve its checkout and retry from the current record.",
+                );
+              }
+            },
+          );
+          await workspace.verify(environment, source);
+          return await withCompletionPublication(root, async () => {
+            const current = await requireEnvironment(root, plan.environment_id);
+            if (
+              current.stamp !== plan.expected_stamp ||
+              environmentAvailability(current.record.data, this.clock.wallNow())
+                  .kind !== "available"
+            ) {
+              return unavailable(
+                "The environment changed before claim; observe and replan.",
+              );
+            }
+            await verifyClaimCapacity(
+              root,
+              environment,
+              plan.declaration?.capacity ?? 1,
+            );
+            const claimed = await replaceEnvironment(root, current, {
+              ...environment,
+              state: {
+                kind: "executing",
+                attempt_id: identity.id,
+                candidate_id: plan.candidate_id,
+                release_id: environment.release.kind === "released"
+                  ? environment.release.id
+                  : "",
+                claim,
+                capture: intentArtifact,
+                phase: "install",
+              },
+            }, this.clock);
+            const written = await writeCompletionRecord(
+              root,
+              {
+                version: ON_DISK_FORMATS.completionRecord.version,
+                kind: "attempt",
+                id: identity.id,
+                revision: 1,
+                data: attempt,
+              },
+              null,
+              undefined,
+              this.clock,
+            );
+            if (written.kind !== "written") {
+              const recovery = recoveryFor(
+                "install",
+                `Attempt publication failed (${written.kind}). Recover this environment before another claim.`,
+                environment.path,
+                cleanupCommands(intent),
+              );
+              await replaceEnvironment(root, claimed, {
+                ...claimed.record.data,
+                state: { kind: "recovery", attempt_id: identity.id, recovery },
+              }, this.clock);
+              return {
+                kind: "recovery-incomplete",
+                record_id: plan.environment_id,
+                recovery,
+              };
+            }
+            return {
+              fence: { attempt_id: identity.id, token: claim.token },
+              attempt,
+              environment_id: plan.environment_id,
+              environment: claimed.record.data,
+              candidate_id: plan.candidate_id,
+              candidate: plan.validation.candidate,
+              signal: this.options.signal ?? new AbortController().signal,
+            };
+          });
+        },
+      );
     } catch (error) {
       return unavailable(errorReason(error));
     }
@@ -466,6 +492,45 @@ class ExecutorImplementation implements EnvironmentExecutor {
     return { kind: "recovery-incomplete", recovery };
   }
 
+  /** The shared storage lease spans capture and publication, never project commands. */
+  async snapshotArtifact(
+    execution: ClaimedExecution,
+    intent: ExecutionIntent,
+    kind: "installed" | "drift" | "disposal",
+    capture: () => Promise<WorkspaceSnapshot>,
+  ): Promise<
+    {
+      snapshot: WorkspaceSnapshot;
+      artifact: Awaited<ReturnType<typeof saveEnvironmentArtifact>>;
+    }
+  > {
+    return await withRecoveryStorage(this.options.root, async () => {
+      const snapshot = await capture();
+      const artifact = await saveEnvironmentArtifact(
+        this.options.root,
+        {
+          attempt_id: execution.fence.attempt_id,
+          candidate_id: execution.candidate_id,
+          context: intent.context,
+        },
+        kind === "installed" ? kind : `${kind}-${snapshot.digest}`,
+        snapshot,
+        async () => {
+          await this.current(execution, true);
+        },
+      );
+      const current = await this.current(execution, true);
+      if (current.record.data.state.kind !== "executing") {
+        throw new Error("Capture publication requires the current execution.");
+      }
+      await replaceEnvironment(this.options.root, current, {
+        ...current.record.data,
+        state: { ...current.record.data.state, capture: artifact },
+      }, this.clock);
+      return { snapshot, artifact };
+    });
+  }
+
   async returnEnvironment(
     execution: ClaimedExecution,
     intent: ExecutionIntent,
@@ -489,16 +554,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
         );
       }
       await this.phase(execution, "capture", true);
-      const captured = await workspace.capture(execution, intent.recipe);
-      const artifact = await saveEnvironmentArtifact(
-        root,
-        {
-          attempt_id: execution.fence.attempt_id,
-          candidate_id: execution.candidate_id,
-          context: intent.context,
-        },
-        `drift-${captured.digest}`,
-        captured,
+      const { snapshot: captured, artifact } = await this.snapshotArtifact(
+        execution,
+        intent,
+        "drift",
+        () => workspace.capture(execution, intent.recipe),
       );
       drift = { kind: "captured", artifacts: [artifact] };
       const unprovisioned = await workspace.unprovisioned(
@@ -530,16 +590,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
           "dispose",
           recoverySignal,
         );
-        const disposal = await workspace.capture(execution, intent.recipe);
-        await saveEnvironmentArtifact(
-          root,
-          {
-            attempt_id: execution.fence.attempt_id,
-            candidate_id: execution.candidate_id,
-            context: intent.context,
-          },
-          `disposal-${disposal.digest}`,
-          disposal,
+        const { snapshot: disposal } = await this.snapshotArtifact(
+          execution,
+          intent,
+          "disposal",
+          () => workspace.capture(execution, intent.recipe),
         );
         await workspace.dispose(execution, intent.recipe, disposal);
       } else {
@@ -707,20 +762,16 @@ class ExecutorImplementation implements EnvironmentExecutor {
               intent.source,
             );
             await this.phase(active, "install");
-            const installed = await this.options.workspace.install(
+            await this.snapshotArtifact(
               active,
-              intent.recipe,
-              intent.source,
-            );
-            await saveEnvironmentArtifact(
-              this.options.root,
-              {
-                attempt_id: active.fence.attempt_id,
-                candidate_id: active.candidate_id,
-                context: intent.context,
-              },
+              intent,
               "installed",
-              installed,
+              () =>
+                this.options.workspace.install(
+                  active,
+                  intent.recipe,
+                  intent.source,
+                ),
             );
             phase = "prepare";
             await this.phase(active, phase);
@@ -1025,5 +1076,13 @@ class ExecutorImplementation implements EnvironmentExecutor {
 export function createEnvironmentExecutor(
   options: EnvironmentExecutorOptions,
 ): EnvironmentExecutor {
-  return new ExecutorImplementation(options);
+  const executor = new ExecutorImplementation(options);
+  return {
+    observe: (...args) => executor.observe(...args),
+    plan: (...args) => executor.plan(...args),
+    claim: (...args) =>
+      withRecoveryStorage(options.root, () => executor.claim(...args)),
+    execute: (execution, validate) => executor.execute(execution, validate),
+    recover: (...args) => executor.recover(...args),
+  };
 }

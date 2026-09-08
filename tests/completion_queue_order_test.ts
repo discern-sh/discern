@@ -206,7 +206,7 @@ Deno.test("queue Q08: lookahead and capacity are separate, with a reserved head 
   const entries = orderedEntries(queue);
   assertEquals(
     workCapacity(entries, "effort-3", policy)?.kind,
-    "environment-unavailable",
+    "capacity-unavailable",
   );
   const occupied = entries.map((entry, index) =>
     index === 1 || index === 2 ? { ...entry, state: "active" as const } : entry
@@ -214,7 +214,7 @@ Deno.test("queue Q08: lookahead and capacity are separate, with a reserved head 
   assertEquals(workCapacity(occupied, "effort-0", policy), undefined);
   assertEquals(
     workCapacity(occupied, "effort-4", policy)?.kind,
-    "environment-unavailable",
+    "capacity-unavailable",
   );
   assertEquals(
     workCapacity(
@@ -222,6 +222,6 @@ Deno.test("queue Q08: lookahead and capacity are separate, with a reserved head 
       "effort-1",
       CompletionPolicySchema.parse({ concurrency: 1, lookahead: 5 }),
     )?.kind,
-    "environment-unavailable",
+    "capacity-unavailable",
   );
 });

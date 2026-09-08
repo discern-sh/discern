@@ -22,6 +22,8 @@ The protected definition includes facts that can weaken enforcement, including p
 
 Local and CI execution use the same requirement evaluator. A report-only result cannot authorize local acceptance. External required contexts need explicit identity and evidence rules; a partial lane cannot present itself as aggregate completion.
 
+Producer receipts describe immutable execution subjects independently of mutable queue eligibility. Queue supersession cannot manufacture a failed producer. A cancelled attempt without completed component evidence contributes no new verdict and cannot clear an earlier failure. Completed receipts retain their outcome; admission and complete Proof still require their own current checks.
+
 ## Consequences
 
 - Required measurement can increase iteration cost. The design prioritizes useful feedback and time from approval to landing while making discarded work observable.

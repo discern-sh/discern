@@ -1,3 +1,8 @@
+import {
+  selectedValidationBoundary,
+  selectedValidationInput,
+  type ValidationInputSelection,
+} from "./input_selection.ts";
 /** Immutable Git subjects use the same content and executable-mode identity as live validation. */
 import { runGit } from "../../shared/subprocess.ts";
 import { ObjectIdSchema } from "../completion/identity.ts";
@@ -77,6 +82,7 @@ export async function observeCandidateInputs(
   root: string,
   commit: string,
   toolchain: readonly string[] = [],
+  selection?: ValidationInputSelection,
 ): Promise<ValidationInputs> {
   ObjectIdSchema.parse(commit);
   const result = await runGit(["ls-tree", "-r", "-l", "-z", commit], {
@@ -87,7 +93,15 @@ export async function observeCandidateInputs(
   if (!result.success) {
     throw new Error("Cannot enumerate the immutable candidate input tree.");
   }
-  const entries: InputBlob[] = result.stdout.split("\0").filter(Boolean).map(
+  const entries: InputBlob[] = result.stdout.split("\0").filter(Boolean).filter(
+    (row) => {
+      const tab = row.indexOf("\t");
+      if (tab < 0) throw new Error("Candidate input metadata is incomplete.");
+      return row.startsWith("160000 commit ")
+        ? selectedValidationBoundary(row.slice(tab + 1), selection)
+        : selectedValidationInput(row.slice(tab + 1), selection);
+    },
+  ).map(
     (row) => {
       const match =
         /^(100644|100755|120000) blob ([0-9a-f]+) +([0-9]+)\t([\s\S]+)$/u.exec(

@@ -1,4 +1,11 @@
+import { INLINE_GIT_SNAPSHOT_FORMAT } from "./snapshot_schema.ts";
+import { SOURCE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
+import { RECOVERY_MANIFEST_FORMAT } from "./snapshot_schema.ts";
+import { RELEASE_OBSERVATION_FORMAT } from "./snapshot_schema.ts";
 /** Bounded complete byte capture. No path is removed by this module. */
+import { encodeExecutionDocument } from "./document_encoding.ts";
+import { readBoundedFile as readCompleteCapture } from "../../shared/bounded_file.ts";
+import { observeRecoveryPayload } from "./payloads.ts";
 import type { z } from "@zod/zod";
 import { dirname, join } from "@std/path";
 import { encodeBase64 } from "@std/encoding/base64";
@@ -13,10 +20,23 @@ import {
   GitSnapshotSchema,
   type WorkspaceSnapshot,
 } from "./snapshot_schema.ts";
+export const CAPTURE_METADATA_BYTES = 16 * 1024 * 1024;
+
 export interface CaptureBounds {
   readonly maxFiles: number;
   readonly maxBytes: number;
   readonly gitTimeoutMs: number;
+}
+
+/** Both source observation and recovery bind the checkout's owned native index. */
+export function requireNativeIndex(
+  indexFile: string | undefined = Deno.env.get("GIT_INDEX_FILE"),
+): void {
+  if (indexFile !== undefined) {
+    throw new Error(
+      "An alternate Git index requires its own ownership contract; use the checkout's native index before releasing or executing this environment.",
+    );
+  }
 }
 
 /** Git output must be complete, bounded, and settled before a filesystem effect. */
@@ -92,6 +112,7 @@ async function captureFile(
   path: string,
   ignored: boolean,
   budget: { remaining: number },
+  storage?: { root: string; preserve: boolean },
 ): Promise<z.infer<typeof FileSchema>> {
   if (path.includes("\ufffd")) {
     throw new Error(
@@ -113,12 +134,28 @@ async function captureFile(
   }
   if (stat.size > budget.remaining) {
     throw new Error(
-      `Capture byte limit reached at ${path}; retain the checkout and increase the explicit capture bound.`,
+      `Capture byte limit reached at ${path}; retain the checkout and its existing recovery artifacts for a supported preservation procedure.`,
     );
+  }
+  if (storage !== undefined && stat.isFile) {
+    const payload = await observeRecoveryPayload(
+      storage.root,
+      target,
+      budget.remaining,
+      storage.preserve,
+    );
+    budget.remaining -= payload.bytes;
+    return {
+      path,
+      kind: "file",
+      contents: payload.reference,
+      executable: ((stat.mode ?? 0) & 0o111) !== 0,
+      ignored,
+    };
   }
   const contents = stat.isSymlink
     ? await Deno.readLink(target)
-    : encodeBase64(await Deno.readFile(target));
+    : encodeBase64(await readCompleteCapture(target, budget.remaining));
   budget.remaining -= stat.isSymlink
     ? new TextEncoder().encode(contents).length
     : Math.ceil(contents.length * 3 / 4);
@@ -157,9 +194,13 @@ function checkObservationBytes(
 async function captureOnce(
   root: string,
   bounds: CaptureBounds,
+  storage?: { root: string; preserve: boolean },
 ): Promise<GitSnapshot> {
   const git = (args: string[]): Promise<string> =>
-    executionGit(root, args, bounds);
+    executionGit(root, args, {
+      ...bounds,
+      maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES),
+    });
   const identity = await executionGit(root, [
     "rev-parse",
     "HEAD",
@@ -168,7 +209,7 @@ async function captureOnce(
     "HEAD",
   ], {
     ...bounds,
-    maxBytes: Math.min(Number.MAX_SAFE_INTEGER, bounds.maxBytes * 3),
+    maxBytes: Math.min(CAPTURE_METADATA_BYTES, bounds.maxBytes * 3),
   });
   const fields = identity.split("\n");
   const [rawHead, rawTree, rawBranch, terminator] = fields;
@@ -197,7 +238,7 @@ async function captureOnce(
     "-z",
   ], {
     ...bounds,
-    maxBytes: Math.min(Number.MAX_SAFE_INTEGER, bounds.maxBytes * 2),
+    maxBytes: Math.min(CAPTURE_METADATA_BYTES, bounds.maxBytes * 2),
   });
   const entries = splitNulRecords(taggedIndex);
   if (
@@ -254,19 +295,36 @@ async function captureOnce(
   for (const path of ignored) names.add(path);
   if (names.size > bounds.maxFiles) {
     throw new Error(
-      "Capture file limit reached; retain the checkout and increase the explicit capture bound.",
+      "Capture file limit reached; retain the checkout and its existing recovery artifacts for a supported preservation procedure.",
     );
   }
-  const budget = { remaining: bounds.maxBytes };
+  const budget = {
+    remaining: storage?.preserve === false
+      ? Number.MAX_SAFE_INTEGER
+      : bounds.maxBytes,
+  };
+  let metadataRemaining = CAPTURE_METADATA_BYTES;
   const files = [];
   const repositories: NonNullable<GitSnapshot["opaque_ignored_repositories"]> =
     [];
   for (const label of [...names].sort()) {
     const entry = gitPathRecord(label);
     if (entry.kind === "file") {
-      files.push(
-        await captureFile(root, entry.path, ignored.has(label), budget),
+      const file = await captureFile(
+        root,
+        entry.path,
+        ignored.has(label),
+        budget,
+        storage,
       );
+      metadataRemaining -=
+        new TextEncoder().encode(JSON.stringify(file)).length;
+      if (storage !== undefined && metadataRemaining < 0) {
+        throw new Error(
+          "Capture manifest metadata limit reached; retain the checkout and existing recovery payloads.",
+        );
+      }
+      files.push(file);
       continue;
     }
     const target = await containedFile(root, entry.path);
@@ -306,7 +364,16 @@ async function captureOnce(
       administration: administration.isDirectory ? "directory" : "file",
     });
   }
-  const index = encodeBase64(await Deno.readFile(indexPath));
+  const indexPayload = storage === undefined
+    ? undefined
+    : await observeRecoveryPayload(
+      storage.root,
+      indexPath,
+      budget.remaining,
+      storage.preserve,
+    );
+  const index = indexPayload?.reference ??
+    encodeBase64(await readCompleteCapture(indexPath, budget.remaining));
   const stagedPatch = await git([
     "diff",
     "--cached",
@@ -319,14 +386,19 @@ async function captureOnce(
   ]);
   if (
     new TextEncoder().encode(stagedPatch).length +
-        Math.ceil(index.length * 3 / 4) > budget.remaining
+        (indexPayload?.bytes ?? Math.ceil(index.length * 3 / 4)) >
+      budget.remaining
   ) {
     throw new Error(
       "Index capture exceeds the byte bound; retain the checkout.",
     );
   }
   return GitSnapshotSchema.parse({
-    format: "execution-git-snapshot-v1",
+    format: storage === undefined
+      ? INLINE_GIT_SNAPSHOT_FORMAT
+      : storage.preserve
+      ? RECOVERY_MANIFEST_FORMAT
+      : RELEASE_OBSERVATION_FORMAT,
     head,
     tree,
     branch: branch === "" ? null : branch,
@@ -353,7 +425,7 @@ async function captureOnce(
 export async function snapshotValue(
   value: unknown,
 ): Promise<WorkspaceSnapshot> {
-  return { value, digest: await sha256Hex(JSON.stringify(value)) };
+  return { value, digest: await sha256Hex(encodeExecutionDocument(value)) };
 }
 
 /** A mutation during either observation cannot authorize later cleanup. */
@@ -361,12 +433,9 @@ export async function captureGitSnapshot(
   root: string,
   bounds: CaptureBounds,
   indexFile: string | undefined = Deno.env.get("GIT_INDEX_FILE"),
+  storage?: { root: string; preserve: boolean },
 ): Promise<GitSnapshot> {
-  if (indexFile !== undefined) {
-    throw new Error(
-      "An alternate Git index requires its own restoration contract; use the checkout's native index before releasing it.",
-    );
-  }
+  requireNativeIndex(indexFile);
   if (
     ![bounds.maxFiles, bounds.maxBytes, bounds.gitTimeoutMs].every((bound) =>
       Number.isSafeInteger(bound) && bound > 0
@@ -376,8 +445,11 @@ export async function captureGitSnapshot(
       "Capture requires finite positive file, byte, and Git time bounds.",
     );
   }
-  const first = await captureOnce(root, bounds);
-  const second = await captureOnce(root, bounds);
+  const effective = storage === undefined
+    ? { ...bounds, maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES) }
+    : bounds;
+  const first = await captureOnce(root, effective, storage);
+  const second = await captureOnce(root, effective, storage);
   if (JSON.stringify(first) !== JSON.stringify(second)) {
     throw new Error(
       "Checkout changed during capture; no complete artifact authorizes cleanup. Stop conflicting writers and retry recovery.",
@@ -388,6 +460,14 @@ export async function captureGitSnapshot(
 
 /** Opaque repository boundaries authorize source-tip preservation, never temporary restoration or disposal. */
 export function requireRestorableSnapshot(snapshot: GitSnapshot | null): void {
+  if (
+    (snapshot?.format === SOURCE_OBSERVATION_FORMAT ||
+      snapshot?.format === RELEASE_OBSERVATION_FORMAT)
+  ) {
+    throw new Error(
+      "Source observations contain no recovery payload and cannot authorize temporary installation, restoration or disposal.",
+    );
+  }
   const opaque = snapshot?.opaque_ignored_repositories?.[0];
   if (opaque !== undefined) {
     throw new Error(
@@ -396,4 +476,25 @@ export function requireRestorableSnapshot(snapshot: GitSnapshot | null): void {
       } from checkout-file capture. Preserve its data and Git administration. Use source-tip validation, or reconcile this path outside the temporary environment before recovery; do not delete it to bypass capture.`,
     );
   }
+}
+
+/** Re-observe a frozen recovery representation without silently changing its byte contract. */
+export async function captureGitSnapshotLike(
+  root: string,
+  bounds: CaptureBounds,
+  expected: GitSnapshot,
+  storageRoot = root,
+): Promise<GitSnapshot> {
+  if (expected.format === SOURCE_OBSERVATION_FORMAT) {
+    throw new Error("Source observation is not a recovery capture contract.");
+  }
+  return await captureGitSnapshot(
+    root,
+    bounds,
+    undefined,
+    expected.format === INLINE_GIT_SNAPSHOT_FORMAT ? undefined : {
+      root: storageRoot,
+      preserve: expected.format === RECOVERY_MANIFEST_FORMAT,
+    },
+  );
 }
