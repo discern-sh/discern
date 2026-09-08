@@ -13,7 +13,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import { DIAGNOSTIC_SEVERITIES } from "./result.ts";
+import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
   code,
@@ -328,48 +328,22 @@ function envelopeEvidence(
   }
 
   const diagnostics = records(result.diagnostics);
-  const distinct = new Map<
-    string,
-    { diagnostic: Record<string, unknown>; count: number }
-  >();
-  for (const diagnostic of diagnostics) {
-    // Compare complete observations. Different locations, rules, severities,
-    // recovery commands, or evidence must remain distinct findings.
-    const key = JSON.stringify(
-      Object.keys(diagnostic).sort().map((name) => [name, diagnostic[name]]),
-    );
-    const existing = distinct.get(key);
-    if (existing === undefined) {
-      distinct.set(key, { diagnostic, count: 1 });
-    } else {
-      existing.count++;
-    }
-  }
-  const families = new Set<string>();
-  const ranked = [...distinct.values()].map((entry) => {
-    const family = JSON.stringify([
-      entry.diagnostic.severity,
-      entry.diagnostic.tool,
-      entry.diagnostic.rule,
-    ]);
-    const representative = !families.has(family);
-    families.add(family);
-    const severity = DIAGNOSTIC_SEVERITIES.findIndex((value) =>
-      value === entry.diagnostic.severity
-    );
-    return {
+  const evidence = object(result.diagnostic_evidence);
+  const repeats = Array.isArray(evidence?.repeats) ? evidence.repeats : [];
+  const displayed = sampleDiagnostics(diagnostics, MAX_DIAGNOSTICS).map(
+    (entry) => ({
       ...entry,
-      representative,
-      severity: severity < 0 ? DIAGNOSTIC_SEVERITIES.length : severity,
-    };
-  });
-  // Sample distinct declared rules at each severity before more instances of
-  // the same rule. This ranks observations; it does not merge their evidence.
-  ranked.sort((a, b) =>
-    a.severity - b.severity ||
-    Number(b.representative) - Number(a.representative)
+      count: number(repeats[diagnostics.indexOf(entry.diagnostic)]) ??
+        entry.count,
+    }),
   );
-  const displayed = ranked.slice(0, MAX_DIAGNOSTICS);
+  if (typeof evidence?.path === "string") {
+    facts.push(
+      `Complete diagnostic evidence: ${code(evidence.path)} (${
+        number(evidence.total) ?? diagnostics.length
+      } observations).`,
+    );
+  }
   for (const { diagnostic, count } of displayed) {
     const tool = text(diagnostic.tool) ?? "diagnostic";
     const message = text(diagnostic.message) ??
@@ -392,7 +366,7 @@ function envelopeEvidence(
       }`,
     );
   }
-  const remaining = diagnostics.length -
+  const remaining = (number(evidence?.total) ?? diagnostics.length) -
     displayed.reduce((sum, entry) => sum + entry.count, 0);
   if (remaining > 0) {
     facts.push(omitted(remaining, "diagnostic"));

@@ -178,6 +178,14 @@ export const PlanJsonSchema = z.strictObject({
  * per-verb schema remain a strict Zod object for the MCP SDK while applying the
  * same discriminated contract as a refinement and JSON Schema constraint.
  */
+const DiagnosticEvidenceSchema = z.strictObject({
+  path: z.string(),
+  digest: z.string(),
+  bytes: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  shown: z.number().int().nonnegative(),
+  repeats: z.array(z.number().int().positive()),
+});
 const ENVELOPE_BASE_FIELDS = {
   ok: z.boolean(),
   verb: z.string(),
@@ -186,6 +194,7 @@ const ENVELOPE_BASE_FIELDS = {
   steps: z.array(StepResultJsonSchema).optional(),
   waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
+  diagnostic_evidence: DiagnosticEvidenceSchema.optional(),
   hints: z.array(z.string()).optional(),
   advisories: z.array(ResultAdvisorySchema).optional(),
   error: z.enum(ERROR_SLUGS).optional(),
@@ -199,6 +208,7 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   steps: z.array(StepResultJsonSchema).optional(),
   waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
+  diagnostic_evidence: DiagnosticEvidenceSchema.optional(),
   hints: z.array(z.string()).optional(),
   advisories: z.array(ResultAdvisorySchema).optional(),
   error: z.enum(ERROR_SLUGS).optional(),

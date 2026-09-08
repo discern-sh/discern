@@ -1,3 +1,4 @@
+import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { fmtRate, standardHeld } from "../validation/metrics.ts";
 import { measureDeclaredStandards } from "../validation/measurement.ts";
 /**
@@ -1227,6 +1228,7 @@ export async function standardsResult(
   if (firedHints.length > 0) {
     result.hints = hintTexts(firedHints);
   }
+  await retainResultDiagnostics(root, result);
   return result;
 }
 

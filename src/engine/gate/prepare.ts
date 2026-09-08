@@ -1,3 +1,4 @@
+import { retainResultDiagnostics } from "./diagnostic_output.ts";
 /**
  * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage fixers
  * (serial; order matters), then the `[generated]` regenerations, the built-in
@@ -309,6 +310,7 @@ async function runPrepareGate(
       return hints.length > 0 ? { hints } : {};
     })(),
   };
+  await retainResultDiagnostics(root, result);
   await progress?.complete(result.steps ?? []);
   const liveWriteFailed = progress?.writeFailed() ?? false;
   const deferredOutputFlushed = liveWriteFailed ? false : flushDeferredOutput();

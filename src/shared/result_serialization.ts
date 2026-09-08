@@ -16,6 +16,10 @@ import { containsCommandRefTokens } from "./command_reference.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
 import { evaluateResultCompletion } from "./result_completion.ts";
 import { resultWireProjectorForVerb } from "./result_wire.ts";
+import {
+  DIAGNOSTIC_SUMMARY_LIMIT,
+  sampleDiagnostics,
+} from "./diagnostic_summary.ts";
 
 /**
  * Prepare a {@link DiscernResult} as the single compact object shared by
@@ -67,6 +71,33 @@ export function serializeResult(input: DiscernResult): Record<string, unknown> {
   }
   if (r.diagnostics !== undefined) {
     out.diagnostics = r.diagnostics;
+    if (
+      r.diagnosticEvidence !== undefined &&
+      r.diagnosticEvidence.raw === JSON.stringify(r.diagnostics)
+    ) {
+      const sample = sampleDiagnostics(r.diagnostics, DIAGNOSTIC_SUMMARY_LIMIT);
+      out.diagnostics = sample.map(({ diagnostic }) => ({
+        ...diagnostic,
+        message: diagnostic.message.length > 900
+          ? diagnostic.message.slice(0, 900) +
+            "… (complete message in diagnostic evidence)"
+          : diagnostic.message,
+        ...(diagnostic.output === undefined ? {} : {
+          output: diagnostic.output.length > 2400
+            ? diagnostic.output.slice(0, 2400) +
+              "… (complete output in diagnostic evidence)"
+            : diagnostic.output,
+        }),
+      }));
+      out.diagnostic_evidence = {
+        path: r.diagnosticEvidence.path,
+        digest: r.diagnosticEvidence.digest,
+        bytes: r.diagnosticEvidence.bytes,
+        total: r.diagnostics.length,
+        shown: sample.length,
+        repeats: sample.map((entry) => entry.count),
+      };
+    }
   }
   if (r.data !== undefined) {
     out.data = r.data;

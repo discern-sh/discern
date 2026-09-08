@@ -1,3 +1,4 @@
+import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { recoveryRequestResult } from "../execution/public_recovery.ts";
 import {
   emergencyValidationStatus,
@@ -276,6 +277,7 @@ async function runGate(
   if (emergencyValidation.length && completed.result.data !== undefined) {
     completed.result.data.emergency_validation = emergencyValidation;
   }
+  await retainResultDiagnostics(root, completed.result);
   return completed;
 }
 
