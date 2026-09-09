@@ -35,7 +35,7 @@ import {
   ownValidationEnvironment,
   releasedValidationEnvironment,
 } from "../execution/public_environment.ts";
-import { integrationBranch } from "../worktree/git.ts";
+import { integrationBranch, worktreeGitKey } from "../worktree/git.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { compositionRecipe } from "./generation.ts";
@@ -695,9 +695,12 @@ export async function withPublicCompletion<T>(
     ) {
       // Source execution needs no temporary installation. Its owner's later
       // release can still enroll the declared borrowed contract for composition.
+      // Only a linked worktree can be borrowed; the main checkout is released
+      // as source only, whatever the configuration declares.
       const configured = config.execution[options.context];
+      const linked = await worktreeGitKey(root) !== undefined;
       const releaseDeclaration = declaration ??
-        (configured?.kind === "borrowed" ? configured : null);
+        (linked && configured?.kind === "borrowed" ? configured : null);
       const release = releaseDeclaration === declaration
         ? { environmentId, lifetime, workspace }
         : await ownValidationEnvironment(
