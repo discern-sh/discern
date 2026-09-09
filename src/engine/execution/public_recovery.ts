@@ -24,13 +24,15 @@ import { readCompletionRecord } from "../completion/store.ts";
 import { reconcileQueueWork } from "../landing_queue/recovery.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { requireEnvironment } from "./registry.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import {
   createEnvironmentExecutor,
   type EnvironmentExecutorOptions,
 } from "./executor.ts";
 import {
   createNativeExecutionLifetime,
-  executionChildrenQuiescent,
+  inspectExecutionChildren,
 } from "./lifetime.ts";
 import { loadExecutionIntent } from "./intent.ts";
 import { validationWorkspace } from "./public_environment.ts";
@@ -221,6 +223,57 @@ export async function recoverCompletionResult(
   }
 }
 
+/** One recorded claim as `status` and `doctor` report it after live observation. */
+export type ExecutionClaimObservation = NonNullable<
+  StatusData["execution_activity"]
+>[number];
+
+/**
+ * Observe a recorded execution claim without touching it: whether a native
+ * operation still holds the checkout, and, when none does, whether every child
+ * process group the attempt recorded has stopped. A recorded claim alone proves
+ * neither; an expired deadline proves neither. Only the effectful recovery
+ * command reacquires exclusion, so this observation is advisory.
+ */
+export async function observeExecutionClaim(
+  root: string,
+  record: Extract<CompletionRecord, { kind: "environment" }>,
+  state: Extract<
+    Extract<CompletionRecord, { kind: "environment" }>["data"]["state"],
+    { kind: "executing" }
+  >,
+): Promise<ExecutionClaimObservation> {
+  const path = record.data.path;
+  const observed = await statIfExists(path) === undefined
+    ? {
+      ownership: "unknown" as const,
+      reason: `The recorded checkout ${path} no longer exists.`,
+    }
+    : await observeCompletionCheckout(path);
+  const children = observed.ownership === "available"
+    ? await inspectExecutionChildren(root, state.attempt_id)
+    : undefined;
+  return {
+    environment_id: record.id,
+    attempt_id: state.attempt_id,
+    candidate_id: state.candidate_id,
+    phase: state.phase,
+    lease_expires_at: state.claim.expires_at,
+    ownership: observed.ownership,
+    ...(children === undefined
+      ? {}
+      : { children_quiescent: children.quiescent }),
+    reason: children === undefined
+      ? observed.reason
+      : `${observed.reason} ${children.reason}`,
+    next_action: observed.ownership === "held"
+      ? "Let the owning operation finish or cancel it through its running handle; recovery rechecks exclusion."
+      : `Run ${
+        executionRecoveryCommand(record.id)
+      } from ${path}. Recovery rechecks ownership and child quiescence before return; the validation deadline does not delay native takeover.`,
+  };
+}
+
 /** Read-only local obligations remain visible even if temporary detachment hides a branch. */
 export async function executionStatus(
   root: string,
@@ -241,29 +294,7 @@ export async function executionStatus(
     }
     const state = record.data.state;
     if (state.kind === "executing") {
-      const observed = await observeCompletionCheckout(root);
-      const childrenQuiescent = observed.ownership === "available"
-        ? await executionChildrenQuiescent(root, state.attempt_id)
-        : undefined;
-      activity.push({
-        environment_id: record.id,
-        attempt_id: state.attempt_id,
-        candidate_id: state.candidate_id,
-        phase: state.phase,
-        lease_expires_at: state.claim.expires_at,
-        ownership: observed.ownership,
-        ...(childrenQuiescent === undefined
-          ? {}
-          : { children_quiescent: childrenQuiescent }),
-        reason: childrenQuiescent === false
-          ? `${observed.reason} Recorded child absence remains unproved.`
-          : observed.reason,
-        next_action: observed.ownership === "held"
-          ? "Let the owning operation finish or cancel it through its running handle; recovery rechecks exclusion."
-          : `Run ${
-            executionRecoveryCommand(record.id)
-          } from this worktree. Recovery rechecks ownership and child quiescence before return; the validation deadline does not delay native takeover.`,
-      });
+      activity.push(await observeExecutionClaim(root, record, state));
     }
     if (state.kind === "idle" && record.data.ownership.kind === "borrowed") {
       const queue = await readCompletionRecord(root, {

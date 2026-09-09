@@ -299,15 +299,18 @@ Deno.test("S04 doctor reads stale leases, interrupted returns, claim gaps, retir
     const records = named(checks, "completion records");
     assertEquals(records.status, "ok");
     assertStringIncludes(records.detail, "readable");
+    // The recorded claim is observed, not read off its deadline: its checkout
+    // path does not exist here, so ownership is unknown and nothing is assumed.
     const leases = named(checks, "execution leases");
     assertEquals(leases.status, "warn");
-    assertStringIncludes(leases.detail, "passed its validation deadline");
+    assertStringIncludes(leases.detail, "observed live");
     assertStringIncludes(leases.detail, "/workspace/effort-a");
+    assertStringIncludes(leases.detail, "ownership could not be observed");
+    assertStringIncludes(leases.detail, "no longer exists");
     assertStringIncludes(
-      leases.detail,
-      "does not prove the executor stopped",
+      leases.fix ?? "",
+      "restore the recorded checkout path",
     );
-    assertStringIncludes(leases.fix ?? "", "discern done --recover");
     const recovery = named(checks, "checkout recovery");
     assertEquals(recovery.status, "warn");
     assertStringIncludes(recovery.detail, "stopped in restore");

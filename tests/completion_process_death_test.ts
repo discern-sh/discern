@@ -1,22 +1,16 @@
 /** Native death recovery is independent of the validation watchdog and preserves exclusive return. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
+import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { processAllowance, waitUntil } from "./waiting.ts";
 import {
-  engineEnv,
-  git,
-  gitOut,
-  repoSourceRunArgs,
-  runAgent,
-} from "./engine_helpers.ts";
-import {
-  processAllowance,
-  settlePending,
-  waitForPendingCondition,
-  waitUntil,
-} from "./waiting.ts";
+  DEATH_DECLARATION as DECLARATION,
+  environmentId,
+  pausedExecutor,
+} from "./fixtures/completion_death_fixture.ts";
 import {
   observedRecords,
   requireQueue,
@@ -46,88 +40,6 @@ import { shellBarrier } from "./shell_barrier.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
 import { StartedChildSchema } from "../src/engine/execution/artifact_contracts.ts";
 import { decodeWith } from "./decode_cli_result.ts";
-
-const HARNESS = fromFileUrl(
-  new URL("./fixtures/completion_death_harness.ts", import.meta.url),
-);
-const DECLARATION = `
-[gate]
-timeout = 14400
-[execution.local]
-kind = 'borrowed'
-reusable = true
-capacity = 1
-inputs = ['**']
-ignored = ['executions']
-resources = []
-prepare = 'true'
-restore = 'true'
-`;
-
-/** Preserve subprocess diagnostics while the parent controls the exact death boundary. */
-async function pausedExecutor(
-  path: string,
-  marker: string,
-  boundary: string,
-  environmentId?: string,
-): Promise<{
-  readonly stop: () => Promise<void>;
-}> {
-  const allowance = processAllowance();
-  const child = new Deno.Command(Deno.execPath(), {
-    args: repoSourceRunArgs(HARNESS, [
-      boundary,
-      marker,
-      ...(environmentId === undefined ? [] : [environmentId]),
-    ]),
-    cwd: path,
-    env: await engineEnv(),
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const output = child.output();
-  let stopped = false;
-  const stop = async (): Promise<void> => {
-    if (stopped) return;
-    stopped = true;
-    try {
-      child.kill("SIGKILL");
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
-    }
-    await child.stdin.close();
-    await settlePending(output, "killed native executor to exit", {
-      allowance,
-    });
-  };
-  try {
-    await waitForPendingCondition(
-      output,
-      () => exists(marker),
-      "native executor barrier",
-      {
-        allowance,
-        settledError: (result) =>
-          new Error(new TextDecoder().decode(result.stderr)),
-      },
-    );
-  } catch (error) {
-    await stop();
-    throw error;
-  }
-  return { stop };
-}
-
-/** The fixture owns exactly one environment, including a reservation before its first claim. */
-async function environmentId(path: string): Promise<string> {
-  const environments = observedRecords(await observeCompletionRecords(path))
-    .filter((record) => record.kind === "environment");
-  assertEquals(environments.length, 1);
-  const environment = environments[0];
-  assert(environment !== undefined);
-  return environment.id;
-}
 
 for (const boundary of [...COMPLETION_CLAIM_BOUNDARIES, "validate"] as const) {
   Deno.test(`native death at ${boundary} recovers before the watchdog without validation or authority effects`, async () => {

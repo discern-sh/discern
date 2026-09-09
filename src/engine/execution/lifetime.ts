@@ -22,7 +22,7 @@ import { StartedChildSchema } from "./artifact_contracts.ts";
 import { RecordIdSchema } from "../completion/identity.ts";
 const PlannedChildSchema = z.strictObject({ token: RecordIdSchema });
 /** An unrecorded spawn outcome remains uncertain; an expired lease proves nothing. */
-async function inspectExecutionChildren(
+export async function inspectExecutionChildren(
   root: string,
   attemptId: string,
 ): Promise<{ quiescent: boolean; reason: string }> {

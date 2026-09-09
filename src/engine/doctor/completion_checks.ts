@@ -8,9 +8,11 @@
  *    capacity and producer authorities, so setup and doctor explain the same
  *    facts;
  *  - record checks observe the completion records in common Git administration
- *    and name the supported next action. Doctor never repairs, releases, or
- *    recovers anything: a recorded claim is not a liveness observation, and the
- *    effectful recovery command rechecks ownership under exclusion.
+ *    and name the supported next action. A recorded claim is observed live the
+ *    way `status` observes it: whether a native operation still holds the
+ *    checkout and whether the attempt's recorded children have stopped. Doctor
+ *    never repairs, releases, or recovers anything; the effectful recovery
+ *    command reacquires ownership under exclusion before it returns anything.
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
@@ -36,6 +38,10 @@ import { openCompletionRecordStore } from "../completion/store.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
 import { emergencyValidationStatus } from "../emergency/obligations.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
+import {
+  type ExecutionClaimObservation,
+  observeExecutionClaim,
+} from "../execution/public_recovery.ts";
 
 /** A check before doctor grades it; `status` defaults from `ok` and `warn`. */
 export type DoctorDraftCheck = Omit<Check, "status"> & {
@@ -288,8 +294,11 @@ export async function completionRecordChecks(
     );
 
   if (environments.length > 0) {
-    const live: string[] = [];
-    const expired: string[] = [];
+    const claims: {
+      readonly label: string;
+      readonly expired: boolean;
+      readonly observed: ExecutionClaimObservation;
+    }[] = [];
     let released = 0;
     let held = 0;
     let retired = 0;
@@ -297,9 +306,12 @@ export async function completionRecordChecks(
       if (record.kind !== "environment") continue;
       const state = record.data.state;
       if (state.kind === "executing") {
-        (state.claim.expires_at > now ? live : expired).push(
-          `${record.id} (attempt ${state.attempt_id}, phase ${state.phase}, at ${record.data.path})`,
-        );
+        claims.push({
+          label:
+            `${record.id} (attempt ${state.attempt_id}, phase ${state.phase}, at ${record.data.path})`,
+          expired: state.claim.expires_at <= now,
+          observed: await observeExecutionClaim(root, record, state),
+        });
       } else if (state.kind === "idle") {
         if (record.data.release.kind === "released") released++;
         else held++;
@@ -307,29 +319,74 @@ export async function completionRecordChecks(
         retired++;
       }
     }
+    // A recorded claim is graded by what was observed, never by its deadline
+    // alone: a live owner is ordinary work, however old the claim; an absent
+    // owner is abandoned work whose children must be proved stopped before
+    // recovery can return the checkout.
+    const owned = claims.filter((claim) => claim.observed.ownership === "held");
+    const abandoned = claims.filter((claim) =>
+      claim.observed.ownership === "available"
+    );
+    const unobserved = claims.filter((claim) =>
+      claim.observed.ownership === "unknown"
+    );
     const counts = [
       released === 0 ? undefined : `${released} released and idle`,
       held === 0
         ? undefined
         : `${held} held by ${held === 1 ? "its" : "their"} owner`,
-      live.length === 0 ? undefined : `${live.length} with a recorded claim`,
+      owned.length === 0
+        ? undefined
+        : `${owned.length} with a live owner${
+          owned.some((claim) => claim.expired)
+            ? " (one or more past their validation deadline; the owning run cancels and returns them)"
+            : ""
+        }`,
       retired === 0 ? undefined : `${retired} retired`,
     ].filter((part): part is string => part !== undefined);
-    if (expired.length > 0) {
+    if (abandoned.length > 0 || unobserved.length > 0) {
+      const stopped = abandoned.filter((claim) =>
+        claim.observed.children_quiescent === true
+      );
+      const running = abandoned.filter((claim) =>
+        claim.observed.children_quiescent !== true
+      );
+      const parts = [
+        ...stopped.map((claim) =>
+          `${claim.label}: no operation holds the checkout and every recorded child process has stopped, so the claim is abandoned`
+        ),
+        ...running.map((claim) =>
+          `${claim.label}: no operation holds the checkout, but child work is not proved stopped (${claim.observed.reason})`
+        ),
+        ...unobserved.map((claim) =>
+          `${claim.label}: ownership could not be observed (${claim.observed.reason})`
+        ),
+      ];
+      const fixes = [
+        stopped.length === 0
+          ? undefined
+          : `for an abandoned claim, run ${
+            executionRecoveryCommand("<environment-id>")
+          } from its worktree; recovery reacquires ownership and returns the checkout without validating or landing`,
+        running.length === 0
+          ? undefined
+          : "for unstopped child work, stop the named process group or reconcile its receipts first; recovery refuses until every recorded child is absent",
+        unobserved.length === 0
+          ? undefined
+          : "for an unobservable claim, restore the recorded checkout path or its lock directory before recovery; nothing here treats uncertainty as absence",
+      ].filter((part): part is string => part !== undefined);
       checks.push({
         name: "execution leases",
         ok: true,
         status: "warn",
-        detail: `${expired.length} execution claim${
-          expired.length === 1 ? " has" : "s have"
-        } passed ${
-          expired.length === 1 ? "its" : "their"
-        } validation deadline and still occupy capacity: ${
-          expired.join("; ")
-        }. Expiry does not prove the executor stopped or that its children are gone`,
-        fix: `from each named worktree run ${
-          executionRecoveryCommand("<environment-id>")
-        }; recovery rechecks ownership and stopped children before returning the checkout`,
+        detail: `${claims.length} recorded execution claim${
+          claims.length === 1 ? "" : "s"
+        } observed live: ${parts.join("; ")}${
+          counts.length === 0
+            ? ""
+            : `. Other environments: ${counts.join(", ")}`
+        }`,
+        fix: fixes.join("; "),
       });
     } else {
       checks.push({
@@ -338,11 +395,9 @@ export async function completionRecordChecks(
         detail: `${environments.length} enrolled environment${
           environments.length === 1 ? "" : "s"
         }: ${list(counts, "none active")}${
-          live.length === 0
+          owned.length === 0
             ? ""
-            : `. A recorded claim is not proof of a live executor; ${
-              executionRecoveryCommand("<environment-id>")
-            } rechecks that from the owning worktree`
+            : ". A live owner was observed on each recorded claim; recovery is not needed while it runs"
         }`,
       });
     }
