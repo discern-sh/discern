@@ -1607,8 +1607,12 @@ Deno.test("an unparseable config surfaces its TOML error without the setup redir
       join(dir, "discern.toml"),
       "this is = not valid toml [[[\n",
     );
-    const r = await runAgent(dir, ["done"]);
+    const r = await runAgent(dir, ["done", "--standalone"]);
     assertEquals(r.code, 1, r.output);
+    assertTerminalTextIncludes(
+      r.output,
+      "syntax error near line 1 in discern.toml",
+    );
     assert(
       !r.stderr.includes("isn't set up yet"),
       "the redirect must not bury the real TOML parse error",

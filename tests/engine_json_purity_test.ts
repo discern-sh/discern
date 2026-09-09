@@ -920,13 +920,13 @@ Deno.test("bare discern --json is one controlled result before and after setup",
 
 Deno.test("a pre-verb config error is still the uniform envelope (verb + single line)", async () => {
   await withTempDir(async (dir) => {
-    // A malformed discern.toml fails during the pre-flight config read, before the
-    // verb runs — the one global error path. It must still be the envelope.
+    // Diagnostic configuration loading fails before any job runs. The shared
+    // error path must still emit one envelope, including without a Git subject.
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       "this is = not valid toml [[[\n",
     );
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     assertEnvelopeOnly(r, "done"); // carries the attempted verb, single line
     assertEquals(decodeCliResult(r.stdout, "done").error, "invalid_toml");

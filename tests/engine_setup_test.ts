@@ -674,11 +674,15 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     assertEquals(await completionRecoveryStatus(dir), { data: {}, hints: [] });
-    // The gate proof verbs are usable during setup so the agent can iterate while
-    // wiring capabilities (and test a standard it wires) — but each leads with the
+    // Diagnostic gate commands are usable during setup while wiring
+    // capabilities (and testing a standard) — but each leads with the
     // "setup unfinished" advisory so a green run can't be mistaken for done.
     for (const verb of ["done", "prepare", "test", "standards"]) {
-      const r = await runAgent(dir, [verb, "--json"]);
+      const r = await runAgent(dir, [
+        verb,
+        ...(verb === "done" ? ["--standalone"] : []),
+        "--json",
+      ]);
       const res = decodeCliResult(r.stdout, verb);
       assertEquals(res.verb, verb, r.output);
       assert(
