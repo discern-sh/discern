@@ -4233,8 +4233,8 @@ export async function probeWorktreeViability(
     reason: "The structural probe did not produce a verdict.",
   };
   // A probe whose checkout return is unfinished keeps its worktree: removing
-  // it would strand the frozen recovery contract at a path that no longer
-  // exists, and only the supported recovery command may finish that return.
+  // it would strand the frozen recovery contract at a deleted path, and only
+  // the supported recovery command may finish that return.
   let retain = false;
   try {
     // Ready the worktree exactly as a real one: resources, env inheritance, one-shot

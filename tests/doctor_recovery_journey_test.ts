@@ -7,7 +7,7 @@
  */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { git, runAgent } from "./engine_helpers.ts";
 import { runChecks } from "../src/commands/doctor.ts";
@@ -79,8 +79,11 @@ ignored = ['executions']
       "--json",
     ]);
     assertEquals(refusedUpgrade.code, 1, refusedUpgrade.output);
-    assertStringIncludes(refusedUpgrade.output, "unfinished checkout return");
-    assertStringIncludes(refusedUpgrade.output, "discern done --recover");
+    assertTerminalTextIncludes(
+      refusedUpgrade.output,
+      "unfinished checkout return",
+    );
+    assertTerminalTextIncludes(refusedUpgrade.output, "discern done --recover");
     assertEquals(
       (await requireEnvironment(path, environment.id)).record,
       environment,

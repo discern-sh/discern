@@ -513,7 +513,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "producer-evidence",
         title: "Producer evidence on every validation result",
         what:
-          "`discern done`, `discern test`, and `discern standards` list each producer the run executed or reused, whether its input closure is declared or bound to the exact candidate, the reason, and for reused evidence the evidence id and the commit it came from. Setup and doctor name candidate-bound producers with the one remedy: declare `inputs`.",
+          "`discern done`, `discern test`, and `discern standards` list each producer the run executed or reused, whether its input closure is declared or bound to the exact candidate, the reason, and for reused evidence the evidence id and the commit it came from. Setup and doctor name candidate-bound producers and the remedy: declare `inputs`.",
         why:
           "Reuse is visible per producer instead of inferred from timings, and the cost of an undeclared closure is named where it is paid.",
         plain: {

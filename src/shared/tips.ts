@@ -835,6 +835,10 @@ export const TIPS: readonly RegisteredTip[] = [
 export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   Record<string, string>
 > = {
+  "feature:setup-environment-probe":
+    "Setup runs the probe itself and explains its outcome in the completion report; doctor's environment check teaches the recorded proof afterwards.",
+  "feature:producer-evidence":
+    "Every `done`, `test`, and `standards` result carries its executed and reused producers; the `done` tip teaches the final check that reports them.",
   "feature:jobs-table":
     "The gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.",
   "feature:job-format":
