@@ -1183,23 +1183,19 @@ Deno.test("the interrupted-acceptance guide keeps recovery commands on their reg
     guide.indexOf("## Recover an interrupted acceptance"),
     guide.indexOf("## Recover a dropped branch"),
   );
-  for (
-    const field of [
-      "data.root",
-      "data.queue",
-      "authority_settlement",
-      "retirement",
-    ]
-  ) {
-    assertStringIncludes(recovery, field);
-  }
+  assertStringIncludes(recovery, "data.root");
+  assertStringIncludes(recovery, "surviving checkout");
   assertStringIncludes(recovery, "discern accept --dry-run");
-  assertStringIncludes(recovery, "run `discern accept` again");
-  assertStringIncludes(recovery, "From the main checkout");
   assertStringIncludes(
     recovery,
-    "neither repeats the landing nor spends its authority again",
+    "../30-reference/mcp-and-results.md#completion-and-landing-results",
   );
+  const resultReference = await Deno.readTextFile(
+    join(REPO_ROOT, "project/manual/30-reference/mcp-and-results.md"),
+  );
+  for (const field of ["data.queue", "authority_settlement", "retirement"]) {
+    assertStringIncludes(resultReference, field);
+  }
   assertEquals("accept" in SIDE_RESTRICTED_OPS, false);
   assertEquals(SIDE_RESTRICTED_OPS["worktree-prune"].side, "main-checkout");
 });

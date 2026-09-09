@@ -92,9 +92,6 @@ const logbookReference = await Deno.readTextFile(
 const fileReference = await Deno.readTextFile(
   `${REPO_AUTHORED_PATHS.manual}/30-reference/files-and-ownership.md`,
 );
-const localControl = await Deno.readTextFile(
-  `${REPO_AUTHORED_PATHS.manual}/20-understand/local-control.md`,
-);
 const quickstart = await Deno.readTextFile(
   `${REPO_AUTHORED_PATHS.map}/10-getting-started/quickstart.md`,
 );
@@ -417,10 +414,9 @@ Deno.test("retention and bounded-reader prose derives from live limits", () => {
   }
 });
 
-Deno.test("runtime prerequisite prose derives from one command set", () => {
+Deno.test("runtime prerequisite reference derives from one command set", () => {
   assertEquals(REQUIRED_RUNTIME_TOOLS, ["git", "sh"]);
   const phrase = runtimePrerequisitesPhrase();
-  assertStringIncludes(localControl, phrase);
   assertStringIncludes(providerReference, phrase);
 });
 
