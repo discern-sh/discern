@@ -20,6 +20,7 @@
  */
 
 import { KNOWN_JOBS } from "./capabilities.ts";
+import type { CompletionAssurance } from "./completion_assurance.ts";
 import { type DiscernConfig, toCommandList } from "./config_schema.ts";
 import { KNOWN_VERBS } from "./verbs.ts";
 
@@ -88,6 +89,8 @@ export interface SetupAssurance {
   not_applicable: number;
   /** The rolled-up {@link AssuranceVerdict}. */
   verdict: AssuranceVerdict;
+  /** Standards, evidence reuse, and coordination, when completion derived them. */
+  completion?: CompletionAssurance;
 }
 
 /**

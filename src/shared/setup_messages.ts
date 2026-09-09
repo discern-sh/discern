@@ -580,6 +580,8 @@ export interface CompletionContext {
   unproven: boolean;
   /** Present when completion ran the environment probe. */
   environmentProbe?: EnvironmentProbeSummary | undefined;
+  /** Plain sentences about standards, evidence reuse, and coordination. */
+  completionLines?: readonly string[] | undefined;
 }
 
 /** Plain-word coverage line for the completion message: what runs and which
@@ -660,6 +662,7 @@ export function completionMessage(ctx: CompletionContext): string {
     proofLine,
     unproven,
     environmentProbe,
+    completionLines = [],
   } = ctx;
   const readyForActivation = !landing.inRepo || landing.onTarget;
   const headline = unproven
@@ -720,6 +723,7 @@ export function completionMessage(ctx: CompletionContext): string {
     headline,
     "",
     `  • ${coverageLine(assurance)}`,
+    ...completionLines.map((line) => `  • ${line}`),
     ...(environmentProbe === undefined
       ? []
       : [`  • ${describeEnvironmentProbe(environmentProbe)}`]),

@@ -90,6 +90,12 @@ import {
 } from "../engine/execution/probe.ts";
 import type { EnvironmentProbeSummary } from "../shared/environment_probe.ts";
 import {
+  type CompletionAssurance,
+  describeCompletionAssurance,
+} from "../shared/completion_assurance.ts";
+import { producerFacts } from "../engine/validation/producer_facts.ts";
+import { completionCapacityFacts } from "../engine/completion/capacity_facts.ts";
+import {
   currentTreeIdentity,
   inspectGateProof,
   inspectLastGateRun,
@@ -2916,6 +2922,26 @@ function inventoryLabel(items: readonly string[]): string {
   return items.length === 0 ? "none" : items.join(", ");
 }
 
+/** Derive what the standards read, whose evidence is reused, and how efforts
+ * coordinate, from the same authorities doctor reports. */
+async function completionAssurance(
+  cfg: DiscernConfig,
+): Promise<CompletionAssurance> {
+  const producers = await producerFacts(cfg);
+  return {
+    standards: [...producers.standards],
+    shared: producers.shared.map((entry) => ({
+      producer: entry.producer,
+      standards: [...entry.standards],
+    })),
+    candidate_bound: [...producers.candidate_bound],
+    declared: producers.producers.filter((producer) =>
+      producer.closure === "declared"
+    ).map((producer) => producer.label),
+    speculation: completionCapacityFacts(cfg).speculation.kind,
+  };
+}
+
 /** Build and render the one canonical completion projection from current state. */
 async function emitSetupDoneSuccess(
   root: string,
@@ -2936,7 +2962,10 @@ async function emitSetupDoneSuccess(
   const unproven = state.completion === "unproven";
   const path = (await resolveConfigPath(root)) ?? join(root, CONFIG_REL);
   const rawToml = await Deno.readTextFile(path);
-  const assurance = assessSetupAssurance(cfg, rawToml);
+  const assurance: SetupAssurance = {
+    ...assessSetupAssurance(cfg, rawToml),
+    completion: await completionAssurance(cfg),
+  };
   const landing = await landingSummary(root, cfg);
   const inventory = await deriveSetupCompletionInventory(root, cfg, assurance);
   const readyForActivation = !unproven && landing.inRepo && landing.onTarget;
@@ -2955,6 +2984,9 @@ async function emitSetupDoneSuccess(
     proofLine: state.proof?.proof_line,
     unproven,
     environmentProbe,
+    completionLines: assurance.completion === undefined
+      ? []
+      : describeCompletionAssurance(assurance.completion),
   });
 
   const data: SetupDoneData = {

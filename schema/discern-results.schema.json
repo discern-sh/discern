@@ -1263,6 +1263,66 @@
                                 "partial",
                                 "minimal"
                               ]
+                            },
+                            "completion": {
+                              "type": "object",
+                              "properties": {
+                                "standards": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "shared": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "producer": {
+                                        "type": "string"
+                                      },
+                                      "standards": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "producer",
+                                      "standards"
+                                    ]
+                                  }
+                                },
+                                "candidate_bound": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "declared": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "speculation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "undeclared",
+                                    "no-slot",
+                                    "available"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "standards",
+                                "shared",
+                                "candidate_bound",
+                                "declared",
+                                "speculation"
+                              ]
                             }
                           },
                           "required": [
@@ -4139,6 +4199,66 @@
                             "full",
                             "partial",
                             "minimal"
+                          ]
+                        },
+                        "completion": {
+                          "type": "object",
+                          "properties": {
+                            "standards": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shared": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "producer": {
+                                    "type": "string"
+                                  },
+                                  "standards": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "producer",
+                                  "standards"
+                                ]
+                              }
+                            },
+                            "candidate_bound": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "declared": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "speculation": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "undeclared",
+                                "no-slot",
+                                "available"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "standards",
+                            "shared",
+                            "candidate_bound",
+                            "declared",
+                            "speculation"
                           ]
                         }
                       },
@@ -24472,6 +24592,66 @@
                             "full",
                             "partial",
                             "minimal"
+                          ]
+                        },
+                        "completion": {
+                          "type": "object",
+                          "properties": {
+                            "standards": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shared": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "producer": {
+                                    "type": "string"
+                                  },
+                                  "standards": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "producer",
+                                  "standards"
+                                ]
+                              }
+                            },
+                            "candidate_bound": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "declared": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "speculation": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "undeclared",
+                                "no-slot",
+                                "available"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "standards",
+                            "shared",
+                            "candidate_bound",
+                            "declared",
+                            "speculation"
                           ]
                         }
                       },

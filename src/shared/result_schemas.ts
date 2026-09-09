@@ -2724,6 +2724,18 @@ export const KnownJobAssuranceSchema = z.strictObject({
 
 /** The rolled-up known-job coverage `setup done` reports — mirrors
  * {@link import("./setup_assurance.ts").SetupAssurance}. */
+/** Setup's account of standards, evidence reuse, and coordination; additive. */
+export const CompletionAssuranceSchema = z.strictObject({
+  standards: z.array(z.string()),
+  shared: z.array(z.strictObject({
+    producer: z.string(),
+    standards: z.array(z.string()),
+  })),
+  candidate_bound: z.array(z.string()),
+  declared: z.array(z.string()),
+  speculation: z.enum(["off", "undeclared", "no-slot", "available"]),
+});
+
 export const SetupAssuranceSchema = z.strictObject({
   known_jobs: z.array(KnownJobAssuranceSchema),
   enforced: z.number(),
@@ -2733,6 +2745,8 @@ export const SetupAssuranceSchema = z.strictObject({
   known_total: z.number().optional(),
   not_applicable: z.number().optional(),
   verdict: z.enum(ASSURANCE_VERDICTS),
+  /** Present when completion derived the standards, reuse, and coordination facts. */
+  completion: CompletionAssuranceSchema.optional(),
 });
 
 /** The provider-aware reactivation handoff — mirrors `reactivationHandoff()`'s return

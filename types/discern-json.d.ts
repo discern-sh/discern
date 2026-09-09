@@ -718,6 +718,16 @@ export type DiscernSetupResult = DiscernResultState & {
         known_total?: number;
         not_applicable?: number;
         verdict: "full" | "partial" | "minimal";
+        completion?: {
+          standards: Array<string>;
+          shared: Array<{
+            producer: string;
+            standards: Array<string>;
+          }>;
+          candidate_bound: Array<string>;
+          declared: Array<string>;
+          speculation: "off" | "undeclared" | "no-slot" | "available";
+        };
       };
     };
   } | {
@@ -1533,6 +1543,16 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       known_total?: number;
       not_applicable?: number;
       verdict: "full" | "partial" | "minimal";
+      completion?: {
+        standards: Array<string>;
+        shared: Array<{
+          producer: string;
+          standards: Array<string>;
+        }>;
+        candidate_bound: Array<string>;
+        declared: Array<string>;
+        speculation: "off" | "undeclared" | "no-slot" | "available";
+      };
     };
     inventory: {
       project_context: {
@@ -7614,6 +7634,16 @@ export type DiscernStatusResult = DiscernResultState & {
         known_total?: number;
         not_applicable?: number;
         verdict: "full" | "partial" | "minimal";
+        completion?: {
+          standards: Array<string>;
+          shared: Array<{
+            producer: string;
+            standards: Array<string>;
+          }>;
+          candidate_bound: Array<string>;
+          declared: Array<string>;
+          speculation: "off" | "undeclared" | "no-slot" | "available";
+        };
       };
     };
     unlanded_branches?: Array<string>;
