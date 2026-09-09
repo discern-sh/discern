@@ -55,6 +55,8 @@ Use this reference to understand what your agent can ask discern to do, which re
 | Resource URIs                                  | [Model Context Protocol resources](#model-context-protocol-resources)                             |
 | Exit codes, schemas, or TypeScript types       | [CLI exit codes](#cli-exit-codes) and [Published schemas and types](#published-schemas-and-types) |
 
+The gate is the project's final quality check. Proof records its evidence for one exact commit. The trunk is the project's shared branch. Checkpoints ask for judgment; grants record your permission to land changes.
+
 Project-operating tools require a configured project. `discern_docs` can read the bundled manual without one. To connect an agent, follow [Connect a coding agent](../10-guides/connect-a-coding-agent.md).
 
 ## Result formats and delivery
@@ -148,11 +150,11 @@ After review, `release_checkout: true` releases a clean checkout covered by curr
 
 #### Acceptance options
 
-Ordinary acceptance uses `target` to select an effort by id, path, branch, or full local ref. Main requires a target when several efforts are pending. Continue with the same target. Consent covers only that unchanged source; predecessors require separate authority.
+Your agent omits `action`, `reconcile`, and `reclaim` for ordinary acceptance. The `target` selects a task by id, path, branch, or full local ref. The main checkout requires a target when several tasks are pending. Your agent continues with the same target. Consent covers only that unchanged source; predecessors require separate authority.
 
-For queue decisions, `action` selects `hold`, `resume`, `withdraw`, `revoke`, or `reprioritize`. Preview with `dry_run: true`. After you approve the displayed decision, pass `confirmed: true` and the returned `expected_state` token as `expected`. With `action: "reprioritize"`, `order` lists every eligible effort, with source dependencies before their dependents. A changed plan requires another preview.
+For individual queue decisions, your agent supplies `target` and an `action`: `hold`, `resume`, `withdraw`, or `revoke`. With `action: "reprioritize"`, `order` lists every eligible task, with source dependencies before their dependents. The agent previews either decision with `dry_run: true`. After you approve it, they pass `confirmed: true` and the returned `expected_state` token as `expected`. A changed plan requires another preview so the applied decision matches what you reviewed.
 
-To reconcile an exact proven source already integrated externally, preview with `reconcile: true`, `target`, and `dry_run: true`. Apply its `expected` token to reconcile matching queue state and eligible retirement. This neither advances refs nor creates a historical governed landing receipt. Keep reconciliation separate from new approval.
+To reconcile an exact proven source already integrated externally, your agent previews with `reconcile: true`, `target`, and `dry_run: true`. They apply its `expected` token to reconcile matching queue state and eligible retirement. This neither advances refs nor creates a record of prior landing permission. Reconciliation stays separate from new approval.
 
 #### Emergency integration
 
@@ -241,6 +243,8 @@ Setup pages carry owner-facing semantic prose once. Compact `spine.owner_moments
 `status` identifies the project in `data.project`. Its default structured projection retains the main fleet row and at most six non-main rows, selected by attention, current-checkout, recent-activity, and lexical priority. Every repeated collection is capped at six. `fleet_total` and positive `projection.omitted` counts preserve exact omissions under dotted paths with zero-based array indexes. Config refusals carry `projection`. Every sampled readable row carries one `gate_proof`, whose status is `honored`, `report_only`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. `report_only` is current for its commit but cannot authorize landing because checkpoint review was not enforced. An honored marker carries a compact `proof` with branch, trunk, validated commit, diff counts, and line. Rendered Proof pages and the earlier honored-only compatibility fields do not cross the structured-result boundary. Collision rows retain identities and shared-path counts. `discern status --verbose --json` and MCP `verbose: true` restore complete repeated collections and landing history with `projection: { mode: "full" }` and no omission map; terminal `--verbose` also holds collision paths and full Proof pages. See [Status and session hints](worktrees-and-status.md) for the dashboard and projections.
 
 #### Completion and landing results
+
+Green means the required checks passed for the recorded commit; it does not mean the change landed. Later edits make Proof stale because the waiting code differs from what passed. Only you can approve an unmet checkpoint exception; a grant does not cover it.
 
 For `done`, inspect `data.completion` as well as the top-level verdict:
 
