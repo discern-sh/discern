@@ -375,10 +375,11 @@ Deno.test("the shared Manual verdict retains editorial review and blocks product
       /^(---\r?\n[\s\S]*?\r?\n---)(?:\r?\n|$)/u,
     )?.[1];
     assert(frontmatter !== undefined);
+    // Preserve the page and its inbound heading targets while adding policy cases.
     const writeBody = async (body: string): Promise<void> => {
       await Deno.writeTextFile(
         source,
-        `${frontmatter}\n# Delegate work\n\n${body}\n`,
+        `${original.trimEnd()}\n\n${body}\n`,
       );
     };
     // Keep the strict manual projection in the isolated fixture while running
