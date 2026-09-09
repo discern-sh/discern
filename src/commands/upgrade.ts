@@ -87,7 +87,10 @@ import {
 import { TomlFormatError, writeDiscernToml } from "../lib/tidy_format.ts";
 import { executionStatus } from "../engine/execution/public_recovery.ts";
 import { openCompletionRecordStore } from "../engine/completion/store.ts";
-import { observeCompletionRecords } from "../engine/validation/runtime.ts";
+import {
+  observableCompletionCheckout,
+  observeCompletionRecords,
+} from "../engine/validation/runtime.ts";
 import { newerOnDiskFormatMessage } from "../shared/on_disk_formats.ts";
 
 /** Options accepted by the `upgrade` command. */
@@ -139,6 +142,7 @@ function pendingUpgradeHint(): FiredHint {
 async function recordedExecutionRefusal(
   destDir: string,
 ): Promise<DiscernResult<UpgradeData> | undefined> {
+  if (!await observableCompletionCheckout(destDir)) return undefined;
   if (await openCompletionRecordStore(destDir) === undefined) return undefined;
   const observation = await observeCompletionRecords(destDir);
   const newer = observation.records.filter(({ reading }) =>

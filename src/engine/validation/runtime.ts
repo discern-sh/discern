@@ -93,6 +93,25 @@ export async function observeCompletionRecords(
   };
 }
 
+/**
+ * Whether completion records can be observed from `root`: inside a work tree
+ * whose HEAD resolves. A repository with no commit yet, or a directory outside
+ * Git, has no completion history to read, so read-only callers skip rather
+ * than fail.
+ */
+export async function observableCompletionCheckout(
+  root: string,
+): Promise<boolean> {
+  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: root,
+  });
+  if (!inside.success || inside.stdout.trim() !== "true") return false;
+  const head = await runGit(["rev-parse", "--verify", "HEAD^{commit}"], {
+    cwd: root,
+  });
+  return head.success;
+}
+
 /** Observe present checkout bytes, including literal names and link text, plus identity files. */
 export async function observeValidationInputs(
   root: string,

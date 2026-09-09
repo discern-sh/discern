@@ -17,11 +17,7 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Check } from "../../shared/result_schemas.ts";
-import {
-  commandExists,
-  leadingCommandWord,
-  runGit,
-} from "../../shared/subprocess.ts";
+import { commandExists, leadingCommandWord } from "../../shared/subprocess.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import { newerOnDiskFormatMessage } from "../../shared/on_disk_formats.ts";
@@ -33,7 +29,10 @@ import {
   CANDIDATE_BOUND_REMEDY,
   producerFacts,
 } from "../validation/producer_facts.ts";
-import { observeCompletionRecords } from "../validation/runtime.ts";
+import {
+  observableCompletionCheckout,
+  observeCompletionRecords,
+} from "../validation/runtime.ts";
 import { openCompletionRecordStore } from "../completion/store.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
 import { emergencyValidationStatus } from "../emergency/obligations.ts";
@@ -71,10 +70,7 @@ export async function completionConfigurationChecks(
   const checks: DoctorDraftCheck[] = [];
   // The proof record lives in Git administration; outside a repository the
   // facts describe configuration alone.
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: destDir,
-  });
-  const proofs = inside.success && inside.stdout.trim() === "true"
+  const proofs = await observableCompletionCheckout(destDir)
     ? await declarationProofStates(destDir, config)
     : undefined;
   const capacity = completionCapacityFacts(
@@ -259,10 +255,7 @@ async function observeStore(
   root: string,
   clock: Clock,
 ): Promise<CompletionObservation | undefined> {
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: root,
-  });
-  if (!inside.success || inside.stdout.trim() !== "true") return undefined;
+  if (!await observableCompletionCheckout(root)) return undefined;
   if (await openCompletionRecordStore(root) === undefined) return undefined;
   return await observeCompletionRecords(root, clock);
 }

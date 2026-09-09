@@ -1,4 +1,3 @@
-import { runGit } from "../../shared/subprocess.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 /** Explicit checkout return uses frozen intent; it never runs validation or publishes Proof. */
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -22,7 +21,10 @@ import {
 } from "../landing_queue/repository.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import { reconcileQueueWork } from "../landing_queue/recovery.ts";
-import { observeCompletionRecords } from "../validation/runtime.ts";
+import {
+  observableCompletionCheckout,
+  observeCompletionRecords,
+} from "../validation/runtime.ts";
 import { requireEnvironment } from "./registry.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import type { CompletionRecord } from "../completion/records.ts";
@@ -280,10 +282,7 @@ export async function observeExecutionClaim(
 export async function executionStatus(
   root: string,
 ): Promise<Pick<StatusData, "execution_activity" | "execution_recovery">> {
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: root,
-  });
-  if (!inside.success || inside.stdout.trim() !== "true") return {};
+  if (!await observableCompletionCheckout(root)) return {};
   const records = observedRecords(
     await observeCompletionRecords(root, SYSTEM_CLOCK, ["environment"]),
   );
