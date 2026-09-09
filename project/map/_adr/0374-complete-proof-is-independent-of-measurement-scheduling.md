@@ -24,6 +24,10 @@ Local and CI execution use the same requirement evaluator. A report-only result 
 
 Producer receipts describe immutable execution subjects independently of mutable queue eligibility. Queue supersession cannot manufacture a failed producer. A cancelled attempt without completed component evidence contributes no new verdict and cannot clear an earlier failure. Completed receipts retain their outcome; admission and complete Proof still require their own current checks.
 
+## Clean-tree amendment — 2026-09-09
+
+`done` requires a clean, committed tree. The cutover let a dirty tree run the complete gate as a diagnostic that issued no Proof and recorded no reusable evidence. In practice that spent a full validation on a tree that could never land, and agents cannot be relied on to avoid it. Completion now refuses an uncommitted or dirty tree before selecting a candidate or running any producer, and names the uncommitted paths. `done --standalone` remains the only explicit diagnostic route for such a tree; its results stay transient. Iteration uses `prepare`, `test`, or that explicit standalone run.
+
 ## Consequences
 
 - Required measurement can increase iteration cost. The design prioritizes useful feedback and time from approval to landing while making discarded work observable.
