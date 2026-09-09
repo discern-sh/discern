@@ -42,7 +42,8 @@ export class CompletionMcpPeer implements AsyncDisposable {
   stderr = "";
   readonly finished: Promise<Deno.CommandStatus>;
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>;
-  private readonly drained: Promise<void>;
+  private readonly drained: Promise<PromiseSettledResult<void>[]>;
+  private readonly captureAbort = new AbortController();
 
   constructor(
     private readonly child: McpPeerProcess,
@@ -51,14 +52,14 @@ export class CompletionMcpPeer implements AsyncDisposable {
   ) {
     this.writer = child.stdin.getWriter();
     this.finished = child.status;
-    this.drained = Promise.all([this.drain(), this.drainErrors()]).then(
-      () => {},
-    );
+    this.drained = Promise.allSettled([this.drain(), this.drainErrors()]);
   }
 
   private async drainErrors(): Promise<void> {
     for await (
-      const text of this.child.stderr.pipeThrough(new TextDecoderStream())
+      const text of this.child.stderr.pipeThrough(new TextDecoderStream(), {
+        signal: this.captureAbort.signal,
+      })
     ) {
       this.stderr = (this.stderr + text).slice(-65_536);
     }
@@ -67,7 +68,9 @@ export class CompletionMcpPeer implements AsyncDisposable {
   private async drain(): Promise<void> {
     let buffer = "";
     for await (
-      const text of this.child.stdout.pipeThrough(new TextDecoderStream())
+      const text of this.child.stdout.pipeThrough(new TextDecoderStream(), {
+        signal: this.captureAbort.signal,
+      })
     ) {
       buffer += text;
       let newline: number;
@@ -131,21 +134,57 @@ export class CompletionMcpPeer implements AsyncDisposable {
   }
 
   async [Symbol.asyncDispose](): Promise<void> {
-    await this.writer.close();
+    const shutdown = Promise.all([
+      this.writer.close(),
+      this.finished,
+      this.drained.then((outcomes) => {
+        const failed = outcomes.find((outcome) =>
+          outcome.status === "rejected"
+        );
+        if (failed?.status === "rejected") throw failed.reason;
+      }),
+    ]);
     try {
       await this.waitForExit(
-        this.finished,
-        "MCP server shutdown and child settlement",
+        shutdown,
+        "MCP input closure, server shutdown, and output settlement",
         this.allowance !== undefined
           ? { allowance: this.allowance }
           : { timeoutMs: TEST_PROCESS_TIMEOUT_MS },
       );
     } catch (error) {
-      this.child.kill("SIGTERM");
-      await this.finished;
+      // EOF already spent the graceful allowance. Close inherited pipes and
+      // force the owned server down; neither TERM nor pipe EOF is guaranteed.
+      this.captureAbort.abort();
+      try {
+        this.child.kill("SIGKILL");
+      } catch (killError) {
+        if (!(killError instanceof Deno.errors.NotFound)) {
+          throw new AggregateError(
+            [error, killError],
+            "MCP forced shutdown failed",
+            { cause: killError },
+          );
+        }
+      }
+      try {
+        await this.waitForExit(
+          Promise.allSettled([
+            this.finished,
+            this.drained,
+            this.writer.abort(),
+          ]),
+          "MCP forced cleanup",
+          { timeoutMs: 1_000 },
+        );
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          "MCP shutdown and forced cleanup failed",
+          { cause: cleanupError },
+        );
+      }
       throw error;
-    } finally {
-      await this.drained;
     }
   }
 }
