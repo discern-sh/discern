@@ -54,6 +54,11 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
+import {
+  completionConfigurationChecks,
+  completionRecordChecks,
+  type DoctorDraftCheck,
+} from "../engine/doctor/completion_checks.ts";
 import { generatedMergeChecks } from "../engine/doctor/generated_merge.ts";
 import {
   agentFilePaths,
@@ -167,7 +172,7 @@ export async function doctorEnvironment(): Promise<DoctorEnvironment> {
  * SSOT) and re-exported here. */
 export type { Check };
 
-type DraftCheck = Omit<Check, "status"> & { status?: Check["status"] };
+type DraftCheck = DoctorDraftCheck;
 
 /** Fill doctor's severity grade from the compatibility booleans. The envelope stays
  * green for warnings (`ok: true`), but every check now carries a first-class status so
@@ -695,6 +700,13 @@ export async function runChecks(
     );
   }
 
+  // 5c. Complete validation and coordination — how the configured limits
+  // combine, what each declared execution environment promises, which producers
+  // the standards share or duplicate, and whose evidence is candidate-bound.
+  // Derived from the same authorities `setup done` reports, so the two surfaces
+  // cannot disagree.
+  checks.push(...await completionConfigurationChecks(destDir, config));
+
   // 5b. Git attributes and generated-artifact declarations — verify the managed
   // block, then probe the command and ownership facts the gate and update rely
   // on without running a generator or writing a file. Generated file lists come
@@ -1002,6 +1014,13 @@ export async function runChecks(
     if (commonGitDir !== undefined) {
       checks.push(await logbookCheck(config, commonGitDir));
     }
+  }
+
+  // 7e. the durable completion records — read-only. Recorded claims, interrupted
+  // checkout returns, pending retirement, outstanding emergency validation, and
+  // records this build cannot read, each with its supported next action.
+  if (gitHealth?.repository.kind === "repository") {
+    checks.push(...await completionRecordChecks(destDir));
   }
 
   // 8. instructions/skills config resolves — if [instructions].sources or [skills].dir is
