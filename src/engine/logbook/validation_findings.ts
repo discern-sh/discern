@@ -42,21 +42,46 @@ export function hasRecordedValidationFailure(event: VerbEvent): boolean {
     );
 }
 
-/** Missing invocation identity cannot be deduplicated. Present identities count
- * once, regardless of repeated delivery. */
-export function distinctVerbInvocations(
+interface VerbInvocations {
+  readonly events: readonly VerbEvent[];
+  readonly conflicts: ReadonlySet<VerbEvent>;
+}
+
+/** Retain one delivery per invocation. A contradictory copy marks that position
+ * unknown; leaving its position present prevents joining a streak across it.
+ * Records without identity remain separate, since their multiplicity is unknown. */
+export function verbInvocations(
   events: readonly VerbEvent[],
-): VerbEvent[] {
+): VerbInvocations {
   const seen = new Map<string, VerbEvent>();
   const result: VerbEvent[] = [];
+  const conflicts = new Set<VerbEvent>();
   for (const event of events) {
     if (event.invocation === undefined) result.push(event);
     else if (!seen.has(event.invocation)) {
       seen.set(event.invocation, event);
       result.push(event);
+    } else {
+      const prior = seen.get(event.invocation);
+      if (
+        prior !== undefined && canonicalJson(prior) !== canonicalJson(event)
+      ) {
+        conflicts.add(prior);
+      }
     }
   }
-  return result;
+  return { events: result, conflicts };
+}
+
+/** Only unambiguous completed failure observations enter validation counts. */
+export function failedValidationInvocations(
+  observations: VerbInvocations,
+): ReadonlySet<VerbEvent> {
+  return new Set(
+    observations.events.filter((event) =>
+      !observations.conflicts.has(event) && hasRecordedValidationFailure(event)
+    ),
+  );
 }
 
 /** The two validation relationships this wave publishes. The retained id is
@@ -542,15 +567,8 @@ export function repeatedGreenValidationJobs(
   observations: number;
   groups: { group: CurrentValidationRepeatGroup; repeats: number }[];
 } {
-  const seen = new Set<string>();
-  const unique = events.filter((event) => {
-    // Incomplete observations still break adjacency; they cannot be ignored
-    // to connect two known subjects across unknown intervening work.
-    if (event.invocation === undefined) return true;
-    if (seen.has(event.invocation)) return false;
-    seen.add(event.invocation);
-    return true;
-  });
+  const observations = verbInvocations(events);
+  const unique = observations.events;
   const previous = new Map<VerbEvent, VerbEvent>();
   const branchTail = new Map<string, VerbEvent>();
   for (const event of unique) {
@@ -563,6 +581,7 @@ export function repeatedGreenValidationJobs(
     branchTail.set(event.branch, event);
   }
   const eligible = (event: VerbEvent): boolean =>
+    !observations.conflicts.has(event) &&
     event.invocation !== undefined && event.outcome === "ok" &&
     event.gate_ran !== false &&
     !event.flags?.includes("rerun") && event.epoch !== null;
@@ -594,9 +613,10 @@ export function repeatedGreenValidationJobs(
 export function observedGreenGateDurations(
   events: readonly VerbEvent[],
 ): VerbEvent[] {
-  const seen = new Set<string>();
-  return events.filter((event) => {
+  const observations = verbInvocations(events);
+  return observations.events.filter((event) => {
     if (
+      observations.conflicts.has(event) ||
       event.verb !== "done" || event.outcome !== "ok" ||
       event.gate_ran !== true ||
       event.invocation === undefined || event.epoch === null ||
@@ -607,8 +627,6 @@ export function observedGreenGateDurations(
       event.waited_ms > event.duration_ms ||
       event.change === undefined
     ) return false;
-    if (seen.has(event.invocation)) return false;
-    seen.add(event.invocation);
     return true;
   });
 }

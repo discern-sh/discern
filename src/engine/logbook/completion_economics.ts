@@ -5,21 +5,18 @@ import type {
   CompletionEconomics,
   CompletionIntervalEconomics,
 } from "../../shared/patterns_vocabulary.ts";
-export type { CompletionEconomics } from "../../shared/patterns_vocabulary.ts";
 
 type TimingFact = Extract<CompletionEvent["fact"], { kind: "timing" }>;
 
-export interface ObservedInterval {
+interface ObservedInterval {
   readonly started_at: number;
   readonly finished_at: number;
 }
 
-export type IntervalEconomics = CompletionIntervalEconomics;
-
 /** Invalid or omitted clocks cannot create negative costs or fabricated zeros. */
 export function intervalEconomics(
   intervals: readonly ObservedInterval[],
-): IntervalEconomics {
+): CompletionIntervalEconomics {
   const valid = intervals.filter((interval) =>
     Number.isFinite(interval.started_at) &&
     Number.isFinite(interval.finished_at) &&

@@ -50,7 +50,10 @@ import {
   runDetector,
   tipAdoptionOutcome,
 } from "../src/engine/logbook/detectors.ts";
-import { routedFindingData } from "../src/engine/logbook/routing.ts";
+import {
+  routeDetectorReports,
+  routedFindingData,
+} from "../src/engine/logbook/routing.ts";
 import { KNOWN_VERBS } from "../src/shared/verbs.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
@@ -314,6 +317,21 @@ function redDone(over: Partial<VerbEvent> = {}): Partial<VerbEvent> {
     failed_stage: "check/test",
     ...over,
   };
+}
+
+/** One identified full-test failure beside an explicitly successful canary. */
+function canaryMiss(
+  index: number,
+  file = "tests/hot_test.ts",
+): Partial<VerbEvent> {
+  return redDone({
+    invocation: `canary-miss-${index}`,
+    steps: [step("canary", 0.1, "Check"), {
+      ...step("test", 1, "Test"),
+      outcome: "failed",
+    }],
+    diagnostics: [{ tool: "test", file, count: 100 }],
+  });
 }
 
 /** A red `done` where a quick check failed and the long suite was cancelled
@@ -916,6 +934,16 @@ interface DetectorFixtures {
 }
 
 const FIXTURES: Record<string, DetectorFixtures> = {
+  "canary-drift": {
+    firing: run(Array.from({ length: 5 }, (_, i) => canaryMiss(i))),
+    quiet: run(
+      Array.from(
+        { length: 5 },
+        (_, i) => canaryMiss(i, `tests/file-${i}_test.ts`),
+      ),
+    ),
+    sparse: run(Array.from({ length: 4 }, (_, i) => canaryMiss(i))),
+  },
   "done-thrash": {
     firing: run([redDone(), redDone(), redDone(), { verb: "done" }]),
     quiet: run([redDone(), { verb: "done" }, redDone(), { verb: "done" }]),
@@ -5206,4 +5234,132 @@ Deno.test("patterns validation streaks require completed failures, not interrupt
       [],
     );
   }
+});
+
+Deno.test("validation findings censor conflicting invocation copies without joining across the gap", () => {
+  const events = timedRun(Array.from({ length: 8 }, (_, i) => ({
+    invocation: `timed-${i}`,
+    duration_ms: i < 4 ? 10_000 : 20_000,
+  })));
+  const first = events[0];
+  assert(first?.kind === "verb");
+  const conflicting = { ...first, gate_ran: false };
+  assertEquals(
+    runDetector(
+      detector("duration-creep"),
+      buildStreamFacts([...events, conflicting], "main"),
+    ).findings,
+    [],
+  );
+  const repeated = FIXTURES["sequence-anomaly"]?.firing;
+  assert(repeated !== undefined);
+  const middle = repeated[1];
+  assert(middle?.kind === "verb");
+  assertEquals(
+    runDetector(
+      detector("sequence-anomaly"),
+      buildStreamFacts([...repeated, { ...middle, gate_ran: false }], "main"),
+    ).findings,
+    [],
+  );
+  const failed = run(
+    Array.from({ length: 4 }, (_, i) => redDone({ invocation: `red-${i}` })),
+  );
+  const red = failed[1];
+  assert(red?.kind === "verb");
+  assertEquals(
+    runDetector(
+      detector("done-thrash"),
+      buildStreamFacts([...failed, { ...red, steps: [] }], "main"),
+    ).findings,
+    [],
+  );
+});
+
+Deno.test("canary drift routes distinct completed failures into advisory improvement hints", () => {
+  const events = run(Array.from({ length: 5 }, (_, i) => canaryMiss(i)));
+  const read = (input: LogbookEvent[]): DetectorReport =>
+    runDetector(detector("canary-drift"), buildStreamFacts(input, "main"));
+  const report = read(events);
+  assertEquals(report.findings.length, 1);
+  assertEquals(report.findings[0]?.evidence.failing_invocations, 5);
+  assertEquals(report.findings[0]?.evidence.diagnostic_rows, 5);
+  assertEquals(
+    read(events.flatMap((event) => [event, event])).findings,
+    report.findings,
+  );
+  assertEquals(routeDetectorReports([report]).improvement.length, 1);
+  assertEquals(routeDetectorReports([report]).done.length, 0);
+  for (const outcome of ["cancelled", "skipped", "failed"] as const) {
+    const changed = events.map((event): LogbookEvent =>
+      event.kind === "verb"
+        ? {
+          ...event,
+          steps: [{ ...step("canary", 1, "Check"), outcome }, {
+            ...step("test", 1, "Test"),
+            outcome: "failed",
+          }],
+        }
+        : event
+    );
+    assertEquals(read(changed).findings, []);
+  }
+  const unknown = events.map((event): LogbookEvent => {
+    if (event.kind !== "verb") return event;
+    const { invocation: _identity, ...rest } = event;
+    return rest;
+  });
+  assertEquals(read(unknown).status, "insufficient-evidence");
+  assertEquals(
+    read(
+      events.map((event) =>
+        event.kind === "verb" ? { ...event, diagnostics: [] } : event
+      ),
+    ).status,
+    "insufficient-evidence",
+  );
+  const modern = events.map((event): LogbookEvent =>
+    event.kind === "verb"
+      ? {
+        ...event,
+        validation: validation("failed", {
+          mode: "full-gate",
+          siblings: [{ id: "canary", stage: "check", outcome: "passed" }],
+        }),
+      }
+      : event
+  );
+  assertEquals(read(modern).findings[0]?.evidence.failing_invocations, 5);
+  const ambiguous = modern.map((event): LogbookEvent =>
+    event.kind === "verb" && event.validation !== undefined
+      ? {
+        ...event,
+        validation: {
+          ...event.validation,
+          execution: {
+            ...event.validation.execution,
+            jobs: [
+              ...event.validation.execution.jobs,
+              ...event.validation.execution.jobs,
+            ],
+          },
+        },
+      }
+      : event
+  );
+  assertEquals(read(ambiguous).status, "insufficient-evidence");
+  const latest = events.at(-1);
+  assert(latest?.kind === "verb");
+  assertEquals(
+    read([...events, { ...latest, diagnostics: [] }]).status,
+    "insufficient-evidence",
+  );
+  assertEquals(
+    read(
+      events.map((event, i) =>
+        event.kind === "verb" ? { ...event, epoch: `epoch-${i}` } : event
+      ),
+    ).status,
+    "insufficient-evidence",
+  );
 });

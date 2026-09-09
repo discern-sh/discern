@@ -14,7 +14,17 @@ A repeated green validation finding needs the same complete recorded validation 
 
 Duration drift uses green calls that explicitly ran the gate and recorded their capacity wait. It compares one configuration and writer epoch, with change size present. The remaining invocation duration can include preparation, reporting, return and publication. Cache, host load and required test membership remain confounders. Missing wait measurements stay unknown.
 
+Repeated delivery of an invocation counts once. Contradictory copies leave an unknown position in the sequence, so the reader cannot connect repeated validation across that gap. A gap in completed logbook entries invites a current-status lookup; it does not establish an inactive or abandoned effort. Historical same-branch start/accept intervals describe command observations, with their limited coverage made explicit.
+
 Repeated failed checks can identify diagnostics worth investigating. Cancelled, skipped and unknown job outcomes do not establish failed validation verdicts. Older records retain explicitly reported check-stage failures at their original resolution. Source changes, owner feedback and changed integrations can require further validation; neither a streak nor a driver cohort establishes author quality. Recorded owner waits do not enter refusal-loop findings.
+
+## Canary review candidates
+
+The canary-drift finding requires repeated, identified full-test failures alongside a passing canary under one recorded setup. Diagnostics identify candidate files for review. Each invocation counts once per file; a collapsed diagnostic count cannot turn one failure into several independent failures.
+
+The finding reaches Patterns and the ordinary advisory route into `improvement`. It asks for existing membership and exclusions, relevant execution contexts, and measured incremental cost before enrollment. A green canary does not establish that the failing case was absent: suite ordering or context may differ. Missing or contradictory job verdicts remain insufficient evidence. No finding changes membership or grants Proof.
+
+This repository's [canary registry](../../../scripts/canary_registry.ts) owns enrollment and recorded exclusions. Its [audit](../../../scripts/canary_audit.ts) supplies the existing history view for that review. [The failure reader](../../../src/engine/logbook/test_failure_findings.ts) owns identified per-file observations used by the detector.
 
 ## Completion accounting
 

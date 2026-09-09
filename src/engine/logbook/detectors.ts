@@ -81,6 +81,11 @@ import {
 } from "./schema.ts";
 import { byBranch } from "./read.ts";
 import {
+  CANARY_REVIEW_FAILURE_RUNS,
+  recordedJobOutcome,
+  testFailureFiles,
+} from "./test_failure_findings.ts";
+import {
   analyzeCheckpointObservations,
   checkpointConfigBoundary,
   checkpointVarianceSummaries,
@@ -91,8 +96,7 @@ import {
 import {
   crossContextValidationGroups,
   type CurrentValidationRepeatGroup,
-  distinctVerbInvocations,
-  hasRecordedValidationFailure,
+  failedValidationInvocations,
   observedEvidenceValues,
   observedGreenGateDurations,
   repeatedGreenValidationJobs,
@@ -101,6 +105,7 @@ import {
   type ValidationContextBucket,
   validationContextLabel,
   type ValidationFindingRelationship,
+  verbInvocations,
 } from "./validation_findings.ts";
 
 export { median, round1 };
@@ -697,13 +702,13 @@ const doneThrash: Detector = {
   next_step:
     "Start with the first repeated diagnostic and use the `discern-cure-a-bug` skill's diagnose procedure to prove its cause. Use `discern prepare` when the gate identifies fix or regeneration work it can prevent.",
   detect(facts): DetectorOutcome {
-    const dones = distinctVerbInvocations(
-      facts.agentish.filter((e) => e.verb === "done"),
-    );
+    const observations = verbInvocations(facts.agentish);
+    const dones = observations.events.filter((event) => event.verb === "done");
+    const failures = failedValidationInvocations(observations);
     const findings: DetectorFinding[] = [];
     for (const [branch, events] of byBranch(dones)) {
       for (const session of bySession(events)) {
-        const streak = longestStreak(session, hasRecordedValidationFailure);
+        const streak = longestStreak(session, (event) => failures.has(event));
         if (streak >= 3) {
           const evidence = {
             consecutive_failures: streak,
@@ -752,10 +757,10 @@ const refusalLoop: Detector = {
   next_step:
     "Read the current refusal and follow its next action. Repeated observations can reflect coordination; the count alone does not establish an instruction gap or author fault.",
   detect(facts): DetectorOutcome {
-    const refused = distinctVerbInvocations(
-      facts.agentish.filter((e) =>
-        e.outcome === "refused" && !e.error?.startsWith("awaiting_")
-      ),
+    const observations = verbInvocations(facts.agentish);
+    const refused = observations.events.filter((event) =>
+      !observations.conflicts.has(event) && event.outcome === "refused" &&
+      !event.error?.startsWith("awaiting_")
     );
     const findings: DetectorFinding[] = [];
     for (const [branch, events] of byBranch(refused)) {
@@ -2119,7 +2124,7 @@ const docsGap: Detector = {
 
 const abandonedWorktrees: Detector = {
   id: "abandoned-worktrees",
-  title: "Inactive branches without a recorded green gate",
+  title: "Branches with a gap in recorded completion",
   family: "behavior",
   scope: "project",
   tier: "batch",
@@ -2127,7 +2132,7 @@ const abandonedWorktrees: Detector = {
   // 2 tracked branches: with one branch there is no fleet to compare against.
   threshold: 2,
   next_step:
-    "Use `discern status` to inspect each named branch. Continue active work, or drop an effort only after confirming it is no longer needed.",
+    "Read current `discern status` for the effort's lifecycle and next action before deciding whether any cleanup is appropriate.",
   detect(facts): DetectorOutcome {
     const branches = byBranch(
       facts.agentish.filter((e) => e.branch !== facts.trunk),
@@ -2143,7 +2148,8 @@ const abandonedWorktrees: Detector = {
         continue;
       }
       const idleDays = daysBetween(lastAt, horizon);
-      // A week idle with no green run: past the horizon of "still being worked".
+      // A week without a completion warrants a current-state lookup. Silence
+      // cannot establish inactivity, abandonment, executor death or permission.
       if (idleDays >= 7) {
         abandoned.push({ branch, idleDays });
       }
@@ -2152,19 +2158,35 @@ const abandonedWorktrees: Detector = {
     const named = abandoned.slice(0, 5);
     const findings: DetectorFinding[] = abandoned.length > 0
       ? [{
-        summary: "Some inactive branches have no recorded green gate.",
+        summary:
+          "Some branches have a gap in recorded completion observations.",
         observed: `${formatHumanNumber(abandoned.length)} of ${
           formatHumanNumber(branches.size)
-        } branches never went green and have been idle a week or more: ${
+        } branches have no recorded green result and no completed invocation for a week or more at the end of this window: ${
           named.map((a) =>
             `\`${a.branch}\` (${formatHumanNumber(a.idleDays)}d)`
           ).join(", ")
         }${abandoned.length > named.length ? ", …" : ""}.`,
         evidence: {
-          abandoned: abandoned.length,
+          branches_with_observation_gap: abandoned.length,
           branches: branches.size,
-          longest_idle_days: named[0]?.idleDays ?? 0,
+          longest_gap_days: named[0]?.idleDays ?? 0,
         },
+        basis: decisionEvidenceBasis("completion-observation-gap", {
+          branches_with_observation_gap: abandoned.length,
+          branches: branches.size,
+          longest_gap_days: named[0]?.idleDays ?? 0,
+        }, {
+          comparable: abandoned.length,
+          denominator: branches.size,
+          unit: "branches present in the observation window",
+          events: facts.agentish,
+          facts,
+          limitations: [
+            "Logbook silence does not establish inactivity, abandonment, executor death, failed cleanup or permission to act.",
+            "Waiting, long operations, recording failures and retained history can leave gaps. Read current authoritative state before taking any action.",
+          ],
+        }),
         strength: abandoned.length * 5,
       }]
       : [];
@@ -2381,16 +2403,16 @@ const cohortDoneThrash: Detector = {
   next_step:
     "Read the recorded failure diagnostics on the named branches. Task difficulty, source changes, owner feedback and integration work confound these counts; they cannot rank agents or establish an instruction defect.",
   detect(facts): DetectorOutcome {
-    const dones = distinctVerbInvocations(
-      facts.agentish.filter((e) => e.verb === "done"),
-    );
+    const observations = verbInvocations(facts.agentish);
+    const dones = observations.events.filter((event) => event.verb === "done");
+    const failures = failedValidationInvocations(observations);
     // The unit is the branch — the same unit done-thrash judges — attributed
     // whole, so a branch two agents drove counts for neither cohort.
     const units = [...byBranch(dones).entries()].map(([branch, events]) => ({
       branch,
       events,
       thrashed: bySession(events).some((session) =>
-        longestStreak(session, hasRecordedValidationFailure) >= 3
+        longestStreak(session, (event) => failures.has(event)) >= 3
       ),
     }));
     const split = splitByCohort(units, (u) => u.events);
@@ -3214,14 +3236,15 @@ const durationCreep: Detector = {
     const half = Math.floor(series.length / 2);
     const earlier = series.slice(0, half);
     const later = series.slice(series.length - half);
-    // Creep asks whether gate execution got slower. End-to-end wall time would
-    // turn a busier fleet into an apparent suite regression.
+    // Remove only the explicit capacity wait. Remaining invocation work is
+    // still broader than producer execution and cannot identify its cause.
     const durEarly = median(earlier.map(executionDurationMs)) / 1000;
     const durLate = median(later.map(executionDurationMs)) / 1000;
     const sizeEarly = median(earlier.map((e) => e.change?.files ?? 0));
     const sizeLate = median(later.map((e) => e.change?.files ?? 0));
     const findings: DetectorFinding[] = [];
-    // Half again slower, and not because the changes themselves grew.
+    // A large sustained duration shift with roughly stable recorded file count
+    // warrants investigation; file count does not prove equivalent required work.
     if (
       durEarly > 0 && durLate >= durEarly * 1.5 &&
       sizeLate <= Math.max(sizeEarly, 1) * 1.25
@@ -3333,6 +3356,67 @@ const fixStageIdle: Detector = {
         strength: Math.round(meanS),
       });
     }
+    return { considered, findings };
+  },
+};
+
+const canaryDrift: Detector = {
+  id: "canary-drift",
+  title: "Repeated full-test failures beside a green canary",
+  family: "gate-fit",
+  scope: "project",
+  tier: "inline",
+  tone: "attention",
+  threshold: CANARY_REVIEW_FAILURE_RUNS,
+  next_step:
+    "Review the named test's canary membership and existing exclusions. Check execution-context differences, then measure its incremental cost. Enroll it only within the measured canary budget, or record why it remains outside. Preserve the full required suite.",
+  detect(facts): DetectorOutcome {
+    const observations = verbInvocations(facts.verbs);
+    const eligible = observations.events.filter((event) =>
+      !observations.conflicts.has(event) && event.invocation !== undefined &&
+      event.epoch !== null && event.writer !== undefined &&
+      event.verb === "done" && event.gate_ran !== false &&
+      recordedJobOutcome(event, "canary") === "passed" &&
+      recordedJobOutcome(event, "test") === "failed"
+    );
+    const { series } = comparableFactsSeries(eligible, facts);
+    const records = testFailureFiles(series);
+    const considered = new Set(records.flatMap((record) => record.events)).size;
+    const findings = records.filter((record) =>
+      record.events.length >= CANARY_REVIEW_FAILURE_RUNS
+    ).slice(0, 3).map((record): DetectorFinding => {
+      const evidence = {
+        failing_invocations: record.events.length,
+        diagnostic_rows: record.diagnostic_rows,
+        observed_full_tests: series.length,
+      };
+      return {
+        subject: record.file,
+        summary: "Full-test failures recurred alongside a green canary.",
+        observed: `Test diagnostics named \`${record.file}\` in ${
+          formatHumanNumber(record.events.length)
+        } of ${
+          formatHumanNumber(series.length)
+        } comparable full-test failures with a passing canary (${
+          day(record.first_at)
+        } → ${day(record.last_at)}).`,
+        evidence,
+        basis: decisionEvidenceBasis("canary-review-candidate", evidence, {
+          comparable: record.events.length,
+          denominator: series.length,
+          unit: "identified invocations with completed job verdicts",
+          events: record.events,
+          facts,
+          excludedEvents: observations.events.length - series.length,
+          limitations: [
+            "Job verdicts do not establish whether a failing case was enrolled in the canary or ran in an equivalent context.",
+            "Diagnostic rows are retained samples, not independent defects; collapsed counts do not multiply failing invocations.",
+            "Incremental canary cost is unmeasured here. Membership and budget remain project decisions, and these observations grant no Proof authority.",
+          ],
+        }),
+        strength: record.events.length,
+      };
+    });
     return { considered, findings };
   },
 };
@@ -3674,7 +3758,9 @@ const loopsToGreen: Detector = {
   next_step:
     "Start with the first repeated diagnostic and use the `discern-cure-a-bug` diagnose procedure to test one cause at a time before another full gate.",
   detect(facts): DetectorOutcome {
-    const loop = facts.agentish.filter((e) =>
+    const observations = verbInvocations(facts.agentish);
+    const failures = failedValidationInvocations(observations);
+    const loop = observations.events.filter((e) =>
       e.verb === "done" || e.verb === "prepare" || e.verb === "test"
     );
     let greenBranches = 0;
@@ -3684,16 +3770,15 @@ const loopsToGreen: Detector = {
         continue;
       }
       const firstGreen = events.findIndex((e) =>
-        e.verb === "done" && e.outcome === "ok"
+        e.verb === "done" && e.outcome === "ok" &&
+        !observations.conflicts.has(e)
       );
       if (firstGreen === -1) {
         continue;
       }
       greenBranches += 1;
       const before = events.slice(0, firstGreen);
-      const reds =
-        distinctVerbInvocations(before).filter(hasRecordedValidationFailure)
-          .length;
+      const reds = before.filter((event) => failures.has(event)).length;
       const files = events[firstGreen]?.change?.files ?? 0;
       // 6 red runs before green: below that is ordinary iteration.
       if (reds >= 6) {
@@ -3730,7 +3815,9 @@ const cohortLoopsToGreen: Detector = {
   next_step:
     "Medians sit beside their denominators for the owner to weigh — task difficulty confounds them, so no ranking is implied. To chase a high median, read that cohort's red-run diagnostic classes (`recurring-diagnostic`) before drawing conclusions about the agent.",
   detect(facts): DetectorOutcome {
-    const loop = facts.agentish.filter((e) =>
+    const observations = verbInvocations(facts.agentish);
+    const failures = failedValidationInvocations(observations);
+    const loop = observations.events.filter((e) =>
       e.verb === "done" || e.verb === "prepare" || e.verb === "test"
     );
     // The unit is a branch that reached a green `done` — the population whose
@@ -3746,13 +3833,15 @@ const cohortLoopsToGreen: Detector = {
         continue;
       }
       const firstGreen = events.findIndex((e) =>
-        e.verb === "done" && e.outcome === "ok"
+        e.verb === "done" && e.outcome === "ok" &&
+        !observations.conflicts.has(e)
       );
       if (firstGreen === -1) {
         continue;
       }
-      const reds = distinctVerbInvocations(events.slice(0, firstGreen))
-        .filter(hasRecordedValidationFailure).length;
+      const reds = events.slice(0, firstGreen).filter((event) =>
+        failures.has(event)
+      ).length;
       units.push({ branch, events, reds });
     }
     const split = splitByCohort(units, (u) => u.events);
@@ -3798,7 +3887,7 @@ const cohortLoopsToGreen: Detector = {
 
 const cycleTime: Detector = {
   id: "cycle-time",
-  title: "Start-to-accept cycle time",
+  title: "Recorded same-branch start-to-accept intervals",
   family: "funnel",
   scope: "project",
   tier: "batch",
@@ -3827,11 +3916,10 @@ const cycleTime: Detector = {
     }
     const findings: DetectorFinding[] = cycles.length >= 3
       ? [{
-        summary:
-          "Completed changes have a recorded start-to-accept cycle time.",
+        summary: "Recorded start and accept calls form same-branch intervals.",
         observed: `${formatHumanNumber(cycles.length)} of ${
           formatHumanNumber(starts.length)
-        } recorded starts completed a start-to-accept cycle: median ${
+        } recorded starts have a later successful accept call on the same branch: median ${
           formatHumanNumber(round1(median(cycles)))
         }h, longest ${formatHumanNumber(round1(Math.max(...cycles)))}h.`,
         evidence: {
@@ -3840,6 +3928,22 @@ const cycleTime: Detector = {
           median_hours: round1(median(cycles)),
           longest_hours: round1(Math.max(...cycles)),
         },
+        basis: decisionEvidenceBasis("historical-start-accept-pairs", {
+          cycles: cycles.length,
+          starts: starts.length,
+          median_hours: round1(median(cycles)),
+          longest_hours: round1(Math.max(...cycles)),
+        }, {
+          comparable: cycles.length,
+          denominator: starts.length,
+          unit: "recorded start calls",
+          events: [...starts, ...accepts],
+          facts,
+          limitations: [
+            "These historical command pairs cannot identify cooperative landings from another checkout or deduplicate landing transactions.",
+            "Elapsed intervals include authoring, validation, owner decisions and coordination; they are not compute totals or approval-to-land latency.",
+          ],
+        }),
         strength: cycles.length,
       }]
       : [];
@@ -4626,6 +4730,7 @@ export const DETECTORS: readonly Detector[] = [
   durationCreep,
   fixStageIdle,
   recurringDiagnostic,
+  canaryDrift,
   sameTreeFlake,
   executionContextDivergence,
   loopsToGreen,
