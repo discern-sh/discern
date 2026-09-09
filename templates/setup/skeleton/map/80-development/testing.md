@@ -17,3 +17,9 @@ _(How the `test` job invokes the suite, how to run a single test or a filtered s
 <!-- setup fills this -->
 
 _(The conventions for a good test here: structure, what to assert, fixtures/factories, what to mock and what not to. If the project practices a particular discipline — write the failing test first, test behavior not implementation — state it and what it requires.)_
+
+## Environment return
+
+<!-- setup fills this -->
+
+_(Whether a checkout can be prepared for a commit other than its own and returned to source-ready state, and what that return must restore. If no `[execution.<context>]` is declared, say so in one sentence: efforts validate and land in order, and nothing is validated early. If one is declared, name the prepare and restore procedures, the ignored output and stateful resources the return covers, and note that `discern setup done` proves the return in a throwaway copy; a change to the declaration must be proved again.)_

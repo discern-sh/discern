@@ -397,6 +397,7 @@ must_do = [
   "Declare `inputs` only on a producer whose command reads nothing outside the listed paths, so its evidence is reused when those paths are unchanged; leave every other producer candidate-bound and say so. Narrowing an existing closure later is a protected change the Gate checks against the trunk.",
   "Leave `[completion].lookahead = 0` unless the project can prepare a checkout for a different commit and return it to source-ready state; in that case declare `[execution.local]` with its prepare and restore procedures, the ignored output restore covers, its resources, and its capacity, and set `[completion].concurrency` to at least 2.",
   "Run `discern doctor --json` and act on its completion capacity, producer coverage, evidence reuse, and execution environment checks before the final documentation.",
+  "Fill the `Environment return` section of {{map_dir}}80-development/testing.md from the decision above: one sentence when nothing is declared, or the declared procedures and what their return covers.",
   "Tell the owner, in plain terms, which evidence is reused across commits and which is produced again, how many efforts can validate at once and which setting limits that, and whether early validation is on and why.",
 ]
 authority_boundaries = [

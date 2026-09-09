@@ -4,7 +4,7 @@
 
 _discern's internal commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns the corresponding coding-agent outcomes; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._
 
-8 clusters · 45 benefits · 139 of 139 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 45 benefits · 141 of 141 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -83,7 +83,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** Proof removes a category of review work: reconstructing whether the declared checks ran, whether they passed, and which change they covered. Review time can move to behavior, design, risk, and the decision to ship.
 - **Mechanism:** The Gate runs the project's declared checks and Standards before Proof records the result against the clean committed tree, so the check status arrives as inspectable evidence rather than an unsupported completion message.
-- **Product basis:** The quality gate · Proof · Standards.
+- **Product basis:** The quality gate · Proof · Standards · Producer evidence on every validation result.
 
 ### Ask the judgment questions when the change happens
 
@@ -285,7 +285,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 - **Value:** The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.
 - **Mechanism:** The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and instructions, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.
-- **Product basis:** Agent-driven setup · Complete owner moments · Detection at setup.
+- **Product basis:** Agent-driven setup · Complete owner moments · Detection at setup · The environment probe.
 
 ### Adopt discern without running another service
 
