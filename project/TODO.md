@@ -58,7 +58,7 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟢 Test & tooling hygiene
 
-- [ ] **Bound red test-stage runs with fail-fast.** A red gate currently runs the full suite before reporting; pass a bounded fail-fast to the gate's test invocation so red runs stop after a few named failures while green runs stay complete for coverage. Reconcile with partitioned, shuffled scheduling before enabling. Evidence: `scripts/run_tests.ts`; `scripts/test_partitions.ts`.
+- [ ] **Bound failures within admitted test partitions.** The runner stops admitting queued partitions after the first failed partition and settles every admitted process. Evaluate a bounded native fail-fast within those admitted partitions so known-red runs can report sooner while green runs remain complete for coverage. Preserve process cleanup, seeded scheduling, and explicit incomplete-report semantics. Evidence: `scripts/run_tests.ts`; `scripts/test_partitions.ts`.
 
 - [ ] **Schedule changed test files into the earliest partitions.** Failures caused by the current diff should surface in the opening minutes of the test stage, not wherever the shuffle lands them; order changed test modules (and tests importing changed source) first while preserving seeded shuffle reproducibility. Evidence: `scripts/test_partitions.ts`; `scripts/run_tests.ts`.
 
@@ -70,7 +70,7 @@ This tracked backlog publishes with the repository by design, including its mark
 
 - [ ] **Act on canary-audit findings with the cost bar disposing.** The audit ranks recorded per-file failures against membership; wire its verdict into an enrol-or-refuse flow where failure evidence proposes and the seconds bar disposes, recording each refusal with its measurement. Evidence: `scripts/canary_audit.ts`; `scripts/canary_registry.ts`.
 
-- [ ] **Reduce the per-invocation engine boot tax in journey tests.** Completion journeys are already consolidated into chained steps, so their remaining cost is roughly ten seconds of engine boot per step times the step count; profile where a source-run boot spends its time and shrink it, which pays across every journey at once. Evidence: `tests/engine_helpers.ts`; `tests/completion_public_done_test.ts`.
+- [ ] **Profile remaining per-invocation orchestration cost in journey tests.** Distinguish source import, Git discovery, native child recording, durable publication, and actual project work in matched journeys. Reduce measured repeated work without attributing a whole invocation to engine startup or weakening recovery guarantees. Evidence: `tests/engine_helpers.ts`; `tests/completion_public_done_test.ts`.
 
 - [ ] **Apply the execution-review ladder to the emergency suite.** The emergency tests spend around two summed minutes across fifteen registrations with several full-journey scaffolds; review them against the smallest-sufficient-execution ladder the way the completion family was. Evidence: `tests/completion_emergency_test.ts`; `project/map/80-development/test-execution-review.md`.
 
