@@ -81,6 +81,12 @@ export interface ReleasedCompletionExecution {
   };
 }
 
+export const COMPLETION_CLAIM_BOUNDARIES = [
+  "reservation",
+  "environment",
+  "execution",
+] as const;
+
 export interface CompletionSession {
   readonly execution: ClaimedExecution;
   readonly context: string;
@@ -155,6 +161,10 @@ export async function withPublicCompletion<T>(
     readonly signal?: AbortSignal;
     readonly source?: SourceRevision;
     readonly executor?: Executor;
+    /** Exercise death before execution without substituting clock expiry for exclusion. */
+    readonly afterClaim?: (
+      boundary: (typeof COMPLETION_CLAIM_BOUNDARIES)[number],
+    ) => Promise<void>;
   },
   run: (session: CompletionSession) => Promise<CompletionRunValue<T>>,
   finalize?: (value: T, pointer: CompletionProofPointer) => Promise<boolean>,
@@ -361,6 +371,10 @@ export async function withPublicCompletion<T>(
           candidate_id: candidateId,
           candidate,
           environment_id: environmentId,
+          ...(options.afterClaim === undefined ? {} : {
+            afterReservation: () =>
+              options.afterClaim?.("reservation") ?? Promise.resolve(),
+          }),
           executor: actor,
           policy: config.completion,
           lease_ms: leaseMs,
@@ -372,6 +386,10 @@ export async function withPublicCompletion<T>(
       return claim;
     }
     const executor = createEnvironmentExecutor({
+      ...(options.afterClaim === undefined ? {} : {
+        afterClaimPublication: () =>
+          options.afterClaim?.("environment") ?? Promise.resolve(),
+      }),
       root,
       environmentId,
       declaration,
@@ -445,6 +463,7 @@ export async function withPublicCompletion<T>(
     let executionFailure: string | undefined;
     let compositionFailure: CompletionBlocker | undefined;
     let publicationFailure: CompletionBlocker | undefined;
+    await options.afterClaim?.("execution");
     const returned = await executor.execute(execution, async (claimed) => {
       try {
         if (!reusable) {

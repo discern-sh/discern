@@ -77,6 +77,8 @@ interface LockSpec {
   readonly path: string;
 }
 
+const locallyOwnedLeases = new WeakSet<OperationLockLease>();
+
 interface AcquiredLock {
   readonly file?: Deno.FsFile;
   readonly previousContents?: Uint8Array;
@@ -531,11 +533,122 @@ export async function withCompletionPublication<T>(
   }
 }
 
+/** Read-only, point-in-time observation; callers must acquire exclusion again before effects. */
+export async function observeCompletionCheckout(cwd: string): Promise<{
+  readonly ownership: "held" | "available" | "unknown";
+  readonly reason: string;
+}> {
+  try {
+    const specs = await resolveLockSpecs(cwd, "checkout");
+    const spec = specs?.[0];
+    if (spec === undefined) {
+      return {
+        ownership: "unknown",
+        reason: "Native checkout exclusion cannot be resolved.",
+      };
+    }
+    let file: Deno.FsFile;
+    try {
+      file = await Deno.open(spec.path, { read: true });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      return {
+        ownership: "available",
+        reason: "No native checkout owner was observed.",
+      };
+    }
+    try {
+      const available = await file.tryLock(true);
+      return available
+        ? {
+          ownership: "available",
+          reason: "No native checkout owner was observed.",
+        }
+        : {
+          ownership: "held",
+          reason:
+            "A native operation holds the checkout; its recorded claim does not identify the lock owner.",
+        };
+    } finally {
+      file.close();
+    }
+  } catch (error) {
+    return {
+      ownership: "unknown",
+      reason: `Checkout ownership could not be observed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+}
+
+interface CompletionCheckoutScope {
+  readonly key: string;
+  readonly purpose: "execution" | "recovery";
+  active: boolean;
+}
+const completionCheckoutScope = new AsyncLocalStorage<
+  CompletionCheckoutScope
+>();
+
+/** A claim may enter execution only while its original checkout scope is retained. */
+export async function retainCompletionCheckout(
+  cwd: string,
+): Promise<() => void> {
+  const scope = completionCheckoutScope.getStore();
+  const specs = await resolveLockSpecs(cwd, "checkout");
+  if (scope === undefined || !scope.active || specs?.[0]?.key !== scope.key) {
+    throw new Error(
+      "Claim publication requires retained checkout ownership through execution and return.",
+    );
+  }
+  return () => {
+    if (
+      !scope.active || completionCheckoutScope.getStore()?.key !== scope.key
+    ) {
+      throw new Error(
+        "The claim's checkout scope ended. Use supported recovery before another execution.",
+      );
+    }
+  };
+}
+
 /** Native execution retains checkout exclusion and process-signal ownership
  * through child shutdown, source restoration and short state publications. */
 export async function withCompletionCheckout<T>(
   cwd: string,
   operation: (signal: AbortSignal) => Promise<T>,
+  externalSignal?: AbortSignal,
+): Promise<T> {
+  return await withCheckoutScope(
+    cwd,
+    operation,
+    completionCheckoutScope.getStore()?.purpose ?? "execution",
+    externalSignal,
+  );
+}
+
+/** Recovery cannot borrow a live parent's lease or interrupt its active execution scope. */
+export async function withCompletionRecovery<T>(
+  cwd: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const parent = completionCheckoutScope.getStore();
+  if (
+    parent !== undefined && (parent.purpose !== "recovery" || !parent.active)
+  ) {
+    throw new Error(
+      "Recovery cannot take over an active or ended execution scope. Finish the owning command, then run recovery as a separate operation.",
+    );
+  }
+  return await withCheckoutScope(cwd, operation, "recovery");
+}
+
+/** Native lifetime scopes retain their underlying OS lease until every owned effect settles. */
+async function withCheckoutScope<T>(
+  cwd: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+  purpose: CompletionCheckoutScope["purpose"],
   externalSignal?: AbortSignal,
 ): Promise<T> {
   return await withTrackedRun(
@@ -551,10 +664,28 @@ export async function withCompletionCheckout<T>(
         if (held === undefined) {
           throw new Error("Completion checkout exclusion was not acquired.");
         }
-        return await runWithOperationLocks(
-          { ...held, completionExecution: true },
-          () => operation(signal),
+        const checkout = [...held.leases.values()].find((lease) =>
+          lease.boundary === "checkout"
         );
+        if (checkout === undefined) {
+          throw new Error("Completion checkout lease is unavailable.");
+        }
+        if (purpose === "recovery" && !locallyOwnedLeases.has(checkout)) {
+          throw new Error(
+            "Recovery cannot use a delegated checkout lease while its owner is active. Let the owning operation finish, then retry recovery from a separate command.",
+          );
+        }
+        const scope = { key: checkout.key, purpose, active: true };
+        try {
+          return await completionCheckoutScope.run(scope, () =>
+            runWithOperationLocks(
+              { ...held, completionExecution: true },
+              () =>
+                operation(signal),
+            ));
+        } finally {
+          scope.active = false;
+        }
       }, SYSTEM_SECURE_ENTROPY),
   );
 }
@@ -700,6 +831,7 @@ async function withPolicyLock<T>(
       );
       acquiredLocks.push(acquired);
       acquiredLeases.push(acquired.lease);
+      if (acquired.file !== undefined) locallyOwnedLeases.add(acquired.lease);
     }
     // Newly held exclusion rechecks administration. Short publications may
     // verify the routing witness; other operations require fresh Git.
@@ -727,6 +859,9 @@ async function withPolicyLock<T>(
       return await operation(commonGitDirectory);
     });
   } finally {
+    for (const acquired of acquiredLocks) {
+      locallyOwnedLeases.delete(acquired.lease);
+    }
     await releaseLocks(acquiredLocks);
   }
 }

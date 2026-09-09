@@ -1,13 +1,15 @@
 /** Native exclusion and durable child receipts survive interruption and checkout disposal. */
-import type { z } from "@zod/zod";
+import { z } from "@zod/zod";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { ExecutionIntentSchema } from "./intent.ts";
 import { artifactPath, readExecutionDocument } from "./artifact_read.ts";
-import { saveEnvironmentArtifact } from "./artifacts.ts";
+import { saveExecutionChildReceipt } from "./artifacts.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import {
   OperationLockError,
+  retainCompletionCheckout,
   withCompletionCheckout,
+  withCompletionRecovery,
 } from "../operation_lock.ts";
 import {
   executionChildAbsent,
@@ -17,6 +19,8 @@ import { errorReason } from "./types.ts";
 import type { ExecutionLifetime } from "./types.ts";
 
 import { StartedChildSchema } from "./artifact_contracts.ts";
+import { RecordIdSchema } from "../completion/identity.ts";
+const PlannedChildSchema = z.strictObject({ token: RecordIdSchema });
 /** An unrecorded spawn outcome remains uncertain; an expired lease proves nothing. */
 async function inspectExecutionChildren(
   root: string,
@@ -24,9 +28,61 @@ async function inspectExecutionChildren(
 ): Promise<{ quiescent: boolean; reason: string }> {
   const directory = await artifactPath(root, attemptId, "environment/children");
   try {
+    let enrolled = false;
     for await (const entry of Deno.readDir(directory)) {
-      if (!entry.isFile || !entry.name.startsWith("planned-")) continue;
+      if (entry.name.startsWith("enrolled-")) {
+        if (
+          !entry.isFile ||
+          await Deno.readTextFile(
+              await artifactPath(
+                root,
+                attemptId,
+                `environment/children/${entry.name}`,
+              ),
+            ) !== "true"
+        ) {
+          return {
+            quiescent: false,
+            reason:
+              "Child enrollment evidence is invalid; preserve the receipt inventory.",
+          };
+        }
+        enrolled = true;
+        continue;
+      }
+      if (!entry.name.startsWith("planned-")) continue;
+      if (!entry.isFile) {
+        return {
+          quiescent: false,
+          reason: "A planned child receipt is not a regular file.",
+        };
+      }
       const key = entry.name.slice("planned-".length);
+      const planned = PlannedChildSchema.parse(
+        JSON.parse(
+          await Deno.readTextFile(
+            await artifactPath(
+              root,
+              attemptId,
+              `environment/children/${entry.name}`,
+            ),
+          ),
+        ),
+      );
+      const enrollment = await Deno.readTextFile(
+        await artifactPath(
+          root,
+          attemptId,
+          `environment/children/enrolled-${planned.token}.json`,
+        ),
+      );
+      if (enrollment !== "true") {
+        return {
+          quiescent: false,
+          reason:
+            "The planned child's enrollment is invalid; preserve its receipts.",
+        };
+      }
       try {
         const terminal = await Deno.readTextFile(
           await artifactPath(
@@ -63,7 +119,7 @@ async function inspectExecutionChildren(
           return {
             quiescent: false,
             reason:
-              "A child process group remains live or its isolation is unproven.",
+              `Recorded child process group ${started.pid} remains live or its isolation is unproven. Preserve the checkout; reconcile that group's ownership and stop its work before retrying recovery.`,
           };
         }
       } catch (error) {
@@ -75,10 +131,16 @@ async function inspectExecutionChildren(
         };
       }
     }
-    return {
-      quiescent: true,
-      reason: "Every recorded child process group is absent.",
-    };
+    return enrolled
+      ? {
+        quiescent: true,
+        reason: "Every recorded child process group is absent.",
+      }
+      : {
+        quiescent: false,
+        reason:
+          "Child enrollment evidence is missing; an empty directory does not establish child absence.",
+      };
   } catch (error) {
     return {
       quiescent: false,
@@ -98,6 +160,16 @@ export async function executionChildrenQuiescent(
 /** The checkout OS lock spans project work; common locks only publish small receipts. */
 export function createNativeExecutionLifetime(root: string): ExecutionLifetime {
   return {
+    ownership: {
+      exclusive: (path, operation) => withCompletionRecovery(path, operation),
+      retain: retainCompletionCheckout,
+      enroll: async (subject, token) => {
+        await saveExecutionChildReceipt(root, subject, {
+          kind: "enrolled",
+          key: token,
+        });
+      },
+    },
     inspect: async (path) => {
       try {
         return await withCompletionCheckout(
@@ -169,45 +241,39 @@ export async function withRecordedExecutionChildren<T>(
   token: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  await saveEnvironmentArtifact(
-    root,
-    subject,
-    `children/enrolled-${token}`,
-    true,
-  );
+  await saveExecutionChildReceipt(root, subject, {
+    kind: "enrolled",
+    key: token,
+  });
   const prior = await inspectExecutionChildren(root, subject.attempt_id);
   if (!prior.quiescent) throw new Error(prior.reason);
   return await withExecutionChildren({
     planned: async () => {
       const key = SYSTEM_SECURE_ENTROPY.uuid();
-      await saveEnvironmentArtifact(
-        root,
-        subject,
-        `children/planned-${key}`,
-        { token: token },
-      );
+      await saveExecutionChildReceipt(root, subject, {
+        kind: "planned",
+        key,
+        token,
+      });
       let started: z.infer<typeof StartedChildSchema> | undefined;
       return {
         started: async (pid, isolated) => {
           started = StartedChildSchema.parse({ pid, isolated });
-          await saveEnvironmentArtifact(
-            root,
-            subject,
-            `children/started-${key}`,
-            started,
-          );
+          await saveExecutionChildReceipt(root, subject, {
+            kind: "started",
+            key,
+            ...started,
+          });
         },
         settled: async () => {
           if (
             started !== undefined && started.isolated &&
             executionChildAbsent(started.pid, true)
           ) {
-            await saveEnvironmentArtifact(
-              root,
-              subject,
-              `children/settled-${key}`,
-              true,
-            );
+            await saveExecutionChildReceipt(root, subject, {
+              kind: "settled",
+              key,
+            });
           }
         },
       };

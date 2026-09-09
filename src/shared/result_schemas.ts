@@ -1992,6 +1992,11 @@ export const StatusDataSchema = z.strictObject({
     candidate_id: z.string(),
     phase: z.string(),
     lease_expires_at: z.number(),
+    /** Advisory observation only; recovery reacquires and retains native exclusion. */
+    ownership: z.enum(["held", "available", "unknown"]).optional(),
+    children_quiescent: z.boolean().optional(),
+    reason: z.string().optional(),
+    next_action: z.string().optional(),
   })).optional(),
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   location: z.enum(LOCATIONS),

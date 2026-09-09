@@ -11,6 +11,12 @@ export interface RegisteredRename {
 /** Every authored Deno rename whose purpose is not durable-state replacement. */
 export const REGISTERED_RENAMES = [
   {
+    path: "tests/completion_native_lifetime_test.ts",
+    enclosingFunction: "<module>",
+    reason:
+      "The parameterized uncertainty fixture parks an intact child inventory to verify recovery preserves missing receipts rather than recreating evidence of absence.",
+  },
+  {
     path: "src/engine/execution/workspace.ts",
     enclosingFunction: "restore",
     reason:

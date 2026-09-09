@@ -4,6 +4,7 @@ import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { engineEnv, engineRunArgs, git, runAgent } from "./engine_helpers.ts";
 import { settlePending, waitForPendingCondition } from "./waiting.ts";
+import { releaseCheckoutRequestResult } from "../src/engine/gate/public_release.ts";
 import { pathExists } from "../src/shared/fs_presence.ts";
 import {
   observedRecords,
@@ -43,6 +44,18 @@ restore = 'true'
         "--json",
       ]);
       assertEquals(green.code, 0, green.output);
+      const beforeRelease = observedRecords(await observeQueue(root, "main"));
+      const dryRelease = await releaseCheckoutRequestResult(path, {
+        releaseCheckout: true,
+        dryRun: true,
+      });
+      assertEquals(dryRelease?.ok, true);
+      assertEquals(dryRelease?.dry_run, true);
+      assertEquals(
+        observedRecords(await observeQueue(root, "main")),
+        beforeRelease,
+      );
+      assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
       const preview = new Deno.Command(Deno.execPath(), {
         args: engineRunArgs(["scripts", "preview"]),
         cwd: path,
@@ -113,5 +126,41 @@ restore = 'true'
       assertEquals(revised.code, 0, revised.output);
       assertEquals(await Deno.readTextFile(`${path}/executions`), "tt");
     });
+  });
+});
+
+Deno.test("checkout release rejects conflicting actions before touching storage and requires complete proof", async () => {
+  await withTempDir(async (root) => {
+    assertEquals(await releaseCheckoutRequestResult(root, {}), undefined);
+    for (
+      const conflict of [
+        { recover: "attempt" },
+        { ci: true },
+        { rerun: true },
+        { standalone: true },
+        { retainCheckout: true },
+        { context: "local" },
+        { policyBase: "main" },
+        { met: ["reviewed"] },
+        { unmet: {} },
+        { execution: {} },
+      ]
+    ) {
+      const result = await releaseCheckoutRequestResult(root, {
+        releaseCheckout: true,
+        ...conflict,
+      });
+      assertEquals(result?.error, "invalid_arguments");
+    }
+    const entries = [];
+    for await (const entry of Deno.readDir(root)) entries.push(entry.name);
+    assertEquals(entries, []);
+    const path = await project(root, ["local"]);
+    const refused = await releaseCheckoutRequestResult(path, {
+      releaseCheckout: true,
+    });
+    assertEquals(refused?.error, "precondition_failed");
+    assert(refused?.message?.includes("complete green Proof"));
+    assertEquals(await pathExists(`${path}/executions`), false);
   });
 });

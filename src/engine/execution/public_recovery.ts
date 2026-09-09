@@ -8,26 +8,44 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
 import { RecordIdSchema } from "../completion/identity.ts";
-import { withCompletionCheckout } from "../operation_lock.ts";
+import {
+  observeCompletionCheckout,
+  withCompletionRecovery,
+} from "../operation_lock.ts";
 import { loadIdentitySettings, resolveIdentity } from "../worktree/identity.ts";
 import { integrationBranch } from "../worktree/git.ts";
 import { gitValue } from "../landing_queue/composition.ts";
-import { observedRecords, requireQueue } from "../landing_queue/repository.ts";
+import {
+  observedRecords,
+  REPOSITORY_QUEUE_ID,
+  requireQueue,
+} from "../landing_queue/repository.ts";
+import { readCompletionRecord } from "../completion/store.ts";
 import { reconcileQueueWork } from "../landing_queue/recovery.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { requireEnvironment } from "./registry.ts";
-import { createEnvironmentExecutor } from "./executor.ts";
-import { createNativeExecutionLifetime } from "./lifetime.ts";
+import {
+  createEnvironmentExecutor,
+  type EnvironmentExecutorOptions,
+} from "./executor.ts";
+import {
+  createNativeExecutionLifetime,
+  executionChildrenQuiescent,
+} from "./lifetime.ts";
 import { loadExecutionIntent } from "./intent.ts";
 import { validationWorkspace } from "./public_environment.ts";
 import { errorReason } from "./types.ts";
+import { recoverUnexecutedReservation } from "./reservation_recovery.ts";
 
 /** A fresh public observation supplies the CAS stamp; no user edits a record or lease. */
 export async function recoverCompletionResult(
   root: string,
   id: string,
   dryRun = false,
-  hooks: { afterReturn?: () => Promise<void> } = {},
+  hooks: Pick<
+    EnvironmentExecutorOptions,
+    "afterReturn" | "afterPhase" | "afterRecoveryPublication"
+  > = {},
 ): Promise<DiscernResult<GateData>> {
   const data: GateData = {
     gate_ran: false,
@@ -37,7 +55,7 @@ export async function recoverCompletionResult(
   try {
     RecordIdSchema.parse(id);
     root = await Deno.realPath(root);
-    return await withCompletionCheckout(root, async () => {
+    return await withCompletionRecovery(root, async () => {
       const observed = await requireEnvironment(root, id);
       const environment = observed.record.data;
       const identity = await resolveIdentity(root, root);
@@ -64,6 +82,26 @@ export async function recoverCompletionResult(
         item.source.effort_id === identity.id
       );
       const state = environment.state;
+      if (
+        state.kind === "idle" && entry?.state === "active" &&
+        await recoverUnexecutedReservation(
+          root,
+          id,
+          observed.stamp,
+          await loadConfig(root),
+          dryRun,
+        )
+      ) {
+        return {
+          ok: true,
+          verb: "done",
+          ...(dryRun ? { dry_run: true } : {}),
+          data,
+          message: dryRun
+            ? "The unexecuted reservation can return after rechecking its release and ownership. No validation or landing will run."
+            : "The unchanged checkout and its unexecuted reservation have returned to the owner. No validation or landing ran.",
+        };
+      }
       const attemptId = state.kind === "executing" || state.kind === "recovery"
         ? state.attempt_id
         : state.kind === "idle"
@@ -203,13 +241,51 @@ export async function executionStatus(
     }
     const state = record.data.state;
     if (state.kind === "executing") {
+      const observed = await observeCompletionCheckout(root);
+      const childrenQuiescent = observed.ownership === "available"
+        ? await executionChildrenQuiescent(root, state.attempt_id)
+        : undefined;
       activity.push({
         environment_id: record.id,
         attempt_id: state.attempt_id,
         candidate_id: state.candidate_id,
         phase: state.phase,
         lease_expires_at: state.claim.expires_at,
+        ownership: observed.ownership,
+        ...(childrenQuiescent === undefined
+          ? {}
+          : { children_quiescent: childrenQuiescent }),
+        reason: childrenQuiescent === false
+          ? `${observed.reason} Recorded child absence remains unproved.`
+          : observed.reason,
+        next_action: observed.ownership === "held"
+          ? "Let the owning operation finish or cancel it through its running handle; recovery rechecks exclusion."
+          : `Run ${
+            executionRecoveryCommand(record.id)
+          } from this worktree. Recovery rechecks ownership and child quiescence before return; the validation deadline does not delay native takeover.`,
       });
+    }
+    if (state.kind === "idle" && record.data.ownership.kind === "borrowed") {
+      const queue = await readCompletionRecord(root, {
+        kind: "queue",
+        id: REPOSITORY_QUEUE_ID,
+      });
+      const effort = record.data.ownership.source.effort_id;
+      if (
+        queue.kind === "recorded" && queue.record.kind === "queue" &&
+        queue.record.data.entries.some((entry) =>
+          entry.state === "active" && entry.source.effort_id === effort
+        )
+      ) {
+        recovery.push({
+          environment_id: record.id,
+          phase: "reservation",
+          reason:
+            "The checkout is idle but its queue reservation remains recorded. The owning command may still be settling it; recovery rechecks native ownership and the exact release before reconciliation.",
+          retained_paths: [canonical],
+          next_action: executionRecoveryCommand(record.id),
+        });
+      }
     }
     if (state.kind === "recovery") {
       recovery.push({

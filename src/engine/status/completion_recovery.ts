@@ -54,8 +54,8 @@ export function completionStatusPresentation(
     );
     if (!recovering) {
       hints.push(fire(HINTS["completion-pending"], {
-        action:
-          "Let the recorded execution finish, or cancel its owning command and follow the resulting recovery. Keep this checkout out of other authoring or release operations while it is active.",
+        action: active?.next_action ??
+          "Observe the owning command. If it ended, use the environment's supported recovery action; a recorded deadline does not prove activity.",
       }));
     }
   }
@@ -63,7 +63,9 @@ export function completionStatusPresentation(
   const message = recovering
     ? "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action."
     : active !== undefined
-    ? `Execution ${active.attempt_id} is in phase ${active.phase} in environment ${active.environment_id}.`
+    ? `Environment ${active.environment_id} records attempt ${active.attempt_id} in phase ${active.phase}. ${
+      active.reason ?? "Current executor activity is unverified."
+    }`
     : landingMessage;
   return { hints, ...(message === undefined ? {} : { message }) };
 }

@@ -1,7 +1,15 @@
 /** Explicit recovery releases queue capacity only after all execution environments returned. */
 import type { CompletionBlocker } from "../completion/protocol.ts";
 import type { CompletionRecord } from "../completion/records.ts";
-import { writeCompletionRecord } from "../completion/store.ts";
+import {
+  readCompletionRecord,
+  writeCompletionRecord,
+} from "../completion/store.ts";
+import type {
+  CompletionAttempt,
+  CompletionRecovery,
+} from "../completion/environment.ts";
+import { REPOSITORY_QUEUE_ID } from "./repository.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   observedRecords,
@@ -70,7 +78,20 @@ export async function reconcileQueueWork(input: {
         attempt.data.identity.sequence < returned.data.identity.sequence;
 
       if (
-        !recoveredOuter && attempt.data.state.kind === "claimed" &&
+        input.returned_attempt !== undefined &&
+        attempt.data.state.kind !== "finished" && !recoveredOuter &&
+        attempt.id !== returned?.id
+      ) {
+        return {
+          kind: "environment-unavailable",
+          reason:
+            "An unrelated or newer attempt retains this reservation; recover its exact ownership separately.",
+        };
+      }
+      if (
+        !recoveredOuter &&
+        (attempt.data.state.kind === "claimed" ||
+          attempt.data.state.kind === "composing") &&
         attempt.data.state.claim.expires_at > clock.wallNow()
       ) {
         return {
@@ -154,5 +175,66 @@ export async function reconcileQueueWork(input: {
       ),
     }, clock);
     return { kind: written.kind === "written" ? "released" : "replan" };
+  });
+}
+
+/** Close matching reservation publishers during takeover, retaining capacity until verified return. */
+export async function closeExecutionReservations(
+  root: string,
+  interrupted: CompletionAttempt,
+  recovery: CompletionRecovery,
+  clock: Clock,
+): Promise<void> {
+  await withQueueLock(root, async () => {
+    const queue = await readCompletionRecord(root, {
+      kind: "queue",
+      id: REPOSITORY_QUEUE_ID,
+    });
+    if (queue.kind === "missing") return;
+    if (queue.kind !== "recorded" || queue.record.kind !== "queue") {
+      throw new Error(
+        "Queue ownership is unreadable; preserve the interrupted execution.",
+      );
+    }
+    const observation = await observeQueue(
+      root,
+      queue.record.data.trunk,
+      clock,
+    );
+    for (const { reading } of observation.records) {
+      if (reading.kind === "missing") continue;
+      if (reading.kind !== "recorded") {
+        throw new Error(
+          "Unreadable completion state prevents publication takeover.",
+        );
+      }
+      const record = reading.record;
+      if (
+        record.kind !== "attempt" || record.data.state.kind === "finished" ||
+        record.data.environment_id !== interrupted.environment_id ||
+        record.data.identity.candidate_id !==
+          interrupted.identity.candidate_id ||
+        JSON.stringify(record.data.identity.executor) !==
+          JSON.stringify(interrupted.identity.executor) ||
+        record.data.identity.sequence >= interrupted.identity.sequence ||
+        record.data.subjects.length !== 0
+      ) continue;
+      const written = await writeCompletionRecord(
+        root,
+        {
+          ...record,
+          revision: record.revision + 1,
+          data: { ...record.data, state: { kind: "recovery", recovery } },
+        },
+        reading.stamp,
+        undefined,
+        clock,
+      );
+      if (written.kind !== "written") {
+        throw new Error(
+          `Reservation publication takeover refused (${written.kind}); preserve the checkout and retry recovery.`,
+        );
+      }
+    }
   });
 }

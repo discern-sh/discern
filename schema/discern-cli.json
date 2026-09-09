@@ -3568,7 +3568,7 @@
           "spellings": [
             "--recover"
           ],
-          "description": "Return this owned execution environment and reconcile its queue reservation without running validation or landing.",
+          "description": "Recover an abandoned owned execution once native ownership and stopped children are established, without waiting for its validation deadline or running validation or landing.",
           "type_definition": "<environment-id:string>",
           "arity": 1,
           "value_types": [

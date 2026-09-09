@@ -18,7 +18,11 @@ import {
   completionMcpPeer,
   completionProcessAlive,
 } from "./completion_mcp_fixture.ts";
-import { waitForPendingCondition, waitUntil } from "./waiting.ts";
+import {
+  processAllowance,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 import { firedHintsFromTexts } from "../src/shared/hints.ts";
 import { readPidsIfReady } from "./process_id.ts";
 
@@ -91,7 +95,8 @@ for (const phase of ["enrollment", "capture", "restore"] as const) {
             extraEnv.GIT_BIN = shim;
           }
           const pids: number[] = [];
-          const peer = await completionMcpPeer(path, extraEnv);
+          const allowance = processAllowance();
+          const peer = await completionMcpPeer(path, extraEnv, allowance);
           let closed = false;
           try {
             await peer.call(2, "discern_done", { path });
@@ -108,6 +113,7 @@ for (const phase of ["enrollment", "capture", "restore"] as const) {
                 return true;
               },
               "the owned " + phase + " child to establish readiness",
+              { allowance },
             );
             if (phase !== "enrollment") {
               await peer.call(10, "discern_status", { path });
@@ -158,7 +164,7 @@ for (const phase of ["enrollment", "capture", "restore"] as const) {
               },
               "the cancelled " + phase +
                 " attempt to settle or retain explicit recovery",
-              { timeoutMs: 10_000 },
+              { allowance },
             );
             assertEquals(
               await gitOut(path, "rev-parse", branch, branch + "^{tree}"),
@@ -213,7 +219,11 @@ for (const phase of ["enrollment", "capture", "restore"] as const) {
             const executions = await readTextIfExists(path + "/executions");
             await peer[Symbol.asyncDispose]();
             closed = true;
-            await using reconnect = await completionMcpPeer(path, extraEnv);
+            await using reconnect = await completionMcpPeer(
+              path,
+              extraEnv,
+              allowance,
+            );
             await reconnect.call(2, "discern_status", { path });
             const resumed =
               StatusResultSchema.parse((await reconnect.response(2)).result)

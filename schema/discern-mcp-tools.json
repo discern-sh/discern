@@ -151,7 +151,7 @@
             "type": "string"
           },
           "recover": {
-            "description": "Return this owned execution environment and reconcile its queue reservation without validation or landing.",
+            "description": "Recover an abandoned owned execution once native ownership and stopped children are established, without waiting for its validation deadline or running validation or landing.",
             "type": "string"
           },
           "retain_checkout": {

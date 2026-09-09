@@ -4041,6 +4041,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/completion_publication_cost_guard_test.ts":
+    "checks the process-observation and recovery-publication durability boundary behaviorally rather than guarding a closed member set",
   "tests/test_elapsed_guard_test.ts":
     "applies timer-ownership review across authored test duration measurements rather than guarding a closed member set",
   "tests/module_loading_guard_test.ts":

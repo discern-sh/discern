@@ -191,7 +191,8 @@ async function runPartitionChildren(
   concurrency: number,
   options: OwnedChildOptions,
   moduleSizes: readonly number[],
-): Promise<number> {
+  failFast: boolean,
+): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
     "--no-check",
@@ -213,9 +214,13 @@ async function runPartitionChildren(
   }
   let cursor = 0;
   let code = 0;
+  let completed = 0;
   const failures: unknown[] = [];
   const worker = async (): Promise<void> => {
-    while (!options.signal?.aborted) {
+    while (
+      !options.signal?.aborted &&
+      !(failFast && (code !== 0 || failures.length > 0))
+    ) {
       const index = order[cursor++];
       if (index === undefined) return;
       const report = reports[index];
@@ -232,6 +237,7 @@ async function runPartitionChildren(
             report,
           ),
         });
+        completed++;
         if (!child.status.success) code = 1;
       } catch (error) {
         failures.push(error);
@@ -239,14 +245,14 @@ async function runPartitionChildren(
     }
   };
   await Promise.all(Array.from({ length: workers }, () => worker()));
-  if (options.signal?.aborted) return 1;
+  if (options.signal?.aborted) return { code: 1, completed };
   if (failures.length > 0) {
     throw new AggregateError(
       failures,
       "Test partitions failed after every child settled.",
     );
   }
-  return code;
+  return { code, completed };
 }
 
 export interface PartitionedTestResult {
@@ -254,7 +260,7 @@ export interface PartitionedTestResult {
   readonly report?: string;
 }
 
-/** Run every native partition, settling all children before reporting or cleanup. */
+/** Settle every admitted child; a stopped suite cannot publish a complete report. */
 export async function runTestPartitions(
   args: readonly string[],
   count: number,
@@ -263,6 +269,7 @@ export async function runTestPartitions(
     readonly signal?: AbortSignal;
     readonly concurrency?: number;
     readonly scheduleModules?: boolean;
+    readonly failFast?: boolean;
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -315,15 +322,22 @@ export async function runTestPartitions(
         );
       }
       const started = SYSTEM_CLOCK.monotonicNow();
-      const code = await runPartitionChildren(
+      const { code, completed } = await runPartitionChildren(
         args,
         reports,
         concurrency,
         childOptions,
         graph.moduleSizes,
+        options.failFast ?? false,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (signal.aborted) return { code: 1 };
+      if (completed !== partitionCount) {
+        console.error(
+          `Test suite stopped after a failed partition: ${completed}/${partitionCount} partitions completed. Active children settled; remaining tests did not run. No complete JUnit report is available.`,
+        );
+        return { code: 1 };
+      }
       if (!args.includes("--reporter=junit")) {
         return { code };
       }

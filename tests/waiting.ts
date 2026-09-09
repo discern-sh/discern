@@ -220,6 +220,8 @@ export type TestRealDelayBoundaryId = keyof typeof TEST_REAL_DELAY_BOUNDARIES;
 export interface WaitUntilOptions {
   /** Maximum elapsed scheduler time before the condition fails. */
   readonly timeoutMs?: number;
+  /** Shared budget supplying the timeout when `timeoutMs` is absent. */
+  readonly allowance?: ProcessAllowance;
   /** Scheduler interval between condition observations. */
   readonly intervalMs?: number;
   /** Monotonic clock used for the elapsed wait budget. */
@@ -230,6 +232,28 @@ export interface WaitUntilOptions {
 
 /** Load-safe infrastructure allowance for a real child or async operation. */
 export const TEST_PROCESS_TIMEOUT_MS = 180_000;
+
+/** One test's shared load-safe budget, divided between every wait drawing on it. */
+export interface ProcessAllowance {
+  /** Scheduler-time budget remaining before the owning test must fail. */
+  remaining(): number;
+}
+
+/**
+ * Open one shared process allowance for a whole test. Waits that draw on it
+ * split the canonical load-safe budget between them, so parallel-suite load can
+ * stretch any single wait while a genuinely hung operation still costs the test
+ * at most one allowance — never one allowance per wait.
+ */
+export function processAllowance(
+  clock: Clock = SYSTEM_CLOCK,
+): ProcessAllowance {
+  const opened = clock.monotonicNow();
+  return {
+    remaining: (): number =>
+      Math.max(0, TEST_PROCESS_TIMEOUT_MS - (clock.monotonicNow() - opened)),
+  };
+}
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 10;
@@ -302,7 +326,13 @@ export async function waitUntil(
   if (describe.trim().length === 0) {
     throw new TypeError("waitUntil requires a description of the condition");
   }
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  if (options.timeoutMs !== undefined && options.allowance !== undefined) {
+    throw new TypeError(
+      "waitUntil takes an explicit timeoutMs or a shared allowance, not both",
+    );
+  }
+  const timeoutMs = options.timeoutMs ?? options.allowance?.remaining() ??
+    DEFAULT_TIMEOUT_MS;
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const clock = options.clock ?? SYSTEM_CLOCK;
   const scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
@@ -357,8 +387,9 @@ export type PendingConditionOptions<T> =
 /**
  * Wait for a positive condition planted by a pending operation. Readiness is
  * infrastructure, not the behavior under test: parallel-suite load may delay
- * it up to the canonical process allowance. An operation that settles before
- * its marker fails immediately instead of spending that allowance.
+ * it up to the canonical process allowance — the whole allowance alone, or the
+ * remaining share of the test's own. An operation that settles before its
+ * marker fails immediately instead of spending that allowance.
  */
 export async function waitForPendingCondition<T>(
   pending: Promise<T>,
@@ -367,7 +398,10 @@ export async function waitForPendingCondition<T>(
   options: PendingConditionOptions<T> = {},
 ): Promise<void> {
   const observed = observePending(pending);
-  const { settledError, ...waitOptions } = options;
+  const { settledError, allowance, ...waitOptions } = options;
+  const budget = allowance !== undefined
+    ? { allowance }
+    : { timeoutMs: TEST_PROCESS_TIMEOUT_MS };
   let earlyFailure: { readonly error: unknown } | undefined;
   try {
     await waitUntil(
@@ -388,7 +422,7 @@ export async function waitForPendingCondition<T>(
         throw error;
       },
       describe,
-      { ...waitOptions, timeoutMs: TEST_PROCESS_TIMEOUT_MS },
+      { ...waitOptions, ...budget },
     );
   } catch (error) {
     if (earlyFailure !== undefined) throw earlyFailure.error;
@@ -397,9 +431,9 @@ export async function waitForPendingCondition<T>(
 }
 
 /** A required, behavior-specific budget for settling one known-ready operation. */
-export type PendingSettlementOptions = WaitUntilOptions & {
-  readonly timeoutMs: number;
-};
+export type PendingSettlementOptions =
+  | (WaitUntilOptions & { readonly timeoutMs: number })
+  | (WaitUntilOptions & { readonly allowance: ProcessAllowance });
 
 /** Await one operation inside an explicit post-readiness behavior budget. */
 export async function settlePending<T>(

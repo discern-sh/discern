@@ -16,6 +16,19 @@ export type EnvironmentPhase = Extract<
 
 /** Held across all effects, without holding a common publication lock. */
 export interface ExecutionLifetime {
+  /** Native takeover authority; an adapter without it cannot recover an unexpired claim. */
+  readonly ownership?: {
+    exclusive<T>(path: string, operation: () => Promise<T>): Promise<T>;
+    retain(path: string): Promise<() => void>;
+    enroll(
+      subject: {
+        readonly attempt_id: string;
+        readonly candidate_id: string;
+        readonly context: string;
+      },
+      token: string,
+    ): Promise<void>;
+  };
   inspect(
     path: string,
   ): Promise<{ readonly quiescent: boolean; readonly reason: string }>;

@@ -1,3 +1,4 @@
+import { EXECUTION_RECOVERY_DESCRIPTION } from "../../shared/execution_recovery.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import type { EmergencyOptions } from "../emergency/action.ts";
@@ -564,7 +565,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Fetched policy base for a standalone CI report only.",
       ),
       recover: z.string().optional().describe(
-        "Return this owned execution environment and reconcile its queue reservation without validation or landing.",
+        EXECUTION_RECOVERY_DESCRIPTION,
       ),
       retain_checkout: z.boolean().optional().describe(
         "Keep authoring control after completion when further local edits are planned (default false). Ordinary successful completion releases the checkout for later validation and eligible retirement.",

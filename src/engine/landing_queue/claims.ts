@@ -546,7 +546,7 @@ export async function claimLandingAttempt(input: {
   });
 }
 
-/** A capacity refusal is transient only when a live actor can satisfy its wake condition. */
+/** Unexpired reservations can change; these recorded claims are not liveness observations. */
 export function queueCapacityBlocker(
   blocked: Extract<CompletionBlocker, { kind: "capacity-unavailable" }>,
   entries: ReturnType<typeof orderedEntries>,
@@ -587,7 +587,7 @@ export function queueCapacityBlocker(
       return {
         kind: "environment-unavailable",
         reason:
-          `Queue reservation for ${entry.source.effort_id} has no live actor. Reconcile its recorded attempt and execution through discern done --recover <environment-id> before retrying.`,
+          `Queue reservation for ${entry.source.effort_id} has no unexpired recorded claim. Reconcile its recorded attempt and execution through discern done --recover <environment-id> before retrying.`,
       };
     }
     owners.push(actor.id);

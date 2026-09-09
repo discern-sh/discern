@@ -370,6 +370,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0384 — Evaluate lazy modules outside invocation context](0384-evaluate-lazy-modules-outside-invocation-context.md)
 - [0385 — Retain Git discovery within one operation](0385-retain-git-discovery-within-one-operation.md)
 - [0386 — Retain recovery bytes through durable reference graphs](0386-retain-recovery-bytes-through-durable-reference-graphs.md)
+- [0387 — Flush recovery authority independently of process observations](0387-flush-recovery-authority-not-process-observations.md)
 
 <!-- END GENERATED: current ADR records -->
 

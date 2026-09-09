@@ -1,3 +1,4 @@
+import { EXECUTION_RECOVERY_DESCRIPTION } from "../shared/execution_recovery.ts";
 import { emergencyArguments } from "./emergency/arguments.ts";
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
@@ -249,7 +250,7 @@ export function attachEngineCommands(
     .command("done")
     .option(
       "--recover <environment-id:string>",
-      "Return this owned execution environment and reconcile its queue reservation without running validation or landing.",
+      EXECUTION_RECOVERY_DESCRIPTION,
     )
     .description(
       "Run finishing steps that may change files, then verify the gate — the project's " +
