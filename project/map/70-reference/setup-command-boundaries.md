@@ -36,7 +36,7 @@ Project-authored `[worktree.setup].steps` use a separate per-worktree journal. [
 
 ## Prove, land, then verify activation
 
-After interruption, `discern setup` or `discern status` resumes without replaying writes. `setup done` proves the committed tree and derives its project-guide, TODO, job, starting-point, rule, principle, and instruction accounts from committed authorities. Off trunk, output stops at Proof and landing.
+After interruption, `discern setup` or `discern status` resumes without replaying writes. `setup done` proves the committed tree and derives its project-guide, TODO, job, starting-point, rule, principle, and instruction accounts from committed authorities. Its completion report also states which standards read which producer, whose evidence is reused across commits, and whether efforts validate in order or early. When `[execution.<name>]` is declared for a required context, the throwaway worktree also runs the environment probe; a failed probe is the `environment_probe` stage, the marker rolls back, and the result names the procedure to fix. Off trunk, output stops at Proof and landing.
 
 After `setup accept`, each provider gets one fresh-session instruction. Inspect registered tools, then invoke its exact local callable, including a namespaced form such as Codex's `mcp__discern__discern_status`. A missing action routes to local recovery or `discern doctor`, with `discern status --json` as fallback.
 
