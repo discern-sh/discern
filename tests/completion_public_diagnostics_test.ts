@@ -92,7 +92,7 @@ Deno.test("E11 dirty deletion and rename retain public diagnostics without compl
         "coverage",
         "--force",
         "--json",
-      ], ["done", "--json"]]
+      ], ["done", "--standalone", "--json"]]
     ) {
       const result = await runAgent(path, args);
       assertEquals(result.code, 0, result.output);

@@ -11,8 +11,8 @@
  * a command into (so a new mutating-stage escape hatch cannot appear silently), the
  * inner-loop case that must NOT trip (a stage reworking the agent's own
  * uncommitted edits), and the strand checkpoint (ADR 0262) that stops a
- * proof-eligible run right after the pre-groups while a dirty start keeps its
- * full end-of-run feedback.
+ * proof-eligible run right after the pre-groups while explicit standalone
+ * diagnostics on a dirty tree keep their full end-of-run feedback.
  */
 
 import { decodeCliResult } from "./decode_cli_result.ts";
@@ -438,7 +438,7 @@ for (const mutator of PRE_CHECKPOINT_MUTATORS) {
   });
 }
 
-Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, the strand reports at the end", async () => {
+Deno.test("done --standalone: a tracked-dirty start skips the checkpoint — later jobs run, the strand reports at the end", async () => {
   await withTempDir(async (dir) => {
     await scaffoldCheckpointRepo(dir, "format");
     // The agent's own work-in-progress: a committed file edited, not committed.
@@ -463,7 +463,7 @@ Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, 
   });
 });
 
-Deno.test("done: an untracked-dirty start is not proof-eligible — the checkpoint stands down, the full run reports at the end", async () => {
+Deno.test("done --standalone: an untracked-dirty start is not proof-eligible — the checkpoint stands down, the full run reports at the end", async () => {
   await withTempDir(async (dir) => {
     await scaffoldCheckpointRepo(dir, "format");
     // Untracked dirt is invisible to the TRACKED-dirty snapshot (which stays
