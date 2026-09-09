@@ -74,6 +74,16 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
         assertEquals(firstResult.data.completion, "created");
         assertEquals(firstResult.data.gate_proven, true);
         assertExists(firstResult.data.proof_line);
+        // S01: with no environment declared, setup reports ordering-only
+        // coordination instead of implying anything was probed.
+        assertEquals(firstResult.data.environment_probe, {
+          proven: [],
+          undeclared: ["local"],
+        });
+        assertStringIncludes(
+          firstResult.data.instructions,
+          "efforts validate and land in order",
+        );
         assert(
           completed.head !== marker.head,
           "promotion must persist a new completion state",

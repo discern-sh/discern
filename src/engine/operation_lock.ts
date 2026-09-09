@@ -664,7 +664,15 @@ async function withCheckoutScope<T>(
         if (held === undefined) {
           throw new Error("Completion checkout exclusion was not acquired.");
         }
+        // A setup probe holds two checkout leases: its parent's and the
+        // probe's. The scope binds the lease for this directory, so retained
+        // ownership and recovery checks compare against the checkout in use.
+        const own = (await resolveLockSpecs(cwd, "checkout"))?.find((spec) =>
+          spec.boundary === "checkout"
+        );
         const checkout = [...held.leases.values()].find((lease) =>
+          lease.boundary === "checkout" && lease.key === own?.key
+        ) ?? [...held.leases.values()].find((lease) =>
           lease.boundary === "checkout"
         );
         if (checkout === undefined) {

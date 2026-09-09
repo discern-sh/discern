@@ -85,6 +85,11 @@ import { doctorResult } from "./doctor.ts";
 import { finishResult } from "../engine/gate/finish.ts";
 import { withSetupProbeCheckout } from "../engine/operation_lock.ts";
 import {
+  type EnvironmentProbeReport,
+  probeExecutionEnvironments,
+} from "../engine/execution/probe.ts";
+import type { EnvironmentProbeSummary } from "../shared/environment_probe.ts";
+import {
   currentTreeIdentity,
   inspectGateProof,
   inspectLastGateRun,
@@ -2922,6 +2927,8 @@ async function emitSetupDoneSuccess(
     markerCommit: CompletionMarkerView;
     proof?: GateProofCheckData | undefined;
     worktreeProven: boolean;
+    /** Present when this invocation ran the environment probe. */
+    environmentProbe?: EnvironmentProbeSummary | undefined;
     effectsPerformed: boolean;
     gateRan: boolean;
   },
@@ -2936,6 +2943,10 @@ async function emitSetupDoneSuccess(
   const reactivation = readyForActivation
     ? reactivationHandoff(cfg)
     : undefined;
+  const environmentProbe = state.environmentProbe === undefined ? undefined : {
+    proven: [...state.environmentProbe.proven],
+    undeclared: [...state.environmentProbe.undeclared],
+  };
   const instructions = completionMessage({
     assurance,
     inventory,
@@ -2943,6 +2954,7 @@ async function emitSetupDoneSuccess(
     reactivation,
     proofLine: state.proof?.proof_line,
     unproven,
+    environmentProbe,
   });
 
   const data: SetupDoneData = {
@@ -2955,6 +2967,9 @@ async function emitSetupDoneSuccess(
     unproven,
     gate_proven: !unproven && state.proof?.status === "honored",
     worktree_proven: state.worktreeProven,
+    ...(environmentProbe === undefined
+      ? {}
+      : { environment_probe: environmentProbe }),
     marker_committed: state.markerCommit.state === "committed" ||
       state.markerCommit.state === "existing",
     ...(state.markerCommit.state === "failed"
@@ -3206,6 +3221,7 @@ async function runExistingSetupCompletion(
     markerCommit: marker,
     proof: completion.proof,
     worktreeProven: true,
+    environmentProbe: completion.environment,
     effectsPerformed: true,
     gateRan: true,
   });
@@ -3435,6 +3451,7 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     markerCommit,
     proof: completion.proof,
     worktreeProven: true,
+    environmentProbe: completion.environment,
     effectsPerformed: true,
     gateRan: true,
   });
@@ -3451,20 +3468,25 @@ type FinalSetupProof =
     nextAction: string;
     recovery: string;
   }
-  | { ok: true; proof: GateProofCheckData };
+  | {
+    ok: true;
+    proof: GateProofCheckData;
+    /** What the environment probe established in the throwaway worktree. */
+    environment: EnvironmentProbeSummary;
+  };
 
 /** The structural linked-worktree leg has no durable Proof of its own; the
  * throwaway worktree is removed after returning this bounded outcome. */
 type WorktreeProbeProof =
   | {
     ok: false;
-    stage: "worktree_probe";
+    stage: "worktree_probe" | "environment_probe";
     detail: string;
     diagnostics?: Diagnostic[] | undefined;
     nextAction: string;
     recovery: string;
   }
-  | { ok: true };
+  | { ok: true; environment: EnvironmentProbeSummary };
 
 /** Render a file-specific correction from a nested structured diagnostic. */
 function nestedDiagnosticRecovery(
@@ -3645,7 +3667,7 @@ async function proveFinalSetupTree(
         "The marker is not accepted without canonical Proof. Repair the reported Proof write/read condition, then use `discern setup done`; it will validate the existing marker without another marker commit.",
     };
   }
-  return { ok: true, proof };
+  return { ok: true, proof, environment: probe.environment };
 }
 
 /**
@@ -3662,6 +3684,11 @@ async function proveWorktreeViable(
   const cfg = await loadConfig(root);
   const log = new Logger({ json, noColor: false, humanStream: "stdout" });
   log.info("Proving your project runs inside a worktree (a throwaway copy)…");
+  let environment: EnvironmentProbeReport = {
+    proven: [],
+    undeclared: [...cfg.completion.required_contexts],
+    outcomes: [],
+  };
   const outcome = await probeWorktreeViability(
     await lifecycleContext(root, log),
     resolveWorktreeRoot(root, cfg),
@@ -3690,17 +3717,45 @@ async function proveWorktreeViable(
       if (r.ok) {
         const checked = await pinValidatedTree(probeDir);
         if (
-          checked.clean && checked.head === markerHead &&
-          r.data?.completion?.kind === "diagnostic"
+          !(checked.clean && checked.head === markerHead &&
+            r.data?.completion?.kind === "diagnostic")
         ) {
-          return { ok: true };
+          return {
+            ok: false,
+            detail:
+              "the structural probe did not validate the unchanged completion-marker commit",
+            remedy: "worktree" as const,
+          };
         }
-        return {
-          ok: false,
-          detail:
-            "the structural probe did not validate the unchanged completion-marker commit",
-          remedy: "worktree" as const,
-        };
+        // A declared environment must prove its return procedure here, in the
+        // throwaway copy, before setup completes. Undeclared contexts are
+        // reported, not probed: they validate and land in order.
+        if (
+          cfg.completion.required_contexts.some((context) =>
+            cfg.execution[context] !== undefined
+          )
+        ) {
+          log.info(
+            "Proving the declared environment returns the copy to its source after passing, failing, and cancelled validation…",
+          );
+        }
+        environment = await withSetupProbeCheckout(
+          root,
+          probeDir,
+          () => probeExecutionEnvironments(probeDir, cfg),
+        );
+        const failed = environment.outcomes.find((entry) =>
+          entry.kind === "failed"
+        );
+        if (failed !== undefined && failed.kind === "failed") {
+          return {
+            ok: false,
+            detail:
+              `the declared environment for \`${failed.context}\` did not prove its return procedure (stopped at ${failed.stage}): ${failed.detail}`,
+            remedy: "environment" as const,
+          };
+        }
+        return { ok: true };
       }
       const diagnostics = r.diagnostics ?? [];
       const detail = diagnostics[0]?.message ??
@@ -3719,7 +3774,17 @@ async function proveWorktreeViable(
   switch (outcome.kind) {
     case "probed":
       if (outcome.ok) {
-        return { ok: true };
+        return { ok: true, environment };
+      }
+      if (outcome.remedy === "environment") {
+        return {
+          ok: false,
+          stage: "environment_probe",
+          detail: outcome.detail ?? "the declared environment is not proven",
+          nextAction: "discern doctor",
+          recovery:
+            "Fix the named `[execution.<context>]` prepare or restore procedure so the copy returns to its exact source, branch, index, and declared ignored output, then retry `discern setup done`. To keep ordering-only behavior for now, remove the declaration and set `[completion].lookahead = 0`.",
+        };
       }
       if (outcome.remedy === "content") {
         const correction = nestedDiagnosticRecovery(outcome.diagnostics ?? []);

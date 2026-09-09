@@ -4168,7 +4168,7 @@ export type WorktreeProbeOutcome =
     ok: boolean;
     detail?: string | undefined;
     diagnostics?: Diagnostic[] | undefined;
-    remedy?: "content" | "worktree" | undefined;
+    remedy?: "content" | "worktree" | "environment" | undefined;
   };
 
 /**
@@ -4193,7 +4193,7 @@ export async function probeWorktreeViability(
     ok: boolean;
     detail?: string | undefined;
     diagnostics?: Diagnostic[] | undefined;
-    remedy?: "content" | "worktree" | undefined;
+    remedy?: "content" | "worktree" | "environment" | undefined;
   }>,
 ): Promise<WorktreeProbeOutcome> {
   const asMsg = (e: unknown): string =>

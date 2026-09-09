@@ -2831,6 +2831,12 @@ const SetupDoneBaseSchema = z.strictObject({
   /** Whether the required worktree-viability probe ran green. False only on
    * explicitly unproven completion. */
   worktree_proven: z.boolean(),
+  /** Which required contexts proved their declared environment return, and
+   * which have no declaration. Present when this invocation ran the probe. */
+  environment_probe: z.strictObject({
+    proven: z.array(z.string()),
+    undeclared: z.array(z.string()),
+  }).optional(),
   marker_committed: z.boolean(),
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
@@ -2901,6 +2907,7 @@ export const SETUP_DONE_COMPLETION_STAGES = [
   "refresh",
   "doctor",
   "worktree_probe",
+  "environment_probe",
   "done",
   "proof",
 ] as const;

@@ -4048,6 +4048,27 @@
                     "worktree_proven": {
                       "type": "boolean"
                     },
+                    "environment_probe": {
+                      "type": "object",
+                      "properties": {
+                        "proven": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "undeclared": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "proven",
+                        "undeclared"
+                      ]
+                    },
                     "marker_committed": {
                       "type": "boolean"
                     },
@@ -4732,6 +4753,7 @@
                             "refresh",
                             "doctor",
                             "worktree_probe",
+                            "environment_probe",
                             "done",
                             "proof"
                           ]

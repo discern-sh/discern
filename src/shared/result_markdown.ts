@@ -27,6 +27,7 @@ import {
   verbatimText,
 } from "./result_markdown_values.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
+import { describeEnvironmentProbe } from "./environment_probe.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -776,6 +777,7 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
 const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const assurance = object(data.assurance);
+  const environmentProbe = object(data.environment_probe);
   const inventory = object(data.inventory);
   const landing = object(data.landing);
   const reactivation = object(data.reactivation);
@@ -817,6 +819,10 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
       `Worktree proven: ${
         boolean(data.worktree_proven) === true ? "yes" : "no"
       }.`,
+      environmentProbe === undefined ? undefined : describeEnvironmentProbe({
+        proven: strings(environmentProbe.proven),
+        undeclared: strings(environmentProbe.undeclared),
+      }),
       gateProofFact(data.proof),
       inventory === undefined
         ? undefined

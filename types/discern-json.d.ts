@@ -1512,6 +1512,10 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     unproven: boolean;
     gate_proven: boolean;
     worktree_proven: boolean;
+    environment_probe?: {
+      proven: Array<string>;
+      undeclared: Array<string>;
+    };
     marker_committed: boolean;
     marker_commit_error?: string;
     proof_line?: string;
@@ -1692,6 +1696,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "refresh"
       | "doctor"
       | "worktree_probe"
+      | "environment_probe"
       | "done"
       | "proof";
     rollback: "not_needed" | "owned_commit_removed" | "retained";

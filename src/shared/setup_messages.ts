@@ -29,6 +29,10 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
+import {
+  describeEnvironmentProbe,
+  type EnvironmentProbeSummary,
+} from "./environment_probe.ts";
 import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { type DiscernConfig, parseConfigOrThrow } from "./config_schema.ts";
@@ -574,6 +578,8 @@ export interface CompletionContext {
   reactivation?: CompletionReactivation | undefined;
   proofLine?: string | undefined;
   unproven: boolean;
+  /** Present when completion ran the environment probe. */
+  environmentProbe?: EnvironmentProbeSummary | undefined;
 }
 
 /** Plain-word coverage line for the completion message: what runs and which
@@ -646,8 +652,15 @@ function landingLine(l: CompletionLanding): string {
  * {@link CompletionContext} pieces — never recomputed.
  */
 export function completionMessage(ctx: CompletionContext): string {
-  const { assurance, inventory, landing, reactivation, proofLine, unproven } =
-    ctx;
+  const {
+    assurance,
+    inventory,
+    landing,
+    reactivation,
+    proofLine,
+    unproven,
+    environmentProbe,
+  } = ctx;
   const readyForActivation = !landing.inRepo || landing.onTarget;
   const headline = unproven
     ? "discern setup was recorded without a gate Proof. Review the unproved setup before treating it as ready."
@@ -707,6 +720,9 @@ export function completionMessage(ctx: CompletionContext): string {
     headline,
     "",
     `  • ${coverageLine(assurance)}`,
+    ...(environmentProbe === undefined
+      ? []
+      : [`  • ${describeEnvironmentProbe(environmentProbe)}`]),
     ...inventoryLines,
     `  • The installed footprint is \`discern.toml\`, the \`discern/\` folder, and the selected coding tools' integration files. ${SETUP_REVERSIBILITY.uninstall}`,
     `  • ${
