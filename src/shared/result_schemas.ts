@@ -2931,6 +2931,7 @@ export const SETUP_DONE_COMPLETION_STAGES = [
   "worktree_probe",
   "environment_probe",
   "done",
+  "contexts",
   "proof",
 ] as const;
 export type SetupDoneCompletionStage =

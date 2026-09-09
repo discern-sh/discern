@@ -3255,8 +3255,21 @@ async function runExistingSetupCompletion(
       completion.detail,
       { state: "not_needed" },
       {
-        state:
-          "The existing completion marker remains present and unproved; no marker commit was attempted.",
+        error: completion.error,
+        ...(completion.retainMarker === true
+          ? {
+            hints: hintTexts([
+              fire(HINTS["completion-pending"], {
+                action: completion.recovery,
+              }),
+            ]),
+          }
+          : {}),
+        state: completion.retainMarker === true
+          ? `The existing completion marker ${
+            pin.head.slice(0, 12)
+          } remains the exact commit the remaining context must validate; no marker commit was attempted.`
+          : "The existing completion marker remains present and unproved; no marker commit was attempted.",
         nextAction: completion.nextAction,
         recovery: completion.recovery,
         diagnostics: completion.diagnostics,
@@ -3475,6 +3488,25 @@ export async function runSetupDone(opts: SetupDoneOptions): Promise<number> {
     false,
   );
   if (!completion.ok) {
+    if (completion.retainMarker === true) {
+      return emitDoneGateFailure(
+        opts.json,
+        completion.stage,
+        completion.detail,
+        { state: "retained", detail: "the marker commit is kept on purpose" },
+        {
+          error: completion.error,
+          hints: hintTexts([
+            fire(HINTS["completion-pending"], { action: completion.recovery }),
+          ]),
+          state: `The completion marker commit ${
+            markerCommit.head.slice(0, 12)
+          } is kept: it is the exact commit the remaining context must validate.`,
+          nextAction: completion.nextAction,
+          recovery: completion.recovery,
+        },
+      );
+    }
     const rollback = await rollbackCompletionMarker(markerCommit, proofBefore);
     return emitDoneGateFailure(
       opts.json,
@@ -3515,6 +3547,10 @@ type FinalSetupProof =
     diagnostics?: Diagnostic[] | undefined;
     nextAction: string;
     recovery: string;
+    /** The marker commit must survive: another required context has to
+     * validate this exact commit before completion can be recorded. */
+    retainMarker?: true;
+    error?: ErrorSlug;
   }
   | {
     ok: true;
@@ -3680,6 +3716,39 @@ async function proveFinalSetupTree(
       : { kind: "human", plain: plainModeEnabled() },
   });
   if (!gate.ok) {
+    // A green local gate whose completion still awaits evidence from another
+    // required context is not a failure of this tree. Every retry would mint
+    // a new marker commit that the other context could never bind to, so the
+    // marker stays and the other context is asked to validate exactly it.
+    const pending = gate.data?.completion;
+    if (
+      pending?.kind === "pending" && pending.pending !== undefined &&
+      pending.pending.length > 0 &&
+      pending.pending.every((entry) => entry.kind === "missing-evidence")
+    ) {
+      const cfg = await loadConfig(root);
+      const awaited = cfg.completion.required_contexts.filter((context) =>
+        context !== pending.context
+      );
+      const named = awaited.map((context) => `\`${context}\``).join(", ");
+      const first = awaited[0] ?? "<context>";
+      return {
+        ok: false,
+        stage: "contexts",
+        error: "incomplete",
+        detail:
+          `this checkout validated the marker commit for \`${pending.context}\`, and completion still needs evidence from ${named} for the same commit`,
+        nextAction: `discern done --context ${first}`,
+        recovery: `Keep this commit (${
+          markerHead.slice(0, 12)
+        }). Run \`discern done --context ${first}\` on exactly this commit where that context validates${
+          awaited.length > 1
+            ? ", and likewise for each other named context"
+            : ""
+        }. When every required context has supplied its evidence, run \`discern setup done\` again: it validates the existing marker without another marker commit and records completion.`,
+        retainMarker: true,
+      };
+    }
     const diagnosticRecovery = nestedDiagnosticRecovery(
       gate.diagnostics ?? [],
     );

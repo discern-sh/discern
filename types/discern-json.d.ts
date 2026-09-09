@@ -1729,6 +1729,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "worktree_probe"
       | "environment_probe"
       | "done"
+      | "contexts"
       | "proof";
     rollback: "not_needed" | "owned_commit_removed" | "retained";
     state: string;

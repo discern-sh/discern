@@ -4884,6 +4884,7 @@
                             "worktree_probe",
                             "environment_probe",
                             "done",
+                            "contexts",
                             "proof"
                           ]
                         },
