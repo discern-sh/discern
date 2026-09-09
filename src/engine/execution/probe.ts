@@ -8,15 +8,19 @@
  * checkout as a borrowed environment, releases it, and drives the real
  * environment executor three times against a candidate whose tree differs from
  * the source: once where validation passes, once where it fails, and once where
- * it is cancelled mid-validation. Each time the executor must return the
- * checkout to the exact source branch, head, index, and file state through the
- * project's own restore procedure. The probe then retires its enrollment.
+ * a project command is still running when validation is cancelled. Each time
+ * the executor must return the checkout to the exact source branch, head,
+ * index, and file state through the project's own restore procedure, with every
+ * recorded child process stopped. The probe then retires its enrollment.
  *
  * What the probe establishes is the environment contract: preparation runs,
  * the candidate is installed, and return is verified after every outcome.
  * It issues no Proof, records no evidence, and touches only state it created.
  * A same-commit rebuild or a clean `git status` alone proves none of this; the
- * executor's own return verification does.
+ * executor's own return verification does. A probe that fails after its
+ * checkout returned retires its enrollment; one whose return is incomplete
+ * leaves the frozen recovery contract in place and says so, because only the
+ * supported recovery command may finish that return.
  */
 
 import { join } from "@std/path";
@@ -29,6 +33,9 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
+import { quoteCommandWord } from "../../shared/command_evidence.ts";
+import { type Scheduler, SYSTEM_SCHEDULER } from "../../shared/scheduler.ts";
+import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import type { EnvironmentProbeSummary } from "../../shared/environment_probe.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { bytesDigest } from "../validation/artifacts.ts";
@@ -40,12 +47,15 @@ import {
 } from "../completion/identity.ts";
 import type { ValidationPlan } from "../completion/protocol.ts";
 import { withCompletionCheckout } from "../operation_lock.ts";
+import { spawnJob } from "../jobs/command.ts";
+import { completionLease } from "../landing_queue/public_completion.ts";
 import {
   loadIdentitySettings,
   resolveIdentity,
   resourceForId,
 } from "../worktree/identity.ts";
 import { worktreeGitKey } from "../worktree/git.ts";
+import { artifactPath } from "./artifact_read.ts";
 import { createEnvironmentExecutor } from "./executor.ts";
 import { createNativeExecutionLifetime } from "./lifetime.ts";
 import { validationWorkspace } from "./public_environment.ts";
@@ -55,7 +65,7 @@ import {
   requireEnvironment,
   retireBorrowedEnrollment,
 } from "./registry.ts";
-import { errorReason } from "./types.ts";
+import { errorReason, type ExecutionLifetime } from "./types.ts";
 
 /** The tracked file the probe's differing candidate adds; never present in source. */
 export const PROBE_CANDIDATE_PATH = "environment-probe-candidate.txt";
@@ -68,6 +78,9 @@ export type ProbeExercise = (typeof PROBE_EXERCISES)[number];
 
 /** Where a probe stopped when it could not establish the contract. */
 export type ProbeStage = "enroll" | "release" | ProbeExercise | "retire";
+
+/** How long the cancelled exercise waits for its project command to start. */
+const CHILD_START_BUDGET_MS = 30_000;
 
 /** One declared context's probe result. */
 export type EnvironmentProbeOutcome =
@@ -85,6 +98,19 @@ export type EnvironmentProbeOutcome =
     readonly environment_id?: string;
     readonly stage: ProbeStage;
     readonly detail: string;
+    /** Present when the checkout did not return: the probe worktree and its
+     * frozen recovery contract must be kept until the named command runs. */
+    readonly retained?: {
+      readonly environment_id: string;
+      readonly path: string;
+      readonly recover: string;
+    };
+  }
+  | {
+    /** Declared, but of a kind setup does not rehearse. */
+    readonly kind: "skipped";
+    readonly context: string;
+    readonly reason: string;
   };
 
 /** The setup-wide result: the public summary plus each context's outcome. */
@@ -225,6 +251,80 @@ async function assertSourceReady(
   }
 }
 
+/** Resolve once `path` exists, or throw when the budget passes or the signal aborts. */
+async function untilPresent(
+  path: string,
+  signal: AbortSignal,
+  scheduler: Scheduler = SYSTEM_SCHEDULER,
+): Promise<void> {
+  const started = SYSTEM_CLOCK.monotonicNow();
+  while (await statIfExists(path) === undefined) {
+    signal.throwIfAborted();
+    if (SYSTEM_CLOCK.monotonicNow() - started > CHILD_START_BUDGET_MS) {
+      throw new Error(
+        "The probe's project command did not start within its budget, so cancellation could not be exercised against running work.",
+      );
+    }
+    await new Promise<void>((resolve) => {
+      scheduler.scheduleTimeout(resolve, 20);
+    });
+  }
+}
+
+/** Whether the attempt recorded at least one started child process group. */
+async function recordedChildStart(
+  root: string,
+  attemptId: string,
+): Promise<boolean> {
+  const directory = await artifactPath(root, attemptId, "environment/children");
+  for await (const entry of Deno.readDir(directory)) {
+    if (entry.name.startsWith("started-")) return true;
+  }
+  return false;
+}
+
+/**
+ * Leave no enrollment behind for a probe that failed. A checkout that returned
+ * is retired; one still executing or in recovery is reported for the supported
+ * recovery command, and the caller keeps its worktree.
+ */
+async function settleFailedProbe(
+  probeDir: string,
+  id: string,
+  actor: Executor,
+  lifetime: ExecutionLifetime,
+): Promise<
+  | { readonly kind: "retired" }
+  | {
+    readonly kind: "retained";
+    readonly retained: NonNullable<
+      Extract<EnvironmentProbeOutcome, { kind: "failed" }>["retained"]
+    >;
+  }
+> {
+  const current = await requireEnvironment(probeDir, id);
+  const state = current.record.data.state;
+  if (state.kind === "disposed") return { kind: "retired" };
+  if (state.kind === "idle") {
+    await retireBorrowedEnrollment(
+      probeDir,
+      id,
+      current.stamp,
+      actor,
+      lifetime,
+    );
+    return { kind: "retired" };
+  }
+  return {
+    kind: "retained",
+    retained: {
+      environment_id: id,
+      path: current.record.data.path,
+      recover: executionRecoveryCommand(id),
+    },
+  };
+}
+
 /** A caller's progress sink; setup narrates each stage from it. */
 export type ProbeObserver = (event: {
   readonly context: string;
@@ -246,7 +346,10 @@ async function probeContext(
     stage = next;
     observe({ context, stage, state: "started" });
   };
-  let environmentId: string | undefined;
+  const lifetime = createNativeExecutionLifetime(probeDir);
+  // The registered enrollment's owner; set before enrollment so a failure after
+  // it can still retire or report the exact record.
+  let enrolled: { readonly id: string; readonly owner: Executor } | undefined;
   observe({ context, stage, state: "started" });
   try {
     return await withCompletionCheckout(probeDir, async (signal) => {
@@ -265,14 +368,13 @@ async function probeContext(
         head: await gitValue(probeDir, ["rev-parse", "HEAD"]),
         tree: await gitValue(probeDir, ["rev-parse", "HEAD^{tree}"]),
       };
-      const actor: Executor = {
+      const owner: Executor = {
         operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
         originating_effort: identity.id,
         started_at: SYSTEM_CLOCK.wallNow(),
       };
       const id = SYSTEM_SECURE_ENTROPY.uuid();
-      environmentId = id;
-      const lifetime = createNativeExecutionLifetime(probeDir);
+      enrolled = { id, owner };
       const workspace = validationWorkspace(probeDir, config, id, settings);
       const resources = declaration.resources.length > 0
         ? declaration.resources
@@ -303,7 +405,7 @@ async function probeContext(
           probeDir,
           id,
           current.stamp,
-          actor,
+          owner,
           declaration,
           { lifetime, workspace },
           { signal },
@@ -347,6 +449,9 @@ async function probeContext(
         probeDir,
         declaration.ignored,
       );
+      // The same lease every completion uses, so a probe never outlives the
+      // deadline the project's own configuration implies.
+      const leaseMs = await completionLease(config);
       let sequence = 0;
       const exercised: ProbeExercise[] = [];
       for (const exercise of PROBE_EXERCISES) {
@@ -359,7 +464,7 @@ async function probeContext(
           declaration,
           workspace,
           lifetime,
-          leaseMs: Math.max(1, config.gate.timeout) * 1_000 * 4 + 60_000,
+          leaseMs,
           signal: AbortSignal.any([signal, controller.signal]),
           reserveAttempt: (planned, executor) =>
             Promise.resolve(newAttemptIdentity({
@@ -386,7 +491,7 @@ async function probeContext(
             }`,
           );
         }
-        const claimed = await executor.claim(selected, actor);
+        const claimed = await executor.claim(selected, owner);
         if ("kind" in claimed) {
           throw new Error(
             `The environment could not be claimed: ${
@@ -394,7 +499,7 @@ async function probeContext(
             }`,
           );
         }
-        const result = await executor.execute(claimed, async () => {
+        const result = await executor.execute(claimed, async (execution) => {
           // Candidate output: the differing commit is installed, detached.
           const head = await gitValue(probeDir, ["rev-parse", "HEAD"]);
           const candidateFile = await statIfExists(
@@ -409,12 +514,37 @@ async function probeContext(
               }.`,
             );
           }
+          if (exercise === "cancellation") {
+            // A real project command runs under the execution's signal and is
+            // still running when the validation is cancelled. Its output file
+            // is the owned drift the return must capture and remove, and its
+            // recorded process group must be gone before the checkout returns.
+            const running = spawnJob({
+              label: "environment probe",
+              command: `printf 'probe cancellation\\n' > ${
+                quoteCommandWord(PROBE_OUTPUT_PATH)
+              } && sleep 60`,
+            }, {
+              cwd: probeDir,
+              signal: execution.signal,
+              stream: false,
+              write: () => {},
+            });
+            await untilPresent(join(probeDir, PROBE_OUTPUT_PATH), signal);
+            controller.abort();
+            const spawned = await running;
+            if (spawned.result.code === 0) {
+              throw new Error(
+                "The probe's running command finished instead of being cancelled.",
+              );
+            }
+            return false;
+          }
           // Owned drift the return must capture and remove.
           await Deno.writeTextFile(
             join(probeDir, PROBE_OUTPUT_PATH),
             `probe ${exercise}\n`,
           );
-          if (exercise === "cancellation") controller.abort();
           return exercise === "success";
         });
         if (result.returned.kind !== "restored") {
@@ -423,6 +553,14 @@ async function probeContext(
             : result.returned.kind;
           throw new Error(
             `After ${exercise}, the checkout did not return through the declared restore procedure: ${reason}`,
+          );
+        }
+        if (
+          exercise === "cancellation" &&
+          !await recordedChildStart(probeDir, claimed.fence.attempt_id)
+        ) {
+          throw new Error(
+            "The cancelled exercise recorded no running child process, so cancellation was not exercised against project work.",
           );
         }
         await assertSourceReady(probeDir, source, declaration, ignoredBefore);
@@ -434,7 +572,7 @@ async function probeContext(
         probeDir,
         id,
         current.stamp,
-        actor,
+        owner,
         lifetime,
       );
       return {
@@ -446,19 +584,34 @@ async function probeContext(
       };
     });
   } catch (error) {
+    const detail = errorReason(error);
+    if (enrolled === undefined) {
+      return { kind: "failed", context, stage, detail };
+    }
+    const settled = await settleFailedProbe(
+      probeDir,
+      enrolled.id,
+      enrolled.owner,
+      lifetime,
+    );
     return {
       kind: "failed",
       context,
-      ...(environmentId === undefined ? {} : { environment_id: environmentId }),
+      environment_id: enrolled.id,
       stage,
-      detail: errorReason(error),
+      detail: settled.kind === "retained"
+        ? `${detail} The probe worktree at ${settled.retained.path} is kept with its frozen recovery contract; run ${settled.retained.recover} from it to return the checkout.`
+        : detail,
+      ...(settled.kind === "retained" ? { retained: settled.retained } : {}),
     };
   }
 }
 
 /**
- * Probe every required context that declares an environment. Contexts without a
- * declaration are reported, not probed: they validate and land in order.
+ * Probe every required context that declares a borrowed environment. Contexts
+ * without a declaration are reported, not probed: they validate and land in
+ * order. Isolated declarations are reported as skipped: setup rehearses only
+ * the checkout it can borrow.
  */
 export async function probeExecutionEnvironments(
   probeDir: string,
@@ -467,11 +620,22 @@ export async function probeExecutionEnvironments(
 ): Promise<EnvironmentProbeReport> {
   const proven: string[] = [];
   const undeclared: string[] = [];
+  const isolated: string[] = [];
   const outcomes: EnvironmentProbeOutcome[] = [];
   for (const context of config.completion.required_contexts) {
     const declaration = config.execution[context];
     if (declaration === undefined) {
       undeclared.push(context);
+      continue;
+    }
+    if (declaration.kind === "isolated") {
+      isolated.push(context);
+      outcomes.push({
+        kind: "skipped",
+        context,
+        reason:
+          "Setup rehearses only a borrowed checkout; an isolated environment is a separate copy provided outside the setup worktree.",
+      });
       continue;
     }
     const outcome = await probeContext(
@@ -484,5 +648,5 @@ export async function probeExecutionEnvironments(
     outcomes.push(outcome);
     if (outcome.kind === "proven") proven.push(context);
   }
-  return { proven, undeclared, outcomes };
+  return { proven, undeclared, isolated, outcomes };
 }

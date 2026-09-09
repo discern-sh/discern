@@ -25,6 +25,9 @@ import {
 import { describeEnvironmentProbe } from "../src/shared/environment_probe.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { observedRecords } from "../src/engine/landing_queue/repository.ts";
+import { artifactPath } from "../src/engine/execution/artifact_read.ts";
+import { requireEnvironment } from "../src/engine/execution/registry.ts";
+import { recoverCompletionResult } from "../src/engine/execution/public_recovery.ts";
 
 /** A project whose build directory holds a committed manifest beside ignored output. */
 async function project(
@@ -127,9 +130,109 @@ Deno.test("S06 the probe proves a declared environment after success, failure, a
     );
     assertEquals(records.filter((record) => record.kind === "evidence"), []);
     assertEquals(records.filter((record) => record.kind === "proof"), []);
+    // The cancelled exercise cancelled a running project command: its attempt
+    // recorded a started child process group and its settlement.
+    const cancelled = attempts.find((record) =>
+      record.kind === "attempt" && record.data.state.kind === "finished" &&
+      record.data.state.outcome === "cancelled"
+    );
+    assert(cancelled !== undefined);
+    const children: string[] = [];
+    for await (
+      const entry of Deno.readDir(
+        await artifactPath(path, cancelled.id, "environment/children"),
+      )
+    ) children.push(entry.name.split("-", 1)[0] ?? entry.name);
+    assert(children.includes("started"), children.join(", "));
+    assert(children.includes("settled"), children.join(", "));
     assertStringIncludes(
       describeEnvironmentProbe(report),
       "returned a throwaway copy to its exact source",
+    );
+  });
+});
+
+Deno.test("S06 a restore that fails leaves the probe's frozen recovery in place and names the command that finishes the return", async () => {
+  await withTempDir(async (root) => {
+    const repair = join(root, "restore.sh");
+    await Deno.writeTextFile(repair, "exit 1\n");
+    const path = await project(root, `sh ${repair}`);
+    const config = await loadConfig(path);
+    const head = await gitOut(path, "rev-parse", "HEAD");
+    const report = await probeExecutionEnvironments(path, config);
+    const outcome = report.outcomes[0];
+    assert(outcome?.kind === "failed", JSON.stringify(report));
+    assertEquals(outcome.stage, "success");
+    assert(outcome.retained !== undefined, outcome.detail);
+    assertEquals(outcome.retained.path, path);
+    assertStringIncludes(outcome.retained.recover, "discern done --recover");
+    assertStringIncludes(outcome.detail, "is kept with its frozen recovery");
+    // The enrollment is not retired: it still owns the unfinished return.
+    const stranded = await requireEnvironment(
+      path,
+      outcome.retained.environment_id,
+    );
+    assertEquals(stranded.record.data.state.kind, "recovery");
+    // The supported recovery returns the checkout once the restore can run.
+    await Deno.writeTextFile(
+      repair,
+      "printf 'source output\\n' > build/output.bin\n",
+    );
+    const recovered = await recoverCompletionResult(
+      path,
+      outcome.retained.environment_id,
+    );
+    assert(recovered.ok, JSON.stringify(recovered));
+    assertEquals(
+      (await requireEnvironment(path, outcome.retained.environment_id)).record
+        .data.state.kind,
+      "idle",
+    );
+    assertEquals(await gitOut(path, "rev-parse", "HEAD"), head);
+    assertEquals(await gitOut(path, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("an isolated declaration is reported as not rehearsed, not probed", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await writeConfig(
+      root,
+      `[project]
+slug = "isolated"
+agents = []
+logbook = false
+[jobs]
+test = "true"
+[execution.local]
+kind = "isolated"
+prepare = "true"
+dispose = "true"
+reusable = false
+resources = []
+ignored = []
+inputs = ["**"]
+capacity = 1
+`,
+    );
+    await gitInit(root);
+    const path = await addWorktree(root, "isolated-copy");
+    const report = await probeExecutionEnvironments(
+      await Deno.realPath(path),
+      await loadConfig(path),
+    );
+    assertEquals(report.proven, []);
+    assertEquals(report.isolated, ["local"]);
+    assertEquals(report.outcomes[0]?.kind, "skipped");
+    assertStringIncludes(
+      describeEnvironmentProbe(report),
+      "setup does not rehearse",
+    );
+    assertEquals(
+      observedRecords(await observeCompletionRecords(path)).filter((record) =>
+        record.kind === "environment"
+      ),
+      [],
     );
   });
 });
@@ -152,6 +255,14 @@ Deno.test("S06 a restore that leaves declared ignored output changed fails the p
     // Git-visible state did return; only the declared output did not.
     assertEquals(await gitOut(path, "rev-parse", "HEAD"), head);
     assertEquals(await gitOut(path, "status", "--porcelain"), "");
+    // The checkout returned, so the failed probe leaves no enrollment behind.
+    assert(outcome.environment_id !== undefined);
+    assertEquals(outcome.retained, undefined);
+    assertEquals(
+      (await requireEnvironment(path, outcome.environment_id)).record.data.state
+        .kind,
+      "disposed",
+    );
     assertStringIncludes(
       describeEnvironmentProbe(report),
       "validate and land in order",
@@ -172,7 +283,12 @@ Deno.test("a required context without a declaration is reported, not probed", as
       await Deno.realPath(path),
       await loadConfig(path),
     );
-    assertEquals(report, { proven: [], undeclared: ["local"], outcomes: [] });
+    assertEquals(report, {
+      proven: [],
+      undeclared: ["local"],
+      isolated: [],
+      outcomes: [],
+    });
     assertEquals(
       observedRecords(await observeCompletionRecords(path)).filter((record) =>
         record.kind === "environment"

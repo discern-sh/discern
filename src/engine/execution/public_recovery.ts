@@ -17,8 +17,8 @@ import { integrationBranch } from "../worktree/git.ts";
 import { gitValue } from "../landing_queue/composition.ts";
 import {
   observedRecords,
+  optionalQueue,
   REPOSITORY_QUEUE_ID,
-  requireQueue,
 } from "../landing_queue/repository.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import { reconcileQueueWork } from "../landing_queue/recovery.ts";
@@ -79,8 +79,10 @@ export async function recoverCompletionResult(
           "The recorded source branch changed. Preserve the environment and reconcile its exact source before recovery.",
         );
       }
-      const queue = await requireQueue(root);
-      const entry = queue.record.data.entries.find((item) =>
+      // An environment enrolled before any completion ran here (the setup
+      // probe's, for one) has no queue and therefore no reservation to settle.
+      const queue = await optionalQueue(root);
+      const entry = queue?.record.data.entries.find((item) =>
         item.source.effort_id === identity.id
       );
       const state = environment.state;
@@ -172,11 +174,11 @@ export async function recoverCompletionResult(
       if (returned.kind === "recovery-incomplete") {
         throw new Error(returned.recovery.reason);
       }
-      const freshQueue = await requireQueue(root);
-      const current = freshQueue.record.data.entries.find((item) =>
+      const freshQueue = await optionalQueue(root);
+      const current = freshQueue?.record.data.entries.find((item) =>
         item.source.effort_id === identity.id
       );
-      if (current?.state === "active") {
+      if (freshQueue !== undefined && current?.state === "active") {
         if (current.candidate_id !== intent.candidate_id) {
           throw new Error(
             "Checkout returned, but a newer queue candidate requires its own recovery. No queue entry changed.",

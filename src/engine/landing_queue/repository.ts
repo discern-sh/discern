@@ -71,6 +71,24 @@ export async function requireQueue(root: string): Promise<RecordedQueue> {
   return { record: reading.record, stamp: reading.stamp };
 }
 
+/** The queue when one exists; a repository whose completion has never run has none.
+ * Unsupported or damaged queue bytes still refuse, exactly as {@link requireQueue}. */
+export async function optionalQueue(
+  root: string,
+): Promise<RecordedQueue | undefined> {
+  const reading = await readCompletionRecord(root, {
+    kind: "queue",
+    id: REPOSITORY_QUEUE_ID,
+  });
+  if (reading.kind === "missing") return undefined;
+  if (reading.kind !== "recorded" || reading.record.kind !== "queue") {
+    throw new Error(
+      `Repository queue is ${reading.kind}; preserve its bytes and reconcile before continuing.`,
+    );
+  }
+  return { record: reading.record, stamp: reading.stamp };
+}
+
 /** Missing state can be initialized; unsupported or damaged state cannot be replaced. */
 export async function initializeQueue(
   root: string,

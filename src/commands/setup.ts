@@ -2975,6 +2975,7 @@ async function emitSetupDoneSuccess(
   const environmentProbe = state.environmentProbe === undefined ? undefined : {
     proven: [...state.environmentProbe.proven],
     undeclared: [...state.environmentProbe.undeclared],
+    isolated: [...state.environmentProbe.isolated],
   };
   const instructions = completionMessage({
     assurance,
@@ -3719,6 +3720,7 @@ async function proveWorktreeViable(
   let environment: EnvironmentProbeReport = {
     proven: [],
     undeclared: [...cfg.completion.required_contexts],
+    isolated: [],
     outcomes: [],
   };
   const outcome = await probeWorktreeViability(
@@ -3785,6 +3787,8 @@ async function proveWorktreeViable(
             detail:
               `the declared environment for \`${failed.context}\` did not prove its return procedure (stopped at ${failed.stage}): ${failed.detail}`,
             remedy: "environment" as const,
+            // An unfinished return keeps the probe worktree and its record.
+            retain: failed.retained !== undefined,
           };
         }
         return { ok: true };
@@ -3809,13 +3813,20 @@ async function proveWorktreeViable(
         return { ok: true, environment };
       }
       if (outcome.remedy === "environment") {
+        const retained = environment.outcomes.find((entry) =>
+          entry.kind === "failed" && entry.retained !== undefined
+        );
+        const recover = retained?.kind === "failed"
+          ? retained.retained
+          : undefined;
         return {
           ok: false,
           stage: "environment_probe",
           detail: outcome.detail ?? "the declared environment is not proven",
-          nextAction: "discern doctor",
-          recovery:
-            "Fix the named `[execution.<context>]` prepare or restore procedure so the copy returns to its exact source, branch, index, and declared ignored output, then retry `discern setup done`. To keep ordering-only behavior for now, remove the declaration and set `[completion].lookahead = 0`.",
+          nextAction: recover?.recover ?? "discern doctor",
+          recovery: recover === undefined
+            ? "Fix the named `[execution.<context>]` prepare or restore procedure so the copy returns to its exact source, branch, index, and declared ignored output, then retry `discern setup done`. To keep ordering-only behavior for now, remove the declaration and set `[completion].lookahead = 0`."
+            : `The throwaway copy at ${recover.path} was kept because its checkout has not returned. Make the frozen restore procedure able to run, run \`${recover.recover}\` from that copy to return it, then discard the copy with \`discern worktree drop --force ${recover.path}\` (it holds the rolled-back marker commit). Fix the named \`[execution.<context>]\` restore procedure and retry \`discern setup done\`; to keep ordering-only behavior for now, remove the declaration and set \`[completion].lookahead = 0\` instead.`,
         };
       }
       if (outcome.remedy === "content") {

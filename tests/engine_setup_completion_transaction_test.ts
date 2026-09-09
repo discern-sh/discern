@@ -79,6 +79,7 @@ Deno.test("setup completion is one transaction: an unproven marker converges, th
         assertEquals(firstResult.data.environment_probe, {
           proven: [],
           undeclared: ["local"],
+          isolated: [],
         });
         assertStringIncludes(
           firstResult.data.instructions,

@@ -832,6 +832,7 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
       environmentProbe === undefined ? undefined : describeEnvironmentProbe({
         proven: strings(environmentProbe.proven),
         undeclared: strings(environmentProbe.undeclared),
+        isolated: strings(environmentProbe.isolated),
       }),
       gateProofFact(data.proof),
       inventory === undefined

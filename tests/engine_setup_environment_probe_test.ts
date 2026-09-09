@@ -70,6 +70,7 @@ Deno.test("setup done proves a declared environment in the throwaway worktree, t
         assertEquals(result.data.environment_probe, {
           proven: ["local"],
           undeclared: [],
+          isolated: [],
         });
         assertStringIncludes(
           result.data.instructions,
@@ -140,6 +141,81 @@ Deno.test("setup done proves a declared environment in the throwaway worktree, t
           !after.config.includes("bootstrapped = true"),
           "a refused environment probe must not record completion",
         );
+      },
+    );
+
+    await t.step(
+      "a restore that fails keeps the probe copy with its recovery and routes to the command that returns it",
+      async () => {
+        const repair = join(dir, "..", "probe-restore.sh");
+        await Deno.writeTextFile(repair, "exit 1\n");
+        await declareEnvironment(dir, `sh ${repair}`);
+        const formatted = await runAgent(dir, ["prepare", "--json"]);
+        assertEquals(formatted.code, 0, formatted.output);
+        await git(dir, "add", "-A");
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "-m",
+          "Declare a restore that cannot run",
+          "--no-gpg-sign",
+        );
+        const before = await setupCompletionSnapshot(dir);
+
+        const failed = await runAgent(dir, ["setup", "done", "--json"]);
+        assertEquals(failed.code, 1, failed.output);
+        const result = decodeCliResult(failed.stdout, "setup done");
+        assertResultDataKey(result, "stage");
+        assertEquals(result.data.stage, "environment_probe");
+        const failure = result.data as Record<string, unknown>;
+        assertEquals(failure.rollback, "owned_commit_removed");
+        assertStringIncludes(
+          String(failure.next_action),
+          "discern done --recover ",
+        );
+        assertStringIncludes(String(failure.recovery), "was kept");
+        assertStringIncludes(String(failure.recovery), "discern worktree drop");
+        // The probe copy is retained beside the setup checkout; the setup
+        // branch itself is back at its predecessor.
+        const worktrees = (await gitOut(dir, "worktree", "list", "--porcelain"))
+          .split("\n\n").filter(Boolean);
+        assertEquals(worktrees.length, 2, worktrees.join("\n"));
+        const own = await Deno.realPath(dir);
+        const retained = worktrees.map((block) =>
+          block.split("\n")[0]?.replace("worktree ", "") ?? ""
+        ).find((path) => path !== "" && path !== own);
+        assert(retained !== undefined);
+        assertStringIncludes(String(failure.recovery), retained);
+        const after = await setupCompletionSnapshot(dir);
+        assertEquals(after.head, before.head);
+        assertEquals(after.status, before.status);
+        assert(!after.config.includes("bootstrapped = true"));
+
+        // Once the frozen restore can run, the named command returns the copy,
+        // and the copy can be discarded; nothing else changed.
+        await Deno.writeTextFile(repair, "rm -f build/output.bin\n");
+        const recoverCommand = String(failure.next_action).split(" ");
+        const recovered = await runAgent(retained, [
+          ...recoverCommand.slice(1),
+          "--json",
+        ]);
+        assertEquals(recovered.code, 0, recovered.output);
+        const dropped = await runAgent(dir, [
+          "worktree",
+          "drop",
+          "--force",
+          retained,
+          "--json",
+        ]);
+        assertEquals(dropped.code, 0, dropped.output);
+        assertEquals(
+          (await gitOut(dir, "worktree", "list", "--porcelain")).split("\n\n")
+            .filter(Boolean).length,
+          1,
+        );
+        assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+        assertEquals((await setupCompletionSnapshot(dir)).head, before.head);
       },
     );
   });
