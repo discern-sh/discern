@@ -309,6 +309,17 @@ Rendered example:
 
 > Resolve the failed validation, then use discern done --rerun to request a new attempt.
 
+## `completion-uncommitted`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: Ordinary completion refuses an uncommitted subject before selection.
+
+Rendered example:
+
+> Run `discern prepare`, review and commit the intended changes, then run `discern done`. For diagnostics before committing, use `discern test` or `discern done --standalone`; standalone results are transient.
+
 ## `config-correct-validation`
 
 - Category: `next-step`

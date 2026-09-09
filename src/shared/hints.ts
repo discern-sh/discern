@@ -1962,6 +1962,21 @@ export const HINTS = {
       `Emergency ${id} has outstanding validation. Run discern done --rerun on the current committed trunk or a repair containing it, in every required context. The historical exception remains intact.`,
   }),
 
+  "completion-uncommitted": defineHint({
+    id: "completion-uncommitted",
+    category: "next-step",
+    audience: "all",
+    when:
+      "Ordinary completion refuses an uncommitted subject before selection.",
+    example: undefined,
+    template: (): string =>
+      `Run ${CMD.prepare}, review and commit the intended changes, then run ` +
+      `${CMD.done}. For diagnostics before committing, use ${CMD.test} or ` +
+      `${
+        discernCommand("done", flag("standalone"))
+      }; standalone results are transient.`,
+  }),
+
   "completion-pending": defineHint<{ action: string }>({
     id: "completion-pending",
     category: "next-step",

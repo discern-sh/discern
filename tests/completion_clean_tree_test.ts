@@ -12,6 +12,9 @@ import { decodeCliResult } from "./decode_cli_result.ts";
 import { completionMcpPeer } from "./completion_mcp_fixture.ts";
 import { z } from "@zod/zod";
 import { FinishOutputSchema } from "../src/shared/result_schemas.ts";
+import { serializeResult } from "../src/shared/result_serialization.ts";
+import { finishResult } from "../src/engine/gate/finish.ts";
+import { TEST_CLI_MODEL } from "./cli_model.ts";
 
 Deno.test("ordinary completion refuses all uncommitted paths before producers; explicit standalone remains transient", async () => {
   await withTempDir(async (root) => {
@@ -20,6 +23,13 @@ Deno.test("ordinary completion refuses all uncommitted paths before producers; e
     await Deno.writeTextFile(`${path}/staged`, "staged\n");
     await git(path, "add", "staged");
     await Deno.writeTextFile(`${path}/untracked`, "new\n");
+    const direct = await finishResult(path, {
+      surface: { kind: "quiet" },
+      cliModel: TEST_CLI_MODEL,
+    });
+    const serialized = FinishOutputSchema.parse(serializeResult(direct));
+    assertEquals(serialized.error, "dirty_worktree");
+    assert(serialized.hints?.some((hint) => hint.includes("--standalone")));
     await using peer = await completionMcpPeer(path);
     await peer.call(2, "discern_done", { path });
     const mcp = z.object({ structuredContent: FinishOutputSchema }).parse(
@@ -62,6 +72,8 @@ Deno.test("completion without a first commit refuses before gate selection", asy
       "../src/engine/gate/complete_gate.ts"
     );
     const refusal = await completionTreeRefusal(root);
+    assert(refusal !== undefined);
+    FinishOutputSchema.parse(serializeResult(refusal));
     assertEquals(refusal?.error, "dirty_worktree");
     assertEquals(refusal?.data?.producer_executions, {});
     assertEquals(await completionTreeRefusal(root, true), undefined);

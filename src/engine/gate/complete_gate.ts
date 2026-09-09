@@ -36,7 +36,8 @@ export async function completionTreeRefusal(
     error: "dirty_worktree",
     message: `Completion requires a clean, committed tree${
       describeDirtyPaths(pin.dirtyPaths)
-    }. Run discern prepare, review and commit the intended changes, then run discern done. For diagnostics before committing, use discern test or discern done --standalone. No candidate was selected and no producer ran.`,
+    }. No candidate was selected and no producer ran.`,
+    hints: hintTexts([fire(HINTS["completion-uncommitted"])]),
     data: {
       failed_stage: null,
       scopes_changed: [],
