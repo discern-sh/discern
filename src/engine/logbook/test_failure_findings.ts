@@ -1,6 +1,7 @@
 /** Recorded test diagnostics identify review candidates, never defect counts or Proof. */
 import type { VerbEvent } from "./schema.ts";
 import {
+  VALIDATION_EVIDENCE_VERSION,
   type ValidationJobOutcome,
   validationJobOutcome,
 } from "./validation.ts";
@@ -23,6 +24,10 @@ export function recordedJobOutcome(
   event: VerbEvent,
   id: string,
 ): ValidationJobOutcome {
+  if (
+    event.validation !== undefined &&
+    event.validation.version !== VALIDATION_EVIDENCE_VERSION
+  ) return "unavailable";
   const jobs = event.validation?.execution.jobs;
   const observations = jobs === undefined
     ? event.steps?.filter((step) => step.kind === "job" && step.label === id) ??

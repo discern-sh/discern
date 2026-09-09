@@ -14,6 +14,7 @@ import {
 import {
   canonicalJson,
   RECORDED_VALIDATION_VERBS,
+  VALIDATION_EVIDENCE_VERSION,
   type ValidationEvidence,
   type ValidationJobOutcome,
   validationJobOutcome,
@@ -26,6 +27,7 @@ import type { VerbEvent } from "./schema.ts";
 export function hasRecordedValidationFailure(event: VerbEvent): boolean {
   if (event.gate_ran === false) return false;
   if (event.validation !== undefined) {
+    if (event.validation.version !== VALIDATION_EVIDENCE_VERSION) return false;
     return event.validation.execution.jobs.some((job) =>
       job.outcome === "failed"
     );
@@ -464,7 +466,8 @@ export interface CurrentValidationJobObservation {
 export function validationEvidenceIsComparable(
   validation: ValidationEvidence,
 ): boolean {
-  return validation.state.complete && validation.state.digest !== undefined &&
+  return validation.version === VALIDATION_EVIDENCE_VERSION &&
+    validation.state.complete && validation.state.digest !== undefined &&
     (validation.state.incomplete?.length ?? 0) === 0 &&
     validation.execution.complete &&
     validation.execution.config_digest !== undefined &&
@@ -488,7 +491,9 @@ export function currentValidationJobObservations(
   events: readonly VerbEvent[],
 ): CurrentValidationJobObservation[] {
   const observations: CurrentValidationJobObservation[] = [];
-  for (const event of events) {
+  const invocations = verbInvocations(events);
+  for (const event of invocations.events) {
+    if (invocations.conflicts.has(event)) continue;
     if (!RECORDED_VALIDATION_VERBS.some((verb) => verb === event.verb)) {
       continue;
     }

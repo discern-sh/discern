@@ -207,3 +207,29 @@ Deno.test("completion economics preserves sparse and conflicting evidence as unk
     last_at: null,
   });
 });
+
+Deno.test("completion economics rejects contradictory immutable receipts across consuming attempts", () => {
+  const producer = event("produced", {
+    kind: "producer",
+    producer: "job:test",
+    use: "executed",
+    evidence_id: "receipt",
+    outcome: "passed",
+    duration_ms: 500,
+  });
+  const reused = event("reused", {
+    kind: "producer",
+    producer: "job:test",
+    use: "reused",
+    evidence_id: "receipt",
+    outcome: "failed",
+    duration_ms: 0,
+  }, { attempt_id: "consumer", candidate_id: "next" });
+  for (const events of [[producer, reused], [reused, producer]]) {
+    const result = completionEconomics(events);
+    assertEquals(result.conflicting_component_receipts, 1);
+    assertEquals(result.component_receipts, {});
+    assertEquals(result.reused_receipts, 0);
+    assertEquals(result.executed_component_groups, 0);
+  }
+});

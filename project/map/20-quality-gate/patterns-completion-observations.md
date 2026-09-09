@@ -16,6 +16,8 @@ Duration drift uses green calls that explicitly ran the gate and recorded their 
 
 Repeated delivery of an invocation counts once. Contradictory copies leave an unknown position in the sequence, so the reader cannot connect repeated validation across that gap. A gap in completed logbook entries invites a current-status lookup; it does not establish an inactive or abandoned effort. Historical same-branch start/accept intervals describe command observations, with their limited coverage made explicit.
 
+Only supported validation schemas enter comparisons. Matching future version numbers do not establish a known evidence contract. The evidence basis names varying setup dimensions separately from matched conditions; missing setup fields cannot establish a match.
+
 Repeated failed checks can identify diagnostics worth investigating. Cancelled, skipped and unknown job outcomes do not establish failed validation verdicts. Older records retain explicitly reported check-stage failures at their original resolution. Source changes, owner feedback and changed integrations can require further validation; neither a streak nor a driver cohort establishes author quality. Recorded owner waits do not enter refusal-loop findings.
 
 ## Canary review candidates
@@ -28,7 +30,7 @@ This repository's [canary registry](../../../scripts/canary_registry.ts) owns en
 
 ## Completion accounting
 
-When completion observations are present, the report keeps source efforts, candidates, attempts, executor operations and landing transactions separate. Repeated delivery counts once by the durable observation identity. Conflicting facts remain an explicit evidence gap.
+When completion observations are present, the report keeps source efforts, candidates, attempts, executor operations and landing transactions separate. Repeated delivery counts once by the durable observation identity. Conflicting facts remain an explicit evidence gap. An immutable receipt with contradictory producer or verdict observations across consumers contributes to that gap, never a last-observed verdict.
 
 Component receipts are not physical producer executions: one producer can yield several receipts, including failed, cancelled, unrun or stale outcomes. Reused receipts identify evidence consumed by an attempt. Receipt counts and durations cannot establish physical execution counts or compute totals.
 

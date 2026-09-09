@@ -696,6 +696,7 @@ export const CompletionEconomicsSchema = z.strictObject({
   observations: z.number().int().nonnegative(),
   duplicate_observations: z.number().int().nonnegative(),
   conflicting_identities: z.number().int().nonnegative(),
+  conflicting_component_receipts: z.number().int().nonnegative(),
   efforts: z.number().int().nonnegative(),
   candidates: z.number().int().nonnegative(),
   attempts: z.number().int().nonnegative(),

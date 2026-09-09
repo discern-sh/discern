@@ -113,11 +113,28 @@ function increment(counts: Record<string, number>, key: string): void {
   counts[key] = (counts[key] ?? 0) + 1;
 }
 
+/** An immutable receipt keeps its producer and verdict across every consumer. */
+function conflictingReceipts(events: readonly CompletionEvent[]): Set<string> {
+  const seen = new Map<string, string>();
+  const conflicts = new Set<string>();
+  for (const { fact } of events) {
+    if (fact.kind !== "producer") continue;
+    const signature = canonicalJson([fact.producer, fact.outcome]);
+    const prior = seen.get(fact.evidence_id);
+    if (prior !== undefined && prior !== signature) {
+      conflicts.add(fact.evidence_id);
+    }
+    seen.set(fact.evidence_id, signature);
+  }
+  return conflicts;
+}
+
 /** Read the historical contract at its actual resolution; absent newer facts stay unknown. */
 export function completionEconomics(
   observations: readonly CompletionEvent[],
 ): CompletionEconomics {
   const unique = uniqueObservations(observations);
+  const receiptConflicts = conflictingReceipts(observations);
   const events = unique.events;
   const timings = new Map<TimingFact["category"], ObservedInterval[]>();
   const components = new Map<string, string>();
@@ -138,6 +155,7 @@ export function completionEconomics(
     const fact = event.fact;
     switch (fact.kind) {
       case "producer":
+        if (receiptConflicts.has(fact.evidence_id)) break;
         components.set(fact.evidence_id, fact.outcome);
         if (fact.use === "reused") {
           reused.add(canonicalJson([event.attempt_id, fact.evidence_id]));
@@ -197,6 +215,7 @@ export function completionEconomics(
     observations: events.length,
     duplicate_observations: unique.duplicates,
     conflicting_identities: unique.conflicts,
+    conflicting_component_receipts: receiptConflicts.size,
     efforts: distinct((event) => event.effort_id),
     candidates: distinct((event) => event.candidate_id),
     attempts: distinct((event) => event.attempt_id),

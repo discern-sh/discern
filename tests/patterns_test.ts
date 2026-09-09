@@ -5363,3 +5363,56 @@ Deno.test("canary drift routes distinct completed failures into advisory improve
     "insufficient-evidence",
   );
 });
+
+Deno.test("validation findings keep repeated future schemas and contradictory invocations unknown", () => {
+  const future = run([
+    {
+      verb: "test",
+      invocation: "future-red",
+      validation: validation("failed", { version: 2 }),
+    },
+    {
+      verb: "test",
+      invocation: "future-green",
+      validation: validation("passed", { version: 2 }),
+    },
+  ]);
+  assertEquals(
+    runDetector(detector("same-tree-flake"), buildStreamFacts(future, "main"))
+      .findings,
+    [],
+  );
+  const red = verb({ invocation: "one", validation: validation("failed") });
+  const green = { ...red, validation: validation("passed") };
+  assertEquals(
+    runDetector(
+      detector("same-tree-flake"),
+      buildStreamFacts([red, green], "main"),
+    ).findings,
+    [],
+  );
+});
+
+Deno.test("decision evidence separates differing setups from matched conditions", () => {
+  const fixture = FIXTURES["done-thrash"]?.firing;
+  assert(fixture !== undefined);
+  const events = fixture.map((event, i): LogbookEvent =>
+    event.kind === "verb" ? { ...event, epoch: `setup-${i}` } : event
+  );
+  const report = runDetector(
+    detector("done-thrash"),
+    buildStreamFacts(events, "main"),
+  );
+  const basis = report.findings[0]?.basis;
+  assert(basis !== undefined);
+  assert(
+    !basis.matched_conditions.some((condition) =>
+      condition.dimension === "config-epoch"
+    ),
+  );
+  assert(
+    basis.differing_conditions.some((condition) =>
+      condition.dimension === "config-epoch" && condition.distinct === 4
+    ),
+  );
+});

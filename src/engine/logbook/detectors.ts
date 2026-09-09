@@ -666,6 +666,10 @@ function decisionEvidenceBasis(
   },
 ): PatternEvidenceBasis {
   const estimated = options.estimated ?? new Set<string>();
+  const conditions = setupConditions(options.events, options.facts.analysis);
+  const missing = conditions.filter((condition) =>
+    condition.values.includes("unrecorded")
+  );
   return {
     kind,
     coverage: {
@@ -674,10 +678,21 @@ function decisionEvidenceBasis(
       unit: options.unit,
     },
     validation_state: { version: null, complete: false },
-    matched_conditions: setupConditions(options.events, options.facts.analysis),
-    differing_conditions: [],
+    matched_conditions: conditions.filter((condition) =>
+      condition.distinct === 1 && !missing.includes(condition)
+    ),
+    differing_conditions: conditions.filter((condition) =>
+      condition.distinct > 1
+    ),
     excluded_events: options.excludedEvents ?? 0,
-    limitations: options.limitations ?? [],
+    limitations: [
+      ...options.limitations ?? [],
+      ...missing.length === 0 ? [] : [
+        `Some observations lack ${
+          missing.map((condition) => condition.dimension).join(", ")
+        }; absence does not establish matching conditions.`,
+      ],
+    ],
     values: Object.fromEntries(
       Object.entries(evidence).map(([name, value]) => [
         name,
@@ -3206,7 +3221,7 @@ const maskedFailures: Detector = {
 
 const durationCreep: Detector = {
   id: "duration-creep",
-  title: "Gate duration creeping up",
+  title: "Green completion duration drift",
   family: "gate-fit",
   scope: "project",
   tier: "batch",
