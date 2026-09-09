@@ -3,7 +3,7 @@ import {
   QueueControlSchema,
 } from "../../shared/queue_control.ts";
 import { EXECUTION_RECOVERY_DESCRIPTION } from "../../shared/execution_recovery.ts";
-import { emergencyArguments } from "../emergency/arguments.ts";
+import { acceptanceArguments } from "../landing_queue/arguments.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
 import type { EmergencyOptions } from "../emergency/action.ts";
 import {
@@ -1156,9 +1156,8 @@ export const TOOLS: McpTool[] = orderTools([
         : undefined;
     },
     run: (root, args, signal, context) => {
-      const control = QueueControlSchema.safeParse(args.action);
-      const parsed = emergencyArguments(
-        control.success ? undefined : args.action,
+      const parsed = acceptanceArguments(
+        args.action,
         {
           ...args,
           dryRun: args.dry_run === true,
@@ -1166,12 +1165,6 @@ export const TOOLS: McpTool[] = orderTools([
       );
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       return acceptToolResult(root, {
-        ...(args.reconcile === undefined ? {} : { reconcile: args.reconcile }),
-        ...(control.success ? { control: control.data } : {}),
-        ...(args.order === undefined ? {} : { order: args.order }),
-        ...(args.expected === undefined ? {} : { expected: args.expected }),
-        ...(args.target === undefined ? {} : { target: args.target }),
-        ...(args.reclaim === undefined ? {} : { reclaim: args.reclaim }),
         ...parsed.value,
         ...(signal === undefined ? {} : { signal }),
         dryRun: args.dry_run === true,

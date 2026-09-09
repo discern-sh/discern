@@ -1,6 +1,5 @@
-import { QueueControlSchema } from "../shared/queue_control.ts";
 import { EXECUTION_RECOVERY_DESCRIPTION } from "../shared/execution_recovery.ts";
-import { emergencyArguments } from "./emergency/arguments.ts";
+import { acceptanceArguments } from "./landing_queue/arguments.ts";
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
  * `discern` CLI, including the `scripts` namespace for project-owned executables
@@ -1026,22 +1025,12 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const control = QueueControlSchema.safeParse(action);
-      const parsed = emergencyArguments(
-        control.success ? undefined : action,
-        o,
-      );
+      const parsed = acceptanceArguments(action, o);
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
       const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.accept(ctx, {
-            ...(o.reconcile === undefined ? {} : { reconcile: o.reconcile }),
-            ...(control.success ? { control: control.data } : {}),
-            ...(o.order === undefined ? {} : { order: o.order }),
-            ...(o.expected === undefined ? {} : { expected: o.expected }),
-            ...(o.target === undefined ? {} : { target: o.target }),
-            ...(o.reclaim === undefined ? {} : { reclaim: o.reclaim }),
             ...parsed.value,
             json,
             dryRun: o.dryRun ?? false,
