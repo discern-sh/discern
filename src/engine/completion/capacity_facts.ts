@@ -4,7 +4,8 @@
  * Three settings bound different work and may legitimately differ:
  *  - `[completion].concurrency` bounds live candidate executions across the
  *    queue, with one slot reserved for the head effort whenever a later effort
- *    asks (`workCapacity` in the landing queue enforces it);
+ *    asks (`workCapacity` in the landing queue enforces it, and this module
+ *    reads the same `nonHeadWorkSlots`);
  *  - `[gate].concurrent_test_runs` bounds test-stage runs on this host; excess
  *    runs wait for a slot rather than being refused (`test_run_slots.ts`);
  *  - `[execution.<context>].capacity` bounds temporary candidate installations
@@ -23,6 +24,7 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { nonHeadWorkSlots } from "../landing_queue/claims.ts";
 
 /** One declared execution environment as it bears on capacity. */
 export interface DeclaredEnvironmentCapacity {
@@ -102,6 +104,7 @@ export function completionCapacityFacts(
 ): CompletionCapacityFacts {
   const { concurrency, lookahead, required_contexts } = config.completion;
   const test_runs = config.gate.concurrent_test_runs;
+  const queueSlots = nonHeadWorkSlots(config.completion);
   const environments = Object.entries(config.execution).map(
     ([context, declaration]): DeclaredEnvironmentCapacity => ({
       context,
@@ -127,7 +130,7 @@ export function completionCapacityFacts(
     overlap: { requested, executions, test_stages, binding },
     speculation: speculationFacts(
       lookahead,
-      concurrency,
+      queueSlots,
       required_contexts,
       environments,
       proven,
@@ -138,7 +141,7 @@ export function completionCapacityFacts(
 /** Speculation needs lookahead, a proved declaration per required context, and a spare non-head slot. */
 function speculationFacts(
   lookahead: number,
-  concurrency: number,
+  queueSlots: number,
   requiredContexts: readonly string[],
   environments: readonly DeclaredEnvironmentCapacity[],
   proven: readonly string[] | undefined,
@@ -153,9 +156,9 @@ function speculationFacts(
   if (missing.length > 0) {
     return { kind: "undeclared", lookahead, contexts: missing };
   }
-  // The head effort keeps one queue slot; every other slot may speculate. Each
-  // speculative execution also installs a candidate in a declared environment.
-  const queueSlots = concurrency - 1;
+  // The head effort keeps its reserved slot; every other slot may speculate.
+  // Each speculative execution also installs a candidate in a declared
+  // environment.
   const environmentSlots = Math.min(
     ...environments.filter((entry) => entry.required).map((entry) =>
       entry.capacity

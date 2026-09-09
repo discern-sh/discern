@@ -5,6 +5,9 @@ import {
   completionCapacityFacts,
   describeCompletionCapacity,
 } from "../src/engine/completion/capacity_facts.ts";
+import { workCapacity } from "../src/engine/landing_queue/claims.ts";
+import { orderedEntries } from "../src/engine/landing_queue/model.ts";
+import { queueExample } from "./completion_queue_fixture.ts";
 
 const ENVIRONMENT = (capacity: number, context = "local"): string => `
 [execution.${context}]
@@ -200,4 +203,50 @@ Deno.test("a declared environment enables early validation only once setup has p
     ).speculation.kind,
     "no-slot",
   );
+});
+
+Deno.test("the capacity facts agree with the work-claim gate about the spare non-head slot", () => {
+  // A queue whose head is inactive and whose later efforts sit inside
+  // lookahead: the facts name the spare slots; the enforcing gate must admit
+  // exactly that many later efforts, for every concurrency the schema allows.
+  const { queue } = queueExample(6);
+  const entries = orderedEntries(queue);
+  for (const concurrency of [1, 2, 3, 4]) {
+    const config = parseConfigOrThrow(
+      `[completion]\nconcurrency = ${concurrency}\nlookahead = 5\n${
+        ENVIRONMENT(8)
+      }`,
+    );
+    const derived = completionCapacityFacts(config, 2, ["local"]);
+    const admitted =
+      workCapacity(entries, "effort-1", config.completion) === undefined;
+    assertEquals(
+      admitted,
+      derived.speculation.kind === "available",
+      `concurrency ${concurrency}: facts ${derived.speculation.kind}, gate ${
+        admitted ? "admits" : "refuses"
+      }`,
+    );
+    if (derived.speculation.kind !== "available") continue;
+    // With every spare slot occupied by earlier later efforts, the next one
+    // waits; with one slot free, it is admitted.
+    const slots = derived.speculation.slots;
+    const occupied = entries.map((entry, index) =>
+      index >= 1 && index <= slots
+        ? { ...entry, state: "active" as const }
+        : entry
+    );
+    assertEquals(
+      workCapacity(occupied, `effort-${slots + 1}`, config.completion)?.kind,
+      "capacity-unavailable",
+      `concurrency ${concurrency}: ${slots} spare slots`,
+    );
+    const oneFree = occupied.map((entry, index) =>
+      index === slots ? { ...entry, state: "provisional" as const } : entry
+    );
+    assertEquals(
+      workCapacity(oneFree, `effort-${slots + 1}`, config.completion),
+      undefined,
+    );
+  }
 });
