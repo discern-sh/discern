@@ -72,6 +72,8 @@ export function acceptancePending(
       kind: blocker.kind,
       reason: reason === "source-replaced"
         ? "The authored source changed after completion. Run discern done on the intended clean committed source and obtain authority for that source."
+        : reason === "claim-lost"
+        ? "The acceptance reservation expired or its observed state changed. Retry acceptance for the same effort; unchanged validation evidence remains reusable."
         : `Validation evidence is stale${
           reason === undefined ? "" : ` (${reason})`
         }. Acceptance needs current evidence in an eligible released environment.`,

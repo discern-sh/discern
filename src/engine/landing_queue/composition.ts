@@ -4,6 +4,7 @@ import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { type Candidate, CandidateSchema } from "../completion/candidate.ts";
 import {
   candidateRef,
+  ObjectIdSchema,
   type SourceRevision,
   SourceRevisionSchema,
 } from "../completion/identity.ts";
@@ -74,55 +75,68 @@ export async function observeSource(
   });
 }
 
+export type SourceAncestry = (
+  ancestor: string,
+  descendant: string,
+) => Promise<boolean>;
+
+/** Only immutable object pairs share an answer within this caller's observation lifetime. */
+function memoizeAncestry(query: SourceAncestry): SourceAncestry {
+  const results = new Map<string, Promise<boolean>>();
+  return (ancestor, descendant) => {
+    const key = `${ObjectIdSchema.parse(ancestor)}:${
+      ObjectIdSchema.parse(descendant)
+    }`;
+    let result = results.get(key);
+    if (result === undefined) {
+      result = query(ancestor, descendant);
+      results.set(key, result);
+    }
+    return result;
+  };
+}
+
+/** A command may share ancestry facts without caching mutable branch names or failed Git as false. */
+export function createSourceAncestry(root: string): SourceAncestry {
+  return memoizeAncestry(async (ancestor, descendant) => {
+    const result = await runGit([
+      "merge-base",
+      "--is-ancestor",
+      ancestor,
+      descendant,
+    ], { cwd: root });
+    if (!result.success && result.code !== 1) {
+      throw new Error("Source dependency ancestry is unavailable.");
+    }
+    return result.success;
+  });
+}
+
 /** Dependencies are observed against immutable published tips; branch names never select a merge. */
 export async function discoverSourceDependencies(
   root: string,
   source: SourceRevision,
   trunk: string,
   sources: readonly SourceRevision[],
+  query: SourceAncestry = createSourceAncestry(root),
 ): Promise<SourceRevision[]> {
+  const isAncestor = memoizeAncestry(query);
   const dependencies: SourceRevision[] = [];
   for (const other of sources) {
     if (other.effort_id === source.effort_id) continue;
-    const contained = await runGit([
-      "merge-base",
-      "--is-ancestor",
-      other.head,
-      source.head,
-    ], { cwd: root });
-    const landed = await runGit([
-      "merge-base",
-      "--is-ancestor",
-      other.head,
-      trunk,
-    ], { cwd: root });
-    if (
-      (!contained.success && contained.code !== 1) ||
-      (!landed.success && landed.code !== 1)
-    ) {
-      throw new Error("Source dependency ancestry is unavailable.");
-    }
-    if (contained.success && !landed.success) {
+    const contained = await isAncestor(other.head, source.head);
+    const landed = await isAncestor(other.head, trunk);
+    if (contained && !landed) {
       const prior = dependencies.findIndex((source) =>
         source.effort_id === other.effort_id
       );
       const existing = dependencies[prior];
       if (existing === undefined) dependencies.push(other);
       else if (existing.head !== other.head) {
-        const older = await runGit([
-          "merge-base",
-          "--is-ancestor",
-          existing.head,
-          other.head,
-        ], { cwd: root });
-        const newer = await runGit([
-          "merge-base",
-          "--is-ancestor",
-          other.head,
-          existing.head,
-        ], { cwd: root });
-        if (older.success) dependencies[prior] = other;
-        else if (!newer.success) {
+        const older = await isAncestor(existing.head, other.head);
+        const newer = await isAncestor(other.head, existing.head);
+        if (older) dependencies[prior] = other;
+        else if (!newer) {
           throw new Error(
             "The source contains divergent revisions of one effort; resolve its source authority before composing.",
           );

@@ -14,7 +14,10 @@ import type {
   CompletionBlocker,
   CompletionObservation,
 } from "../completion/protocol.ts";
-import type { PublicationFence } from "../completion/store.ts";
+import type {
+  CompletionWriteOutcome,
+  PublicationFence,
+} from "../completion/store.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
@@ -317,13 +320,13 @@ export async function checkQueueClaim(
     reading.record.data.state.claim.expires_at > clock.wallNow();
 }
 
-/** Queue claims own no checkout effects; their terminal record does not imply environment return. */
-export async function settleQueueClaim(
+/** Write through the original fence; expiry and takeover never receive replacement authority. */
+async function writeQueueClaimSettlement(
   root: string,
   claim: QueueWorkClaim,
   outcome: "passed" | "failed" | "cancelled",
-  clock: Clock = SYSTEM_CLOCK,
-): Promise<void> {
+  clock: Clock,
+): Promise<CompletionWriteOutcome> {
   const current = await readCompletionRecord(root, {
     kind: "attempt",
     id: claim.fence.attempt_id,
@@ -331,7 +334,13 @@ export async function settleQueueClaim(
   if (current.kind !== "recorded" || current.record.kind !== "attempt") {
     throw new Error("Queue claim is unavailable.");
   }
-  const written = await writeCompletionRecord(
+  if (current.record.data.state.kind === "finished") {
+    return {
+      kind: "claim-lost",
+      reason: "A finished attempt has no live publication claim.",
+    };
+  }
+  return await writeCompletionRecord(
     root,
     {
       ...current.record,
@@ -345,11 +354,42 @@ export async function settleQueueClaim(
     claim.fence,
     clock,
   );
+}
+
+/** Queue claims own no checkout effects; their terminal record does not imply environment return. */
+export async function settleQueueClaim(
+  root: string,
+  claim: QueueWorkClaim,
+  outcome: "passed" | "failed" | "cancelled",
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<void> {
+  const written = await writeQueueClaimSettlement(root, claim, outcome, clock);
   if (written.kind !== "written") {
     throw new Error(
       `Queue claim settlement ${written.kind}; preserve the attempt for recovery.`,
     );
   }
+}
+
+/** Cancellation leaves an expired or superseded claim intact and preserves the caller's original refusal. */
+export async function cancelQueueClaim(
+  root: string,
+  claim: QueueWorkClaim,
+  clock: Clock = SYSTEM_CLOCK,
+): Promise<boolean> {
+  const written = await writeQueueClaimSettlement(
+    root,
+    claim,
+    "cancelled",
+    clock,
+  );
+  if (written.kind === "claim-lost") return false;
+  if (written.kind !== "written") {
+    throw new Error(
+      `Queue claim cancellation ${written.kind}; preserve the attempt for recovery.`,
+    );
+  }
+  return true;
 }
 
 /** Return capacity after an unavailable environment or incomplete demand, with no checkout effects. */

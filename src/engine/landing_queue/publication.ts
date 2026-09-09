@@ -32,6 +32,7 @@ import {
 import { candidateRef } from "../completion/identity.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { withCompletionCheckout } from "../operation_lock.ts";
+import { pinValidatedTree } from "../gate/proof.ts";
 import { readProofPresentation } from "../gate/proof_presentation.ts";
 import type { writeProofNote } from "../gate/proof_notes.ts";
 import type { Proof } from "../../shared/result_schemas.ts";
@@ -707,6 +708,16 @@ async function publishLanding(
                 ? "The main checkout has uncommitted tracked changes. Preserve and resolve them before retrying acceptance."
                 : `Git could not read tracked status in the main checkout: ${status.stderr.trim()}. Restore Git status access before retrying acceptance.`,
             };
+          }
+          if (sourcePath !== undefined) {
+            const source = await pinValidatedTree(sourcePath);
+            if (!source.clean || source.head !== record.data.source.head) {
+              return {
+                kind: "stale-evidence",
+                evidence_ids: [],
+                reason: "source-replaced",
+              };
+            }
           }
           const existing = await readCompletionRecord(runtime.root, record);
           if (

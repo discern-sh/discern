@@ -16,9 +16,13 @@ import {
   reserveQueueAttempt,
 } from "../src/engine/landing_queue/repository.ts";
 import {
+  cancelQueueClaim,
   checkQueueClaim,
+  claimLandingAttempt,
   claimQueueWork,
 } from "../src/engine/landing_queue/claims.ts";
+import { claimAssessedLanding } from "../src/engine/landing_queue/planner.ts";
+import { acceptancePending } from "../src/engine/landing_queue/public_result.ts";
 import { mutateQueue } from "../src/engine/landing_queue/mutations.ts";
 import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
 import {
@@ -526,4 +530,179 @@ Deno.test("verified return releases only its matching older reservation and prot
       }
     });
   }
+});
+
+// One small store fixture exercises simulated slow assessment and expired actors;
+// no producer, complete gate, subprocess journey, or wall-clock sleep is needed.
+Deno.test("landing reserves after assessment and expired cancellation preserves the refusal and newer actor", async () => {
+  await withTempDir(async (root) => {
+    await initializeRepository(root);
+    const trunk = await gitOut(root, "rev-parse", "HEAD");
+    const fixtures = completionFixtures();
+    const attempt = COMPLETION_FAMILIES.attempt.schema.parse(fixtures.attempt);
+    const original = COMPLETION_FAMILIES.candidate.schema.parse(
+      fixtures.candidate,
+    );
+    const candidate = {
+      ...original,
+      data: {
+        ...original.data,
+        expected_predecessor: { head: trunk, candidate_id: null },
+      },
+    };
+    const proof = COMPLETION_FAMILIES.proof.schema.parse(fixtures.proof);
+    const fence = { attempt_id: attempt.id, token: COMPLETION_CLAIM.token };
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        attempt,
+        null,
+        undefined,
+        COMPLETION_CLOCK,
+      )).kind,
+      "written",
+    );
+    for (const record of [candidate, proof]) {
+      assertEquals(
+        (await writeCompletionRecord(
+          root,
+          record,
+          null,
+          fence,
+          COMPLETION_CLOCK,
+        )).kind,
+        "written",
+      );
+    }
+    const owner = await readCompletionRecord(root, attempt);
+    assert(owner.kind === "recorded");
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        {
+          ...attempt,
+          revision: 2,
+          data: {
+            ...attempt.data,
+            state: { kind: "finished", outcome: "passed", finished_at: 100 },
+          },
+        },
+        owner.stamp,
+        fence,
+        COMPLETION_CLOCK,
+      )).kind,
+      "written",
+    );
+    await initializeQueue(root, trunk);
+    const { queue } = queueExample(1);
+    assertEquals(
+      (await replaceQueue(root, await requireQueue(root), {
+        ...queue,
+        trunk,
+        entries: queue.entries.map((entry) => ({
+          ...entry,
+          source: candidate.data.source,
+          candidate_id: candidate.id,
+          authority_id: completionId(6),
+          eligible_order: 0,
+          state: "eligible",
+        })),
+      }, COMPLETION_CLOCK)).kind,
+      "written",
+    );
+    let now = 100;
+    const clock = { ...COMPLETION_CLOCK, wallNow: () => now };
+    const input = {
+      root,
+      trunk: "main",
+      effort: candidate.data.source.effort_id,
+      observation: await observeQueue(root, "main", clock),
+      policy: CompletionPolicySchema.parse({}),
+      executor: COMPLETION_EXECUTOR,
+      lease_ms: 100,
+      clock,
+      assessments: new Map([[candidate.id, {
+        candidate_id: candidate.id,
+        candidate: candidate.data,
+        proof,
+        authority_id: completionId(6),
+        blockers: [],
+        refresh: null,
+        decisions: { judgments: [], variances: [], proposals: [] },
+      }]]),
+    };
+    const unready = await claimAssessedLanding({
+      ...input,
+      assessments: new Map(),
+    });
+    assert("kind" in unready && unready.kind === "missing-evidence");
+    // Arbitrarily long assessment does not consume any of the publication lease.
+    now = 10_000;
+    const claimed = await claimAssessedLanding(input);
+    assert("claim" in claimed);
+    assert(claimed.claim.attempt.state.kind === "claimed");
+    assertEquals(claimed.claim.attempt.state.claim.acquired_at, now);
+    assertEquals(
+      claimed.claim.attempt.state.claim.expires_at,
+      now + input.lease_ms,
+    );
+    assertEquals(claimed.plan.actions[0]?.kind, "land");
+    const competing = await claimAssessedLanding({
+      ...input,
+      observation: claimed.observation,
+    });
+    assert("kind" in competing && competing.kind === "waiting-for-operation");
+    const superseded = await claimAssessedLanding(input);
+    assert("kind" in superseded && superseded.kind === "stale-evidence");
+    assert(acceptancePending(superseded).reason.includes("Retry acceptance"));
+    const before = await readCompletionRecord(root, {
+      kind: "attempt",
+      id: claimed.claim.fence.attempt_id,
+    });
+    now += input.lease_ms + 1;
+    assertEquals(await cancelQueueClaim(root, claimed.claim, clock), false);
+    assertEquals(
+      await readCompletionRecord(root, {
+        kind: "attempt",
+        id: claimed.claim.fence.attempt_id,
+      }),
+      before,
+    );
+    const action = claimed.plan.actions[0];
+    assert(action?.kind === "land");
+    assertEquals(
+      (await writeCompletionRecord(
+        root,
+        action.record,
+        null,
+        claimed.claim.fence,
+        clock,
+      )).kind,
+      "claim-lost",
+    );
+    assertEquals(
+      (await readCompletionRecord(root, action.record)).kind,
+      "missing",
+    );
+    const next = await claimLandingAttempt({
+      ...input,
+      candidate_id: candidate.id,
+    });
+    assert("fence" in next);
+    const replacement = await readCompletionRecord(root, {
+      kind: "attempt",
+      id: next.fence.attempt_id,
+    });
+    assertEquals(await cancelQueueClaim(root, claimed.claim, clock), false);
+    assertEquals(
+      await readCompletionRecord(root, {
+        kind: "attempt",
+        id: next.fence.attempt_id,
+      }),
+      replacement,
+    );
+    assertEquals(await cancelQueueClaim(root, next, clock), true);
+    assertEquals(await cancelQueueClaim(root, next, clock), false);
+    assertEquals(await gitOut(root, "rev-parse", "main"), trunk);
+  });
 });

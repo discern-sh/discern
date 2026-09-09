@@ -40,6 +40,12 @@ External integration is observed separately from a governed landing. An immutabl
 
 Completion record version 5 adds this immutable family, optional queue decision fields, and a distinct external integration reference for retirement. The reader accepts the reviewed version 2–4 envelopes that omit these optional members and preserves their original byte stamps. Older engines refuse version 5 before interpreting it.
 
+## Assessment and claim amendment — 2026-09-09
+
+Acceptance bounds expensive candidate assessment by the requested queue prefix. It shares schema-validated evidence within one observation and ancestry answers only for immutable object pairs within one command. Fresh observations still recheck selected artifact bytes and mutable source, policy, and authority facts.
+
+The publication claim starts after expensive preflight. Under common exclusion, the planner compares current records and trunk with the assessed observation before claiming. Publication binds the audited plan to that observation and rechecks records, current authority, source cleanliness and head, receiving checkout, and the exact ref transition. The bounded lease remains an exclusion fence, not a budget for repeated history assessment. Expired or superseded actors cannot publish or settle through another actor's claim. Cancellation preserves a claim-loss refusal instead of replacing it with an internal error.
+
 ## Consequences
 
 - Landing can reuse a proven prefix, but approval alone does not promise instant completion.

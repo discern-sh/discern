@@ -36,6 +36,18 @@ export function orderedEntries(queue: CompletionQueue): QueueEntry[] {
   });
 }
 
+/** The requested landing includes every earlier chosen entry and no later peer. */
+export function landingPrefix(
+  queue: CompletionQueue,
+  effort: string,
+): QueueEntry[] {
+  const entries = orderedEntries(queue);
+  return entries.slice(
+    0,
+    entries.findIndex((entry) => entry.source.effort_id === effort) + 1,
+  );
+}
+
 /** Source dependency cycles and missing members require a corrected source snapshot. */
 export function dependencyBlocker(
   queue: CompletionQueue,

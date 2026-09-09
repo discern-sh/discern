@@ -38,7 +38,8 @@ import {
 import { standardLimitApprovalRequests } from "../worktree/standard_approval.ts";
 import { planEnvironment } from "../execution/registry.ts";
 import { declarationIdentity } from "../execution/subjects.ts";
-import { sameSource } from "./model.ts";
+import { landingPrefix, sameSource } from "./model.ts";
+import type { SourceAncestry } from "./composition.ts";
 import { evidenceIdentityOf } from "../checkpoints/evidence.ts";
 import { readOpenQuestions } from "../checkpoints/open_questions.ts";
 import {
@@ -76,6 +77,7 @@ export async function assessPublicCandidate(input: {
   readonly observation: CompletionObservation;
   readonly candidate: Extract<CompletionRecord, { kind: "candidate" }>;
   readonly context: string;
+  readonly ancestry?: SourceAncestry;
   readonly request: CandidateDecisionRequest;
 }): Promise<PublicCandidateAssessment> {
   const { root, observation, candidate: record } = input;
@@ -318,6 +320,7 @@ export async function assessPublicCandidate(input: {
   );
   const assessment = await assessQueueCandidate({
     root,
+    ...(input.ancestry === undefined ? {} : { ancestry: input.ancestry }),
     observation,
     ...(proof === undefined ? {} : { proof_id: proof.id }),
     candidate_id: record.id,
@@ -383,4 +386,35 @@ export async function assessPublicCandidate(input: {
       candidate.head,
     )).previewActions,
   };
+}
+
+/** Assess candidate rows for the requested queue plan through one shared reader. */
+export async function assessLandingPrefix(
+  observation: CompletionObservation,
+  effort: string,
+  assess: (
+    candidate: Extract<CompletionRecord, { kind: "candidate" }>,
+  ) => Promise<PublicCandidateAssessment>,
+): Promise<Map<string, PublicCandidateAssessment>> {
+  const records = observedRecords(observation);
+  const queue = records.find((record) => record.kind === "queue");
+  const result = new Map<string, PublicCandidateAssessment>();
+  if (
+    queue === undefined ||
+    !queue.data.entries.some((entry) => entry.source.effort_id === effort)
+  ) return result;
+  const candidates = new Map(
+    records.filter((record) => record.kind === "candidate").map((
+      record,
+    ) => [record.id, record]),
+  );
+  for (const entry of landingPrefix(queue.data, effort)) {
+    const candidate = entry.candidate_id === null
+      ? undefined
+      : candidates.get(entry.candidate_id);
+    if (candidate !== undefined) {
+      result.set(candidate.id, await assess(candidate));
+    }
+  }
+  return result;
 }

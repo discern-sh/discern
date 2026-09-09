@@ -24,6 +24,7 @@ import {
   discoverSourceDependencies,
   gitValue,
   observeSource,
+  type SourceAncestry,
   verifyComposition,
 } from "./composition.ts";
 import { evaluatePredecessorPolicy } from "./policy.ts";
@@ -106,6 +107,7 @@ export function predecessorChain(
 /** Inputs requiring public config/consent adapters remain explicit, bounded observations for 4A. */
 export async function assessQueueCandidate(input: {
   readonly root: string;
+  readonly ancestry?: SourceAncestry;
   /** Public review and machine assembly must name the same immutable Proof. */
   readonly proof_id?: string;
   readonly observation: CompletionObservation;
@@ -174,6 +176,7 @@ export async function assessQueueCandidate(input: {
           : []
       ),
     ],
+    input.ancestry,
   );
   if (
     dependencies.some((source) =>

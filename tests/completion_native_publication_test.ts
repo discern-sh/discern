@@ -140,6 +140,16 @@ Deno.test("native queue landing refuses without movement, then settles exact aut
         refusal = await publish();
         assert("kind" in refusal && refusal.kind === "environment-unavailable");
         await Deno.writeTextFile(configPath, config);
+        const sourceConfigPath = `${path}/discern.toml`;
+        const sourceConfig = await Deno.readTextFile(sourceConfigPath);
+        await Deno.writeTextFile(
+          sourceConfigPath,
+          `${sourceConfig}\n# unsaved source edit\n`,
+        );
+        refusal = await publish();
+        assert("kind" in refusal && refusal.kind === "stale-evidence");
+        assertEquals(refusal.reason, "source-replaced");
+        await Deno.writeTextFile(sourceConfigPath, sourceConfig);
         await unmoved();
         assertEquals(await gitOut(root, "status", "--short"), "");
       },

@@ -23,7 +23,10 @@ import type {
   Executor,
   SourceRevision,
 } from "../completion/identity.ts";
-import type { CompletionObservation } from "../completion/protocol.ts";
+import type {
+  CompletionObservation,
+  QueuePlan,
+} from "../completion/protocol.ts";
 import { requireEnvironment } from "../execution/registry.ts";
 import { pinValidatedTree } from "../gate/proof.ts";
 import { OperationLockError } from "../operation_lock.ts";
@@ -36,16 +39,17 @@ import {
 import { resolveWorktreeTarget } from "../worktree/target_resolution.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
 import type { LifecycleContext } from "../worktree/lifecycle.ts";
-import {
-  claimLandingAttempt,
-  type QueueWorkClaim,
-  settleQueueClaim,
-} from "./claims.ts";
-import { observeSource } from "./composition.ts";
+import { cancelQueueClaim, type QueueWorkClaim } from "./claims.ts";
+import { createSourceAncestry, observeSource } from "./composition.ts";
 import { orderedEntries, sameSource } from "./model.ts";
 import { mutateQueue } from "./mutations.ts";
-import { type CandidateAssessment, createQueuePlanner } from "./planner.ts";
 import {
+  type CandidateAssessment,
+  claimAssessedLanding,
+  createQueuePlanner,
+} from "./planner.ts";
+import {
+  assessLandingPrefix,
   assessPublicCandidate,
   type CandidateDecisionRequest,
   type PublicCandidateAssessment,
@@ -250,34 +254,28 @@ async function acceptQueueImplementation(
   const refreshed = new Set<string>();
   const rows: AcceptancePrefix[] = [];
   let finalProof: Proof | undefined;
-  const details = new Map<string, PublicCandidateAssessment>();
+  let details = new Map<string, PublicCandidateAssessment>();
+  const ancestry = createSourceAncestry(root);
   const assess = async (
     observation: CompletionObservation,
   ): Promise<ReadonlyMap<string, CandidateAssessment>> => {
-    const assessments = new Map<string, CandidateAssessment>();
-    for (const candidate of observedRecords(observation)) {
-      if (candidate.kind !== "candidate") continue;
-      const queue = observedRecords(observation).find((record) =>
-        record.kind === "queue"
-      );
-      if (
-        !queue?.data.entries.some((entry) =>
-          entry.candidate_id === candidate.id && entry.state !== "landed" &&
-          entry.state !== "withdrawn"
-        )
-      ) continue;
-      const evaluated = await assessPublicCandidate({
-        root,
-        trunk,
-        observation,
-        candidate,
-        context: "local",
-        request,
-      });
-      details.set(candidate.id, evaluated);
-      assessments.set(candidate.id, evaluated.assessment);
-    }
-    return assessments;
+    details = await assessLandingPrefix(
+      observation,
+      selected,
+      (candidate) =>
+        assessPublicCandidate({
+          root,
+          trunk,
+          observation,
+          candidate,
+          context: "local",
+          request,
+          ancestry,
+        }),
+    );
+    return new Map(
+      [...details].map(([id, evaluated]) => [id, evaluated.assessment]),
+    );
   };
   const planner = createQueuePlanner({
     root,
@@ -298,6 +296,10 @@ async function acceptQueueImplementation(
       }
       : {}),
   });
+  let auditedLanding: {
+    readonly record: LandingRecord;
+    readonly observation: CompletionObservation;
+  } | undefined;
   const runtime: QueueLandingRuntime = {
     root,
     mainRepo: root,
@@ -309,23 +311,17 @@ async function acceptQueueImplementation(
         root,
         record.data.source.branch.slice("refs/heads/".length),
       ),
-    audit: async (record) => {
-      const observation = await planner.observe();
-      const planned = planner.plan(
-        observation,
-        ctx.config.completion,
-        record.data.source.effort_id,
-      );
-      const current = planned.actions[0];
-      if (
-        current?.kind !== "land" || current.record.id !== record.id ||
-        JSON.stringify(current.record.data) !== JSON.stringify(record.data)
-      ) {
-        return planned.blockers[0] ??
-          { kind: "stale-evidence", evidence_ids: [], reason: "claim-lost" };
-      }
-      return observation;
-    },
+    audit: (record) =>
+      Promise.resolve(
+        auditedLanding !== undefined &&
+          JSON.stringify(auditedLanding.record) === JSON.stringify(record)
+          ? auditedLanding.observation
+          : {
+            kind: "stale-evidence" as const,
+            evidence_ids: [],
+            reason: "claim-lost" as const,
+          },
+      ),
   };
   try {
     let observation = await observeQueue(root, trunk);
@@ -655,30 +651,46 @@ async function acceptQueueImplementation(
           }];
         return queueAcceptanceResult(root, rows, pending, undefined, true);
       }
+      let claimedPlan: QueuePlan | undefined;
       if (
         entry.invalidation === null &&
         assessment?.candidate.expected_predecessor.head === observation.trunk &&
         assessment.proof !== null && assessment.blockers.length === 0 &&
         entry.candidate_id !== null && !claims.has(entry.candidate_id)
       ) {
-        const claim = await claimLandingAttempt({
+        if (options.signal?.aborted) {
+          return queueAcceptanceResult(root, rows, [{
+            kind: "cancelled",
+            reason: "Acceptance was cancelled before claiming publication.",
+          }], finalProof);
+        }
+        const claimed = await claimAssessedLanding({
           root,
-          candidate_id: entry.candidate_id,
+          trunk,
+          observation,
+          policy: ctx.config.completion,
+          effort: requested,
+          assessments: new Map(
+            [...details].map(([id, value]) => [id, value.assessment]),
+          ),
           executor: actor,
           lease_ms: 60_000,
         });
-        if ("kind" in claim) {
+        if ("kind" in claimed) {
           return queueAcceptanceResult(
             root,
             [...rows, row],
-            [claim],
+            [claimed],
             finalProof,
           );
         }
+        const { claim } = claimed;
         claims.set(entry.candidate_id, claim);
         attempts.set(entry.candidate_id, claim.attempt.identity);
-        observation = await planner.observe();
+        observation = claimed.observation;
+        claimedPlan = claimed.plan;
       }
+
       emitCompletionProgress({
         phase: "queue",
         state: "planning",
@@ -686,7 +698,8 @@ async function acceptQueueImplementation(
         reason:
           `Assessing the next separately authorized prefix: ${entry.source.branch}.`,
       });
-      const plan = planner.plan(observation, ctx.config.completion, requested);
+      const plan = claimedPlan ??
+        planner.plan(observation, ctx.config.completion, requested);
       const action = plan.actions[0];
       if (action?.kind === "compose" || action?.kind === "validate") {
         const selected = action.kind === "compose"
@@ -806,6 +819,7 @@ async function acceptQueueImplementation(
           action.record.data.expected_trunk.slice(0, 12)
         } → ${action.record.data.target.slice(0, 12)}.`,
       );
+      auditedLanding = { record: action.record, observation };
       const landed = await publishQueueLanding(
         runtime,
         action.record,
@@ -815,7 +829,7 @@ async function acceptQueueImplementation(
       if ("kind" in landed) {
         await withQueueLock(
           root,
-          () => settleQueueClaim(root, claim, "cancelled"),
+          () => cancelQueueClaim(root, claim),
         );
         return queueAcceptanceResult(root, [...rows, {
           ...row,
@@ -926,7 +940,7 @@ async function acceptQueueImplementation(
           ) {
             continue;
           }
-          await settleQueueClaim(root, claim, "cancelled");
+          await cancelQueueClaim(root, claim);
         }
       });
     }

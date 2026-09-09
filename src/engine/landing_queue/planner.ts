@@ -17,8 +17,19 @@ import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { withQueueLock } from "./repository.ts";
 import { writeCompletionRecord } from "../completion/store.ts";
 import type { CandidateDecisions } from "./authority.ts";
-import { retainedExecutionCount, workCapacity } from "./claims.ts";
-import { expectedPredecessor, orderedEntries, sameSource } from "./model.ts";
+import {
+  cancelQueueClaim,
+  claimLandingAttempt,
+  type QueueWorkClaim,
+  retainedExecutionCount,
+  workCapacity,
+} from "./claims.ts";
+import {
+  expectedPredecessor,
+  landingPrefix,
+  orderedEntries,
+  sameSource,
+} from "./model.ts";
 import {
   observedRecords,
   observeQueue,
@@ -273,7 +284,7 @@ export function planQueue(input: {
       [id, assessment],
     ) => [id, assessment.candidate]),
   );
-  for (const entry of entries.slice(0, requested + 1)) {
+  for (const entry of landingPrefix(queue, input.requested_effort)) {
     const assessment = entry.candidate_id === null
       ? undefined
       : input.assessments.get(entry.candidate_id);
@@ -517,4 +528,69 @@ export function createQueuePlanner(options: {
       });
     },
   };
+}
+
+/** Claim only after assessment, accepting no intervening record or trunk changes. */
+export async function claimAssessedLanding(input: {
+  readonly root: string;
+  readonly trunk: string;
+  readonly observation: CompletionObservation;
+  readonly policy: CompletionPolicy;
+  readonly effort: string;
+  readonly assessments: ReadonlyMap<string, CandidateAssessment>;
+  readonly executor: Executor;
+  readonly lease_ms: number;
+  readonly clock?: Clock;
+}): Promise<
+  {
+    readonly claim: QueueWorkClaim;
+    readonly observation: CompletionObservation;
+    readonly plan: QueuePlan;
+  } | CompletionBlocker
+> {
+  const clock = input.clock ?? SYSTEM_CLOCK;
+  const parameters = {
+    observation: input.observation,
+    policy: input.policy,
+    requested_effort: input.effort,
+    assessments: input.assessments,
+    executor: input.executor,
+    transition_attempts: new Map<string, AttemptIdentity>(),
+  };
+  const ready = planQueue({ ...parameters, preview: true });
+  const first = ready.actions[0];
+  if (first?.kind !== "ready") {
+    return ready.blockers[0] ?? { kind: "missing-evidence", requirements: [] };
+  }
+  return await withQueueLock(input.root, async () => {
+    const current = await observeQueue(input.root, input.trunk, clock);
+    if (
+      current.trunk !== input.observation.trunk ||
+      JSON.stringify(current.records) !==
+        JSON.stringify(input.observation.records)
+    ) return { kind: "stale-evidence", evidence_ids: [], reason: "claim-lost" };
+    const claim = await claimLandingAttempt({
+      root: input.root,
+      candidate_id: first.candidate_id,
+      executor: input.executor,
+      lease_ms: input.lease_ms,
+      clock,
+    });
+    if ("kind" in claim) return claim;
+    const observation = await observeQueue(input.root, input.trunk, clock);
+    const plan = planQueue({
+      ...parameters,
+      observation,
+      transition_attempts: new Map([[
+        first.candidate_id,
+        claim.attempt.identity,
+      ]]),
+    });
+    if (plan.actions[0]?.kind !== "land") {
+      await cancelQueueClaim(input.root, claim, clock);
+      return plan.blockers[0] ??
+        { kind: "stale-evidence", evidence_ids: [], reason: "claim-lost" };
+    }
+    return { claim, observation, plan };
+  });
 }
