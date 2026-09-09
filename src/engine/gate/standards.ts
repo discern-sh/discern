@@ -52,6 +52,7 @@ import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
 import type {
   GateStandard,
+  ProducerEvidence,
   StandardsData,
 } from "../../shared/result_schemas.ts";
 import type { JobTimeout } from "../jobs/types.ts";
@@ -113,6 +114,7 @@ interface StandardOutcome {
  * reason. */
 interface StandardExecution {
   producer_executions: Readonly<Record<string, number>>;
+  producer_evidence: readonly ProducerEvidence[];
   waited_ms: number;
   ok: boolean;
   results: StepResult[];
@@ -358,8 +360,18 @@ async function executeStandardPlan(
     results,
     diagnostics,
     producer_executions: validation?.producer_executions ?? {},
+    producer_evidence: validation?.producer_evidence ?? [],
     waited_ms: validation?.waited_ms ?? 0,
   };
+}
+
+/** The named producer evidence, present only when a producer ran or was reused. */
+function producerEvidenceData(
+  execution: Pick<StandardExecution, "producer_evidence">,
+): Pick<StandardsData, "producer_evidence"> {
+  return execution.producer_evidence.length === 0
+    ? {}
+    : { producer_evidence: [...execution.producer_evidence] };
 }
 
 /** Convert an execution to the verb envelope. The explicit `ok` assignment is
@@ -381,6 +393,7 @@ function standardExecutionResult(execution: StandardExecution): DiscernResult {
     data: {
       standards: execution.readings,
       producer_executions: { ...execution.producer_executions },
+      ...producerEvidenceData(execution),
     } satisfies StandardsData,
   };
 }
@@ -956,6 +969,7 @@ async function pinStandardsResult(
             data: {
               standards: execution.readings,
               producer_executions: { ...execution.producer_executions },
+              ...producerEvidenceData(execution),
             } satisfies StandardsData,
           }
           : {}),
@@ -1001,6 +1015,7 @@ async function pinStandardsResult(
       ...appliedResult("standards", steps),
       data: {
         producer_executions: { ...execution.producer_executions },
+        ...producerEvidenceData(execution),
         ...(execution.readings.length > 0
           ? { standards: execution.readings }
           : {}),

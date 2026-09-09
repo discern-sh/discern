@@ -186,6 +186,9 @@ async function runTestGate(
     data: {
       standards: validationRun.standards,
       producer_executions: validationRun.producer_executions,
+      ...(validationRun.producer_evidence.length === 0
+        ? {}
+        : { producer_evidence: [...validationRun.producer_evidence] }),
       completion: { kind: "diagnostic", context: "local", proof: "not-issued" },
     },
     ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),

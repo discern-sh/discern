@@ -984,8 +984,24 @@ export const ProducerExecutionsSchema = z.record(
   z.number().int().nonnegative(),
 );
 
+/** Why one producer ran or had its recorded evidence reused in a validation run.
+ * `closure` is the applicability's own vocabulary: `declared` inputs let evidence
+ * travel across commits; `candidate` binds it to the exact commit. */
+export const ProducerEvidenceSchema = z.strictObject({
+  producer: z.string(),
+  use: z.enum(["executed", "reused"]),
+  closure: z.enum(["declared", "candidate"]),
+  reason: z.string(),
+  /** The reused evidence record, when `use` is `reused`. */
+  evidence_id: z.string().optional(),
+  /** The commit whose validation recorded the reused evidence. */
+  from: z.string().optional(),
+});
+export type ProducerEvidence = z.infer<typeof ProducerEvidenceSchema>;
+
 export const StandaloneValidationDataSchema = z.strictObject({
   producer_executions: ProducerExecutionsSchema,
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
   measurement: z.literal("none").optional(),
   completion: z.strictObject({
@@ -997,6 +1013,7 @@ export const StandaloneValidationDataSchema = z.strictObject({
 
 export const StandardsDataSchema = z.strictObject({
   producer_executions: ProducerExecutionsSchema.optional(),
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
   pinned: z.array(PinnedLimitSchema).optional(),
   proposal: StandardLimitProposalResultSchema.optional(),
@@ -1230,6 +1247,7 @@ export const CompletionPendingSchema = z.strictObject({
 export const GateDataSchema = z.strictObject({
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   producer_executions: ProducerExecutionsSchema.optional(),
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   completion: z.strictObject({
     kind: z.enum(["diagnostic", "complete", "pending"]),
     context: z.string(),

@@ -1,6 +1,11 @@
 import { project } from "./completion_public_fixture.ts";
 /** Full public done admits complete candidate evidence; standalone diagnostics cannot. */
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { git, runAgent } from "./engine_helpers.ts";
 import { inspectGateProof } from "../src/engine/gate/proof.ts";
@@ -28,6 +33,19 @@ Deno.test("E07 public done admits complete evidence and clean standalone remains
     );
     assertEquals(result.data.completion?.kind, "complete");
     assertEquals(result.data.producer_executions, { "jobs.test": 1 });
+    // S07: the result names the producer that ran and why it could not reuse.
+    assertEquals(
+      result.data.producer_evidence?.map((entry) => [
+        entry.producer,
+        entry.use,
+        entry.closure,
+      ]),
+      [["jobs.test", "executed", "declared"]],
+    );
+    assertStringIncludes(
+      result.data.producer_evidence?.[0]?.reason ?? "",
+      "no recorded evidence for test, coverage matched",
+    );
     assertEquals(await Deno.readTextFile(`${path}/executions`), "t");
     const proof = await inspectGateProof(path);
     assertEquals(proof.status, "honored", JSON.stringify(proof));

@@ -3850,6 +3850,14 @@ export type DiscernDoneResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     completion?: {
       kind: "diagnostic" | "complete" | "pending";
       context: string;
@@ -4215,6 +4223,14 @@ export type DiscernPrepareResult = DiscernResultState & {
     producer_executions: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -4380,6 +4396,14 @@ export type DiscernTestResult = DiscernResultState & {
     producer_executions: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -5095,6 +5119,14 @@ export type DiscernStandardsResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -5279,6 +5311,14 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
