@@ -160,7 +160,19 @@ preview = 'echo preview-second'
       assertEquals(done.code, 0, done.output);
       await grantEffort(path, branch, wallTimeIso(SYSTEM_CLOCK.wallNow()));
     }
-    const preview = await runAgent(root, ["accept", "--dry-run", "--json"]);
+    const unselected = await runAgent(root, ["accept", "--dry-run", "--json"]);
+    assertEquals(unselected.code, 1, unselected.output);
+    assertEquals(
+      decodeCliResult(unselected.stdout, "accept").error,
+      "no_target",
+    );
+    const preview = await runAgent(root, [
+      "accept",
+      "--target",
+      "agent/second",
+      "--dry-run",
+      "--json",
+    ]);
     assertEquals(preview.code, 0, preview.output);
     const planned = decodeCliResult(preview.stdout, "accept");
     assert(planned.data !== undefined && "queue" in planned.data);
@@ -176,7 +188,12 @@ preview = 'echo preview-second'
       ).length,
       0,
     );
-    const accepted = await runAgent(root, ["accept", "--json"]);
+    const accepted = await runAgent(root, [
+      "accept",
+      "--target",
+      "agent/second",
+      "--json",
+    ]);
     assertEquals(accepted.code, 1, accepted.output);
     const result = decodeCliResult(accepted.stdout, "accept");
     assert(result.data !== undefined && "queue" in result.data);
