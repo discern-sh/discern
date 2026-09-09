@@ -513,13 +513,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "unchanged-tree-rerun",
         title: "Current green Proof composes; red reruns stay explicit",
         what:
-          "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. On that identical tree, an ordinary `done` returns a valid current green Proof with `gate_ran: false` and runs no Gate step. An unchanged red verdict, or a green marker without valid current Proof, still refuses read-only; `discern done --rerun` measures again and records that explicit probe. A changed tree runs normally, while `--dry-run` only previews and never reuses evidence.",
+          "Ordinary `discern done` requires a clean committed tree before selection or producers. Explicit `--standalone` diagnostics remain transient. Completion records its exact subject and verdict in the worktree's Git admin area. On that identical tree, an ordinary `done` returns a valid current green Proof with `gate_ran: false` and runs no Gate step. An unchanged red verdict, or a green marker without valid current Proof, still refuses read-only; `discern done --rerun` measures again and records that explicit probe. A changed clean commit can be evaluated, while `--dry-run` only previews.",
         why:
           "A wrapper can compose with an answer the Gate has already proved without paying for it twice, while a failed tree cannot become green by repetition.",
         plain: {
           title: "Reuse a current pass; make a repeated failure explicit",
           what:
-            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` runs it again and records that explicit choice. Changed work runs normally, while `--dry-run` only previews.",
+            "Ordinary `discern done` requires all intended edits to be committed first, before running checks. Explicit `--standalone` diagnostics record no reusable Proof. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` runs it again and records that explicit choice. A changed clean commit can be checked, while `--dry-run` only previews.",
           why:
             "Another instruction can reuse an answer already proved without paying twice, while repeated failures never turn into passes by themselves.",
         },
@@ -761,15 +761,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "accept",
         title: "Accept",
         what:
-          "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by Proof), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. Authority comes from a fresh `--confirmed` conversation attestation or a machine-checked standing or effort grant.",
+          "`discern accept` previews and advances separately authorized, proven candidates in queue order. Targeted continuations preserve approval of an unchanged source. Reviewed queue controls hold, withdraw, revoke, or reorder work without deleting evidence. Cleanup removes only eligible released checkouts. External integration reconciliation records checked ancestry and retained Proof separately from governed landing, without moving refs or inventing consent.",
         why:
-          "Landing is atomic and consented: the tree the owner reviewed is the tree that lands, and nothing of the task is left behind.",
+          "Each transition requires its own evidence and authority; a later wait or retained checkout does not erase work already landed.",
         plain: {
           title: "Accept",
           what:
-            "`discern accept` adds the reviewed task to the main shared version as a clean forward step, checks the exact work it is adding (quickly, when Proof still stands), closes the task's supporting services, removes the separate copy and its task name, refreshes the main copy, and runs `[repository].ensure` and `smoke` afterwards. Permission comes from a fresh `--confirmed` confirmation in the conversation, or from a permission the person in charge recorded in advance.",
+            "`discern accept` shows what can become shared next, what needs checks, and which decisions still need the owner. Each task keeps its own approval. The owner can hold or withdraw work, revoke permission, or change the order. Cleanup requires an eligible released copy. Work added outside ordinary acceptance can be recognized from its exact evidence without claiming that a recorded approval existed.",
           why:
-            "The move is agreed and all-or-nothing: the work the person in charge reviewed is the work that becomes shared, and nothing of the task is left behind.",
+            "The owner can change the plan while keeping valid evidence, and can see which work is shared and which copies remain.",
         },
         surfaces: ["verb:accept"],
       },
@@ -1700,13 +1700,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "consent-attestations",
         title: "Landing authority is proved per invocation",
         what:
-          "Scaffolding a fresh install requires a `--confirmed` conversation attestation. Landing accepts either that fresh attestation or a machine-checked grant recorded on the trunk or at the desk; absent both, it refuses read-only. Every successful landing records which source authorized it.",
+          "Scaffolding a fresh install requires a `--confirmed` conversation attestation. Landing checks an explicit source attestation or a recorded applicable grant. An attestation remains bound to the unchanged source and composition procedure across continuations; absent authority, landing refuses. Every successful landing records which source authorized it.",
         why:
           "Consent comes from evidence at the landing boundary, never from an agent's memory of an earlier conversation.",
         plain: {
           title: "Fresh proof of permission, every time",
           what:
-            "Starting a fresh installation requires `--confirmed` in that same instruction. Adding finished work to the main shared version accepts either that fresh confirmation, or a permission the person in charge recorded earlier — on the main shared version, or at the desk; with neither, discern refuses and changes nothing. Every successful addition records which permission allowed it.",
+            "Starting a fresh installation requires `--confirmed` in that same instruction. Sharing finished work requires the owner's confirmation for that source or an applicable recorded permission. The same unchanged source can continue after review without another confirmation. Each earlier task still needs its own permission. Every successful addition records which permission allowed it.",
           why:
             "Permission comes from evidence at the moment of action, never from a coding agent's memory of an earlier conversation.",
         },
@@ -2971,7 +2971,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         id: "explicit-release-decision",
         title: "Keep the final say over what ships",
         value:
-          "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared.",
+          "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can hold or withdraw it and revise its order without discarding valid evidence.",
         whyItFollows:
           "`discern accept` resolves conversational consent, a standing scope grant, or a one-shot worktree grant against the changed paths at the landing boundary; a green Gate supplies no authority on its own.",
         drawsOn: ["consent-attestations", "accept"],
@@ -3874,9 +3874,9 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         id: "land-only-with-release-authority",
         title: "Land only with release authority",
         value:
-          "A coding agent can separate a green Gate from permission to release, relay the required owner decision, and land only under consent that covers the exact paths and conditions.",
+          "A coding agent can separate passing evidence, permission, and queue readiness, relay the required owner decision, and continue the exact selected source under applicable consent.",
         whyItFollows:
-          "Accept validates Proof and authority again, relay messages preserve bounded decision facts, and ownership buckets keep generated, authored, retained, and provider-local effects distinct.",
+          "Preview and apply share the queue planner and authority evaluator. Continuations name the resolved effort, while reviewed plan changes and cleanup retain their own checked preconditions.",
         boundary:
           "Authority is scoped and current: a prior grant, a sibling's authority, or a green result never covers an unmet checkpoint variance or newly uncovered path.",
         drawsOn: ["accept", "relay-messages", "ownership-buckets"],

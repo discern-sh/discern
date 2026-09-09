@@ -147,8 +147,8 @@ A coding agent can preview effects, distinguish Proof from permission, and stop 
 
 ### Land only with release authority
 
-- **Agent value:** A coding agent can separate a green Gate from permission to release, relay the required owner decision, and land only under consent that covers the exact paths and conditions.
-- **Why it follows:** Accept validates Proof and authority again, relay messages preserve bounded decision facts, and ownership buckets keep generated, authored, retained, and provider-local effects distinct.
+- **Agent value:** A coding agent can separate passing evidence, permission, and queue readiness, relay the required owner decision, and continue the exact selected source under applicable consent.
+- **Why it follows:** Preview and apply share the queue planner and authority evaluator. Continuations name the resolved effort, while reviewed plan changes and cleanup retain their own checked preconditions.
 - **Boundary:** Authority is scoped and current: a prior grant, a sibling's authority, or a green result never covers an unmet checkpoint variance or newly uncovered path.
 - **Direct product basis:** Accept · Complete owner moments · File ownership.
 - **Agent hints:** `status-land-under-verified-authority` · `status-ready-uncovered-authority` · `gate-land-under-verified-authority` · `gate-relay-uncovered-authority` · `accept-relay-landing-proof` · `start-landing-authority`.

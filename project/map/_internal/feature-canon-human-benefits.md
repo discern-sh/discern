@@ -148,7 +148,7 @@ More of the backlog can move at once. The person spends less time running the wo
 
 ### Keep the final say over what ships
 
-- **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared.
+- **Value:** Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared. They can hold or withdraw it and revise its order without discarding valid evidence.
 - **Mechanism:** `discern accept` resolves conversational consent, a standing scope grant, or a one-shot worktree grant against the changed paths at the landing boundary; a green Gate supplies no authority on its own.
 - **Product basis:** Landing authority is proved per invocation · Accept.
 
