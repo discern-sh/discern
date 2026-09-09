@@ -549,7 +549,7 @@ Rendered example:
 
 Rendered example:
 
-> Preserve the retained paths and reconcile the recorded recovery reason. From the owning worktree, run discern done --recover 00000000-0000-4000-8000-000000000001. This returns the checkout without validation or landing.
+> Preserve the retained paths and reconcile the recorded recovery reason. From the owning worktree, run discern done --recover 00000000-0000-4000-8000-000000000001. Recovery rechecks native ownership and stopped children; a future validation deadline does not require waiting. This returns the checkout without validation or landing.
 
 ## `failure-recovery`
 

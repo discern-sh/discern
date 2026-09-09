@@ -23760,6 +23760,23 @@
                       },
                       "lease_expires_at": {
                         "type": "number"
+                      },
+                      "ownership": {
+                        "type": "string",
+                        "enum": [
+                          "held",
+                          "available",
+                          "unknown"
+                        ]
+                      },
+                      "children_quiescent": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "next_action": {
+                        "type": "string"
                       }
                     },
                     "required": [

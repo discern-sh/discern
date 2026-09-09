@@ -12,8 +12,16 @@ import { withExecutionChildren } from "../src/shared/execution_child_context.ts"
 import { spawnJob } from "../src/engine/jobs/command.ts";
 import { superviseSpawn } from "../src/engine/owned_child.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
-import { withCompletionPublication } from "../src/engine/operation_lock.ts";
-import { requireEnvironment } from "../src/engine/execution/registry.ts";
+import {
+  withCompletionCheckout,
+  withCompletionPublication,
+} from "../src/engine/operation_lock.ts";
+import {
+  replaceEnvironment,
+  requireEnvironment,
+} from "../src/engine/execution/registry.ts";
+import { completionId } from "./completion_fixtures.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { executionChildAbsent } from "../src/shared/execution_child_context.ts";
 
@@ -25,35 +33,48 @@ Deno.test("native borrowed execution returns its source and retains common child
       ...fixture.options,
       lifetime,
     });
-    const claimed = await fixture.claim(fixture.plan(), executor);
-    const returned = await executor.execute(claimed, async (execution) => {
-      await withCompletionPublication(fixture.root, () => Promise.resolve());
-      const result = await spawnJob({
-        label: "candidate",
-        command: 'test "$(cat schema)" = 2',
-      }, {
-        cwd: fixture.path,
-        stream: false,
-        write: () => {},
-        signal: execution.signal,
+    await withCompletionCheckout(fixture.path, async () => {
+      const claimed = await fixture.claim(fixture.plan(), executor);
+      const returned = await executor.execute(claimed, async (execution) => {
+        const before = await requireEnvironment(fixture.root, fixture.id);
+        const nested = await executor.recover(
+          fixture.id,
+          before.stamp,
+          fixture.actor,
+        );
+        assertEquals(nested.kind, "recovery-incomplete");
+        assertEquals(
+          (await requireEnvironment(fixture.root, fixture.id)).stamp,
+          before.stamp,
+        );
+        await withCompletionPublication(fixture.root, () => Promise.resolve());
+        const result = await spawnJob({
+          label: "candidate",
+          command: 'test "$(cat schema)" = 2',
+        }, {
+          cwd: fixture.path,
+          stream: false,
+          write: () => {},
+          signal: execution.signal,
+        });
+        return result.result.code === 0;
       });
-      return result.result.code === 0;
+      assertEquals(returned.validation, true);
+      assertEquals(returned.returned.kind, "restored");
+      assertEquals(await Deno.readTextFile(`${fixture.path}/schema`), "1\n");
+      assertEquals(
+        await executionChildrenQuiescent(
+          fixture.root,
+          claimed.attempt.identity.id,
+        ),
+        true,
+      );
+      assertEquals(
+        (await requireEnvironment(fixture.root, fixture.id)).record.data.release
+          .kind,
+        "held",
+      );
     });
-    assertEquals(returned.validation, true);
-    assertEquals(returned.returned.kind, "restored");
-    assertEquals(await Deno.readTextFile(`${fixture.path}/schema`), "1\n");
-    assertEquals(
-      await executionChildrenQuiescent(
-        fixture.root,
-        claimed.attempt.identity.id,
-      ),
-      true,
-    );
-    assertEquals(
-      (await requireEnvironment(fixture.root, fixture.id)).record.data.release
-        .kind,
-      "held",
-    );
   });
 });
 
@@ -65,43 +86,45 @@ Deno.test("uncertain child receipts retain recovery independently of the checkou
       ...fixture.options,
       lifetime,
     });
-    const claimed = await fixture.claim(fixture.plan(), executor);
-    const subject = {
-      attempt_id: claimed.attempt.identity.id,
-      candidate_id: claimed.candidate_id,
-      context: "local",
-    };
-    const returned = await executor.execute(claimed, async () => {
-      await saveEnvironmentArtifact(
-        fixture.root,
-        subject,
-        "children/planned-uncertain",
-        true,
+    await withCompletionCheckout(fixture.path, async () => {
+      const claimed = await fixture.claim(fixture.plan(), executor);
+      const subject = {
+        attempt_id: claimed.attempt.identity.id,
+        candidate_id: claimed.candidate_id,
+        context: "local",
+      };
+      const returned = await executor.execute(claimed, async () => {
+        await saveEnvironmentArtifact(
+          fixture.root,
+          subject,
+          "children/planned-uncertain",
+          true,
+        );
+        return true;
+      });
+      assertEquals(returned.returned.kind, "recovery-incomplete");
+      assertEquals(
+        await executionChildrenQuiescent(
+          fixture.root,
+          claimed.attempt.identity.id,
+        ),
+        false,
       );
-      return true;
+      assertEquals((await lifetime.inspect(fixture.path)).quiescent, true);
+      const path = await artifactPath(
+        fixture.root,
+        claimed.attempt.identity.id,
+        "environment/children/started-uncertain.json",
+      );
+      await Deno.writeTextFile(path, "{broken");
+      assertEquals(
+        await executionChildrenQuiescent(
+          fixture.root,
+          claimed.attempt.identity.id,
+        ),
+        false,
+      );
     });
-    assertEquals(returned.returned.kind, "recovery-incomplete");
-    assertEquals(
-      await executionChildrenQuiescent(
-        fixture.root,
-        claimed.attempt.identity.id,
-      ),
-      false,
-    );
-    assertEquals((await lifetime.inspect(fixture.path)).quiescent, true);
-    const path = await artifactPath(
-      fixture.root,
-      claimed.attempt.identity.id,
-      "environment/children/started-uncertain.json",
-    );
-    await Deno.writeTextFile(path, "{broken");
-    assertEquals(
-      await executionChildrenQuiescent(
-        fixture.root,
-        claimed.attempt.identity.id,
-      ),
-      false,
-    );
   });
 });
 
@@ -188,3 +211,151 @@ Deno.test("test claims remain diagnostic across the environment and evaluator bo
     await fixture.executor.execute(claimed, () => Promise.resolve(true));
   });
 });
+
+Deno.test("native claims require continuous checkout ownership through their handoff", async () => {
+  await withTempDir(async (base) => {
+    const fixture = await environmentFixture(base);
+    const lifetime = createNativeExecutionLifetime(fixture.root);
+    const executor = createEnvironmentExecutor({
+      ...fixture.options,
+      lifetime,
+    });
+    await assertRejects(
+      () => fixture.claim(fixture.plan(), executor),
+      Error,
+      "retained checkout ownership",
+    );
+    const claimed = await withCompletionCheckout(
+      fixture.path,
+      () => fixture.claim(fixture.plan(), executor),
+    );
+    const before = await requireEnvironment(fixture.root, fixture.id);
+    const refused = await executor.execute(
+      claimed,
+      () => Promise.resolve(true),
+    );
+    assertEquals(refused.validation, null);
+    assertEquals(refused.returned.kind, "recovery-incomplete");
+    assertEquals(
+      (await requireEnvironment(fixture.root, fixture.id)).stamp,
+      before.stamp,
+    );
+    const returned = await executor.recover(
+      fixture.id,
+      before.stamp,
+      fixture.actor,
+    );
+    assertEquals(returned.kind, "restored", JSON.stringify(returned));
+  });
+});
+
+for (
+  const missing of [
+    "inventory",
+    "empty",
+    "enrollment",
+    "start",
+    "regular-file",
+  ] as const
+) {
+  Deno.test(`native recovery preserves an uncertain child ${missing} before creating any return receipts`, async () => {
+    await withTempDir(async (base) => {
+      const fixture = await environmentFixture(base);
+      const executor = createEnvironmentExecutor({
+        ...fixture.options,
+        lifetime: createNativeExecutionLifetime(fixture.root),
+      });
+      const claimed = await withCompletionCheckout(
+        fixture.path,
+        () => fixture.claim(fixture.plan(), executor),
+      );
+      const directory = await artifactPath(
+        fixture.root,
+        claimed.fence.attempt_id,
+        "environment/children",
+      );
+      if (missing === "inventory" || missing === "empty") {
+        await Deno.rename(directory, directory + "-preserved");
+        if (missing === "empty") await Deno.mkdir(directory);
+      } else if (missing === "regular-file") {
+        await Deno.mkdir(directory + "/planned-uncertain.json");
+      } else {
+        await saveEnvironmentArtifact(
+          fixture.root,
+          {
+            attempt_id: claimed.fence.attempt_id,
+            candidate_id: claimed.candidate_id,
+            context: "local",
+          },
+          missing === "enrollment"
+            ? "children/enrolled-corrupt"
+            : "children/planned-uncertain",
+          missing === "enrollment" ? false : { token: claimed.fence.token },
+        );
+      }
+      const current = await requireEnvironment(fixture.root, fixture.id);
+      const result = await executor.recover(
+        fixture.id,
+        current.stamp,
+        fixture.actor,
+      );
+      assertEquals(result.kind, "recovery-incomplete", JSON.stringify(result));
+      assertEquals(await Deno.readTextFile(fixture.path + "/schema"), "1\n");
+      if (missing === "inventory") {
+        await assertRejects(() => Deno.stat(directory), Deno.errors.NotFound);
+      }
+      const pending = await requireEnvironment(fixture.root, fixture.id);
+      assertEquals(pending.record.data.state.kind, "recovery");
+    });
+  });
+}
+
+for (const changed of ["release", "candidate"] as const) {
+  Deno.test(`native recovery preserves a changed ${changed} subject before takeover`, async () => {
+    await withTempDir(async (base) => {
+      const fixture = await environmentFixture(base);
+      const executor = createEnvironmentExecutor({
+        ...fixture.options,
+        lifetime: createNativeExecutionLifetime(fixture.root),
+      });
+      await withCompletionCheckout(
+        fixture.path,
+        () => fixture.claim(fixture.plan(), executor),
+      );
+      const before = await requireEnvironment(fixture.root, fixture.id);
+      const environment = before.record.data;
+      assert(
+        environment.release.kind === "released" &&
+          environment.state.kind === "executing",
+      );
+      const state = environment.state;
+      const replacement = changed === "release"
+        ? {
+          ...environment,
+          release: { ...environment.release, id: completionId(990) },
+          state: { ...state, release_id: completionId(990) },
+        }
+        : {
+          ...environment,
+          state: { ...state, candidate_id: completionId(991) },
+        };
+      const current = await replaceEnvironment(
+        fixture.root,
+        before,
+        replacement,
+        SYSTEM_CLOCK,
+      );
+      const result = await executor.recover(
+        fixture.id,
+        current.stamp,
+        fixture.actor,
+      );
+      assertEquals(result.kind, "recovery-incomplete", JSON.stringify(result));
+      assertEquals(
+        (await requireEnvironment(fixture.root, fixture.id)).stamp,
+        current.stamp,
+      );
+      assertEquals(await Deno.readTextFile(fixture.path + "/schema"), "1\n");
+    });
+  });
+}

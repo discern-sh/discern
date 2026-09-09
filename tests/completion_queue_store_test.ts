@@ -2,6 +2,7 @@ import { assert, assertEquals, assertRejects } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, gitOut } from "./engine_helpers.ts";
 import {
+  COMPLETION_CLAIM,
   COMPLETION_CLOCK,
   COMPLETION_EXECUTOR,
   completionFixtures,
@@ -385,4 +386,144 @@ Deno.test("queue claims and mutations preserve distinct compatibility and corrup
       assertEquals(await Deno.readTextFile(path), raw);
     }
   });
+});
+
+Deno.test("verified return releases only its matching older reservation and protects other publishers", async () => {
+  for (
+    const outsider of [
+      "none",
+      "newer",
+      "other actor",
+      "bound evidence",
+    ] as const
+  ) {
+    await withTempDir(async (root) => {
+      await initializeRepository(root);
+      const { queue } = queueExample(1);
+      await initializeQueue(root, queue.trunk);
+      await replaceQueue(root, await requireQueue(root), {
+        ...queue,
+        entries: queue.entries.map((entry) => ({ ...entry, state: "active" })),
+      });
+      const fixtures = completionFixtures();
+      const template = COMPLETION_FAMILIES.attempt.schema.parse(
+        fixtures.attempt,
+      );
+      const inner = {
+        ...template,
+        id: completionId(910),
+        data: {
+          ...template.data,
+          identity: {
+            ...template.data.identity,
+            id: completionId(910),
+            candidate_id: completionId(100),
+            sequence: 2,
+          },
+          state: {
+            kind: "finished" as const,
+            outcome: "cancelled" as const,
+            finished_at: 100,
+          },
+        },
+      };
+      const outer = {
+        ...template,
+        id: completionId(911),
+        data: {
+          ...template.data,
+          identity: {
+            ...inner.data.identity,
+            id: completionId(911),
+            sequence: 1,
+          },
+          subjects: [],
+        },
+      };
+      for (const record of [inner, outer]) {
+        assertEquals(
+          (await writeCompletionRecord(root, record, null)).kind,
+          "written",
+        );
+      }
+      if (outsider !== "none") {
+        const other = {
+          ...outer,
+          id: completionId(912),
+          data: {
+            ...outer.data,
+            state: {
+              kind: "claimed" as const,
+              claim: {
+                ...COMPLETION_CLAIM,
+                executor: outsider === "other actor"
+                  ? { ...COMPLETION_EXECUTOR, operation_id: completionId(920) }
+                  : COMPLETION_EXECUTOR,
+              },
+            },
+            subjects: outsider === "bound evidence"
+              ? template.data.subjects
+              : [],
+            identity: {
+              ...outer.data.identity,
+              id: completionId(912),
+              sequence: outsider === "newer" ? 3 : 1,
+              executor: outsider === "other actor"
+                ? { ...COMPLETION_EXECUTOR, operation_id: completionId(920) }
+                : COMPLETION_EXECUTOR,
+            },
+          },
+        };
+        assertEquals(
+          (await writeCompletionRecord(root, other, null)).kind,
+          "written",
+        );
+      }
+      const environment = COMPLETION_FAMILIES.environment.schema.parse(
+        fixtures.environment,
+      );
+      assert(environment.data.ownership.kind === "borrowed");
+      assertEquals(
+        (await writeCompletionRecord(root, {
+          ...environment,
+          data: {
+            ...environment.data,
+            ownership: {
+              ...environment.data.ownership,
+              source: {
+                ...environment.data.ownership.source,
+                effort_id: "effort-0",
+              },
+            },
+            state: { kind: "idle", returned_attempt_id: inner.id },
+          },
+        }, null)).kind,
+        "written",
+      );
+      const before = await requireQueue(root);
+      const result = await reconcileQueueWork({
+        root,
+        trunk: "main",
+        effort: "effort-0",
+        expected_stamp: before.stamp,
+        returned_attempt: inner.id,
+        clock: COMPLETION_CLOCK,
+      });
+      assertEquals(
+        result.kind,
+        outsider === "none" ? "released" : "environment-unavailable",
+      );
+      if (outsider !== "none") {
+        assertEquals((await requireQueue(root)).stamp, before.stamp);
+        const preserved = await readCompletionRecord(root, {
+          kind: "attempt",
+          id: completionId(912),
+        });
+        assert(
+          preserved.kind === "recorded" && preserved.record.kind === "attempt",
+        );
+        assertEquals(preserved.record.data.state.kind, "claimed");
+      }
+    });
+  }
 });

@@ -24,6 +24,16 @@ Without an eligible environment, ordered coordination continues. A current sourc
 
 The public completion companion selects ordinary source execution whenever no temporary candidate installation is needed, including linked worktrees. A differing candidate still uses the declared environment. The executor remains the authority for enforcing environment capacity and preserving owned checkout state.
 
+## Native recovery amendment — 2026-09-09
+
+The execution deadline remains a watchdog over the configured worst-case validation and return budget. It is not a liveness observation or a mandatory recovery delay. Native recovery may supersede an abandoned operation before that deadline once it acquires and retains the checkout's OS exclusion. A probe followed by unlocked effects is insufficient. Authenticated child delegation remains valid for nested commands, but cannot supply takeover authority: recovery requires a lease acquired by its own process and cannot run inside an active execution scope.
+
+The native lifetime binds claim publication to the retained checkout scope. An execution cannot resume a claim after that scope ends; a fresh caller uses recovery. Child enrollment precedes the durable environment claim. Recovery reads the frozen source, ownership, intent, attempt and matching reservations under exclusion, closes their publication authority through checked record transitions, then proves child quiescence before return effects. It checks the old inventory before creating new recovery receipts, so missing observations stay unknown. Interrupted publications are resumable; a missing initial attempt can be reconstructed only from its verified frozen claim intent at the installation boundary. Supported existing records retain their versioned reader protections.
+
+The executor applies the frozen return procedure, verifies the result, and settles the interrupted attempt without overwriting a completed verdict. Its matching queue reservation releases only after verified return. A reservation interrupted before execution may reconcile against its unchanged released source without running an environment procedure. Newer and unrelated attempts remain protected. Recovery produces no validation, Proof, landing, approval consumption, or evidence invalidation.
+
+Read-only status reports recorded claims and point-in-time native ownership/child observations separately. Recovery reacquires ownership and rechecks records. Missing or uncertain child receipts, surviving groups, changed source ownership, failed return and incompatible state retain the checkout and their evidence. The logbook supplies no recovery authority. Adapters without retained native takeover capability keep an explicit limitation; this amendment adds no distributed executor, heartbeat service, configuration knob or expiry override.
+
 ## Consequences
 
 - Projects can gain coordination before declaring an environment suitable for speculation.

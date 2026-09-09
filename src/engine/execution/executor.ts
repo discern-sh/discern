@@ -1,4 +1,5 @@
 import { EXECUTION_INTENT_FORMAT } from "./intent.ts";
+import { closeExecutionReservations } from "../landing_queue/recovery.ts";
 import { statIfExists } from "../../shared/fs_presence.ts";
 import { withRecoveryStorage } from "./storage_lifetime.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
@@ -73,6 +74,12 @@ import {
   type WorkspaceSnapshot,
 } from "./types.ts";
 
+export const RECOVERY_PUBLICATION_BOUNDARIES = [
+  "reservations",
+  "attempt",
+  "environment",
+] as const;
+
 export interface EnvironmentExecutorOptions {
   readonly root: string;
   readonly environmentId: string;
@@ -97,6 +104,12 @@ export interface EnvironmentExecutorOptions {
   readonly scheduler?: Scheduler;
   /** Deterministic interruption seam after a phase is durable, before its effect. */
   readonly afterReturn?: () => Promise<void>;
+  /** Durable environment claim exists; the attempt record has not yet been published. */
+  readonly afterClaimPublication?: () => Promise<void>;
+  /** Interruption seam after each durable takeover publication, before return effects. */
+  readonly afterRecoveryPublication?: (
+    boundary: (typeof RECOVERY_PUBLICATION_BOUNDARIES)[number],
+  ) => Promise<void>;
   readonly afterPhase?: (
     phase: EnvironmentPhase,
     execution: ClaimedExecution,
@@ -120,6 +133,11 @@ function cleanupCommands(intent: ExecutionIntent): string[] {
 }
 
 class ExecutorImplementation implements EnvironmentExecutor {
+  readonly claimOwnership = new WeakMap<ClaimedExecution, () => void>();
+  readonly verifiedReturns = new Map<
+    string,
+    { readonly token: string; readonly stamp: string }
+  >();
   readonly clock: Clock;
   readonly entropy: SecureEntropy;
   readonly scheduler: Scheduler;
@@ -171,6 +189,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
     try {
       const observed = await requireEnvironment(root, plan.environment_id);
       const environment = observed.record.data;
+      const ownership = await lifetime.ownership?.retain(environment.path);
       const selected = planEnvironment(
         this.options.environmentId,
         this.options.declaration,
@@ -304,6 +323,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
               }
             },
           );
+          await lifetime.ownership?.enroll({
+            attempt_id: identity.id,
+            candidate_id: plan.candidate_id,
+            context: intent.context,
+          }, claim.token);
           await workspace.verify(environment, source, signal);
           return await withCompletionPublication(root, async () => {
             const current = await requireEnvironment(root, plan.environment_id);
@@ -335,6 +359,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
                 phase: "install",
               },
             }, this.clock);
+            await this.options.afterClaimPublication?.();
             const written = await writeCompletionRecord(
               root,
               {
@@ -365,7 +390,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
                 recovery,
               };
             }
-            return {
+            const execution: ClaimedExecution = {
               fence: { attempt_id: identity.id, token: claim.token },
               attempt,
               environment_id: plan.environment_id,
@@ -374,6 +399,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
               candidate: plan.validation.candidate,
               signal: this.options.signal ?? new AbortController().signal,
             };
+            if (ownership !== undefined) {
+              ownership();
+              this.claimOwnership.set(execution, ownership);
+            }
+            return execution;
           });
         },
         this.options.signal,
@@ -440,6 +470,16 @@ class ExecutorImplementation implements EnvironmentExecutor {
     execution: ClaimedExecution,
     state: CompletionAttempt["state"],
   ): Promise<void> {
+    await withCompletionPublication(
+      this.options.root,
+      () => this.settleOwnedAttempt(execution, state),
+    );
+  }
+
+  async settleOwnedAttempt(
+    execution: ClaimedExecution,
+    state: CompletionAttempt["state"],
+  ): Promise<void> {
     const current = await readCompletionRecord(this.options.root, {
       kind: "attempt",
       id: execution.fence.attempt_id,
@@ -450,6 +490,26 @@ class ExecutorImplementation implements EnvironmentExecutor {
       );
     }
     if (current.record.data.state.kind === "finished") return;
+    const environment = await requireEnvironment(
+      this.options.root,
+      execution.environment_id,
+    );
+    const ownership = environment.record.data.state;
+    const ownsExecution = ownership.kind === "executing" &&
+      ownership.attempt_id === execution.fence.attempt_id &&
+      ownership.claim.token === execution.fence.token;
+    const settlesReturn = ownership.kind === "idle" &&
+      ownership.returned_attempt_id === execution.fence.attempt_id &&
+      state.kind === "finished" && state.outcome === "cancelled";
+    const verified = this.verifiedReturns.get(execution.fence.attempt_id);
+    const settlesVerifiedReturn = state.kind === "finished" &&
+      verified?.token === execution.fence.token &&
+      verified.stamp === environment.stamp;
+    if (!ownsExecution && !settlesReturn && !settlesVerifiedReturn) {
+      throw new Error(
+        "Attempt settlement requires current execution ownership or its verified return.",
+      );
+    }
     if (
       (current.record.data.state.kind === "claimed" ||
         current.record.data.state.kind === "composing") &&
@@ -692,6 +752,10 @@ class ExecutorImplementation implements EnvironmentExecutor {
         environment,
         this.clock,
       );
+      this.verifiedReturns.set(execution.fence.attempt_id, {
+        token: execution.fence.token,
+        stamp: returned.stamp,
+      });
       return {
         kind: disposable
           ? "disposed"
@@ -733,6 +797,13 @@ class ExecutorImplementation implements EnvironmentExecutor {
   > {
     let intent: ExecutionIntent;
     try {
+      if (this.options.lifetime.ownership !== undefined) {
+        const ownership = this.claimOwnership.get(execution);
+        if (ownership === undefined) {
+          throw new Error("Execution has no retained claim ownership.");
+        }
+        ownership();
+      }
       if (execution.environment_id !== this.options.environmentId) {
         throw new Error("Execution belongs to another enrolled environment.");
       }
@@ -906,6 +977,35 @@ class ExecutorImplementation implements EnvironmentExecutor {
     expectedStamp: string,
     executor: Executor,
   ): Promise<EnvironmentReturn> {
+    try {
+      const observed = await requireEnvironment(
+        this.options.root,
+        environmentId,
+      );
+      const run = () =>
+        this.recoverOwned(environmentId, expectedStamp, executor);
+      const ownership = this.options.lifetime.ownership;
+      return ownership === undefined
+        ? await run()
+        : await ownership.exclusive(observed.record.data.path, run);
+    } catch (error) {
+      return {
+        kind: "recovery-incomplete",
+        recovery: recoveryFor(
+          "restore",
+          errorReason(error),
+          this.options.root,
+          [],
+        ),
+      };
+    }
+  }
+
+  async recoverOwned(
+    environmentId: string,
+    expectedStamp: string,
+    executor: Executor,
+  ): Promise<EnvironmentReturn> {
     let current: RecordedEnvironment;
     try {
       ExecutorSchema.parse(executor);
@@ -1002,6 +1102,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
       };
     }
     if (
+      this.options.lifetime.ownership === undefined &&
       state.kind === "executing" &&
       state.claim.expires_at > this.clock.wallNow()
     ) {
@@ -1010,7 +1111,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
         recovery: {
           ...pending,
           reason:
-            "The recorded executor still has a live claim. Wait for it to finish or expire; do not take its environment.",
+            "This adapter cannot retain native takeover ownership. Preserve the recorded claim and use its supported native recovery adapter; a deadline alone does not establish liveness.",
         },
       };
     }
@@ -1025,7 +1126,11 @@ class ExecutorImplementation implements EnvironmentExecutor {
           JSON.stringify(environment.ownership) ||
         intent.environment.path !== environment.path ||
         intent.environment.declaration !== environment.declaration ||
-        environment.release.kind !== "released"
+        environment.release.kind !== "released" ||
+        JSON.stringify(environment.release) !==
+          JSON.stringify(intent.environment.release) ||
+        (state.kind === "executing" &&
+          state.candidate_id !== intent.candidate_id)
       ) {
         throw new Error(
           "Recovery intent disagrees with the environment's frozen ownership or release.",
@@ -1038,21 +1143,118 @@ class ExecutorImplementation implements EnvironmentExecutor {
         acquired_at: now,
         expires_at: now + this.options.leaseMs,
       };
-      const recovering = await replaceEnvironment(this.options.root, current, {
-        ...environment,
-        state: {
-          kind: "executing",
-          attempt_id: state.attempt_id,
-          candidate_id: intent.candidate_id,
-          release_id: environment.release.id,
-          claim,
-          phase: state.kind === "executing"
-            ? state.phase
-            : state.recovery.phase === "install"
-            ? "install"
-            : "capture",
+      const recovering = await withCompletionPublication(
+        this.options.root,
+        async () => {
+          const fresh = await requireEnvironment(
+            this.options.root,
+            environmentId,
+          );
+          if (fresh.stamp !== current.stamp) {
+            throw new Error(
+              "Recovery state changed under ownership; observe the exact environment again.",
+            );
+          }
+          const attempt = await readCompletionRecord(this.options.root, {
+            kind: "attempt",
+            id: state.attempt_id,
+          });
+          if (
+            attempt.kind !== "missing" &&
+            (attempt.kind !== "recorded" || attempt.record.kind !== "attempt")
+          ) {
+            throw new Error(
+              "Interrupted attempt is unreadable; preserve its records and frozen intent.",
+            );
+          }
+          const prior =
+            attempt.kind === "recorded" && attempt.record.kind === "attempt"
+              ? attempt.record.data
+              : intent.attempt;
+          if (
+            JSON.stringify(prior.identity) !==
+              JSON.stringify(intent.attempt.identity) ||
+            prior.environment_id !== environmentId
+          ) {
+            throw new Error(
+              "Interrupted attempt ownership disagrees with the frozen intent.",
+            );
+          }
+          if (
+            attempt.kind === "missing" &&
+            !(state.kind === "executing"
+              ? state.phase === "install"
+              : state.recovery.phase === "install")
+          ) {
+            throw new Error(
+              "A missing attempt outside claim publication cannot be reconstructed; preserve its recorded evidence and intent.",
+            );
+          }
+          await closeExecutionReservations(
+            this.options.root,
+            prior,
+            pending,
+            this.clock,
+          );
+          await this.options.afterRecoveryPublication?.("reservations");
+          // Closing publication first makes every interrupted takeover prefix resumable.
+          if (prior.state.kind !== "finished") {
+            const written = await writeCompletionRecord(
+              this.options.root,
+              {
+                version: ON_DISK_FORMATS.completionRecord.version,
+                kind: "attempt",
+                id: state.attempt_id,
+                revision: attempt.kind === "recorded"
+                  ? attempt.record.revision + 1
+                  : 1,
+                data: {
+                  ...prior,
+                  state: {
+                    kind: "recovery",
+                    recovery: {
+                      ...pending,
+                      reason:
+                        "Validation publication is closed; only the frozen environment return may resume.",
+                    },
+                  },
+                },
+              },
+              attempt.kind === "recorded" ? attempt.stamp : null,
+              undefined,
+              this.clock,
+            );
+            if (written.kind !== "written") {
+              throw new Error(
+                `Recovery could not close publication (${written.kind}); preserve the environment.`,
+              );
+            }
+          }
+          await this.options.afterRecoveryPublication?.("attempt");
+          const replaced = await replaceEnvironment(this.options.root, fresh, {
+            ...environment,
+            state: {
+              kind: "executing",
+              attempt_id: state.attempt_id,
+              candidate_id: intent.candidate_id,
+              release_id: environment.release.kind === "released"
+                ? environment.release.id
+                : "",
+              claim,
+              ...(state.kind === "executing" && state.capture !== undefined
+                ? { capture: state.capture }
+                : {}),
+              phase: state.kind === "executing"
+                ? state.phase
+                : state.recovery.phase === "install"
+                ? "install"
+                : "capture",
+            },
+          }, this.clock);
+          await this.options.afterRecoveryPublication?.("environment");
+          return replaced;
         },
-      }, this.clock);
+      );
       const execution: ClaimedExecution = {
         fence: { attempt_id: state.attempt_id, token: claim.token },
         attempt: intent.attempt,
@@ -1062,25 +1264,25 @@ class ExecutorImplementation implements EnvironmentExecutor {
         candidate: intent.candidate,
         signal: new AbortController().signal,
       };
-      // Fence the original publisher before obtaining child or checkout capabilities.
-      const oldExecution = {
-        ...execution,
-        fence: {
-          attempt_id: state.attempt_id,
-          token: (intent.attempt.state.kind === "claimed" ||
-              intent.attempt.state.kind === "composing")
-            ? intent.attempt.state.claim.token
-            : "",
-        },
-      };
-      await this.settleAttempt(oldExecution, {
-        kind: "recovery",
-        recovery: {
-          ...pending,
-          reason:
-            "The original validation attempt is closed; only environment return may resume.",
-        },
-      });
+      if (this.options.lifetime.ownership !== undefined) {
+        try {
+          if (
+            !await this.options.lifetime.quiesce(
+              environment.path,
+              state.attempt_id,
+            )
+          ) {
+            throw new Error("Child quiescence remains unproved.");
+          }
+        } catch (error) {
+          return await this.unfinished(execution, {
+            ...pending,
+            reason: `${
+              errorReason(error)
+            } Preserve the checkout and child receipts; reconcile the recorded children before retrying recovery.`,
+          });
+        }
+      }
       return await this.options.lifetime.exclusive(
         environment.path,
         execution.fence,

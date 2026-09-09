@@ -7476,6 +7476,10 @@ export type DiscernStatusResult = DiscernResultState & {
       candidate_id: string;
       phase: string;
       lease_expires_at: number;
+      ownership?: "held" | "available" | "unknown";
+      children_quiescent?: boolean;
+      reason?: string;
+      next_action?: string;
     }>;
     emergency_validation?: Array<{
       landing_id: string;
