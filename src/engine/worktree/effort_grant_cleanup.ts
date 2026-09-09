@@ -1,7 +1,7 @@
 /**
  * The capability to consume or revoke an effort landing grant.
  *
- * Only the human-operated desk and successful acceptance may import this
+ * Only the human-operated desk and checked acceptance decisions may import this
  * module. Grant creation remains desk-only in effort_grant_writer.ts.
  */
 
@@ -155,6 +155,20 @@ export async function readRecoveryEffortGrantClaim(
       reason: effortGrantFailureReason(error),
     };
   }
+}
+
+/** Revoke only the marker reviewed by a queue action; a newer grant remains intact. */
+export async function clearReviewedEffortGrant(
+  cwd: string,
+  expectedId: string,
+): Promise<boolean> {
+  const current = await readEffortGrant(cwd);
+  if (current.status === "missing") return true;
+  if (current.status !== "granted" || current.grant.id !== expectedId) {
+    return false;
+  }
+  await clearEffortGrant(cwd);
+  return true;
 }
 
 /** Revoke this worktree's grant. Repeating the revoke is a no-op. */

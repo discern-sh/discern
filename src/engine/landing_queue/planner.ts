@@ -224,6 +224,7 @@ export function planQueue(input: {
   readonly assessments: ReadonlyMap<string, CandidateAssessment>;
   readonly executor: Executor;
   readonly transition_attempts: ReadonlyMap<string, AttemptIdentity>;
+  readonly preview?: boolean;
 }): QueuePlan {
   const reading = input.observation.records.find(({ selector }) =>
     selector.kind === "queue" && selector.id === REPOSITORY_QUEUE_ID
@@ -255,7 +256,18 @@ export function planQueue(input: {
   const requested = entries.findIndex((entry) =>
     entry.source.effort_id === input.requested_effort
   );
-  if (requested < 0) return result;
+  if (requested < 0) {
+    const target = queue.entries.find((entry) =>
+      entry.source.effort_id === input.requested_effort
+    );
+    if (target?.held || target?.state === "withdrawn") {
+      blockers.push({
+        kind: "missing-judgment",
+        subjects: [target.held ? "effort-held" : "effort-withdrawn"],
+      });
+    }
+    return result;
+  }
   const candidates = new Map(
     [...input.assessments].map((
       [id, assessment],
@@ -277,8 +289,14 @@ export function planQueue(input: {
     }
     if (
       entry.dependencies.some((dependency) =>
-        entries.findIndex((item) => item.source.effort_id === dependency) >
-          entries.indexOf(entry)
+        !queue.entries.some((item) =>
+          item.source.effort_id === dependency &&
+          (item.state === "landed" ||
+            (!item.held && item.state !== "withdrawn" &&
+              item.eligible_order !== null &&
+              entries.indexOf(item) >= 0 &&
+              entries.indexOf(item) < entries.indexOf(entry)))
+        )
       )
     ) {
       return stop({
@@ -374,6 +392,15 @@ export function planQueue(input: {
     if (assessment.authority_id !== entry.authority_id) {
       return stop({ kind: "missing-authority", sources: [entry.source] });
     }
+    if (input.preview) {
+      actions.push({
+        kind: "ready",
+        candidate_id: assessment.candidate_id,
+        expected_trunk: expected.head,
+        authority_id: entry.authority_id,
+      });
+      continue;
+    }
     const action = transitionAction({
       observation: input.observation,
       assessment,
@@ -396,10 +423,12 @@ export function createQueuePlanner(options: {
   readonly trunk: string;
   readonly executor: Executor;
   readonly transition_attempts: ReadonlyMap<string, AttemptIdentity>;
+  readonly preview?: boolean;
   readonly assess: (
     observation: CompletionObservation,
   ) => Promise<ReadonlyMap<string, CandidateAssessment>>;
   readonly clock?: Clock;
+  readonly observation?: () => Promise<CompletionObservation>;
 }): QueuePlanner {
   const clock = options.clock ?? SYSTEM_CLOCK;
   const assessments = new WeakMap<
@@ -411,7 +440,8 @@ export function createQueuePlanner(options: {
     { policy: CompletionPolicy; effort: string }
   >();
   const observe = async (): Promise<CompletionObservation> => {
-    const observation = await observeQueue(options.root, options.trunk, clock);
+    const observation = await (options.observation?.() ??
+      observeQueue(options.root, options.trunk, clock));
     assessments.set(observation, await options.assess(observation));
     return observation;
   };
@@ -433,6 +463,7 @@ export function createQueuePlanner(options: {
       assessments: current,
       executor: options.executor,
       transition_attempts: options.transition_attempts,
+      ...(options.preview === undefined ? {} : { preview: options.preview }),
     });
     contexts.set(result, { policy, effort });
     return result;
@@ -441,6 +472,7 @@ export function createQueuePlanner(options: {
     observe,
     plan,
     publish: async (proposal, executor) => {
+      if (options.preview) return { kind: "replan" };
       const context = contexts.get(proposal);
       if (
         context === undefined ||

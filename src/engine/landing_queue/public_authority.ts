@@ -23,7 +23,8 @@ import {
   requireQueue,
   withQueueLock,
 } from "./repository.ts";
-import { mutateQueue } from "./mutations.ts";
+import type { CompletionObservation } from "../completion/protocol.ts";
+import { mutateQueue, planQueueMutation } from "./mutations.ts";
 import { predecessorPolicyIdentity } from "./policy.ts";
 
 export interface ObservedSourceGrant {
@@ -85,7 +86,11 @@ export async function observeSourceAuthority(
     standing.kind === "conversation-required" &&
     standing.blockingReason !== undefined
   ) return reading;
-  const sourceKind = explicit
+  const retainedConversation = previous?.source.source === "conversation" &&
+    previous.state.kind === "granted" &&
+    previous.composition_procedure === subject.composition_procedure &&
+    previous.sources.some((entry) => sameSource(entry, source));
+  const sourceKind = explicit || retainedConversation
     ? "conversation"
     : standing.kind === "authorized"
     ? standing.consent.source
@@ -136,12 +141,23 @@ export async function observeSourceGrant(
   return (await observeSourceAuthority(...args))?.grant;
 }
 
-/** An active invocation records only authority already verified from its original source. */
-export async function synchronizeQueueAuthorities(
+/** Observe authority without enrolling incidental standing grants or writing consent. */
+async function queueAuthorityPlan(
   root: string,
   trunk: string,
   conversation?: SourceRevision,
-): Promise<void> {
+  requested?: string,
+): Promise<{
+  observation: CompletionObservation;
+  queue: Awaited<ReturnType<typeof requireQueue>>;
+  revoked: string[];
+  observed: {
+    grant: ObservedSourceGrant;
+    authority: SourceAuthority;
+    id: string;
+    existing: boolean;
+  }[];
+}> {
   const observation = await observeQueue(root, trunk);
   const records = observedRecords(observation);
   const revoked: string[] = [];
@@ -177,6 +193,12 @@ export async function synchronizeQueueAuthorities(
       previous?.kind === "authority" ? previous.data : undefined,
       conversation,
     );
+    if (
+      entry.revoked_grant !== undefined &&
+      !(conversation !== undefined && sameSource(conversation, entry.source)) &&
+      (grant?.consent.source !== "effort-grant" ||
+        grant.consent.record_id === entry.revoked_grant)
+    ) continue;
     if (grant === undefined) {
       if (entry.authority_id !== null) revoked.push(entry.source.effort_id);
       continue;
@@ -184,6 +206,11 @@ export async function synchronizeQueueAuthorities(
     if (
       candidate?.kind === "candidate" &&
       candidate.data.composition.procedure !== grant.procedure
+    ) continue;
+    if (
+      grant.consent.source === "standing-grant" &&
+      entry.authority_id === null &&
+      entry.source.effort_id !== requested
     ) continue;
     const currentRecords = records.map((record) =>
       record.kind === "queue"
@@ -228,6 +255,99 @@ export async function synchronizeQueueAuthorities(
     }
     observed.push({ grant, authority, id, existing });
   }
+  return {
+    observation,
+    queue,
+    revoked,
+    observed: observed.sort((a, b) =>
+      a.grant.approved_at - b.grant.approved_at
+    ),
+  };
+}
+
+/** Preview the same authority mutations that an active invocation publishes. */
+export async function previewQueueAuthorities(
+  root: string,
+  trunk: string,
+  conversation?: SourceRevision,
+  requested?: string,
+): Promise<CompletionObservation> {
+  const observation = await observeQueue(root, trunk);
+  if (!observedRecords(observation).some((record) => record.kind === "queue")) {
+    return observation;
+  }
+  const plan = await queueAuthorityPlan(root, trunk, conversation, requested);
+  const records = observedRecords(plan.observation);
+  let queue = plan.queue.record.data;
+  const apply = (mutation: Parameters<typeof planQueueMutation>[3]): void => {
+    const next = planQueueMutation(
+      queue,
+      records,
+      plan.observation.trunk,
+      mutation,
+    );
+    if (next.kind === "changed") queue = next.queue;
+  };
+  if (queue.trunk !== plan.observation.trunk) apply({ kind: "trunk-moved" });
+  for (const effort of plan.revoked) {
+    apply({ kind: "authority-revoked", effort });
+  }
+  for (const item of plan.observed) {
+    if (!item.existing) {
+      records.push({
+        kind: "authority",
+        version: ON_DISK_FORMATS.completionRecord.version,
+        id: item.id,
+        revision: 1,
+        data: item.authority,
+      });
+    }
+    apply({
+      kind: "approve",
+      batch: item.grant.consent.record_id,
+      approvals: new Map([[item.grant.source.effort_id, item.id]]),
+    });
+  }
+  return {
+    ...plan.observation,
+    records: [
+      ...plan.observation.records.map((item) =>
+        item.reading.kind === "recorded" && item.reading.record.kind === "queue"
+          ? {
+            ...item,
+            reading: {
+              ...item.reading,
+              record: { ...item.reading.record, data: queue },
+            },
+          }
+          : item
+      ),
+      ...records.filter((record) =>
+        !plan.observation.records.some((item) =>
+          item.selector.kind === record.kind && item.selector.id === record.id
+        )
+      )
+        .map((record) => ({
+          selector: { kind: record.kind, id: record.id },
+          reading: { kind: "recorded" as const, record, stamp: "preview" },
+        })),
+    ],
+  };
+}
+
+/** Publish only authority already verified for exact sources, under optimistic exclusion. */
+export async function synchronizeQueueAuthorities(
+  root: string,
+  trunk: string,
+  conversation?: SourceRevision,
+  requested?: string,
+): Promise<void> {
+  const { observation, queue, revoked, observed } = await queueAuthorityPlan(
+    root,
+    trunk,
+    conversation,
+    requested,
+  );
   await withQueueLock(root, async () => {
     if (
       (await requireQueue(root)).stamp !== queue.stamp ||

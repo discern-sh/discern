@@ -432,7 +432,7 @@
   },
   "local_formats": {
     "completion-record": {
-      "version": 4,
+      "version": 5,
       "version_field": "version",
       "newer_version_policy": "refuse",
       "location": {

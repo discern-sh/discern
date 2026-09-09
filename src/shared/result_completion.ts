@@ -519,6 +519,32 @@ function requiredFailure(
     }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
+      const control = record(data?.queue_control);
+      if (control !== undefined) {
+        return control.state === "applied" &&
+            nonBlank(control.expected_state) !== undefined
+          ? undefined
+          : failed(
+            "precondition_failed",
+            "The requested queue decision has not been applied; review its current plan.",
+          );
+      }
+      const integration = record(data?.external_integration);
+      if (integration !== undefined) {
+        return integration.state === "observed" &&
+            integration.governed_landing_receipt === null &&
+            nonBlank(integration.candidate_id) !== undefined &&
+            nonBlank(integration.proof_id) !== undefined &&
+            nonBlank(integration.target) !== undefined &&
+            nonBlank(integration.observed_trunk) !== undefined &&
+            (integration.retirement === "retired" ||
+              integration.retirement === "retained")
+          ? undefined
+          : failed(
+            "incomplete",
+            "External integration reconciliation or retirement recovery remains incomplete.",
+          );
+      }
       const emergency = record(data?.emergency);
       if (emergency !== undefined) {
         return emergencyCompletionFailure(data ?? {}, emergency);

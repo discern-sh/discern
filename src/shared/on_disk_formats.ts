@@ -51,14 +51,14 @@ export const ON_DISK_FORMATS = {
   completionRecord: {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
-    version: 4,
-    historicalVersions: [2, 3],
+    version: 5,
+    historicalVersions: [2, 3, 4],
     referenceHistorySince: 4,
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
       sha256:
-        "72badab83a385f18460fd473d45a7c95ec93f505d94cec1e1cdecf1677d9e5ec",
+        "d5286cfcdbeaea110ca72c86b2017e02e8b505b0f22e19b0174fcee9af3d4518",
     },
     versionField: "version",
     reader: "src/engine/completion/store.ts#readCompletionRecord",

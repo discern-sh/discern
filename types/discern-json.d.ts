@@ -8496,6 +8496,32 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    continuation?: string;
+    external_integration?: {
+      integration_id?: string;
+      retirement_id?: string;
+      retirement_reason?: string;
+      reservations?: Array<string>;
+      effort: string;
+      candidate_id: string;
+      source_head: string;
+      proof_id: string;
+      target: string;
+      observed_trunk: string;
+      expected_state: string;
+      governed_landing_receipt: null;
+      state: "planned" | "observed";
+      retirement: "pending" | "retained" | "retired" | "recovery";
+    };
+    queue_control?: {
+      action: "hold" | "resume" | "withdraw" | "revoke" | "reprioritize";
+      target: string | null;
+      expected_state: string;
+      before_order: Array<string>;
+      after_order: Array<string>;
+      affected_efforts: Array<string>;
+      state: "planned" | "applied";
+    };
     storage_cleanup?: {
       state: "planned";
       planned_files: number;
@@ -8886,6 +8912,8 @@ export type DiscernAcceptResult = DiscernResultState & {
       };
       authority_id?: string | null;
       authority_settlement?: "pending" | "consumed" | "restored";
+      planned_action?: "ready" | "compose" | "validate" | "blocked";
+      planned_producers?: Array<string>;
       retirement: "retained" | "retired" | "recovery";
       retirement_reason?: string;
       convergence?: "pending" | "passed" | "failed";

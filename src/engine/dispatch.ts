@@ -1,3 +1,4 @@
+import { QueueControlSchema } from "../shared/queue_control.ts";
 import { EXECUTION_RECOVERY_DESCRIPTION } from "../shared/execution_recovery.ts";
 import { emergencyArguments } from "./emergency/arguments.ts";
 /**
@@ -253,7 +254,7 @@ export function attachEngineCommands(
       EXECUTION_RECOVERY_DESCRIPTION,
     )
     .description(
-      "Run finishing steps that may change files, then verify the gate — the project's " +
+      "Require a clean, committed tree, then run finishing steps and verify the gate — the project's " +
         "full quality check: format, lint, type-check, and tests.",
     )
     .option(
@@ -274,7 +275,7 @@ export function attachEngineCommands(
     )
     .option(
       "--standalone",
-      "Run complete standalone feedback without queue admission or Proof.",
+      "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
     )
     .option(
       "--context <name:string>",
@@ -947,12 +948,29 @@ export function attachEngineCommands(
     .description(
       `Accept and land this worktree's finished branch on the trunk${trunkName}, ` +
         "the shared landing branch. Tracked refresh artifacts must already be " +
-        "current. After landing, materialize checkout-local Agent artifacts, then " +
-        "remove the worktree and merged branch. Use accept emergency --reason <text> " +
+        "current. Eligible cleanup removes released checkouts after landing. " +
+        "Use `hold`, `resume`, `withdraw`, `revoke`, or `reprioritize` with --dry-run to review a queue decision; apply with --confirmed and its --expected token. Use accept emergency --reason <text> " +
         "to review an explicit exception against actual trunk. Emergency integration requires " +
         "fresh exact owner confirmation and issues no passing Proof.",
     )
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
+    .option(
+      "--reconcile",
+      "Reconcile an externally integrated exact proven source and eligible retirement. Requires --target and the --expected token from its preview; never advances refs or records historical landing consent.",
+    )
+    .option(
+      "--expected <stamp:string>",
+      "For queue controls or --reconcile: the `expected_state` token returned by its preview.",
+    )
+    .option(
+      "--order <effort:string>",
+      "For `reprioritize`: every eligible effort in the desired order (repeatable).",
+      { collect: true },
+    )
+    .option(
+      "--target <effort:string>",
+      "Select the effort by id, path, branch, or full local ref. Confirmation covers only this source; required predecessors need separate authority.",
+    )
     .option(
       "--reclaim <retirement-id:string>",
       "Retry bounded artifact cleanup for one settled retirement from the main checkout, without validation or landing.",
@@ -1008,12 +1026,21 @@ export function attachEngineCommands(
       { collect: true },
     )
     .action(recordedExit("accept", async (o, action: string | undefined) => {
-      const parsed = emergencyArguments(action, o);
+      const control = QueueControlSchema.safeParse(action);
+      const parsed = emergencyArguments(
+        control.success ? undefined : action,
+        o,
+      );
       if (parsed.kind === "refusal") throw new CliRefusal(parsed.result);
       const json = jsonFrom(o);
       return await runWorktreeOp(
         (ctx, lc) =>
           lc.accept(ctx, {
+            ...(o.reconcile === undefined ? {} : { reconcile: o.reconcile }),
+            ...(control.success ? { control: control.data } : {}),
+            ...(o.order === undefined ? {} : { order: o.order }),
+            ...(o.expected === undefined ? {} : { expected: o.expected }),
+            ...(o.target === undefined ? {} : { target: o.target }),
             ...(o.reclaim === undefined ? {} : { reclaim: o.reclaim }),
             ...parsed.value,
             json,

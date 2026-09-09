@@ -311,7 +311,9 @@ export async function withPublicCompletion<T>(
       throw new Error("Candidate predecessor ancestry is unavailable.");
     }
     const temporary = !contained.success || candidate.head !== source.head;
-    const declaration = temporary ? config.execution[options.context] : null;
+    const declaration = temporary || options.released !== undefined
+      ? config.execution[options.context] ?? (temporary ? undefined : null)
+      : null;
     if (declaration === undefined) {
       return {
         kind: "environment-unavailable",

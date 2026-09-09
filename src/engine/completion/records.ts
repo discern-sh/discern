@@ -8,7 +8,12 @@ import {
   CandidateProofSchema,
   EvidenceSchema,
 } from "./evidence.ts";
-import { RecordIdSchema } from "./identity.ts";
+import {
+  InstantSchema,
+  ObjectIdSchema,
+  RecordIdSchema,
+  SourceRevisionSchema,
+} from "./identity.ts";
 import { LandingSchema, QueueSchema, RetirementSchema } from "./outcomes.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 
@@ -98,6 +103,22 @@ export const COMPLETION_FAMILIES = {
       ...header,
       kind: z.literal("landing"),
       data: LandingSchema,
+    }),
+  },
+  integration: {
+    lifetime: "immutable",
+    schema: z.strictObject({
+      ...header,
+      kind: z.literal("integration"),
+      data: z.strictObject({
+        source: SourceRevisionSchema,
+        candidate_id: RecordIdSchema,
+        attempt_id: RecordIdSchema,
+        proof_id: RecordIdSchema,
+        target: ObjectIdSchema,
+        observed_trunk: ObjectIdSchema,
+        observed_at: InstantSchema,
+      }),
     }),
   },
   retirement: {

@@ -1,3 +1,6 @@
+import { reconcileIntegrationResult } from "../landing_queue/public_reconcile.ts";
+import { queueControlResult } from "../landing_queue/public_controls.ts";
+import type { QueueControl } from "../../shared/queue_control.ts";
 import { type EmergencyOptions, emergencyResult } from "../emergency/action.ts";
 import type { FinishResultSurface } from "../gate/finish.ts";
 import type { LandingConvergenceResult } from "../landing_queue/convergence.ts";
@@ -66,6 +69,7 @@ import { DROP_RECOVERY_REF_PREFIX } from "../../shared/git_conventions.ts";
 import { isKnownGitCount, parseGitCount } from "../../shared/git_count.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
+  appendHintTexts,
   fire,
   type FiredHint,
   hasRegisteredActionableHint,
@@ -351,6 +355,11 @@ export interface WorktreeSetupOptions extends WorktreeOpOptions {
  * `variance` names each declared-unmet checkpoint the owner authorizes landing
  * (repeatable); the set must equal the current declared-unmet set exactly. */
 export interface AcceptOpOptions extends WorktreeOpOptions {
+  target?: string;
+  reconcile?: boolean;
+  control?: QueueControl;
+  order?: string[];
+  expected?: string;
   reclaim?: string;
   emergency?: EmergencyOptions;
   confirmed?: boolean;
@@ -1972,6 +1981,11 @@ export async function accept(
   opts: AcceptOpOptions,
 ): Promise<void> {
   const result = await acceptResult(ctx, {
+    ...(opts.reconcile === undefined ? {} : { reconcile: opts.reconcile }),
+    ...(opts.control === undefined ? {} : { control: opts.control }),
+    ...(opts.order === undefined ? {} : { order: opts.order }),
+    ...(opts.expected === undefined ? {} : { expected: opts.expected }),
+    ...(opts.target === undefined ? {} : { target: opts.target }),
     ...(opts.reclaim === undefined ? {} : { reclaim: opts.reclaim }),
     ...(opts.emergency === undefined ? {} : { emergency: opts.emergency }),
     dryRun: opts.dryRun ?? false,
@@ -2007,7 +2021,28 @@ export async function accept(
  */
 export async function acceptResult(
   ctx: LifecycleContext,
+  opts: Parameters<typeof acceptImplementation>[1],
+): Promise<DiscernResult<AcceptData>> {
+  const result = await acceptImplementation(ctx, opts);
+  if (result.ok || hasRegisteredActionableHint(result.hints)) return result;
+  return {
+    ...result,
+    hints: appendHintTexts(result.hints, [fire(HINTS["completion-pending"], {
+      action: result.message ??
+        "Run discern status from the selected effort and follow its recovery action before retrying acceptance.",
+    })]),
+  };
+}
+
+/** Route one acceptance operation without broadening its authority or effect scope. */
+async function acceptImplementation(
+  ctx: LifecycleContext,
   opts: {
+    target?: string;
+    reconcile?: boolean;
+    control?: QueueControl;
+    order?: string[];
+    expected?: string;
     reclaim?: string;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;
@@ -2020,6 +2055,39 @@ export async function acceptResult(
   },
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (opts.reconcile) {
+    if (
+      opts.control !== undefined || opts.emergency !== undefined ||
+      opts.reclaim !== undefined || opts.confirmed ||
+      (opts.variance?.length ?? 0) > 0 ||
+      (opts.approveStandard?.length ?? 0) > 0
+    ) {
+      return {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message:
+          "Reconciliation observes existing integration and cannot be combined with new landing or queue decisions.",
+      };
+    }
+    return await reconcileIntegrationResult(ctx, opts);
+  }
+  if (opts.control !== undefined) {
+    if (
+      opts.emergency !== undefined || opts.reclaim !== undefined ||
+      (opts.variance?.length ?? 0) > 0 ||
+      (opts.approveStandard?.length ?? 0) > 0
+    ) {
+      return {
+        ok: false,
+        verb: "accept",
+        error: "invalid_arguments",
+        message:
+          "Run queue controls separately from landing, emergency, and cleanup decisions.",
+      };
+    }
+    return await queueControlResult(ctx, { ...opts, control: opts.control });
+  }
   if (opts.reclaim !== undefined) {
     if (
       opts.emergency !== undefined || opts.confirmed ||
@@ -2197,6 +2265,7 @@ async function recoverAcceptanceJournalResult(
 ): Promise<DiscernResult<AcceptData>> {
   const trunk = integrationBranch(ctx.config.repository.trunk);
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+
   const authority = await inspectLandingAuthority(ctx.cwd, trunk);
   let effectRoot: string | undefined;
   let effectConsent: LandingConsent | undefined;

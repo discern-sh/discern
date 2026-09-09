@@ -1,3 +1,5 @@
+import { quoteCommandWord } from "../../shared/command_evidence.ts";
+import { appendHintTexts, fire, HINTS } from "../../shared/hints.ts";
 /** An active accept actor advances one audited, separately authorized prefix at a time. */
 import { loadModule } from "../../shared/module_loading.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
@@ -31,6 +33,7 @@ import {
   mainRepoPath,
   worktreePathForBranch,
 } from "../worktree/git.ts";
+import { resolveWorktreeTarget } from "../worktree/target_resolution.ts";
 import { resolveIdentity } from "../worktree/identity.ts";
 import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import {
@@ -47,13 +50,16 @@ import {
   type CandidateDecisionRequest,
   type PublicCandidateAssessment,
 } from "./public_assessment.ts";
-import { synchronizeQueueAuthorities } from "./public_authority.ts";
+import {
+  previewQueueAuthorities,
+  synchronizeQueueAuthorities,
+} from "./public_authority.ts";
 import {
   type AcceptancePending,
   acceptancePending,
   type AcceptancePrefix,
   acceptancePrefix,
-  queueAcceptanceResult,
+  queueAcceptanceResult as formatQueueAcceptanceResult,
 } from "./public_result.ts";
 import {
   type LandingRecord,
@@ -78,6 +84,7 @@ export interface PublicAcceptOptions {
   readonly cliModel: CliModelProvider;
   readonly converge: LandingConverger;
   readonly dryRun?: boolean;
+  readonly target?: string;
   readonly confirmed?: boolean;
   readonly variance?: string[];
   readonly approveStandard?: string[];
@@ -105,7 +112,7 @@ export async function acceptQueueResult(
     .filter((record) => record.kind === "retirement")
     .filter((record) =>
       record.data.outcome.kind === "retired" &&
-      landings.has(record.data.landing_id)
+      record.data.landing_id !== null && landings.has(record.data.landing_id)
     )
     .map((record) => record.id);
   const storage = await reclaimRetirementStorage(
@@ -144,18 +151,87 @@ async function acceptQueueImplementation(
   const root = await Deno.realPath(main);
   const trunk = integrationBranch(ctx.config.repository.trunk);
   const identity = await resolveIdentity(ctx.cwd, ctx.cwd);
-  const sourceEntry = observedRecords(await observeQueue(root, trunk)).find(
-    (record) => record.kind === "queue",
-  )?.data.entries.find((entry) => entry.source.effort_id === identity.id);
+  const initialQueue = observedRecords(await observeQueue(root, trunk)).find((
+    record,
+  ) => record.kind === "queue");
+  let selected = identity.id;
+  if (options.target !== undefined) {
+    const exact = initialQueue?.data.entries.find((entry) =>
+      entry.source.effort_id === options.target
+    );
+    if (exact !== undefined) selected = exact.source.effort_id;
+    else {
+      const target = await resolveWorktreeTarget(root, options.target, {
+        cwd: ctx.cwd,
+        mode: "branch",
+        command: "accept --target",
+      });
+      const entry = initialQueue?.data.entries.find((entry) =>
+        entry.source.effort_id === target.id ||
+        entry.source.branch === target.ref
+      );
+      if (entry === undefined) {
+        return {
+          ok: false,
+          verb: "accept",
+          error: "no_target",
+          message:
+            "The selected effort has no completion candidate. Run discern done on its clean committed source.",
+        };
+      }
+      selected = entry.source.effort_id;
+    }
+  } else if (identity.id === "main") {
+    const active = initialQueue === undefined
+      ? []
+      : orderedEntries(initialQueue.data);
+    if (active.length > 1) {
+      return {
+        ok: false,
+        verb: "accept",
+        error: "no_target",
+        message:
+          "Select the effort to accept with --target <effort-id>. Each predecessor needs its own authority.",
+      };
+    }
+    selected = active[0]?.source.effort_id ?? "main";
+  }
+  const queueAcceptanceResult = async (
+    ...args: Parameters<typeof formatQueueAcceptanceResult>
+  ): Promise<DiscernResult<AcceptData>> => {
+    const result = await formatQueueAcceptanceResult(...args);
+    if (
+      selected === "main" ||
+      !result.data?.queue?.some((row) => row.state !== "landed")
+    ) return result;
+    const continuation = `discern accept --target ${
+      quoteCommandWord(selected)
+    }`;
+    return {
+      ...result,
+      data: { ...result.data, continuation },
+      hints: appendHintTexts(result.hints, [
+        fire(HINTS["completion-pending"], {
+          action:
+            `After resolving the named conditions, continue this selected effort with ${continuation}. Each predecessor still needs its own authority.`,
+        }),
+      ]),
+    };
+  };
+  const sourceEntry = initialQueue?.data.entries.find((entry) =>
+    entry.source.effort_id === selected
+  );
   let source: SourceRevision | undefined;
   if (sourceEntry !== undefined) {
-    const pin = await pinValidatedTree(ctx.cwd);
-    if (pin.clean && pin.head === sourceEntry.source.head) {
-      source = await observeSource(
-        ctx.cwd,
-        identity.id,
-        sourceEntry.source.branch,
-      );
+    const path = await worktreePathForBranch(
+      root,
+      sourceEntry.source.branch.slice("refs/heads/".length),
+    );
+    if (path !== undefined) {
+      const pin = await pinValidatedTree(path);
+      if (pin.clean && pin.head === sourceEntry.source.head) {
+        source = await observeSource(path, selected, sourceEntry.source.branch);
+      }
     }
   }
   const request: CandidateDecisionRequest = {
@@ -209,6 +285,18 @@ async function acceptQueueImplementation(
     executor: actor,
     transition_attempts: attempts,
     assess,
+    ...(options.dryRun
+      ? {
+        preview: true,
+        observation: () =>
+          previewQueueAuthorities(
+            root,
+            trunk,
+            request.confirmed ? source : undefined,
+            source?.effort_id,
+          ),
+      }
+      : {}),
   });
   const runtime: QueueLandingRuntime = {
     root,
@@ -266,9 +354,7 @@ async function acceptQueueImplementation(
         data: { ...missing.data, authority_warnings: [...authority.warnings] },
       };
     }
-    const requested = identity.id === "main"
-      ? orderedEntries(queue.data).at(-1)?.source.effort_id
-      : identity.id;
+    const requested = selected === "main" ? undefined : selected;
 
     // Recovery relies on the durable transition, never on another grant or a fresh validation.
     for (const recorded of observedRecords(observation)) {
@@ -413,10 +499,17 @@ async function acceptQueueImplementation(
           root,
           trunk,
           request.confirmed ? source : undefined,
+          requested,
         );
       }
       observation = await planner.observe();
-      const current = await requireQueue(root);
+      const queue = observedRecords(observation).find((record) =>
+        record.kind === "queue"
+      );
+      if (queue === undefined) {
+        throw new Error("The observed queue is unavailable.");
+      }
+      const current = { record: queue };
       const ordered = orderedEntries(current.record.data);
       const target = current.record.data.entries.find((entry) =>
         entry.source.effort_id === requested
@@ -470,6 +563,26 @@ async function acceptQueueImplementation(
           options.dryRun,
         );
       }
+      if (target.held || target.state === "withdrawn") {
+        return queueAcceptanceResult(
+          root,
+          [
+            ...rows,
+            acceptancePrefix(
+              target,
+              target.candidate_id === null
+                ? undefined
+                : details.get(target.candidate_id),
+            ),
+          ],
+          [{
+            kind: "missing-judgment",
+            subjects: [target.held ? "effort-held" : "effort-withdrawn"],
+          }],
+          finalProof,
+          options.dryRun,
+        );
+      }
       const entry = ordered[0];
       if (entry === undefined) {
         return queueAcceptanceResult(
@@ -497,7 +610,50 @@ async function acceptQueueImplementation(
             ),
           );
         }
-        return queueAcceptanceResult(root, rows, [], undefined, true);
+        const plan = planner.plan(
+          observation,
+          ctx.config.completion,
+          requested,
+        );
+        for (let index = 0; index < rows.length; index++) {
+          const item = rows[index];
+          if (item === undefined) continue;
+          const action = plan.actions.find((action) =>
+            action.kind === "ready"
+              ? action.candidate_id === item.candidate_id
+              : action.kind === "validate"
+              ? action.plan.candidate_id === item.candidate_id
+              : action.kind === "compose" &&
+                action.source.effort_id === item.effort
+          );
+          rows[index] = {
+            ...item,
+            state: action?.kind === "ready" ? "ready" : "pending",
+            planned_action:
+              action?.kind === "ready" || action?.kind === "compose" ||
+                action?.kind === "validate"
+                ? action.kind
+                : "blocked",
+            planned_producers: action?.kind === "validate"
+              ? action.plan.producers.map((producer) => producer.selector)
+              : [],
+          };
+        }
+        const work = plan.actions.find((action) =>
+          action.kind === "compose" || action.kind === "validate"
+        );
+        const pending = plan.blockers.length > 0
+          ? plan.blockers
+          : work === undefined
+          ? []
+          : [{
+            kind: "missing-evidence" as const,
+            requirements:
+              work.kind === "validate" && work.plan.demand.kind === "done"
+                ? work.plan.demand.requirements
+                : [],
+          }];
+        return queueAcceptanceResult(root, rows, pending, undefined, true);
       }
       if (
         entry.invalidation === null &&

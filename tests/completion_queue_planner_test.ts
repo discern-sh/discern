@@ -35,6 +35,7 @@ function fixture(count: number): Parameters<typeof planQueue>[0] {
         index,
       ) => [entry.source.effort_id, queueAuthority(index)]),
     ),
+    new Set(provisional.entries.map((entry) => entry.source.effort_id)),
   );
   assert(approvals.kind === "changed");
   const queue = approvals.queue;

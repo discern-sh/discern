@@ -13,7 +13,7 @@ import {
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { withQueueLock } from "./repository.ts";
 import { checkQueueClaim, type QueueWorkClaim } from "./claims.ts";
-import { expectedPredecessor } from "./model.ts";
+import { approveBatch, expectedPredecessor } from "./model.ts";
 import { gitValue } from "./composition.ts";
 import {
   observedRecords,
@@ -121,16 +121,32 @@ export async function publishAdmission(input: {
       clock,
     );
     if (proof.kind !== "written") return { kind: "replan" };
-    const admitted = await replaceQueue(input.root, current, {
+    let next = {
       ...current.record.data,
       entries: current.record.data.entries.map((entry) =>
         entry.source.effort_id !== input.claim.effort ? entry : {
           ...entry,
-          state: entry.authority_id === null ? "provisional" : "eligible",
+          state: entry.eligible_order === null
+            ? "provisional" as const
+            : "eligible" as const,
           invalidation: null,
         }
       ),
-    }, clock);
+    };
+    if (
+      entry?.authority_id !== null && entry?.authority_id !== undefined &&
+      entry.eligible_order === null && (input.mode ?? "strict") === "strict"
+    ) {
+      const promoted = approveBatch(
+        next,
+        proofId,
+        new Map([[input.claim.effort, entry.authority_id]]),
+        new Set([input.claim.effort]),
+      );
+      if (promoted.kind !== "changed") return promoted;
+      next = promoted.queue;
+    }
+    const admitted = await replaceQueue(input.root, current, next, clock);
     if (admitted.kind !== "written") return { kind: "replan" };
     const attempt = await readCompletionRecord(input.root, {
       kind: "attempt",

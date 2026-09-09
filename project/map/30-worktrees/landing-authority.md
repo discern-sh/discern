@@ -19,13 +19,13 @@ A Proof that contains a standard limit proposal also needs separate owner approv
 
 ## Authority sources
 
-| Source         | Evidence                                                                                               | Lifetime                   |
-| -------------- | ------------------------------------------------------------------------------------------------------ | -------------------------- |
-| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | One call.                  |
-| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.     |
-| Effort grant   | A recorded approval of the exact source and composition procedure at [the desk](the-desk.md).          | That source and procedure. |
+| Source         | Evidence                                                                                               | Lifetime                        |
+| -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| Conversation   | `discern accept --confirmed` attests to acceptance in this conversation.                               | Unchanged source and procedure. |
+| Standing grant | The trunk's `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every covered landing.          |
+| Effort grant   | A recorded approval of the exact source and composition procedure at [the desk](the-desk.md).          | That source and procedure.      |
 
-`--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
+`--confirmed` attests to the owner’s instruction for the selected landing or queue control. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
 Fresh setup's standing-grant example names `docs`, whose seed contains the map and deferred-work ledger. The separate `instructions` seed contains the project brief, instruction sources, authored skills, and materialized skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
 
@@ -46,9 +46,13 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-Each prefix needs its own current authority. A caller's `--confirmed` applies only to that caller's reviewed source; it cannot approve predecessors. An earlier authorized prefix can land before a later entry reports missing authority. The result retains both outcomes.
+Each prefix needs its own current authority. A caller's `--confirmed` applies only to the selected reviewed source; it cannot approve predecessors. An earlier authorized prefix can land before a later entry reports missing authority. The result retains both outcomes.
+
+`accept --target <effort-id>` selects the same effort from its worktree or main. Main requires a target when several efforts are pending. Recorded explicit source consent survives an interrupted call while its source and composition procedure remain unchanged.
 
 `accept --dry-run` reports each predecessor's candidate, preview commands, recorded authority, and pending decisions without applying a claim. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
+
+Standing scope coverage supplies permission when that effort is accepted. Coverage alone does not enroll an unrelated effort ahead of the requested work. [Queue decisions](queue-decisions.md) explains holds, withdrawal, revocation, and ordering.
 
 ## Approve a Standard limit proposal
 

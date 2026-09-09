@@ -45,9 +45,10 @@ export const RESTRICTED_WRITER_MODULES = [
       "src/engine/desk/desk.ts",
       "src/engine/worktree/acceptance_transaction.ts",
       "src/engine/landing_queue/publication.ts",
+      "src/engine/landing_queue/public_controls.ts",
     ],
     authority:
-      "the desk may revoke, acceptance may claim or settle, and lifecycle cleanup may clear a grant",
+      "the desk may revoke, reviewed queue controls may clear the exact revoked marker, acceptance may claim or settle, and lifecycle cleanup may clear a grant",
   },
   {
     id: "acceptance-transaction",

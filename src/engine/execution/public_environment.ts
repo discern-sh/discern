@@ -29,6 +29,7 @@ import {
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
 import { sameSource } from "../landing_queue/model.ts";
+import { readCompatibleCompletionRecord } from "../completion/compatibility.ts";
 
 /** Positive source ownership is required even when this checkout is idle and clean. */
 export async function ownValidationEnvironment(
@@ -177,22 +178,39 @@ export async function releasedValidationEnvironment(
     environmentId: string;
     workspace: ExecutionWorkspace;
     lifetime: ExecutionLifetime;
-  }
+  } | CompletionBlocker
 > {
   root = await Deno.realPath(root);
-  const current = await requireEnvironment(root, released.environment_id);
+  const current = await readCompatibleCompletionRecord(root, {
+    kind: "environment",
+    id: released.environment_id,
+  });
+  if (current.kind !== "recorded") return current;
+  if (current.record.kind !== "environment") {
+    throw new Error("Environment coordinate returned another record family.");
+  }
   const environment = current.record.data;
-  if (
-    current.stamp !== released.expected_stamp || environment.path !== root ||
-    environment.ownership.kind !== "borrowed" ||
-    !sameSource(environment.ownership.source, source) ||
-    environment.release.kind !== "released" ||
-    environment.state.kind !== "idle" ||
+  const changed = [
+    current.stamp !== released.expected_stamp ? "record stamp" : null,
+    environment.path !== root ? "checkout path" : null,
+    environment.ownership.kind !== "borrowed"
+      ? "borrowed ownership"
+      : !sameSource(environment.ownership.source, source)
+      ? "source revision"
+      : null,
+    environment.release.kind !== "released" ? "owner release" : null,
+    environment.state.kind !== "idle" ? "environment state" : null,
     environment.declaration !== await declarationIdentity(declaration)
-  ) {
-    throw new Error(
-      "The exact source environment is no longer released and eligible; observe it again without taking authoring control.",
-    );
+      ? "execution declaration"
+      : null,
+  ].filter((reason) => reason !== null);
+  if (changed.length > 0) {
+    return {
+      kind: "environment-unavailable",
+      reason: `The released source environment changed: ${
+        changed.join(", ")
+      }. Re-observe acceptance before retrying; preserve the source owner's release and any recovery record.`,
+    };
   }
   return {
     environmentId: current.record.id,

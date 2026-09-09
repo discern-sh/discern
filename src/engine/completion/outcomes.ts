@@ -56,6 +56,8 @@ export const QueueSchema = z.strictObject({
       "withdrawn",
       "landed",
     ]),
+    held: z.boolean().optional(),
+    revoked_grant: RecordIdSchema.nullable().optional(),
     invalidation: InvalidationReasonSchema.nullable(),
   })),
 }).refine(
@@ -116,7 +118,8 @@ export type CompletionLanding = z.infer<typeof LandingSchema>;
 
 export const RetirementSchema = z.strictObject({
   effects: RetirementEffectsSchema.optional(),
-  landing_id: RecordIdSchema,
+  landing_id: RecordIdSchema.nullable(),
+  external_integration_id: RecordIdSchema.optional(),
   source: SourceRevisionSchema,
   environment_id: RecordIdSchema,
   release_id: RecordIdSchema.nullable(),
@@ -144,5 +147,10 @@ export const RetirementSchema = z.strictObject({
   (retirement) =>
     retirement.outcome.kind !== "retired" || retirement.release_id !== null,
   "retirement needs a recorded release",
+).refine(
+  (retirement) =>
+    (retirement.landing_id !== null) !==
+      (retirement.external_integration_id !== undefined),
+  "retirement names either a governed landing or an observed external integration",
 );
 export type CompletionRetirement = z.infer<typeof RetirementSchema>;

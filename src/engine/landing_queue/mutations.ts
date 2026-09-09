@@ -8,6 +8,7 @@ import { resolveIdentity } from "../worktree/identity.ts";
 /** Owner/source actions change one queue snapshot and fence only affected attempts. */
 import type { Executor, SourceRevision } from "../completion/identity.ts";
 import type { CompletionBlocker } from "../completion/protocol.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import type { CompletionQueue } from "../completion/outcomes.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { withQueueLock } from "./repository.ts";
@@ -56,8 +57,199 @@ export type QueueMutation =
       | "policy-changed"
       | "judgment-changed";
     readonly effort: string;
+    readonly grant_id?: string | null;
+  }
+  | { readonly kind: "hold" | "resume"; readonly effort: string }
+  | {
+    readonly kind: "integrated";
+    readonly id: string;
+    readonly effort: string;
   }
   | { readonly kind: "trunk-moved" };
+
+/** Plan every queue mutation from the same immutable observation used at publication. */
+export function planQueueMutation(
+  initial: CompletionQueue,
+  records: readonly CompletionRecord[],
+  trunk: string,
+  mutation: QueueMutation,
+): {
+  readonly kind: "changed";
+  readonly queue: CompletionQueue;
+  readonly invalidation: QueueInvalidation | null;
+} | CompletionBlocker {
+  const candidates = new Map(
+    records.filter((record) => record.kind === "candidate").map((
+      record,
+    ) => [record.id, record.data]),
+  );
+  let queue = initial;
+  let invalidation: QueueInvalidation | null = null;
+  const change = mutation;
+  let planned: QueueChange | null = null;
+  switch (change.kind) {
+    case "integrated": {
+      const entry = queue.entries.find((entry) =>
+        entry.source.effort_id === change.effort
+      );
+      const integration = records.find((record) =>
+        record.kind === "integration" && record.id === change.id
+      );
+      if (
+        entry === undefined || integration?.kind !== "integration" ||
+        !sameSource(entry.source, integration.data.source) ||
+        entry.candidate_id !== integration.data.candidate_id
+      ) {
+        return {
+          kind: "missing-judgment",
+          subjects: ["external-integration-subject"],
+        };
+      }
+      invalidation = reconcilePredecessors(
+        {
+          ...queue,
+          entries: queue.entries.map((entry) =>
+            entry.source.effort_id === change.effort
+              ? { ...entry, state: "landed" }
+              : entry
+          ),
+        },
+        candidates,
+        trunk,
+        "external-trunk",
+      );
+      break;
+    }
+    case "hold":
+    case "resume": {
+      const entry = queue.entries.find((entry) =>
+        entry.source.effort_id === change.effort
+      );
+      if (
+        entry === undefined || entry.state === "landed" ||
+        entry.state === "withdrawn"
+      ) return { kind: "missing-judgment", subjects: ["queue-control-target"] };
+      planned = {
+        kind: "changed",
+        queue: {
+          ...queue,
+          entries: queue.entries.map((entry) =>
+            entry.source.effort_id !== change.effort
+              ? entry
+              : { ...entry, held: change.kind === "hold" }
+          ),
+        },
+      };
+      break;
+    }
+    case "select":
+      planned = selectSource(queue, change.source, change.dependencies);
+      break;
+    case "approve": {
+      const missing = queue.entries.filter((entry) => {
+        const id = change.approvals.get(entry.source.effort_id);
+        if (id === undefined) return false;
+        const authority = records.find((record) =>
+          record.kind === "authority" && record.id === id
+        );
+        return authority?.kind !== "authority" ||
+          authority.data.state.kind !== "granted" ||
+          !authority.data.sources.some((source) =>
+            sameSource(source, entry.source)
+          );
+      });
+      if (missing.length > 0) {
+        return {
+          kind: "missing-authority",
+          sources: missing.map((entry) => entry.source),
+        };
+      }
+      const ready = new Set(
+        queue.entries.filter((entry) => {
+          const candidate = entry.candidate_id === null
+            ? undefined
+            : candidates.get(entry.candidate_id);
+          return candidate !== undefined &&
+            sameSource(candidate.source, entry.source) &&
+            records.some((record) =>
+              record.kind === "proof" && record.data.mode === "strict" &&
+              record.data.candidate_id === entry.candidate_id &&
+              record.data.head === candidate.head &&
+              record.data.policy === candidate.policy &&
+              record.data.requirement_set === candidate.requirement_set
+            );
+        }).map((entry) => entry.source.effort_id),
+      );
+      planned = approveBatch(queue, change.batch, change.approvals, ready);
+      break;
+    }
+    case "reprioritize":
+      planned = reprioritize(queue, change.decision);
+      break;
+    case "source-replaced":
+      invalidation = replaceSource(
+        queue,
+        candidates,
+        change.source,
+        change.dependencies,
+      );
+      break;
+    case "withdrawn":
+    case "authority-revoked":
+    case "candidate-failed":
+      invalidation = removeEligibility(
+        queue,
+        candidates,
+        change.effort,
+        change.kind,
+        change.grant_id ?? null,
+      );
+      break;
+    case "policy-changed":
+    case "judgment-changed":
+      invalidation = invalidateDependents(
+        queue,
+        candidates,
+        [change.effort],
+        change.kind,
+      );
+      break;
+    case "trunk-moved": {
+      const landed = records.filter((record) =>
+        record.kind === "landing" && record.data.outcome.kind === "landed"
+      );
+      const entries: CompletionQueue["entries"] = queue.entries.map((entry) =>
+        landed.some((record) =>
+            record.kind === "landing" &&
+            (record.data.candidate_id === entry.candidate_id ||
+              record.data.claim.kind === "exception") &&
+            sameSource(record.data.source, entry.source)
+          )
+          ? { ...entry, state: "landed" }
+          : entry
+      );
+      invalidation = reconcilePredecessors(
+        { ...queue, entries },
+        candidates,
+        trunk,
+        "external-trunk",
+      );
+      break;
+    }
+  }
+  if (planned !== null) {
+    if (planned.kind !== "changed") return planned;
+    queue = planned.queue;
+    invalidation = reconcilePredecessors(
+      queue,
+      candidates,
+      queue.trunk,
+      change.kind === "reprioritize" ? "reprioritized" : "predecessor-changed",
+    );
+  }
+  if (invalidation !== null) queue = invalidation.queue;
+  return { kind: "changed", queue, invalidation };
+}
 
 /** All effects are record IO. Cancellation retains the environment's required recovery. */
 export async function mutateQueue(input: {
@@ -97,107 +289,22 @@ export async function mutateQueue(input: {
     const unreadable = completionRecordBlocker(observation);
     if (unreadable !== undefined) return unreadable;
     const records = observedRecords(observation);
+    const planned = planQueueMutation(
+      current.record.data,
+      records,
+      observation.trunk,
+      input.mutation,
+    );
+    if (planned.kind !== "changed") return planned;
+    if (JSON.stringify(planned.queue) === JSON.stringify(current.record.data)) {
+      return { kind: "changed", invalidation: null };
+    }
+    const { queue, invalidation } = planned;
     const candidates = new Map(
       records.filter((record) => record.kind === "candidate").map((
         record,
       ) => [record.id, record.data]),
     );
-    let queue = current.record.data;
-    let invalidation: QueueInvalidation | null = null;
-    const change = input.mutation;
-    let planned: QueueChange | null = null;
-    switch (change.kind) {
-      case "select":
-        planned = selectSource(queue, change.source, change.dependencies);
-        break;
-      case "approve": {
-        const missing = queue.entries.filter((entry) => {
-          const id = change.approvals.get(entry.source.effort_id);
-          if (id === undefined) return false;
-          const authority = records.find((record) =>
-            record.kind === "authority" && record.id === id
-          );
-          return authority?.kind !== "authority" ||
-            authority.data.state.kind !== "granted" ||
-            !authority.data.sources.some((source) =>
-              sameSource(source, entry.source)
-            );
-        });
-        if (missing.length > 0) {
-          return {
-            kind: "missing-authority",
-            sources: missing.map((entry) => entry.source),
-          };
-        }
-        planned = approveBatch(queue, change.batch, change.approvals);
-        break;
-      }
-      case "reprioritize":
-        planned = reprioritize(queue, change.decision);
-        break;
-      case "source-replaced":
-        invalidation = replaceSource(
-          queue,
-          candidates,
-          change.source,
-          change.dependencies,
-        );
-        break;
-      case "withdrawn":
-      case "authority-revoked":
-      case "candidate-failed":
-        invalidation = removeEligibility(
-          queue,
-          candidates,
-          change.effort,
-          change.kind,
-        );
-        break;
-      case "policy-changed":
-      case "judgment-changed":
-        invalidation = invalidateDependents(
-          queue,
-          candidates,
-          [change.effort],
-          change.kind,
-        );
-        break;
-      case "trunk-moved": {
-        const landed = records.filter((record) =>
-          record.kind === "landing" && record.data.outcome.kind === "landed"
-        );
-        const entries: CompletionQueue["entries"] = queue.entries.map((entry) =>
-          landed.some((record) =>
-              record.kind === "landing" &&
-              (record.data.candidate_id === entry.candidate_id ||
-                record.data.claim.kind === "exception") &&
-              sameSource(record.data.source, entry.source)
-            )
-            ? { ...entry, state: "landed" }
-            : entry
-        );
-        invalidation = reconcilePredecessors(
-          { ...queue, entries },
-          candidates,
-          observation.trunk,
-          "external-trunk",
-        );
-        break;
-      }
-    }
-    if (planned !== null) {
-      if (planned.kind !== "changed") return planned;
-      queue = planned.queue;
-      invalidation = reconcilePredecessors(
-        queue,
-        candidates,
-        queue.trunk,
-        change.kind === "reprioritize"
-          ? "reprioritized"
-          : "predecessor-changed",
-      );
-    }
-    if (invalidation !== null) queue = invalidation.queue;
     const affected = new Set(invalidation?.candidate_ids ?? []);
     // Environment attempts own producer truth and return effects. Queue movement
     // revokes admission only; it cannot cancel or fail those immutable subjects.

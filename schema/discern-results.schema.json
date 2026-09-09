@@ -27297,6 +27297,143 @@
             {
               "type": "object",
               "properties": {
+                "continuation": {
+                  "type": "string"
+                },
+                "external_integration": {
+                  "type": "object",
+                  "properties": {
+                    "integration_id": {
+                      "type": "string"
+                    },
+                    "retirement_id": {
+                      "type": "string"
+                    },
+                    "retirement_reason": {
+                      "type": "string"
+                    },
+                    "reservations": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "effort": {
+                      "type": "string"
+                    },
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "source_head": {
+                      "type": "string"
+                    },
+                    "proof_id": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    },
+                    "observed_trunk": {
+                      "type": "string"
+                    },
+                    "expected_state": {
+                      "type": "string"
+                    },
+                    "governed_landing_receipt": {
+                      "type": "null"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "planned",
+                        "observed"
+                      ]
+                    },
+                    "retirement": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "retained",
+                        "retired",
+                        "recovery"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "effort",
+                    "candidate_id",
+                    "source_head",
+                    "proof_id",
+                    "target",
+                    "observed_trunk",
+                    "expected_state",
+                    "governed_landing_receipt",
+                    "state",
+                    "retirement"
+                  ]
+                },
+                "queue_control": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "hold",
+                        "resume",
+                        "withdraw",
+                        "revoke",
+                        "reprioritize"
+                      ]
+                    },
+                    "target": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "expected_state": {
+                      "type": "string"
+                    },
+                    "before_order": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "after_order": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "affected_efforts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "planned",
+                        "applied"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "target",
+                    "expected_state",
+                    "before_order",
+                    "after_order",
+                    "affected_efforts",
+                    "state"
+                  ]
+                },
                 "storage_cleanup": {
                   "oneOf": [
                     {
@@ -28996,6 +29133,21 @@
                           "consumed",
                           "restored"
                         ]
+                      },
+                      "planned_action": {
+                        "type": "string",
+                        "enum": [
+                          "ready",
+                          "compose",
+                          "validate",
+                          "blocked"
+                        ]
+                      },
+                      "planned_producers": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
                       },
                       "retirement": {
                         "type": "string",

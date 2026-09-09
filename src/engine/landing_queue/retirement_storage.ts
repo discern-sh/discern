@@ -7,6 +7,7 @@ import { reclaimExecutionStorage } from "../execution/reclamation.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
+import { sameSource } from "./model.ts";
 
 /** Use only retirements completed by this acceptance, or explicitly selected for retry. */
 export async function reclaimRetirementStorage(
@@ -35,18 +36,26 @@ export async function reclaimRetirementStorage(
       const landing = records.find((record) =>
         record.kind === "landing" && record.id === retirement.data.landing_id
       );
+      const integration = records.find((record) =>
+        record.kind === "integration" &&
+        record.id === retirement.data.external_integration_id &&
+        sameSource(record.data.source, retirement.data.source)
+      );
       const environment = records.find((record) =>
         record.kind === "environment" &&
         record.id === retirement.data.environment_id
       );
       if (
-        landing?.kind !== "landing" || landing.data.outcome.kind !== "landed" ||
-        landing.data.authority_settlement !== "consumed" ||
+        !(landing?.kind === "landing" &&
+            landing.data.outcome.kind === "landed" &&
+            landing.data.authority_settlement === "consumed" &&
+            sameSource(landing.data.source, retirement.data.source) ||
+          integration?.kind === "integration") ||
         environment?.kind !== "environment" ||
         environment.data.state.kind !== "disposed"
       ) {
         throw new Error(
-          `Retirement ${id} lacks settled landing authority or a disposed enrollment; no reclamation is authorized.`,
+          `Retirement ${id} lacks its matching settled integration or a disposed enrollment; no reclamation is authorized.`,
         );
       }
       environments.add(environment.id);

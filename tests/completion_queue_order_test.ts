@@ -15,14 +15,116 @@ import { workCapacity } from "../src/engine/landing_queue/claims.ts";
 import { queueAuthority, queueExample } from "./completion_queue_fixture.ts";
 import { completionId } from "./completion_fixtures.ts";
 import { CompletionPolicySchema } from "../src/shared/config_schema.ts";
+import { InvalidationReasonSchema } from "../src/engine/completion/outcomes.ts";
+
+Deno.test("queue reassesses resolved predecessor reasons without clearing other invalidation", () => {
+  const fixture = queueExample(1);
+  const original = fixture.queue.entries[0];
+  assert(original !== undefined && original.candidate_id !== null);
+  const candidate = fixture.candidates.get(original.candidate_id);
+  assert(candidate !== undefined);
+  for (const reason of InvalidationReasonSchema.options) {
+    const queue = {
+      ...fixture.queue,
+      trunk: candidate.expected_predecessor.head,
+      entries: [{ ...original, invalidation: reason }],
+    };
+    const reconciled = reconcilePredecessors(
+      queue,
+      fixture.candidates,
+      queue.trunk,
+      "predecessor-changed",
+    );
+    const ordering = reason === "predecessor-changed" ||
+      reason === "reprioritized" || reason === "external-trunk";
+    assertEquals(
+      reconciled.queue.entries[0]?.invalidation,
+      ordering ? null : reason,
+      reason,
+    );
+    const changed = {
+      ...queue,
+      entries: [{
+        ...original,
+        invalidation: reason,
+        source: { ...original.source, head: "a".repeat(40) },
+      }],
+    };
+    // Source currency is independently bound; restored order cannot excuse new authored work.
+    const retained = reconcilePredecessors(
+      changed,
+      fixture.candidates,
+      queue.trunk,
+      "predecessor-changed",
+    );
+    assertEquals(retained.queue.entries[0]?.invalidation, reason);
+  }
+});
+
+Deno.test("failed candidates keep authority but leave eligible order until fresh admission", () => {
+  const fixture = queueExample(3);
+  const approvals = new Map(
+    fixture.queue.entries.map((
+      entry,
+      index,
+    ) => [entry.source.effort_id, queueAuthority(index)]),
+  );
+  const ready = new Set(approvals.keys());
+  const approved = approveBatch(
+    fixture.queue,
+    completionId(800),
+    approvals,
+    ready,
+  );
+  assert(approved.kind === "changed");
+  const failed = removeEligibility(
+    approved.queue,
+    fixture.candidates,
+    "effort-0",
+    "candidate-failed",
+  ).queue;
+  assertEquals(failed.entries[0]?.authority_id, queueAuthority(0));
+  assertEquals(failed.entries[0]?.eligible_order, null);
+  assertEquals(orderedEntries(failed).map((entry) => entry.source.effort_id), [
+    "effort-1",
+    "effort-2",
+    "effort-0",
+  ]);
+  const reiterated = approveBatch(failed, completionId(801), approvals, ready);
+  assert(reiterated.kind === "changed");
+  assertEquals(reiterated.queue.entries[0]?.eligible_order, null);
+  const reproven = {
+    ...failed,
+    entries: failed.entries.map((entry) =>
+      entry.source.effort_id === "effort-0"
+        ? { ...entry, state: "provisional" as const, invalidation: null }
+        : entry
+    ),
+  };
+  const reentered = approveBatch(
+    reproven,
+    completionId(802),
+    new Map([["effort-0", queueAuthority(0)]]),
+    ready,
+  );
+  assert(reentered.kind === "changed");
+  assertEquals(
+    orderedEntries(reentered.queue).map((entry) => entry.source.effort_id),
+    ["effort-1", "effort-2", "effort-0"],
+  );
+});
 
 Deno.test("queue Q02/Q03: promotion stays stable across 2–5 efforts and atomic reverse-order batches", () => {
   for (const count of [2, 3, 4, 5, 120]) {
     const fixture = queueExample(count);
+    const ready = new Set(
+      fixture.queue.entries.map((entry) => entry.source.effort_id),
+    );
     const promoted = approveBatch(
       fixture.queue,
       completionId(500),
       new Map([["effort-1", queueAuthority(1)]]),
+      ready,
     );
     assert(promoted.kind === "changed");
     const rest = [...fixture.queue.entries].reverse().filter((entry) =>
@@ -37,6 +139,7 @@ Deno.test("queue Q02/Q03: promotion stays stable across 2–5 efforts and atomic
           i,
         ) => [entry.source.effort_id, queueAuthority(i + 10)]),
       ),
+      ready,
     );
     assert(approved.kind === "changed");
     assertEquals(
@@ -52,6 +155,7 @@ Deno.test("queue Q02/Q03: promotion stays stable across 2–5 efforts and atomic
       approved.queue,
       completionId(502),
       new Map([["effort-1", queueAuthority(1)]]),
+      ready,
     );
     assert(repeated.kind === "changed");
     assertEquals(repeated.queue, approved.queue);
@@ -60,6 +164,7 @@ Deno.test("queue Q02/Q03: promotion stays stable across 2–5 efforts and atomic
 
 Deno.test("queue Q03: real source dependencies require their own approval and precede successors", () => {
   const { queue } = queueExample(3);
+  const ready = new Set(queue.entries.map((entry) => entry.source.effort_id));
   const dependent = {
     ...queue,
     entries: queue.entries.map((entry, i) => ({
@@ -72,6 +177,7 @@ Deno.test("queue Q03: real source dependencies require their own approval and pr
       dependent,
       completionId(500),
       new Map([["effort-1", queueAuthority(1)]]),
+      ready,
     ).kind,
     "missing-authority",
   );
@@ -79,6 +185,7 @@ Deno.test("queue Q03: real source dependencies require their own approval and pr
     dependent,
     completionId(501),
     new Map([["effort-1", queueAuthority(1)], ["effort-0", queueAuthority(0)]]),
+    ready,
   );
   assert(both.kind === "changed");
   assertEquals(

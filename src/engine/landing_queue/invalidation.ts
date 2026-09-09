@@ -14,6 +14,12 @@ export interface QueueInvalidation {
   readonly reason: InvalidationReason;
 }
 
+/** Ordering causes can cease while independent source, policy, or evidence failures remain. */
+function orderingInvalidation(reason: InvalidationReason | null): boolean {
+  return reason === "predecessor-changed" || reason === "reprioritized" ||
+    reason === "external-trunk";
+}
+
 /** Retain candidate links and failed state as evidence until replacement selection. */
 export function invalidateDependents(
   queue: CompletionQueue,
@@ -55,7 +61,11 @@ export function invalidateDependents(
     }
     return {
       ...entry,
-      invalidation: reason,
+      invalidation:
+        orderingInvalidation(reason) && entry.invalidation !== null &&
+          !orderingInvalidation(entry.invalidation)
+          ? entry.invalidation
+          : reason,
       state: entry.state === "active"
         ? entry.authority_id === null
           ? "provisional" as const
@@ -105,6 +115,7 @@ export function replaceSource(
           source,
           dependencies: [...dependencies],
           authority_id: null,
+          revoked_grant: undefined,
           eligible_order: null,
           approval_batch: null,
           state: "provisional",
@@ -120,6 +131,7 @@ export function removeEligibility(
   candidates: ReadonlyMap<string, Candidate>,
   effort: string,
   reason: "withdrawn" | "authority-revoked" | "candidate-failed",
+  revokedGrant: string | null = null,
 ): QueueInvalidation {
   const invalidated = invalidateDependents(queue, candidates, [effort], reason);
   return {
@@ -130,9 +142,19 @@ export function removeEligibility(
         if (
           entry.source.effort_id !== effort || entry.state === "landed"
         ) return entry;
-        if (reason === "candidate-failed") return { ...entry, state: "failed" };
+        if (reason === "candidate-failed") {
+          return {
+            ...entry,
+            state: "failed",
+            eligible_order: null,
+            approval_batch: null,
+          };
+        }
         return {
           ...entry,
+          ...(reason === "authority-revoked"
+            ? { revoked_grant: revokedGrant }
+            : {}),
           authority_id: null,
           eligible_order: null,
           approval_batch: null,
@@ -151,6 +173,25 @@ export function reconcilePredecessors(
   reason: "reprioritized" | "external-trunk" | "predecessor-changed",
 ): QueueInvalidation {
   const next = { ...queue, trunk };
+  next.entries = next.entries.map((entry) => {
+    if (
+      entry.state === "landed" || entry.state === "withdrawn" ||
+      entry.state === "active" || entry.state === "failed" ||
+      entry.candidate_id === null || !orderingInvalidation(entry.invalidation)
+    ) return entry;
+    const candidate = candidates.get(entry.candidate_id);
+    if (
+      candidate === undefined || !sameSource(entry.source, candidate.source)
+    ) return entry;
+    const predecessor =
+      entry.eligible_order === null && candidate.head === candidate.source.head
+        ? { head: trunk, candidate_id: null }
+        : expectedPredecessor(next, entry.source.effort_id, candidates);
+    return !("kind" in predecessor) &&
+        predecessor.head === candidate.expected_predecessor.head
+      ? { ...entry, invalidation: null }
+      : entry;
+  });
   const roots = next.entries.filter((entry) => {
     if (
       entry.state === "landed" || entry.state === "withdrawn" ||

@@ -25,7 +25,7 @@ export function sameSource(
 /** Landed/withdrawn entries retain their old rank, so later approvals never reuse it. */
 export function orderedEntries(queue: CompletionQueue): QueueEntry[] {
   return queue.entries.filter((entry) =>
-    entry.state !== "withdrawn" && entry.state !== "landed"
+    entry.state !== "withdrawn" && entry.state !== "landed" && !entry.held
   ).sort((a, b) => {
     if (a.eligible_order !== null && b.eligible_order !== null) {
       return a.eligible_order - b.eligible_order;
@@ -114,6 +114,7 @@ export function approveBatch(
   queue: CompletionQueue,
   batch: string,
   approvals: ReadonlyMap<string, string>,
+  ready: ReadonlySet<string>,
 ): QueueChange {
   RecordIdSchema.parse(batch);
   for (const id of approvals.values()) RecordIdSchema.parse(id);
@@ -148,7 +149,10 @@ export function approveBatch(
     -1,
     ...queue.entries.map((entry) => entry.eligible_order ?? -1),
   );
-  const pending = members.filter((entry) => entry.eligible_order === null)
+  const pending = members.filter((entry) =>
+    entry.eligible_order === null &&
+    !entry.held && entry.state !== "failed" && ready.has(entry.source.effort_id)
+  )
     .sort((a, b) => a.provisional_order - b.provisional_order);
   while (pending.length > 0) {
     const index = pending.findIndex((entry) =>
@@ -175,12 +179,18 @@ export function approveBatch(
         return {
           ...entry,
           authority_id: authority,
+          revoked_grant: undefined,
+          invalidation: entry.invalidation === "authority-revoked"
+            ? null
+            : entry.invalidation,
           eligible_order: entry.eligible_order ??
-            ranks.get(entry.source.effort_id),
+            ranks.get(entry.source.effort_id) ?? null,
           approval_batch: entry.approval_batch ?? batch,
           state: entry.state === "failed" || entry.state === "active"
             ? entry.state
-            : "eligible",
+            : entry.eligible_order !== null || ranks.has(entry.source.effort_id)
+            ? "eligible"
+            : "provisional",
         };
       }),
     }),

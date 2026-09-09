@@ -1,3 +1,4 @@
+import { QueueControlSchema } from "./queue_control.ts";
 import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { EmergencyDataSchema, EmergencyValidationSchema } from "./emergency.ts";
 import { IgnoredFileChangeSummarySchema } from "./ignored_file_changes.ts";
@@ -1598,12 +1599,41 @@ export const AcceptancePrefixSchema = z.strictObject({
   proof_note: AcceptProofNoteSchema.optional(),
   authority_id: z.string().nullable().optional(),
   authority_settlement: z.enum(["pending", "consumed", "restored"]).optional(),
+  planned_action: z.enum(["ready", "compose", "validate", "blocked"])
+    .optional(),
+  planned_producers: z.array(z.string()).optional(),
   retirement: z.enum(["retained", "retired", "recovery"]),
   retirement_reason: z.string().optional(),
   convergence: z.enum(["pending", "passed", "failed"]).optional(),
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  continuation: z.string().optional(),
+  external_integration: z.strictObject({
+    integration_id: z.string().optional(),
+    retirement_id: z.string().optional(),
+    retirement_reason: z.string().optional(),
+    reservations: z.array(z.string()).optional(),
+    effort: z.string(),
+    candidate_id: z.string(),
+    source_head: z.string(),
+    proof_id: z.string(),
+    target: z.string(),
+    observed_trunk: z.string(),
+    expected_state: z.string(),
+    governed_landing_receipt: z.null(),
+    state: z.enum(["planned", "observed"]),
+    retirement: z.enum(["pending", "retained", "retired", "recovery"]),
+  }).optional(),
+  queue_control: z.strictObject({
+    action: QueueControlSchema,
+    target: z.string().nullable(),
+    expected_state: z.string(),
+    before_order: z.array(z.string()),
+    after_order: z.array(z.string()),
+    affected_efforts: z.array(z.string()),
+    state: z.enum(["planned", "applied"]),
+  }).optional(),
   /** Artifact cleanup does not change landing, retirement, or retained evidence. */
   storage_cleanup: z.discriminatedUnion("state", [
     z.strictObject({

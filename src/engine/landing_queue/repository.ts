@@ -3,6 +3,7 @@ import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import type { CompletionRecord } from "../completion/records.ts";
 import type { CompletionQueue } from "../completion/outcomes.ts";
 import type {
+  CompletionBlocker,
   CompletionObservation,
   EnvironmentPlan,
 } from "../completion/protocol.ts";
@@ -24,6 +25,7 @@ import {
 import { runGit } from "../../shared/subprocess.ts";
 import { withCompletionPublication } from "../operation_lock.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
+import { completionRecordBlocker } from "../completion/compatibility.ts";
 
 /** Fixed UUID selects the singleton within each repository's existing queue family. */
 export const REPOSITORY_QUEUE_ID = "1d9c8f62-8f22-4a25-a307-0f5786378591";
@@ -32,6 +34,20 @@ export type RecordedQueue = {
   readonly record: QueueRecord;
   readonly stamp: string;
 };
+
+/** Public plans consume one compatible observation, including the missing-queue refusal. */
+export function observedQueue(
+  observation: CompletionObservation,
+): RecordedQueue | CompletionBlocker {
+  const blocker = completionRecordBlocker(observation);
+  if (blocker !== undefined) return blocker;
+  const reading = observation.records.find(({ selector }) =>
+    selector.kind === "queue" && selector.id === REPOSITORY_QUEUE_ID
+  )?.reading;
+  return reading?.kind === "recorded" && reading.record.kind === "queue"
+    ? { record: reading.record, stamp: reading.stamp }
+    : { kind: "missing-evidence", requirements: [] };
+}
 
 /** Canonicalize before acquiring locks, matching the completion store's nested boundary. */
 export async function withQueueLock<T>(

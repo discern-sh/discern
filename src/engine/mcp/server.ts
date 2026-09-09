@@ -1,3 +1,7 @@
+import {
+  type QueueControl,
+  QueueControlSchema,
+} from "../../shared/queue_control.ts";
 import { EXECUTION_RECOVERY_DESCRIPTION } from "../../shared/execution_recovery.ts";
 import { emergencyArguments } from "../emergency/arguments.ts";
 import { EMERGENCY_ACCEPT_ACTION } from "../../shared/verbs.ts";
@@ -513,7 +517,7 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: FinishOutputSchema,
     annotations: MUTATING,
     description:
-      "Claim this change is done: run finishing steps, including format, which may " +
+      "Require a clean, committed tree before selecting a candidate or running producers. Use prepare or test while iterating, or standalone for transient diagnostics. Run finishing steps, including format, which may " +
       "rewrite files; then verify lint, type-check, tests, and scope gates. A scope is " +
       "a named region of the repository with its own check. Return the structured result " +
       "with per-step outcomes plus normalized diagnostics " +
@@ -574,7 +578,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Release this exact proven source for validation and eligible cleanup without running a gate or landing, including after trunk moves. Use separately from retention, recovery, validation, policy, and judgment options.",
       ),
       standalone: z.boolean().optional().describe(
-        "Run complete standalone feedback without queue admission or Proof.",
+        "Run complete diagnostic feedback, including on a dirty tree. Results are transient, without queue admission or Proof.",
       ),
       context: z.string().optional().describe(
         "The declared execution context this invocation supplies; defaults to local.",
@@ -1078,9 +1082,22 @@ export const TOOLS: McpTool[] = orderTools([
       "The exception stays durable and outstanding validation stays visible; no passing Proof is issued. " +
       "Use recover with the emergency landing id for interrupted transitions. Neither route pushes or deploys.",
     inputSchema: {
-      action: z.literal(EMERGENCY_ACCEPT_ACTION).optional().describe(
-        "Select emergency only for an explicit exception. Omit for ordinary acceptance. Emergency previews require fresh exact owner approval; no ordinary grant authorizes them.",
+      reconcile: z.boolean().optional().describe(
+        "Reconcile an externally integrated exact proven source and eligible retirement. Set target; preview with dry_run, then pass its expected token. Does not advance refs or invent a historical governed landing receipt. Use separately from new approval.",
       ),
+      expected: z.string().optional().describe(
+        "For queue controls or reconcile, the expected_state token returned by the read-only preview. Changed state requires a new preview.",
+      ),
+      order: z.array(z.string()).optional().describe(
+        "For reprioritize, every eligible effort in the desired order. Source dependencies must remain before their dependents.",
+      ),
+      target: z.string().optional().describe(
+        "Select the effort by id, path, branch, or full local ref. Required when several efforts are pending from main. Confirmation covers only the selected unchanged source; each predecessor needs separate authority. Use the same target for continuation.",
+      ),
+      action: z.enum([EMERGENCY_ACCEPT_ACTION, ...QueueControlSchema.options])
+        .optional().describe(
+          "Use hold, resume, withdraw, revoke, or reprioritize to change the queue: preview with dry_run, then apply the owner-approved decision with confirmed and expected. Omit action for ordinary acceptance. Select emergency only for an explicit exception with fresh exact owner approval; ordinary grants do not cover it.",
+        ),
       reclaim: z.string().optional().describe(
         "Retry bounded artifact cleanup for this settled retirement id from the main checkout. Use separately from landing or emergency approval; no validation, landing, or checkout removal runs.",
       ),
@@ -1106,7 +1123,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Preview the acceptance plan and touch nothing (default false).",
       ),
       confirmed: z.boolean().optional().describe(
-        "Attestation that the owner has accepted this landing in the current " +
+        "Attestation that the owner has approved this landing or selected queue decision in the current " +
           "conversation. Set it only then. Recorded standing and effort grants " +
           "are checked directly; do not assert them through this flag.",
       ),
@@ -1139,12 +1156,21 @@ export const TOOLS: McpTool[] = orderTools([
         : undefined;
     },
     run: (root, args, signal, context) => {
-      const parsed = emergencyArguments(args.action, {
-        ...args,
-        dryRun: args.dry_run === true,
-      });
+      const control = QueueControlSchema.safeParse(args.action);
+      const parsed = emergencyArguments(
+        control.success ? undefined : args.action,
+        {
+          ...args,
+          dryRun: args.dry_run === true,
+        },
+      );
       if (parsed.kind === "refusal") return Promise.resolve(parsed.result);
       return acceptToolResult(root, {
+        ...(args.reconcile === undefined ? {} : { reconcile: args.reconcile }),
+        ...(control.success ? { control: control.data } : {}),
+        ...(args.order === undefined ? {} : { order: args.order }),
+        ...(args.expected === undefined ? {} : { expected: args.expected }),
+        ...(args.target === undefined ? {} : { target: args.target }),
         ...(args.reclaim === undefined ? {} : { reclaim: args.reclaim }),
         ...parsed.value,
         ...(signal === undefined ? {} : { signal }),
@@ -1333,6 +1359,11 @@ function renderMcpHintText(authored: string): string {
 async function acceptToolResult(
   root: string,
   opts: {
+    target?: string;
+    reconcile?: boolean;
+    control?: QueueControl;
+    order?: string[];
+    expected?: string;
     reclaim?: string;
     emergency?: EmergencyOptions;
     signal?: AbortSignal;

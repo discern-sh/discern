@@ -1,5 +1,5 @@
+import { applicableCandidateProof } from "./proof_matching.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import { requirementKey } from "../validation/catalog.ts";
 /** Compose existing machine, source, policy, environment, and judgment evaluators. */
 import type {
   CompletionBlocker,
@@ -9,7 +9,6 @@ import type {
   ValidationDemand,
 } from "../completion/protocol.ts";
 import type { Candidate } from "../completion/candidate.ts";
-import { CandidateProofSchema } from "../completion/evidence.ts";
 import type { CompletionRecord } from "../completion/records.ts";
 import { candidateRef } from "../completion/identity.ts";
 import type { PlannedStandard } from "../gate/standard_plan.ts";
@@ -219,35 +218,14 @@ export async function assessQueueCandidate(input: {
   await input.evaluator.observe(record.id);
   const plan = input.evaluator.plan(input.observation, input.demand, record.id);
   blockers.push(...plan.blockers);
-  const receipts = new Map(
-    plan.reused.map((
-      item,
-    ) => [requirementKey(item.requirement), item.evidence_id]),
+  const proof = applicableCandidateProof(
+    records,
+    record.id,
+    candidate,
+    input.demand.requirements,
+    plan,
+    input.proof_id,
   );
-  const proofs = records.filter((
-    proof,
-  ): proof is Extract<CompletionRecord, { kind: "proof" }> =>
-    proof.kind === "proof" && proof.data.candidate_id === record.id &&
-    (input.proof_id === undefined || proof.id === input.proof_id)
-  );
-  const proof =
-    proofs.find((proof) =>
-      CandidateProofSchema.safeParse(proof.data).success &&
-      proof.data.head === candidate.head &&
-      proof.data.policy === candidate.policy &&
-      proof.data.requirement_set === candidate.requirement_set &&
-      proof.data.mode === "strict" &&
-      JSON.stringify(
-          proof.data.requirements.map(requirementKey).sort(),
-        ) === JSON.stringify(
-          input.demand.requirements.map(requirementKey).sort(),
-        ) &&
-      proof.data.receipts.every((receipt) =>
-        receipts.get(requirementKey(receipt.requirement)) ===
-          receipt.evidence_id
-      ) &&
-      plan.producers.length === 0 && plan.blockers.length === 0
-    ) ?? null;
   const environment = input.environment.plan(input.observation, plan);
   const refresh = "kind" in environment ? null : { plan, environment };
   if (proof === null && refresh === null && "kind" in environment) {

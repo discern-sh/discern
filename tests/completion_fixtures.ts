@@ -239,6 +239,15 @@ export function completionFixtures(): Record<
       authority_settlement: "pending",
       note: "pending",
     }),
+    integration: parse("integration", 30, {
+      source: COMPLETION_SOURCE,
+      candidate_id: completionId(1),
+      attempt_id: completionId(2),
+      proof_id: completionId(4),
+      target: COMPLETION_HEAD,
+      observed_trunk: COMPLETION_HEAD,
+      observed_at: 100,
+    }),
     retirement: parse("retirement", 9, {
       landing_id: completionId(8),
       source: COMPLETION_SOURCE,

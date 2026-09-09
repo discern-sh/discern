@@ -10,7 +10,7 @@ Parallel efforts often prove different branches against the same trunk. Independ
 
 The repository records a durable ordered queue. A green `done` reserves an effort's provisional position. Candidate selection precedes its expensive validation, so admission requires no extra standalone pass.
 
-Authorization establishes a stable eligible order. Unapproved incidental predecessors do not block approved work. An approved effort promoted ahead of them retains its position when they receive approval later. A batch approval preserves provisional order within that batch. Routine scheduling does not reorder an established approved prefix to discard started work. Explicit owner changes, withdrawals, and failures remain observable causes of rebuilding.
+Current complete evidence and an intentional approval or acceptance request establish a stable eligible order. Unapproved incidental predecessors do not block approved work. An approved effort promoted ahead of them retains its position when they receive approval later. A batch approval preserves provisional order within that batch. Routine scheduling does not reorder an established approved prefix to discard started work. Explicit owner changes, withdrawals, and failures remain observable causes of rebuilding.
 
 Queue candidates use internal refs under `refs/discern/candidates/`. Each attempt records its source revisions, expected predecessor, composition procedure, policy, environment, and evidence. A new attempt does not overwrite the identity of an older attempt.
 
@@ -29,6 +29,16 @@ Queue invalidation closes short queue actors while leaving the environment actor
 Eligibility follows readiness; authority follows the owner's decision to land. The original wording let authorization alone fix the eligible order. A standing scope grant therefore enrolled every green docs-only effort ahead of independent work, and a candidate that later failed validation kept its place and stopped everything behind it.
 
 A candidate that fails validation leaves the eligible prefix and keeps its recorded authority. When its source is proven again it re-enters behind work already eligible. Standing scope coverage supplies authority when its effort is accepted or explicitly approved at the desk; it does not by itself place an effort in the eligible order, so a docs-only effort lands when its own accept runs or the owner approves it, never as an incidental predecessor of unrelated work. Actual source dependencies, intentional holds and order, active execution, and already-started authorized progress remain protected. The public hold, withdraw, revoke, and reorder actions apply the same checked mutations.
+
+## Review and reconciliation amendment — 2026-09-09
+
+Queue controls are reviewed mutations of the same queue used by acceptance. A preview binds the expected queue snapshot; apply requires the owner's instruction and compares that snapshot under common exclusion. Holds retain evidence and approval while independent work proceeds. Source dependencies remain mandatory. Revocation prevents ambient grants from silently restoring the withdrawn approval. A new explicit source approval can re-enroll the unchanged source.
+
+Acceptance previews project the same authority mutations and planner decisions as apply, without recording consent or claims. Explicit conversation consent remains bound to the unchanged source and composition procedure across a continuation from main. Narrower checkpoint and standard decisions remain independent.
+
+External integration is observed separately from a governed landing. An immutable integration record names the exact candidate and strict Proof found reachable from the observed trunk. It does not attest to historical permission, consume approval, or advance a ref. Queue reconciliation and checkout retirement use that observation without fabricating a landing receipt. A fresh fork has no proven change distinct from its recorded predecessor and cannot satisfy this observation.
+
+Completion record version 5 adds this immutable family, optional queue decision fields, and a distinct external integration reference for retirement. The reader accepts the reviewed version 2–4 envelopes that omit these optional members and preserves their original byte stamps. Older engines refuse version 5 before interpreting it.
 
 ## Consequences
 

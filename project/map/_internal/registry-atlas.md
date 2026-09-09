@@ -1801,7 +1801,7 @@ Every authored Deno rename outside the atomic replacement capability, identified
   - `src/lib/migrations.ts#rename`
   - `src/shared/self_shim.ts#writeShimAside`
   - `src/shared/write_preflight.ts#probeDirectoryEntry`
-  - `tests/engine_done_json_surfaces_test.ts#Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")`
+  - `tests/engine_done_json_surfaces_test.ts#Deno.test("done --standalone --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("orphan sweep apply keeps a dir that gained work after the scan")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("removeWorktreeSafely refuses a symlink substituted for the registered path")`
   - `tests/engine_worktree_prune_test.ts#Deno.test("worktree prune does not let an orphan env file assert destructive ownership")`

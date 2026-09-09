@@ -247,7 +247,7 @@ export async function observeEmergencySubject(
   );
   if (!exceptions.length) {
     throw new Error(
-      "Every configured machine obligation has current passing evidence. Run discern done and use ordinary acceptance.",
+      "Every configured machine obligation has current passing evidence. Use discern accept --dry-run to inspect ordinary acceptance. If this exact proven source was already integrated externally, use discern accept --reconcile --target <effort-id> --dry-run.",
     );
   }
   return {

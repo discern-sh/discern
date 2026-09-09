@@ -41,3 +41,11 @@ Missing judgment, missing authority, missing or stale evidence, unavailable envi
 The [legacy transaction reader](../../../src/engine/worktree/acceptance_transaction.ts) remains a recovery boundary for an already-recorded older operation. It is not an alternate path for creating new landing authority.
 
 Branch retirement distinguishes changed ownership or current use from an unavailable Git operation. A lock or failed deletion retains a recovery result and its exact diagnostic; it does not claim the branch moved. The recorded checkout-removal fact survives, so a retry finishes only the outstanding branch cleanup.
+
+## Work integrated outside ordinary acceptance
+
+A retained strict Proof and verified ancestry can establish that an exact effort is already integrated while its historical governed acceptance remains unrecorded. Start `accept --reconcile --target <effort-id> --dry-run` from main. Review the returned candidate, Proof, trunk, and retirement state, then repeat with `--expected <expected_state>`.
+
+This action records the observed integration and reconciles only its matching queue entry. It neither moves Git refs nor consumes approval. Retirement uses the same explicit release and ownership checks as ordinary acceptance. A retained checkout stays available; release it with `done --release-checkout`, then repeat reconciliation from main for eligible cleanup. Existing governed transition records instead continue through ordinary `accept --target <effort-id>` recovery.
+
+A new `await --landed` can recognize the exact proven source already reachable from trunk. It does not write the integration observation or manufacture acceptance history. A fresh fork on trunk lacks a proven change distinct from its recorded predecessor and remains unmet.

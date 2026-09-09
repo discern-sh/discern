@@ -205,7 +205,11 @@ export async function queueAcceptanceResult(
   ];
   const convergenceSteps: StepResult[] = [];
   const convergenceDiagnostics: LandingConvergenceResult["diagnostics"] = [];
-  const stopped = rows.at(-1);
+  const stopped = dryRun
+    ? rows.find((row) =>
+      row.planned_action !== undefined && row.planned_action !== "ready"
+    ) ?? rows.at(-1)
+    : rows.at(-1);
   if (
     blockers.length > 0 && stopped !== undefined && stopped.state !== "landed"
   ) {

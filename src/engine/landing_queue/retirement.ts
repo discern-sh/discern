@@ -68,6 +68,10 @@ import { observedRecords, observeQueue } from "./repository.ts";
 import { sameSource } from "./model.ts";
 import type { LandingRecord } from "./publication.ts";
 
+export type IntegratedRecord =
+  | LandingRecord
+  | Extract<CompletionRecord, { kind: "integration" }>;
+
 type RetirementRecord = Extract<CompletionRecord, { kind: "retirement" }>;
 import { RetirementCaptureSchema } from "../execution/artifact_contracts.ts";
 export { RetirementCaptureSchema } from "../execution/artifact_contracts.ts";
@@ -143,12 +147,12 @@ export type RetirementPlan =
 
 /** Read the same retirement decision for execution and public projection. */
 export function planQueueRetirement(
-  landing: LandingRecord,
+  landing: IntegratedRecord,
   records: readonly CompletionRecord[],
 ): RetirementPlan {
   if (
-    landing.data.outcome.kind !== "landed" ||
-    landing.data.authority_settlement !== "consumed"
+    landing.kind === "landing" && (landing.data.outcome.kind !== "landed" ||
+      landing.data.authority_settlement !== "consumed")
   ) {
     return {
       kind: "settled",
@@ -156,7 +160,10 @@ export function planQueueRetirement(
     };
   }
   const prior = records.filter((record): record is RetirementRecord =>
-    record.kind === "retirement" && record.data.landing_id === landing.id
+    record.kind === "retirement" &&
+    (landing.kind === "landing"
+      ? record.data.landing_id === landing.id
+      : record.data.external_integration_id === landing.id)
   );
   const retired = prior.find((record) =>
     record.data.outcome.kind === "retired"
@@ -221,7 +228,7 @@ export function planQueueRetirement(
 /** Retained paths and cleanup recovery never undo landing or acquire another grant. */
 export async function retireQueueLanding(
   runtime: RetirementRuntime,
-  landing: LandingRecord,
+  landing: IntegratedRecord,
 ): Promise<CompletionRetirement["outcome"]> {
   runtime = {
     ...runtime,
@@ -273,6 +280,9 @@ export async function retireQueueLanding(
           declaration,
           { environment_id: environment.id, expected_stamp: current.stamp },
         );
+        if ("kind" in capabilities) {
+          return { kind: "retained", reason: "ownership-uncertain" };
+        }
         const snapshot = await capabilities.workspace.inspect(
           current.record.data,
           declaration,
@@ -351,7 +361,10 @@ export async function retireQueueLanding(
           id,
           revision: 1,
           data: {
-            landing_id: landing.id,
+            landing_id: landing.kind === "landing" ? landing.id : null,
+            ...(landing.kind === "integration"
+              ? { external_integration_id: landing.id }
+              : {}),
             source: landing.data.source,
             environment_id: environment.id,
             release_id: current.record.data.release.id,

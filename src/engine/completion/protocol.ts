@@ -268,6 +268,12 @@ export interface EnvironmentExecutor {
 
 export type QueueAction =
   | {
+    readonly kind: "ready";
+    readonly candidate_id: string;
+    readonly expected_trunk: string;
+    readonly authority_id: string;
+  }
+  | {
     readonly kind: "compose";
     readonly source: SourceRevision;
     readonly predecessor: Candidate["expected_predecessor"];

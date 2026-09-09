@@ -704,3 +704,64 @@ Deno.test("recovered exception prefixes retain their exact claim without ordinar
     true,
   );
 });
+
+Deno.test("queue decisions and external observations require their exact completed outcomes", () => {
+  const control = {
+    action: "hold",
+    target: "effort-a",
+    expected_state: "reviewed",
+    before_order: [],
+    after_order: [],
+    affected_efforts: [],
+    state: "applied",
+  };
+  assertEquals(
+    evaluateResultCompletion({
+      ok: true,
+      verb: "accept",
+      data: { queue_control: control },
+    }).ok,
+    true,
+  );
+  for (const override of [{ state: "planned" }, { expected_state: "" }]) {
+    assertEquals(
+      evaluateResultCompletion({
+        ok: true,
+        verb: "accept",
+        data: { queue_control: { ...control, ...override } },
+      }).ok,
+      false,
+    );
+  }
+  const integration = {
+    state: "observed",
+    governed_landing_receipt: null,
+    candidate_id: "candidate",
+    proof_id: "proof",
+    target: "target",
+    observed_trunk: "trunk",
+    retirement: "retained",
+  };
+  assertEquals(
+    evaluateResultCompletion({
+      ok: true,
+      verb: "accept",
+      data: { external_integration: integration },
+    }).ok,
+    true,
+  );
+  for (
+    const override of [{ state: "planned" }, { proof_id: "" }, {
+      retirement: "recovery",
+    }, { governed_landing_receipt: "fabricated" }]
+  ) {
+    assertEquals(
+      evaluateResultCompletion({
+        ok: true,
+        verb: "accept",
+        data: { external_integration: { ...integration, ...override } },
+      }).ok,
+      false,
+    );
+  }
+});
