@@ -99,15 +99,19 @@ export async function producerFacts(
         ? []
         : [{ producer: producer.label, standards: consuming }];
     });
-    const byCommands = new Map<string, string[]>();
+    const byCommands = new Map<
+      string,
+      { commands: readonly string[]; producers: string[] }
+    >();
     for (const producer of producers) {
       const key = JSON.stringify(producer.commands);
-      byCommands.set(key, [...(byCommands.get(key) ?? []), producer.label]);
+      const group = byCommands.get(key) ??
+        { commands: producer.commands, producers: [] };
+      group.producers.push(producer.label);
+      byCommands.set(key, group);
     }
-    const duplicated = [...byCommands.entries()].flatMap(([key, labels]) =>
-      labels.length > 1
-        ? [{ commands: JSON.parse(key) as string[], producers: labels }]
-        : []
+    const duplicated = [...byCommands.values()].filter((group) =>
+      group.producers.length > 1
     );
     return {
       producers,
