@@ -61,11 +61,11 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`demand-canon`](#demand-canon--demand-canon)                                                                         | `scripts/brand/demand.ts#DEMAND_CANON`                                            | 47      | —                | —                           |
 | [`consequence-canon`](#consequence-canon--consequence-canon)                                                          | `scripts/brand/consequences.ts#CONSEQUENCE_CANON`                                 | 36      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
-| [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 17      | —                | node `setup`                |
+| [`setup-human-moments`](#setup-human-moments--setup-human-moments)                                                    | `src/shared/setup_experience.ts#SETUP_HUMAN_MOMENTS`                              | 18      | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 5       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 22      | —                | —                           |
-| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 4       | —                | node `setup-observability`  |
+| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 195     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
@@ -1730,7 +1730,7 @@ The staged-setup handshake's sub-verb sequence.
 The semantic contracts for setup's first-use explanations, owner decisions, progress relays, completion handoff, landing choice, and activation handoff.
 
 - Source: `src/shared/setup_experience.ts` — `SETUP_HUMAN_MOMENTS`
-- Members: 17
+- Members: 18
   - `first-use-value`
   - `model-selection`
   - `setup-started`
@@ -1744,6 +1744,7 @@ The semantic contracts for setup's first-use explanations, owner decisions, prog
   - `first-green-gate`
   - `subsystem-sanity-check`
   - `worktree-resource-policy`
+  - `coordination-explained`
   - `documentation-claim-gap`
   - `completion-handoff`
   - `landing-choice`
@@ -1818,10 +1819,11 @@ Every authored Deno rename outside the atomic replacement capability, identified
 The machine-checkable predicates behind setup's observable progress. Each mirrors its setup page's completion-check field, so a resumed session derives completed work from the tree.
 
 - Source: `src/shared/setup_checks.ts` — `SETUP_COMPLETION_CHECKS`
-- Members: 4
+- Members: 5
   - `known_jobs`
   - `design_principles`
   - `instructions`
+  - `complete_validation`
   - `primary_subsystem_context`
 - Guards: `tests/engine_setup_pages_test.ts`
 - Glossary: not enrolled — the setup pages describe each progress predicate in reader-facing prose
