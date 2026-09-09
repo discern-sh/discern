@@ -112,7 +112,7 @@ A coding agent can distinguish iteration from completion and return Proof, judgm
 
 ### Prove the exact tree
 
-- **Agent value:** A coding agent can return one durable Proof bound to the precise committed and uncommitted tree the Gate judged, so completion cannot drift away from its evidence.
+- **Agent value:** A coding agent can return one durable Proof bound to the clean committed tree the Gate judged, so completion cannot drift away from its evidence.
 - **Why it follows:** Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.
 - **Boundary:** Proof establishes the configured machine checks and recorded declarations for one tree; it is not release authority and says nothing about later edits.
 - **Direct product basis:** Proof · Durable proof notes · Current green Proof composes; red reruns stay explicit.

@@ -314,13 +314,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "strand-detection",
             title: "Strand detection",
             what:
-              "`discern done` fails any stage that leaves uncommitted changes behind, instead of letting a fixer's rewrites sit in the tree without review. A run that began on a clean, committed tree stops as soon as the fix/build groups strand a file, skipping the checks and tests that can no longer change the verdict; a dirty start still runs every stage for full feedback.",
+              "Ordinary `discern done` starts from a clean committed tree and fails any stage that leaves uncommitted changes behind. If fix/build changes that tree, it stops before checks and tests. Explicit `--standalone` diagnostics can run on dirty paths without reusable Proof.",
             why:
               "What the gate verified and what gets committed are the same tree.",
             plain: {
               title: "Catching changes left behind",
               what:
-                "`discern done` fails any group that changed files but did not save those changes into the project's history, instead of letting a tidying tool's rewrites sit unnoticed. When everything was saved before the check began, the run stops as soon as the early groups leave such a change, skipping the tests that can no longer change the answer; a run started with unsaved edits still runs everything, for complete feedback.",
+                "Ordinary `discern done` starts from work saved in the project's history, with no pending edits. If an early step changes those files, it stops before later tests. Explicit `--standalone` can check unsaved edits but produces no reusable evidence.",
               why:
                 "The exact files the check passed are the files that get saved.",
             },
@@ -519,7 +519,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Reuse a current pass; make a repeated failure explicit",
           what:
-            "Ordinary `discern done` requires all intended edits to be committed first, before running checks. Explicit `--standalone` diagnostics record no reusable Proof. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` runs it again and records that explicit choice. A changed clean commit can be checked, while `--dry-run` only previews.",
+            "Ordinary `discern done` requires the intended work to be saved in the project's history with no pending edits before checks begin. Explicit `--standalone` provides feedback without reusable evidence. On identical work, an ordinary repeat returns the same still-valid passing evidence without running any check again. A recorded failure, or passing history whose evidence is missing or no longer exact, still refuses without touching anything; `discern done --rerun` runs it again and records that explicit choice. Changed work with no pending edits can be checked, while `--dry-run` only previews.",
           why:
             "Another instruction can reuse an answer already proved without paying twice, while repeated failures never turn into passes by themselves.",
         },
@@ -3799,7 +3799,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         id: "prove-the-exact-tree",
         title: "Prove the exact tree",
         value:
-          "A coding agent can return one durable Proof bound to the precise committed and uncommitted tree the Gate judged, so completion cannot drift away from its evidence.",
+          "A coding agent can return one durable Proof bound to the clean committed tree the Gate judged, so completion cannot drift away from its evidence.",
         whyItFollows:
           "Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.",
         boundary:
