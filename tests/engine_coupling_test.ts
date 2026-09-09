@@ -997,6 +997,7 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
         "",
       ].join("\n"),
     );
+    await convergeFixtureGitattributes(dir);
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "config", "--no-gpg-sign");
     for (let i = 0; i < 4; i++) {
@@ -1006,9 +1007,11 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
     const result = await finishResult(dir, {
+      standalone: true,
       surface: { kind: "quiet" },
       cliModel: TEST_CLI_MODEL,
     });
+    assertEquals(result.ok, true, JSON.stringify(result));
     assertLacksHint(result, HINTS["coupling-diff-header"]);
   });
 });
