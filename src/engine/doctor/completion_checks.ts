@@ -42,6 +42,10 @@ import {
   type ExecutionClaimObservation,
   observeExecutionClaim,
 } from "../execution/public_recovery.ts";
+import {
+  declarationProofStates,
+  unprovenDeclarationReason,
+} from "../execution/probe_record.ts";
 
 /** A check before doctor grades it; `status` defaults from `ok` and `warn`. */
 export type DoctorDraftCheck = Omit<Check, "status"> & {
@@ -65,8 +69,25 @@ export async function completionConfigurationChecks(
   config: DiscernConfig,
 ): Promise<DoctorDraftCheck[]> {
   const checks: DoctorDraftCheck[] = [];
-  const capacity = completionCapacityFacts(config);
+  // The proof record lives in Git administration; outside a repository the
+  // facts describe configuration alone.
+  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: destDir,
+  });
+  const proofs = inside.success && inside.stdout.trim() === "true"
+    ? await declarationProofStates(destDir, config)
+    : undefined;
+  const capacity = completionCapacityFacts(
+    config,
+    2,
+    proofs === undefined ? undefined : [...proofs.entries()].filter((
+      [, state],
+    ) => state.state === "proven" || state.state === "not-rehearsed").map((
+      [context],
+    ) => context),
+  );
   const speculationStalled = capacity.speculation.kind === "undeclared" ||
+    capacity.speculation.kind === "unproven" ||
     capacity.speculation.kind === "no-slot";
   checks.push({
     name: "completion capacity",
@@ -77,6 +98,8 @@ export async function completionConfigurationChecks(
         status: "warn" as const,
         fix: capacity.speculation.kind === "undeclared"
           ? "declare `[execution.<context>]` for each required context once the project can prepare and restore a checkout, or set `[completion].lookahead = 0` to make the ordering-only behavior explicit"
+          : capacity.speculation.kind === "unproven"
+          ? "run `discern setup done` from a clean committed tree to prove the declaration as it stands, or set `[completion].lookahead = 0`"
           : "set `[completion].concurrency` to 2 or more, raise the declared environment `capacity`, or set `[completion].lookahead = 0`",
       }
       : {}),
@@ -139,12 +162,38 @@ export async function completionConfigurationChecks(
           `rename the table to a required context, add \`${context}\` to [completion].required_contexts, or remove the declaration`,
       });
     } else {
-      checks.push({
-        name: `execution environment: ${context}`,
-        ok: true,
-        detail:
-          `${summary}; each procedure's leading command resolves. \`discern setup done\` proves the return procedure in a throwaway worktree; a declaration alone is not that proof`,
-      });
+      const proof = proofs?.get(context);
+      if (proof === undefined || proof.state === "proven") {
+        checks.push({
+          name: `execution environment: ${context}`,
+          ok: true,
+          detail: `${summary}; each procedure's leading command resolves. ${
+            proof === undefined
+              ? "`discern setup done` proves the return procedure in a throwaway worktree; a declaration alone is not that proof"
+              : `\`discern setup done\` proved this exact declaration's return after a passing, a failing, and a cancelled validation (source ${
+                proof.proof.source.head.slice(0, 12)
+              })`
+          }`,
+        });
+      } else if (proof.state === "not-rehearsed") {
+        checks.push({
+          name: `execution environment: ${context}`,
+          ok: true,
+          detail:
+            `${summary}; each procedure's leading command resolves. Setup does not rehearse an isolated environment; a separate copy is provided for it outside the setup worktree`,
+        });
+      } else {
+        checks.push({
+          name: `execution environment: ${context}`,
+          ok: true,
+          status: "warn",
+          detail: `${summary}; each procedure's leading command resolves, but ${
+            unprovenDeclarationReason(context, proof)
+          }`,
+          fix:
+            "run `discern setup done` from a clean committed tree; it rehearses the declaration in a throwaway worktree and records the proof, or remove the declaration and set `[completion].lookahead = 0`",
+        });
+      }
     }
   }
 

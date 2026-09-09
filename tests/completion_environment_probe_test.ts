@@ -28,6 +28,11 @@ import { observedRecords } from "../src/engine/landing_queue/repository.ts";
 import { artifactPath } from "../src/engine/execution/artifact_read.ts";
 import { requireEnvironment } from "../src/engine/execution/registry.ts";
 import { recoverCompletionResult } from "../src/engine/execution/public_recovery.ts";
+import {
+  declarationProofState,
+  readEnvironmentProofs,
+} from "../src/engine/execution/probe_record.ts";
+import { declarationIdentity } from "../src/engine/execution/subjects.ts";
 
 /** A project whose build directory holds a committed manifest beside ignored output. */
 async function project(
@@ -149,6 +154,33 @@ Deno.test("S06 the probe proves a declared environment after success, failure, a
       describeEnvironmentProbe(report),
       "returned a throwaway copy to its exact source",
     );
+    // The proof is recorded durably against this exact declaration; a changed
+    // declaration is no longer proven.
+    const proofs = await readEnvironmentProofs(path);
+    assert(proofs.status === "recorded", proofs.status);
+    const declaration = config.execution.local;
+    assert(declaration !== undefined);
+    assertEquals(proofs.proofs.map((proof) => proof.context), ["local"]);
+    assertEquals(
+      proofs.proofs[0]?.declaration,
+      await declarationIdentity(declaration),
+    );
+    assertEquals(proofs.proofs[0]?.source, { branch, head });
+    assertEquals(
+      (await declarationProofState(path, "local", declaration)).state,
+      "proven",
+    );
+    assertEquals(
+      (await declarationProofState(path, "local", {
+        ...declaration,
+        restore: "true",
+      })).state,
+      "changed",
+    );
+    assertEquals(
+      (await declarationProofState(path, "remote", declaration)).state,
+      "unproven",
+    );
   });
 });
 
@@ -255,6 +287,8 @@ Deno.test("S06 a restore that leaves declared ignored output changed fails the p
     // Git-visible state did return; only the declared output did not.
     assertEquals(await gitOut(path, "rev-parse", "HEAD"), head);
     assertEquals(await gitOut(path, "status", "--porcelain"), "");
+    // Nothing is recorded as proven for a declaration that failed.
+    assertEquals((await readEnvironmentProofs(path)).status, "missing");
     // The checkout returned, so the failed probe leaves no enrollment behind.
     assert(outcome.environment_id !== undefined);
     assertEquals(outcome.retained, undefined);

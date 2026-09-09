@@ -88,6 +88,11 @@ import {
   type EnvironmentProbeReport,
   probeExecutionEnvironments,
 } from "../engine/execution/probe.ts";
+import {
+  provenContexts,
+  recordedEnvironmentProbe,
+  unprovenDeclarations,
+} from "../engine/execution/probe_record.ts";
 import type { EnvironmentProbeSummary } from "../shared/environment_probe.ts";
 import {
   type CompletionAssurance,
@@ -2925,6 +2930,7 @@ function inventoryLabel(items: readonly string[]): string {
 /** Derive what the standards read, whose evidence is reused, and how efforts
  * coordinate, from the same authorities doctor reports. */
 async function completionAssurance(
+  root: string,
   cfg: DiscernConfig,
 ): Promise<CompletionAssurance> {
   const producers = await producerFacts(cfg);
@@ -2938,7 +2944,9 @@ async function completionAssurance(
     declared: producers.producers.filter((producer) =>
       producer.closure === "declared"
     ).map((producer) => producer.label),
-    speculation: completionCapacityFacts(cfg).speculation.kind,
+    speculation:
+      completionCapacityFacts(cfg, 2, await provenContexts(root, cfg))
+        .speculation.kind,
   };
 }
 
@@ -2964,7 +2972,7 @@ async function emitSetupDoneSuccess(
   const rawToml = await Deno.readTextFile(path);
   const assurance: SetupAssurance = {
     ...assessSetupAssurance(cfg, rawToml),
-    completion: await completionAssurance(cfg),
+    completion: await completionAssurance(root, cfg),
   };
   const landing = await landingSummary(root, cfg);
   const inventory = await deriveSetupCompletionInventory(root, cfg, assurance);
@@ -3161,13 +3169,20 @@ async function runExistingSetupCompletion(
     });
   }
 
-  if (isCanonicalCompletionProof(proof)) {
+  // A replay may skip the environment probe only while every declared
+  // environment is proved as it currently stands; a declaration added or
+  // changed since setup completed sends the marker through validation again.
+  if (
+    isCanonicalCompletionProof(proof) &&
+    (await unprovenDeclarations(root, cfg)).length === 0
+  ) {
     return await emitSetupDoneSuccess(root, cfg, opts, {
       completion: "replayed",
       leftover: [],
       markerCommit: marker,
       proof,
       worktreeProven: true,
+      environmentProbe: await recordedEnvironmentProbe(root, cfg),
       effectsPerformed: false,
       gateRan: false,
     });

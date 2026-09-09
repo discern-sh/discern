@@ -13,7 +13,12 @@ export interface SharedProducerAssurance {
 }
 
 /** Whether early validation can run, in the derivation's own vocabulary. */
-export type SpeculationState = "off" | "undeclared" | "no-slot" | "available";
+export type SpeculationState =
+  | "off"
+  | "undeclared"
+  | "unproven"
+  | "no-slot"
+  | "available";
 
 export interface CompletionAssurance {
   /** Configured standard names. */
@@ -62,6 +67,8 @@ export function describeCompletionAssurance(
     ? "Efforts validate and land in order; early validation is off."
     : assurance.speculation === "undeclared"
     ? "Efforts validate and land in order; early validation is requested but no environment is declared, so it does not run."
+    : assurance.speculation === "unproven"
+    ? "Efforts validate and land in order; early validation is requested but the declared environment has not been proven as it currently stands, so it does not run."
     : "Efforts validate and land in order; early validation is requested but no validation slot is free beyond the one reserved for the next landing, so it does not run.";
   return [standards, ...(reuse === "" ? [] : [reuse]), coordination];
 }

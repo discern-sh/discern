@@ -65,6 +65,8 @@ import {
   requireEnvironment,
   retireBorrowedEnrollment,
 } from "./registry.ts";
+import { recordEnvironmentProof } from "./probe_record.ts";
+import { declarationIdentity } from "./subjects.ts";
 import { errorReason, type ExecutionLifetime } from "./types.ts";
 
 /** The tracked file the probe's differing candidate adds; never present in source. */
@@ -575,6 +577,16 @@ async function probeContext(
         owner,
         lifetime,
       );
+      // The durable proof binds to this exact declaration, so doctor, the
+      // landing queue, and a later setup replay can all tell whether the
+      // declaration in force is the one that was rehearsed.
+      await recordEnvironmentProof(probeDir, {
+        context,
+        declaration: await declarationIdentity(declaration),
+        proven_at: SYSTEM_CLOCK.wallNow(),
+        source: { branch: source.branch, head: source.head },
+        exercised: [...exercised],
+      });
       return {
         kind: "proven",
         context,

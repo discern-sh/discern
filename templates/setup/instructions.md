@@ -401,7 +401,7 @@ must_do = [
 ]
 authority_boundaries = [
   "Every configured standard is required for completion; sharing a producer, declaring inputs, or scheduling never makes a standard advisory or skips its measurement.",
-  "An environment declaration is the project's evidence that its restore procedure returns a checkout exactly; `discern setup done` proves it in a throwaway copy before completion. Cost-bearing or shared-state execution environments remain owner decisions.",
+  "An environment declaration is the project's evidence that its restore procedure returns a checkout exactly; `discern setup done` proves it in a throwaway copy before completion and records that proof for the declaration as written, so a later change to the declaration must be proved again. Cost-bearing or shared-state execution environments remain owner decisions.",
 ]
 owner_moments = ["coordination-explained"]
 what_not_to_do = [
@@ -422,7 +422,7 @@ next_action = "discern setup step 9"
 
 Ordering needs no declaration: each effort validates its own commit and lands in turn. Early validation lets discern validate the next effort against work that has not landed yet, so it can land the moment its predecessor does. It costs a prepare and restore round trip per candidate, and work is discarded when an earlier effort changes. It needs three things together: `[completion].lookahead` above 0, `[completion].concurrency` of at least 2 so one slot stays free for the effort landing next, and an `[execution.<context>]` declaration for every required context. `discern setup done` proves that declaration in a throwaway copy by installing a different commit, then checking the copy returns to its exact source branch, commit, index, and declared ignored output after a passing, a failing, and a cancelled validation.
 
-`[gate].concurrent_test_runs` is a separate limit: it caps how many test stages share this machine at once and queues the rest. `discern doctor` states the combined effect for two simultaneous `done` runs and names the setting that binds, so quote it rather than deriving the arithmetic yourself.
+`[gate].concurrent_test_runs` is a separate limit: it caps how many test stages share this machine at once and queues the rest. `discern doctor` states the combined effect for two simultaneous `done` runs and names the setting that binds, so quote it rather than deriving the arithmetic yourself. It also says whether each declared environment has been proved as it currently stands; early validation runs only for a proved declaration, and a declaration added or changed after setup stays inert until `discern setup done` proves it.
 
 ---
 

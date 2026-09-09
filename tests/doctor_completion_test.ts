@@ -28,6 +28,9 @@ import {
   writeCompletionRecord,
 } from "../src/engine/completion/store.ts";
 import { ON_DISK_FORMATS } from "../src/shared/on_disk_formats.ts";
+import { recordEnvironmentProof } from "../src/engine/execution/probe_record.ts";
+import { declarationIdentity } from "../src/engine/execution/subjects.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 
 const PROJECT = '[project]\nslug = "doc"\nagents = []\nlogbook = false\n';
 const ENVIRONMENT = (context = "local", prepare = "true"): string => `
@@ -127,6 +130,57 @@ Deno.test("doctor flags an environment declared for an unrequired context and an
     assertEquals(broken.status, "fail");
     assertStringIncludes(broken.detail, "prepare → no-such-tool-for-doctor");
     assertStringIncludes(broken.fix ?? "", "[execution.local]");
+  });
+});
+
+Deno.test("doctor says whether setup proved a declaration as it stands, and routes an unproved one to setup done", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      `${PROJECT}[completion]\nconcurrency = 2\nlookahead = 1\n[jobs]\ntest = "true"\n${ENVIRONMENT()}`,
+    );
+    await Deno.writeTextFile(join(dir, "README.md"), "# fixture\n");
+    await gitInit(dir);
+
+    // Declared, never rehearsed: early validation is requested but not operational.
+    const unproven = await runChecks(dir);
+    const declared = named(unproven, "execution environment: local");
+    assertEquals(declared.status, "warn");
+    assertStringIncludes(declared.detail, "has not been proven");
+    assertStringIncludes(declared.fix ?? "", "discern setup done");
+    const capacity = named(unproven, "completion capacity");
+    assertEquals(capacity.status, "warn");
+    assertStringIncludes(capacity.detail, "has not been proven");
+    assertStringIncludes(capacity.fix ?? "", "discern setup done");
+
+    // The record setup done writes makes both checks green.
+    const declaration = (await loadConfig(dir)).execution.local;
+    assert(declaration !== undefined);
+    await recordEnvironmentProof(dir, {
+      context: "local",
+      declaration: await declarationIdentity(declaration),
+      proven_at: 1,
+      source: { branch: "refs/heads/main", head: "a".repeat(40) },
+      exercised: ["success", "failure", "cancellation"],
+    });
+    const proven = await runChecks(dir);
+    const rehearsed = named(proven, "execution environment: local");
+    assertEquals(rehearsed.status, "ok", rehearsed.detail);
+    assertStringIncludes(rehearsed.detail, "proved this exact declaration");
+    assertEquals(named(proven, "completion capacity").status, "ok");
+
+    // Changing the declaration invalidates the proof; doctor says so.
+    await writeConfig(
+      dir,
+      `${PROJECT}[completion]\nconcurrency = 2\nlookahead = 1\n[jobs]\ntest = "true"\n${
+        ENVIRONMENT("local", "echo prepared")
+      }`,
+    );
+    const changed = named(await runChecks(dir), "execution environment: local");
+    assertEquals(changed.status, "warn");
+    assertStringIncludes(changed.detail, "changed after");
+    assertStringIncludes(changed.fix ?? "", "discern setup done");
   });
 });
 

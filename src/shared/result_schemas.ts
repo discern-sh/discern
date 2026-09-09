@@ -2733,7 +2733,13 @@ export const CompletionAssuranceSchema = z.strictObject({
   })),
   candidate_bound: z.array(z.string()),
   declared: z.array(z.string()),
-  speculation: z.enum(["off", "undeclared", "no-slot", "available"]),
+  speculation: z.enum([
+    "off",
+    "undeclared",
+    "unproven",
+    "no-slot",
+    "available",
+  ]),
 });
 
 export const SetupAssuranceSchema = z.strictObject({

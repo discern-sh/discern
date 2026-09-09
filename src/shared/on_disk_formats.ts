@@ -75,6 +75,15 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/completion/publication_witness.ts"],
     newerVersionPolicy: "refuse",
   },
+  environmentProof: {
+    id: "environment-proof",
+    location: { kind: "git-admin", keys: ["environmentProofs"] },
+    version: 1,
+    versionField: "version",
+    reader: "src/engine/execution/probe_record.ts#readEnvironmentProofs",
+    writers: ["src/engine/execution/probe_record.ts"],
+    newerVersionPolicy: "observe",
+  },
   executionGitSnapshot: {
     id: "execution-git-snapshot",
     location: { kind: "git-admin", keys: ["completionArtifacts"] },

@@ -71,6 +71,7 @@ import {
   releaseExecutionEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
+import { unprovenSpeculationBlocker } from "../execution/probe_record.ts";
 
 export interface ReleasedCompletionExecution {
   readonly source: SourceRevision;
@@ -352,6 +353,11 @@ export async function withPublicCompletion<T>(
       ? finishedValidationAttempts(records)[0]?.id ?? null
       : null;
     const leaseMs = await completionLease(config);
+    // Early validation installs a differing candidate through the declared
+    // environment, so it runs only where setup has proved that declaration.
+    const unproven = declaration === null
+      ? undefined
+      : await unprovenSpeculationBlocker(root, options.context, declaration);
     const claim = await waitForCompletionCapacity({
       signal,
       waiting: (value) =>
@@ -382,6 +388,7 @@ export async function withPublicCompletion<T>(
           lease_ms: leaseMs,
           rerun_of: rerunOf,
           mode: options.mode,
+          ...(unproven === undefined ? {} : { unproven }),
         }),
     });
     if ("kind" in claim) {

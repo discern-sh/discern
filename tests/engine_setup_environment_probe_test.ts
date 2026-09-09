@@ -83,13 +83,19 @@ Deno.test("setup done proves a declared environment in the throwaway worktree, t
           1,
         );
         assertEquals(await gitOut(dir, "status", "--porcelain"), "");
-        // A replay repeats the same facts without running the probe again.
+        // A replay repeats the same facts from the durable record without
+        // running the probe again.
         const replay = await runAgent(dir, ["setup", "done", "--json"]);
         assertEquals(replay.code, 0, replay.output);
         const replayed = decodeCliResult(replay.stdout, "setup done");
         assertResultDataKey(replayed, "bootstrapped");
         assertEquals(replayed.data.completion, "replayed");
-        assertEquals(replayed.data.environment_probe, undefined);
+        assertEquals(replayed.data.environment_probe, {
+          proven: ["local"],
+          undeclared: [],
+          isolated: [],
+        });
+        assertEquals(replayed.data.gate_ran, false);
       },
     );
 

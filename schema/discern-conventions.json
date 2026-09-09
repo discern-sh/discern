@@ -75,6 +75,12 @@
         "kind": "directory",
         "validation": false
       },
+      "environmentProofs": {
+        "path": "discern/completion/environment-proofs.json",
+        "scope": "common",
+        "kind": "file",
+        "validation": false
+      },
       "resources": {
         "path": "discern/resources",
         "scope": "common",
@@ -450,6 +456,17 @@
         "kind": "git-admin",
         "keys": [
           "completionPublication"
+        ]
+      }
+    },
+    "environment-proof": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "observe",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "environmentProofs"
         ]
       }
     },

@@ -1311,6 +1311,7 @@
                                   "enum": [
                                     "off",
                                     "undeclared",
+                                    "unproven",
                                     "no-slot",
                                     "available"
                                   ]
@@ -4122,11 +4123,18 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "isolated": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
                         "proven",
-                        "undeclared"
+                        "undeclared",
+                        "isolated"
                       ]
                     },
                     "marker_committed": {
@@ -4248,6 +4256,7 @@
                               "enum": [
                                 "off",
                                 "undeclared",
+                                "unproven",
                                 "no-slot",
                                 "available"
                               ]
@@ -24641,6 +24650,7 @@
                               "enum": [
                                 "off",
                                 "undeclared",
+                                "unproven",
                                 "no-slot",
                                 "available"
                               ]

@@ -726,7 +726,12 @@ export type DiscernSetupResult = DiscernResultState & {
           }>;
           candidate_bound: Array<string>;
           declared: Array<string>;
-          speculation: "off" | "undeclared" | "no-slot" | "available";
+          speculation:
+            | "off"
+            | "undeclared"
+            | "unproven"
+            | "no-slot"
+            | "available";
         };
       };
     };
@@ -1525,6 +1530,7 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     environment_probe?: {
       proven: Array<string>;
       undeclared: Array<string>;
+      isolated: Array<string>;
     };
     marker_committed: boolean;
     marker_commit_error?: string;
@@ -1551,7 +1557,12 @@ export type DiscernSetupDoneResult = DiscernResultState & {
         }>;
         candidate_bound: Array<string>;
         declared: Array<string>;
-        speculation: "off" | "undeclared" | "no-slot" | "available";
+        speculation:
+          | "off"
+          | "undeclared"
+          | "unproven"
+          | "no-slot"
+          | "available";
       };
     };
     inventory: {
@@ -7642,7 +7653,12 @@ export type DiscernStatusResult = DiscernResultState & {
           }>;
           candidate_bound: Array<string>;
           declared: Array<string>;
-          speculation: "off" | "undeclared" | "no-slot" | "available";
+          speculation:
+            | "off"
+            | "undeclared"
+            | "unproven"
+            | "no-slot"
+            | "available";
         };
       };
     };

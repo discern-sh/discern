@@ -12,12 +12,14 @@
  *    one (`observeClaimCapacity` in the execution registry).
  * `[completion].lookahead` separately bounds how far past the next authorized
  * effort speculation may reach. A positive lookahead does nothing on its own:
- * speculation also needs a declared environment for every required context and
- * a spare non-head slot.
+ * speculation also needs a declared environment for every required context,
+ * proved by `discern setup done` for the declaration as it stands, and a spare
+ * non-head slot.
  *
  * Setup and doctor read these facts so both explain the same combined effect.
- * The derivation describes configuration; observed occupancy, reservations, and
- * recovery come from the completion records at run time.
+ * The derivation describes configuration plus the recorded proofs a caller
+ * supplies; observed occupancy, reservations, and recovery come from the
+ * completion records at run time.
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
@@ -37,6 +39,13 @@ export type SpeculationFacts =
   | {
     /** Positive lookahead with no environment declared for a required context. */
     readonly kind: "undeclared";
+    readonly lookahead: number;
+    readonly contexts: readonly string[];
+  }
+  | {
+    /** Declared for every required context, but a declaration has not been
+     * proved by `discern setup done` as it currently stands. */
+    readonly kind: "unproven";
     readonly lookahead: number;
     readonly contexts: readonly string[];
   }
@@ -80,10 +89,16 @@ export interface CompletionCapacityFacts {
   readonly speculation: SpeculationFacts;
 }
 
-/** Derive the combined effect of the configured limits for `requested` simultaneous runs. */
+/**
+ * Derive the combined effect of the configured limits for `requested`
+ * simultaneous runs. `proven` names the required contexts whose declaration
+ * setup has proved (or that need no rehearsal); omit it to describe the
+ * configuration alone.
+ */
 export function completionCapacityFacts(
   config: DiscernConfig,
   requested = 2,
+  proven?: readonly string[],
 ): CompletionCapacityFacts {
   const { concurrency, lookahead, required_contexts } = config.completion;
   const test_runs = config.gate.concurrent_test_runs;
@@ -115,16 +130,18 @@ export function completionCapacityFacts(
       concurrency,
       required_contexts,
       environments,
+      proven,
     ),
   };
 }
 
-/** Speculation needs lookahead, a declared environment per required context, and a spare non-head slot. */
+/** Speculation needs lookahead, a proved declaration per required context, and a spare non-head slot. */
 function speculationFacts(
   lookahead: number,
   concurrency: number,
   requiredContexts: readonly string[],
   environments: readonly DeclaredEnvironmentCapacity[],
+  proven: readonly string[] | undefined,
 ): SpeculationFacts {
   if (lookahead === 0) return { kind: "off" };
   const declared = new Set(
@@ -149,6 +166,15 @@ function speculationFacts(
     : "execution.capacity";
   const slots = Math.min(queueSlots, environmentSlots);
   if (slots <= 0) return { kind: "no-slot", lookahead, binding };
+  // Configuration permits it; the declaration must also have been rehearsed.
+  if (proven !== undefined) {
+    const unproven = requiredContexts.filter((context) =>
+      !proven.includes(context)
+    );
+    if (unproven.length > 0) {
+      return { kind: "unproven", lookahead, contexts: unproven };
+    }
+  }
   return { kind: "available", depth: lookahead, slots, binding };
 }
 
@@ -195,6 +221,10 @@ function describeSpeculation(facts: CompletionCapacityFacts): string {
       return `\`completion.lookahead = ${speculation.lookahead}\` asks to validate efforts early, but no \`[execution.${
         speculation.contexts.join("]` or `[execution.")
       }]\` declaration says how a checkout is prepared and restored, so early validation is not operational. Efforts still validate and land in order.`;
+    case "unproven":
+      return `\`completion.lookahead = ${speculation.lookahead}\` asks to validate efforts early, but the environment declared for ${
+        speculation.contexts.map((context) => `\`${context}\``).join(", ")
+      } has not been proven by \`discern setup done\` as it currently stands, so early validation is not operational. Efforts still validate and land in order.`;
     case "no-slot":
       return speculation.binding === "completion.concurrency"
         ? `\`completion.lookahead = ${speculation.lookahead}\` asks to validate efforts early, but \`completion.concurrency = ${facts.concurrency}\` leaves no slot beyond the one reserved for the next effort to land. Raise concurrency to 2 or more, or set lookahead to 0.`

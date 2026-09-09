@@ -166,3 +166,38 @@ Deno.test("unequal limits are preserved, never aligned or merged", () => {
   assert(derived.speculation.kind === "available");
   assertEquals(derived.speculation.slots, 2);
 });
+
+Deno.test("a declared environment enables early validation only once setup has proved it", () => {
+  const toml = `[completion]\nconcurrency = 2\nlookahead = 1\n${
+    ENVIRONMENT(1)
+  }`;
+  // Configuration alone: the declaration is in place and a slot is spare.
+  assertEquals(facts(toml).speculation.kind, "available");
+  // With the record consulted, an unproved declaration is not operational.
+  const unproven = completionCapacityFacts(parseConfigOrThrow(toml), 2, []);
+  assertEquals(unproven.speculation, {
+    kind: "unproven",
+    lookahead: 1,
+    contexts: ["local"],
+  });
+  assertStringIncludes(
+    describeCompletionCapacity(unproven).join(" "),
+    "has not been proven by `discern setup done`",
+  );
+  assertEquals(
+    completionCapacityFacts(parseConfigOrThrow(toml), 2, ["local"]).speculation
+      .kind,
+    "available",
+  );
+  // Configuration problems are named first: no slot outranks no proof.
+  assertEquals(
+    completionCapacityFacts(
+      parseConfigOrThrow(
+        `[completion]\nconcurrency = 1\nlookahead = 1\n${ENVIRONMENT(1)}`,
+      ),
+      2,
+      [],
+    ).speculation.kind,
+    "no-slot",
+  );
+});
