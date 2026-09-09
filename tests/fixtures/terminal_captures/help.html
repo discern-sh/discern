@@ -42,9 +42,9 @@ Commands:
                  <span style="opacity:0.68">not run the gate, the project&#39;s full quality check).</span>
     <span style="color:rgb(135 215 255);font-weight:700">prepare    </span>  <span style="opacity:0.68">Fast inner loop: fixers, [generated] regenerations, complete</span>
                  <span style="opacity:0.68">refresh, then read-only checks (no other build jobs, no tests).</span>
-    <span style="color:rgb(135 215 255);font-weight:700">done       </span>  <span style="opacity:0.68">Run finishing steps that may change files, then verify the gate</span>
-                 <span style="opacity:0.68"><span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> the project&#39;s full quality check: format, lint, type-check,</span>
-                 <span style="opacity:0.68">and tests.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">done       </span>  <span style="opacity:0.68">Require a clean, committed tree. Run finishing steps that may</span>
+                 <span style="opacity:0.68">change files, then verify the gate <span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> the project&#39;s full quality</span>
+                 <span style="opacity:0.68">check: format, lint, type-check, and tests.</span>
     <span style="color:rgb(135 215 255);font-weight:700">test       </span>  <span style="opacity:0.68">Run the project&#39;s configured tests on their own, outside the</span>
                  <span style="opacity:0.68">full gate.</span>
     <span style="color:rgb(135 215 255);font-weight:700">queue      </span>  <span style="opacity:0.68">Run a command while holding one configured concurrent test-run</span>
@@ -77,12 +77,13 @@ Commands:
                  <span style="opacity:0.68">-- &lt;command&gt; [args...]`.</span>
     <span style="color:rgb(135 215 255);font-weight:700">accept     </span>  <span style="opacity:0.68">Accept and land this worktree&#39;s finished branch on the trunk</span>
                  <span style="opacity:0.68">(`main`), the shared landing branch. Tracked refresh artifacts</span>
-                 <span style="opacity:0.68">must already be current. After landing, materialize</span>
-                 <span style="opacity:0.68">checkout-local Agent artifacts, then remove the worktree and</span>
-                 <span style="opacity:0.68">merged branch. Use accept emergency --reason &lt;text&gt; to review</span>
-                 <span style="opacity:0.68">an explicit exception against actual trunk. Emergency</span>
-                 <span style="opacity:0.68">integration requires fresh exact owner confirmation and issues</span>
-                 <span style="opacity:0.68">no passing Proof.</span>
+                 <span style="opacity:0.68">must already be current. Eligible cleanup removes released</span>
+                 <span style="opacity:0.68">checkouts after landing. Use `hold`, `resume`, `withdraw`,</span>
+                 <span style="opacity:0.68">`revoke`, or `reprioritize` with --dry-run to review a queue</span>
+                 <span style="opacity:0.68">decision; apply with --confirmed and its --expected token. Use</span>
+                 <span style="opacity:0.68">accept emergency --reason &lt;text&gt; to review an explicit</span>
+                 <span style="opacity:0.68">exception against actual trunk. Emergency integration requires</span>
+                 <span style="opacity:0.68">fresh exact owner confirmation and issues no passing Proof.</span>
     <span style="color:rgb(135 215 255);font-weight:700">worktree   </span>  <span style="opacity:0.68">Manage worktrees <span data-discern-terminal-cell="1" style="display:inline-block;width:1ch;text-align:center;vertical-align:baseline">—</span> separate checkouts and branches for</span>
                  <span style="opacity:0.68">individual changes.</span>
     <span style="color:rgb(135 215 255);font-weight:700">identity   </span>  <span style="opacity:0.68">Print stable values that keep each checkout&#39;s branch,</span>
