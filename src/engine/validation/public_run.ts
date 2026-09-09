@@ -193,6 +193,7 @@ export async function executePublicValidation(input: {
     };
   let hold: TestRunSlotHold | undefined;
   let acquiring: Promise<void> | undefined;
+  let slotUsers = 0;
   const needsSlot = (producer: ProducerDemand): boolean =>
     configured.stages.get(producer.selector) === "test" ||
     producer.consumers.some((consumer) =>
@@ -249,8 +250,41 @@ export async function executePublicValidation(input: {
       },
     });
   let contextArtifact: ComponentEvidence["artifacts"][number] | undefined;
+  const withSlot = async <T>(
+    needed: boolean,
+    claimed: ValidationSubject,
+    run: () => Promise<T>,
+  ): Promise<T> => {
+    if (!needed || slots === undefined) return await run();
+    slotUsers++;
+    try {
+      acquiring ??= (async () => {
+        emitCompletionProgress({
+          phase: "queue",
+          state: "waiting",
+          candidate_id: claimed.candidate_id,
+          reason:
+            "Waiting for test-run capacity; independent checks can continue.",
+        });
+        hold = await slots.acquire(out, claimed.signal);
+      })();
+      await acquiring;
+      claimed.signal.throwIfAborted();
+      return await run();
+    } finally {
+      if (--slotUsers === 0) {
+        hold?.release();
+        hold = undefined;
+        acquiring = undefined;
+      }
+    }
+  };
   const observedRuntime = {
     ...runtime,
+    extract: (
+      ...args: Parameters<typeof runtime.extract>
+    ): ReturnType<typeof runtime.extract> =>
+      withSlot(true, args[2], () => runtime.extract(...args)),
     onCapture: async (
       producer: ProducerDemand,
       capture: import("./execute.ts").ProducerCapture,
@@ -263,29 +297,23 @@ export async function executePublicValidation(input: {
     },
     produce: async (producer: ProducerDemand, claimed: ValidationSubject) => {
       await input.producerBoundary?.before(producer, plan);
-      if (needsSlot(producer) && slots !== undefined) {
-        acquiring ??= (async () => {
-          emitCompletionProgress({
-            phase: "queue",
-            state: "waiting",
-            candidate_id: claimed.candidate_id,
-            reason:
-              "Waiting for test-run capacity; independent checks can continue.",
-          });
-          hold = await slots.acquire(out, claimed.signal);
-        })();
-        await acquiring;
-      }
       claimed.signal.throwIfAborted();
-      counts[producer.selector] = (counts[producer.selector] ?? 0) + 1;
-      input.onProgress?.({ producer: producer.selector, state: "running" });
-      emitCompletionProgress({
-        phase: "producer",
-        state: "running",
-        candidate_id: claimed.candidate_id,
-        reason: `Running ${producer.selector}.`,
-      });
-      const captured = await runtime.produce(producer, claimed);
+      const captured = await withSlot(
+        needsSlot(producer),
+        claimed,
+        () => {
+          claimed.signal.throwIfAborted();
+          counts[producer.selector] = (counts[producer.selector] ?? 0) + 1;
+          input.onProgress?.({ producer: producer.selector, state: "running" });
+          emitCompletionProgress({
+            phase: "producer",
+            state: "running",
+            candidate_id: claimed.candidate_id,
+            reason: `Running ${producer.selector}.`,
+          });
+          return runtime.produce(producer, claimed);
+        },
+      );
       return contextArtifact === undefined ? captured : {
         ...captured,
         artifacts: [...captured.artifacts, contextArtifact],

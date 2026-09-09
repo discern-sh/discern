@@ -1,3 +1,5 @@
+import { quoteCommandWord } from "../src/shared/command_evidence.ts";
+import { withCompletionPublication } from "../src/engine/operation_lock.ts";
 /** Transport cancellation must reach the source engine and settle owned execution. */
 import { assert, assertEquals } from "@std/assert";
 import { z } from "@zod/zod";
@@ -19,17 +21,19 @@ import {
   observedRecords,
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
-import { gitOut } from "./engine_helpers.ts";
+import { gitOut, runAgent } from "./engine_helpers.ts";
 import { readPidsIfReady } from "./process_id.ts";
 
 const StatusToolResultSchema = z.object({
   structuredContent: StatusOutputSchema,
 });
 
-for (const phase of ["producer", "capacity"] as const) {
+for (const phase of ["producer", "capacity", "queued-producer"] as const) {
   Deno.test(`real MCP cancellation during ${phase} preserves source and supports reconnect`, async () => {
     await withTempDir(async (root) => {
       await withTempDir(async (aux) => {
+        const producer =
+          `echo $$ > '${aux}/leader'; tail -f /dev/null & echo $! > '${aux}/descendant'; wait`;
         const path = await project(
           root,
           ["local"],
@@ -37,7 +41,9 @@ for (const phase of ["producer", "capacity"] as const) {
 [gate]
 concurrent_test_runs = 1
 `,
-          `echo $$ > '${aux}/leader'; tail -f /dev/null & echo $! > '${aux}/descendant'; wait`,
+          phase === "queued-producer"
+            ? `discern queue -- sh -c ${quoteCommandWord(producer)}`
+            : producer,
         );
         const before = await gitOut(path, "rev-parse", "HEAD", "HEAD^{tree}");
         let slot: Deno.FsFile | undefined;
@@ -60,7 +66,7 @@ concurrent_test_runs = 1
             peer.finished,
             async () => {
               peer.ensurePending(2);
-              if (phase === "producer") {
+              if (phase !== "capacity") {
                 const ready = await readPidsIfReady([
                   `${aux}/leader`,
                   `${aux}/descendant`,
@@ -78,6 +84,23 @@ concurrent_test_runs = 1
             `MCP completion to reach ${phase}`,
             { allowance },
           );
+          if (phase === "queued-producer") {
+            let publicationEntered = false;
+            await withCompletionPublication(root, () => {
+              publicationEntered = true;
+              return Promise.resolve();
+            });
+            assert(
+              publicationEntered,
+              "expensive validation must not retain the common publication lock",
+            );
+            const competing = await runAgent(path, ["done", "--json"]);
+            assertEquals(competing.code, 1, competing.output);
+            assert(
+              /lock|operation|in use/i.test(competing.output),
+              competing.output,
+            );
+          }
           await peer.send({
             method: "notifications/cancelled",
             params: {
