@@ -464,7 +464,7 @@ run       = "your-linter --count"  # DISCERN_METRIC warnings <count>
 
 ## `[completion]`
 
-How many efforts validate at once, and whether any validate early. Every `discern done` proves one exact commit against every required check and standard. `concurrency` caps how many efforts hold a validation slot at the same time; `lookahead` lets efforts validate before the one ahead of them lands, which needs a declared environment. Efforts land in order by default.
+How many efforts validate at once, and whether any validate early. Every `discern done` proves one exact commit against every required check and standard. `concurrency` caps how many efforts hold a validation slot at the same time; `lookahead` lets an effort validate before its predecessor lands, which needs a declared environment. Efforts land in order by default.
 
 | Key                 | Type     | Default     | Description                                                                                                                                                     |
 | ------------------- | -------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
