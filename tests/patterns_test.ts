@@ -283,6 +283,24 @@ function verb(over: Partial<VerbEvent>): VerbEvent {
   };
 }
 
+/** An observed full completion with explicit wait accounting and a durable invocation. */
+function timedEvents(events: LogbookEvent[]): LogbookEvent[] {
+  return events.map((event, i) =>
+    event.kind !== "verb" ? event : {
+      gate_ran: true,
+      waited_ms: 0,
+      invocation: `duration-${i}`,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+      ...event,
+    }
+  );
+}
+
+/** A known executed timing series for tests that vary its measured conditions. */
+function timedRun(overrides: Partial<VerbEvent>[]): LogbookEvent[] {
+  return timedEvents(run(overrides));
+}
+
 /** A sequence of verb events, one per override, timestamped an hour apart. */
 function run(overrides: Partial<VerbEvent>[]): LogbookEvent[] {
   return overrides.map((over, i) => verb({ at: t(i), ...over }));
@@ -1109,14 +1127,19 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     sparse: [verb({ at: t(0), branch: "agent/only", ...redDone() })],
   },
   "sequence-anomaly": {
-    firing: run([
-      redDone({ branch: "agent/rush" }),
-      { verb: "accept", branch: "agent/rush" },
-    ]),
-    quiet: run([
-      { verb: "done", branch: "agent/calm" },
-      { verb: "accept", branch: "agent/calm" },
-    ]),
+    firing: run(Array.from({ length: 3 }, (_, i) => ({
+      invocation: `repeated-${i}`,
+      gate_ran: true,
+      validation: validation("passed", { mode: "full-gate" }),
+    }))),
+    quiet: run(Array.from({ length: 3 }, (_, i) => ({
+      invocation: `distinct-${i}`,
+      gate_ran: true,
+      validation: validation("passed", {
+        mode: "full-gate",
+        digest: `state-${i}`,
+      }),
+    }))),
     sparse: run([redDone()]),
   },
   "identity-gap": {
@@ -1403,21 +1426,21 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ]),
   },
   "duration-creep": {
-    firing: run(
+    firing: timedRun(
       Array.from({ length: 8 }, (_, i) => ({
         verb: "done",
         duration_ms: i < 4 ? 10_000 : 20_000,
         change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
       })),
     ),
-    quiet: run(
+    quiet: timedRun(
       Array.from({ length: 8 }, () => ({
         verb: "done",
         duration_ms: 10_000,
         change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
       })),
     ),
-    sparse: run(
+    sparse: timedRun(
       Array.from({ length: 4 }, () => ({ verb: "done", duration_ms: 10_000 })),
     ),
   },
@@ -1943,6 +1966,72 @@ function detector(id: string): Detector {
   assert(found !== undefined, `no detector ${id}`);
   return found;
 }
+
+Deno.test("validation ordering requires positive execution evidence, not caller coordinates", () => {
+  const ordering = detector("sequence-anomaly");
+  const cases: Partial<VerbEvent>[][] = [
+    [{ verb: "accept", branch: "main" }, { verb: "accept", branch: "main" }],
+    [{ verb: "accept", outcome: "refused", error: "awaiting_consent" }, {
+      verb: "accept",
+      outcome: "refused",
+      error: "incomplete",
+    }],
+    Array.from({ length: 3 }, () => ({ verb: "done", gate_ran: false })),
+    Array.from({ length: 3 }, () => ({ verb: "done" })),
+    Array.from({ length: 3 }, () => ({
+      verb: "done",
+      gate_ran: true,
+      flags: ["rerun"],
+      validation: validation("passed", { mode: "full-gate" }),
+    })),
+    Array.from({ length: 3 }, (_, i) => ({
+      verb: "done",
+      gate_ran: true,
+      validation: validation("passed", {
+        mode: "full-gate",
+        setup: `setup-${i}`,
+      }),
+    })),
+  ];
+  for (const events of cases) {
+    assertEquals(
+      report(
+        ordering,
+        run(events.map((event, i) => ({
+          invocation: `observed-${i}`,
+          ...event,
+        }))),
+      ).findings,
+      [],
+      JSON.stringify(events),
+    );
+  }
+});
+
+Deno.test("validation ordering finds repeated green executions for an unrelated future job", () => {
+  const events = run(Array.from({ length: 3 }, (_, i) => ({
+    verb: "done",
+    gate_ran: true,
+    invocation: `physical-${i}`,
+    validation: validation("passed", {
+      mode: "full-gate",
+      job: "future-contract-check",
+    }),
+  })));
+  const findings = report(detector("sequence-anomaly"), events).findings;
+  assertEquals(findings.length, 1);
+  assertEquals(findings[0]?.evidence.repeated_executions, 2);
+  assert(findings[0]?.basis !== undefined);
+  const duplicateDelivery = [...events, ...events];
+  assertEquals(
+    report(detector("sequence-anomaly"), duplicateDelivery).findings,
+    findings,
+  );
+  const interrupted = events.flatMap((
+    event,
+  ) => [event, verb({ outcome: "failed" })]);
+  assertEquals(report(detector("sequence-anomaly"), interrupted).findings, []);
+});
 
 interface FindingBasisView {
   kind: string;
@@ -3981,7 +4070,10 @@ Deno.test("patterns attribution: runs under another configuration are excluded a
   ];
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(
     outcome.findings.length,
     1,
@@ -4003,7 +4095,7 @@ Deno.test("duration-creep: a red-to-green mix shift is not creep", () => {
   // Early quick fail-fast reds beside late full green gates — the exact shape a
   // working session produces. Only green runs measure the gate's length, so
   // this must stay quiet; medianing both outcomes would read the mix as creep.
-  const events = run([
+  const events = timedRun([
     ...Array.from({ length: 8 }, () => redDone({ duration_ms: 5_000 })),
     ...Array.from({ length: 8 }, () => ({
       verb: "done",
@@ -4019,7 +4111,7 @@ Deno.test("duration-creep: a red-to-green mix shift is not creep", () => {
     "quick reds followed by full greens must not read as duration creep",
   );
   // The green-only series still fires when the greens themselves slow down.
-  const slowing = run([
+  const slowing = timedRun([
     ...Array.from({ length: 4 }, () => redDone({ duration_ms: 5_000 })),
     ...Array.from({ length: 4 }, () => ({
       verb: "done",
@@ -4039,6 +4131,38 @@ Deno.test("duration-creep: a red-to-green mix shift is not creep", () => {
     "greens slowing on an unchanged setup must still fire",
   );
   assertStringIncludes(fired.findings[0]?.observed ?? "", "green `done`");
+});
+
+Deno.test("duration-creep excludes reused gates, unknown waits, duplicate deliveries, and missing size", () => {
+  const baseline = Array.from({ length: 8 }, (_, i) =>
+    verb({
+      invocation: `timed-${i}`,
+      at: t(i),
+      gate_ran: true,
+      waited_ms: 0,
+      duration_ms: i < 4 ? 10_000 : 20_000,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    }));
+  const creep = detector("duration-creep");
+  const reused = baseline.map((event) => ({ ...event, gate_ran: false }));
+  assertEquals(report(creep, reused).findings, []);
+  const unknownWait = baseline.map((event) => {
+    const copy = { ...event };
+    delete copy.waited_ms;
+    return copy;
+  });
+  assertEquals(report(creep, unknownWait).findings, []);
+  const unknownSize = baseline.map((event) => {
+    const copy = { ...event };
+    delete copy.change;
+    return copy;
+  });
+  assertEquals(report(creep, unknownSize).findings, []);
+  assertEquals(
+    report(creep, [...baseline, ...baseline]).findings,
+    report(creep, baseline).findings,
+  );
+  assert(report(creep, baseline).findings[0]?.basis !== undefined);
 });
 
 Deno.test("patterns attribution: a release boundary is attributed, never blended", () => {
@@ -4063,7 +4187,10 @@ Deno.test("patterns attribution: a release boundary is attributed, never blended
   ];
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(outcome.findings.length, 1);
   const finding = outcome.findings[0];
   assert(finding !== undefined);
@@ -4126,7 +4253,10 @@ Deno.test("patterns attribution: the dominant client's version change bounds the
   ];
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(
     outcome.findings.length,
     1,
@@ -4162,7 +4292,10 @@ Deno.test("patterns attribution: a version-blind stream trends normally — abse
   ];
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(outcome.findings.length, 1);
   assert(
     !(outcome.findings[0]?.observed.includes("client release") ?? true),
@@ -4246,6 +4379,9 @@ function foreignSetupClones(events: readonly LogbookEvent[]): LogbookEvent[] {
       ...e,
       at: new Date(Date.parse(e.at) - 1_800_000).toISOString(),
       epoch: "zz-foreign",
+      ...(e.invocation === undefined
+        ? {}
+        : { invocation: `foreign-${e.invocation}` }),
       branch: "agent/elsewhere",
     }));
 }
@@ -4404,7 +4540,10 @@ Deno.test("patterns regression: a gate-duration trend survives interleaved confi
   }));
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(outcome.status, "fired");
   assertEquals(outcome.findings.length, 1);
   const finding = outcome.findings[0];
@@ -4429,7 +4568,10 @@ Deno.test("patterns duration creep excludes slot waits from suite health", () =>
   );
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(outcome.considered, 8);
   assertEquals(
     outcome.findings,
@@ -4485,7 +4627,10 @@ Deno.test("patterns setup era: half-wired gate runs during setup never read as d
   ];
   const creep = DETECTORS.find((d) => d.id === "duration-creep");
   assert(creep !== undefined);
-  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  const outcome = runDetector(
+    creep,
+    buildStreamFacts(timedEvents(events), "main"),
+  );
   assertEquals(outcome.considered, 8);
   assertEquals(
     outcome.findings,
@@ -5003,4 +5148,62 @@ Deno.test("cohort seam: automation events join no cohort and no remainder", () =
     0,
     "an automation-only unit carries no decisions to compare",
   );
+});
+
+Deno.test("patterns validation streaks require completed failures, not interruption or coordination", () => {
+  for (const outcome of ["cancelled", "skipped", "unavailable"] as const) {
+    const events = run(Array.from({ length: 6 }, (_, i) =>
+      redDone({
+        invocation: `interrupted-${i}`,
+        steps: [{ ...step("test", 1, "Test"), outcome }],
+      })));
+    assertEquals(
+      runDetector(detector("done-thrash"), buildStreamFacts(events, "main"))
+        .findings,
+      [],
+    );
+    assertEquals(
+      runDetector(
+        detector("loops-to-green"),
+        buildStreamFacts([...events, verb({ at: t(9), verb: "done" })], "main"),
+      ).findings,
+      [],
+    );
+  }
+  const failed = run(Array.from({ length: 4 }, (_, i) =>
+    redDone({
+      invocation: `failed-${i}`,
+      steps: [{ ...step("test", 1, "Test"), outcome: "failed" }],
+    })));
+  const read = (events: LogbookEvent[]): ReturnType<typeof runDetector> =>
+    runDetector(detector("done-thrash"), buildStreamFacts(events, "main"));
+  assertEquals(read(failed).findings.length, 1);
+  assertEquals(
+    read(failed.flatMap((event) => [event, event])).findings,
+    read(failed).findings,
+  );
+  for (
+    const error of [
+      "awaiting_consent",
+      "awaiting_variance",
+      "awaiting_declaration",
+      "awaiting_standard_approval",
+    ]
+  ) {
+    assertEquals(
+      runDetector(
+        detector("refusal-loop"),
+        buildStreamFacts(
+          run(
+            Array.from(
+              { length: 4 },
+              () => ({ verb: "accept", outcome: "refused", error }),
+            ),
+          ),
+          "main",
+        ),
+      ).findings,
+      [],
+    );
+  }
 });

@@ -20,6 +20,45 @@ import {
 } from "./validation.ts";
 import type { VerbEvent } from "./schema.ts";
 
+/** A failed invocation alone does not establish a completed validation verdict.
+ * Older stage-only records retain their recorded check failure, while explicit
+ * job observations take precedence over the enclosing invocation outcome. */
+export function hasRecordedValidationFailure(event: VerbEvent): boolean {
+  if (event.gate_ran === false) return false;
+  if (event.validation !== undefined) {
+    return event.validation.execution.jobs.some((job) =>
+      job.outcome === "failed"
+    );
+  }
+  if (event.steps !== undefined) {
+    return event.steps.some((step) =>
+      (step.kind === "job" || step.kind === "standard") &&
+      step.outcome === "failed"
+    );
+  }
+  return event.outcome === "failed" &&
+    ["fix", "build", "check", "test", "check/test", "standards"].includes(
+      event.failed_stage ?? "",
+    );
+}
+
+/** Missing invocation identity cannot be deduplicated. Present identities count
+ * once, regardless of repeated delivery. */
+export function distinctVerbInvocations(
+  events: readonly VerbEvent[],
+): VerbEvent[] {
+  const seen = new Map<string, VerbEvent>();
+  const result: VerbEvent[] = [];
+  for (const event of events) {
+    if (event.invocation === undefined) result.push(event);
+    else if (!seen.has(event.invocation)) {
+      seen.set(event.invocation, event);
+      result.push(event);
+    }
+  }
+  return result;
+}
+
 /** The two validation relationships this wave publishes. The retained id is
  * the compatibility seam; the second id prevents execution-context changes
  * from being emitted as duplicate same-envelope findings. */
@@ -493,6 +532,85 @@ export interface CurrentValidationRepeatGroup {
   readonly jobId: string;
   readonly observations: readonly CurrentValidationJobObservation[];
   readonly matchedConditions: PatternEvidenceBasis["matched_conditions"];
+}
+
+/** Positive evidence of a repeated green job, with intervening attempts retained. */
+export function repeatedGreenValidationJobs(
+  events: readonly VerbEvent[],
+): {
+  events: number;
+  observations: number;
+  groups: { group: CurrentValidationRepeatGroup; repeats: number }[];
+} {
+  const seen = new Set<string>();
+  const unique = events.filter((event) => {
+    // Incomplete observations still break adjacency; they cannot be ignored
+    // to connect two known subjects across unknown intervening work.
+    if (event.invocation === undefined) return true;
+    if (seen.has(event.invocation)) return false;
+    seen.add(event.invocation);
+    return true;
+  });
+  const previous = new Map<VerbEvent, VerbEvent>();
+  const branchTail = new Map<string, VerbEvent>();
+  for (const event of unique) {
+    if (
+      event.branch === null ||
+      !RECORDED_VALIDATION_VERBS.some((verb) => verb === event.verb)
+    ) continue;
+    const tail = branchTail.get(event.branch);
+    if (tail !== undefined) previous.set(event, tail);
+    branchTail.set(event.branch, event);
+  }
+  const eligible = (event: VerbEvent): boolean =>
+    event.invocation !== undefined && event.outcome === "ok" &&
+    event.gate_ran !== false &&
+    !event.flags?.includes("rerun") && event.epoch !== null;
+  const groups = sameEnvelopeValidationGroups(unique).flatMap((group) => {
+    const green = new Set(
+      group.observations.filter((item) =>
+        item.verdict === "green" && eligible(item.event)
+      ).map((item) => item.event),
+    );
+    let repeats = 0;
+    for (const event of green) {
+      const prior = previous.get(event);
+      if (
+        prior !== undefined && green.has(prior) &&
+        prior.head !== null && prior.head === event.head &&
+        prior.epoch === event.epoch
+      ) repeats += 1;
+    }
+    return repeats === 0 ? [] : [{ group, repeats }];
+  });
+  return {
+    events: unique.length,
+    observations: currentValidationJobObservations(unique).length,
+    groups,
+  };
+}
+
+/** Full green invocations with explicit wait accounting, deduplicated by durable invocation id. */
+export function observedGreenGateDurations(
+  events: readonly VerbEvent[],
+): VerbEvent[] {
+  const seen = new Set<string>();
+  return events.filter((event) => {
+    if (
+      event.verb !== "done" || event.outcome !== "ok" ||
+      event.gate_ran !== true ||
+      event.invocation === undefined || event.epoch === null ||
+      event.writer === undefined ||
+      event.waited_ms === undefined || !Number.isFinite(event.waited_ms) ||
+      event.waited_ms < 0 ||
+      !Number.isFinite(event.duration_ms) ||
+      event.waited_ms > event.duration_ms ||
+      event.change === undefined
+    ) return false;
+    if (seen.has(event.invocation)) return false;
+    seen.add(event.invocation);
+    return true;
+  });
 }
 
 /** Repeated groups are the documented `considered` population for the retained

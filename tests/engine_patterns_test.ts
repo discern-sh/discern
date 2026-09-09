@@ -63,6 +63,7 @@ import { logbookArchiveDir } from "../src/engine/logbook/store.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertResultDataKey, decodeCliResult } from "./decode_cli_result.ts";
 import { realPtyTest } from "./real_pty.ts";
+import type { CompletionLogbookEvent } from "../src/engine/logbook/schema.ts";
 
 /** One synthetic format-selected CLI event on its own branch. */
 function seededEvent(
@@ -87,6 +88,74 @@ function seededEvent(
     epoch: "e1",
   });
 }
+
+Deno.test("patterns: completion observations stay read-only across active and archived readers", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const row: CompletionLogbookEvent = {
+      schema: 1,
+      kind: "completion",
+      at: "2026-07-01T10:00:00.000Z",
+      invocation: "observer",
+      branch: "main",
+      epoch: "configured",
+      surface: "cli",
+      observation: {
+        id: "landing-observed",
+        at: 1782900000000,
+        effort_id: "actual-source",
+        source_head: "source-head",
+        candidate_id: "candidate",
+        environment_id: null,
+        attempt_id: "original-attempt",
+        executor_operation: "cooperative-operation",
+        fact: {
+          kind: "landing",
+          landing_id: "transaction",
+          outcome: "landed",
+          claim_kind: "normal",
+        },
+      },
+    };
+    const raw = [row, row].map((value) => JSON.stringify(value)).join("\n") +
+      "\n";
+    const logDir = join(dir, ".git", "discern", "logbook");
+    await Deno.mkdir(logDir, { recursive: true });
+    const activePath = join(logDir, "2026-07.jsonl");
+    await Deno.writeTextFile(activePath, raw);
+    const archiveDir = logbookArchiveDir(join(dir, ".git"));
+    await Deno.mkdir(archiveDir, { recursive: true });
+    const archiveName = "logbook-20260812T120000Z.jsonl";
+    await Deno.writeTextFile(join(archiveDir, archiveName), raw);
+    const records = await gitAdminStatePath(dir, "completionRecords");
+    assert(records !== undefined);
+    await Deno.mkdir(records, { recursive: true });
+    const sentinel = join(records, "unknown-record");
+    await Deno.writeTextFile(sentinel, "preserve unknown ownership\n");
+    const active = await patternsResult(dir);
+    const archived = await patternsResult(dir, { logbookFile: archiveName });
+    const repeated = await patternsResult(dir, { stats: true });
+    assert(active.ok && archived.ok && repeated.ok);
+    assertEquals(active.data?.completion, archived.data?.completion);
+    assertEquals(active.data?.completion, repeated.data?.completion);
+    assertEquals(active.data?.completion?.landings, 1);
+    assertEquals(active.data?.completion?.efforts, 1);
+    assertEquals(active.data?.completion?.producer_executions, null);
+    assertEquals(active.data?.completion?.duplicate_observations, 1);
+    assertEquals(await Deno.readTextFile(activePath), raw);
+    assertEquals(
+      await Deno.readTextFile(sentinel),
+      "preserve unknown ownership\n",
+    );
+    assertEquals(
+      await Array.fromAsync(Deno.readDir(records), (entry) => entry.name),
+      [
+        "unknown-record",
+      ],
+    );
+  });
+});
 
 /** One timed gate run where two generated groups take most recorded job time. */
 function seededGeneratorGateEvent(at: string): string {

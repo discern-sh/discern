@@ -91,7 +91,11 @@ import {
 import {
   crossContextValidationGroups,
   type CurrentValidationRepeatGroup,
+  distinctVerbInvocations,
+  hasRecordedValidationFailure,
   observedEvidenceValues,
+  observedGreenGateDurations,
+  repeatedGreenValidationJobs,
   sameEnvelopeValidationGroups,
   VALIDATION_FINDING_RELATIONSHIPS,
   type ValidationContextBucket,
@@ -693,12 +697,13 @@ const doneThrash: Detector = {
   next_step:
     "Start with the first repeated diagnostic and use the `discern-cure-a-bug` skill's diagnose procedure to prove its cause. Use `discern prepare` when the gate identifies fix or regeneration work it can prevent.",
   detect(facts): DetectorOutcome {
-    const dones = facts.agentish.filter((e) => e.verb === "done");
+    const dones = distinctVerbInvocations(
+      facts.agentish.filter((e) => e.verb === "done"),
+    );
     const findings: DetectorFinding[] = [];
     for (const [branch, events] of byBranch(dones)) {
       for (const session of bySession(events)) {
-        const streak = longestStreak(session, (e) => e.outcome === "failed");
-        // A 3-streak is where iteration stops looking like progress.
+        const streak = longestStreak(session, hasRecordedValidationFailure);
         if (streak >= 3) {
           const evidence = {
             consecutive_failures: streak,
@@ -721,6 +726,8 @@ const doneThrash: Detector = {
               facts,
               limitations: [
                 "The streak is conversation-scoped; synthesis requires another finding on the same branch and recorded setup.",
+                "Source changes, integration revalidation and owner feedback can require these runs; their count does not establish wasted work or author quality.",
+                "Interrupted, cancelled and unobserved job outcomes do not establish failed validation verdicts.",
               ],
             }),
             strength: streak,
@@ -743,9 +750,13 @@ const refusalLoop: Detector = {
   // refusal shows the same precondition remained unmet.
   threshold: 3,
   next_step:
-    "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.",
+    "Read the current refusal and follow its next action. Repeated observations can reflect coordination; the count alone does not establish an instruction gap or author fault.",
   detect(facts): DetectorOutcome {
-    const refused = facts.agentish.filter((e) => e.outcome === "refused");
+    const refused = distinctVerbInvocations(
+      facts.agentish.filter((e) =>
+        e.outcome === "refused" && !e.error?.startsWith("awaiting_")
+      ),
+    );
     const findings: DetectorFinding[] = [];
     for (const [branch, events] of byBranch(refused)) {
       const bySlug = new Map<
@@ -2163,81 +2174,57 @@ const abandonedWorktrees: Detector = {
 
 const sequenceAnomaly: Detector = {
   id: "sequence-anomaly",
-  title: "Validation and acceptance ordering",
-  family: "behavior",
+  title: "Repeated green validation work",
+  family: "gate-fit",
   scope: "branch",
   tier: "batch",
-  tone: "attention",
-  // 2 qualifying events before judging orderings at all.
+  tone: "neutral",
+  // Two matched repeated executions distinguish a recurring sequence from one retry.
   threshold: 2,
   next_step:
-    "A clean green `done` produces the Proof that `accept` verifies. Run `prepare` only when fix or regeneration work is relevant; acceptance cannot replace the gate.",
+    "Inspect why these checks executed again. Preserve the required suite and explicit diagnostic reruns; use applicable recorded evidence through the completion workflow.",
   detect(facts): DetectorOutcome {
-    const findings: DetectorFinding[] = [];
-    const accepts = facts.agentish.filter((e) => e.verb === "accept");
-    const dones = facts.agentish.filter((e) => e.verb === "done");
-    // Named ordering 1: accept attempted on a branch with no green done ever.
-    const greenByBranch = new Set(
-      dones.filter((e) => e.outcome === "ok").map((e) => e.branch),
+    const repeated = repeatedGreenValidationJobs(facts.verbs);
+    const findings: DetectorFinding[] = repeated.groups.flatMap(
+      ({ group, repeats }) => {
+        if (repeats < 2) return [];
+        const evidence = {
+          repeated_executions: repeats,
+          comparable_job_observations: group.observations.length,
+        };
+        return [{
+          subject: group.jobId,
+          summary:
+            "A green test job repeatedly executed on the same recorded validation state.",
+          observed: `${formatHumanNumber(repeats)} repeated executions among ${
+            formatHumanNumber(group.observations.length)
+          } comparable observations of \`${group.jobId}\`. Explicit reruns and evidence reuse are excluded.`,
+          evidence,
+          basis: {
+            kind: "repeated-green-validation",
+            coverage: {
+              comparable: group.observations.length,
+              denominator: repeated.observations,
+              unit: "complete test-job observations",
+            },
+            validation_state: { version: group.stateVersion, complete: true },
+            matched_conditions: group.matchedConditions,
+            differing_conditions: [],
+            excluded_events: repeated.events - new Set(
+              group.observations.map((item) => item.event),
+            ).size,
+            limitations: [
+              "Recorded equality does not establish why a person requested another run.",
+              "Missing execution identity or validation conditions cannot establish avoidable work.",
+              "These are job executions, not whole-gate failures, prediction misses, or agent quality.",
+            ],
+            values: observedEvidenceValues(evidence),
+          },
+          strength: repeats,
+        }];
+      },
     );
-    const premature = accepts.filter((e) => !greenByBranch.has(e.branch));
-    const prematureBranches = [
-      ...new Set(premature.map((e) => e.branch ?? "?")),
-    ];
-    if (premature.length >= 1) {
-      findings.push({
-        summary:
-          "`accept` was attempted on branches without a recorded green gate.",
-        observed: `\`accept\` was attempted ${
-          formatHumanNumber(premature.length)
-        } time${premature.length === 1 ? "" : "s"} across ${
-          formatHumanNumber(accepts.length)
-        } recorded \`accept\` attempts, on ${
-          formatHumanNumber(prematureBranches.length)
-        } branch${
-          prematureBranches.length === 1 ? "" : "es"
-        } with no green \`done\` on record (${
-          prematureBranches.slice(0, 3).map((b) => `\`${b}\``).join(", ")
-        }${prematureBranches.length > 3 ? ", …" : ""}).`,
-        evidence: {
-          premature_accepts: premature.length,
-          branches: prematureBranches.length,
-          accept_attempts: accepts.length,
-        },
-        strength: premature.length * 10,
-      });
-    }
-    // Named ordering 2: a green done re-run on the identical tree — the
-    // proof already honors it, so the second full gate bought nothing.
-    let redundant = 0;
-    for (const [, events] of byBranch(dones)) {
-      for (let i = 1; i < events.length; i += 1) {
-        const prev = events[i - 1];
-        const curr = events[i];
-        if (
-          prev !== undefined && curr !== undefined &&
-          prev.outcome === "ok" && curr.outcome === "ok" &&
-          prev.head !== null && prev.head === curr.head &&
-          prev.tree === curr.tree
-        ) {
-          redundant += 1;
-        }
-      }
-    }
-    if (redundant >= 2) {
-      findings.push({
-        summary:
-          "The gate was rerun on unchanged trees that already had a valid Proof.",
-        observed: `${formatHumanNumber(redundant)} of ${
-          formatHumanNumber(dones.length)
-        } recorded \`done\` runs repeated the full gate on an identical tree that already had a valid Proof.`,
-        evidence: { redundant_reruns: redundant, done_runs: dones.length },
-        strength: redundant,
-        next_step:
-          "A green `done` on an unchanged tree is already honored — `discern status` shows the Proof's standing without re-running anything.",
-      });
-    }
-    return { considered: accepts.length + dones.length, findings };
+    return { considered: repeated.observations, findings };
   },
 };
 
@@ -2392,16 +2379,18 @@ const cohortDoneThrash: Detector = {
   // reports insufficient evidence, never a one-sided "comparison".
   threshold: COHORT_MINIMUMS.cohorts,
   next_step:
-    "Cohorts draw different task mixes, so these counts are a place to look, never a verdict. The branch-scope done-thrash findings name the exact thrashing branches — diagnose those (`discern-cure-a-bug`); if one cohort keeps meeting red streaks, check how its provider's compiled instructions teaches the `prepare` loop.",
+    "Read the recorded failure diagnostics on the named branches. Task difficulty, source changes, owner feedback and integration work confound these counts; they cannot rank agents or establish an instruction defect.",
   detect(facts): DetectorOutcome {
-    const dones = facts.agentish.filter((e) => e.verb === "done");
+    const dones = distinctVerbInvocations(
+      facts.agentish.filter((e) => e.verb === "done"),
+    );
     // The unit is the branch — the same unit done-thrash judges — attributed
     // whole, so a branch two agents drove counts for neither cohort.
     const units = [...byBranch(dones).entries()].map(([branch, events]) => ({
       branch,
       events,
       thrashed: bySession(events).some((session) =>
-        longestStreak(session, (e) => e.outcome === "failed") >= 3
+        longestStreak(session, hasRecordedValidationFailure) >= 3
       ),
     }));
     const split = splitByCohort(units, (u) => u.events);
@@ -3210,7 +3199,7 @@ const durationCreep: Detector = {
     // where it failed (a fail-fast check dies in seconds, a test failure in
     // minutes), so mixing outcomes reads a red/green mix shift as creep.
     const { series, excluded } = comparableFactsSeries(
-      facts.verbs.filter((e) => e.verb === "done" && e.outcome === "ok"),
+      observedGreenGateDurations(facts.verbs),
       facts,
     );
     const considered = series.length + (excluded?.runs ?? 0);
@@ -3237,8 +3226,14 @@ const durationCreep: Detector = {
       durEarly > 0 && durLate >= durEarly * 1.5 &&
       sizeLate <= Math.max(sizeEarly, 1) * 1.25
     ) {
+      const evidence = {
+        median_early_s: round1(durEarly),
+        median_late_s: round1(durLate),
+        runs: series.length,
+      };
       findings.push({
-        summary: "Green gate runs became slower under one recorded setup.",
+        summary:
+          "Green completion calls became slower under one recorded setup.",
         observed: `median green \`done\` duration rose from ${
           formatHumanNumber(round1(durEarly))
         }s to ${formatHumanNumber(round1(durLate))}s across ${
@@ -3250,10 +3245,25 @@ const durationCreep: Detector = {
         }), while the median change stayed ~${
           formatHumanNumber(Math.round(sizeLate))
         } files.${excludedSetupSentence(excluded)}`,
-        evidence: {
-          median_early_s: round1(durEarly),
-          median_late_s: round1(durLate),
-          runs: series.length,
+        evidence,
+        basis: {
+          kind: "green-completion-duration",
+          coverage: {
+            comparable: series.length,
+            denominator: considered,
+            unit: "green executed completion calls",
+          },
+          validation_state: { version: null, complete: false },
+          matched_conditions: [],
+          differing_conditions: [],
+          excluded_events: excluded?.runs ?? 0,
+          limitations: [
+            "Duration covers the invocation minus its recorded capacity wait, including preparation, reporting, return and publication when performed.",
+            "Configuration, writer and client releases match; test membership, cache state, host load and resource I/O can still differ.",
+            "Changed-file count is a size observation, not a measure of the required work or agent quality.",
+            "Reuse, missing wait accounting, unknown size and repeated invocation delivery are excluded.",
+          ],
+          values: observedEvidenceValues(evidence),
         },
         strength: Math.round((durLate / durEarly) * 10),
       });
@@ -3681,7 +3691,9 @@ const loopsToGreen: Detector = {
       }
       greenBranches += 1;
       const before = events.slice(0, firstGreen);
-      const reds = before.filter((e) => e.outcome === "failed").length;
+      const reds =
+        distinctVerbInvocations(before).filter(hasRecordedValidationFailure)
+          .length;
       const files = events[firstGreen]?.change?.files ?? 0;
       // 6 red runs before green: below that is ordinary iteration.
       if (reds >= 6) {
@@ -3739,8 +3751,8 @@ const cohortLoopsToGreen: Detector = {
       if (firstGreen === -1) {
         continue;
       }
-      const reds = events.slice(0, firstGreen)
-        .filter((e) => e.outcome === "failed").length;
+      const reds = distinctVerbInvocations(events.slice(0, firstGreen))
+        .filter(hasRecordedValidationFailure).length;
       units.push({ branch, events, reds });
     }
     const split = splitByCohort(units, (u) => u.events);

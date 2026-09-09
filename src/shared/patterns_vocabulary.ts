@@ -677,6 +677,50 @@ export const PatternsStatsSchema = z.strictObject({
 /** The `--stats` payload. */
 export type PatternsStats = z.infer<typeof PatternsStatsSchema>;
 
+/** Counts describe observed facts only; null distinguishes an unobserved cost or denominator. */
+export const CompletionIntervalEconomicsSchema = z.strictObject({
+  observations: z.number().int().nonnegative(),
+  unknown: z.number().int().nonnegative(),
+  sum_ms: z.number().nonnegative().nullable(),
+  elapsed_ms: z.number().nonnegative().nullable(),
+});
+export type CompletionIntervalEconomics = z.infer<
+  typeof CompletionIntervalEconomicsSchema
+>;
+
+export const CompletionEconomicsSchema = z.strictObject({
+  window: z.strictObject({
+    first_at: z.number().nullable(),
+    last_at: z.number().nullable(),
+  }),
+  observations: z.number().int().nonnegative(),
+  duplicate_observations: z.number().int().nonnegative(),
+  conflicting_identities: z.number().int().nonnegative(),
+  efforts: z.number().int().nonnegative(),
+  candidates: z.number().int().nonnegative(),
+  attempts: z.number().int().nonnegative(),
+  executor_operations: z.number().int().nonnegative(),
+  component_receipts: z.record(z.string(), z.number().int().nonnegative()),
+  executed_component_groups: z.number().int().nonnegative(),
+  reused_receipts: z.number().int().nonnegative(),
+  producer_executions: z.number().int().nonnegative().nullable(),
+  timing: z.record(z.string(), CompletionIntervalEconomicsSchema),
+  observed_wall: CompletionIntervalEconomicsSchema,
+  invalidations: z.record(z.string(), z.number().int().nonnegative()),
+  invalidated_predictions: z.number().int().nonnegative(),
+  prediction_denominator: z.number().int().nonnegative().nullable(),
+  prediction_miss_rate: z.number().min(0).max(1).nullable(),
+  withdrawals_after_prediction: z.number().int().nonnegative(),
+  withdrawals_without_prediction_evidence: z.number().int().nonnegative(),
+  landings: z.number().int().nonnegative(),
+  emergency_landings: z.number().int().nonnegative(),
+  retirements: z.record(z.string(), z.number().int().nonnegative()),
+  returns: z.record(z.string(), z.number().int().nonnegative()),
+  unknown_return_identity: z.number().int().nonnegative(),
+  limitations: z.array(z.string()),
+});
+export type CompletionEconomics = z.infer<typeof CompletionEconomicsSchema>;
+
 /** `patterns` — the logbook read back as findings: `findings` ranked by
  * evidence strength, `detectors` reporting every registry member (fired,
  * quiet, or insufficient evidence), the `logbook` counts behind them, and the
@@ -696,6 +740,7 @@ export const PatternsDataSchema = z.strictObject({
   ),
   detectors: z.array(patternsDetectorSchema),
   stats: PatternsStatsSchema.optional(),
+  completion: CompletionEconomicsSchema.optional(),
 });
 export type PatternsData = z.infer<typeof PatternsDataSchema>;
 

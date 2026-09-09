@@ -103,6 +103,7 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
 import { configEpoch } from "./epoch.ts";
 import { computeStats } from "./stats.ts";
+import { completionEconomics } from "./completion_economics.ts";
 import {
   buildStreamFacts,
   inclusiveSpanDays,
@@ -320,6 +321,11 @@ export async function patternsResult(
   const branches = new Set(
     facts.verbs.map((e) => e.branch).filter((b): b is string => b !== null),
   );
+  const completion = facts.events.flatMap((event) =>
+    event.kind === "completion" && event.driver?.ci !== true
+      ? [event.observation]
+      : []
+  );
   const data: PatternsData = {
     logbook: {
       source,
@@ -350,6 +356,9 @@ export async function patternsResult(
       findings: r.findings.length,
     })),
     ...(opts.stats === true ? { stats: computeStats(facts) } : {}),
+    ...(completion.length === 0
+      ? {}
+      : { completion: completionEconomics(completion) }),
   };
 
   const hints: FiredHint[] = [];
@@ -830,6 +839,28 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     })
   }\n`);
   renderAttentionBanner(out, data, width);
+  if (data.completion !== undefined) {
+    const economics = data.completion;
+    out.raw(`${
+      presenter.present(renderResultSummaryGroupCli, {
+        items: [{
+          state: "unchanged",
+          fact: terminalMultiline(
+            `Completion observations: ${economics.efforts} efforts, ${economics.candidates} candidates, ${economics.landings} landings. ` +
+              `${economics.reused_receipts} reused component receipts. ` +
+              `Physical producer executions: ${
+                economics.producer_executions ?? "unknown"
+              }. ` +
+              `Prediction denominator: ${
+                economics.prediction_denominator ?? "unknown"
+              }. ` +
+              "Overlapping phase durations are reported separately; these observations grant no Proof or recovery authority.",
+          ),
+        }],
+        maxWidth: width,
+      })
+    }\n`);
+  }
   renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {

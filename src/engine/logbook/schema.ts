@@ -29,9 +29,12 @@
  * so a smarter future reader can re-interpret the whole accumulated history,
  * while a baked-in score would fossilize the heuristic of the day it shipped.
  *
- * Five event kinds:
+ * Event kinds:
  *  - `begin` — one effectful verb invocation started; its invocation id pairs
- *    with the completion event and an unmatched line remains crash evidence;
+ *    with the verb event; an unmatched line remains an incomplete observation,
+ *    not evidence of death or activity;
+ *  - `completion` — a canonical executor observation, copied for advisory
+ *    accounting without granting this logbook any completion authority;
  *  - `verb` — one verb invocation completed (the everyday event);
  *  - `config-change` — the config-epoch fingerprint moved between consecutive
  *    events on a branch, naming which sections moved (names only, never values);
@@ -53,6 +56,7 @@ import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { validationEvidenceSchema } from "./validation.ts";
 import { OPERATION_LOCK_BOUNDARIES } from "../../shared/operation_effects.ts";
+import { completionObservationSchema } from "./completion_schema.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = ON_DISK_FORMATS.logbookEvent.version;
@@ -72,9 +76,9 @@ export type LogbookSurface = (typeof LOGBOOK_SURFACES)[number];
  *    precondition). The work never ran;
  *  - `failed` — the work ran and came back red (a red gate, a failed script).
  *
- * The distinction is diagnostic gold for readers: an agent looping on `refused`
- * is fighting the workflow (an instruction gap); an agent looping on `failed` is
- * iterating toward green (the tool working as designed).
+ * These classify invocation results, not validation verdicts or agent quality.
+ * Refusals can reflect ordinary authority or capacity coordination. A failed
+ * invocation can include interrupted execution without a completed verdict.
  */
 export const LOGBOOK_OUTCOMES = [
   "ok",
@@ -324,6 +328,19 @@ export const beginEventSchema = z.looseObject({
 /** One effectful invocation start event. */
 export type BeginEvent = z.infer<typeof beginEventSchema>;
 
+/** A completed execution fact survives independently of its caller's final response. */
+export const completionEventSchema = z.looseObject({
+  ...eventBase,
+  kind: z.literal("completion"),
+  invocation: z.string(),
+  branch: z.string().nullable(),
+  epoch: z.string().nullable(),
+  surface: z.enum(LOGBOOK_SURFACES),
+  driver: driverSchema.optional(),
+  observation: completionObservationSchema,
+});
+export type CompletionLogbookEvent = z.infer<typeof completionEventSchema>;
+
 /**
  * One completed verb invocation. Git context is nullable rather than optional so
  * a line reads honestly (`"branch": null` outside a commit, not a silent
@@ -516,6 +533,7 @@ export type PruneEvent = z.infer<typeof pruneEventSchema>;
 /** Every event kind the logbook records, discriminated on `kind`. */
 export const logbookEventSchema = z.discriminatedUnion("kind", [
   beginEventSchema,
+  completionEventSchema,
   verbEventSchema,
   configChangeEventSchema,
   pinEventSchema,
