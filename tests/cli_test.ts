@@ -297,7 +297,7 @@ Deno.test("a malformed discern.toml fails cleanly (no stack trace), in human and
       `must not dump a stack trace:\n${human.stderr}`,
     );
     // JSON mode: a structured error on stdout (a CI/agent consumer parses it).
-    const json = await runCli(["done", "--json"], dir);
+    const json = await runCli(["done", "--standalone", "--json"], dir);
     assertEquals(json.code, 1);
     const result = decodeCliResult(json.stdout, "done");
     assertEquals(result.ok, false);
