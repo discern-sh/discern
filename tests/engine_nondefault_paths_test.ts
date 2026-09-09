@@ -27,6 +27,8 @@ import {
 } from "./engine_helpers.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 
+import { refreshScaffold } from "./engine_done_fixture.ts";
+
 Deno.test("engine on non-default paths: refresh compiles instructions and renders skills to the configured layout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -97,11 +99,10 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     await repointSourcePaths(dir);
     await gitInit(dir);
 
-    let r = await runAgent(dir, ["refresh"]);
-    assertEquals(r.code, 0, r.output);
+    await refreshScaffold(dir);
 
     // The full gate passes on the repointed layout exactly as on the default one.
-    r = await runAgent(dir, ["done", "--json"]);
+    let r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(decodeCliResult(r.stdout, "done").ok, true, r.output);
 
@@ -129,8 +130,7 @@ Deno.test("engine on non-default paths: finish is green, and a later repoint is 
     assertStringIncludes(r.output, "refresh");
 
     // Refresh re-renders; finish is green again and the skills speak the new path.
-    r = await runAgent(dir, ["refresh"]);
-    assertEquals(r.code, 0, r.output);
+    await refreshScaffold(dir);
     r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(

@@ -354,7 +354,11 @@ async function assertStageKindTimesOut(opts: {
       await writeExecutable(join(dir, opts.changedFile), "x");
     }
 
-    const pending = runAgent(dir, ["done", "--json"]);
+    const pending = runAgent(dir, [
+      "done",
+      ...(opts.changedFile === undefined ? [] : ["--standalone"]),
+      "--json",
+    ]);
     const r = await settleAfterReadiness(
       join(dir, TIMEOUT_READY_FILE),
       pending,
@@ -644,7 +648,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const pending = runAgent(dir, ["done", "--json"]);
+    const pending = runAgent(dir, ["done", "--standalone", "--json"]);
     const r = await settleAfterReadiness(
       join(dir, TIMEOUT_READY_FILE),
       pending,

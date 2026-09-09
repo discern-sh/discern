@@ -626,9 +626,9 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
     const tidy = await runAgent(dir, ["tidy", "--json"]);
     assert(!tidy.stderr.includes("isn't set up yet"));
     assertEquals(tidy.code, 0, tidy.output);
-    // `done` is a gate PROOF verb — ADR 0065 un-gates it so the agent can
-    // iterate while wiring capabilities during setup; it must NOT redirect.
-    const finish = await runAgent(dir, ["done"]);
+    // Explicit completion diagnostics remain available while wiring
+    // capabilities before the first commit; setup must not redirect them.
+    const finish = await runAgent(dir, ["done", "--standalone"]);
     assert(
       !finish.stderr.includes("isn't set up yet"),
       `finish must run during setup: ${finish.output}`,

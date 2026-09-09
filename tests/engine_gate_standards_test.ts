@@ -93,7 +93,7 @@ Deno.test("tier 1: a loosened limit fails the gate, naming the standard and both
     // Loosen the floor in the working tree — the quiet edit Tier 1 exists to catch.
     await writeConfig(dir, covConfig({ limit: 70 }));
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.failed_stage, "standards");
@@ -128,7 +128,7 @@ Deno.test("tier 1: a deleted standard is the ultimate loosening and fails the ga
       ].join("\n"),
     );
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.failed_stage, "standards");
@@ -156,7 +156,7 @@ Deno.test("tier 1: a standard new on the branch passes vacuously; a tightened li
       ].join("\n"),
     );
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.standards_limits?.status, "verified");
@@ -196,7 +196,7 @@ Deno.test("tier 1: a trunk config that was fetched but does not parse fails hard
     await git(dir, "commit", "-aqm", "break the trunk config", "--no-gpg-sign");
     await writeConfig(dir, covConfig({ limit: 80 }));
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = parseGateJson(r.stdout);
     assertEquals(obj.data?.failed_stage, "standards");

@@ -34,7 +34,7 @@ Deno.test("done reports configured preview actions without executing them", asyn
     await Deno.mkdir(join(dir, "web"), { recursive: true });
     await Deno.writeTextFile(join(dir, "web/change.txt"), "change\n");
 
-    const result = await runAgent(dir, ["done", "--json"]);
+    const result = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(result.code, 0, result.output);
     const parsed = decodeCliResult(result.stdout, "done");
     assertResultDataKey(parsed, "preview_actions");
@@ -51,13 +51,21 @@ Deno.test("done reports configured preview actions without executing them", asyn
     );
     assertEquals(await pathExists(join(dir, "preview-action-ran")), false);
 
-    const markdown = await runAgent(dir, ["done", "--rerun", "--markdown"]);
+    const markdown = await runAgent(dir, [
+      "done",
+      "--standalone",
+      "--markdown",
+    ]);
     assertEquals(markdown.code, 0, markdown.output);
     assertTerminalTextIncludes(markdown.stdout, "touch preview-action-ran");
     assertTerminalTextIncludes(markdown.stdout, "did not run this command");
     assertEquals(await pathExists(join(dir, "preview-action-ran")), false);
 
-    const terminal = await runAgent(dir, ["done", "--rerun", "--no-color"]);
+    const terminal = await runAgent(dir, [
+      "done",
+      "--standalone",
+      "--no-color",
+    ]);
     assertEquals(terminal.code, 0, terminal.output);
     assertTerminalTextIncludes(terminal.stdout, "touch preview-action-ran");
     assertTerminalTextIncludes(terminal.stdout, "did not run it");

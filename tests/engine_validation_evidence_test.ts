@@ -108,11 +108,11 @@ concurrent_test_runs = 0
 `,
     );
     await gitInit(dir);
-    // A dirty start asks for full feedback and permits the known-dirty path to
-    // be rewritten by fix/build without the clean-tree strand checkpoint.
+    // Explicit standalone feedback permits this known-dirty path to be
+    // rewritten by fix/build without the clean-tree strand checkpoint.
     await Deno.writeTextFile(join(dir, "subject.txt"), "before gate\n");
 
-    const run = await runAgent(dir, ["done", "--json"]);
+    const run = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(run.code, 0, run.output);
     assertEquals(await Deno.readTextFile(join(dir, "subject.txt")), "built\n");
     const event = (await completedEvents(dir)).find((candidate) =>

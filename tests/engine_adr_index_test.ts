@@ -144,7 +144,7 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     });
 
     // done: the adr_index precondition blocks with the refresh remedy.
-    const red = await runAgent(dir, ["done", "--json"]);
+    const red = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(red.code, 1, red.output);
     const redObj = decodeCliResult(red.stdout, "done");
     assertResultDataKey(redObj, "failed_stage");
@@ -167,7 +167,7 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
       decodeRefreshData(healed.stdout).adr_index_written,
       [ADR_README_REL],
     );
-    const green = await runAgent(dir, ["done", "--json"]);
+    const green = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(green.code, 0, green.output);
   });
 });
@@ -180,7 +180,7 @@ Deno.test("engine adr-index: a record the derivation cannot title fails the gate
       "0001-first-choice.md": "# a heading with no record number",
     });
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeCliResult(r.stdout, "done");
     assertResultDataKey(obj, "failed_stage");
@@ -207,7 +207,7 @@ Deno.test("engine adr-index: a marker pair missing its end marker points the rem
       { "0001-first-choice.md": "# ADR 0001: A first choice" },
     );
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeCliResult(r.stdout, "done");
     assertResultDataKey(obj, "failed_stage");

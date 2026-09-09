@@ -356,9 +356,9 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
       );
     }
 
-    // `done` now needs an explicit rerun because the JSON run judged this exact
-    // tree red. Its human failure tail prints the same fired texts verbatim.
-    const human = await runGate(["done", "--rerun"]);
+    // Preparation can rewrite generated files. Explicit diagnostics still
+    // print the same failure tail over that mutable tree.
+    const human = await runGate(["done", "--standalone"]);
     assertEquals(human.code, 1, human.output);
     const safeEnvelopeHint = terminalMultiline(envelopeHint);
     assertStringIncludes(human.stderr, safeEnvelopeHint);

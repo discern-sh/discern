@@ -335,7 +335,7 @@ Deno.test("done --json: one green gate reports a loud passing job's advisory art
     await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x"); // only widget changed
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, true);
@@ -441,7 +441,7 @@ Deno.test("done --json: a fix-stage failure skips later check/test jobs and scop
     await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
@@ -496,7 +496,7 @@ Deno.test("done --json: a failing scope-gate reports ok:false at the scope_gates
     await refreshScaffold(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = decodeGateResult(r.stdout);
