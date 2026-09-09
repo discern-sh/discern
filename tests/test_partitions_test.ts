@@ -611,3 +611,33 @@ Deno.test("a colour-forcing invoking environment cannot break module scheduling"
     );
   });
 });
+
+Deno.test("fail-fast partitions stop admission while successful suites still enroll every file", async () => {
+  await withTempDir(async (dir) => {
+    for (const fails of [true, false]) {
+      await seedNativeTests(dir, 4, fails ? 0 : undefined);
+      for (let index = 0; index < 4; index++) {
+        const path = join(dir, `${index}_test.ts`);
+        await Deno.writeTextFile(
+          path,
+          `await Deno.writeTextFile('${index}.ran', 'yes');\n` +
+            await Deno.readTextFile(path),
+        );
+      }
+      const result = await runTestPartitions(
+        testCommandArgs(42, ["--no-check", "--reporter=junit", dir]),
+        4,
+        { cwd: dir, concurrency: 1, failFast: true },
+      );
+      assertEquals(result.code, fails ? 1 : 0);
+      if (fails) assertEquals(result.report, undefined);
+      else assertStringIncludes(result.report ?? "", 'tests="4" failures="0"');
+      for (let index = 0; index < 4; index++) {
+        assertEquals(
+          await lstatIfExists(join(dir, `${index}.ran`)) !== undefined,
+          !fails || index === 0,
+        );
+      }
+    }
+  });
+});

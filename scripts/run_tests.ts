@@ -112,6 +112,7 @@ if (import.meta.main) {
     const result = await runTestPartitions(args, count, {
       concurrency,
       scheduleModules: true,
+      failFast: true,
     });
     if (result.report !== undefined) console.log(result.report);
     Deno.exit(result.code);
