@@ -923,3 +923,20 @@ Deno.test("[worktree.setup].ensure parses and defaults to [] (additive, backward
   assertEquals(both?.worktree.setup.steps, ["a"]);
   assertEquals(both?.worktree.setup.ensure, ["b", "c"]);
 });
+
+Deno.test("a standard's measure key is refused with the current contract and the shared-producer route", () => {
+  const { config, issues } = parseConfig(
+    '[standards.coverage]\nmeasure = "on-demand"\ndirection = "up"\nlimit = 90\nrun = "true"\n',
+  );
+  assertEquals(config, undefined);
+  const issue = issues.find((entry) =>
+    entry.path === "standards.coverage.measure"
+  );
+  assert(issue !== undefined, JSON.stringify(issues));
+  assertStringIncludes(issue.message, "measured on every `discern done`");
+  assertStringIncludes(issue.message, 'producer = "jobs.<name>"');
+  assert(
+    !/(?:upgrade|renam|retir|became)/i.test(issue.message),
+    `current config recovery must describe only the current contract: ${issue.message}`,
+  );
+});

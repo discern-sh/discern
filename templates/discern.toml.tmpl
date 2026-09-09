@@ -424,11 +424,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # [completion]
 #
-# What:    Complete evidence and repository queue capacity.
-# Why:     Completion requires every declared obligation in its required
-#          contexts for an immutable candidate. Queue capacity and speculative
-#          depth bound active execution; an environment declaration and
-#          source-owner release establish eligibility independently.
+# What:    How many efforts validate at once, and whether any validate early.
+# Why:     Every `discern done` proves one exact commit against every required
+#          check and standard. `concurrency` caps how many efforts hold a
+#          validation slot at the same time; `lookahead` lets efforts validate
+#          before the one ahead of them lands, which needs a declared
+#          environment. Efforts land in order by default.
 #
 # Help:    `discern config explain completion`
 # ─────────────────────────────────────────────────────────────────────────────
@@ -438,22 +439,26 @@
   # contexts.
   required_contexts = ["local"]
 
-  # Maximum live candidate executions across the repository queue.
+  # How many efforts may hold a validation slot at once. One slot stays
+  # reserved for the effort landing next, so early validation needs 2 or more.
   concurrency = 1
 
-  # Maximum speculative positions beyond the next authorized source; requires
-  # an eligible released environment.
+  # How many efforts past the next one to land may validate early. 0 lands in
+  # order; a positive value needs an [execution.<name>] declaration per
+  # required context.
   lookahead = 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [execution.<name>]
 #
-# What:    Project procedures for candidate execution and return.
-# Why:     Composition can change a checkout's source, generated files, ignored
-#          artifacts, and resources. These declarations identify preparation
-#          and return procedures; eligibility also requires verified ownership,
-#          release, and execution exclusion.
+# What:    How a checkout is prepared for another commit and returned
+#          afterwards.
+# Why:     Validating an effort early installs a different commit in a released
+#          checkout, which changes generated files, ignored output, and
+#          resources. A declaration names the prepare and restore procedures
+#          that make that safe; `discern setup done` proves them in a throwaway
+#          copy before early validation can use them.
 #
 # Params:  kind, prepare, restore, reset, dispose, reusable, resources,
 #          ignored, inputs, capacity
@@ -548,8 +553,9 @@
   # watch-mode runner cannot hang the gate. 0 removes the bound.
   timeout = 600
 
-  # Repository-wide cap on concurrent test-stage runs; excess runs wait. Fresh
-  # projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.
+  # How many test stages may run on this machine at once; the rest wait for a
+  # slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>`
+  # shares the cap. Separate from [completion].concurrency.
   concurrent_test_runs = 1
 
 
