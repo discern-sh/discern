@@ -85,6 +85,10 @@ import {
   type UpgradeData,
 } from "../shared/result_schemas.ts";
 import { TomlFormatError, writeDiscernToml } from "../lib/tidy_format.ts";
+import { executionStatus } from "../engine/execution/public_recovery.ts";
+import { openCompletionRecordStore } from "../engine/completion/store.ts";
+import { observeCompletionRecords } from "../engine/validation/runtime.ts";
+import { newerOnDiskFormatMessage } from "../shared/on_disk_formats.ts";
 
 /** Options accepted by the `upgrade` command. */
 export interface UpgradeOptions {
@@ -125,6 +129,66 @@ function newerDiscernHint(): FiredHint {
 /** Fire the advisory that a checked upgrade still needs to be applied. */
 function pendingUpgradeHint(): FiredHint {
   return fire(HINTS["upgrade-check-pending"]);
+}
+
+/**
+ * The refusal for a checkout whose completion records forbid changing it now:
+ * a live or abandoned execution claim, an unfinished checkout return, or
+ * records this build cannot read. Undefined when nothing stands in the way.
+ */
+async function recordedExecutionRefusal(
+  destDir: string,
+): Promise<DiscernResult<UpgradeData> | undefined> {
+  if (await openCompletionRecordStore(destDir) === undefined) return undefined;
+  const observation = await observeCompletionRecords(destDir);
+  const newer = observation.records.filter(({ reading }) =>
+    reading.kind === "newer"
+  );
+  if (newer.length > 0) {
+    const found = Math.max(
+      ...newer.map(({ reading }) =>
+        reading.kind === "newer" ? reading.version : 0
+      ),
+    );
+    return {
+      ok: false,
+      verb: "upgrade",
+      error: "schema_version_too_new",
+      message: `${newer.length} completion record${
+        newer.length === 1 ? " was" : "s were"
+      } written by a newer discern, so this build cannot upgrade the install without misreading them. ${
+        newerOnDiskFormatMessage("completionRecord", found)
+      }`,
+      data: {
+        newer_records: newer.map(({ selector }) =>
+          `${selector.kind}/${selector.id}`
+        ),
+      },
+    };
+  }
+  const status = await executionStatus(destDir);
+  const blocking = [
+    ...(status.execution_activity ?? []).map((entry) => ({
+      environment_id: entry.environment_id,
+      next_action: entry.next_action ??
+        "let the owning operation finish, or recover the checkout",
+    })),
+    ...(status.execution_recovery ?? []).map((entry) => ({
+      environment_id: entry.environment_id,
+      next_action: entry.next_action,
+    })),
+  ];
+  if (blocking.length === 0) return undefined;
+  return {
+    ok: false,
+    verb: "upgrade",
+    error: "precondition_failed",
+    message:
+      `this checkout has a recorded execution claim or an unfinished checkout return, so upgrading it now would change files that operation still owns. ${
+        blocking.map((entry) => entry.next_action).join(" ")
+      } Upgrading from another checkout of this repository leaves every record untouched.`,
+    data: { recorded_execution: blocking },
+  };
 }
 
 /** Fire the advisory that running agents still hold pre-upgrade instructions. */
@@ -384,13 +448,33 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 0;
   }
 
+  // Recorded completion state guards. An upgrade rewrites this checkout's
+  // install files and refreshes its generated outputs, so a checkout that a
+  // recorded execution still claims, or that owes an unfinished return, is
+  // not this command's to change: the owning operation or the supported
+  // recovery must finish first, and another checkout of the same repository
+  // can upgrade meanwhile with every record left intact. Records written by a
+  // newer discern are never reinterpreted by this build. Neither guard is
+  // relaxed by --allow-dirty, which speaks only to uncommitted tracked files.
+  const state = await worktreeState(destDir);
+  if (state.kind !== "not-a-repo") {
+    const recorded = await recordedExecutionRefusal(destDir);
+    if (recorded !== undefined) {
+      if (options.json) {
+        log.result(recorded);
+      } else {
+        log.error(recorded.message ?? "upgrade refused");
+      }
+      return 1;
+    }
+  }
+
   // Clean-tree guard (ADR 0014): an upgrade must stay revertible with
   // `git checkout`, so refuse a tree carrying uncommitted *tracked* changes
   // unless --allow-dirty. Only the mutating path reaches here — `--check` and
   // `--dry-run` returned above, so neither is ever blocked. A non-repo cannot
   // offer the net, so it proceeds with a note rather than failing.
   if (!options.allowDirty) {
-    const state = await worktreeState(destDir);
     if (state.kind === "dirty") {
       const message =
         "working tree has uncommitted changes; commit or stash them so the upgrade stays revertible, or re-run with --allow-dirty.";

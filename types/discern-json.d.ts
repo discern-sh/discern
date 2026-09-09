@@ -2201,6 +2201,11 @@ export type DiscernUpgradeResult = DiscernResultState & {
       reason: string;
     }>;
     changes?: Array<string>;
+    recorded_execution?: Array<{
+      environment_id: string;
+      next_action: string;
+    }>;
+    newer_records?: Array<string>;
     issues?: Array<{
       kind?: "unknown_root_section";
       path: string;

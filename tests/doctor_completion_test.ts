@@ -7,7 +7,13 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import { runChecks } from "../src/commands/doctor.ts";
 import type { Check } from "../src/shared/result_schemas.ts";
 import {
@@ -422,6 +428,20 @@ Deno.test("doctor refuses to interpret a record written by a newer discern and r
     assert(
       !(records.fix ?? "").includes("discern upgrade"),
       "a newer record is a binary problem, not a config migration",
+    );
+    // Upgrade refuses to touch an install whose records it cannot read.
+    const upgrade = await runAgent(dir, ["upgrade", "--json"]);
+    assertEquals(upgrade.code, 1, upgrade.output);
+    const refused = decodeCliResult(upgrade.stdout, "upgrade");
+    assertEquals(refused.error, "schema_version_too_new");
+    assertStringIncludes(refused.message ?? "", "written by a newer discern");
+    assertEquals(
+      await Deno.readTextFile(newerPath),
+      JSON.stringify({
+        ...newer,
+        version: ON_DISK_FORMATS.completionRecord.version + 1,
+      }),
+      "the newer record is preserved byte for byte",
     );
   });
 });

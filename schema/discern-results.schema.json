@@ -6416,6 +6416,30 @@
                     "type": "string"
                   }
                 },
+                "recorded_execution": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "environment_id": {
+                        "type": "string"
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "environment_id",
+                      "next_action"
+                    ]
+                  }
+                },
+                "newer_records": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "issues": {
                   "type": "array",
                   "items": {

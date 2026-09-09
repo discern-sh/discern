@@ -3317,6 +3317,14 @@ export const UpgradeDataSchema = z.strictObject({
     refusedGitattributesPatternSchema,
   ).optional(),
   changes: z.array(z.string()).optional(),
+  /** Recorded execution claims or unfinished checkout returns that keep this
+   * checkout from being upgraded until they are recovered. */
+  recorded_execution: z.array(z.strictObject({
+    environment_id: z.string(),
+    next_action: z.string(),
+  })).optional(),
+  /** Completion records written by a newer discern than this build. */
+  newer_records: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
   discern_version: z.string().optional(),
   migrations_applied: z.array(migrationStepSchema).optional(),

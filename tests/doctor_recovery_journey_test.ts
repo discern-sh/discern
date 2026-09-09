@@ -70,7 +70,21 @@ ignored = ['executions']
       environment,
     );
 
-    // Upgrade reconciles the install and leaves every recovery record alone.
+    // The stranded checkout itself cannot be upgraded, even past the dirty
+    // guard: its recovery record still owns it. Another checkout of the same
+    // repository upgrades and leaves every recovery record alone.
+    const refusedUpgrade = await runAgent(path, [
+      "upgrade",
+      "--allow-dirty",
+      "--json",
+    ]);
+    assertEquals(refusedUpgrade.code, 1, refusedUpgrade.output);
+    assertStringIncludes(refusedUpgrade.output, "unfinished checkout return");
+    assertStringIncludes(refusedUpgrade.output, "discern done --recover");
+    assertEquals(
+      (await requireEnvironment(path, environment.id)).record,
+      environment,
+    );
     const upgraded = await runAgent(root, ["upgrade", "--json"]);
     assertEquals(upgraded.code, 0, upgraded.output);
     assertEquals(
