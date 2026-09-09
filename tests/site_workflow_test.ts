@@ -121,15 +121,29 @@ Deno.test("Workflow-enhanced routes keep their pristine Markdown editions", asyn
   }
 });
 
-Deno.test("static procedure prerequisites render as requirements, not status", async () => {
-  const fixture = (await workflowPages()).find(({ page }) =>
-    page.entry.pageId === "start-first-success"
+Deno.test("static procedure prerequisites render as requirements, not status", () => {
+  const { html } = renderWorkflowMarkdown(
+    [
+      "<!-- discern-workflow:procedure -->",
+      "## Review a change",
+      "",
+      "Try the changed experience before deciding whether to land it.",
+      "",
+      "**Before you start:**",
+      "",
+      "- The agent has provided the changed app.",
+      "- The preview shows this task's version.",
+      "",
+      "**Steps:**",
+      "",
+      "1. **Try the result.** Check whether the requested change works.",
+      "",
+      "**You are done when:** you can decide whether to land the change.",
+      "<!-- /discern-workflow -->",
+    ].join("\n"),
+    {},
+    "fixture.md",
   );
-  if (fixture === undefined) {
-    throw new Error("the first-success Workflow fixture is missing");
-  }
-  const response = await get(fixture.page.route);
-  const html = await response.text();
   const items = [
     ...html.matchAll(
       /<li class="discern-prerequisite-list__item" data-discern-state="([^"]+)">([\s\S]*?)<\/li>/g,
