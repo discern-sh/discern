@@ -253,7 +253,7 @@ export function attachEngineCommands(
       EXECUTION_RECOVERY_DESCRIPTION,
     )
     .description(
-      "Require a clean, committed tree, then run finishing steps and verify the gate — the project's " +
+      "Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the project's " +
         "full quality check: format, lint, type-check, and tests.",
     )
     .option(

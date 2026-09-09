@@ -158,7 +158,7 @@ Usage: `discern prepare [options]`
 
 ### `discern done`
 
-Require a clean, committed tree, then run finishing steps and verify the gate — the project's full quality check: format, lint, type-check, and tests.
+Require a clean, committed tree. Run finishing steps that may change files, then verify the gate — the project's full quality check: format, lint, type-check, and tests.
 
 Usage: `discern done [options]`
 

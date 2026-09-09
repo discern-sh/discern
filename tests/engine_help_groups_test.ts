@@ -198,7 +198,14 @@ Deno.test("command help defines the core vocabulary and routes the three update 
 
   const done = child(root, "done").getShortDescription();
   for (
-    const term of ["may change files", "format", "lint", "type-check", "tests"]
+    const term of [
+      "clean, committed",
+      "may change files",
+      "format",
+      "lint",
+      "type-check",
+      "tests",
+    ]
   ) {
     assertStringIncludes(done, term);
   }
