@@ -1165,12 +1165,15 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assert(names.includes("discern_accept"), JSON.stringify(names));
     assert(names.includes("discern_update"), JSON.stringify(names));
 
-    // tools/call discern_done {dry_run:true} → the preview DiscernResult.
+    // Explicit standalone preview preserves the uncommitted impact fixture.
     await mcp.send({
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "discern_done", arguments: { dry_run: true } },
+      params: {
+        name: "discern_done",
+        arguments: { dry_run: true, standalone: true },
+      },
     });
     const call = await mcp.recv();
     assertEquals(call.id, 3);

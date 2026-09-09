@@ -317,7 +317,7 @@ Deno.test("nested root: finish fires the changed scope's gate", async () => {
     await Deno.mkdir(join(app, "widget"));
     await Deno.writeTextFile(join(app, "widget", "x.txt"), "x");
 
-    const r = await runAgent(app, ["done"]);
+    const r = await runAgent(app, ["done", "--standalone"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "scope:widget");
     assertStringIncludes(r.stdout, "WIDGET-GATE-RAN");

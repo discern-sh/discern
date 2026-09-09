@@ -518,7 +518,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
       "# Project instructions\n\nAlways run the slow suite twice.\n",
     );
 
-    const refused = await runAgent(dir, ["done", "--json"]);
+    const refused = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(refused.code, 1, refused.output);
     const env = parseCheckpointGateJson(refused.stdout);
     assertEquals(env.error, AWAITING_DECLARATION_SLUG);
@@ -534,7 +534,7 @@ Deno.test("done: a fresh install's shipped defaults govern out of the box", asyn
     // into the gate: whatever it finds next, it is no longer the declaration.
     const declared = await runAgent(
       dir,
-      ["done", "--met", "instruction-economy", "--json"],
+      ["done", "--standalone", "--met", "instruction-economy", "--json"],
     );
     const after = parseCheckpointGateJson(declared.stdout);
     assertEquals(after.data.checkpoints.declared_met?.length, 1);

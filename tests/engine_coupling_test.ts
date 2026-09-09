@@ -577,6 +577,7 @@ Deno.test("declared outputs are excluded before every coupling statistic while a
       const automatic of [
         await prepareResult(dir),
         await finishResult(dir, {
+          standalone: true,
           surface: { kind: "quiet" },
           cliModel: TEST_CLI_MODEL,
         }),
@@ -926,6 +927,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
 
     // Explicitly disabled: the gate is green and carries no coupling advisory.
     const off = await finishResult(dir, {
+      standalone: true,
       surface: { kind: "quiet" },
       cliModel: TEST_CLI_MODEL,
     });
@@ -946,6 +948,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
       ].join("\n"),
     );
     const on = await finishResult(dir, {
+      standalone: true,
       surface: { kind: "quiet" },
       cliModel: TEST_CLI_MODEL,
     });

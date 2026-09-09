@@ -191,6 +191,8 @@ Deno.test("done refuses a tracked refresh artifact made stale by config", async 
       config.replace('paths = ["generated/**"]', 'paths = ["artifacts/**"]'),
     );
     const before = await Deno.readTextFile(join(dir, ".gitattributes"));
+    await git(dir, "add", "discern.toml");
+    await git(dir, "commit", "-qm", "Change generated paths without refresh");
 
     const status = await runAgent(dir, ["status", "--local", "--json"]);
     assertEquals(status.code, 0, status.output);
@@ -227,6 +229,8 @@ Deno.test("done refuses mode-only drift in a tracked refresh artifact", async ()
     await scaffoldGeneratedProject(dir);
     const instructionPath = join(dir, "CLAUDE.md");
     await Deno.chmod(instructionPath, 0o755);
+    await git(dir, "add", "CLAUDE.md");
+    await git(dir, "commit", "-qm", "Change the generated instruction mode");
 
     const done = await runAgent(dir, ["done", "--json"]);
 

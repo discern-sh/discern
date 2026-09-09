@@ -1122,6 +1122,7 @@ const DONE_FAITHFULNESS_CASE = defineFaithfulnessCase(
       ].join("\n"),
     );
     const failing = await finishResult(dir, {
+      standalone: true,
       surface: { kind: "quiet" },
       cliModel: TEST_CLI_MODEL,
     });

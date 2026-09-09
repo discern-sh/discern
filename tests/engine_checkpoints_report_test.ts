@@ -274,6 +274,9 @@ async function projectObligationRow(
 
       const checkpoints = await checkpointsResult(wt);
       const prepare = await prepareResult(wt);
+      // Preparation may refresh generated files. Both completion probes need
+      // the journey's committed subject before they can judge checkpoints.
+      await restoreCommittedTree(wt);
       const status = await statusResult(wt);
       const dryRun = await finishResult(wt, {
         surface: { kind: "quiet" },
@@ -310,10 +313,6 @@ async function projectObligationRow(
         `${row.name}: a read surface ran the when command`,
       );
 
-      // The prepare core is a fixer surface: it refreshes generated agent
-      // artifacts by design. Restore the committed tree so the strict probe
-      // reads the state this journey committed, not the refresh side effect.
-      await restoreCommittedTree(wt);
       const done = await strict();
       const strictDecision: SurfaceDecision =
         done.error === AWAITING_DECLARATION_SLUG ? "requires" : "proceeds";
@@ -467,7 +466,7 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
     );
 
     await t.step(
-      "previews: prepare, status, and done --dry-run project the one preview; --dry-run never refuses",
+      "previews: prepare, status, and clean done --dry-run project the one checkpoint preview",
       async () => {
         const observationsBefore = await checkpointObservationEvents(dir);
         const params = {
@@ -503,6 +502,8 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
           "prepare and status must serve the identical preview text",
         );
 
+        // The completion preview requires the committed subject after prepare.
+        await restoreCommittedTree(wt);
         const r = await runAgent(wt, ["done", "--dry-run", "--json"]);
         assertEquals(r.code, 0, r.output);
         const dryRun = parseJson(r.stdout);
@@ -531,9 +532,6 @@ Deno.test("checkpoints: a governing stop checkpoint reports its policy row and p
           await checkpointObservationEvents(dir),
           observationsBefore,
         );
-        // prepare refreshed generated artifacts; hand the next step the
-        // committed tree back.
-        await restoreCommittedTree(wt);
       },
     );
 
@@ -985,15 +983,14 @@ Deno.test("checkpoint obligations: an idle structural trigger opens nothing, and
 
         const checkpoints = await checkpointsResult(wt);
         const prepare = await prepareResult(wt);
+        // Restore preparation's generated-file changes before both done probes.
+        await restoreCommittedTree(wt);
         const status = await statusResult(wt);
         const dryRun = await finishResult(wt, {
           surface: { kind: "quiet" },
           cliModel: TEST_CLI_MODEL,
           dryRun: true,
         });
-        // The prepare core refreshed generated artifacts; the conclusion the
-        // next step records earns its Proof over the committed tree.
-        await restoreCommittedTree(wt);
         const stillAwaiting = await runAgent(wt, ["done", "--json"]);
         assertEquals(stillAwaiting.code, 1, stillAwaiting.output);
         const done = parseHinted(stillAwaiting.stdout, "done");

@@ -49,10 +49,10 @@ export async function writeMapPage(
   return path;
 }
 
-/** Run `done --json`, assert the map-integrity preflight blocked, and return
+/** Run explicit standalone feedback over the mutable map, assert its preflight, and return
  * the diagnostic's captured output for content asserts. */
 export async function expectMapIntegrityFailure(dir: string): Promise<string> {
-  const r = await runAgent(dir, ["done", "--json"]);
+  const r = await runAgent(dir, ["done", "--standalone", "--json"]);
   assertEquals(r.code, 1, r.output);
   const obj = parseJson(r.stdout);
   assertEquals(obj.ok, false);

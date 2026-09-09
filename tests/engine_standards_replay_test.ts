@@ -308,7 +308,7 @@ Deno.test("replay: a touched, dirty or renamed input measures fresh, on both sid
       async () => {
         await Deno.writeTextFile(join(dir, "src/metric-input.txt"), "dirty\n");
 
-        const r = await runAgent(dir, ["done", "--json"]);
+        const r = await runAgent(dir, ["done", "--standalone", "--json"]);
         assertEquals(r.code, 0, r.output);
         assertEquals(
           await measurementRuns(dir),
@@ -319,7 +319,7 @@ Deno.test("replay: a touched, dirty or renamed input measures fresh, on both sid
         // Dirty non-input paths also require standalone feedback without reusable Proof.
         await git(dir, "checkout", "--", "src/metric-input.txt");
         await Deno.writeTextFile(join(dir, "scratch.txt"), "not an input\n");
-        const replay = await runAgent(dir, ["done", "--json"]);
+        const replay = await runAgent(dir, ["done", "--standalone", "--json"]);
         assertEquals(replay.code, 0, replay.output);
         assertEquals(
           await measurementRuns(dir),
@@ -342,7 +342,7 @@ Deno.test("replay: a touched, dirty or renamed input measures fresh, on both sid
         await Deno.mkdir(join(dir, "lib"), { recursive: true });
         await git(dir, "mv", "src/metric-input.txt", "lib/metric-input.txt");
 
-        const r = await runAgent(dir, ["done", "--json"]);
+        const r = await runAgent(dir, ["done", "--standalone", "--json"]);
         assertEquals(r.code, 0, r.output);
         assertEquals(
           await measurementRuns(dir),

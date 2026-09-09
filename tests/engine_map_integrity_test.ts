@@ -40,7 +40,10 @@ Deno.test("done --json: a dead link fails the map_integrity preflight; repointin
     // proves a POPULATED map passes too. The map sits outside the scaffold's
     // source scope, so a red result here also proves the preflight fires
     // regardless of scope classification.
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
 
     await writeMapPage(dir, "overview.md", "# Overview\n\nText.\n");
     const page = await writeMapPage(
@@ -59,7 +62,7 @@ Deno.test("done --json: a dead link fails the map_integrity preflight; repointin
       "# Tour\n\nStart at the [overview](overview.md).\n",
     );
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "repointing the link should clear the preflight",
     );
@@ -83,7 +86,10 @@ Deno.test("done --json: a dead anchor fails; naming a real heading fixes it", as
       page,
       "# Tour\n\n## Setup\n\nSee [above](tour.md#setup).\n",
     );
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
   });
 });
 
@@ -98,7 +104,7 @@ Deno.test("done --json: a mis-shaped known frontmatter key fails; third-party ke
       "---\nlayout: post\nsidebar_position: 4\n---\n\n# Notes\n",
     );
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "third-party frontmatter keys must not fail the gate",
     );
@@ -110,7 +116,10 @@ Deno.test("done --json: a mis-shaped known frontmatter key fails; third-party ke
     assertStringIncludes(output, "publish: must be exactly true or false");
 
     await Deno.writeTextFile(page, "---\npublish: false\n---\n\n# Notes\n");
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
   });
 });
 
@@ -136,7 +145,7 @@ Deno.test("done --json: a stale fenced example fails; a Project Script verb is a
     );
     await convergeFixtureGitattributes(dir);
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "a project-script name must validate as an extra verb",
     );

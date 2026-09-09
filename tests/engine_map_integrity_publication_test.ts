@@ -47,7 +47,10 @@ Deno.test("done --json: a published page linking into _internal/ fails; publish:
       "---\npublish: false\n---\n\n# Tour\n\nSee the " +
         "[documenter brief](_internal/documenter-agent-brief.md).\n",
     );
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
   });
 });
 
@@ -63,7 +66,10 @@ Deno.test("done --json: excluding a bundled skill the map still cites fails unti
       "README.md",
       "# Map\n\nGrow each subtree with the `discern-document-subsystem` skill.\n",
     );
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
 
     // Excluding that skill removes it from the effective set everywhere —
     // leaving the recommendation pointing at nothing. The refresh keeps the
@@ -85,7 +91,10 @@ Deno.test("done --json: excluding a bundled skill the map still cites fails unti
       readme,
       "# Map\n\nGrow each subtree by hand.\n",
     );
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
   });
 });
 
