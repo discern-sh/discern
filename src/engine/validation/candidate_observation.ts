@@ -34,7 +34,6 @@ import {
 } from "./catalog.ts";
 import { createProducerEvaluator } from "./evaluator.ts";
 import { observeCandidateInputs } from "./inputs.ts";
-import { observeCompletionRecords } from "./runtime.ts";
 
 export interface CandidateValidationObservation {
   readonly config: DiscernConfig;
@@ -137,7 +136,7 @@ export async function observeCandidateValidation(input: {
     evaluator: createProducerEvaluator({
       root,
       snapshot,
-      observe: () => observeCompletionRecords(root),
+      observe: () => Promise.resolve(input.observation),
     }),
     recipe: await compositionRecipe(
       root,

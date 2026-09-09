@@ -8,7 +8,12 @@ import type {
 } from "../completion/protocol.ts";
 import { validationPurpose } from "../completion/protocol.ts";
 import type { ValidationSnapshot } from "./catalog.ts";
-import { finishedValidationAttempts, selectEvidence } from "./selection.ts";
+import {
+  type EvidenceIndex,
+  finishedValidationAttempts,
+  indexEvidence,
+  selectEvidence,
+} from "./selection.ts";
 import { standardHeld } from "./metrics.ts";
 
 /** Resolve required consumers and dependency demand before producer execution. */
@@ -18,6 +23,7 @@ export function planValidation(
   demand: ValidationDemand,
   audited: ReadonlySet<string> = new Set(),
   rerunOf?: string,
+  indexed?: EvidenceIndex,
 ): ValidationPlan {
   const plan = {
     candidate_id: snapshot.candidate_id,
@@ -54,7 +60,8 @@ export function planValidation(
     demand,
     snapshot.candidate,
   );
-  const finished = finishedValidationAttempts(records);
+  const index = indexed ?? indexEvidence(records);
+  const finished = finishedValidationAttempts(index);
   const boundary = finished.find((attempt) => attempt.id === rerunOf);
   const producers = new Map<string, ProducerDemand>();
   const demandProducer = (selector: string): ProducerDemand => {
@@ -83,7 +90,7 @@ export function planValidation(
       const prior = selectEvidence(
         obligation,
         snapshot.candidate_id,
-        records,
+        index,
         demand.mode,
         "completion",
         audited,

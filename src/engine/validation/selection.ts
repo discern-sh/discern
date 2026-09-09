@@ -38,17 +38,62 @@ export type EvidenceSelection =
     readonly blocker: CompletionBlocker;
   };
 
+/** One validated snapshot owns selection indexes; no cache survives a fresh observation. */
+export class EvidenceIndex {
+  readonly records: readonly CompletionRecord[];
+  readonly valid: boolean;
+  readonly attempts: readonly AttemptRecord[];
+  readonly bySubject = new Map<string, AttemptRecord[]>();
+  readonly receipts = new Map<string, EvidenceRecord[]>();
+
+  constructor(records: readonly CompletionRecord[]) {
+    const parsed = records.map((record) =>
+      CompletionRecordSchema.safeParse(record)
+    );
+    this.valid = parsed.every((reading) => reading.success);
+    this.records = parsed.flatMap((reading) =>
+      reading.success ? [reading.data] : []
+    );
+    this.attempts = this.records.filter((record): record is AttemptRecord =>
+      record.kind === "attempt"
+    )
+      .sort((a, b) => b.data.identity.sequence - a.data.identity.sequence);
+    for (const attempt of this.attempts) {
+      for (const subject of attempt.data.subjects) {
+        const key = `${attempt.data.purpose}:${subject}`;
+        const bucket = this.bySubject.get(key) ?? [];
+        bucket.push(attempt);
+        this.bySubject.set(key, bucket);
+      }
+    }
+    for (const record of this.records) {
+      if (record.kind !== "evidence") continue;
+      const bucket = this.receipts.get(record.data.attempt_id) ?? [];
+      bucket.push(record);
+      this.receipts.set(record.data.attempt_id, bucket);
+    }
+  }
+}
+
+/** Bulk consumers share one index; direct callers retain validation of untrusted records. */
+export function indexEvidence(
+  records: readonly CompletionRecord[] | EvidenceIndex,
+): EvidenceIndex {
+  return records instanceof EvidenceIndex
+    ? records
+    : new EvidenceIndex(records);
+}
+
 /** Explicit retry records a finished validation predecessor in reservation order.
  * Its sequence bounds earlier failed subjects; it never authorizes live work or landing.
  */
 export function finishedValidationAttempts(
-  records: readonly CompletionRecord[],
+  records: readonly CompletionRecord[] | EvidenceIndex,
 ): AttemptRecord[] {
-  return records.filter((record): record is AttemptRecord =>
-    CompletionRecordSchema.safeParse(record).success &&
-    record.kind === "attempt" && record.data.purpose === "completion" &&
-    record.data.subjects.length > 0 && record.data.state.kind === "finished"
-  ).sort((a, b) => b.data.identity.sequence - a.data.identity.sequence);
+  return indexEvidence(records).attempts.filter((record) =>
+    record.data.purpose === "completion" && record.data.subjects.length > 0 &&
+    record.data.state.kind === "finished"
+  );
 }
 
 /** Canonical byte-audit coordinate, scoped to the immutable producing attempt. */
@@ -69,45 +114,32 @@ export function artifactKey(
 export function selectEvidence(
   obligation: ResolvedObligation,
   candidateId: string,
-  records: readonly CompletionRecord[],
+  index: EvidenceIndex,
   mode: ValidationDemand["mode"],
   purpose: ComponentEvidence["purpose"],
   audited: ReadonlySet<string>,
 ): EvidenceSelection {
-  const valid = records.filter((record) =>
-    CompletionRecordSchema.safeParse(record).success
-  );
-  const attempts = valid.filter((record): record is AttemptRecord =>
-    record.kind === "attempt" &&
-    record.data.purpose === purpose &&
-    record.data.subjects.includes(obligation.subject) &&
-    // A cancelled reservation without a result did not fail this producer.
-    // Completed receipts (including real failures) still participate in order.
-    !(record.data.state.kind === "finished" &&
-      record.data.state.outcome === "cancelled" &&
-      !valid.some((receipt) =>
-        receipt.kind === "evidence" && receipt.data.attempt_id === record.id &&
-        JSON.stringify(receipt.data.applicability) ===
-          JSON.stringify(obligation.applicability) &&
-        (receipt.data.outcome.kind === "passed" ||
-          receipt.data.outcome.kind === "failed")
-      ))
-  );
-  const latest =
-    attempts.sort((a, b) =>
-      b.data.identity.sequence - a.data.identity.sequence
-    )[0];
+  const receipts = (attempt: AttemptRecord): readonly EvidenceRecord[] =>
+    index.receipts.get(attempt.id) ?? [];
+  const applicability = JSON.stringify(obligation.applicability);
+  const latest = (index.bySubject.get(`${purpose}:${obligation.subject}`) ?? [])
+    .find((record) =>
+      // A cancelled reservation with no result did not fail this producer.
+      !(record.data.state.kind === "finished" &&
+        record.data.state.outcome === "cancelled" &&
+        !receipts(record).some((receipt) =>
+          JSON.stringify(receipt.data.applicability) === applicability &&
+          (receipt.data.outcome.kind === "passed" ||
+            receipt.data.outcome.kind === "failed")
+        ))
+    );
   if (latest === undefined) return { kind: "missing" };
   const attempt = latest.data;
-  const matching = valid.filter((record): record is EvidenceRecord =>
-    record.kind === "evidence" &&
-    record.data.attempt_id === latest.id &&
+  const matching = receipts(latest).filter((record) =>
     record.data.sequence === attempt.identity.sequence &&
     record.data.candidate_id === attempt.identity.candidate_id &&
-    record.data.mode === attempt.mode &&
-    record.data.purpose === purpose &&
-    JSON.stringify(record.data.applicability) ===
-      JSON.stringify(obligation.applicability)
+    record.data.mode === attempt.mode && record.data.purpose === purpose &&
+    JSON.stringify(record.data.applicability) === applicability
   );
   const blocked = (blocker: CompletionBlocker): EvidenceSelection => ({
     kind: "blocked",
@@ -191,8 +223,9 @@ export function selectEvidence(
  * eligible receipt, leaving newer failure, ambiguity and active use blocking. */
 export function artifactAuditEvidence(
   snapshot: ValidationSnapshot,
-  records: readonly CompletionRecord[],
+  records: readonly CompletionRecord[] | EvidenceIndex,
 ): ComponentEvidence[] {
+  const index = indexEvidence(records);
   const wanted = new Set<string>();
   const unaudited = new Set<string>();
   for (const obligation of snapshot.obligations) {
@@ -200,7 +233,7 @@ export function artifactAuditEvidence(
       const selection = selectEvidence(
         obligation,
         snapshot.candidate_id,
-        records,
+        index,
         "report",
         purpose,
         unaudited,
@@ -214,7 +247,7 @@ export function artifactAuditEvidence(
       }
     }
   }
-  return records.flatMap((record) =>
+  return index.records.flatMap((record) =>
     record.kind === "evidence" && wanted.has(record.id) ? [record.data] : []
   );
 }
@@ -225,17 +258,16 @@ export function assembleCandidate(
   candidateId: string,
   candidate: Candidate,
   requirements: readonly Requirement[],
-  records: readonly CompletionRecord[],
+  records: readonly CompletionRecord[] | EvidenceIndex,
   mode: ValidationDemand["mode"],
   audited: ReadonlySet<string> = new Set(),
   clock: Clock = SYSTEM_CLOCK,
 ): MachineAssembly {
+  const index = indexEvidence(records);
   const missing: CompletionBlocker = { kind: "missing-evidence", requirements };
   const keys = requirements.map(requirementKey).sort();
   if (
-    records.some((record) =>
-      !CompletionRecordSchema.safeParse(record).success
-    ) || candidateId !== snapshot.candidate_id ||
+    !index.valid || candidateId !== snapshot.candidate_id ||
     JSON.stringify(candidate) !== JSON.stringify(snapshot.candidate) ||
     JSON.stringify(
         snapshot.obligations.map((obligation) =>
@@ -252,7 +284,7 @@ export function assembleCandidate(
     const selection = selectEvidence(
       obligation,
       candidateId,
-      records,
+      index,
       mode,
       "completion",
       audited,
@@ -285,7 +317,7 @@ export function assembleCandidate(
   if (blockers.length > 0) return { kind: "incomplete", blockers };
   // Publication must be attributed to a completion attempt for the consuming candidate.
   const assembler =
-    records.filter((r): r is AttemptRecord =>
+    index.attempts.filter((r) =>
       r.kind === "attempt" && r.data.identity.candidate_id === candidateId &&
       r.data.purpose === "completion" && r.data.mode === mode &&
       r.data.subjects.length === 0

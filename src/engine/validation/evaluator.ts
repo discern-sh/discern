@@ -7,7 +7,12 @@ import type { Clock } from "../../shared/clock.ts";
 import type { ValidationSnapshot } from "./catalog.ts";
 import { executeValidation, type ValidationRuntime } from "./execute.ts";
 import { planValidation } from "./plan.ts";
-import { artifactAuditEvidence, assembleCandidate } from "./selection.ts";
+import {
+  artifactAuditEvidence,
+  assembleCandidate,
+  type EvidenceIndex,
+  indexEvidence,
+} from "./selection.ts";
 import { auditArtifacts } from "./artifacts.ts";
 
 /** 4A supplies candidate/policy observation, explicit rerun and the claimed environment. */
@@ -19,6 +24,19 @@ export function createProducerEvaluator(options: {
   readonly rerun_of?: string;
   readonly clock?: Clock;
 }): ProducerEvaluator {
+  const indexes = new WeakMap<CompletionObservation, EvidenceIndex>();
+  const evidenceFor = (observation: CompletionObservation): EvidenceIndex => {
+    let index = indexes.get(observation);
+    if (index === undefined) {
+      index = indexEvidence(
+        observation.records.flatMap(({ reading }) =>
+          reading.kind === "recorded" ? [reading.record] : []
+        ),
+      );
+      indexes.set(observation, index);
+    }
+    return index;
+  };
   let audited: ReadonlySet<string> = new Set();
   return {
     observe: async (candidateId): Promise<CompletionObservation> => {
@@ -30,9 +48,7 @@ export function createProducerEvaluator(options: {
         options.root,
         artifactAuditEvidence(
           options.snapshot,
-          observation.records.flatMap(({ reading }) =>
-            reading.kind === "recorded" ? [reading.record] : []
-          ),
+          evidenceFor(observation),
         ),
       );
       return observation;
@@ -47,6 +63,7 @@ export function createProducerEvaluator(options: {
         demand,
         audited,
         options.rerun_of,
+        evidenceFor(observation),
       );
     },
     execute: (plan, execution) => {

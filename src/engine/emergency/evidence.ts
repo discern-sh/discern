@@ -5,6 +5,7 @@ import type { CompletionRecord } from "../completion/records.ts";
 import type { ValidationSnapshot } from "../validation/catalog.ts";
 import {
   artifactAuditEvidence,
+  indexEvidence,
   selectEvidence,
 } from "../validation/selection.ts";
 import { auditArtifacts } from "../validation/artifacts.ts";
@@ -20,16 +21,17 @@ export async function emergencyExceptions(
   snapshot: ValidationSnapshot,
   records: readonly CompletionRecord[],
 ): Promise<EmergencyExceptions> {
+  const index = indexEvidence(records);
   const audited = await auditArtifacts(
     root,
-    artifactAuditEvidence(snapshot, records),
+    artifactAuditEvidence(snapshot, index),
   );
   const exceptions: EmergencyExceptions = [];
   for (const obligation of snapshot.obligations) {
     const selection = selectEvidence(
       obligation,
       snapshot.candidate_id,
-      records,
+      index,
       "strict",
       "completion",
       audited,
