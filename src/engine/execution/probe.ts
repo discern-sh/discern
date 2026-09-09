@@ -58,9 +58,9 @@ import {
 import { errorReason } from "./types.ts";
 
 /** The tracked file the probe's differing candidate adds; never present in source. */
-export const PROBE_CANDIDATE_PATH = "discern-environment-probe.txt";
+export const PROBE_CANDIDATE_PATH = "environment-probe-candidate.txt";
 /** The owned untracked file the probe writes while a candidate is installed. */
-export const PROBE_OUTPUT_PATH = "discern-environment-probe-output.txt";
+export const PROBE_OUTPUT_PATH = "environment-probe-output.txt";
 
 /** The three outcomes every declared environment must return from. */
 export const PROBE_EXERCISES = ["success", "failure", "cancellation"] as const;

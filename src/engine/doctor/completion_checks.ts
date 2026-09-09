@@ -45,7 +45,7 @@ export type DoctorDraftCheck = Omit<Check, "status"> & {
 /** At most this many named items in one check's detail; the rest are counted. */
 const LISTED_ITEMS = 8;
 
-/** Join a list for prose, bounding its length, or fall back when it is empty. */
+/** Join a list for prose, bounding its length, with a fallback for an empty list. */
 function list(items: readonly string[], empty = "none"): string {
   if (items.length === 0) return empty;
   const shown = items.slice(0, LISTED_ITEMS).join(", ");
