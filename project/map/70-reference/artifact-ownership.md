@@ -86,7 +86,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/completion/records/`                      | repository | Candidate evidence, execution state, queue authority, and durable landing and retirement records used by public commands. |
 | `discern/completion/publication.json`              | repository | Marker used to stop recovery cleanup when completion records or artifacts have changed during inspection.                 |
 | `discern/completion/artifacts/`                    | repository | Captured producer output, candidate reviews, and restoration evidence retained beyond checkout retirement.                |
-| `discern/completion/environment-proofs.json`       | repository | Which environment declarations `discern setup done` proved, bound to each declaration as written.                         |
+| `discern/completion/environment-proofs.json`       | repository | Records each declared checkout-return procedure that `discern setup done` rehearsed and proved, exactly as the declaration was written. |
 | `discern/completion/grant-claims/`                 | repository | Claims joining recorded effort grants to common completion authority and settlement.                                      |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                          |
 | `discern/logbook/`                                 | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                                    |
