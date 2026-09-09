@@ -18,7 +18,7 @@ Reuse binds the relevant inputs, producer and extractor definitions, policy, too
 
 The protected definition includes facts that can weaken enforcement, including producer selection and input declarations. Required standards cannot become advisory through scheduling configuration. The existing on-demand deferral is removed at cutover. This decision does not require a new advisory-metrics subsystem.
 
-`done` remains the normal full-validation command. Dirty runs provide working-tree diagnostics without landing Proof. A clean run can select a predicted candidate before validation; queue admission adds no mandatory preliminary standalone gate. `test` remains a diagnostic surface, with shared execution evidence preventing unnecessary repetition where valid.
+`done` remains the normal full-validation command and requires a clean, committed tree. Explicit `done --standalone` runs provide working-tree diagnostics without landing Proof. A clean run can select a predicted candidate before validation; queue admission adds no mandatory preliminary standalone gate. `test` remains a diagnostic surface, with shared execution evidence preventing unnecessary repetition where valid.
 
 Local and CI execution use the same requirement evaluator. A report-only result cannot authorize local acceptance. External required contexts need explicit identity and evidence rules; a partial lane cannot present itself as aggregate completion.
 

@@ -16,7 +16,35 @@ import {
   type CompletionSession,
   withPublicCompletion,
 } from "../landing_queue/public_completion.ts";
-import { pinValidatedTree, preflightAdminStateWrites } from "./proof.ts";
+import {
+  describeDirtyPaths,
+  pinValidatedTree,
+  preflightAdminStateWrites,
+} from "./proof.ts";
+
+/** Completion needs a committed subject before judgment, selection, or producers. */
+export async function completionTreeRefusal(
+  root: string,
+  standalone = false,
+): Promise<DiscernResult<GateData> | undefined> {
+  if (standalone) return undefined;
+  const pin = await pinValidatedTree(root);
+  if (pin.clean && pin.head !== undefined) return undefined;
+  return {
+    ok: false,
+    verb: "done",
+    error: "dirty_worktree",
+    message: `Completion requires a clean, committed tree${
+      describeDirtyPaths(pin.dirtyPaths)
+    }. Run discern prepare, review and commit the intended changes, then run discern done. For diagnostics before committing, use discern test or discern done --standalone. No candidate was selected and no producer ran.`,
+    data: {
+      failed_stage: null,
+      scopes_changed: [],
+      gate_ran: false,
+      producer_executions: {},
+    },
+  };
+}
 
 interface CompletionGateResult {
   result: DiscernResult<GateData>;
@@ -35,8 +63,9 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   ) => Promise<CompletionRunValue<T>>,
   unrun: (result: DiscernResult<GateData>) => Promise<T>,
 ): Promise<T> {
-  const pin = await pinValidatedTree(root);
-  if (!pin.clean || pin.head === undefined || options.standalone) {
+  const refusal = await completionTreeRefusal(root, options.standalone);
+  if (refusal !== undefined) return await unrun(refusal);
+  if (options.standalone) {
     return (await run(undefined)).value;
   }
   if (!(await preflightAdminStateWrites(root)).ok) {

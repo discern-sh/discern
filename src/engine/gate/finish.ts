@@ -23,7 +23,7 @@ import {
   producerLabel,
   type PublicValidationRun,
 } from "../validation/public_run.ts";
-import { runCompleteGate } from "./complete_gate.ts";
+import { completionTreeRefusal, runCompleteGate } from "./complete_gate.ts";
 import { reusableGreenProof, reuseReviewedProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
@@ -1746,6 +1746,8 @@ export async function finishResult(
   if (release !== undefined) return release;
   const recovery = await recoveryRequestResult(root, opts);
   if (recovery !== undefined) return recovery;
+  const treeRefusal = await completionTreeRefusal(root, opts.standalone);
+  if (treeRefusal !== undefined) return treeRefusal;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {
     const refusal: DiscernResult<GateData> = {
@@ -1938,6 +1940,12 @@ export async function runFinish(
     observeResult(recovery);
     emitResult(recovery);
     return recovery.ok ? 0 : 1;
+  }
+  const treeRefusal = await completionTreeRefusal(root, opts.standalone);
+  if (treeRefusal !== undefined) {
+    observeResult(treeRefusal);
+    emitResult(treeRefusal);
+    return 1;
   }
   const mode = opts.ci === true ? "report" as const : "strict" as const;
   if (opts.policyBase !== undefined && (!opts.ci || !opts.standalone)) {

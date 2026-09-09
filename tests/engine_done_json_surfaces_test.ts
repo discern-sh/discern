@@ -216,14 +216,18 @@ Deno.test("done --json: a failing gate carries the gotchas-doc pointer as a hint
   });
 });
 
-Deno.test("done --json: a STALE agent file fails the instruction check; refresh fixes it", async () => {
+// These mutable integrity fixtures explicitly request transient diagnostics.
+Deno.test("done --standalone --json: a STALE agent file fails the instruction check; refresh fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]); // compile CLAUDE.md so it is current
 
     // Baseline: current generated files → the gate passes.
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
 
     // Hand-edit the generated file → stale → the gate blocks.
     const claudePath = join(dir, "CLAUDE.md");
@@ -231,7 +235,7 @@ Deno.test("done --json: a STALE agent file fails the instruction check; refresh 
       claudePath,
       `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
     );
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
@@ -250,19 +254,22 @@ Deno.test("done --json: a STALE agent file fails the instruction check; refresh 
     // Regenerating satisfies the check — the gate passes again.
     await runAgent(dir, ["refresh"]);
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "refresh should clear the drift",
     );
   });
 });
 
-Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatter check; an edit fixes it", async () => {
+Deno.test("done --standalone --json: a malformed authored SKILL.md fails the skill_frontmatter check; an edit fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
 
     // An authored skill whose description sits on an indented continuation
     // line containing `: ` — a real YAML parser reads a nested mapping, not a
@@ -298,7 +305,7 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
     );
     await runAgent(dir, ["refresh"]); // materialize, so the currency check is clean
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
@@ -321,19 +328,22 @@ Deno.test("done --json: a malformed authored SKILL.md fails the skill_frontmatte
       ]),
     );
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "a valid identity should clear the check",
     );
   });
 });
 
-Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it", async () => {
+Deno.test("done --standalone --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await refreshScaffold(dir);
-    assertEquals((await runAgent(dir, ["done", "--json"])).code, 0);
+    assertEquals(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
+      0,
+    );
 
     // The state two in-flight efforts land in when both pick the next free
     // number: different filenames, clean merge, one number claimed twice.
@@ -342,7 +352,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
     await Deno.writeTextFile(join(adrDir, "0007-first.md"), "# first\n");
     await Deno.writeTextFile(join(adrDir, "0007-second.md"), "# second\n");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
@@ -366,14 +376,14 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
     );
     assertEquals((await runAgent(dir, ["refresh", "--json"])).code, 0);
     assertEquals(
-      (await runAgent(dir, ["done", "--json"])).code,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).code,
       0,
       "renumbering should clear the check",
     );
   });
 });
 
-Deno.test("done --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
+Deno.test("done --standalone --json: a stale generated file fails FAST — the currency check precedes the slow stage, so the capability is skipped (ADR 0056)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -397,7 +407,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
 
     // Baseline: current artifacts → the currency checks pass and the capability runs.
     const ok = decodeGateResult(
-      (await runAgent(dir, ["done", "--json"])).stdout,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
     );
     assertEquals(ok.data.failed_stage, null);
     assert(ok.steps !== undefined);
@@ -416,7 +426,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
       claudePath,
       `${await Deno.readTextFile(claudePath)}\nstray hand edit\n`,
     );
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "instructions");
@@ -435,14 +445,14 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
   });
 });
 
-Deno.test("done --json: a MISSING agent file does NOT block (absent copy tolerated)", async () => {
+Deno.test("done --standalone --json: a MISSING agent file does NOT block (absent copy tolerated)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await runAgent(dir, ["refresh"]);
     await Deno.remove(join(dir, "CLAUDE.md")); // model a deletion, or a project keeping them untracked
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     // Missing is advisory (surfaced by `status`), never a gate failure — a
     // project that keeps the compiled files untracked would otherwise
     // red-light first-run CI on every fresh checkout.
@@ -454,7 +464,7 @@ Deno.test("done --json: a MISSING agent file does NOT block (absent copy tolerat
   });
 });
 
-Deno.test("done --json: tracked discern-managed ignored artifacts fail before jobs run", async () => {
+Deno.test("done --standalone --json: tracked discern-managed ignored artifacts fail before jobs run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -483,7 +493,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
     );
     await git(dir, "add", "-f", ".claude/settings.local.json");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
@@ -509,7 +519,7 @@ Deno.test("done --json: tracked discern-managed ignored artifacts fail before jo
   });
 });
 
-Deno.test("done --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
+Deno.test("done --standalone --json: a hand-edited materialized skill blocks (skills); a foreign drop-in does not", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -524,7 +534,7 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
       { append: true },
     );
     let obj = decodeGateResult(
-      (await runAgent(dir, ["done", "--json"])).stdout,
+      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
     );
     assertEquals(obj.data.failed_stage, "skills");
     const diag = diagFor(obj, "skills");
@@ -539,7 +549,9 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
       join(skillsDir, "user-dropin", "SKILL.md"),
       "# mine\n",
     );
-    obj = decodeGateResult((await runAgent(dir, ["done", "--json"])).stdout);
+    obj = decodeGateResult(
+      (await runAgent(dir, ["done", "--standalone", "--json"])).stdout,
+    );
     assertEquals(
       obj.data.failed_stage,
       null,
@@ -562,11 +574,11 @@ const PROOF_CONFIG = [
   "",
 ].join("\n");
 
-// The trunk's candidate, a worktree's compact proof, and a dirty run's refusal
+// The trunk's candidate, a worktree's compact proof, and a explicit diagnostic run
 // are all facts about ONE proof-config repository, so they share its scaffold.
 // Each step carries the name of the case it replaced, so a failure still names
 // the behaviour.
-Deno.test("done --json: one proof-config repo — the trunk proves its candidate, a green worktree gate emits the compact proof, and dirty runs stay diagnostic", async (t) => {
+Deno.test("done --json: one proof-config repo — the trunk proves its candidate, a green worktree gate emits the compact proof, and explicit standalone runs stay diagnostic", async (t) => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
@@ -653,7 +665,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
     );
 
     await t.step(
-      "done --json: the trunk can prove its candidate while dirty runs stay diagnostic — the dirty worktree earns no proof",
+      "done --json: the trunk can prove its candidate while explicit standalone runs stay diagnostic — the dirty worktree earns no proof",
       async () => {
         // A dirty worktree: the diff vs the trunk would describe a different tree than
         // the one the gate validated — no proof, and no relay hint.
@@ -663,7 +675,7 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
         await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
         const dirty = decodeGateResult(
-          (await runAgent(wt, ["done", "--json"])).stdout,
+          (await runAgent(wt, ["done", "--standalone", "--json"])).stdout,
         );
         assertEquals(dirty.ok, true);
         assertEquals(dirty.data.proof, undefined);

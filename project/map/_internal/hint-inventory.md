@@ -903,11 +903,11 @@ Rendered example:
 - Category: `next-step`
 - Audience: `all`
 - Family: `gate-proof`
-- Emitting context: A green gate cannot record Proof because the worktree is dirty.
+- Emitting context: Explicit standalone feedback passed on a dirty tree and records no Proof.
 
 Rendered example:
 
-> Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. The gate passed but recorded no Proof because the worktree is dirty (2 tracked files changed).
+> Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. Standalone feedback passed and recorded no Proof for the dirty tree (2 tracked files changed).
 
 ## `gate-proof-unavailable`
 

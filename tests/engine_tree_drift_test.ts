@@ -300,7 +300,7 @@ Deno.test("done: a scope gate that dirties a COMMITTED-clean tracked file fails 
     // of the committed file can trip the check.
     await Deno.writeTextFile(join(dir, "widget/trigger.txt"), "changed\n");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = decodeGateResult(r.stdout);
@@ -317,7 +317,7 @@ Deno.test("done: a scope gate that dirties a COMMITTED-clean tracked file fails 
   });
 });
 
-Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
+Deno.test("done --standalone: a fixer reworking the agent's OWN uncommitted edit does NOT trip (inner loop)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -327,7 +327,7 @@ Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT tri
     // The agent edits doc.md but has NOT committed it — its own work-in-progress.
     await Deno.writeTextFile(join(dir, "doc.md"), "world   \n");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 0, r.output);
 
     const obj = decodeGateResult(r.stdout);
@@ -343,7 +343,7 @@ Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT tri
 // A run that starts on a clean, committed tree is seeking a proof, and a strand
 // left by the fix/build pre-groups already forfeits it — so `done` stops at the
 // post-pre-group checkpoint instead of paying for standards, check∥test, and
-// scope-gate work that cannot change the verdict. A dirty start (tracked or
+// scope-gate work that cannot change the verdict. An explicit standalone dirty start (tracked or
 // untracked) skips the checkpoint: it can earn no proof anyway, and the
 // end-of-run detection still reports its strands after the full run's feedback.
 
@@ -444,7 +444,7 @@ Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, 
     // The agent's own work-in-progress: a committed file edited, not committed.
     await Deno.writeTextFile(join(dir, "wip.txt"), "edited\n");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = decodeGateResult(r.stdout);
@@ -470,7 +470,7 @@ Deno.test("done: an untracked-dirty start is not proof-eligible — the checkpoi
     // empty here), but the proof pin counts it — eligibility must read the pin.
     await Deno.writeTextFile(join(dir, "stray.txt"), "untracked\n");
 
-    const r = await runAgent(dir, ["done", "--json"]);
+    const r = await runAgent(dir, ["done", "--standalone", "--json"]);
     assertEquals(r.code, 1, r.output);
 
     const obj = decodeGateResult(r.stdout);

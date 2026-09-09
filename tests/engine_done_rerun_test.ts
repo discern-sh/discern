@@ -422,14 +422,18 @@ Deno.test("done: any change to the tree runs the gate normally, and --rerun is t
     await t.step(
       "done: any change to the tree runs the gate normally — commit, edit, or a dirty-tree edit",
       async () => {
-        // An uncommitted edit is a different tree: no refusal.
+        // Uncommitted feedback requires the explicit diagnostic route.
         await Deno.writeTextFile(join(wt, "feature.txt"), "revised work\n");
-        const dirty = await runAgent(wt, ["done", "--json"]);
+        const dirty = await runAgent(wt, ["done", "--standalone", "--json"]);
         assertEquals(dirty.code, 0, dirty.output);
         assertEquals(parseJson(dirty.stdout).error, undefined);
 
         // Dirty diagnostics remain available; they never reuse or publish queue Proof.
-        const dirtyRerun = await runAgent(wt, ["done", "--json"]);
+        const dirtyRerun = await runAgent(wt, [
+          "done",
+          "--standalone",
+          "--json",
+        ]);
         assertEquals(dirtyRerun.code, 0, dirtyRerun.output);
         assertEquals(parseGateJson(dirtyRerun.stdout).data.proof, undefined);
 

@@ -6,7 +6,7 @@ order: 25
 
 # Complete evidence
 
-`done` selects an immutable candidate and assembles its required jobs, changed-scope gates and standards. Each required context supplies compatible evidence. A successful subset cannot produce landing Proof. Dirty runs and `done --standalone` provide diagnostics without queue admission or landing authority. `test` reports readings its declared work already supplies; `prepare` requests no measurement.
+`done` requires a clean, committed tree before selecting an immutable candidate and assembling its required jobs, changed-scope gates and standards. Each required context supplies compatible evidence. A successful subset cannot produce landing Proof. `done --standalone` provides transient diagnostics, including on a dirty tree, without queue admission or landing authority. `test` reports readings its declared work already supplies; `prepare` requests no measurement.
 
 Known source checkpoint questions are served before enrollment and expensive production. A changed composed subject still needs its own judgment; answering the source question cannot approve an unseen predecessor. Stop at the supplied question, record the conclusion, and continue the same effort.
 

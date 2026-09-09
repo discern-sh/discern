@@ -99,7 +99,7 @@ export const REGISTERED_RENAMES = [
   {
     path: "tests/engine_done_json_surfaces_test.ts",
     enclosingFunction:
-      'Deno.test("done --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")',
+      'Deno.test("done --standalone --json: two ADR records claiming one number fail the adr_numbers check; renumbering fixes it")',
     reason:
       "The fixture renumbers one ADR file to prove the duplicate-number diagnostic clears.",
   },

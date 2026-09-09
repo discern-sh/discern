@@ -111,7 +111,7 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 ## Current state & gotchas
 
-- A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_proof.status` before claiming the branch is ready.
+- `done` refuses an uncommitted tree before candidate selection or producers. Use `prepare` and `test` while iterating, or request transient feedback with `done --standalone`. Commit the intended changes before requesting completion Proof.
 - The marker is a cache of a real Gate result. Normal worktree acceptance can validate a missing or stale marker by rerunning the Gate. Setup acceptance refuses incomplete evidence and routes through `discern setup done`; that command replays honored evidence or validates the same clean marker commit while owning the structural worktree probe.
 - The preflight is a point-in-time check. Proof writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_proof`.
 - A Logbook hint is advice beside the Proof. The stored Markdown and its commit identity remain unchanged.

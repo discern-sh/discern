@@ -1990,14 +1990,15 @@ export const HINTS = {
     id: "gate-proof-skipped-dirty",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot record Proof because the worktree is dirty.",
+    when:
+      "Explicit standalone feedback passed on a dirty tree and records no Proof.",
     family: "gate-proof",
     example: { reason: "2 tracked files changed" },
     template: ({ reason }): string =>
       `Use ${CMD.prepare} or ${CMD.test} while iterating. Then commit ` +
       `the intended final tree and re-run ${CMD.done} on the clean HEAD before ` +
-      `handoff or acceptance. The gate passed but recorded no Proof because ` +
-      `the worktree is dirty${reasonSuffix(reason)}.`,
+      `handoff or acceptance. Standalone feedback passed and recorded no Proof ` +
+      `for the dirty tree${reasonSuffix(reason)}.`,
   }),
 
   "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
