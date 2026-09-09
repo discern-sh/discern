@@ -30,6 +30,8 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟡 Smaller fixes & polish
 
+- [ ] **Prevent concurrent site asset rebuilds during type-checking.** The site-component measurement calls `buildSite()` while the gate runs `deno check`; removing and recreating its generated JavaScript can cause transient missing-module failures. Measure a completed build or isolate measurement output while preserving fresh standalone measurement. Evidence: `scripts/site_component_coverage.ts`; `site/build.ts`; `discern.toml`; `deno.json`.
+
 - [ ] **Complete the Git ref footprint inventory.** Enrol shared candidate refs and landing markers in the canonical footprint, align uninstall's retained-ref reporting with the actual created namespaces, and guard future ref writers against missing inventory entries. The manual describes current retention, but the runtime inventory omits these namespaces. Evidence: `src/engine/git_footprint.ts`; `src/shared/git_conventions.ts`; `src/engine/landing_queue/publication.ts`; `src/engine/worktree/git.ts`; `project/manual/30-reference/files-and-ownership.md`.
 
 - [ ] **Bind the machine edition's checkable claims to their guards.** The "Checkable claims" section names six falsifiers as hand-authored prose; render it from a registry whose entries cite the guard test that proves each one, so the section and the suite cannot drift. Evidence: `site/text/discern.txt`; `scripts/brand/claims.ts`; `tests/evidence_basis_guard_test.ts`.
