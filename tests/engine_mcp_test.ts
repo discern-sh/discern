@@ -34,6 +34,13 @@ import {
 import { seedForBranch } from "../src/engine/worktree/identity.ts";
 import { canonicalDocTarget, discoverDocs } from "../src/lib/docs.ts";
 import { buildManualProjection } from "../src/lib/manual.ts";
+import { stripAdrCitations } from "../src/lib/adr_citations.ts";
+import { parseFrontmatter } from "../src/lib/frontmatter.ts";
+import { readerVisibleMarkdown } from "../src/lib/markdown.ts";
+import {
+  searchAgentPages,
+  searchPageFromMarkdown,
+} from "../src/lib/docs_search.ts";
 import { providerFor } from "../src/lib/providers.ts";
 import { writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
@@ -1947,6 +1954,24 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
         `Use \`${manualLiteral}\` literally.\n\n` +
         "The staged sentinel token is `vermilion-quasar-beacon`.\n",
     );
+    const visibleBody = async (relativePath: string): Promise<string> =>
+      stripAdrCitations(readerVisibleMarkdown(
+        parseFrontmatter(
+          await Deno.readTextFile(join(staged, relativePath)),
+        ).body,
+      ));
+    const stagedTree = await discoverDocs({ cwd: dir, dir: staged });
+    assertExists(stagedTree);
+    const searchPages = await Promise.all(
+      stagedTree.entries.map(async (entry) =>
+        searchPageFromMarkdown({
+          route: canonicalDocTarget(entry),
+          section: entry.section,
+          entry,
+        }, await visibleBody(entry.relToDocs))
+      ),
+    );
+
     // The host project has its own map — discern_docs must ignore it and serve
     // discern's bundled documentation (resolved module-relative to this repo).
     await Deno.mkdir(defaultMapPath(dir), { recursive: true });
@@ -2026,13 +2051,13 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       manualPage.result.structuredContent.data.doc.manual_kind,
       "guide",
     );
-    assertStringIncludes(
+    assertEquals(
       manualPage.result.structuredContent.data.doc.content,
-      "Review Proof and changes",
+      await visibleBody("10-guides/delegate-work.md"),
     );
 
     // The installed-manual journey stays deterministic from orientation through
-    // task and recovery search, then preserves all three launch distinctions.
+    // task and recovery search, then retrieves the current explanations intact.
     const orientation = await mcp.callTool(8, "discern_docs", {
       target: "start-index",
     });
@@ -2050,17 +2075,21 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
       target: "start-first-success",
     });
     assertEquals(firstSuccess.result.isError, false);
-    assertStringIncludes(
+    assertEquals(
       firstSuccess.result.structuredContent.data.doc.content,
-      "Install the binary",
+      await visibleBody("00-start/first-success.md"),
     );
 
+    const taskQuery = "finish and land a change";
     const task = await mcp.callTool(10, "discern_docs", {
-      search: "finish and land a change",
+      search: taskQuery,
     });
     const taskData = task.result.structuredContent.data;
     assertEquals(task.result.isError, false);
-    assertEquals(taskData.count, 12);
+    assertEquals(
+      taskData.count,
+      searchAgentPages(searchPages, taskQuery).length,
+    );
     assertEquals(taskData.results.length, 5);
     assertEquals(taskData.truncated, true);
     assertEquals(
@@ -2087,22 +2116,15 @@ Deno.test("discern mcp: discern_docs returns discern's OWN docs, not the project
     });
     assertEquals(proof.result.isError, false);
     const proofContent = proof.result.structuredContent.data.doc.content;
-    assertStringIncludes(
-      proofContent,
-      "A green gate also leaves the code where it is",
-    );
-    assertStringIncludes(
-      proofContent,
-      "Proof therefore lasts only while the exact tree and its recorded judgments remain unchanged",
-    );
+    assertEquals(proofContent, await visibleBody("20-understand/proof.md"));
 
     const checkpoints = await mcp.callTool(13, "discern_docs", {
       target: "explanation-checkpoints",
     });
     assertEquals(checkpoints.result.isError, false);
-    assertStringIncludes(
+    assertEquals(
       checkpoints.result.structuredContent.data.doc.content,
-      "Only you can resolve that",
+      await visibleBody("20-understand/checkpoints.md"),
     );
 
     const phantom = await mcp.callTool(14, "discern_docs", {
