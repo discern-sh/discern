@@ -730,6 +730,17 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Presentation is downstream of captured child bytes and cannot change the job verdict or retained output.",
   },
+  "job-output-path-observer-notify": {
+    path: "src/engine/jobs/command.ts",
+    enclosingFunction: "spawnJob",
+    operation:
+      "notify the advisory observer of the allocated combined-capture location",
+    kind: "capability",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "The pointer is presentation-only advisory state; capture, scheduling, and the job's own result do not depend on any observer hearing it.",
+  },
   "job-output-reader-cancel": {
     path: "src/engine/jobs/command.ts",
     enclosingFunction: "onAbort",

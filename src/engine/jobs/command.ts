@@ -63,6 +63,10 @@ export interface SpawnOptions {
   stdoutRecorder?: JobOutputRecorder;
   /** Advisory notification only after the native command process exists. */
   onSpawn?: () => void;
+  /** Advisory notification of the combined-capture location once allocated,
+   * before the job settles — so an interrupted run's transcript stays
+   * reachable through surfaces that outlive this process. */
+  onOutputPath?: (path: string) => void;
   /** Drain all child output but retain at most this many raw bytes, bypassing
    * line presentation/diagnostic feeds. For bounded line protocols. */
   protocolOutputMaxBytes?: number;
@@ -284,6 +288,13 @@ export async function spawnJob(
   }).spawn();
   const pid = child.pid;
   bestEffortSync("job-spawn-observer-notify", () => opts.onSpawn?.());
+  const capturePath = outputRecorder?.currentPath;
+  if (capturePath !== undefined) {
+    bestEffortSync(
+      "job-output-path-observer-notify",
+      () => opts.onOutputPath?.(capturePath),
+    );
+  }
   try {
     await ticket?.started(pid, true);
   } catch (error) {

@@ -50,6 +50,57 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
   });
 });
 
+Deno.test("losing a read-only observer leaves the executing gate running", async () => {
+  await withTempDir(async (root) => {
+    await withTempDir(async (aux) => {
+      const gated = `echo started > '${aux}/leader'; ` +
+        `until [ -f '${aux}/continue' ]; do sleep 0.05; done; ` +
+        `printf 'DISCERN_METRIC coverage 93\\n'`;
+      const path = await project(root, ["local"], "", gated);
+      const child = new Deno.Command("deno", {
+        args: engineRunArgs(["done"]),
+        cwd: path,
+        env: await engineEnv(),
+        stdout: "piped",
+        stderr: "piped",
+      }).spawn();
+      const allowance = processAllowance();
+      try {
+        // The observer: reconnect reads against the running operation. They
+        // are observation only — after they stop, execution must continue.
+        await waitUntil(
+          async () => {
+            const read = await operationProgressResult(path);
+            return read.ok && read.data?.executor === "running";
+          },
+          "the running gate to become observable",
+          { allowance },
+        );
+        const during = await operationProgressResult(path);
+        assert(during.ok);
+        assertEquals(during.data?.outcome, undefined);
+        // The observer goes away (no more reads); the executor is released
+        // to finish and does.
+        await Deno.writeTextFile(`${aux}/continue`, "go\n");
+        const status = await child.status;
+        const output = new TextDecoder().decode(
+          (await child.output()).stdout,
+        );
+        assertEquals(status.code, 0, output);
+        const after = await operationProgressResult(path);
+        assert(after.ok);
+        assertEquals(after.data?.outcome, "completed");
+      } finally {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Already exited: the journey's success path.
+        }
+      }
+    });
+  });
+});
+
 Deno.test("a killed executor leaves its journal readable as stopped, not decided", async () => {
   await withTempDir(async (root) => {
     await withTempDir(async (aux) => {
@@ -115,6 +166,15 @@ Deno.test("a killed executor leaves its journal readable as stopped, not decided
           completed: 1,
           total: null,
         });
+        // The unfinished producer's transcript stays reachable: its capture
+        // location was journalled when allocated, and the bytes written
+        // before the kill are readable through it.
+        const transcript = read.data?.producers?.[0]?.output_path;
+        assert(transcript !== undefined, JSON.stringify(read.data));
+        assertStringIncludes(
+          await Deno.readTextFile(transcript),
+          "DISCERN_PROGRESS",
+        );
       } finally {
         for (const pid of pids) {
           if (completionProcessAlive(pid)) Deno.kill(pid, "SIGKILL");

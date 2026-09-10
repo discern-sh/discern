@@ -25,6 +25,8 @@ export async function runCapturedCommands(input: {
   readonly presentation?: RunOptions;
   readonly timeoutKey?: string;
   readonly onSpawn?: () => void;
+  /** Advisory notification of the combined-capture location once allocated. */
+  readonly onOutputPath?: (path: string) => void;
 }): Promise<
   {
     readonly result: JobResult;
@@ -67,6 +69,9 @@ export async function runCapturedCommands(input: {
     keepOutput: true,
     stdoutRecorder,
     ...(input.onSpawn === undefined ? {} : { onSpawn: input.onSpawn }),
+    ...(input.onOutputPath === undefined
+      ? {}
+      : { onOutputPath: input.onOutputPath }),
   }).finally(async () => {
     output = (await stdoutRecorder.finish()).outputPath;
   });

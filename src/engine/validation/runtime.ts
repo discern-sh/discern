@@ -4,7 +4,11 @@ import {
   type ValidationInputSelection,
 } from "./input_selection.ts";
 import { gitPathRecord } from "../../shared/git_paths.ts";
-import { emitCompletionEvent, executionEvent } from "../completion/events.ts";
+import {
+  emitCompletionEvent,
+  emitCompletionProgress,
+  executionEvent,
+} from "../completion/events.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
@@ -234,11 +238,27 @@ function runtime(
   ): Promise<ProducerCapture> => {
     const executionId = `${execution.attempt.identity.id}:${label}`;
     const role = label.startsWith("extract:") ? "extractor" : "producer";
+    const publicLabel = options.jobLabel?.(label) ?? label;
     let started: { wall: number; monotonic: number } | undefined;
     const result = await runCapturedCommands({
       root: options.root,
-      label: options.jobLabel?.(label) ?? label,
+      label: publicLabel,
       commands: runCommands,
+      // Publish the transcript location the moment it is allocated, so an
+      // interrupted producer's output stays reachable through the journal.
+      ...(role === "producer"
+        ? {
+          onOutputPath: (path: string): void => {
+            emitCompletionProgress({
+              phase: "producer",
+              state: "running",
+              candidate_id: execution.candidate_id,
+              reason: `Running ${publicLabel}.`,
+              work: { producer: publicLabel, output_path: path },
+            });
+          },
+        }
+        : {}),
       onSpawn: () => {
         started = { wall: clock.wallNow(), monotonic: clock.monotonicNow() };
         emitCompletionEvent(

@@ -45,7 +45,9 @@ discern progress <handle>
 
 With no handle, `discern progress` reads the most recently started operation. The result leads with the operation named by its branch and what happened to it, then the recorded facts, then the retained result when one exists — nothing re-runs to recover output. Full producer output stays with the run's own artifacts: job transcripts under the 24-hour temp retention ([temp files & retention](temp-files-and-retention.md)) and durable attempt artifacts under `discern/completion/artifacts/`.
 
-The journal is advisory presentation state. It carries no validation or landing authority, reading it starts and repairs nothing, and a store failure runs the operation without one. Only the executor finishing or being cancelled closes a record: an observer's timeout or death changes nothing, and a reader distinguishes a finished operation from a recorded executor process that is gone — the latter reads as stopped without finishing, and discern invents no verdict for it.
+The journal is advisory presentation state. It carries no validation or landing authority, reading it starts and repairs nothing, and a store failure runs the operation without one. Only the executor finishing or being cancelled closes a record, and a reader distinguishes a finished operation from a recorded executor process that is gone — the latter reads as stopped without finishing, and discern invents no verdict for it. The liveness probe delivers no signal, so reading a stopped process leaves it stopped.
+
+Observers divide by what they hold. A read-only observer — a reconnect read, an `await` watch, a second session following the run — can stop, time out, or die without touching execution; the [journey guard](../../../tests/engine_progress_journey_test.ts) holds that boundary. The MCP call that is itself executing a verb is not a separate observer: by the established transport contract, its explicit cancellation, or its transport closing, cancels the executor, and the journal records the run as cancelled with its facts retained for reconnect.
 
 ## Named timing boundaries
 

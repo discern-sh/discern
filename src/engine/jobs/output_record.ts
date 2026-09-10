@@ -51,6 +51,13 @@ export class JobOutputRecorder {
     this.file = file;
   }
 
+  /** The capture location while recording; undefined once a write failure
+   * discards it. Lets a live surface reference the transcript before the job
+   * settles, so an interrupted run's output stays reachable. */
+  get currentPath(): string | undefined {
+    return this.path;
+  }
+
   static async create(
     scope: TempArtifactScope | undefined,
   ): Promise<JobOutputRecorder> {
