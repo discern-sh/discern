@@ -704,6 +704,7 @@ export const CompletionEconomicsSchema = z.strictObject({
   component_receipts: z.record(z.string(), z.number().int().nonnegative()),
   executed_component_groups: z.number().int().nonnegative(),
   reused_receipts: z.number().int().nonnegative(),
+  unknown_component_use_identity: z.number().int().nonnegative(),
   producer_executions: z.number().int().nonnegative().nullable(),
   timing: z.record(z.string(), CompletionIntervalEconomicsSchema),
   observed_wall: CompletionIntervalEconomicsSchema,

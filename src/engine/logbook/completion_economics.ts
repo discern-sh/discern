@@ -68,6 +68,7 @@ function observationIdentity(event: CompletionEvent): string {
         fact.kind,
         event.environment_id,
         event.attempt_id,
+        event.executor_operation,
         fact.outcome,
       ]);
     case "invalidated":
@@ -94,7 +95,9 @@ function uniqueObservations(events: readonly CompletionEvent[]): {
       canonicalJson(prior.fact) !== canonicalJson(event.fact) ||
       prior.effort_id !== event.effort_id ||
       prior.source_head !== event.source_head ||
-      prior.candidate_id !== event.candidate_id
+      prior.candidate_id !== event.candidate_id ||
+      prior.environment_id !== event.environment_id ||
+      prior.attempt_id !== event.attempt_id
     ) conflicts.add(key);
     else duplicates += 1;
   }
@@ -151,15 +154,20 @@ export function completionEconomics(
   const retirements = new Map<string, string>();
   const returns = new Map<string, string>();
   let unknownReturnIdentity = 0;
+  let unknownComponentUseIdentity = 0;
   for (const event of events) {
     const fact = event.fact;
     switch (fact.kind) {
       case "producer":
         if (receiptConflicts.has(fact.evidence_id)) break;
         components.set(fact.evidence_id, fact.outcome);
+        if (event.attempt_id === null) {
+          unknownComponentUseIdentity += 1;
+          break;
+        }
         if (fact.use === "reused") {
           reused.add(canonicalJson([event.attempt_id, fact.evidence_id]));
-        } else if (event.attempt_id !== null) {
+        } else {
           executions.add(canonicalJson([event.attempt_id, fact.producer]));
         }
         break;
@@ -223,6 +231,7 @@ export function completionEconomics(
     component_receipts: counts(components.values()),
     executed_component_groups: executions.size,
     reused_receipts: reused.size,
+    unknown_component_use_identity: unknownComponentUseIdentity,
     producer_executions: null,
     timing: Object.fromEntries(
       [...timings].map((

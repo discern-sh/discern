@@ -233,3 +233,69 @@ Deno.test("completion economics rejects contradictory immutable receipts across 
     assertEquals(result.executed_component_groups, 0);
   }
 });
+
+Deno.test("completion economics retains distinct return executors without multiplying recovery outcomes", () => {
+  const first = event("return-first", {
+    kind: "restoration",
+    outcome: "recovery-incomplete",
+  });
+  const next = event("return-next", first.fact, {
+    at: 1100,
+    executor_operation: "recovery-caller",
+  });
+  const restored = event("return-restored", {
+    kind: "restoration",
+    outcome: "restored",
+  }, {
+    at: 1200,
+    executor_operation: "recovery-caller",
+  });
+  const result = completionEconomics([
+    first,
+    first,
+    next,
+    next,
+    restored,
+    restored,
+  ]);
+  assertEquals(result.executor_operations, 2);
+  assertEquals(result.returns, { restored: 1 });
+  assertEquals(result.observations, 3);
+  assertEquals(result.duplicate_observations, 3);
+  assertEquals(result.component_receipts, {});
+  assertEquals(result.observed_wall.elapsed_ms, null);
+});
+
+Deno.test("completion economics requires consumer identity before counting evidence uses", () => {
+  const first = event("unidentified-use", {
+    kind: "producer",
+    producer: "job:test",
+    use: "reused",
+    evidence_id: "receipt",
+    outcome: "passed",
+    duration_ms: 0,
+  }, { attempt_id: null });
+  const result = completionEconomics([first, first]);
+  assertEquals(result.component_receipts, { passed: 1 });
+  assertEquals(result.reused_receipts, 0);
+  assertEquals(result.unknown_component_use_identity, 1);
+  assertEquals(result.executed_component_groups, 0);
+  assertEquals(result.producer_executions, null);
+});
+
+Deno.test("completion economics rejects one observation claiming inconsistent execution coordinates", () => {
+  const first = event("receipt", {
+    kind: "producer",
+    producer: "job:test",
+    use: "executed",
+    evidence_id: "receipt",
+    outcome: "passed",
+    duration_ms: 0,
+  });
+  const result = completionEconomics([first, {
+    ...first,
+    environment_id: "another-environment",
+  }]);
+  assertEquals(result.conflicting_identities, 1);
+  assertEquals(result.component_receipts, {});
+});
