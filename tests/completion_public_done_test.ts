@@ -243,7 +243,7 @@ Deno.test("E10 public done retries unchanged subjects across candidate edits", a
   });
 });
 
-Deno.test("public completion names unexpected output and preserves it without Proof", async () => {
+Deno.test("public completion preserves unexpected output as pending recovery without a failed verdict", async () => {
   await withTempDir(async (root) => {
     const path = await project(
       root,
@@ -254,15 +254,27 @@ Deno.test("public completion names unexpected output and preserves it without Pr
     const result = await runAgent(path, ["done", "--json"]);
     assertEquals(result.code, 1, result.output);
     const decoded = decodeCliResult(result.stdout, "done");
-    const diagnostics = JSON.stringify(decoded.diagnostics);
-    assert(diagnostics.includes("unrelated output.ts"), diagnostics);
-    assert(diagnostics.includes("git status"), diagnostics);
     assert(
-      decoded.diagnostics?.some((entry) =>
-        entry.tool === "test" && entry.message.includes("unrelated output.ts")
-      ),
-      diagnostics,
+      decoded.data !== undefined && "completion" in decoded.data,
+      result.output,
     );
+    const recovery = decoded.data.completion?.pending?.find((entry) =>
+      entry.kind === "recovery-incomplete"
+    );
+    assert(recovery !== undefined, result.output);
+    assertStringIncludes(recovery.reason, "unrelated output.ts");
+    assertStringIncludes(recovery.reason, "git status");
+    assertEquals(
+      decoded.steps?.find((entry) => entry.label === "test")?.outcome,
+      "ok",
+    );
+    assertEquals(decoded.data.producer_executions, { "jobs.test": 1 });
+    const coverage = decoded.data.standards?.find((entry) =>
+      entry.name === "coverage"
+    );
+    assertEquals(coverage?.measurement, "stale");
+    assertEquals(coverage?.value, undefined);
+    assertEquals(coverage?.verdict, undefined);
     assertEquals(
       await Deno.readTextFile(`${path}/unrelated output.ts`),
       "scratch",

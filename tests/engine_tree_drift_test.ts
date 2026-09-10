@@ -549,7 +549,15 @@ Deno.test("prepare permits fixer/regeneration convergence; clean completion stop
     assertEquals(r.code, 1, r.output);
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.data.failed_stage, "tree_drift", r.stdout);
-    assertEquals(stepFor(obj, "format").outcome, "failed", r.stdout);
+    assertEquals(stepFor(obj, "format").outcome, "ok", r.stdout);
+    assertEquals(
+      obj.data.completion?.pending?.[0]?.kind,
+      "recovery-incomplete",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, "data.txt")),
+      "committed\nregenerated\n",
+    );
     assertEquals(stepFor(obj, "generated:data").outcome, "skipped");
     assertEquals(await targetExists(join(dir, "check-ran.txt")), false);
     assertStringIncludes(
@@ -637,7 +645,12 @@ Deno.test("done: the producer boundary fails closed when a fixer corrupts the in
 
     const obj = decodeGateResult(r.stdout);
     assertEquals(obj.ok, false);
-    assertEquals(obj.data.failed_stage, "fix");
+    assertEquals(obj.data.failed_stage, "check/test");
+    assertEquals(stepFor(obj, "format").outcome, "ok");
+    assertEquals(
+      obj.data.completion?.pending?.[0]?.kind,
+      "recovery-incomplete",
+    );
     assertEquals(obj.data.gate_proof?.status, "pending");
     assertStringIncludes(r.stdout, "index");
     assertEquals(await Deno.readTextFile(join(dir, ".git/index")), "garbage");
