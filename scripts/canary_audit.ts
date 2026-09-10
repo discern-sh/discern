@@ -1,14 +1,4 @@
-/**
- * Canary audit — rank the Logbook's recorded per-file test failures against
- * the canary registry, and name membership that looks wrong in either
- * direction: hot files the canary does not cover, and registered extras with
- * no failure record left to justify them.
- *
- * Advisory only, and deliberately never part of the gate: failure history
- * differs per machine (a fresh clone has none), and gate behaviour must not.
- * The registry stays the deterministic authority; this report is the
- * evidence to revise it with. Run it via `discern scripts canary-audit`.
- */
+/** Review identified test failures against current canary membership and measured cost. */
 
 import { readLogbookStream } from "../src/engine/logbook/read.ts";
 import { runGit } from "../src/shared/subprocess.ts";
@@ -17,84 +7,68 @@ import {
   CANARY_EXTRA_TEST_FILES,
   canaryTestFiles,
 } from "./canary_registry.ts";
-import { listTestModules } from "./canary_tests.ts";
+import { listTestModules } from "./test_modules.ts";
+import {
+  CANARY_REVIEW_FAILURE_RUNS,
+  recordedJobOutcome,
+  testFailureFiles,
+} from "../src/engine/logbook/test_failure_findings.ts";
+import type { LogbookEvent, VerbEvent } from "../src/engine/logbook/schema.ts";
 
-/**
- * Red runs on record before an uncovered file is named a canary candidate:
- * five across the rolling Logbook reads as a trend rather than bad luck.
- */
-export const CANDIDATE_RED_RUNS = 5;
+/** The same review threshold used by normal advisory findings. */
+export const CANDIDATE_RED_RUNS = CANARY_REVIEW_FAILURE_RUNS;
 
 /** Rows shown in the ranking table. */
 const RANKING_ROWS = 20;
 
-/** The event fields the ranking reads — a Logbook verb event supplies them. */
-export interface TestFailureEvidence {
-  readonly kind: string;
-  readonly at: string;
-  readonly diagnostics?:
-    | ReadonlyArray<{
-      readonly tool: string;
-      readonly file?: string | undefined;
-      readonly count?: number | undefined;
-    }>
-    | undefined;
-}
+/** The canonical recorded invocation supplies identity and completed job verdicts. */
+export type TestFailureEvidence = VerbEvent;
 
 /** One file's recorded test-failure history, aggregated across events. */
 export interface TestFailureRecord {
   readonly file: string;
   /** Distinct recorded runs in which the file had at least one failing case. */
   readonly redRuns: number;
-  /** Failing case classes summed with their recorded collapse counts. */
-  readonly cases: number;
+  /** Recorded diagnostic rows, without treating sampling counts as defect counts. */
+  readonly diagnosticRows: number;
   /** ISO timestamp of the newest record. */
   readonly lastAt: string;
 }
 
-/**
- * Aggregate per-file test-failure records from Logbook events: a `test`-tool
- * diagnostic carrying a file marks that file red for its event. Files the
- * report cannot attribute (diagnostics without a file) are skipped. Returns
- * records ranked hottest first: red runs, then cases, then name.
- */
+/** Deduplicate before filtering verdicts, so contradictory copies cannot create a failure. */
 export function rankTestFailures(
-  events: readonly TestFailureEvidence[],
+  events: readonly LogbookEvent[],
 ): TestFailureRecord[] {
-  const byFile = new Map<
-    string,
-    { redRuns: number; cases: number; lastAt: string }
-  >();
-  for (const event of events) {
-    if (event.kind !== "verb" || event.diagnostics === undefined) continue;
-    const filesInEvent = new Set<string>();
-    for (const diagnostic of event.diagnostics) {
-      if (diagnostic.tool !== "test" || diagnostic.file === undefined) continue;
-      const record = byFile.get(diagnostic.file) ??
-        { redRuns: 0, cases: 0, lastAt: event.at };
-      record.cases += diagnostic.count ?? 1;
-      if (!filesInEvent.has(diagnostic.file)) {
-        record.redRuns += 1;
-        filesInEvent.add(diagnostic.file);
-      }
-      if (event.at > record.lastAt) record.lastAt = event.at;
-      byFile.set(diagnostic.file, record);
-    }
-  }
-  return [...byFile.entries()]
-    .map(([file, r]) => ({ file, ...r }))
-    .sort((a, b) =>
-      b.redRuns - a.redRuns || b.cases - a.cases ||
-      a.file.localeCompare(b.file)
-    );
+  return testFailureFiles(events.filter((event) => event.kind === "verb"))
+    .flatMap((entry) => {
+      const failed = entry.events.filter((event) =>
+        recordedJobOutcome(event, "test") === "failed"
+      );
+      if (failed.length === 0) return [];
+      return [{
+        file: entry.file,
+        redRuns: failed.length,
+        diagnosticRows: failed.reduce(
+          (sum, event) =>
+            sum +
+            (event.diagnostics ?? []).filter((row) =>
+              row.tool === "test" && row.file === entry.file
+            ).length,
+          0,
+        ),
+        lastAt: failed.map((event) => event.at).sort().at(-1) ?? "",
+      }];
+    }).sort((a, b) => b.redRuns - a.redRuns || a.file.localeCompare(b.file));
 }
 
-/** The registry drift a ranking exposes, in both directions. */
+/** Review candidates and the explicit limits of retained history. */
 export interface CanaryAuditFindings {
   /** Hot files neither covered nor recorded as refused: add or refuse them. */
   readonly candidates: TestFailureRecord[];
-  /** Registered extras with no failure record left: consider retiring them. */
-  readonly quietExtras: string[];
+  /** Missing failure history does not establish that an existing guard is unnecessary. */
+  readonly unobservedExtras: string[];
+  /** Historical paths absent from current discovery cannot enroll by their old name. */
+  readonly unavailableFiles: string[];
 }
 
 /**
@@ -105,15 +79,19 @@ export interface CanaryAuditFindings {
 export function auditCanary(
   ranking: readonly TestFailureRecord[],
   members: ReadonlySet<string>,
+  modules: ReadonlySet<string>,
 ): CanaryAuditFindings {
   const excluded = new Set(CANARY_EXCLUDED_TEST_FILES.map((e) => e.file));
   const recorded = new Set(ranking.map((r) => r.file));
   return {
     candidates: ranking.filter((r) =>
       r.redRuns >= CANDIDATE_RED_RUNS && !members.has(r.file) &&
-      !excluded.has(r.file)
+      !excluded.has(r.file) && modules.has(r.file)
     ),
-    quietExtras: CANARY_EXTRA_TEST_FILES
+    unavailableFiles: ranking.filter((row) => !modules.has(row.file)).map((
+      row,
+    ) => row.file),
+    unobservedExtras: CANARY_EXTRA_TEST_FILES
       .map((e) => e.file)
       .filter((file) => !recorded.has(file)),
   };
@@ -132,7 +110,7 @@ function rankingRow(
     : "";
   return [
     String(record.redRuns).padStart(8),
-    String(record.cases).padStart(6),
+    String(record.diagnosticRows).padStart(6),
     record.lastAt.slice(0, 10).padEnd(11),
     marker.padEnd(9),
     record.file,
@@ -144,9 +122,10 @@ async function main(): Promise<void> {
   const commonGitDir = await resolveCommonGitDir();
   const stream = await readLogbookStream(commonGitDir);
   const ranking = rankTestFailures(stream.events);
-  const members = new Set(canaryTestFiles(await listTestModules()));
+  const modules = new Set(await listTestModules());
+  const members = new Set(canaryTestFiles([...modules]));
   const excluded = new Set(CANARY_EXCLUDED_TEST_FILES.map((e) => e.file));
-  const findings = auditCanary(ranking, members);
+  const findings = auditCanary(ranking, members, modules);
 
   console.log(
     `Canary audit — ${ranking.length} files with recorded test failures ` +
@@ -155,7 +134,7 @@ async function main(): Promise<void> {
   console.log(
     [
       "red runs".padStart(8),
-      "cases".padStart(6),
+      "rows".padStart(6),
       "last seen ",
       "status   ",
       "file",
@@ -173,7 +152,7 @@ async function main(): Promise<void> {
     console.log(
       `\nCandidates (>= ${CANDIDATE_RED_RUNS} recorded red runs, not covered):`,
     );
-    for (const candidate of findings.candidates) {
+    for (const candidate of findings.candidates.slice(0, RANKING_ROWS)) {
       console.log(`  ${candidate.file} — ${candidate.redRuns} red runs`);
     }
     console.log(
@@ -182,25 +161,36 @@ async function main(): Promise<void> {
         "  measurement in CANARY_EXCLUDED_TEST_FILES (scripts/canary_registry.ts).",
     );
   } else {
-    console.log("\nNo uncovered hot files on record.");
+    console.log(
+      ranking.length === 0
+        ? "\nNo identified completed test-failure history is available; canary suitability remains unknown."
+        : "\nNo current uncovered file reaches the review threshold in this window.",
+    );
   }
 
-  if (findings.quietExtras.length > 0) {
-    console.log("\nExtras with no failure record left — consider retiring:");
-    for (const file of findings.quietExtras) console.log(`  ${file}`);
+  if (findings.unobservedExtras.length > 0) {
+    console.log(
+      "\nExtras without retained failure observations — insufficient evidence to retire:",
+    );
+    for (const file of findings.unobservedExtras.slice(0, RANKING_ROWS)) {
+      console.log(`  ${file}`);
+    }
   }
 
   console.log(
-    "\nAdvisory only: the registry stays the deterministic authority; revise\n" +
-      "it with this evidence rather than wiring history into the gate.",
+    `\n${findings.unavailableFiles.length} historical file paths are absent from current discovery. ` +
+      "Counts can span configurations and describe invocations, not independent defects.\n" +
+      "Advisory only: current membership and measured cost decide enrollment; missing history cannot establish canary coverage or Proof.",
   );
 }
 
 /** Resolve the repository's common Git directory from the working directory. */
-async function resolveCommonGitDir(cwd: string = Deno.cwd()): Promise<string> {
+export async function resolveCommonGitDir(
+  cwd: string = Deno.cwd(),
+): Promise<string> {
   const output = await runGit(
     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-    { cwd },
+    { cwd, bin: "git", environmentPermissionFallback: "isolated-read-only" },
   );
   if (!output.success) {
     throw new Error(

@@ -20,7 +20,7 @@
  *
  * Membership is judged on evidence: `discern scripts canary-audit` ranks the
  * Logbook's recorded per-file test failures against this registry and names
- * files whose membership looks wrong in either direction. The bar for a
+ * current files needing review and missing historical evidence. The bar for a
  * member is hot AND cheap — worth hearing about early, and near-free to ask.
  */
 
@@ -69,8 +69,28 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
     reason: "hot in the recorded failure ranking; near-second artifact checks",
   },
   {
+    file: "tests/feature_canon_agent_benefit_test.ts",
+    reason:
+      "at least six identified failed runs; five-file review executes in about half a second",
+  },
+  {
+    file: "tests/feature_canon_human_benefit_test.ts",
+    reason:
+      "at least six identified failed runs; five-file review executes in about half a second",
+  },
+  {
+    file: "tests/feature_canon_plain_register_test.ts",
+    reason:
+      "at least six identified failed runs; five-file review executes in about half a second",
+  },
+  {
     file: "tests/hint_surface_rendering_test.ts",
     reason: "hot in the recorded failure ranking; sub-second hint rendering",
+  },
+  {
+    file: "tests/logbook_no_network_test.ts",
+    reason:
+      "at least six identified failed runs; five-file review executes in about half a second",
   },
   {
     file: "tests/logbook_test.ts",
@@ -93,6 +113,11 @@ export const CANARY_EXTRA_TEST_FILES: readonly CanaryRegistryEntry[] = [
   {
     file: "tests/paths_write_surface_test.ts",
     reason: "hot in the recorded failure ranking; near-second surface checks",
+  },
+  {
+    file: "tests/reference_docs_test.ts",
+    reason:
+      "at least six identified failed runs; five-file review executes in about half a second",
   },
   {
     file: "tests/site_design_system_runtime_test.ts",
@@ -173,6 +198,11 @@ export const CANARY_EXCLUDED_TEST_FILES: readonly CanaryRegistryEntry[] = [
   {
     file: "tests/interactive_tty_test.ts",
     reason: "hot on record, but an end-to-end TTY suite (measured ~5s)",
+  },
+  {
+    file: "tests/result_schemas_test.ts",
+    reason:
+      "six identified failed runs, but retained 5C module cost is 264s; keep the complete native contract suite in the full gate",
   },
   {
     file: "tests/site_smoke_test.ts",
