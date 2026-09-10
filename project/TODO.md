@@ -62,7 +62,7 @@ This tracked backlog publishes with the repository by design, including its mark
 
 ## 🟢 Test & tooling hygiene
 
-- [ ] **Bound failures within admitted test partitions.** The runner stops admitting queued partitions after the first failed partition and settles every admitted process. Evaluate a bounded native fail-fast within those admitted partitions so known-red runs can report sooner while green runs remain complete for coverage. Preserve process cleanup, seeded scheduling, and explicit incomplete-report semantics. Evidence: `scripts/run_tests.ts`; `scripts/test_partitions.ts`.
+- [x] **Review failure collection within admitted test partitions.** The owner selected complete failure collection after the retained incident and multi-seed repair-journey review. The runner executes every queued partition after test failures; automatic native fail-fast is rejected. Cancelled or crashed runs retain complete partition diagnostics with explicit incomplete-selection metadata and a failing exit. Existing native fixtures guard continued admission, all cases, late independent failures and child settlement. [6B evidence](map/_private/planning/completion-workstreams/evidence/6b.md#6b4-time-to-green-failure-discovery-and-admission-policy) records the evidence and measurement limits.
 
 - [ ] **Schedule changed test files into the earliest partitions.** Failures caused by the current diff should surface in the opening minutes of the test stage, not wherever the shuffle lands them; order changed test modules (and tests importing changed source) first while preserving seeded shuffle reproducibility. Evidence: `scripts/test_partitions.ts`; `scripts/run_tests.ts`.
 

@@ -52,8 +52,14 @@ function junitCount(attributes: string, name: string): number {
 export function combineJunitReports(
   reports: readonly string[],
   seconds: number,
+  expectedPartitions: number = reports.length,
+  interrupted: boolean = false,
 ): string {
-  if (reports.length === 0 || !Number.isFinite(seconds) || seconds < 0) {
+  if (
+    reports.length === 0 || !Number.isFinite(seconds) || seconds < 0 ||
+    !Number.isSafeInteger(expectedPartitions) ||
+    expectedPartitions < reports.length
+  ) {
     throw new TypeError(
       "A complete suite needs reports and a valid elapsed time.",
     );
@@ -82,7 +88,11 @@ export function combineJunitReports(
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<testsuites name="deno test" tests="${counts.tests}" failures="${counts.failures}" errors="${counts.errors}" time="${
       seconds.toFixed(3)
-    }">\n` +
+    }" discern-selection="${
+      !interrupted && reports.length === expectedPartitions
+        ? "complete"
+        : "incomplete"
+    }" discern-reported-partitions="${reports.length}" discern-expected-partitions="${expectedPartitions}">\n` +
     bodies.join("\n") + "\n</testsuites>\n";
 }
 
@@ -191,7 +201,6 @@ async function runPartitionChildren(
   concurrency: number,
   options: OwnedChildOptions,
   moduleSizes: readonly number[],
-  failFast: boolean,
 ): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
@@ -217,10 +226,7 @@ async function runPartitionChildren(
   let completed = 0;
   const failures: unknown[] = [];
   const worker = async (): Promise<void> => {
-    while (
-      !options.signal?.aborted &&
-      !(failFast && (code !== 0 || failures.length > 0))
-    ) {
+    while (!options.signal?.aborted) {
       const index = order[cursor++];
       if (index === undefined) return;
       const report = reports[index];
@@ -247,10 +253,13 @@ async function runPartitionChildren(
   await Promise.all(Array.from({ length: workers }, () => worker()));
   if (options.signal?.aborted) return { code: 1, completed };
   if (failures.length > 0) {
-    throw new AggregateError(
-      failures,
-      "Test partitions failed after every child settled.",
+    console.error(
+      new AggregateError(
+        failures,
+        "Test partitions failed after every child settled.",
+      ),
     );
+    code = 1;
   }
   return { code, completed };
 }
@@ -258,6 +267,7 @@ async function runPartitionChildren(
 export interface PartitionedTestResult {
   readonly code: number;
   readonly report?: string;
+  readonly selection?: "complete" | "incomplete";
 }
 
 /** Settle every admitted child; a stopped suite cannot publish a complete report. */
@@ -269,7 +279,6 @@ export async function runTestPartitions(
     readonly signal?: AbortSignal;
     readonly concurrency?: number;
     readonly scheduleModules?: boolean;
-    readonly failFast?: boolean;
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -328,24 +337,42 @@ export async function runTestPartitions(
         concurrency,
         childOptions,
         graph.moduleSizes,
-        options.failFast ?? false,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
-      if (signal.aborted) return { code: 1 };
-      if (completed !== partitionCount) {
-        console.error(
-          `Test suite stopped after a failed partition: ${completed}/${partitionCount} partitions completed. Active children settled; remaining tests did not run. No complete JUnit report is available.`,
-        );
-        return { code: 1 };
-      }
       if (!args.includes("--reporter=junit")) {
-        return { code };
+        return {
+          code: signal.aborted || completed !== partitionCount ? 1 : code,
+        };
       }
       const texts: string[] = [];
+      const unavailable: unknown[] = [];
       for (const path of reports) {
-        texts.push(await Deno.readTextFile(path));
+        try {
+          const text = await Deno.readTextFile(path);
+          combineJunitReports([text], 0);
+          texts.push(text);
+        } catch (error) {
+          if (unavailable.length < 3) unavailable.push(error);
+        }
       }
-      return { code, report: combineJunitReports(texts, seconds) };
+      const complete = !signal.aborted && completed === partitionCount &&
+        texts.length === partitionCount;
+      if (!complete) {
+        console.error(
+          `Test selection incomplete: ${texts.length}/${partitionCount} partition reports available. All admitted children settled. Report counts cover only those reports; missing tests have no verdict.`,
+        );
+        for (const error of unavailable) console.error(error);
+      }
+      const report = texts.length === 0
+        ? undefined
+        : combineJunitReports(texts, seconds, partitionCount, signal.aborted);
+      // Preserve settled diagnostics before restoring killed-by-signal status.
+      if (interruptedBy !== null && report !== undefined) console.log(report);
+      return {
+        code: complete ? code : 1,
+        selection: complete ? "complete" : "incomplete",
+        ...(report === undefined ? {} : { report }),
+      };
     });
   } finally {
     for (const [interrupt, handler] of handlers) {

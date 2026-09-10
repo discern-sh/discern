@@ -13,6 +13,7 @@ import {
   testPartitionCount,
 } from "../scripts/test_partitions.ts";
 import { testCommandArgs } from "../scripts/run_tests.ts";
+import { junitToDiagnostics } from "../src/engine/gate/diagnostics.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
 import { withTempDir } from "./helpers.ts";
@@ -118,6 +119,11 @@ Deno.test("combined JUnit preserves native diagnostics and rejects missing or in
   }
   assertThrows(() => combineJunitReports([], 1), TypeError);
   assertThrows(() => combineJunitReports([report], -1), TypeError);
+  assertThrows(() => combineJunitReports([report], 1, 0), TypeError);
+  assertStringIncludes(
+    combineJunitReports([report], 1, 1, true),
+    'discern-selection="incomplete"',
+  );
 });
 
 Deno.test("native partitions enroll new files exactly once and retain failed case diagnostics", async () => {
@@ -196,7 +202,7 @@ Deno.test("owned child request cancellation refuses a pre-aborted spawn", async 
   assert(controller.signal.aborted);
 });
 
-Deno.test("a crashed partition cannot return before its sibling or publish partial JUnit", async () => {
+Deno.test("a crashed partition settles its sibling and preserves explicitly incomplete diagnostics", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(
       join(dir, "0_test.ts"),
@@ -213,6 +219,7 @@ Deno.test("a crashed partition cannot return before its sibling or publish parti
       }
       watcher.close();
       await Deno.writeTextFile('finished', 'yes');
+      throw new Error('surviving failure');
     });\n`,
     );
     const controller = new AbortController();
@@ -232,8 +239,25 @@ Deno.test("a crashed partition cannot return before its sibling or publish parti
       );
       await Deno.writeTextFile(join(dir, "release"), "yes");
       const result = await outcome;
-      assertEquals(result.kind, "failed");
-      assert(result.kind === "failed" && result.error instanceof Error);
+      assertEquals(result.kind, "returned");
+      assert(result.kind === "returned");
+      assertEquals(result.value.code, 1);
+      assertEquals(result.value.selection, "incomplete");
+      const report = result.value.report ?? "";
+      assertStringIncludes(report, 'discern-selection="incomplete"');
+      assertStringIncludes(report, 'discern-reported-partitions="1"');
+      assertStringIncludes(report, 'discern-expected-partitions="2"');
+      assertStringIncludes(report, 'tests="1" failures="1"');
+      const diagnostics = junitToDiagnostics(
+        report,
+        "test",
+        "repeat this fixture",
+      );
+      assertEquals(diagnostics?.length, 1);
+      assertStringIncludes(
+        diagnostics?.[0]?.message ?? "",
+        "surviving failure",
+      );
       assertEquals(await Deno.readTextFile(join(dir, "finished")), "yes");
     } finally {
       controller.abort();
@@ -612,7 +636,7 @@ Deno.test("a colour-forcing invoking environment cannot break module scheduling"
   });
 });
 
-Deno.test("fail-fast partitions stop admission while successful suites still enroll every file", async () => {
+Deno.test("failed and green suites execute every queued partition and every native test", async () => {
   await withTempDir(async (dir) => {
     for (const fails of [true, false]) {
       await seedNativeTests(dir, 4, fails ? 0 : undefined);
@@ -621,21 +645,33 @@ Deno.test("fail-fast partitions stop admission while successful suites still enr
         await Deno.writeTextFile(
           path,
           `await Deno.writeTextFile('${index}.ran', 'yes');\n` +
-            await Deno.readTextFile(path),
+            await Deno.readTextFile(path) +
+            `Deno.test('second case ${index}', () => { ${
+              fails && index === 3
+                ? "throw new Error('later independent failure');"
+                : ""
+            } });\n`,
         );
       }
       const result = await runTestPartitions(
         testCommandArgs(42, ["--no-check", "--reporter=junit", dir]),
         4,
-        { cwd: dir, concurrency: 1, failFast: true },
+        { cwd: dir, concurrency: 1 },
       );
       assertEquals(result.code, fails ? 1 : 0);
-      if (fails) assertEquals(result.report, undefined);
-      else assertStringIncludes(result.report ?? "", 'tests="4" failures="0"');
+      assertEquals(result.selection, "complete");
+      assertStringIncludes(
+        result.report ?? "",
+        `tests="8" failures="${fails ? 2 : 0}"`,
+      );
+      if (fails) {
+        assertStringIncludes(result.report ?? "", "planted failure");
+        assertStringIncludes(result.report ?? "", "later independent failure");
+      }
       for (let index = 0; index < 4; index++) {
         assertEquals(
           await lstatIfExists(join(dir, `${index}.ran`)) !== undefined,
-          !fails || index === 0,
+          true,
         );
       }
     }
