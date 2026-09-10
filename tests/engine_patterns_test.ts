@@ -1723,7 +1723,10 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
-    assertStringIncludes(card, "1 red run stopped at the gate");
+    assertStringIncludes(
+      card,
+      "1 non-green `done` result; validation, coordination and recovery outcomes differ",
+    );
     assertStringIncludes(
       card,
       "`api-review` fired on 1 of 2 efforts (1 serving); declared 1 " +
@@ -1731,11 +1734,11 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 failed · 1 retry",
+      "`done`: 3 runs across 2 branches · 3 clean · 0 dirty · 0 unknown · 2 ok · 1 validation failure · 1 retry",
     );
     assertStringIncludes(
       card,
-      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 failed runs · 2 reached a clean gate / 1 had a failure · 1 retried cycle / 1 retry run",
+      "commit-first: 2 cycles / 3 runs across 2 branches · 2 ok / 1 validation failure · 2 reached a clean gate / 1 had a validation failure · 1 retried cycle / 1 retry run",
     );
     assertStringIncludes(
       card,
@@ -1747,7 +1750,7 @@ Deno.test("patterns --stats: the wire and the card carry the same counted feats"
     );
     assertStringIncludes(
       card,
-      "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
+      "longest green streak 2 · current 2 · 3h summed command durations (`done` · `prepare` · `test`; includes waits and overlap)",
     );
     assertStringIncludes(card, "Green gate runs");
     assertStringIncludes(

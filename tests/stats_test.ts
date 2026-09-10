@@ -53,6 +53,7 @@ interface ValidationOptions {
   executionComplete?: boolean;
   tracked?: number;
   untracked?: number;
+  outcome?: "passed" | "failed";
 }
 
 /** One current validation record with configurable completeness and dirty counts. */
@@ -103,7 +104,7 @@ function validation(
         stage: "test",
         kind: "known",
         definition_digest: "job-a",
-        outcome: "passed",
+        outcome: over.outcome ?? "passed",
         concurrent_siblings: false,
       }],
       ...(!executionComplete
@@ -287,7 +288,7 @@ Deno.test("stats: dirty validation bridges its commit into the later clean Gate 
       head: "working-head",
       clean: false,
       outcome: "failed",
-      validation: validation({ tracked: 1 }),
+      validation: validation({ tracked: 1, outcome: "failed" }),
     },
     {
       verb: "test",
@@ -371,6 +372,63 @@ Deno.test("stats: dirty validation bridges its commit into the later clean Gate 
       failures: 1,
       retries: 1,
     },
+  );
+});
+
+Deno.test("stats: workflow failures require completed validation rather than coordination or recovery refusals", () => {
+  const events = run([
+    { error: "awaiting_consent", outcome: "failed", gate_ran: false },
+    { error: "incomplete", outcome: "failed", gate_ran: false },
+    {
+      outcome: "failed",
+      steps: [{ label: "test", kind: "job", outcome: "cancelled" }],
+    },
+    {
+      outcome: "failed",
+      steps: [{ label: "test", kind: "job", outcome: "skipped" }],
+    },
+    { outcome: "failed" },
+    { outcome: "failed", failed_stage: "test" },
+  ]);
+  const result = stats(events).validation_workflows;
+  assertEquals(
+    result.runs.by_verb.find((row) => row.verb === "done")?.failures,
+    1,
+  );
+  assertEquals(
+    result.cycles.routes.find((row) => row.route === "commit-first")
+      ?.failed_runs,
+    1,
+  );
+});
+
+Deno.test("stats: workflow readers deduplicate delivery and do not join across contradictory invocations", () => {
+  const first = verb({
+    invocation: "first",
+    at: t(0),
+    clean: false,
+    outcome: "failed",
+    failed_stage: "test",
+  });
+  const middle = verb({ invocation: "middle", at: t(1) });
+  const last = verb({ invocation: "last", at: t(2), head: "later-head" });
+  const result =
+    stats([first, first, middle, { ...middle, outcome: "failed" }, last])
+      .validation_workflows;
+  assertEquals(result.runs.total, 2);
+  assertEquals(result.cycles.precommit_to_clean_gate.cycles, 0);
+  assertEquals(result.cycles.total, 2);
+});
+
+Deno.test("stats: a failed standard remains a validation failure when its producer passed", () => {
+  const result = stats(run([{
+    outcome: "failed",
+    validation: validation(),
+    steps: [{ label: "coverage", kind: "standard", outcome: "failed" }],
+  }])).validation_workflows;
+  assertEquals(
+    result.runs.by_verb.find((row) => row.verb === "done")?.failures,
+    1,
   );
 });
 
@@ -930,6 +988,7 @@ Deno.test("stats: workflow cohorts use shared minimums and keep every remainder"
       branch,
       clean,
       outcome: index === 0 ? "failed" : "ok",
+      ...(index === 0 ? { failed_stage: "test" } : {}),
       driver: signals(agent),
     }));
   const b = stats(run([

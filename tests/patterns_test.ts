@@ -5416,3 +5416,28 @@ Deno.test("decision evidence separates differing setups from matched conditions"
     ),
   );
 });
+
+Deno.test("explicit rerun requests do not imply execution or previously judged trees", () => {
+  const events = run([
+    { invocation: "rerun-executed", flags: ["rerun"], gate_ran: true },
+    {
+      invocation: "rerun-refused",
+      flags: ["rerun"],
+      gate_ran: false,
+      outcome: "failed",
+      error: "awaiting_consent",
+    },
+    { invocation: "rerun-unknown", flags: ["confirmed"] },
+  ]);
+  const report = runDetector(
+    detector("confirmed-rerun"),
+    buildStreamFacts([...events, ...events], "main"),
+  );
+  const finding = report.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.confirmed_runs, 3);
+  assertEquals(finding.evidence.executed_runs, 1);
+  assertEquals(finding.evidence.unexecuted_runs, 1);
+  assertEquals(finding.evidence.execution_unknown_runs, 1);
+  assert(!finding.observed.includes("already-judged"));
+});

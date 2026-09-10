@@ -373,7 +373,8 @@ export const VALIDATION_WORKFLOW_ROUTES = [
 export type ValidationWorkflowRoute =
   (typeof VALIDATION_WORKFLOW_ROUTES)[number];
 
-/** Counts shared by every validation-workflow route. */
+/** Counts shared by every validation-workflow route. Failure fields count
+ * recorded validation verdicts; additional calls do not establish wasted work. */
 const validationWorkflowRouteSchema = z.strictObject({
   route: z.enum(VALIDATION_WORKFLOW_ROUTES),
   cycles: z.number().int().nonnegative(),
@@ -387,7 +388,7 @@ const validationWorkflowRouteSchema = z.strictObject({
   retry_runs: z.number().int().nonnegative(),
 });
 
-/** Per-verb validation-workflow counts. */
+/** Per-verb workflow observations, with explicit validation failures only. */
 const validationWorkflowVerbSchema = z.strictObject({
   verb: z.enum(["prepare", "test", "done"]),
   runs: z.number().int().nonnegative(),

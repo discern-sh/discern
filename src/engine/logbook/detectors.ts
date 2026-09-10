@@ -1704,48 +1704,59 @@ const forceHabit: Detector = {
 
 const confirmedRerun: Detector = {
   id: "confirmed-rerun",
-  title: "Recurring explicit gate reruns",
+  title: "Recurring explicit gate rerun requests",
   family: "behavior",
   scope: "project",
   tier: "batch",
-  tone: "attention",
-  // Each explicit rerun re-executes a tree the Gate already judged — one is a
-  // deliberate probe; three is a habit worth naming. `rerun` is the current
-  // input, while readers also enroll stored `confirmed` evidence.
+  tone: "neutral",
+  // The flag records a request, not execution or a previously judged subject.
+  // Readers also retain the historical `confirmed` spelling at that resolution.
   threshold: 3,
   next_step:
-    "Inspect why each already-judged tree was rerun. If a job changed verdict under matched recorded conditions, use the `discern-cure-a-bug` diagnose procedure; otherwise keep the recorded reason as context rather than inferring instability.",
+    "Review the reason and recorded execution for each request. Changed source, owner feedback and diagnostic investigation can require another run; a flag alone establishes neither wasted work nor instability. Use matched completed job verdicts before investigating a suspected inconsistency.",
   detect(facts): DetectorOutcome {
-    const reruns = facts.agentish.filter((e) =>
+    const observations = verbInvocations(facts.agentish);
+    const events = observations.events.filter((event) =>
+      !observations.conflicts.has(event)
+    );
+    const reruns = events.filter((e) =>
       e.verb === "done" && ((e.flags ?? []).includes("rerun") ||
         (e.flags ?? []).includes("confirmed"))
     );
     const branches = new Set(
       reruns.map((e) => e.branch).filter((b): b is string => b !== null),
     );
-    const doneRuns = facts.agentish.filter((event) => event.verb === "done")
+    const doneRuns = events.filter((event) => event.verb === "done")
       .length;
+    const executed = reruns.filter((event) => event.gate_ran === true).length;
+    const unexecuted =
+      reruns.filter((event) => event.gate_ran === false).length;
+    const unknown = reruns.length - executed - unexecuted;
     const findings: DetectorFinding[] = reruns.length >= 3
       ? [{
-        summary: "The gate was repeatedly rerun on already-judged trees.",
+        summary: "Explicit gate reruns were requested repeatedly.",
         observed:
-          `an explicit \`done\` rerun re-executed the gate on an already-judged tree ${
+          `An explicit \`done\` rerun was requested ${
             formatHumanNumber(reruns.length)
           } times across ${
             formatHumanNumber(doneRuns)
           } recorded \`done\` runs` +
           (branches.size > 0
             ? ` across ${formatHumanNumber(branches.size)} branches.`
-            : "."),
+            : ".") +
+          ` Recorded execution: ${executed} ran, ${unexecuted} did not run, ${unknown} unknown. These requests do not establish prior green evidence for the same subject.`,
         evidence: {
           confirmed_runs: reruns.length,
           done_runs: doneRuns,
           branches: branches.size,
+          executed_runs: executed,
+          unexecuted_runs: unexecuted,
+          execution_unknown_runs: unknown,
         },
         strength: reruns.length,
       }]
       : [];
-    return { considered: facts.agentish.length, findings };
+    return { considered: events.length, findings };
   },
 };
 

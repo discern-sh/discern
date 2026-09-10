@@ -1045,9 +1045,8 @@ function statsAcceptedRows(
   return rows;
 }
 
-/** The gate section: the green share and first-try share as meter rows with
- * their denominators, red runs reframed as the gate's saves, then streaks
- * and check time. Streaks of one stay off the card. */
+/** Recorded completion-call outcomes and command-time sums, without inferring
+ * validation failure or physical execution. Streaks of one stay off the card. */
 function statsGateRows(gate: PatternsStats["gate"]): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
@@ -1075,7 +1074,9 @@ function statsGateRows(gate: PatternsStats["gate"]): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${plural(reds, "red run")} stopped at the gate`,
+      `${
+        plural(reds, "non-green `done` result")
+      }; validation, coordination and recovery outcomes differ`,
     );
   }
   const tail: string[] = [];
@@ -1093,7 +1094,7 @@ function statsGateRows(gate: PatternsStats["gate"]): string[] {
     tail.push(
       `${
         formatHumanNumber(gate.check_hours)
-      }h of checks run (\`done\` · \`prepare\` · \`test\`)`,
+      }h summed command durations (\`done\` · \`prepare\` · \`test\`; includes waits and overlap)`,
     );
   }
   if (tail.length > 0) {
@@ -1125,7 +1126,7 @@ function statsValidationWorkflowRows(
         formatHumanNumber(verb.dirty)
       } dirty · ${formatHumanNumber(verb.unknown)} unknown · ${
         formatHumanNumber(verb.successes)
-      } ok · ${formatHumanNumber(verb.failures)} failed · ${
+      } ok · ${plural(verb.failures, "validation failure")} · ${
         plural(verb.retries, "retry", "retries")
       }`,
     );
@@ -1141,13 +1142,13 @@ function statsValidationWorkflowRows(
         plural(route.runs, "run")
       } across ${plural(route.branches, "branch", "branches")} · ${
         formatHumanNumber(route.successful_runs)
-      } ok / ${formatHumanNumber(route.failed_runs)} failed runs · ${
+      } ok / ${plural(route.failed_runs, "validation failure")} · ${
         formatHumanNumber(route.successful_cycles)
       } reached a clean gate / ${
         formatHumanNumber(route.failed_cycles)
-      } had a failure · ${plural(route.retried_cycles, "retried cycle")} / ${
-        plural(route.retry_runs, "retry run")
-      }`,
+      } had a validation failure · ${
+        plural(route.retried_cycles, "retried cycle")
+      } / ${plural(route.retry_runs, "retry run")}`,
     );
   }
   const precommit = workflows.cycles.precommit_to_clean_gate;
@@ -1202,9 +1203,9 @@ function statsValidationWorkflowRows(
           formatHumanNumber(identity.commit_first_cycles)
         } · clean gate ${
           formatHumanNumber(identity.successful_cycles)
-        } · failed ${formatHumanNumber(identity.failed_cycles)} · retried ${
-          formatHumanNumber(identity.retried_cycles)
-        }`,
+        } · validation failure ${
+          formatHumanNumber(identity.failed_cycles)
+        } · retried ${formatHumanNumber(identity.retried_cycles)}`,
       );
     }
     rows.push(
@@ -1218,6 +1219,9 @@ function statsValidationWorkflowRows(
       }`,
     );
   }
+  rows.push(
+    "Failure counts require a recorded validation verdict; coordination, cancellation and missing verdicts are excluded. Additional workflow calls can be necessary and do not measure producer executions or author quality.",
+  );
   return rows;
 }
 

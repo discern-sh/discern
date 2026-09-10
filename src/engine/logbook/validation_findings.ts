@@ -30,6 +30,8 @@ export function hasRecordedValidationFailure(event: VerbEvent): boolean {
     if (event.validation.version !== VALIDATION_EVIDENCE_VERSION) return false;
     return event.validation.execution.jobs.some((job) =>
       job.outcome === "failed"
+    ) || (event.steps ?? []).some((step) =>
+      step.kind === "standard" && step.outcome === "failed"
     );
   }
   if (event.steps !== undefined) {

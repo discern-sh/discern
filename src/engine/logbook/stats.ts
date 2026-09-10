@@ -33,7 +33,11 @@ import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
 import { checkpointEconomicsOf } from "./checkpoint_economics.ts";
 import { comparative, driverKind, splitByCohort } from "./cohorts.ts";
-import { validationEvidenceIsComparable } from "./validation_findings.ts";
+import {
+  hasRecordedValidationFailure,
+  validationEvidenceIsComparable,
+  verbInvocations,
+} from "./validation_findings.ts";
 import { EMPTY_TREE_DIFF_FINGERPRINT } from "../../shared/tree_identity.ts";
 import {
   day,
@@ -233,8 +237,8 @@ function gateFeats(facts: StreamFacts): PatternsStats["gate"] {
       firstTry += 1;
     }
   }
-  // Check-hours answers how much time the agents experienced across their
-  // checking loops, so slot waits remain part of this end-to-end wall total.
+  // This is a sum of observed command durations, including slot waits and
+  // overlapping invocations. It is neither elapsed wall time nor compute.
   const checkMs = facts.verbs
     .filter((e) => CHECK_VERBS.has(e.verb))
     .reduce((sum, e) => sum + e.duration_ms, 0);
@@ -289,11 +293,19 @@ function finishWorkflowCycle(
  * or another recorded HEAD begins a new cycle. The dirty-to-committed HEAD
  * transition before that green Gate remains inside its cycle. */
 function validationWorkflowCycles(
-  facts: StreamFacts,
+  observations: ReturnType<typeof verbInvocations>,
 ): ValidationWorkflowCycle[] {
   const active = new Map<string, ValidationWorkflowCycle>();
   const completed: ValidationWorkflowCycle[] = [];
-  for (const event of facts.verbs) {
+  for (const event of observations.events) {
+    if (observations.conflicts.has(event)) {
+      // Conflicting copies can disagree about the branch itself. None of the
+      // active sequences may use that unknown observation as a bridge.
+      for (const branch of [...active.keys()]) {
+        finishWorkflowCycle(branch, active, completed);
+      }
+      continue;
+    }
     if (
       event.verb === "start" && event.outcome === "ok" &&
       event.target !== undefined
@@ -435,11 +447,11 @@ function validationRouteCounts(
     ),
     failed_cycles:
       selected.filter((cycle) =>
-        cycle.events.some((event) => event.outcome === "failed")
+        cycle.events.some(hasRecordedValidationFailure)
       ).length,
     failed_runs: selected.reduce(
       (sum, cycle) =>
-        sum + cycle.events.filter((event) => event.outcome === "failed").length,
+        sum + cycle.events.filter(hasRecordedValidationFailure).length,
       0,
     ),
     retried_cycles: selected.filter((cycle) => cycle.events.length > 1).length,
@@ -483,7 +495,7 @@ function validationWorkflowCohorts(
           .length,
       failed_cycles:
         cohort.units.filter((cycle) =>
-          cycle.events.some((event) => event.outcome === "failed")
+          cycle.events.some(hasRecordedValidationFailure)
         ).length,
       retried_cycles:
         cohort.units.filter((cycle) => cycle.events.length > 1).length,
@@ -504,8 +516,11 @@ function validationWorkflowCohorts(
 function validationWorkflowFeats(
   facts: StreamFacts,
 ): PatternsStats["validation_workflows"] {
-  const runs = facts.verbs.filter(isValidationWorkflowEvent);
-  const cycles = validationWorkflowCycles(facts);
+  const observations = verbInvocations(facts.verbs);
+  const runs = observations.events.filter((event) =>
+    !observations.conflicts.has(event) && isValidationWorkflowEvent(event)
+  );
+  const cycles = validationWorkflowCycles(observations);
   const retryEvents = new Set(
     cycles.flatMap((cycle) => cycle.events.slice(1)),
   );
@@ -548,8 +563,7 @@ function validationWorkflowFeats(
           dirty: selected.filter((event) => event.clean === false).length,
           unknown: selected.filter((event) => event.clean === null).length,
           successes: selected.filter((event) => event.outcome === "ok").length,
-          failures: selected.filter((event) => event.outcome === "failed")
-            .length,
+          failures: selected.filter(hasRecordedValidationFailure).length,
           retries: selected.filter((event) => retryEvents.has(event)).length,
         };
       }),
