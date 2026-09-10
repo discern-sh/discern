@@ -77,6 +77,29 @@ Deno.test("a landed effort starts its next cycle: done admits the new source as 
       1,
       "the durable landing record keeps the first cycle's history",
     );
+    // The verdict binds to the CURRENT source: the first cycle's landing
+    // record for the same effort can never read as the new work's success.
+    const secondAccept = await runAgent(path, ["accept", "--json"]);
+    assertEquals(secondAccept.code, 1, secondAccept.output);
+    const verdict = decodeCliResult(secondAccept.stdout, "accept");
+    assert(
+      verdict.message?.startsWith(
+        "Selected effort `agent/public-done`: not landed.",
+      ),
+      verdict.message,
+    );
+    assert(
+      verdict.data !== undefined && "queue" in verdict.data,
+      secondAccept.output,
+    );
+    const historical = (verdict.data.queue ?? []).find((row) =>
+      row.state === "landed"
+    );
+    assertEquals(
+      historical?.relation,
+      "other",
+      "the previous cycle's landing is another outcome, not the answer",
+    );
   });
 });
 

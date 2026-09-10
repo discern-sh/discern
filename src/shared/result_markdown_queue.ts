@@ -27,6 +27,11 @@ export function emergencyValidationFacts(
   );
 }
 
+/** Close a fact as one sentence without doubling an existing terminator. */
+export function closedSentence(fact: string): string {
+  return /[.!?]$/.test(fact) ? fact : `${fact}.`;
+}
+
 /** One human-readable state label per queue row — shared by every surface. */
 export function queueRowStateLabel(
   row: { readonly readiness?: unknown; readonly held?: unknown },

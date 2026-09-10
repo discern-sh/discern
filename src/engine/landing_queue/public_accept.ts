@@ -221,7 +221,10 @@ async function acceptQueueImplementation(
     );
     let synthesized: AcceptancePrefix | undefined;
     if (
-      !rows.some((row) => row.effort === selected) && entry !== undefined
+      !rows.some((row) =>
+        row.effort === selected &&
+        (entry === undefined || row.source_head === entry.source.head)
+      ) && entry !== undefined
     ) {
       const assessed = acceptancePrefix(
         entry,
@@ -256,6 +259,7 @@ async function acceptQueueImplementation(
           rows.find((row) => row.effort === selected)?.branch ??
             entry?.source.branch ?? `refs/heads/${identity.branch}`,
         ),
+        ...(entry === undefined ? {} : { sourceHead: entry.source.head }),
         ...(synthesized === undefined ? {} : { synthesized }),
         queueOrder: initialQueue === undefined
           ? []

@@ -56,6 +56,10 @@ export interface SelectedEffortPresentation {
   readonly effort: string;
   /** Short display branch for the verdict sentence. */
   readonly branch: string;
+  /** The effort's CURRENT recorded source head. The verdict binds to this
+   * source: a previous cycle's landing row for the same effort is another
+   * outcome, never the selected effort's own answer. */
+  readonly sourceHead?: string;
   readonly synthesized?: AcceptancePrefix;
   /** Active queue order (effort ids) that labels other rows ahead or behind. */
   readonly queueOrder?: readonly string[];
@@ -257,13 +261,21 @@ export async function queueAcceptanceResult(
   const walkRows = rows;
   if (
     selected?.synthesized !== undefined &&
-    !rows.some((row) => row.effort === selected.effort)
+    !rows.some((row) =>
+      row.effort === selected.effort &&
+      (selected.sourceHead === undefined ||
+        row.source_head === selected.sourceHead)
+    )
   ) {
     rows = [...rows, selected.synthesized];
   }
   const own = selected === undefined
     ? undefined
-    : rows.find((row) => row.effort === selected.effort);
+    : rows.find((row) =>
+      row.effort === selected.effort &&
+      (selected.sourceHead === undefined ||
+        row.source_head === selected.sourceHead)
+    );
   // Every waiting row leads with the shared single reason the status queue
   // shows — including a stale entry's own withdrawal or reconciliation offer —
   // ahead of the assessed detail. The not-reached line stays first on the

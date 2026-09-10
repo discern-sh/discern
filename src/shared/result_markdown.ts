@@ -34,6 +34,7 @@ import {
   acceptOrganization,
   checkpointEconomicsLine,
   checkpointRowLine,
+  closedSentence,
   emergencyValidationFacts,
   statusQueueFacts,
 } from "./result_markdown_queue.ts";
@@ -1805,9 +1806,11 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...(own === undefined
         ? []
         : records(own.pending).map((item) =>
-          `${code(text(own.branch) ?? "candidate")}: ${
-            text(item.reason) ?? text(item.kind) ?? "pending"
-          }.`
+          closedSentence(
+            `${code(text(own.branch) ?? "candidate")}: ${
+              text(item.reason) ?? text(item.kind) ?? "pending"
+            }`,
+          )
         )),
       ...records(data.execution_recovery).map((row) =>
         `Execution environment ${code(row.environment_id)} requires recovery: ${
@@ -1829,9 +1832,11 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ),
       ...rows.filter((row) => row !== own).flatMap((row) =>
         records(row.pending).map((item) =>
-          `${rowLabel(row)}: ${
-            text(item.reason) ?? text(item.kind) ?? "pending"
-          }.`
+          closedSentence(
+            `${rowLabel(row)}: ${
+              text(item.reason) ?? text(item.kind) ?? "pending"
+            }`,
+          )
         )
       ),
       listFact("Landed scopes", strings(data.scopes_changed)),
