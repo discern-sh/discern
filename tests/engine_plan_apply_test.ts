@@ -309,7 +309,7 @@ Deno.test("accept --dry-run, a JSON precondition refusal, and the applied --json
       async () => {
         const r = await runAgent(wt, ["accept", "--dry-run"]);
         assertEquals(r.code, 0, r.output);
-        assertTerminalTextIncludes(r.stdout, "ready to land");
+        assertTerminalTextIncludes(r.stdout, "not ready");
         assertTerminalTextIncludes(r.stdout, "Read-only preview");
         assertStringIncludes(r.stdout, "agent/gradry");
         // The worktree must still exist — dry-run mutates nothing.
