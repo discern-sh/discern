@@ -137,8 +137,11 @@ export async function resolveEmergencyValidation(
   }
 }
 
-/** Status and desk read receipts without running validation or modifying recovery. */
-export async function emergencyValidationStatus(
+/** Every recorded exception with its current resolution state — the durable
+ * provenance inventory. Presentation surfaces use {@link emergencyValidationStatus}
+ * instead; a corrupt or mismatched resolution receipt still throws here so it is
+ * preserved rather than silently reported as outstanding. */
+export async function emergencyValidationInventory(
   root: string,
 ): Promise<EmergencyValidation[]> {
   const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
@@ -167,8 +170,19 @@ export async function emergencyValidationStatus(
       ...(resolved === undefined ? {} : { resolved_by: resolved.proof }),
       next_action: resolved === undefined
         ? "Run discern done --rerun on the current committed trunk or a repair containing it. Complete every required context. The emergency exception remains historical."
-        : "Current validation was recorded later. The earlier emergency integration still has no passing Proof.",
+        : "A later complete run resolved this validation. The exception record and its note remain the durable history; it never becomes passing Proof for the emergency landing.",
     });
   }
   return rows;
+}
+
+/** Status, desk, and completion results report an exception only while its
+ * validation is outstanding. A resolved exception leaves every projection;
+ * its note and completion record remain the durable history. */
+export async function emergencyValidationStatus(
+  root: string,
+): Promise<EmergencyValidation[]> {
+  return (await emergencyValidationInventory(root)).filter((row) =>
+    row.state === "outstanding"
+  );
 }

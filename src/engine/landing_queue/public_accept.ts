@@ -1,6 +1,5 @@
-import { quoteCommandWord } from "../../shared/command_evidence.ts";
-import { appendHintTexts, fire, HINTS } from "../../shared/hints.ts";
-/** An active accept actor advances one audited, separately authorized prefix at a time. */
+/** An active accept actor advances one audited, separately authorized effort at a time. */
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { loadModule } from "../../shared/module_loading.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { landingAdvanced } from "../completion/records.ts";
@@ -42,6 +41,7 @@ import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import { cancelQueueClaim, type QueueWorkClaim } from "./claims.ts";
 import { createSourceAncestry, observeSource } from "./composition.ts";
 import { orderedEntries, sameSource } from "./model.ts";
+import { queueEntryReadiness, queueRowFacts } from "./queue_projection.ts";
 import { mutateQueue } from "./mutations.ts";
 import {
   type CandidateAssessment,
@@ -63,6 +63,7 @@ import {
   acceptancePending,
   type AcceptancePrefix,
   acceptancePrefix,
+  displayBranch,
   queueAcceptanceResult as formatQueueAcceptanceResult,
 } from "./public_result.ts";
 import {
@@ -81,11 +82,6 @@ import {
 import { planQueueRetirement, retireQueueLanding } from "./retirement.ts";
 import { completionRecordBlocker } from "../completion/compatibility.ts";
 import { reclaimRetirementStorage } from "./retirement_storage.ts";
-
-/** Owners recognise the short branch name; records carry the full ref. */
-function displayBranch(ref: string): string {
-  return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
-}
 
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
@@ -160,7 +156,8 @@ async function acceptQueueImplementation(
   const root = await Deno.realPath(main);
   const trunk = integrationBranch(ctx.config.repository.trunk);
   const identity = await resolveIdentity(ctx.cwd, ctx.cwd);
-  const initialQueue = observedRecords(await observeQueue(root, trunk)).find((
+  const initialObservation = await observeQueue(root, trunk);
+  const initialQueue = observedRecords(initialObservation).find((
     record,
   ) => record.kind === "queue");
   let selected = identity.id;
@@ -207,25 +204,28 @@ async function acceptQueueImplementation(
   }
   // The owner selected one effort, implicitly by running from its worktree or
   // explicitly with --target. The walk may land or stop on efforts ahead of it,
-  // so the result leads with the selected effort's own verdict and always
-  // carries its row; a landing headline for a predecessor is never the answer.
-  const queueAcceptanceResult = async (
+  // so the shared formatter leads with the selected effort's own verdict and
+  // always carries its row; a landing headline for a predecessor is never the
+  // answer. This wrapper only supplies the selected identity and, when the walk
+  // never produced the row, synthesizes it from the observed queue entry.
+  const queueAcceptanceResult = (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
-    const result = await formatQueueAcceptanceResult(...args);
-    if (selected === "main") return result;
-    const walked = result.data?.queue ?? [];
-    const reached = walked.find((row) => row.effort === selected);
-    if (reached?.state === "landed") return result;
-    const [, , , , dryRun = false] = args;
+    if (selected === "main") return formatQueueAcceptanceResult(...args);
+    const [root, rows, pendingBlockers, proof, dryRun = false, drops] = args;
     const entry = initialQueue?.data.entries.find((candidate) =>
       candidate.source.effort_id === selected
     );
-    const stoppedAt = [...walked].reverse().find((row) =>
+    const stoppedAt = [...rows].reverse().find((row) =>
       row.state !== "landed" && row.effort !== selected
     );
-    let own = reached;
-    if (own === undefined && entry !== undefined) {
+    let synthesized: AcceptancePrefix | undefined;
+    if (
+      !rows.some((row) =>
+        row.effort === selected &&
+        (entry === undefined || row.source_head === entry.source.head)
+      ) && entry !== undefined
+    ) {
       const assessed = acceptancePrefix(
         entry,
         entry.candidate_id === null
@@ -236,7 +236,7 @@ async function acceptQueueImplementation(
         assessed.pending.length > 0 || entry.candidate_id !== null
           ? assessed.pending
           : [acceptancePending({ kind: "missing-evidence", requirements: [] })];
-      own = {
+      synthesized = {
         ...assessed,
         pending: stoppedAt === undefined ? conditions : [{
           kind: "not-reached",
@@ -246,43 +246,53 @@ async function acceptQueueImplementation(
         }, ...conditions],
       };
     }
-    const branch = displayBranch(
-      own?.branch ?? entry?.source.branch ?? `refs/heads/${identity.branch}`,
-    );
-    const verdict = own === undefined
-      ? `Selected effort \`${branch}\`: not validated. Run discern done from its clean committed worktree, then retry acceptance.`
-      : own.state === "ready"
-      ? `Selected effort \`${branch}\`: ready to land.`
-      : `Selected effort \`${branch}\`: ${
-        dryRun ? "not ready" : "not landed"
-      }.${
-        own.pending.length === 0
-          ? ""
-          : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
-      }`;
-    const queue = reached === undefined && own !== undefined
-      ? [...walked, own]
-      : walked;
-    const continuation = own === undefined
-      ? undefined
-      : `discern accept --target ${quoteCommandWord(selected)}`;
-    return {
-      ...result,
-      message: `${verdict}\n\n${result.message ?? ""}`.trimEnd(),
-      data: {
-        ...result.data,
-        queue,
-        ...(continuation === undefined ? {} : { continuation }),
+    return formatQueueAcceptanceResult(
+      root,
+      rows,
+      pendingBlockers,
+      proof,
+      dryRun,
+      drops,
+      {
+        effort: selected,
+        branch: displayBranch(
+          rows.find((row) => row.effort === selected)?.branch ??
+            entry?.source.branch ?? `refs/heads/${identity.branch}`,
+        ),
+        ...(entry === undefined ? {} : { sourceHead: entry.source.head }),
+        ...(synthesized === undefined ? {} : { synthesized }),
+        queueOrder: initialQueue === undefined
+          ? []
+          : orderedEntries(initialQueue.data, { includeHeld: true }).map(
+            (candidate) => candidate.source.effort_id,
+          ),
+        // Each waiting row leads with the same single reason the status queue
+        // shows — including a stale entry's withdrawal or reconciliation
+        // offer instead of advice to rerun checks for integrated work.
+        resolveQueueReason: async (row) => {
+          const listed = initialQueue?.data.entries.find((candidate) =>
+            candidate.source.effort_id === row.effort
+          );
+          if (listed === undefined) return undefined;
+          const facts = await queueRowFacts(
+            root,
+            () => Promise.resolve(initialObservation),
+            listed,
+            trunk,
+            initialQueue?.data.entries ?? [],
+          );
+          const readiness = queueEntryReadiness(listed, facts);
+          return readiness.reason === undefined ? undefined : {
+            kind: facts.onTrunk
+              ? "already-on-trunk"
+              : listed.held === true
+              ? "effort-held"
+              : "queued",
+            reason: readiness.reason,
+          };
+        },
       },
-      hints: continuation === undefined
-        ? result.hints
-        : appendHintTexts(result.hints, [
-          fire(HINTS["completion-pending"], {
-            action:
-              `After resolving the named conditions, continue this selected effort with ${continuation}. Each predecessor still needs its own authority.`,
-          }),
-        ]),
-    };
+    );
   };
   const sourceEntry = initialQueue?.data.entries.find((entry) =>
     entry.source.effort_id === selected
@@ -635,7 +645,11 @@ async function acceptQueueImplementation(
           ],
           [{
             kind: "missing-judgment",
-            subjects: [target.held ? "effort-held" : "effort-withdrawn"],
+            subjects: [
+              target.held
+                ? QUEUE_DECISION_SUBJECT["effort-held"]
+                : QUEUE_DECISION_SUBJECT["effort-withdrawn"],
+            ],
           }],
           finalProof,
           options.dryRun,
@@ -697,6 +711,48 @@ async function acceptQueueImplementation(
               : [],
           };
         }
+        // The preview lists the whole queue — the same ordered list status
+        // shows: efforts behind the selected one and held efforts appear in
+        // place, each with the single reason it waits.
+        const present = new Map(rows.map((item) => [item.effort, item]));
+        const merged: AcceptancePrefix[] = [];
+        for (
+          const listed of orderedEntries(current.record.data, {
+            includeHeld: true,
+          })
+        ) {
+          const existing = present.get(listed.source.effort_id);
+          if (existing !== undefined) {
+            merged.push(existing);
+            continue;
+          }
+          const facts = await queueRowFacts(
+            root,
+            () => Promise.resolve(observation),
+            listed,
+            trunk,
+            current.record.data.entries,
+          );
+          const readiness = queueEntryReadiness(listed, facts);
+          merged.push({
+            ...acceptancePrefix(
+              listed,
+              listed.candidate_id === null
+                ? undefined
+                : details.get(listed.candidate_id),
+            ),
+            pending: readiness.reason === undefined ? [] : [{
+              kind: facts.onTrunk
+                ? "already-on-trunk"
+                : listed.held === true
+                ? QUEUE_DECISION_SUBJECT["effort-held"]
+                : "queued",
+              reason: readiness.reason,
+            }],
+          });
+        }
+        rows.length = 0;
+        rows.push(...merged);
         const work = plan.actions.find((action) =>
           action.kind === "compose" || action.kind === "validate"
         );
@@ -758,7 +814,7 @@ async function acceptQueueImplementation(
         state: "planning",
         candidate_id: entry.candidate_id,
         reason:
-          `Assessing the next separately authorized prefix: ${entry.source.branch}.`,
+          `Checking the next effort in the queue: ${entry.source.branch}.`,
       });
       const plan = claimedPlan ??
         planner.plan(observation, ctx.config.completion, requested);
@@ -859,7 +915,7 @@ async function acceptQueueImplementation(
         const blockers = observedBlockers.length ? observedBlockers : [{
           kind: "environment-unavailable" as const,
           reason:
-            "Current evidence requires validation in the released environment before this prefix can advance.",
+            "Current evidence requires validation in the released environment before this effort can land.",
         }];
         rows.push({
           ...row,

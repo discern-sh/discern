@@ -1,6 +1,7 @@
 /** Cancellation and live capacity transitions use observable barriers and a manual clock. */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { waitForCompletionCapacity } from "../src/engine/completion/capacity.ts";
+import { displayBranch } from "../src/shared/result_markdown_values.ts";
 import { completionRecordBlocker } from "../src/engine/completion/compatibility.ts";
 import type { CompletionObservation } from "../src/engine/completion/protocol.ts";
 import {
@@ -53,6 +54,13 @@ Deno.test("completion capacity names unequal limits, reservation, lookahead, liv
   const policy = CompletionPolicySchema.parse({ concurrency: 1, lookahead: 3 });
   const blocked = workCapacity(entries, second.source.effort_id, policy, true);
   assert(blocked?.kind === "capacity-unavailable");
+  // The one sentence an owner reads names the binding setting and who holds
+  // the slots; counts and identifiers stay in the capacity detail.
+  assertStringIncludes(blocked.reason, "completion.concurrency");
+  assertStringIncludes(
+    blocked.reason,
+    displayBranch(active.source.branch),
+  );
   assertEquals(blocked.capacity.setting, "completion.concurrency");
   assertEquals(blocked.capacity.limit, 1);
   assertEquals(blocked.capacity.occupied, 1);
@@ -150,6 +158,7 @@ Deno.test("completion capacity names unequal limits, reservation, lookahead, liv
     CompletionPolicySchema.parse({ concurrency: 4, lookahead: 0 }),
   );
   assert(depth?.kind === "capacity-unavailable");
+  assertStringIncludes(depth.reason, "completion.lookahead");
   assertEquals(depth.capacity.setting, "completion.lookahead");
   const depthWait = queueCapacityBlocker(
     depth,

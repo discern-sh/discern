@@ -1,3 +1,4 @@
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import {
   completionRecordBlocker,
@@ -27,6 +28,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { withQueueLock } from "./repository.ts";
 import { expectedPredecessor, orderedEntries, sameSource } from "./model.ts";
 import {
@@ -92,7 +94,10 @@ export function workCapacity(
 ): CompletionBlocker | undefined {
   const index = entries.findIndex((entry) => entry.source.effort_id === effort);
   if (index < 0) {
-    return { kind: "missing-judgment", subjects: ["effort-not-selected"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["effort-not-selected"]],
+    };
   }
   const active = entries.filter((entry) => entry.state === "active");
   if (active.some((entry) => entry.source.effort_id === effort)) {
@@ -116,6 +121,7 @@ export function workCapacity(
   if (
     depth || active.length + retainedExecutions >= policy.concurrency - reserved
   ) {
+    const holders = active.map((entry) => displayBranch(entry.source.branch));
     return {
       kind: "capacity-unavailable",
       transient: false,
@@ -132,8 +138,20 @@ export function workCapacity(
           : "An active queue reservation and any associated execution return release a slot.",
       },
       reason: depth
-        ? "The candidate is outside completion.lookahead. Complete the preceding effort, then retry discern done."
-        : "completion.concurrency is occupied or reserved for head work. Complete the head effort or reconcile retained execution before retrying discern done.",
+        ? `It is waiting its turn behind ${
+          entries[0] === undefined
+            ? "the work ahead of it"
+            : displayBranch(entries[0].source.branch)
+        }${
+          index > 1 ? ` and ${index - 1} more` : ""
+        } (completion.lookahead). Land or withdraw the work ahead of it, then retry discern done.`
+        : `Every validation slot is in use${
+          holders.length === 0 ? "" : `, held by ${holders.join(" and ")}`
+        }${
+          reserved > 0
+            ? ", and one is reserved for the next effort to land"
+            : ""
+        } (completion.concurrency). Wait for a running validation to finish or return its slot, then retry discern done.`,
     };
   }
   return undefined;

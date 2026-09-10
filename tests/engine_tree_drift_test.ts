@@ -811,7 +811,7 @@ Deno.test("accept: refuses (non-destructively) an unproven committed file withou
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "Required validation evidence is missing",
+      "not validated. Run discern done from its clean committed worktree",
     );
     // Non-destructive: the worktree survives and the unformatted doc never reached main.
     assertEquals(

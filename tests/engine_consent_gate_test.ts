@@ -341,8 +341,8 @@ const PROBES = {
       env,
       mutated,
       meaning: {
-        act: "separately recorded landing authority",
-        consequence: "0 prefixes landed",
+        act: "the owner's recorded approval",
+        consequence: "not landed",
         scope: "current source",
         continuation: "confirmed",
       },

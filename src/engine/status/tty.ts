@@ -40,6 +40,7 @@ import {
   terminalMultiline,
 } from "../../lib/terminal.ts";
 import { compactDuration } from "../output.ts";
+import { landingQueueLines } from "./queue_presentation.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
@@ -1511,6 +1512,18 @@ export function renderStatusDashboard(
         width,
       ),
     );
+  }
+
+  // The landing queue, in order: the selected effort is marked, and each row
+  // carries its readiness and the single reason it waits.
+  const queueLines = landingQueueLines(data);
+  if (queueLines.length > 0) {
+    blocks.push(section(
+      "Landing queue",
+      [renderTextList(queueLines, width, c)],
+      c,
+      width,
+    ));
   }
 
   if (compactFleet) {

@@ -1,4 +1,5 @@
 /** Stable ordering is durable policy; observation never promotes or repairs work. */
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type { SourceRevision } from "../completion/identity.ts";
 import {
@@ -22,10 +23,16 @@ export function sameSource(
     JSON.stringify(SourceRevisionSchema.parse(right));
 }
 
-/** Landed/withdrawn entries retain their old rank, so later approvals never reuse it. */
-export function orderedEntries(queue: CompletionQueue): QueueEntry[] {
+/** Landed/withdrawn entries retain their old rank, so later approvals never reuse it.
+ * `includeHeld` lists held efforts in their sorted position for read-only
+ * projections; the landing walk never receives them. */
+export function orderedEntries(
+  queue: CompletionQueue,
+  options: { includeHeld?: boolean } = {},
+): QueueEntry[] {
   return queue.entries.filter((entry) =>
-    entry.state !== "withdrawn" && entry.state !== "landed" && !entry.held
+    entry.state !== "withdrawn" && entry.state !== "landed" &&
+    (options.includeHeld === true || !entry.held)
   ).sort((a, b) => {
     if (a.eligible_order !== null && b.eligible_order !== null) {
       return a.eligible_order - b.eligible_order;
@@ -79,7 +86,11 @@ export function dependencyBlocker(
   };
 }
 
-/** Reserve selection before validation. A row without current complete Proof is not admission. */
+/** Reserve selection before validation. A row without current complete Proof is not admission.
+ * A landed entry for the same effort is history: the effort's next cycle
+ * replaces it with a fresh provisional entry, and the durable landing record
+ * keeps what landed. An unlanded entry with a different source still routes
+ * through the explicit source-replacement decision. */
 export function selectSource(
   queue: CompletionQueue,
   source: SourceRevision,
@@ -88,7 +99,7 @@ export function selectSource(
   const existing = queue.entries.find((entry) =>
     entry.source.effort_id === source.effort_id
   );
-  if (existing !== undefined) {
+  if (existing !== undefined && existing.state !== "landed") {
     if (
       sameSource(existing.source, source) &&
       JSON.stringify(existing.dependencies) === JSON.stringify(dependencies)
@@ -101,9 +112,14 @@ export function selectSource(
       reason: "source-replaced",
     };
   }
+  if (
+    existing !== undefined && sameSource(existing.source, source)
+  ) {
+    return { kind: "changed", queue };
+  }
   const next = QueueSchema.parse({
     ...queue,
-    entries: [...queue.entries, {
+    entries: [...queue.entries.filter((entry) => entry !== existing), {
       source,
       dependencies: [...new Set(dependencies)],
       provisional_order: Math.max(
@@ -138,7 +154,12 @@ export function approveBatch(
     members.some((entry) =>
       entry.state === "withdrawn" || entry.state === "landed"
     )
-  ) return { kind: "missing-judgment", subjects: ["approval-batch-members"] };
+  ) {
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["approval-batch-members"]],
+    };
+  }
   const covered = new Set(
     queue.entries.filter((entry) =>
       entry.authority_id !== null && entry.state !== "withdrawn"
@@ -175,7 +196,7 @@ export function approveBatch(
     if (index < 0) {
       return {
         kind: "missing-judgment",
-        subjects: ["source-dependency-cycle"],
+        subjects: [QUEUE_DECISION_SUBJECT["source-dependency-cycle"]],
       };
     }
     const [entry] = pending.splice(index, 1);
@@ -229,7 +250,10 @@ export function reprioritize(
     new Set(wanted).size !== current.length ||
     wanted.some((id) => !current.includes(id))
   ) {
-    return { kind: "missing-judgment", subjects: ["queue-order-changed"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["queue-order-changed"]],
+    };
   }
   if (
     eligible.some((entry) =>
@@ -238,7 +262,12 @@ export function reprioritize(
         wanted.indexOf(dep) > wanted.indexOf(entry.source.effort_id)
       )
     )
-  ) return { kind: "missing-judgment", subjects: ["source-dependency-order"] };
+  ) {
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["source-dependency-order"]],
+    };
+  }
   const first = Math.min(...eligible.map((entry) => entry.eligible_order ?? 0));
   return {
     kind: "changed",
@@ -266,7 +295,10 @@ export function expectedPredecessor(
   const ordered = orderedEntries(queue);
   const index = ordered.findIndex((entry) => entry.source.effort_id === effort);
   if (index < 0) {
-    return { kind: "missing-judgment", subjects: ["effort-not-selected"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["effort-not-selected"]],
+    };
   }
   if (index === 0) return { head: queue.trunk, candidate_id: null };
   const previous = ordered[index - 1];

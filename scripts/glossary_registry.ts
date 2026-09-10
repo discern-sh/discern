@@ -453,6 +453,23 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     ],
   },
   {
+    term: "Effort",
+    runningCase: "lowercase",
+    plain: { keep: "an everyday English word for one piece of work" },
+    definition:
+      "One task carried through implementation and review: the work a [worktree](#worktree), its branch, and its queue entry all belong to. Results name an effort by its branch. An effort keeps one worktree across feedback and resumed sessions; the landing queue orders efforts, and `discern accept` lands the selected effort's validated change on the [trunk](#trunk).",
+    retired: [{
+      phrase: "queue prefix",
+      // The queue-walk noun: results once counted "prefixes landed" and told
+      // owners "the next prefix needs authority". Owner-facing sentences say
+      // "effort"; the record vocabulary stays in the schema. The pattern bans
+      // the sentence shapes of that sense while leaving branch, path, and
+      // command prefixes alone.
+      pattern: String
+        .raw`\b(?:queue|next|eligible|landed|pending|earlier|authori[sz]ed|approved|unrelated|remaining|requested|another)\s+prefix(?:es)?\b|\bprefix(?:es)?\s+(?:landed|lands|landing|advance[sd]?|(?:can|cannot)\s+advance|has\s+its|have\s+their|needs\s+its)\b|\b\d+\s+prefix(?:es)?\b|\bper-prefix\b`,
+    }],
+  },
+  {
     term: "Fleet",
     runningCase: "lowercase",
     plain: {

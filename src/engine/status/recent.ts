@@ -1,8 +1,15 @@
 /** Bounded local Park and completion evidence for the main status view. */
 
-import type { StatusData } from "../../shared/result_schemas.ts";
+import type {
+  StatusData,
+  StatusFleetEntry,
+} from "../../shared/result_schemas.ts";
 import { recordedTaskMetadataData } from "../../shared/task_metadata.ts";
-import { readRecentLogbookStream } from "../logbook/read.ts";
+import {
+  type BranchLogbookActivity,
+  type DurationPrior,
+  readRecentLogbookStream,
+} from "../logbook/read.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { listParkedTaskMetadata } from "../worktree/parked_task_metadata.ts";
 
@@ -82,4 +89,63 @@ export async function parkedTaskEvidence(
       },
     };
   }
+}
+
+/** Later of 2 ISO timestamps, preserving the available value when only one parses. */
+export function latestActivity(
+  gitAt: string | undefined,
+  logbookAt: string | undefined,
+): string | undefined {
+  if (gitAt === undefined) {
+    return logbookAt;
+  }
+  if (logbookAt === undefined) {
+    return gitAt;
+  }
+  const gitMs = Date.parse(gitAt);
+  const logbookMs = Date.parse(logbookAt);
+  if (Number.isNaN(logbookMs)) {
+    return gitAt;
+  }
+  if (Number.isNaN(gitMs)) {
+    return logbookAt;
+  }
+  return logbookMs > gitMs ? logbookAt : gitAt;
+}
+
+/** Join one fleet row to the bounded logbook read for its branch. */
+export function applyLogbookActivity(
+  entry: StatusFleetEntry,
+  activity: BranchLogbookActivity | undefined,
+  durationPriors: ReadonlyMap<string, DurationPrior> | undefined,
+  nowMs: number,
+): StatusFleetEntry {
+  if (activity === undefined) {
+    return entry;
+  }
+  entry.last_activity = latestActivity(
+    entry.last_activity,
+    activity.lastEventAt,
+  );
+  if (activity.lastAction !== undefined) {
+    entry.last_action = {
+      verb: activity.lastAction.verb,
+      outcome: activity.lastAction.outcome,
+      at: activity.lastAction.at,
+      ...(activity.lastAction.failedStage !== undefined
+        ? { failed_stage: activity.lastAction.failedStage }
+        : {}),
+    };
+  }
+  if (activity.running !== undefined) {
+    const startedMs = Date.parse(activity.running.started);
+    const typical = durationPriors?.get(activity.running.verb)?.medianMs;
+    entry.running = {
+      verb: activity.running.verb,
+      started: activity.running.started,
+      elapsed_ms: Number.isNaN(startedMs) ? 0 : Math.max(0, nowMs - startedMs),
+      ...(typical !== undefined ? { typical_duration_ms: typical } : {}),
+    };
+  }
+  return entry;
 }

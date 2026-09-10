@@ -518,9 +518,7 @@ export async function completionRecordChecks(
     });
   }
 
-  const emergencies = (await emergencyValidationStatus(root)).filter((row) =>
-    row.state === "outstanding"
-  );
+  const emergencies = await emergencyValidationStatus(root);
   if (emergencies.length > 0) {
     checks.push({
       name: "emergency validation",

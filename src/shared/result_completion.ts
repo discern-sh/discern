@@ -37,24 +37,45 @@ export function landedCheckoutFacts(
   }. ${retainedCheckoutExplanation(reason)}`;
 }
 
+/** The one plain sentence a landed effort's first paragraph carries about its
+ * checkout: removed, why it stayed with the one command that finishes cleanup,
+ * or the recovery it needs. Terminal, Markdown, and status share this source. */
+export function checkoutOutcomeSentence(
+  row: {
+    readonly retirement?: unknown;
+    readonly retirement_reason?: unknown;
+  },
+): string {
+  const retirement = text(row.retirement);
+  const reason = text(row.retirement_reason);
+  if (retirement === "retired") return "Its checkout was removed.";
+  if (retirement === "recovery") {
+    const cause = reason === undefined
+      ? "."
+      : `: ${reason}${/[.!?]$/.test(reason) ? "" : "."}`;
+    return `Checkout cleanup needs recovery${cause} Landing itself is settled; run discern accept again from the main checkout to resume cleanup.`;
+  }
+  return `Its checkout stayed. ${retainedCheckoutExplanation(reason)}`;
+}
+
 /** Retention describes checkout ownership separately from the recorded landing. */
 export function retainedCheckoutExplanation(
   reason: string | undefined,
 ): string {
   switch (reason) {
     case "unreleased":
-      return "The checkout has not been released for cleanup. It remains available for review or further edits. Stop active use, then run discern done --release-checkout from this effort and discern accept from the main checkout for eligible cleanup.";
+      return "It remains available for review or further edits until released; when finished with it, run discern done --release-checkout from it and the next discern accept removes it.";
     case "active-use":
-      return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
+      return "Something is still using it; stop that preview or operation, then run discern accept from the main checkout.";
     case "moved-branch":
-      return "The source branch changed after landing. Preserve the new work and run discern status from its worktree.";
+      return "Its branch moved after landing, so the new work is preserved; run discern status from that worktree to continue it.";
     case "dirty":
-      return "The checkout contains changed files. Preserve and review them before retrying cleanup from the main checkout.";
+      return "It holds changed files, which are preserved; review them, then run discern accept from the main checkout.";
     case "ownership-uncertain":
-      return "Checkout ownership could not be verified. Preserve its files and resources and inspect discern status --verbose from the main checkout.";
+      return "Its ownership could not be verified, so its files and resources are preserved; run discern status --verbose from the main checkout.";
     default:
       return reason ??
-        "Inspect discern status --verbose from the main checkout for the retained checkout's next action.";
+        "Run discern status --verbose from the main checkout for the retained checkout's next action.";
   }
 }
 
@@ -604,7 +625,7 @@ function requiredFailure(
           ? undefined
           : failed(
             "partial_acceptance",
-            "Acceptance has pending prefixes or authority settlement; the per-prefix results preserve every completed landing.",
+            "Some efforts are still pending or settling their approval; each effort's row preserves every completed landing.",
           );
       }
       const landing = record(data?.landing);

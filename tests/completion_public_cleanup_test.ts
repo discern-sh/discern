@@ -19,7 +19,7 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
     const first = await runAgent(earlier, ["accept", "--confirmed", "--json"]);
     assertEquals(first.code, 0, first.output);
     const firstResult = decodeCliResult(first.stdout, "accept");
-    assertStringIncludes(firstResult.message ?? "", "has not been released");
+    assertStringIncludes(firstResult.message ?? "", "until released");
     assert(firstResult.data !== undefined && "queue" in firstResult.data);
     assertEquals(firstResult.data?.queue?.map((row) => row.retirement), [
       "retained",
@@ -47,7 +47,7 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
       await gitOut(earlier, "rev-parse", "HEAD"),
     );
     assertStringIncludes(status.message ?? "", "has landed");
-    assertStringIncludes(status.message ?? "", "has not been released");
+    assertStringIncludes(status.message ?? "", "until released");
     assertEquals(
       firedHintsFromTexts(status.hints).some((hint) =>
         hint.id === "status-branch-behind"
@@ -59,7 +59,7 @@ Deno.test("public acceptance keeps an unrelated historical retained landing out 
       assertEquals(visible.code, 0, visible.output);
       const prose = visible.stdout.replace(/\s+/g, " ");
       assertStringIncludes(prose, "has landed");
-      assertStringIncludes(prose, "has not been released");
+      assertStringIncludes(prose, "until released");
     }
     const release = await runAgent(earlier, [
       "done",

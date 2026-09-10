@@ -1,3 +1,4 @@
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Active commands consume per-prefix plans. This port runs no validation or ref transition. */
 import type { Candidate } from "../completion/candidate.ts";
@@ -274,7 +275,11 @@ export function planQueue(input: {
     if (target?.held || target?.state === "withdrawn") {
       blockers.push({
         kind: "missing-judgment",
-        subjects: [target.held ? "effort-held" : "effort-withdrawn"],
+        subjects: [
+          target.held
+            ? QUEUE_DECISION_SUBJECT["effort-held"]
+            : QUEUE_DECISION_SUBJECT["effort-withdrawn"],
+        ],
       });
     }
     return result;
@@ -312,7 +317,7 @@ export function planQueue(input: {
     ) {
       return stop({
         kind: "missing-judgment",
-        subjects: ["source-dependency-order"],
+        subjects: [QUEUE_DECISION_SUBJECT["source-dependency-order"]],
       });
     }
     if (entry.state === "failed") {

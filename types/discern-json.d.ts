@@ -7806,6 +7806,16 @@ export type DiscernStatusResult = DiscernResultState & {
       branch: string;
       contained_in: string;
     }>;
+    queue?: Array<{
+      effort: string;
+      branch: string;
+      position: number;
+      state: "provisional" | "eligible" | "active" | "failed";
+      held: boolean;
+      readiness: "ready" | "waiting" | "landing";
+      reason?: string;
+      on_trunk?: boolean;
+    }>;
     recent_completed_tasks?: Array<{
       branch: string;
       head?: string;
@@ -8704,6 +8714,7 @@ export type DiscernAcceptResult = DiscernResultState & {
   message?: string;
   verb: "accept";
   data?: {
+    selected_effort?: string;
     continuation?: string;
     external_integration?: {
       integration_id?: string;
@@ -9094,6 +9105,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       expected_trunk: string | null;
       target: string | null;
       state: "ready" | "pending" | "landed";
+      relation?: "selected" | "ahead" | "behind" | "other";
       landing_id?: string;
       note?: "pending" | "published" | "recovery";
       note_reason?: string;
