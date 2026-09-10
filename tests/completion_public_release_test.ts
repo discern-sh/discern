@@ -27,6 +27,59 @@ prepare = 'true'
 restore = 'true'
 `;
 
+Deno.test("a landed effort starts its next cycle: done admits the new source as a fresh entry", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(root, ["local"], declaration);
+    const done = await runAgent(path, ["done", "--retain-checkout", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    await grantEffort(
+      path,
+      "agent/public-done",
+      wallTimeIso(SYSTEM_CLOCK.wallNow()),
+    );
+    const accepted = await runAgent(path, ["accept", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    const landedRow = decodeCliResult(accepted.stdout, "accept");
+    assert(
+      landedRow.message?.startsWith(
+        "Selected effort `agent/public-done`: landed. Its checkout stayed.",
+      ),
+      landedRow.message,
+    );
+    assert(
+      landedRow.data !== undefined && "queue" in landedRow.data,
+      accepted.output,
+    );
+    assertEquals(
+      landedRow.data.queue?.map((row) => [row.state, row.retirement]),
+      [["landed", "retained"]],
+      accepted.output,
+    );
+    // The same effort continues in its retained checkout for a second phase —
+    // the landed entry is history, not a replaceable source.
+    await Deno.writeTextFile(`${path}/source`, "second phase\n");
+    await git(path, "add", "source");
+    await git(path, "commit", "-m", "Author the second phase");
+    const redo = await runAgent(path, ["done", "--json"]);
+    assertEquals(redo.code, 0, redo.output);
+    const records = observedRecords(await observeQueue(root, "main"));
+    const queue = records.find((record) => record.kind === "queue");
+    assert(queue?.kind === "queue");
+    const entries = queue.data.entries.filter((entry) =>
+      entry.source.effort_id === "public-done"
+    );
+    assertEquals(entries.length, 1);
+    assertEquals(entries[0]?.state, "provisional", JSON.stringify(entries));
+    assertEquals(
+      records.filter((record) =>
+        record.kind === "landing" && record.data.outcome.kind === "landed"
+      ).length,
+      1,
+      "the durable landing record keeps the first cycle's history",
+    );
+  });
+});
+
 Deno.test("review feedback returns to the same effort: edit after release, revalidate, and land the revision", async () => {
   await withTempDir(async (root) => {
     const path = await project(root, ["local"], declaration);

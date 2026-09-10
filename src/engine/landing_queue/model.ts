@@ -85,7 +85,11 @@ export function dependencyBlocker(
   };
 }
 
-/** Reserve selection before validation. A row without current complete Proof is not admission. */
+/** Reserve selection before validation. A row without current complete Proof is not admission.
+ * A landed entry for the same effort is history: the effort's next cycle
+ * replaces it with a fresh provisional entry, and the durable landing record
+ * keeps what landed. An unlanded entry with a different source still routes
+ * through the explicit source-replacement decision. */
 export function selectSource(
   queue: CompletionQueue,
   source: SourceRevision,
@@ -94,7 +98,7 @@ export function selectSource(
   const existing = queue.entries.find((entry) =>
     entry.source.effort_id === source.effort_id
   );
-  if (existing !== undefined) {
+  if (existing !== undefined && existing.state !== "landed") {
     if (
       sameSource(existing.source, source) &&
       JSON.stringify(existing.dependencies) === JSON.stringify(dependencies)
@@ -107,9 +111,14 @@ export function selectSource(
       reason: "source-replaced",
     };
   }
+  if (
+    existing !== undefined && sameSource(existing.source, source)
+  ) {
+    return { kind: "changed", queue };
+  }
   const next = QueueSchema.parse({
     ...queue,
-    entries: [...queue.entries, {
+    entries: [...queue.entries.filter((entry) => entry !== existing), {
       source,
       dependencies: [...new Set(dependencies)],
       provisional_order: Math.max(

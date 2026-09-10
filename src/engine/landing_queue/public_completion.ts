@@ -253,7 +253,10 @@ export async function withPublicCompletion<T>(
       trunk,
       expected_stamp: queue.stamp,
       mutation: {
-        kind: existing !== undefined && !sameSource(existing.source, source)
+        // A landed entry is a finished cycle, not a replaceable source: the
+        // same effort's next change re-enters through ordinary selection.
+        kind: existing !== undefined && existing.state !== "landed" &&
+            !sameSource(existing.source, source)
           ? "source-replaced"
           : "select",
         source,
