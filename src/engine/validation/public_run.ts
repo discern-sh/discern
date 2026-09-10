@@ -29,6 +29,7 @@ import type {
 } from "../completion/protocol.ts";
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
+import { completionBlockerAccount } from "../completion/progress_prose.ts";
 import {
   composeJobOutputObservers,
   createProducerProgressObserver,
@@ -779,11 +780,13 @@ export async function executePublicValidation(input: {
     ),
   );
   for (const blocker of outcome.blockers) {
+    const account = completionBlockerAccount(blocker);
     emitCompletionProgress({
       phase: "pending",
       state: blocker.kind,
       candidate_id: execution.candidate_id,
-      reason: "reason" in blocker ? blocker.reason : JSON.stringify(blocker),
+      reason: account.reason,
+      ...(account.owner_must_act ? { owner_must_act: true } : {}),
     });
   }
   return {

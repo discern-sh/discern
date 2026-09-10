@@ -229,6 +229,94 @@ Deno.test("handles validate, refuse damage, and expired records leave the store"
   });
 });
 
+Deno.test("named timing boundaries stay separate facts under an injected clock", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    let wall = 10_000;
+    const clock = { wallNow: (): number => wall };
+    const journal = await openOperationJournal(root, {
+      verb: "done",
+      path: root,
+    }, { clock });
+    assert(journal !== undefined);
+    // The producer reports its own elapsed time; nothing derives it from the
+    // command's wall span or a budget.
+    await journal.observe({
+      kind: "progress",
+      progress: {
+        phase: "producer",
+        state: "running",
+        candidate_id: null,
+        reason: "Running test: 1 of 2 partitions done.",
+        work: {
+          producer: "test",
+          units: { kind: "partitions", completed: 1, total: 2 },
+          elapsed_ms: 500,
+        },
+      },
+    });
+    // The environment return interval is its own recorded boundary.
+    await journal.observe({
+      kind: "event",
+      event: {
+        id: "return",
+        effort_id: "effort",
+        source_head: "head",
+        candidate_id: null,
+        environment_id: "environment",
+        attempt_id: "attempt",
+        executor_operation: "operation",
+        at: 11_450,
+        fact: {
+          kind: "timing",
+          interval_id: "attempt",
+          category: "return",
+          started_at: 11_400,
+          finished_at: 11_450,
+        },
+      },
+    });
+    wall = 12_000;
+    // The retained result keeps a producer budget verbatim — the seconds AND
+    // the config key that set them — never inferred from observed elapsed time.
+    await journal.finish("failed", {
+      ok: false,
+      verb: "done",
+      error: "gate_failed",
+      steps: [],
+      diagnostics: [{
+        tool: "test",
+        severity: "error",
+        message:
+          "test FAILED (timed out after 2s; the [gate].timeout budget owns this deadline)",
+        reproduce_cmd: "deno task test",
+      }],
+    });
+    const reading = await readOperationJournal(root, journal.handle);
+    assert(reading.kind === "found");
+    // Command duration: the journal's own started/finished stamps.
+    assertEquals(reading.record.operation.started_at, 10_000);
+    assertEquals(reading.record.operation.finished_at, 12_000);
+    // Producer elapsed: the producer's own report, unchanged.
+    assertEquals(reading.record.producers?.test?.elapsed_ms, 500);
+    // Environment return: the recorded interval, unchanged.
+    assertEquals(reading.record.timings, [{
+      category: "return",
+      interval_id: "attempt",
+      started_at: 11_400,
+      finished_at: 11_450,
+    }]);
+    // The budget diagnostic survives verbatim with its provenance key.
+    const diagnostics = (reading.record.result as {
+      diagnostics?: readonly { message: string }[];
+    }).diagnostics;
+    assertEquals(
+      diagnostics?.[0]?.message.includes("[gate].timeout"),
+      true,
+    );
+  });
+});
+
 Deno.test("an oversized final result keeps a bounded account and says so", async () => {
   await withTempDir(async (root) => {
     await repository(root);
