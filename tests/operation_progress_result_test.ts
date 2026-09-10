@@ -118,6 +118,26 @@ Deno.test("an interrupted operation reports its executor gone, not a verdict", a
   });
 });
 
+Deno.test("a store that exists but cannot be used is reported as such, not as a missing repository", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    // A regular file where the store directory belongs breaks the store on
+    // any host, as a permission problem would; the refusal must name that
+    // condition instead of claiming there is no repository here.
+    const store = join(await Deno.realPath(root), ".git", "discern");
+    await Deno.mkdir(store, { recursive: true });
+    await Deno.writeTextFile(join(store, "operations"), "not a directory\n");
+    const read = await operationProgressResult(root);
+    assert(!read.ok);
+    assertEquals(read.error, "read_error");
+    assertStringIncludes(read.message ?? "", "could not be used");
+    assertStringIncludes(
+      read.message ?? "",
+      "The operation itself is unaffected",
+    );
+  });
+});
+
 Deno.test("reconnect refusals name the exact condition without touching anything", async () => {
   await withTempDir(async (root) => {
     await repository(root);

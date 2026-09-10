@@ -232,6 +232,23 @@ Deno.test("handles validate, refuse damage, and expired records leave the store"
   });
 });
 
+Deno.test("a process the reader may not signal still counts as present", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    // Process 1 exists on every POSIX host and an ordinary user cannot
+    // signal it: the probe's permission failure must read as present, and
+    // only "no such process" as gone.
+    const privileged = await openOperationJournal(root, {
+      verb: "done",
+      path: root,
+    }, { pid: 1 });
+    assert(privileged !== undefined);
+    const reading = await readOperationJournal(root, privileged.handle);
+    assert(reading.kind === "found");
+    assertEquals(reading.executor, "running");
+  });
+});
+
 Deno.test("a full store evicts finished waits first, then finished operations, and keeps a running one", async () => {
   await withTempDir(async (root) => {
     await repository(root);

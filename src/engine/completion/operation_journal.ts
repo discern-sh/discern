@@ -15,7 +15,6 @@
 
 import { join } from "@std/path";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
-import { bestEffortSync } from "../../shared/best_effort.ts";
 import {
   atomicReplaceBytes,
   isAtomicReplaceTempName,
@@ -25,6 +24,11 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import {
+  readTextIfExists,
+  realPathIfExists,
+  statIfExists,
+} from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   inspectOnDiskJsonVersion,
@@ -104,31 +108,52 @@ export function normalizeOperationHandle(
   return normalizeShortHandle(OPERATION_FAMILY, candidate);
 }
 
-/** Serialize store mutations through an exclusive repository-local lock file. */
+/**
+ * Why the store could not be used. No repository and a store that exists but
+ * failed are different facts, and a reader must not blame the wrong one.
+ */
+type StoreAccess<T> =
+  | { readonly status: "ok"; readonly value: T }
+  | { readonly status: "no-repository" }
+  | { readonly status: "inaccessible"; readonly reason: string };
+
+/** One line naming a failure, for a reading that reports instead of guessing. */
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Serialize store access through an exclusive repository-local lock file.
+ * Every failure is classified and carried to the caller: the writer degrades
+ * to running without a journal, the reader reports the exact condition.
+ * Running unlocked is never an option — it would corrupt the shared store.
+ */
 async function withStoreLock<T>(
   root: string,
   run: (directory: string) => Promise<T>,
-): Promise<T | undefined> {
-  const directory = await gitAdminStatePath(root, "operations");
-  if (directory === undefined) {
-    return undefined;
-  }
-  let lock: Deno.FsFile | undefined;
+): Promise<StoreAccess<T>> {
+  let store: { readonly directory: string; readonly lock: Deno.FsFile };
   try {
+    const directory = await gitAdminStatePath(root, "operations");
+    if (directory === undefined) return { status: "no-repository" };
     await Deno.mkdir(directory, { recursive: true, mode: 0o700 });
-    lock = await Deno.open(join(directory, LOCK_FILE), {
+    const lock = await Deno.open(join(directory, LOCK_FILE), {
       create: true,
       read: true,
       write: true,
       mode: 0o600,
     });
-    await lock.lock(true);
-    return await run(directory);
-  } catch {
-    // discern-best-effort: operation-journal-lock-fallback
-    return undefined;
+    store = { directory, lock };
+  } catch (error) {
+    return { status: "inaccessible", reason: describeError(error) };
+  }
+  try {
+    await store.lock.lock(true);
+    return { status: "ok", value: await run(store.directory) };
+  } catch (error) {
+    return { status: "inaccessible", reason: describeError(error) };
   } finally {
-    lock?.close();
+    store.lock.close();
   }
 }
 
@@ -160,7 +185,7 @@ function evictionRank(record: OperationJournalRecord | undefined): number {
   const finished = record.outcome !== undefined ||
     record.operation.finished_at !== undefined;
   if (finished) return EVICT_FIRST_VERBS.has(record.operation.verb) ? 1 : 2;
-  return executorAlive(record.operation.pid) ? 4 : 3;
+  return executorLiveness(record.operation.pid).state === "gone" ? 3 : 4;
 }
 
 /** Reap expired records, then evict by rank and age before allocating another. */
@@ -180,11 +205,10 @@ async function pruneForCreate(
     if (!entry.isFile) continue;
     const path = join(directory, entry.name);
     if (isAtomicReplaceTempName(entry.name)) {
-      try {
-        const mtime = (await Deno.stat(path)).mtime?.getTime() ?? now;
-        if (now - mtime >= OPERATION_JOURNAL_TTL_MS) await Deno.remove(path);
-      } catch (error) {
-        if (!(error instanceof Deno.errors.NotFound)) throw error;
+      const stat = await statIfExists(path);
+      const mtime = stat?.mtime?.getTime() ?? now;
+      if (stat !== undefined && now - mtime >= OPERATION_JOURNAL_TTL_MS) {
+        await removeStoreFile(path);
       }
       continue;
     }
@@ -197,23 +221,23 @@ async function pruneForCreate(
       ? normalizeOperationHandle(entry.name.slice(0, -RECORD_SUFFIX.length))
       : undefined;
     if (sibling === undefined && record === undefined) continue;
-    try {
-      const mtime = (await Deno.stat(path)).mtime?.getTime() ?? now;
-      if (now - mtime >= OPERATION_JOURNAL_TTL_MS) {
-        await Deno.remove(path);
-      } else if (sibling !== undefined) {
-        siblings.push({ path, mtime, handle: sibling });
-      } else if (record !== undefined) {
-        const parsed = parseRecord(await Deno.readTextFile(path));
-        live.push({
-          path,
-          mtime,
-          handle: record,
-          record: parsed.status === "recorded" ? parsed.record : undefined,
-        });
-      }
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    const stat = await statIfExists(path);
+    if (stat === undefined) continue;
+    const mtime = stat.mtime?.getTime() ?? now;
+    if (now - mtime >= OPERATION_JOURNAL_TTL_MS) {
+      await removeStoreFile(path);
+    } else if (sibling !== undefined) {
+      siblings.push({ path, mtime, handle: sibling });
+    } else if (record !== undefined) {
+      const text = await readTextIfExists(path);
+      if (text === undefined) continue;
+      const parsed = parseRecord(text);
+      live.push({
+        path,
+        mtime,
+        handle: record,
+        record: parsed.status === "recorded" ? parsed.record : undefined,
+      });
     }
   }
   // Within a rank the oldest start leaves first; an unreadable record has no
@@ -324,9 +348,7 @@ export async function openOperationJournal(
           }
           await file.sync();
         } finally {
-          bestEffortSync("operation-journal-create-close", () => {
-            file.close();
-          });
+          file.close();
         }
         return { handle, path };
       } catch (error) {
@@ -336,7 +358,11 @@ export async function openOperationJournal(
     }
     return undefined;
   });
-  if (opened === undefined || record === undefined) return undefined;
+  if (
+    opened.status !== "ok" || opened.value === undefined ||
+    record === undefined
+  ) return undefined;
+  const store = opened.value;
   let current = record;
   // Writes chain so replaces land in order; one failed write ends the journal.
   let pending: Promise<void> = Promise.resolve();
@@ -347,7 +373,7 @@ export async function openOperationJournal(
       if (broken) return;
       try {
         await atomicReplaceBytes(
-          opened.path,
+          store.path,
           new TextEncoder().encode(`${JSON.stringify(snapshot)}\n`),
           { mode: 0o600, sync: false },
           entropy,
@@ -360,7 +386,7 @@ export async function openOperationJournal(
     return pending;
   };
   return {
-    handle: opened.handle,
+    handle: store.handle,
     observe(fact): Promise<void> {
       if (fact.kind === "progress") {
         const work = fact.progress.work;
@@ -412,7 +438,7 @@ export async function openOperationJournal(
       // bytes go to a sibling under the same retention, and the record keeps
       // a reduced account that points at them.
       const resultPath = `${
-        opened.path.slice(0, -RECORD_SUFFIX.length)
+        store.path.slice(0, -RECORD_SUFFIX.length)
       }${RESULT_SUFFIX}`;
       let retained: string | undefined;
       try {
@@ -444,13 +470,23 @@ export async function openOperationJournal(
   };
 }
 
+/**
+ * What a liveness probe of the recorded executor established. `running` means
+ * a process with the recorded id exists right now — not proof it is the same
+ * executor, since a host can reuse an id after that process ends; `gone`
+ * means no such process exists; `unknown` means the probe itself could not
+ * run, and the reading says so rather than guessing.
+ */
+export type ExecutorLiveness = "running" | "gone" | "unknown";
+
 export type OperationJournalReading =
   | {
     readonly kind: "found";
     readonly handle: string;
     readonly record: OperationJournalRecord;
-    /** Whether the recorded executor process is still alive right now. */
-    readonly executor: "running" | "gone";
+    readonly executor: ExecutorLiveness;
+    /** Why the liveness probe could not run, when `executor` is unknown. */
+    readonly executor_reason?: string;
   }
   | { readonly kind: "invalid-handle" }
   | { readonly kind: "missing" }
@@ -468,32 +504,36 @@ export type OperationJournalReading =
   }
   | { readonly kind: "corrupt" }
   | { readonly kind: "newer"; readonly reason: string }
-  | { readonly kind: "unavailable" };
+  /** No repository is reachable from the given root. */
+  | { readonly kind: "unavailable" }
+  /** The repository's store exists but could not be used; the reason is exact. */
+  | { readonly kind: "inaccessible"; readonly reason: string };
 
 /** Resolve a checkout path for comparison; a removed checkout keeps its recorded spelling. */
 async function comparablePath(path: string): Promise<string> {
-  try {
-    return await Deno.realPath(path);
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) throw error;
-    return path;
-  }
+  return (await realPathIfExists(path)) ?? path;
 }
 
 /**
- * Whether a recorded executor pid is alive; a dead process proves nothing
- * else. POSIX signal 0 performs the existence check without delivering any
- * signal, so probing a stopped process leaves it stopped — reading must never
- * change the operation it reads. Deno's `Signal` type union omits 0 while the
- * runtime accepts it, hence the cast.
+ * Probe a recorded executor pid. POSIX signal 0 performs the existence check
+ * without delivering any signal, so probing a stopped process leaves it
+ * stopped — reading must never change the operation it reads. Deno's `Signal`
+ * type union omits 0 while the runtime accepts it, hence the cast. A process
+ * the reader is not permitted to signal still exists; only "no such process"
+ * means gone, and any other failure is reported as unknown, never guessed.
  */
-function executorAlive(pid: number): boolean {
+function executorLiveness(
+  pid: number,
+): { readonly state: ExecutorLiveness; readonly reason?: string } {
   try {
     Deno.kill(pid, 0 as unknown as Deno.Signal);
-    return true;
-  } catch {
-    // discern-best-effort: operation-executor-liveness-probe
-    return false;
+    return { state: "running" };
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return { state: "gone" };
+    if (error instanceof Deno.errors.PermissionDenied) {
+      return { state: "running" };
+    }
+    return { state: "unknown", reason: describeError(error) };
   }
 }
 
@@ -558,17 +598,10 @@ export async function readOperationJournal(
   }
   const reading = await withStoreLock(root, async (directory) => {
     if (handle !== undefined) {
-      let text: string;
-      try {
-        text = await Deno.readTextFile(
-          join(directory, `${handle}${RECORD_SUFFIX}`),
-        );
-      } catch (error) {
-        if (error instanceof Deno.errors.NotFound) {
-          return { kind: "missing" } as const;
-        }
-        throw error;
-      }
+      const text = await readTextIfExists(
+        join(directory, `${handle}${RECORD_SUFFIX}`),
+      );
+      if (text === undefined) return { kind: "missing" } as const;
       const parsed = parseRecord(text);
       return parsed.status === "recorded"
         ? foundReading(parsed.record)
@@ -602,13 +635,8 @@ export async function readOperationJournal(
           entry.name.slice(0, -RECORD_SUFFIX.length),
         ) === undefined
       ) continue;
-      let text: string;
-      try {
-        text = await Deno.readTextFile(join(directory, entry.name));
-      } catch (error) {
-        if (error instanceof Deno.errors.NotFound) continue;
-        throw error;
-      }
+      const text = await readTextIfExists(join(directory, entry.name));
+      if (text === undefined) continue;
       const parsed = parseRecord(text);
       if (parsed.status !== "recorded") {
         sawInvalid = parsed.status === "newer"
@@ -643,22 +671,26 @@ export async function readOperationJournal(
     }
     return sawInvalid ?? { kind: "none-recorded" } as const;
   });
-  return reading ?? { kind: "unavailable" };
+  if (reading.status === "no-repository") return { kind: "unavailable" };
+  if (reading.status === "inaccessible") {
+    return { kind: "inaccessible", reason: reading.reason };
+  }
+  return reading.value;
 }
 
 /** Project one parsed record into the found reading with a live executor probe. */
 function foundReading(
   record: OperationJournalRecord,
 ): Extract<OperationJournalReading, { kind: "found" }> {
+  const probe = record.operation.finished_at !== undefined
+    ? { state: "gone" as const }
+    : executorLiveness(record.operation.pid);
   return {
     kind: "found",
     handle: record.operation.handle,
     record,
-    executor: record.operation.finished_at !== undefined
-      ? "gone"
-      : executorAlive(record.operation.pid)
-      ? "running"
-      : "gone",
+    executor: probe.state,
+    ...(probe.reason === undefined ? {} : { executor_reason: probe.reason }),
   };
 }
 
@@ -684,15 +716,10 @@ export async function withOperationJournal<T>(
   },
 ): Promise<T> {
   if (JOURNAL_SCOPE.getStore() === true) return await run(undefined);
-  let journal: OperationJournalWriter | undefined;
-  try {
-    journal = await openOperationJournal(root, header, options);
-  } catch {
-    // discern-best-effort: operation-journal-open-fallback
-    journal = undefined;
-  }
-  if (journal === undefined) return await run(undefined);
-  const open = journal;
+  // Every store failure is classified inside the store lock, so an open that
+  // cannot proceed returns no journal rather than throwing.
+  const open = await openOperationJournal(root, header, options);
+  if (open === undefined) return await run(undefined);
   return await JOURNAL_SCOPE.run(true, async () => {
     try {
       const value = await withCompletionObserver(
