@@ -6647,6 +6647,59 @@ export type DiscernPatternsResult = DiscernResultState & {
         };
       };
     };
+    completion?: {
+      window: {
+        first_at: number | null;
+        last_at: number | null;
+      };
+      observations: number;
+      duplicate_observations: number;
+      conflicting_identities: number;
+      conflicting_component_receipts: number;
+      efforts: number;
+      candidates: number;
+      attempts: number;
+      executor_operations: number;
+      component_receipts: {
+        [key: string]: number;
+      };
+      executed_component_groups: number;
+      reused_receipts: number;
+      unknown_component_use_identity: number;
+      producer_executions: number | null;
+      timing: {
+        [key: string]: {
+          observations: number;
+          unknown: number;
+          sum_ms: number | null;
+          elapsed_ms: number | null;
+        };
+      };
+      observed_wall: {
+        observations: number;
+        unknown: number;
+        sum_ms: number | null;
+        elapsed_ms: number | null;
+      };
+      invalidations: {
+        [key: string]: number;
+      };
+      invalidated_predictions: number;
+      prediction_denominator: number | null;
+      prediction_miss_rate: number | null;
+      withdrawals_after_prediction: number;
+      withdrawals_without_prediction_evidence: number;
+      landings: number;
+      emergency_landings: number;
+      retirements: {
+        [key: string]: number;
+      };
+      returns: {
+        [key: string]: number;
+      };
+      unknown_return_identity: number;
+      limitations: Array<string>;
+    };
   } | {
     issues: Array<{
       kind?: "unknown_root_section";
