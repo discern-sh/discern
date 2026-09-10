@@ -12,6 +12,7 @@ import {
   reraiseInterrupt,
 } from "../src/engine/process_signals.ts";
 import { withToolTempDir } from "./temp_dir.ts";
+import { priorityFile, type TestPriority } from "./test_priority.ts";
 
 /** Partition only complete runs whose forwarded options preserve native selection. */
 export function testPartitionCount(
@@ -99,7 +100,7 @@ export function combineJunitReports(
 function partitionArguments(
   args: readonly string[],
   index: number,
-  count: number,
+  selection: readonly string[],
   reportPath: string,
 ): string[] {
   return [
@@ -112,7 +113,7 @@ function partitionArguments(
         }`
         : arg
     ),
-    `--shard=${index}/${count}`,
+    ...selection,
     ...(args.includes("--reporter=junit")
       ? [`--junit-path=${reportPath}`]
       : []),
@@ -175,6 +176,59 @@ export function partitionOrder(
   );
 }
 
+/** Split priority files from the remaining native selection without extra processes. */
+export function partitionSelections(
+  count: number,
+  seed: number | undefined,
+  priority?: TestPriority,
+): {
+  readonly selections: readonly (readonly string[])[];
+  readonly preferred: readonly number[];
+} {
+  const ordinary = {
+    selections: Array.from(
+      { length: count },
+      (_, index) => [`--shard=${index + 1}/${count}`],
+    ),
+    preferred: [],
+  };
+  if (
+    priority === undefined || count < 2 ||
+    !Number.isSafeInteger(priority.moduleCount) || priority.moduleCount < 1 ||
+    priority.excluded.some((path) => path.includes(","))
+  ) return ordinary;
+  const sorted = [...new Set(priority.files)].filter(priorityFile).sort();
+  if (sorted.length === 0 || sorted.length >= priority.moduleCount) {
+    return ordinary;
+  }
+  const files = partitionOrder(sorted.length, 1, seed).flatMap((index) =>
+    sorted[index] ?? []
+  );
+  const groups = Math.min(
+    files.length,
+    count - 1,
+    Math.max(1, Math.ceil(count * files.length / priority.moduleCount)),
+  );
+  const selections = Array.from(
+    { length: groups },
+    () => ["--permit-no-files"],
+  );
+  files.forEach((file, index) => selections[index % groups]?.push(file));
+  const remaining = count - groups;
+  for (let index = 0; index < remaining; index++) {
+    selections.push([
+      `--shard=${index + 1}/${remaining}`,
+      "--permit-no-files",
+      // Native --ignore replaces test.exclude; carry its complete configured list.
+      `--ignore=${[...priority.excluded, ...files].join(",")}`,
+    ]);
+  }
+  return {
+    selections,
+    preferred: Array.from({ length: groups }, (_, index) => index),
+  };
+}
+
 /** Refill bounded native process slots and settle every active child on failure. */
 async function runPartitionChildren(
   args: readonly string[],
@@ -182,6 +236,7 @@ async function runPartitionChildren(
   concurrency: number,
   options: OwnedChildOptions,
   order: readonly number[],
+  selections: readonly (readonly string[])[],
 ): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
@@ -206,7 +261,7 @@ async function runPartitionChildren(
           args: partitionArguments(
             runtimeArgs,
             index + 1,
-            reports.length,
+            selections[index] ?? [],
             report,
           ),
         });
@@ -237,6 +292,15 @@ export interface PartitionedTestResult {
   readonly selection?: "complete" | "incomplete";
 }
 
+/** Explicit native selectors and alternate configs retain their original partition selection. */
+export function prioritySafeArguments(args: readonly string[]): boolean {
+  return args[0] === "test" &&
+    args.slice(1).every((arg) =>
+      /^--(?:allow-(?:read|write|env|run|sys)|parallel|shuffle=\d+|reporter=(?:junit|pretty|dot)|coverage=.+|coverage-raw-data-only|no-check|no-lock)$/
+        .test(arg)
+    );
+}
+
 /** Settle every admitted child; a stopped suite cannot publish a complete report. */
 export async function runTestPartitions(
   args: readonly string[],
@@ -247,7 +311,9 @@ export async function runTestPartitions(
     readonly signal?: AbortSignal;
     readonly concurrency?: number;
     readonly seed?: number;
-    readonly preferredPartitions?: readonly number[];
+    readonly priority?: (
+      signal: AbortSignal,
+    ) => Promise<TestPriority | undefined>;
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -282,6 +348,11 @@ export async function runTestPartitions(
       };
       const prepared = await prepareTestGraph(args, childOptions);
       if (prepared !== 0 || signal.aborted) return { code: 1 };
+      const priority = prioritySafeArguments(args)
+        ? await options.priority?.(signal)
+        : undefined;
+      if (signal.aborted) return { code: 1 };
+      const allocation = partitionSelections(count, options.seed, priority);
       const partitionCount = count;
       const reports = Array.from(
         { length: partitionCount },
@@ -293,6 +364,11 @@ export async function runTestPartitions(
             Math.min(concurrency, partitionCount)
           } processes, one worker each.`,
         );
+        if (allocation.preferred.length > 0) {
+          console.error(
+            `Test admission: ${allocation.preferred.length} priority partitions first; remaining native selection stays required.`,
+          );
+        }
       }
       const started = SYSTEM_CLOCK.monotonicNow();
       const { code, completed } = await runPartitionChildren(
@@ -304,8 +380,9 @@ export async function runTestPartitions(
           count,
           concurrency,
           options.seed,
-          options.preferredPartitions,
+          allocation.preferred,
         ),
+        allocation.selections,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (!args.includes("--reporter=junit")) {

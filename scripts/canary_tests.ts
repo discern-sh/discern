@@ -7,6 +7,8 @@
  * seconds-scale read on the tree.
  */
 
+import { listTestModules } from "./test_modules.ts";
+export { listTestModules } from "./test_modules.ts";
 import { canaryTestFiles } from "./canary_registry.ts";
 import {
   effectiveTestSeed,
@@ -16,19 +18,6 @@ import {
   testWorkerEnvironment,
 } from "./run_tests.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
-
-/** Repo-relative paths of every test module directly under `dir`. */
-export async function listTestModules(
-  dir: string = "tests",
-): Promise<string[]> {
-  const modules: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (entry.isFile && entry.name.endsWith("_test.ts")) {
-      modules.push(`${dir}/${entry.name}`);
-    }
-  }
-  return modules;
-}
 
 /** Build the canary invocation while preserving every caller argument. */
 export function canaryCommandArgs(

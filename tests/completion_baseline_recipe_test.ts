@@ -110,7 +110,12 @@ import { lcovReportArgs } from ${repositoryModule("scripts/coverage_lib.ts")};
 const root = Deno.cwd();
 const lcov = await produceCoverage(root, async (profile) => {
   await Deno.writeTextFile('suite-attempts', '1', { append: true });
-  const suite = await runTestPartitions(testCommandArgs(42, ['tests', '--coverage=' + profile, '--coverage-raw-data-only']), 2, { cwd: root });
+  const suite = await runTestPartitions(testCommandArgs(42, ['--reporter=junit', '--coverage=' + profile, '--coverage-raw-data-only']), 2, {
+    cwd: root,
+    seed: 42,
+    priority: () => Promise.resolve({ files: ['tests/branch_1_test.ts'], excluded: [], moduleCount: 2 }),
+  });
+  if ((suite.report?.match(/<testcase\\b/g) ?? []).length !== 2) throw new Error('each instrumented case must execute exactly once');
   const profileNames = [];
   const directories = [profile];
   for (const directory of directories) {

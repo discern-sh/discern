@@ -9,6 +9,7 @@ import { fromFileUrl } from "@std/path";
 import type { EnvReader } from "../src/shared/env.ts";
 import { resolveIdentity } from "../src/engine/worktree/identity.ts";
 import { runTestPartitions, testPartitionCount } from "./test_partitions.ts";
+import { discoverTestPriority } from "./test_priority.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -112,6 +113,7 @@ if (import.meta.main) {
     const result = await runTestPartitions(args, count, {
       concurrency,
       seed: effectiveTestSeed(identitySeed, Deno.args),
+      priority: (signal) => discoverTestPriority(REPO_ROOT, signal),
     });
     if (result.report !== undefined) console.log(result.report);
     Deno.exit(result.code);

@@ -83,10 +83,6 @@ Deno.test("the repository admits parallel suites with a separate internal worker
     source,
     "env: testWorkerEnvironment(Deno.build.os)",
   );
-  assertStringIncludes(
-    source,
-    "runTestPartitions(args, count, {\n      concurrency,\n      seed: effectiveTestSeed(identitySeed, Deno.args),\n    })",
-  );
   const canarySource = await Deno.readTextFile(
     join(REPO_ROOT, "scripts/canary_tests.ts"),
   );

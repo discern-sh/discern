@@ -9,6 +9,8 @@ import { join } from "@std/path";
 import {
   combineJunitReports,
   partitionOrder,
+  partitionSelections,
+  prioritySafeArguments,
   runTestPartitions,
   testPartitionCount,
 } from "../scripts/test_partitions.ts";
@@ -511,12 +513,86 @@ Deno.test("seeded admission preserves every shard and deterministic priority tie
   assertEquals(preferred, [7, 2, 7, -1, 100]);
 });
 
+Deno.test("priority allocation preserves its process budget and falls back without a separable literal selection", () => {
+  assert(
+    prioritySafeArguments(
+      testCommandArgs(42, ["--reporter=junit", "--no-lock"]),
+    ),
+  );
+  for (
+    const flag of [
+      "tests/selected_test.ts",
+      "--no-config",
+      "--config=other.json",
+      "--filter=case",
+      "--ignore=old.ts",
+      "--shard=1/2",
+      "--changed",
+      "--future",
+    ]
+  ) {
+    assertEquals(
+      prioritySafeArguments(testCommandArgs(42, [flag])),
+      false,
+      flag,
+    );
+  }
+  const ordinary = partitionSelections(4, 42);
+  const priority = {
+    files: ["tests/b_test.ts", "tests/e_test.ts", "tests/b_test.ts"],
+    excluded: ["tests/fixtures/"],
+    moduleCount: 6,
+  };
+  const allocated = partitionSelections(4, 42, priority);
+  assertEquals(allocated.selections.length, 4);
+  assertEquals(allocated.preferred, [0, 1]);
+  assertEquals(allocated, partitionSelections(4, 42, priority));
+  const selected = allocated.selections.slice(0, 2).flat().filter((arg) =>
+    !arg.startsWith("--")
+  );
+  assertEquals([...selected].sort(), ["tests/b_test.ts", "tests/e_test.ts"]);
+  for (const selection of allocated.selections.slice(2)) {
+    const ignored = selection.find((arg) => arg.startsWith("--ignore=")) ?? "";
+    for (const file of ["tests/fixtures/", ...selected]) {
+      assertStringIncludes(ignored, file);
+    }
+  }
+  for (
+    const candidate of [
+      { ...priority, files: [] },
+      { ...priority, moduleCount: 2 },
+      { ...priority, moduleCount: 0 },
+      { ...priority, moduleCount: NaN },
+      { ...priority, excluded: ["name,comma/"] },
+      { ...priority, files: ["tests/[literal]_test.ts"] },
+    ]
+  ) assertEquals(partitionSelections(4, 42, candidate), ordinary);
+  assertEquals(
+    partitionSelections(1, 42, priority),
+    partitionSelections(1, 42),
+  );
+});
+
 Deno.test("cold and warm preparation keep the seeded allocation and complete native membership", async () => {
   await withTempDir(async (dir) => {
     const root = join(dir, "native files with ' quotes");
     await Deno.mkdir(root);
+    await Deno.writeTextFile(
+      join(root, "deno.json"),
+      JSON.stringify({ test: { exclude: ["excluded_test.ts"] } }),
+    );
+    await Deno.writeTextFile(
+      join(root, "excluded_test.ts"),
+      "Deno.test('excluded', () => { throw new Error('excluded test ran'); });\n",
+    );
     let firstOrder: string[] | undefined;
-    for (const total of [3, 3, 4]) {
+    let ordinaryMembers: string[] | undefined;
+    for (
+      const [total, prioritised] of [[3, false], [3, true], [3, true], [
+        4,
+        true,
+      ]] as const
+    ) {
       for (let index = 0; index < total; index++) {
         await Deno.writeTextFile(
           join(root, `${index}_test.ts`),
@@ -529,10 +605,8 @@ Deno.test("cold and warm preparation keep the seeded allocation and complete nat
       await Deno.writeTextFile(join(root, "order.txt"), "");
       const result = await runTestPartitions(
         testCommandArgs(42, [
-          "--no-config",
           "--no-lock",
           "--reporter=junit",
-          root,
         ]),
         2,
         {
@@ -540,6 +614,16 @@ Deno.test("cold and warm preparation keep the seeded allocation and complete nat
           concurrency: 1,
           seed: 42,
           env: { DENO_DIR: join(dir, "cache") },
+          ...(prioritised
+            ? {
+              priority: () =>
+                Promise.resolve({
+                  files: ["2_test.ts"],
+                  excluded: ["excluded_test.ts"],
+                  moduleCount: total,
+                }),
+            }
+            : {}),
         },
       );
       assertEquals(result.code, 1);
@@ -554,10 +638,20 @@ Deno.test("cold and warm preparation keep the seeded allocation and complete nat
       assertEquals(new Set(rows.map((row) => row[0])).size, total);
       assertEquals(new Set(rows.map((row) => row[1])).size, 2);
       const order = rows.map((row) => row[0] ?? "");
-      if (total === 3 && firstOrder !== undefined) {
-        assertEquals(order, firstOrder);
+      const members = [...order].sort();
+      if (!prioritised) ordinaryMembers = members;
+      if (prioritised) {
+        assertEquals(
+          order[0],
+          "2",
+          "the changed module executes in the first partition",
+        );
+        if (total === 3) {
+          assertEquals(members, ordinaryMembers);
+          if (firstOrder !== undefined) assertEquals(order, firstOrder);
+          firstOrder ??= order;
+        }
       }
-      firstOrder ??= order;
     }
   });
 });
