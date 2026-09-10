@@ -78,7 +78,9 @@ export async function recoverCompletionResult(
           source.head
       ) {
         throw new Error(
-          "The recorded source branch changed. Preserve the environment and reconcile its exact source before recovery.",
+          `The branch has moved since this claim was recorded: recovery returns the checkout exactly as recorded, at ${
+            source.head.slice(0, 12)
+          }. Keep any newer commits on a temporary ref, set the branch back to that commit, run this recovery again, then fast-forward the branch to the kept ref. Nothing is lost while the newer commits stay on a ref.`,
         );
       }
       // An environment enrolled before any completion ran here (the setup
