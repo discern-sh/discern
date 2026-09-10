@@ -19,6 +19,11 @@ aliases:
   - "give this back"
   - "ready for review"
   - "accept work"
+  - "release a worktree"
+  - "release-checkout"
+  - "retain-checkout"
+  - "why did validation run again"
+  - "checkout kept after landing"
 ---
 
 # Finish and land a change
@@ -35,7 +40,7 @@ You can give your agent this request:
 
 **Proof** is discern's record that the project's configured checks passed for a particular committed version of the change. A commit is a saved version in Git, the tool that tracks the project's history.
 
-The request also sets a useful boundary: the agent can complete the work and its checks while you retain the landing decision. If you have already approved landing this task or granted permission for its scope, say so in your brief; discern checks that permission before landing.
+The request also sets a useful boundary: the agent can complete the work and its checks while you retain the landing decision. If you have already approved landing this task, or granted permission for its scope, say so in your brief. discern checks that permission before landing, and a task that carries it can land without another turn from you.
 
 ## Start an isolated checkout
 
@@ -47,6 +52,8 @@ The same worktree holds implementation, review fixes, and any resumed sessions. 
 
 While working, your agent uses focused checks and `discern prepare`, which runs the project's fast fix-and-check steps. It reviews any rewritten files and commits the intended result before asking for the full gate, the project's configured quality checks.
 
+The full check needs a committed, clean tree. Evidence has to describe a version that can land, and an uncommitted edit is not one. If the agent asks for the full check with unsaved work, discern refuses and names the files. The agent commits the intended files and asks again. For a quick look at a half-finished tree, `discern done --standalone` runs the checks as a diagnostic; its results are for reading only and count for nothing later.
+
 If other work has landed, your agent follows discern's update or completion instructions. It examines any overlapping changes because two edits can merge successfully and still disagree about how a feature should behave.
 
 For the review request above, the final command is:
@@ -55,7 +62,7 @@ For the review request above, the final command is:
 discern done --retain-checkout
 ```
 
-The `--retain-checkout` option keeps the workspace under the agent's authoring control for follow-up edits. Ordinary successful `discern done` releases it for later validation and eligible cleanup. Neither command lands the change.
+The `--retain-checkout` option keeps the workspace under the agent's authoring control for follow-up edits and a preview. Ordinary successful `discern done` releases it so discern can use it for later validation and eligible cleanup. Neither command lands the change.
 
 Completion includes every required check and measurement context. A context is a declared environment in which the project requires evidence, such as another operating system. If one is unavailable, the agent should explain what remains unverified. Passing the checks available on this machine alone may leave completion pending.
 
@@ -85,7 +92,15 @@ Give feedback in terms of the outcome you want:
 
 Your agent makes that change in the same worktree, prepares and commits it, then produces fresh Proof. The earlier evidence described an earlier version. The new handoff should show the amended behavior and the evidence that covers it.
 
-If the workspace was already released, your agent reads its current state and follows the recovery instructions before editing. If its recorded path is unavailable, identify what happened to that task before creating another workspace. [Recover an interrupted task](recover-an-interrupted-task.md) covers these cases.
+Fresh Proof does not always mean every check runs again. discern keeps the results of checks whose inputs have not changed and runs the ones affected by the edit. The Proof still covers the whole new version.
+
+If you have no changes, the agent stops the preview and releases the workspace without repeating any check:
+
+```sh
+discern done --release-checkout
+```
+
+Release lets discern reuse or clean up the workspace later. It creates no new Proof and gives no permission to land. It also works after other tasks have landed in the meantime. If the workspace was already released, your agent reads its current state and follows the recovery instructions before editing. If its recorded path is unavailable, identify what happened to that task before creating another workspace. [Recover an interrupted task](recover-an-interrupted-task.md) covers these cases.
 
 ## Land under verified authority
 
@@ -93,16 +108,31 @@ When you are satisfied, you can say:
 
 > Land the recipe search change we've reviewed.
 
-Your agent follows the `discern accept` result and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
+Your agent runs `discern accept` from the task's worktree and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
 
-Acceptance checks the current evidence and permission for each change it will land. It may need to validate a combined version containing earlier ready work. If that introduces a conflict, missing evidence, or a new decision, the result names what needs attention. [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains how evidence follows that combined version.
+The result answers about this task first: whether it landed, and if not, the one thing that stands in the way. Read that sentence before anything else in the result.
+
+Landing is a queue. Several finished tasks can be waiting, and acceptance lands them in a stable order rather than in the order they finished. The command may land approved tasks ahead of yours on the way. It may also stop at a task ahead of yours that still needs someone's approval. Neither outcome says anything about your change; the result names the task it stopped at and what that task needs. Approving your change does not approve the ones ahead of it, and their landing headlines are not yours.
+
+Acceptance checks the current evidence and permission for each change it lands. When the shared branch has moved since your Proof, discern needs evidence for the combined version. If the project has declared a validation environment, acceptance can build and check that version itself; otherwise the agent brings the trunk into the worktree and runs the full check again. Any check whose inputs are unchanged is reused. [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains how evidence follows that combined version.
 
 An unmet checkpoint or a proposed standard limit change needs your explicit decision on that particular exception. General permission to land does not settle either one. The agent should explain the tradeoff and its recommendation before asking you to decide.
 
 ## Completion
 
-The acceptance result identifies which changes landed on the shared branch and gives the surviving checkout path. It also reports whether temporary worktrees and resources were removed or retained. A cleanup problem can occur after a successful landing; the agent should distinguish those outcomes and follow the reported recovery.
+The acceptance result identifies which changes landed on the shared branch and gives the surviving checkout path.
 
-Landing makes the change part of the shared project. Publishing it to users follows your project's release process. Ask your agent for that next step when you are ready to release.
+After a landing, discern removes the task's workspace when nothing else is using it. When it stays, the result says why in one sentence and names the one command that finishes cleanup. The usual reasons: the workspace was never released (the agent runs `discern done --release-checkout`, then acceptance from the main checkout finishes cleanup); a preview or other process is still using it; the branch gained new commits after landing; the workspace holds changed files; or its ownership could not be verified. A kept workspace does not undo the landing.
 
-For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).
+These are different states, and the result uses different words for them:
+
+| State                  | What it tells you                                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Checks passed**      | The configured checks ran and passed on one exact version.                                                                                               |
+| **Proof**              | The complete evidence for that version, including every required context and recorded judgment. Checks can pass while Proof is still pending.          |
+| **Approved**           | You, or a recorded grant, gave permission to land this version.                                                                                          |
+| **Landed**             | The version is on the shared branch.                                                                                                                     |
+| **Deployed**           | Your release process made it available to users. discern never does this.                                                                                |
+| **Emergency exception** | An urgent repair landed before its checks finished, under a fresh decision of yours, with a permanent record of what was skipped. This is not Proof. |
+
+[Land an urgent repair](land-an-urgent-repair.md) covers the last row. For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).
