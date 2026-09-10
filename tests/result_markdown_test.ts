@@ -1520,7 +1520,11 @@ Deno.test("the checkout outcome is one sentence with the command that finishes c
       ...(reason === undefined ? {} : { retirement_reason: reason }),
     });
     assert(kept.startsWith("Its checkout stayed. "), kept);
-    assertStringIncludes(kept, "discern ", "every kept outcome names a command");
+    assertStringIncludes(
+      kept,
+      "discern ",
+      "every kept outcome names a command",
+    );
   }
   const recovery = checkoutOutcomeSentence({
     retirement: "recovery",

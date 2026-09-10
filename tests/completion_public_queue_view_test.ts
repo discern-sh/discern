@@ -15,6 +15,7 @@ import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, runAgent } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
+/** One synthetic queue entry with the fixture's default source coordinates. */
 function entry(overrides: Partial<QueueEntry> = {}): QueueEntry {
   return {
     source: {

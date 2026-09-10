@@ -117,9 +117,7 @@ export function workCapacity(
   if (
     depth || active.length + retainedExecutions >= policy.concurrency - reserved
   ) {
-    const holders = active.map((entry) =>
-      displayBranch(entry.source.branch)
-    );
+    const holders = active.map((entry) => displayBranch(entry.source.branch));
     return {
       kind: "capacity-unavailable",
       transient: false,
@@ -140,7 +138,9 @@ export function workCapacity(
         : `Every validation slot is taken${
           holders.length === 0 ? "" : ` (held by ${holders.join(", ")})`
         }${
-          reserved > 0 ? ", with one slot reserved for the next effort to land" : ""
+          reserved > 0
+            ? ", with one slot reserved for the next effort to land"
+            : ""
         }: completion.concurrency binds. A running validation finishing or returning its slot frees one; then retry discern done.`,
     };
   }

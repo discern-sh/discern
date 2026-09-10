@@ -55,7 +55,7 @@ export interface SelectedEffortPresentation {
   /** Short display branch for the verdict sentence. */
   readonly branch: string;
   readonly synthesized?: AcceptancePrefix;
-  /** Active queue order (effort ids) used to label other rows as ahead. */
+  /** Active queue order (effort ids) that labels other rows ahead or behind. */
   readonly queueOrder?: readonly string[];
   /** Resolve whether a waiting row's recorded work is already on the trunk;
    * returns that row's withdrawal or reconciliation offer when it is. */

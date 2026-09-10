@@ -207,7 +207,7 @@ async function acceptQueueImplementation(
   // always carries its row; a landing headline for a predecessor is never the
   // answer. This wrapper only supplies the selected identity and, when the walk
   // never produced the row, synthesizes it from the observed queue entry.
-  const queueAcceptanceResult = async (
+  const queueAcceptanceResult = (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
     if (selected === "main") return formatQueueAcceptanceResult(...args);

@@ -79,8 +79,8 @@ import { nearestContainingBranch } from "../worktree/containment.ts";
 import {
   conventionalBranchForWorktreeId,
   resolveWorktreeTarget,
-  WorktreeTargetError,
   worktreePathForEffortBranch,
+  WorktreeTargetError,
 } from "../worktree/target_resolution.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
