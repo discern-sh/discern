@@ -100,7 +100,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 69      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`result-advisory-kinds`](#result-advisory-kinds--result-advisory-kinds)                                              | `src/shared/result.ts#RESULT_ADVISORY_KINDS`                                      | 15      | —                | node `published-contracts`  |
-| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 48      | —                | node `bundled-docs`         |
+| [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 49      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
 | [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 50      | —                | node `bundled-docs`         |
@@ -3118,7 +3118,7 @@ The machine-stable vocabulary for explicitly optional degradation that may coexi
 Every strictly admitted published product-manual page, identified by its stable authored page id.
 
 - Source: `src/lib/manual.ts` — `buildManualProjection`
-- Members: 48
+- Members: 49
   - `manual-home`
   - `start-index`
   - `start-evaluate-discern`
@@ -3127,6 +3127,7 @@ Every strictly admitted published product-manual page, identified by its stable 
   - `start-after-setup`
   - `guide-index`
   - `guide-finish-and-land-a-change`
+  - `guide-land-an-urgent-repair`
   - `guide-fix-a-red-gate`
   - `guide-recover-an-interrupted-task`
   - `guide-delegate-work`
