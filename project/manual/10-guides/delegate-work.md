@@ -17,6 +17,8 @@ aliases:
   - "built-in skills"
   - "bundled playbooks"
   - "skill catalog"
+  - "update old briefs"
+  - "brief migration"
 ---
 
 # Delegate substantial work
@@ -79,7 +81,9 @@ Independent tasks can land separately. A staged change can build on earlier chec
 
 The planning agent records that arrangement in the briefs and gives each dependent task the exact branch identity returned when its prerequisite starts. You do not need to coordinate the moment of handover yourself.
 
-Starting work and approving its landing are separate decisions. Ask the planning agent to state where tasks will stop for your review and where an existing recorded permission allows them to continue. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
+Starting work and approving its landing are separate decisions, and review before landing is a choice you make per task rather than a turn every task owes you. A task whose scope you have already granted can finish its checks and land on its own; a task you want to see first stops at its Proof and waits. Ask the planning agent to state which is which in each brief. A later task's approval does not automatically approve earlier work included in it. [Proof, review, and authority](../20-understand/proof.md) explains how those decisions accompany the completed change.
+
+The agents coordinate the rest without you. A finished task joins the landing queue on its own, an agent waiting for a sibling holds one call until the sibling is ready, and acceptance lands approved tasks in a stable order. A brief does not need to ask for a separate test run before the full check, a message to you when an independent task is ready to land, or a preview kept open until landing; those add turns without adding evidence.
 
 ## 5. Start the agreed tasks
 
@@ -104,6 +108,10 @@ Send any corrections back to the same effort. Its agent follows the reported wor
 ## Completion
 
 The handoff is ready when you understand the proposed tasks, each fresh agent has a complete brief, and the review and landing arrangements are clear. The work is complete when those results have been reviewed and the landing result says what reached the shared branch and what remains pending.
+
+## Keep existing briefs current
+
+A brief written for an earlier version of the workflow can still tell its agent to run the full test suite before the full check, to wait for your word before landing work you have already granted, or to keep a preview running until acceptance. Refreshing the project's generated agent files does not change those briefs: refresh rebuilds the instructions discern supplies, and a brief is your own file. When the workflow changes, ask an agent to read the project's active briefs and bring their sequences into line with the current instructions, keeping every real dependency, chosen order, and review you asked for.
 
 ## Inspect decisions from the desk
 
