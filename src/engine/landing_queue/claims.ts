@@ -27,6 +27,7 @@ import {
   type SecureEntropy,
   SYSTEM_SECURE_ENTROPY,
 } from "../../shared/entropy.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { withQueueLock } from "./repository.ts";
 import { expectedPredecessor, orderedEntries, sameSource } from "./model.ts";
 import {
@@ -116,6 +117,9 @@ export function workCapacity(
   if (
     depth || active.length + retainedExecutions >= policy.concurrency - reserved
   ) {
+    const holders = active.map((entry) =>
+      displayBranch(entry.source.branch)
+    );
     return {
       kind: "capacity-unavailable",
       transient: false,
@@ -132,8 +136,12 @@ export function workCapacity(
           : "An active queue reservation and any associated execution return release a slot.",
       },
       reason: depth
-        ? "The candidate is outside completion.lookahead. Complete the preceding effort, then retry discern done."
-        : "completion.concurrency is occupied or reserved for head work. Complete the head effort or reconcile retained execution before retrying discern done.",
+        ? "This effort is waiting for its turn: completion.lookahead binds, so efforts ahead of it must land or be withdrawn before it can validate early. Complete the preceding effort, then retry discern done."
+        : `Every validation slot is taken${
+          holders.length === 0 ? "" : ` (held by ${holders.join(", ")})`
+        }${
+          reserved > 0 ? ", with one slot reserved for the next effort to land" : ""
+        }: completion.concurrency binds. A running validation finishing or returning its slot frees one; then retry discern done.`,
     };
   }
   return undefined;

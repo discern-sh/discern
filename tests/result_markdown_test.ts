@@ -22,7 +22,10 @@ import {
   HINTS,
   hintTexts,
 } from "../src/shared/hints.ts";
-import { retainedCheckoutExplanation } from "../src/shared/result_completion.ts";
+import {
+  checkoutOutcomeSentence,
+  retainedCheckoutExplanation,
+} from "../src/shared/result_completion.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1495,4 +1498,34 @@ Deno.test("accept rows explain a kept checkout and omit retirement for unlanded 
   assert(!pending.includes("retirement"), pending);
   assert(!pending.includes("convergence"), pending);
   assert(!pending.includes("checkout kept"), pending);
+});
+
+Deno.test("the checkout outcome is one sentence with the command that finishes cleanup", () => {
+  assertEquals(
+    checkoutOutcomeSentence({ retirement: "retired" }),
+    "Its checkout was removed.",
+  );
+  for (
+    const reason of [
+      "unreleased",
+      "active-use",
+      "moved-branch",
+      "dirty",
+      "ownership-uncertain",
+      undefined,
+    ]
+  ) {
+    const kept = checkoutOutcomeSentence({
+      retirement: "retained",
+      ...(reason === undefined ? {} : { retirement_reason: reason }),
+    });
+    assert(kept.startsWith("Its checkout stayed. "), kept);
+    assertStringIncludes(kept, "discern ", "every kept outcome names a command");
+  }
+  const recovery = checkoutOutcomeSentence({
+    retirement: "recovery",
+    retirement_reason: "the capture failed",
+  });
+  assertStringIncludes(recovery, "the capture failed");
+  assertStringIncludes(recovery, "run discern accept again");
 });
