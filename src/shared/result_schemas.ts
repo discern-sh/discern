@@ -908,7 +908,7 @@ export const STANDARD_MEASUREMENTS = [
   "deferred", // measure = "on-demand": the gate skipped only the measurement
   "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
   "cancelled", // interrupted production has no completed measurement verdict
-  "stale", // produced evidence no longer applies to the observed subject
+  "stale", // produced evidence is inapplicable to the observed subject
 ] as const;
 /** One measurement disposition ({@link STANDARD_MEASUREMENTS}). */
 export type StandardMeasurementDisposition =

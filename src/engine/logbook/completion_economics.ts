@@ -345,7 +345,7 @@ function predictionObservations(events: readonly CompletionEvent[]): {
   };
 }
 
-/** Read the historical contract at its actual resolution; absent newer facts stay unknown. */
+/** Read each recorded contract at its declared resolution; absent facts stay unknown. */
 export function completionEconomics(
   observations: readonly CompletionEvent[],
 ): CompletionEconomics {

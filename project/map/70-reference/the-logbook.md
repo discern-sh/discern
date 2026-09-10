@@ -26,7 +26,7 @@ An MCP call whose explicit `path` falls outside every discern project returns `n
 
 Setting `[project].logbook = false` stops new evidence for every feature below. `discern patterns` can still read existing history.
 
-- the practice report (`discern patterns`): behavior, Gate-fit, funnel, and trajectory findings over accumulated runs
+- the practice and completion-cost report (`discern patterns`): behavior, Gate-fit, funnel, and trajectory findings over accumulated runs
 - each worktree's last action and work in flight: the fleet survey's `last_action` and `running` columns
 - fleet activity times that include verb runs, so a long test run does not appear dormant
 - configuration-change attribution and each standard's limit history: the `config-change` and `pin` events

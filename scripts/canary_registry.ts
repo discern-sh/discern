@@ -20,7 +20,7 @@
  *
  * Membership is judged on evidence: `discern scripts canary-audit` ranks the
  * Logbook's recorded per-file test failures against this registry and names
- * current files needing review and missing historical evidence. The bar for a
+ * current files needing review and missing failure evidence. The bar for a
  * member is hot AND cheap — worth hearing about early, and near-free to ask.
  */
 

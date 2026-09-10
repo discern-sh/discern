@@ -896,54 +896,60 @@ Deno.test("evidence selection validates history once per bulk decision as obliga
   const records = [...prior.records, assemblyRecord(snap)];
   // Repeated irrelevant history and obligations expose multiplicative work
   // without constructing repositories or invoking an engine or producer.
-  const history = Array.from({ length: 8 }, () => records).flat();
-  const wide = {
-    ...snap,
-    obligations: Array.from({ length: 8 }, () => snap.obligations).flat(),
-  };
-  const demand = {
-    kind: "done",
-    context: "local",
-    mode: "strict",
-    requirements: snap.requirements,
-  } as const;
-  const decide = [
-    { count: history.length, run: () => artifactAuditEvidence(wide, history) },
-    {
-      count: history.length,
-      run: () => planValidation(wide, observation(history), demand),
-    },
-    {
-      count: records.length,
-      run: () =>
-        assembleCandidate(
-          snap,
-          snap.candidate_id,
-          snap.candidate,
-          snap.requirements,
-          records,
-          "strict",
-          new Set(),
-          COMPLETION_CLOCK,
-        ),
-    },
-  ];
-  const parse = CompletionRecordSchema.safeParse;
-  let validations = 0;
-  CompletionRecordSchema.safeParse = (...args): ReturnType<typeof parse> => {
-    validations++;
-    return parse(...args);
-  };
-  try {
-    for (const decision of decide) {
-      validations = 0;
-      decision.run();
-      assert(
-        validations <= decision.count,
-        `${validations} record validations for ${decision.count} records`,
-      );
+  for (const cardinality of [1, 4, 16]) {
+    const history = Array.from({ length: cardinality }, () => records).flat();
+    const wide = {
+      ...snap,
+      obligations: Array.from({ length: cardinality }, () => snap.obligations)
+        .flat(),
+    };
+    const demand = {
+      kind: "done",
+      context: "local",
+      mode: "strict",
+      requirements: snap.requirements,
+    } as const;
+    const decide = [
+      {
+        count: history.length,
+        run: () => artifactAuditEvidence(wide, history),
+      },
+      {
+        count: history.length,
+        run: () => planValidation(wide, observation(history), demand),
+      },
+      {
+        count: records.length,
+        run: () =>
+          assembleCandidate(
+            snap,
+            snap.candidate_id,
+            snap.candidate,
+            snap.requirements,
+            records,
+            "strict",
+            new Set(),
+            COMPLETION_CLOCK,
+          ),
+      },
+    ];
+    const parse = CompletionRecordSchema.safeParse;
+    let validations = 0;
+    CompletionRecordSchema.safeParse = (...args): ReturnType<typeof parse> => {
+      validations++;
+      return parse(...args);
+    };
+    try {
+      for (const decision of decide) {
+        validations = 0;
+        decision.run();
+        assert(
+          validations <= decision.count,
+          `${validations} record validations for ${decision.count} records`,
+        );
+      }
+    } finally {
+      CompletionRecordSchema.safeParse = parse;
     }
-  } finally {
-    CompletionRecordSchema.safeParse = parse;
   }
 });

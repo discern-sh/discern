@@ -40,10 +40,6 @@ This tracked backlog publishes with the repository by design, including its mark
 
 - [ ] **Derive the site's evidence specimen figures from the recorded snapshot.** The specimens page hard-codes dated Standard-trajectory numbers in source; read them from the recorded snapshot at build time, or hold them to it with a test, so the page cannot drift from the evidence it cites. Evidence: `site/page-src/specimens.tsx`; `project/map/_private/brand/claims-residue.md`.
 
-- [ ] **Detect duplicated standalone-test preflights before the Gate.** Add a Logbook detector for a green standalone test followed by a full Gate on the same commit and validation configuration, while preserving intentional standalone results. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/validation_findings.ts`; `tests/engine_patterns_test.ts`.
-
-- [x] **Detect the hot-test inversion and suggest a canary check job.** Rank test diagnostic classes against stage duration, detect when frequent failures occupy little runtime, and recommend a cheap check-stage canary while retaining the full evidence ranking in structured output. Evidence: `src/engine/logbook/detectors.ts`; `src/engine/logbook/schema.ts`; `tests/engine_patterns_test.ts`; `scripts/canary_registry.ts`; `scripts/canary_audit.ts`; `project/map/_adr/0325-the-canary-job-hears-hot-tests-before-the-full-suite.md`.
-
 - [ ] **Reconcile the contributor documentation with its live authorities.** Enrol the Canonical sets leaf, reconcile the documented test layers and build ownership, and align the generated ownership inventory with its live registry. Evidence: `project/map/80-development/README.md`; `project/map/80-development/testing.md`; `project/map/80-development/code-conventions.md`; `discern.toml`; `src/shared/paths_registry.ts`.
 
 - [ ] **Provide a supported recovery for main-checkout divergence.** Add a declared operation or bounded workflow that transfers owned tracked and untracked changes into the assigned worktree without guessing ownership. Evidence: `src/shared/hints.ts`; `src/engine/dispatch.ts`.
@@ -61,22 +57,6 @@ This tracked backlog publishes with the repository by design, including its mark
 - [ ] **Give the setup wizard back-navigation through a sequential form.** Adopt the typed sequential-form flow once its step constructors can carry prior values into rerun steps automatically, avoiding cancellation and restart for corrections. Evidence: `src/lib/terminal_interaction.ts:668-785`.
 
 ## 🟢 Test & tooling hygiene
-
-- [x] **Review failure collection within admitted test partitions.** The owner selected complete failure collection after the retained incident and multi-seed repair-journey review. The runner executes every queued partition after test failures; automatic native fail-fast is rejected. Cancelled or crashed runs retain complete partition diagnostics with explicit incomplete-selection metadata and a failing exit. Existing native fixtures guard continued admission, all cases, late independent failures and child settlement. [6B evidence](map/_private/planning/completion-workstreams/evidence/6b.md#6b4-time-to-green-failure-discovery-and-admission-policy) records the evidence and measurement limits.
-
-- [x] **Schedule changed test files into the earliest partitions.** Changed files and resolved importers run first under the checkout seed, within the unchanged partition budget. Native discovery retains the rest of the suite and configured exclusions; unsupported selection or unavailable metadata uses ordinary seeded admission. Cold/warm, new-file, exclusion, exact-membership and green-coverage guards exercise the policy. Evidence: `scripts/test_priority.ts`; `scripts/test_partitions.ts`; [6B discovery evidence](map/_private/planning/completion-workstreams/evidence/6b.md#6b3-discovery-diagnosis).
-
-- [ ] **Publish the expensive-execution weight as a falling-ceiling standard.** The cost analyzer already computes a repetition-weighted expensive-call total per file; sum it suite-wide and hold it under a `[standards]` falling ceiling so growth needs arithmetic as well as the checkpoint's judgment. Evidence: `scripts/test_execution_analysis.ts`; `discern.toml`.
-
-- [ ] **Design a contention-safe suite-cost standard.** Wall time is a property of the machine's afternoon, not the change; measure test-stage cost as child CPU seconds with an admissibility rule (no concurrent queued suite, canary duration inside its usual band) and a generous ratcheted limit, carrying the prior reading forward when a sample is contaminated. Evidence: `discern.toml`; `scripts/run_tests.ts`.
-
-- [ ] **Surface gate-duration drift from the logbook.** Median green `done` duration per config epoch is already recorded; a project-scoped detector that flags a sustained upward trend would have named this week's regression a run earlier than the owner's patience did. Evidence: `src/engine/logbook/detectors.ts`; `tests/engine_patterns_test.ts`.
-
-- [x] **Act on canary-audit findings with the cost bar disposing.** The audit ranks recorded per-file failures against membership; wire its verdict into an enrol-or-refuse flow where failure evidence proposes and the seconds bar disposes, recording each refusal with its measurement. Evidence: `scripts/canary_audit.ts`; `scripts/canary_registry.ts`.
-
-- [ ] **Profile remaining per-invocation orchestration cost in journey tests.** Distinguish source import, Git discovery, native child recording, durable publication, and actual project work in matched journeys. Reduce measured repeated work without attributing a whole invocation to engine startup or weakening recovery guarantees. Evidence: `tests/engine_helpers.ts`; `tests/completion_public_done_test.ts`.
-
-- [x] **Apply the execution-review ladder to the emergency suite.** The emergency tests spend around two summed minutes across fifteen registrations with several full-journey scaffolds; review them against the smallest-sufficient-execution ladder the way the completion family was. Evidence: `tests/completion_emergency_test.ts`; `project/map/80-development/test-execution-review.md`.
 
 - [ ] **Publish the opt-in managed GitHub gate after launch.** Replace the one-shot scaffold with a deterministic ejectable workflow after release assets and managed-version authority exist, then add annotations, summaries, and deferred-Standard measurement. Evidence: `project/map/_private/planning/managed-ci-workstreams`; `.github/workflows`.
 

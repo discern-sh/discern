@@ -182,7 +182,7 @@ Invocation `surface` is `cli` or `mcp`. Completion `outcome` is `ok`, `failed`, 
 | `config-change` | Branch, changed config-section names, and the new epoch fingerprint. Values are not stored.                  |
 | `pin`           | Branch, standard name, previous limit, new limit, and measured value.                                        |
 | `prune`         | Aggregate digests for raw month shards removed by rotation.                                                  |
-| `completion`    | Canonical executor and queue observations, with durable subject and operation identities; advisory only. |
+| `completion`    | Canonical executor and queue observations, with durable subject and operation identities; advisory only.     |
 
 | Field           | Example                                                                 |
 | --------------- | ----------------------------------------------------------------------- |

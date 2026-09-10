@@ -67,7 +67,7 @@ export interface CanaryAuditFindings {
   readonly candidates: TestFailureRecord[];
   /** Missing failure history does not establish that an existing guard is unnecessary. */
   readonly unobservedExtras: string[];
-  /** Historical paths absent from current discovery cannot enroll by their old name. */
+  /** Recorded paths absent from current discovery cannot enroll. */
   readonly unavailableFiles: string[];
 }
 

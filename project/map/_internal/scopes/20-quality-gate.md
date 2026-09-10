@@ -8,28 +8,29 @@ This subtree documents the public gate workflow: fixing a failed run, the work `
 
 ## Files to produce
 
-| File                            | Shape           | Topic                                                                                          |
-| ------------------------------- | --------------- | ---------------------------------------------------------------------------------------------- |
-| `README.md`                     | overview        | Public front door led by the route from a red Gate to its fix.                                 |
-| `when-the-gate-fails.md`        | troubleshooting | Troubleshooting page for diagnostics and common failure classes; `order: 10`.                  |
-| `validation-findings.md`        | guide           | Guide to the persisted validation findings emitted after failed and successful runs.           |
-| `standards.md`                  | guide           | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`.     |
-| `practice-stats.md`             | guide           | Guide to measuring repeated development practices from the Logbook.                            |
-| `checkpoints.md`                | guide           | Guide to deterministic triggers and judgment-bearing checkpoint answers.                       |
-| `checkpoint-recipes.md`         | guide           | Task recipes for placing and tuning common checkpoint boundaries.                              |
-| `complete-evidence.md`          | guide           | Complete candidate evidence, shared producers, declared contexts, and the completion boundary. |
-| `the-proof.md`                  | guide           | Guide to review Proof and the exact-tree identity it records; `order: 30`.                     |
-| `proof-notes.md`                | guide           | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.              |
-| `strand-detection.md`           | guide           | Concept page for tracked output left by a Gate stage; `order: 50`.                             |
-| `ci.md`                         | guide           | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                            |
-| `improvement.md`                | guide           | Concept and command guide for ranked continuous-improvement findings; `order: 70`.             |
-| `coupling.md`                   | guide           | Concept and command guide for coupling; `order: 80`.                                           |
-| `patterns.md`                   | guide           | Guide to the advisory practice-pattern report; `order: 90`.                                    |
-| `pattern-investigations.md`     | guide           | Guide to collecting evidence for one reported practice pattern.                                |
-| `patterns-decision-evidence.md` | guide           | Guide to retaining the decision evidence behind pattern responses.                             |
-| `tidy.md`                       | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                     |
-| `concurrent-test-runs.md`       | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                              |
-| `capacity-and-speculation.md`   | guide           | Guide to the completion, test, and environment limits and when early validation runs.          |
+| File                                  | Shape           | Topic                                                                                          |
+| ------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------- |
+| `README.md`                           | overview        | Public front door led by the route from a red Gate to its fix.                                 |
+| `when-the-gate-fails.md`              | troubleshooting | Troubleshooting page for diagnostics and common failure classes; `order: 10`.                  |
+| `validation-findings.md`              | guide           | Guide to the persisted validation findings emitted after failed and successful runs.           |
+| `standards.md`                        | guide           | Guide to metric floors, ceilings, measurement, replay, pinning, and failures; `order: 20`.     |
+| `practice-stats.md`                   | guide           | Guide to measuring repeated development practices from the Logbook.                            |
+| `checkpoints.md`                      | guide           | Guide to deterministic triggers and judgment-bearing checkpoint answers.                       |
+| `checkpoint-recipes.md`               | guide           | Task recipes for placing and tuning common checkpoint boundaries.                              |
+| `complete-evidence.md`                | guide           | Complete candidate evidence, shared producers, declared contexts, and the completion boundary. |
+| `the-proof.md`                        | guide           | Guide to review Proof and the exact-tree identity it records; `order: 30`.                     |
+| `proof-notes.md`                      | guide           | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.              |
+| `strand-detection.md`                 | guide           | Concept page for tracked output left by a Gate stage; `order: 50`.                             |
+| `ci.md`                               | guide           | Guide to enforcing `discern done` with GitHub Actions; `order: 60`.                            |
+| `improvement.md`                      | guide           | Concept and command guide for ranked continuous-improvement findings; `order: 70`.             |
+| `coupling.md`                         | guide           | Concept and command guide for coupling; `order: 80`.                                           |
+| `patterns.md`                         | guide           | Guide to the advisory practice-pattern report; `order: 90`.                                    |
+| `patterns-completion-observations.md` | guide           | Advisory validation, queue and recovery cost boundaries; `order: 85`.                          |
+| `pattern-investigations.md`           | guide           | Guide to collecting evidence for one reported practice pattern.                                |
+| `patterns-decision-evidence.md`       | guide           | Guide to retaining the decision evidence behind pattern responses.                             |
+| `tidy.md`                             | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                     |
+| `concurrent-test-runs.md`             | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                              |
+| `capacity-and-speculation.md`         | guide           | Guide to the completion, test, and environment limits and when early validation runs.          |
 
 ## Source files to read
 

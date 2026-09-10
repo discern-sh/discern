@@ -343,7 +343,7 @@ export interface LandingPublisher {
 }
 
 /** Event facts are advisory projections of canonical execution and durable outcomes. */
-/** Legacy categories retain their meaning; precise executor phases have distinct keys. */
+/** Coarse categories and precise executor phases have distinct keys. */
 export const COMPLETION_TIMING_CATEGORIES = [
   "approval",
   "queue",

@@ -691,7 +691,7 @@ Usage: `discern coupling [file] [with] [options]`
 
 ### `discern patterns`
 
-Report the patterns in this project's discern use, read from the local logbook of verb runs: agent behavior, gate fit, the task funnel, and each standard's trajectory. A read-only advisory.
+Report the patterns in this project's discern use, read from the local logbook: validation, evidence reuse, waits, landing latency, gate fit and standard trends. Counts include observation limits. A read-only advisory.
 
 Usage: `discern patterns [options]`
 

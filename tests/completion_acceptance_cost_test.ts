@@ -29,6 +29,7 @@ Deno.test("acceptance assessment visits the selected prefix as unrelated queue h
       const [effort, expected] of [
         ["effort-0", 1],
         ["effort-1", 2],
+        [`effort-${size - 1}`, size],
         ["absent", 0],
       ] as const
     ) {
@@ -93,50 +94,52 @@ Deno.test("acceptance assessment visits the selected prefix as unrelated queue h
 });
 
 Deno.test("source dependency queries scale with distinct immutable pairs, preserving all dependencies", async () => {
-  const { queue } = queueExample(4);
-  const [selected, ...others] = queue.entries;
-  assert(selected !== undefined);
-  const source = selected.source;
-  const sources = others.map((entry) => entry.source);
-  for (const copies of [1, 8, 32]) {
-    const calls = new Map<string, number>();
-    const dependencies = await discoverSourceDependencies(
-      "unused",
-      source,
-      queue.trunk,
-      Array.from({ length: copies }, () => [source, ...sources]).flat(),
-      (ancestor, descendant) => {
-        const key = `${ancestor}:${descendant}`;
-        calls.set(key, (calls.get(key) ?? 0) + 1);
-        return Promise.resolve(descendant === source.head);
-      },
-    );
-    assertEquals(dependencies, sources);
-    assertEquals(calls.size, sources.length * 2);
-    assertEquals(
-      [...calls.values()],
-      Array.from({ length: calls.size }, () => 1),
-    );
-  }
-  await assertRejects(
-    () =>
-      discoverSourceDependencies(
+  for (const size of [2, 4, 8]) {
+    const { queue } = queueExample(size);
+    const [selected, ...others] = queue.entries;
+    assert(selected !== undefined);
+    const source = selected.source;
+    const sources = others.map((entry) => entry.source);
+    for (const copies of [1, 8, 32]) {
+      const calls = new Map<string, number>();
+      const dependencies = await discoverSourceDependencies(
         "unused",
         source,
         queue.trunk,
+        Array.from({ length: copies }, () => [source, ...sources]).flat(),
+        (ancestor, descendant) => {
+          const key = `${ancestor}:${descendant}`;
+          calls.set(key, (calls.get(key) ?? 0) + 1);
+          return Promise.resolve(descendant === source.head);
+        },
+      );
+      assertEquals(dependencies, sources);
+      assertEquals(calls.size, sources.length * 2);
+      assertEquals(
+        [...calls.values()],
+        Array.from({ length: calls.size }, () => 1),
+      );
+    }
+    await assertRejects(
+      () =>
+        discoverSourceDependencies(
+          "unused",
+          source,
+          queue.trunk,
+          sources,
+          () => Promise.reject(new Error("ancestry unavailable")),
+        ),
+      Error,
+      "ancestry unavailable",
+    );
+    await assertRejects(() =>
+      discoverSourceDependencies(
+        "unused",
+        source,
+        "main",
         sources,
-        () => Promise.reject(new Error("ancestry unavailable")),
-      ),
-    Error,
-    "ancestry unavailable",
-  );
-  await assertRejects(() =>
-    discoverSourceDependencies(
-      "unused",
-      source,
-      "main",
-      sources,
-      () => Promise.resolve(false),
-    )
-  );
+        () => Promise.resolve(false),
+      )
+    );
+  }
 });

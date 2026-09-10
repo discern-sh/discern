@@ -1572,13 +1572,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "logbook",
         title: "The logbook",
         what:
-          "With recording on and a readable `discern.toml`, each CLI verb run and each MCP invocation resolved to that project adds one metadata-only line under `.git`, shared by the repository's worktrees. Lines carry timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
+          "With recording on and a readable `discern.toml`, CLI verbs and MCP invocations resolved to that project record metadata under `.git`, shared by the repository's worktrees. Invocation and completion observations carry durable identities, timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
         why:
           "The practice becomes measurable evidence without anything leaving the building.",
         plain: {
           title: "The activity record",
           what:
-            "With recording on and readable settings, every instruction run — typed, or made through the coding-agent connection — adds one line of basic facts to a private record kept in the version history's housekeeping area (the `.git` folder) and shared by the project's working copies. Lines carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
+            "With recording on and readable settings, each instruction run — typed, or made through the coding-agent connection — records basic facts in the version history's housekeeping area (the `.git` folder), shared by the project's working copies. These facts identify each operation and carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
         },
@@ -1587,15 +1587,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "patterns",
         title: "Patterns",
         what:
-          "`discern patterns` mines the active logbook or one selected sealed archive with a registry of named detectors across behavior loops, gate fit, funnel flow, and standard trajectories — done-thrash, refusal loops, ignored update advice, abandoned worktrees, duration creep, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence threshold it reports insufficient evidence. Terminal-confirmed owner actions can reset active history or seal it as a discoverable local archive. `patterns --stats` reads the same selected source for what went well — changes accepted and their scale, green-gate streaks, start-to-accept cycle times, standards trends, attributed agent cohorts — and reports practice stats in the same plain counts, for the owner to share; nothing is scored or compared.",
+          "`discern patterns` reads the active logbook or one selected sealed archive. Named detectors report repeated validation, canary gaps, comparable duration trends and other workflow observations with counts, evidence limits and a next step. Completion accounting distinguishes producers, reused evidence, waits, recovery and landing latency; prediction rates name their denominator. Missing facts remain unknown. Findings cannot change policy, grant Proof or rank agents. `patterns --stats` reports accepted changes, green streaks, cycle times and standard trends. Terminal-confirmed owner actions can reset or archive local history.",
         why:
-          "Recurring workflow failures surface as counted findings instead of anecdotes.",
+          "The owner can inspect where time goes and test a specific improvement without mistaking coordination for an author's failure.",
         plain: {
           title: "Recurring patterns in the practice",
           what:
-            "`discern patterns` reads the active activity record or one selected sealed copy with a master list of named detectors — repeated checks without progress, refusal loops, ignored update advice, abandoned working copies, runs that keep getting slower, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence bar it says there is not enough evidence. Terminal-confirmed instructions let the person in charge reset active history or seal it as a discoverable local archive. `patterns --stats` reads the same selected record for what went well — finished changes moved onto the main shared version, unbroken runs of passing final checks, task turnaround times, tightened quality rules and how their numbers moved, and which coding agents drove the runs — and answers in the same plain counts, for the person in charge to share; nothing is scored or compared.",
+            "`discern patterns` reads this project's local activity record or one sealed copy. It reports repeated checks, gaps in early tests and runs that keep getting slower under comparable settings. Each finding gives counts, limits and a next step. It separates work done from results used again, time waiting, recovery and time from approval to landing. Predictions are judged only where both admission and outcome were observed. Missing facts stay unknown. The report cannot change settings, approve a change or rank coding agents. `patterns --stats` shows accepted changes, passing streaks, turnaround times and quality trends. Only confirmed owner actions reset or archive the local record.",
           why:
-            "Recurring workflow failures surface as counted findings instead of anecdotes.",
+            "The person in charge can see where time goes and choose an improvement without blaming an author for time spent waiting.",
         },
         surfaces: ["verb:patterns"],
         children: [

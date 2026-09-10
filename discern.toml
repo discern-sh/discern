@@ -51,7 +51,7 @@
   # .git, outside commits and any network; false stops all writes.
   # Recording on is recommended. History cannot be recorded after the fact,
   # and while recording is off this project goes without:
-  #   - the practice report (`discern patterns`)
+  #   - the practice and completion-cost report (`discern patterns`)
   #   - each worktree's last action and work in flight
   #   - fleet activity times that include verb runs
   #   - configuration-change attribution and each standard's limit history

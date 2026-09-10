@@ -35,7 +35,7 @@ export interface LogbookPoweredCapability {
 export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   {
     key: "patterns-report",
-    phrase: "the practice report (`discern patterns`)",
+    phrase: "the practice and completion-cost report (`discern patterns`)",
     surface: "`discern patterns`",
     readers: ["src/engine/logbook/patterns.ts"],
   },

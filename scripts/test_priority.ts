@@ -8,6 +8,7 @@ import {
   toFileUrl,
 } from "@std/path";
 import { z } from "@zod/zod";
+import { readTextIfExists } from "../src/shared/fs_presence.ts";
 import { loadIdentitySettings } from "../src/engine/worktree/identity.ts";
 import { collectPaths } from "../src/engine/scopes/scopes.ts";
 import { denoMetadata } from "../src/shared/deno_metadata.ts";
@@ -100,7 +101,7 @@ export async function discoverTestPriority(
   try {
     signal.throwIfAborted();
     const excluded = priorityExclusions(
-      JSON.parse(await Deno.readTextFile(join(root, "deno.json"))),
+      JSON.parse(await readTextIfExists(join(root, "deno.json")) ?? "null"),
     );
     if (excluded === undefined) {
       console.error(

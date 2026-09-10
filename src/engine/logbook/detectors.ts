@@ -1712,8 +1712,8 @@ const confirmedRerun: Detector = {
   scope: "project",
   tier: "batch",
   tone: "neutral",
-  // The flag records a request, not execution or a previously judged subject.
-  // Readers also retain the historical `confirmed` spelling at that resolution.
+  // The flag records a request without establishing execution or judged evidence.
+  // The `confirmed` input spelling has the same request-only resolution.
   threshold: 3,
   next_step:
     "Review the reason and recorded execution for each request. Changed source, owner feedback and diagnostic investigation can require another run; a flag alone establishes neither wasted work nor instability. Use matched completed job verdicts before investigating a suspected inconsistency.",
