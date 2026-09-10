@@ -409,9 +409,30 @@ export type OperationJournalReading =
   | { readonly kind: "invalid-handle" }
   | { readonly kind: "missing" }
   | { readonly kind: "none-recorded" }
+  /** Nothing recorded for this checkout; the newest operation elsewhere in the repository. */
+  | {
+    readonly kind: "elsewhere";
+    readonly newest: {
+      readonly handle: string;
+      readonly verb: string;
+      readonly branch?: string;
+      readonly path: string;
+      readonly started_at: number;
+    };
+  }
   | { readonly kind: "corrupt" }
   | { readonly kind: "newer"; readonly reason: string }
   | { readonly kind: "unavailable" };
+
+/** Resolve a checkout path for comparison; a removed checkout keeps its recorded spelling. */
+async function comparablePath(path: string): Promise<string> {
+  try {
+    return await Deno.realPath(path);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+    return path;
+  }
+}
 
 /**
  * Whether a recorded executor pid is alive; a dead process proves nothing
@@ -474,8 +495,10 @@ function parseRecord(
 }
 
 /**
- * Read one journal by handle, or the most recently started one when no handle
- * is given. Reading is observation only.
+ * Read one journal by handle, or — with no handle — the most recently started
+ * operation of the calling checkout. An operation elsewhere in the repository
+ * is never substituted silently: the reading names the newest one so the
+ * caller can ask for it by handle. Reading is observation only.
  */
 export async function readOperationJournal(
   root: string,
@@ -507,11 +530,24 @@ export async function readOperationJournal(
         ? { kind: "newer", reason: parsed.reason } as const
         : { kind: "corrupt" } as const;
     }
-    // No handle: the most recently STARTED operation, by its own recorded
-    // stamp. File modification times move on every progress update, so an
-    // older run still reporting would otherwise displace a newer one.
+    // No handle: the most recently STARTED operation of this checkout, by its
+    // own recorded stamp. File modification times move on every progress
+    // update, so an older run still reporting would otherwise displace a
+    // newer one; and a fleet shares this store, so another checkout's
+    // operation is only ever named, never returned in place of this one's.
+    const here = await comparablePath(root);
     let newest: OperationJournalRecord | undefined;
+    let newestAnywhere: OperationJournalRecord | undefined;
     let sawInvalid: OperationJournalReading | undefined;
+    const startedLater = (
+      candidate: OperationJournalRecord,
+      current: OperationJournalRecord | undefined,
+    ): boolean =>
+      current === undefined ||
+      candidate.operation.started_at > current.operation.started_at ||
+      (candidate.operation.started_at === current.operation.started_at &&
+        candidate.operation.handle.localeCompare(current.operation.handle) <
+          0);
     for await (const entry of Deno.readDir(directory)) {
       if (!entry.isFile || !entry.name.endsWith(RECORD_SUFFIX)) continue;
       if (entry.name.endsWith(RESULT_SUFFIX)) continue;
@@ -534,18 +570,31 @@ export async function readOperationJournal(
           : sawInvalid ?? { kind: "corrupt" };
         continue;
       }
+      if (startedLater(parsed.record, newestAnywhere)) {
+        newestAnywhere = parsed.record;
+      }
       if (
-        newest === undefined ||
-        parsed.record.operation.started_at > newest.operation.started_at ||
-        (parsed.record.operation.started_at === newest.operation.started_at &&
-          parsed.record.operation.handle.localeCompare(
-              newest.operation.handle,
-            ) < 0)
+        await comparablePath(parsed.record.operation.path) === here &&
+        startedLater(parsed.record, newest)
       ) {
         newest = parsed.record;
       }
     }
     if (newest !== undefined) return foundReading(newest);
+    if (newestAnywhere !== undefined) {
+      const { handle, verb, branch, path, started_at } =
+        newestAnywhere.operation;
+      return {
+        kind: "elsewhere",
+        newest: {
+          handle,
+          verb,
+          ...(branch === undefined ? {} : { branch }),
+          path,
+          started_at,
+        },
+      } as const;
+    }
     return sawInvalid ?? { kind: "none-recorded" } as const;
   });
   return reading ?? { kind: "unavailable" };

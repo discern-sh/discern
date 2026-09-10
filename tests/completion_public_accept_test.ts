@@ -12,6 +12,7 @@ import {
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
 
 Deno.test("fresh public accept checks desk source authority and never lands twice", async () => {
   await withTempDir(async (root) => {
@@ -30,6 +31,12 @@ Deno.test("fresh public accept checks desk source authority and never lands twic
     assertEquals(observedRecords(await observeQueue(root, "main")).length, 0);
     const done = await runAgent(path, ["done", "--retain-checkout", "--json"]);
     assertEquals(done.code, 0, done.output);
+    // The worktree reconnects to its own gate; the preview above left no
+    // journal because a dry run is not a long operation.
+    const gate = await operationProgressResult(path);
+    assert(gate.ok, JSON.stringify(gate));
+    assertEquals(gate.data?.operation.verb, "done");
+    assertEquals(gate.data?.outcome, "completed");
     const before = await gitOut(root, "rev-parse", "main");
     const source = await gitOut(path, "rev-parse", "HEAD");
     const admitted = observedRecords(await observeQueue(root, "main"));
@@ -103,6 +110,13 @@ Deno.test("fresh public accept checks desk source authority and never lands twic
     const records = observedRecords(await observeQueue(root, "main"));
     const landed = records.filter((record) => record.kind === "landing");
     assertEquals(landed.length, 1);
+    // The acceptance ran from the main checkout, so that checkout reconnects
+    // to it; its nested validation opened no journal of its own.
+    const acceptance = await operationProgressResult(root);
+    assert(acceptance.ok, JSON.stringify(acceptance));
+    assertEquals(acceptance.data?.operation.verb, "accept");
+    assertEquals(acceptance.data?.outcome, "completed");
+    assertEquals(acceptance.data?.executor, "gone");
     const retried = await runAgent(path, ["accept", "--json"]);
     assertEquals(retried.code, 0, retried.output);
     assertEquals(

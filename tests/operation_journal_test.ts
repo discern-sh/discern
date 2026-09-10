@@ -13,6 +13,7 @@ import {
   readOperationJournal,
   withOperationJournal,
 } from "../src/engine/completion/operation_journal.ts";
+import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
@@ -219,7 +220,9 @@ Deno.test("handles validate, refuse damage, and expired records leave the store"
       verb: "done",
       path: root,
     }, {
-      clock: { wallNow: () => Date.now() + 2 * OPERATION_JOURNAL_TTL_MS },
+      clock: {
+        wallNow: () => SYSTEM_CLOCK.wallNow() + 2 * OPERATION_JOURNAL_TTL_MS,
+      },
     });
     assert(expired !== undefined);
     assertEquals(
@@ -351,7 +354,9 @@ Deno.test("an oversized final result keeps a bounded account and retains the com
       verb: "done",
       path: root,
     }, {
-      clock: { wallNow: () => Date.now() + 2 * OPERATION_JOURNAL_TTL_MS },
+      clock: {
+        wallNow: () => SYSTEM_CLOCK.wallNow() + 2 * OPERATION_JOURNAL_TTL_MS,
+      },
     });
     assert(expired !== undefined);
     assertEquals(
@@ -460,5 +465,51 @@ Deno.test("the default read selects the most recently started operation, not the
     assert(reading.kind === "found");
     assertEquals(reading.handle, newer.handle);
     assertEquals(reading.record.operation.branch, "agent/newer");
+  });
+});
+
+Deno.test("the default read stays inside the calling checkout and only names another checkout's operation", async () => {
+  await withTempDir(async (root) => {
+    await withTempDir(async (elsewhere) => {
+      await repository(root);
+      // The fleet shares one store: a sibling checkout's newer operation is
+      // recorded beside this checkout's older one.
+      const mine = await openOperationJournal(root, {
+        verb: "done",
+        path: root,
+        branch: "agent/mine",
+      }, { clock: { wallNow: () => 1_000 } });
+      assert(mine !== undefined);
+      const sibling = await openOperationJournal(root, {
+        verb: "done",
+        path: elsewhere,
+        branch: "agent/sibling",
+      }, { clock: { wallNow: () => 2_000 } });
+      assert(sibling !== undefined);
+      const reading = await readOperationJournal(root);
+      assert(reading.kind === "found");
+      assertEquals(reading.handle, mine.handle);
+      // The checkout matches however its path is spelled.
+      const canonical = await readOperationJournal(
+        await Deno.realPath(root),
+      );
+      assert(canonical.kind === "found");
+      assertEquals(canonical.handle, mine.handle);
+      // A checkout with no operation of its own is told which handle exists
+      // rather than handed the sibling's record.
+      await Deno.remove(
+        join(
+          await Deno.realPath(root),
+          ".git",
+          "discern",
+          "operations",
+          `${mine.handle}.json`,
+        ),
+      );
+      const named = await readOperationJournal(root);
+      assert(named.kind === "elsewhere", JSON.stringify(named));
+      assertEquals(named.newest.handle, sibling.handle);
+      assertEquals(named.newest.branch, "agent/sibling");
+    });
   });
 });

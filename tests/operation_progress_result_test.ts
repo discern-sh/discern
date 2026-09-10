@@ -151,5 +151,40 @@ Deno.test("reconnect refusals name the exact condition without touching anything
     assert(running.ok);
     assertEquals(running.data?.executor, "running");
     assertStringIncludes(running.message ?? "", "is still running");
+    // Another checkout of the same repository has no operation of its own:
+    // the refusal names the handle to ask for instead of substituting it.
+    await withTempDir(async (sibling) => {
+      const elsewhere = await openOperationJournal(root, {
+        verb: "done",
+        path: sibling,
+        branch: "agent/sibling",
+      });
+      assert(elsewhere !== undefined);
+      await Deno.remove(
+        join(
+          await Deno.realPath(root),
+          ".git",
+          "discern",
+          "operations",
+          `${journal.handle}.json`,
+        ),
+      );
+      await Deno.remove(
+        join(
+          await Deno.realPath(root),
+          ".git",
+          "discern",
+          "operations",
+          `${other}.json`,
+        ),
+      );
+      const named = await operationProgressResult(root);
+      assert(!named.ok);
+      assertEquals(named.error, "not_found");
+      assertStringIncludes(
+        named.message ?? "",
+        `\`done\` on agent/sibling, progress handle ${elsewhere.handle}`,
+      );
+    });
   });
 });

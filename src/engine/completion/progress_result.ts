@@ -70,7 +70,10 @@ function progressMessage(
   return `${name} stopped without finishing and its recording process is gone. The facts below are the last it recorded; run the command again to continue.`;
 }
 
-/** Read one operation by handle, or the most recently started one. */
+/**
+ * Read one operation by handle, or the most recently started one of the
+ * calling checkout. Another checkout's operation is named, never substituted.
+ */
 export async function operationProgressResult(
   root: string,
   opts: { readonly handle?: string } = {},
@@ -99,8 +102,21 @@ export async function operationProgressResult(
         verb: "progress",
         error: "not_found",
         message:
-          "No long operation has been recorded in this repository yet. Journals appear when `done`, `test`, `accept`, or an MCP `await` runs.",
+          "No long operation has been recorded in this repository yet. Journals appear when `done`, `test`, `standards`, `accept`, or an MCP `await` runs.",
       };
+    case "elsewhere": {
+      const { handle, verb, branch, path } = reading.newest;
+      const name = branch === undefined
+        ? `\`${verb}\` at ${path}`
+        : `\`${verb}\` on ${branch}`;
+      return {
+        ok: false,
+        verb: "progress",
+        error: "not_found",
+        message:
+          `No long operation is recorded for this checkout. The most recent one in this repository is ${name}, progress handle ${handle}; pass that handle to read it.`,
+      };
+    }
     case "corrupt":
       return {
         ok: false,
