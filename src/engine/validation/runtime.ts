@@ -244,22 +244,7 @@ function runtime(
       root: options.root,
       label: publicLabel,
       commands: runCommands,
-      // Publish the transcript location the moment it is allocated, so an
-      // interrupted producer's output stays reachable through the journal.
-      ...(role === "producer"
-        ? {
-          onOutputPath: (path: string): void => {
-            emitCompletionProgress({
-              phase: "producer",
-              state: "running",
-              candidate_id: execution.candidate_id,
-              reason: `Running ${publicLabel}.`,
-              work: { producer: publicLabel, output_path: path },
-            });
-          },
-        }
-        : {}),
-      onSpawn: () => {
+      onSpawn: (spawned) => {
         started = { wall: clock.wallNow(), monotonic: clock.monotonicNow() };
         emitCompletionEvent(
           executionEvent(execution, `${executionId}:started`, started.wall, {
@@ -270,6 +255,18 @@ function runtime(
           }),
         );
         options.onStart?.(label);
+        // Publish the transcript location the moment it exists, so an
+        // interrupted producer's output stays reachable through the journal.
+        if (role === "producer" && spawned.outputPath !== undefined) {
+          emitCompletionProgress({
+            phase: "producer",
+            state: "running",
+            candidate_id: execution.candidate_id,
+            reason:
+              `Running ${publicLabel}; its output is being captured at ${spawned.outputPath}.`,
+            work: { producer: publicLabel, output_path: spawned.outputPath },
+          });
+        }
       },
       ...(options.presentation === undefined
         ? {}

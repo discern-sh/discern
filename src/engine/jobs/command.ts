@@ -35,6 +35,12 @@ import {
 } from "../../shared/scheduler.ts";
 
 /** Options for spawning a single job. */
+/** What an advisory spawn observer learns the moment the native process exists. */
+export interface JobSpawnNotice {
+  /** The combined-capture location, when the job records one. */
+  readonly outputPath?: string;
+}
+
 export interface SpawnOptions {
   /** Project root in which the configured command must execute. */
   cwd: string;
@@ -61,12 +67,11 @@ export interface SpawnOptions {
   outputObserver?: JobOutputObserver;
   /** Retain exact stdout for extraction while the ordinary diagnostic keeps both streams. */
   stdoutRecorder?: JobOutputRecorder;
-  /** Advisory notification only after the native command process exists. */
-  onSpawn?: () => void;
-  /** Advisory notification of the combined-capture location once allocated,
-   * before the job settles — so an interrupted run's transcript stays
-   * reachable through surfaces that outlive this process. */
-  onOutputPath?: (path: string) => void;
+  /** Advisory notification only after the native command process exists,
+   * carrying the combined-capture location when one was allocated — so an
+   * interrupted run's transcript stays reachable through surfaces that
+   * outlive this process. */
+  onSpawn?: (spawned: JobSpawnNotice) => void;
   /** Drain all child output but retain at most this many raw bytes, bypassing
    * line presentation/diagnostic feeds. For bounded line protocols. */
   protocolOutputMaxBytes?: number;
@@ -287,14 +292,14 @@ export async function spawnJob(
     detached: true,
   }).spawn();
   const pid = child.pid;
-  bestEffortSync("job-spawn-observer-notify", () => opts.onSpawn?.());
   const capturePath = outputRecorder?.currentPath;
-  if (capturePath !== undefined) {
-    bestEffortSync(
-      "job-output-path-observer-notify",
-      () => opts.onOutputPath?.(capturePath),
-    );
-  }
+  bestEffortSync(
+    "job-spawn-observer-notify",
+    () =>
+      opts.onSpawn?.(
+        capturePath === undefined ? {} : { outputPath: capturePath },
+      ),
+  );
   try {
     await ticket?.started(pid, true);
   } catch (error) {
