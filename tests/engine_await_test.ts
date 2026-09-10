@@ -1166,6 +1166,38 @@ Deno.test("await resolves a managed detached checkout from its durable identity,
   });
 });
 
+Deno.test("a green watch is not satisfied by a proof for a temporarily installed candidate", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "authored", "dep work");
+    // Simulate temporary candidate installation: the checkout sits detached
+    // on a different composed commit that carries its own honored proof.
+    await git(dep, "checkout", "-b", "candidate-install");
+    await commitFile(dep, "candidate.txt", "composed", "installed candidate");
+    await writeHonoredProof(dep);
+    await git(dep, "checkout", "--detach");
+    await git(dep, "branch", "-D", "candidate-install");
+    const watched = await awaitResult(dir, { green: "dep", timeoutSeconds: 0 });
+    assert(watched.ok, JSON.stringify(watched));
+    assert(watched.data !== undefined && "met" in watched.data);
+    assertEquals(
+      watched.data.met,
+      false,
+      "a candidate proof must not read as the effort's own green: " +
+        JSON.stringify(watched.data),
+    );
+    // Restored to its branch tip, the effort's own proof satisfies the watch.
+    await git(dep, "checkout", "agent/dep");
+    await writeHonoredProof(dep);
+    const own = await awaitResult(dir, { green: "dep", timeoutSeconds: 0 });
+    assert(own.ok, JSON.stringify(own));
+    assert(own.data !== undefined && "met" in own.data);
+    assertEquals(own.data.met, true, JSON.stringify(own.data));
+  });
+});
+
 Deno.test("await refuses an unmanaged detached checkout instead of publishing an unusable handle", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -1067,7 +1067,13 @@ async function evaluateCondition(
     "no-worktree";
   if (worktree !== undefined) {
     const proof = await inspectGateProof(worktree);
-    if (proof.status === "honored") {
+    // A watcher must not collide with temporary candidate installation: an
+    // honored proof satisfies the watch only when it covers the effort's own
+    // branch tip, never a temporarily installed composition in the checkout.
+    if (
+      proof.status === "honored" &&
+      (proof.recorded === undefined || proof.recorded === state.tip)
+    ) {
       return {
         met: true,
         observed: { proof_status: "honored", worktree, tip: state.tip },

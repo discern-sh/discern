@@ -27,6 +27,45 @@ prepare = 'true'
 restore = 'true'
 `;
 
+Deno.test("review feedback returns to the same effort: edit after release, revalidate, and land the revision", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(root, ["local"], declaration);
+    const done = await runAgent(path, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    // Review feedback: the same effort keeps its worktree and edits in place.
+    await Deno.writeTextFile(`${path}/source`, "revised after review\n");
+    await git(path, "add", "source");
+    await git(path, "commit", "-m", "Apply review feedback");
+    // The stale release cannot carry the old evidence forward; the revised
+    // source proves itself again through the ordinary boundary.
+    const redo = await runAgent(path, ["done", "--json"]);
+    assertEquals(redo.code, 0, redo.output);
+    await grantEffort(
+      path,
+      "agent/public-done",
+      wallTimeIso(SYSTEM_CLOCK.wallNow()),
+    );
+    const accepted = await runAgent(path, ["accept", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+    const result = decodeCliResult(accepted.stdout, "accept");
+    assert(result.data !== undefined && "queue" in result.data);
+    assertEquals(
+      result.data.queue?.map((row) => [row.state, row.retirement]),
+      [["landed", "retired"]],
+    );
+    assertEquals(
+      await Deno.readTextFile(`${root}/source`),
+      "revised after review\n",
+    );
+    assert(
+      result.message?.startsWith(
+        "Selected effort `agent/public-done`: landed. Its checkout was removed.",
+      ),
+      result.message,
+    );
+  });
+});
+
 for (const retained of [false, true]) {
   Deno.test(`fresh accept ${retained ? "preserves a retained checkout" : "refreshes a released candidate"} after trunk moves`, async () => {
     await withTempDir(async (root) => {

@@ -884,7 +884,7 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "No Proof covers this effort's current source",
+      "not validated. Run discern done from its clean committed worktree",
     );
     assertTerminalTextIncludes(r.output, "clean committed worktree");
     assertEquals(
@@ -968,7 +968,7 @@ Deno.test("accept: unproven work behind main retains all committed and uncommitt
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "No Proof covers this effort's current source",
+      "not validated. Run discern done from its clean committed worktree",
     );
     assert(
       await targetExists(wt),
