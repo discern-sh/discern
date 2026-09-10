@@ -19,6 +19,7 @@ import {
   evaluateResultCompletion,
 } from "../../shared/result_completion.ts";
 import { displayBranch } from "../../shared/result_markdown_values.ts";
+import { selectedVerdictSentence } from "../../shared/result_markdown_queue.ts";
 import type { AcceptData, Proof } from "../../shared/result_schemas.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
@@ -34,6 +35,7 @@ import {
   readLandingConvergenceResult,
 } from "./convergence.ts";
 import type { QueueEntry } from "./model.ts";
+import { queueDecisionReason } from "./queue_decision_subjects.ts";
 import type { PublicCandidateAssessment } from "./public_assessment.ts";
 import { readLandingNoteResult } from "./publication.ts";
 import { observedRecords } from "./repository.ts";
@@ -57,11 +59,12 @@ export interface SelectedEffortPresentation {
   readonly synthesized?: AcceptancePrefix;
   /** Active queue order (effort ids) that labels other rows ahead or behind. */
   readonly queueOrder?: readonly string[];
-  /** Resolve whether a waiting row's recorded work is already on the trunk;
-   * returns that row's withdrawal or reconciliation offer when it is. */
-  readonly resolveOnTrunk?: (
+  /** Resolve a waiting row's shared single reason — the same derivation the
+   * status queue shows, including the stale entry's withdrawal or
+   * reconciliation offer when its work is already on the trunk. */
+  readonly resolveQueueReason?: (
     row: AcceptancePrefix,
-  ) => Promise<string | undefined>;
+  ) => Promise<{ kind: string; reason: string } | undefined>;
 }
 
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
@@ -100,26 +103,14 @@ export function acceptancePending(
       break;
     case "missing-authority":
       reason =
-        "The next effort in the queue needs the owner's recorded approval for its current source.";
+        "Waiting for the owner's recorded approval of its current source.";
       break;
     case "missing-judgment": {
       const subjects = "subjects" in blocker ? blocker.subjects : [];
-      // Queue decisions have their own plain sentences, so a first paragraph
-      // never shows the recorded subject tokens for these causes.
-      const decisions: Readonly<Record<string, string>> = {
-        "effort-held":
-          "The owner put this effort on hold. Resume it with discern accept resume --target <effort-id>, then retry acceptance.",
-        "effort-withdrawn":
-          "This effort was withdrawn from the queue. A fresh discern done from its worktree re-enrols it.",
-        "source-dependency-cycle":
-          "The recorded source dependencies form a cycle; correct the declared dependencies before approval.",
-        "source-dependency-order":
-          "The requested order puts an effort before one it builds on; keep each recorded source dependency ahead of its dependent.",
-        "queue-order-changed":
-          "The queue changed since the displayed order; preview the decision again and use its fresh token.",
-      };
+      // Queue decisions carry their plain sentences in one table, so a first
+      // paragraph never shows a recorded subject token for these causes.
       const translated = subjects.length === 1 && subjects[0] !== undefined
-        ? decisions[subjects[0]]
+        ? queueDecisionReason(subjects[0])
         : undefined;
       reason = translated ??
         `A checkpoint or standard decision is still required${
@@ -273,19 +264,24 @@ export async function queueAcceptanceResult(
   const own = selected === undefined
     ? undefined
     : rows.find((row) => row.effort === selected.effort);
-  // A stale entry whose work is already on the trunk leads with its own
-  // withdrawal or reconciliation offer instead of stale-source advice.
-  if (selected?.resolveOnTrunk !== undefined) {
+  // Every waiting row leads with the shared single reason the status queue
+  // shows — including a stale entry's own withdrawal or reconciliation offer —
+  // ahead of the assessed detail. The not-reached line stays first on the
+  // selected effort's own row.
+  if (selected?.resolveQueueReason !== undefined) {
     for (const row of rows) {
       if (row.state === "landed" || row.pending.length === 0) continue;
-      if (row.pending[0]?.kind === "already-on-trunk") continue;
-      const offer = await selected.resolveOnTrunk(row);
-      if (offer !== undefined) {
-        row.pending = [
-          { kind: "already-on-trunk", reason: offer },
-          ...row.pending,
-        ];
-      }
+      const shared = await selected.resolveQueueReason(row);
+      if (
+        shared === undefined ||
+        row.pending.some((item) => item.reason === shared.reason)
+      ) continue;
+      const keepFirst = row.pending[0]?.kind === "not-reached" ? 1 : 0;
+      row.pending = [
+        ...row.pending.slice(0, keepFirst),
+        shared,
+        ...row.pending.slice(keepFirst),
+      ];
     }
   }
   const noteHints: string[] = [];
@@ -512,18 +508,16 @@ export async function queueAcceptanceResult(
       (rows.length === 0 ? "" : "\n\n" + rows.map(rowLine).join("\n")) +
       detailTail;
   } else {
-    const branch = `\`${selected.branch}\``;
-    const verdict = own === undefined
-      ? `Selected effort ${branch}: not validated. Run discern done from its clean committed worktree, then retry acceptance.`
-      : own.state === "landed"
-      ? `Selected effort ${branch}: landed. ${checkoutOutcomeSentence(own)}`
-      : own.state === "ready"
-      ? `Selected effort ${branch}: ready to land.`
-      : `Selected effort ${branch}: ${dryRun ? "not ready" : "not landed"}.${
-        own.pending.length === 0
-          ? ""
-          : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
-      }`;
+    const verdict = selectedVerdictSentence({
+      branch: selected.branch,
+      state: own?.state,
+      dryRun,
+      ...(own === undefined ? {} : { checkout: own }),
+    }) +
+      (own !== undefined && own.state !== "landed" && own.state !== "ready" &&
+          own.pending.length > 0
+        ? "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
+        : "");
     const others = rows.filter((row) => row !== own);
     const order = selected.queueOrder ?? [];
     const ownIndex = order.indexOf(selected.effort);
@@ -538,6 +532,12 @@ export async function queueAcceptanceResult(
     const elsewhere = others.filter((row) =>
       !ahead.includes(row) && !behind.includes(row)
     );
+    // Presentations label rows from this recorded relation instead of
+    // re-deriving queue order from data they do not carry.
+    if (own !== undefined) own.relation = "selected";
+    for (const row of ahead) row.relation = "ahead";
+    for (const row of behind) row.relation = "behind";
+    for (const row of elsewhere) row.relation = "other";
     // A global condition no shown line already states still reaches the owner.
     const shown = new Set([
       ...(own?.pending ?? []).map((item) => item.reason),

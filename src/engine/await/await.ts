@@ -791,7 +791,7 @@ export async function awaitResult(
   const unpublishable = (): DiscernResult<AwaitData> =>
     refusal(
       "invalid_arguments",
-      "discern cannot publish a resumable handle for this watch: its target lacks the durable identity the handle's reader requires. Re-run discern await with the branch to watch.",
+      "discern cannot save a resumable handle for this watch because its target has no durable branch. Re-run discern await with the branch to watch.",
       failureRecoveryHintTexts("await"),
     );
 

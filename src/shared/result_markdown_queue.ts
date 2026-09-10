@@ -27,32 +27,77 @@ export function emergencyValidationFacts(
   );
 }
 
-/** Bounded status queue lines: position, branch, state, single reason. */
+/** One human-readable state label per queue row — shared by every surface. */
+export function queueRowStateLabel(
+  row: { readonly readiness?: unknown; readonly held?: unknown },
+): string {
+  return text(row.readiness) === "ready"
+    ? "ready to land"
+    : text(row.readiness) === "landing"
+    ? "landing now"
+    : boolean(row.held) === true
+    ? "on hold"
+    : "waiting";
+}
+
+/**
+ * The selected effort's one-sentence verdict — one derivation for the
+ * terminal message and every rendered presentation. An absent `state` means
+ * the effort has no row at all: it has not validated.
+ */
+export function selectedVerdictSentence(input: {
+  readonly branch: string;
+  readonly state: string | undefined;
+  readonly dryRun: boolean;
+  readonly checkout?: {
+    readonly retirement?: unknown;
+    readonly retirement_reason?: unknown;
+  };
+}): string {
+  const name = code(input.branch);
+  if (input.state === undefined) {
+    return `Selected effort ${name}: not validated. Run discern done from its clean committed worktree, then retry acceptance.`;
+  }
+  if (input.state === "landed") {
+    return `Selected effort ${name}: landed. ${
+      checkoutOutcomeSentence(input.checkout ?? {})
+    }`;
+  }
+  if (input.state === "ready") {
+    return `Selected effort ${name}: ready to land.`;
+  }
+  return `Selected effort ${name}: ${
+    input.dryRun ? "not ready" : "not landed"
+  }.`;
+}
+
+/** Bounded status queue lines: position, branch, state, single reason, with
+ * the current checkout's own effort marked. */
 export function statusQueueFacts(
   data: Record<string, unknown>,
   limit: number,
 ): { lines: string[]; overflow: number } {
   const rows = records(data.queue);
+  const currentEffort = text(object(data.worktree)?.id);
   const lines = rows.slice(0, limit).map((row) => {
-    const readiness = text(row.readiness);
-    const state = readiness === "ready"
-      ? "ready to land"
-      : readiness === "landing"
-      ? "landing now"
-      : boolean(row.held) === true
-      ? "on hold"
-      : "waiting";
     const reason = text(row.reason);
+    const mine = currentEffort !== undefined &&
+        text(row.effort) === currentEffort
+      ? " (this effort)"
+      : "";
     return `Queue ${number(row.position) ?? "?"}: ${
       code(displayBranch(text(row.branch) ?? "unknown"))
-    } — ${state}${reason === undefined ? "." : `: ${reason}`}`;
+    }${mine} — ${queueRowStateLabel(row)}${
+      reason === undefined ? "." : `: ${reason}`
+    }`;
   });
   return { lines, overflow: Math.max(0, rows.length - limit) };
 }
 
 /** The acceptance rows in presentation order with the selected effort's
  * verdict and per-row label. `rows` leads with the selected effort's row when
- * one is marked; `verdict` is its one-sentence state line. */
+ * one is marked; `verdict` is its one-sentence state line. Labels come from
+ * each row's recorded relation to the selected effort. */
 export function acceptOrganization(
   data: Record<string, unknown>,
   dryRun: boolean,
@@ -70,26 +115,29 @@ export function acceptOrganization(
   const rows = own === undefined
     ? prefixes
     : [own, ...prefixes.filter((row) => row !== own)];
-  const branch = own === undefined
-    ? undefined
-    : displayBranch(text(own.branch) ?? selected ?? "");
-  const verdict = own === undefined || branch === undefined
-    ? undefined
-    : text(own.state) === "landed"
-    ? `Selected effort ${code(branch)}: landed. ${checkoutOutcomeSentence(own)}`
-    : text(own.state) === "ready"
-    ? `Selected effort ${code(branch)}: ready to land.`
-    : `Selected effort ${code(branch)}: ${
-      dryRun ? "not ready" : "not landed"
-    }.`;
+  const verdict = selected === undefined ? undefined : selectedVerdictSentence({
+    branch: displayBranch(text(own?.branch) ?? selected),
+    state: own === undefined ? undefined : text(own.state),
+    dryRun,
+    ...(own === undefined ? {} : { checkout: own }),
+  });
   return {
     rows,
     own,
     verdict,
-    label: (row) =>
-      own !== undefined && row !== own
-        ? `Ahead in the queue — ${code(text(row.branch) ?? "candidate")}`
-        : code(text(row.branch) ?? "candidate"),
+    label: (row) => {
+      const name = code(text(row.branch) ?? "candidate");
+      switch (text(row.relation)) {
+        case "ahead":
+          return `Ahead in the queue — ${name}`;
+        case "behind":
+          return `Behind in the queue — ${name}`;
+        case "other":
+          return `Other effort — ${name}`;
+        default:
+          return name;
+      }
+    },
   };
 }
 

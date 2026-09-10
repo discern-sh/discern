@@ -1,4 +1,5 @@
 /** An active accept actor advances one audited, separately authorized effort at a time. */
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { loadModule } from "../../shared/module_loading.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { landingAdvanced } from "../completion/records.ts";
@@ -261,24 +262,30 @@ async function acceptQueueImplementation(
           : orderedEntries(initialQueue.data, { includeHeld: true }).map(
             (candidate) => candidate.source.effort_id,
           ),
-        // A stale entry whose recorded work is already on the trunk offers
-        // its own withdrawal or reconciliation in its row, ahead of advice
-        // that would send the owner to rerun checks for integrated work.
-        resolveOnTrunk: async (row) => {
-          const stale = initialQueue?.data.entries.find((candidate) =>
+        // Each waiting row leads with the same single reason the status queue
+        // shows — including a stale entry's withdrawal or reconciliation
+        // offer instead of advice to rerun checks for integrated work.
+        resolveQueueReason: async (row) => {
+          const listed = initialQueue?.data.entries.find((candidate) =>
             candidate.source.effort_id === row.effort
           );
-          if (stale === undefined) return undefined;
+          if (listed === undefined) return undefined;
           const facts = await queueRowFacts(
             root,
             initialObservation,
-            stale,
+            listed,
             trunk,
             initialQueue?.data.entries ?? [],
           );
-          return facts.onTrunk
-            ? queueEntryReadiness(stale, facts).reason
-            : undefined;
+          const readiness = queueEntryReadiness(listed, facts);
+          return readiness.reason === undefined ? undefined : {
+            kind: facts.onTrunk
+              ? "already-on-trunk"
+              : listed.held === true
+              ? "effort-held"
+              : "queued",
+            reason: readiness.reason,
+          };
         },
       },
     );
@@ -634,7 +641,11 @@ async function acceptQueueImplementation(
           ],
           [{
             kind: "missing-judgment",
-            subjects: [target.held ? "effort-held" : "effort-withdrawn"],
+            subjects: [
+              target.held
+                ? QUEUE_DECISION_SUBJECT["effort-held"]
+                : QUEUE_DECISION_SUBJECT["effort-withdrawn"],
+            ],
           }],
           finalProof,
           options.dryRun,
@@ -730,7 +741,7 @@ async function acceptQueueImplementation(
               kind: facts.onTrunk
                 ? "already-on-trunk"
                 : listed.held === true
-                ? "effort-held"
+                ? QUEUE_DECISION_SUBJECT["effort-held"]
                 : "queued",
               reason: readiness.reason,
             }],

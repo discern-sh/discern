@@ -203,9 +203,14 @@ Deno.test("status and the acceptance preview list the same ordered queue, and an
       "accept --dry-run and status must list the same ordered queue",
     );
     const heldRow = plan.data.queue?.find((row) => row.effort === "second");
-    assertStringIncludes(
-      heldRow?.pending[0]?.reason ?? "",
-      "discern accept resume --target second",
+    assertEquals(
+      heldRow?.pending[0]?.reason,
+      statusRows[1]?.reason,
+      "the preview row shows the same single reason as the status queue",
+    );
+    assertEquals(
+      plan.data.queue?.map((row) => row.relation),
+      ["selected", "behind"],
     );
     assert(
       plan.message?.startsWith("Selected effort `agent/public-done`:"),
@@ -239,10 +244,10 @@ Deno.test("status and the acceptance preview list the same ordered queue, and an
     const stalePlanRow = staleData.data.queue?.find((row) =>
       row.effort === "public-done"
     );
-    assertStringIncludes(
-      stalePlanRow?.pending[0]?.reason ?? "",
-      "discern accept --reconcile --target public-done",
-      stalePreview.output,
+    assertEquals(
+      stalePlanRow?.pending[0]?.reason,
+      staleRow?.reason,
+      "the stale entry's offer is the same sentence on both surfaces",
     );
   });
 });

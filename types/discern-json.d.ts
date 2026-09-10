@@ -9105,6 +9105,7 @@ export type DiscernAcceptResult = DiscernResultState & {
       expected_trunk: string | null;
       target: string | null;
       state: "ready" | "pending" | "landed";
+      relation?: "selected" | "ahead" | "behind" | "other";
       landing_id?: string;
       note?: "pending" | "published" | "recovery";
       note_reason?: string;

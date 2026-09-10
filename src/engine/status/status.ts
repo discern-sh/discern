@@ -4,6 +4,7 @@ import {
 } from "./completion_recovery.ts";
 import { checkoutLandingStatus } from "./checkout_landing.ts";
 import { statusQueueRows } from "../landing_queue/queue_projection.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -678,6 +679,8 @@ export async function statusResult(
     root,
     location,
     mainBranch,
+    queue: data.queue,
+    completionConcurrency: cfg.completion.concurrency,
     git,
     changed,
     incomingOverlap: overlapInfo,
@@ -1050,6 +1053,10 @@ interface HintContext {
   checkpointPreview: FiredHint[];
   /** A durable landing names this effort's exact current committed source. */
   currentSourceLanded: boolean;
+  /** The ordered landing queue carried by this result, when present. */
+  queue: StatusData["queue"];
+  /** `[completion].concurrency`, for the one capacity sentence. */
+  completionConcurrency: number;
 }
 
 /**
@@ -1441,6 +1448,21 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         fire(HINTS["status-contained-refs"], { refs: ctx.containedRefs }),
       );
     }
+  }
+
+  // The one capacity sentence: every validation slot in use while queued
+  // efforts wait. Who holds the slots is named; counts stay in the data.
+  const landingNow = (ctx.queue ?? []).filter((row) =>
+    row.readiness === "landing"
+  );
+  if (
+    landingNow.length >= ctx.completionConcurrency &&
+    (ctx.queue ?? []).some((row) => row.readiness !== "landing")
+  ) {
+    hints.push(fire(HINTS["status-queue-capacity-saturated"], {
+      limit: ctx.completionConcurrency,
+      holders: landingNow.map((row) => displayBranch(row.branch)),
+    }));
   }
 
   // The checkpoint obligation account rides last, after every observation

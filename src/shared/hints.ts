@@ -1014,6 +1014,26 @@ export const HINTS = {
       } assigned session; recorded authority does not transfer between efforts.`,
   }),
 
+  /** Every validation slot is occupied while queued efforts wait — the one
+   * capacity sentence status carries, naming the binding setting and who
+   * holds the slots. */
+  "status-queue-capacity-saturated": defineHint<{
+    limit: number;
+    holders: readonly string[];
+  }>({
+    id: "status-queue-capacity-saturated",
+    category: "notice",
+    audience: "all",
+    when:
+      "Every completion.concurrency validation slot is in use while queued efforts wait.",
+    example: { limit: 2, holders: ["agent/first", "agent/second"] },
+    template: ({ limit, holders }): string =>
+      `Every validation slot is in use${
+        holders.length === 0 ? "" : `, held by ${holders.join(" and ")}`
+      } (completion.concurrency = ${limit}). Queued efforts wait until a ` +
+      `running validation finishes or returns its slot.`,
+  }),
+
   /** The fleet-wide collision check the survey-the-fleet skill once carried:
    * pairs of efforts whose fork diffs touch the same paths (ADR 0173). */
   "status-fleet-collisions": defineHint<{

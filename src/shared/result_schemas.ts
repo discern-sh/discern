@@ -1625,6 +1625,11 @@ export const AcceptancePrefixSchema = z.strictObject({
   expected_trunk: z.string().nullable(),
   target: z.string().nullable(),
   state: z.enum(["ready", "pending", "landed"]),
+  /** How this row relates to the selected effort: its own row, an effort
+   * ahead of or behind it in the queue, or outside the current queue order.
+   * Present when the call selected an effort; presentations label rows from
+   * this field rather than re-deriving queue order. */
+  relation: z.enum(["selected", "ahead", "behind", "other"]).optional(),
   landing_id: z.string().optional(),
   note: z.enum(["pending", "published", "recovery"]).optional(),
   note_reason: z.string().optional(),

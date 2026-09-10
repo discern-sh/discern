@@ -1,3 +1,4 @@
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 import {
   completionRecordBlocker,
@@ -93,7 +94,10 @@ export function workCapacity(
 ): CompletionBlocker | undefined {
   const index = entries.findIndex((entry) => entry.source.effort_id === effort);
   if (index < 0) {
-    return { kind: "missing-judgment", subjects: ["effort-not-selected"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["effort-not-selected"]],
+    };
   }
   const active = entries.filter((entry) => entry.state === "active");
   if (active.some((entry) => entry.source.effort_id === effort)) {
@@ -134,14 +138,20 @@ export function workCapacity(
           : "An active queue reservation and any associated execution return release a slot.",
       },
       reason: depth
-        ? "This effort is waiting for its turn: completion.lookahead binds, so efforts ahead of it must land or be withdrawn before it can validate early. Complete the preceding effort, then retry discern done."
-        : `Every validation slot is taken${
-          holders.length === 0 ? "" : ` (held by ${holders.join(", ")})`
+        ? `It is waiting its turn behind ${
+          entries[0] === undefined
+            ? "the work ahead of it"
+            : displayBranch(entries[0].source.branch)
+        }${
+          index > 1 ? ` and ${index - 1} more` : ""
+        } (completion.lookahead). Land or withdraw the work ahead of it, then retry discern done.`
+        : `Every validation slot is in use${
+          holders.length === 0 ? "" : `, held by ${holders.join(" and ")}`
         }${
           reserved > 0
-            ? ", with one slot reserved for the next effort to land"
+            ? ", and one is reserved for the next effort to land"
             : ""
-        }: completion.concurrency binds. A running validation finishing or returning its slot frees one; then retry discern done.`,
+        } (completion.concurrency). Wait for a running validation to finish or return its slot, then retry discern done.`,
     };
   }
   return undefined;

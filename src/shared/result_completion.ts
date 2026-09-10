@@ -64,7 +64,7 @@ export function retainedCheckoutExplanation(
 ): string {
   switch (reason) {
     case "unreleased":
-      return "It stays available for review or further edits until released; when finished with it, run discern done --release-checkout from it and the next discern accept removes it.";
+      return "It remains available for review or further edits until released; when finished with it, run discern done --release-checkout from it and the next discern accept removes it.";
     case "active-use":
       return "Something is still using it; stop that preview or operation, then run discern accept from the main checkout.";
     case "moved-branch":

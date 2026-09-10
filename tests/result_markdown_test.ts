@@ -1533,3 +1533,45 @@ Deno.test("the checkout outcome is one sentence with the command that finishes c
   assertStringIncludes(recovery, "the capture failed");
   assertStringIncludes(recovery, "run discern accept again");
 });
+
+Deno.test("accept rows are labelled from their recorded relation to the selected effort", () => {
+  const row = (effort: string, relation: "selected" | "ahead" | "behind") => ({
+    effort,
+    branch: `refs/heads/agent/${effort}`,
+    source_head: "a".repeat(40),
+    candidate_id: null,
+    expected_trunk: null,
+    target: null,
+    state: "pending" as const,
+    relation,
+    retirement: "retained" as const,
+    pending: [{ kind: "queued", reason: "Waiting for the owner's approval." }],
+  });
+  const data = {
+    root: "/workspace/project",
+    selected_effort: "mine",
+    queue: [
+      row("earlier", "ahead"),
+      row("mine", "selected"),
+      row("later", "behind"),
+    ],
+  };
+  AcceptDataSchema.parse(data);
+  const rendered = renderResultMarkdown(
+    { ok: true, verb: "accept", data },
+    resultPresenterForVerb("accept"),
+  );
+  assertStringIncludes(rendered, "Selected effort `agent/mine`: not landed.");
+  assertStringIncludes(
+    rendered,
+    "Ahead in the queue — `refs/heads/agent/earlier`",
+  );
+  assertStringIncludes(
+    rendered,
+    "Behind in the queue — `refs/heads/agent/later`",
+  );
+  assert(
+    !rendered.includes("Ahead in the queue — `refs/heads/agent/later`"),
+    rendered,
+  );
+});

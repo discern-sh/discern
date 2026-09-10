@@ -1986,6 +1986,17 @@ Rendered example:
 
 > There are no active worktrees.
 
+## `status-queue-capacity-saturated`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: Every completion.concurrency validation slot is in use while queued efforts wait.
+
+Rendered example:
+
+> Every validation slot is in use, held by agent/first and agent/second (completion.concurrency = 2). Queued efforts wait until a running validation finishes or returns its slot.
+
 ## `status-ready-for-review`
 
 - Category: `next-step`

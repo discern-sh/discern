@@ -30019,6 +30019,15 @@
                           "landed"
                         ]
                       },
+                      "relation": {
+                        "type": "string",
+                        "enum": [
+                          "selected",
+                          "ahead",
+                          "behind",
+                          "other"
+                        ]
+                      },
                       "landing_id": {
                         "type": "string"
                       },

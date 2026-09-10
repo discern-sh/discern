@@ -1,4 +1,5 @@
 /** Stable ordering is durable policy; observation never promotes or repairs work. */
+import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type { SourceRevision } from "../completion/identity.ts";
 import {
@@ -153,7 +154,12 @@ export function approveBatch(
     members.some((entry) =>
       entry.state === "withdrawn" || entry.state === "landed"
     )
-  ) return { kind: "missing-judgment", subjects: ["approval-batch-members"] };
+  ) {
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["approval-batch-members"]],
+    };
+  }
   const covered = new Set(
     queue.entries.filter((entry) =>
       entry.authority_id !== null && entry.state !== "withdrawn"
@@ -190,7 +196,7 @@ export function approveBatch(
     if (index < 0) {
       return {
         kind: "missing-judgment",
-        subjects: ["source-dependency-cycle"],
+        subjects: [QUEUE_DECISION_SUBJECT["source-dependency-cycle"]],
       };
     }
     const [entry] = pending.splice(index, 1);
@@ -244,7 +250,10 @@ export function reprioritize(
     new Set(wanted).size !== current.length ||
     wanted.some((id) => !current.includes(id))
   ) {
-    return { kind: "missing-judgment", subjects: ["queue-order-changed"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["queue-order-changed"]],
+    };
   }
   if (
     eligible.some((entry) =>
@@ -253,7 +262,12 @@ export function reprioritize(
         wanted.indexOf(dep) > wanted.indexOf(entry.source.effort_id)
       )
     )
-  ) return { kind: "missing-judgment", subjects: ["source-dependency-order"] };
+  ) {
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["source-dependency-order"]],
+    };
+  }
   const first = Math.min(...eligible.map((entry) => entry.eligible_order ?? 0));
   return {
     kind: "changed",
@@ -281,7 +295,10 @@ export function expectedPredecessor(
   const ordered = orderedEntries(queue);
   const index = ordered.findIndex((entry) => entry.source.effort_id === effort);
   if (index < 0) {
-    return { kind: "missing-judgment", subjects: ["effort-not-selected"] };
+    return {
+      kind: "missing-judgment",
+      subjects: [QUEUE_DECISION_SUBJECT["effort-not-selected"]],
+    };
   }
   if (index === 0) return { head: queue.trunk, candidate_id: null };
   const previous = ordered[index - 1];
