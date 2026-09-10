@@ -28,7 +28,7 @@ Pass exactly one condition per call. Choose it from what your work actually need
 
 ## 2. Resolve the exact worktree
 
-Await an exact stable selector from `discern_start` or the sibling's `discern_status` fleet row: its worktree id, absolute path, local branch, or full local ref. Prefer the id while the checkout is live; retain the exact branch when a new `landed` watch may begin after acceptance has removed the checkout. These forms resolve to the same live worktree. A display title, requested name, prefix, or paraphrase is not identity, so never guess one. Ambiguity is a refusal, never a fleet-order choice.
+Await an exact stable selector from `discern_start` or the sibling's `discern_status` fleet row: its worktree id, absolute path, local branch, or full local ref. Prefer the id while the checkout is live; retain the exact branch when a new `landed` watch may begin after acceptance has removed the checkout. These forms resolve to the same live worktree, including one temporarily detached from its branch while discern validates it. A display title, requested name, prefix, or paraphrase is not identity, so never guess one. Ambiguity is a refusal, never a fleet-order choice.
 
 If the dependency may already hold, call `discern_await` anyway: a condition that is already true returns met immediately. Do not pre-check with your own status or Git reads — the verb is the check.
 
@@ -62,6 +62,7 @@ Relay the observed state without asking the user to reconstruct the watch:
 - **Your own branch.** Run your gate or do the work; awaiting yourself never returns.
 - **A sub-agent or background task inside your own session.** Your own session already tracks those; `discern_await` watches other worktrees and the trunk.
 - **Something only the user can supply.** A review, a decision, a credential — report what you need and stop; don't hold a call against a human.
+- **A validation slot or a place in the landing queue.** `discern_done` and `discern_accept` explain their own waits, naming the setting that binds; `discern_await` watches outcomes (green, landed, trunk moved), never capacity.
 - **A watch made unnecessary mid-wait** — the plan changed, the dependency got cut. Say so and move on; that is a valid end to the watch.
 
 ---
