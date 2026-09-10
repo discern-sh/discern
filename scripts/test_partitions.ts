@@ -1,7 +1,6 @@
 /** Native test partitions remain one awaited suite and one complete report. */
-import { fromFileUrl, isAbsolute, join } from "@std/path";
-import { colorResolvedEnv, stripAnsi } from "../src/shared/color_env.ts";
-import { lstatIfExists, readTextIfExists } from "../src/shared/fs_presence.ts";
+import { join } from "@std/path";
+import { cksumString } from "../src/shared/crc.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import {
@@ -120,40 +119,12 @@ function partitionArguments(
   ];
 }
 
-interface PreparedTestGraph {
-  readonly code: number;
-  readonly moduleSizes: readonly number[];
-}
-
-/** Native listing hints affect scheduling only; every native shard still runs.
- * Escapes are stripped before matching: parsing must not depend on the spawn
- * environment having resolved colour off. */
-export async function listedModuleSizes(
-  output: string,
-  cwd: string = ".",
-): Promise<number[]> {
-  const sizes: number[] = [];
-  for (const match of stripAnsi(output).matchAll(/^Check (.+)$/gm)) {
-    const entry = match[1];
-    if (entry === undefined) continue;
-    const path = entry.startsWith("file:")
-      ? fromFileUrl(entry)
-      : isAbsolute(entry)
-      ? entry
-      : join(cwd, entry);
-    sizes.push((await lstatIfExists(path))?.size ?? 0);
-  }
-  return sizes;
-}
-
 /** Check complete native discovery before running its partitions. */
 async function prepareTestGraph(
   args: readonly string[],
   options: OwnedChildOptions,
-  directory: string,
-  scheduleModules: boolean,
-): Promise<PreparedTestGraph> {
-  if (args.includes("--no-check")) return { code: 0, moduleSizes: [] };
+): Promise<number> {
+  if (args.includes("--no-check")) return 0;
   const started = SYSTEM_CLOCK.monotonicNow();
   const checkArgs = [
     ...args.filter((arg) =>
@@ -162,36 +133,46 @@ async function prepareTestGraph(
     ),
     "--no-run",
   ];
-  const captureListing = scheduleModules && Deno.build.os !== "windows";
-  const listingPath = join(directory, "native-graph.log");
-  // exec preserves the supervised process and group while redirecting only the
-  // preparation log. Positional parameters preserve every literal argument.
-  const child = await runOwnedChild(
-    captureListing ? "/bin/sh" : Deno.execPath(),
-    {
-      ...options,
-      ...(captureListing
-        ? { env: { ...options.env, ...colorResolvedEnv() } }
-        : {}),
-      args: captureListing
-        ? ["-c", 'exec "$@" 2>"$0"', listingPath, Deno.execPath(), ...checkArgs]
-        : checkArgs,
-    },
-  );
-  let moduleSizes: number[] = [];
-  if (captureListing) {
-    const output = await readTextIfExists(listingPath) ?? "";
-    if (output.length > 0) console.error(output.trimEnd());
-    if (child.status.success) {
-      moduleSizes = await listedModuleSizes(output, options.cwd);
-    }
-  }
+  const child = await runOwnedChild(Deno.execPath(), {
+    ...options,
+    args: checkArgs,
+  });
   console.error(
     `Test graph preparation: ${
       ((SYSTEM_CLOCK.monotonicNow() - started) / 1000).toFixed(1)
     }s.`,
   );
-  return { code: child.status.success ? 0 : 1, moduleSizes };
+  return child.status.success ? 0 : 1;
+}
+
+/** Stable seeded admission with priority hints that never remove a native shard. */
+export function partitionOrder(
+  count: number,
+  concurrency: number,
+  seed?: number,
+  preferred: readonly number[] = [],
+): number[] {
+  const workers = Math.min(concurrency, count);
+  const span = Math.ceil(count / workers);
+  const order: number[] = [];
+  for (let round = 0; round < span; round++) {
+    for (let worker = 0; worker < workers; worker++) {
+      const index = worker * span + round;
+      if (index < count) order.push(index);
+    }
+  }
+  if (seed !== undefined) {
+    // Hash before sorting so comparison does no repeated encoding or CRC work.
+    const weights = order.map((index) => cksumString(`${seed}:${index}`));
+    const byIndex = new Map(
+      order.map((index, at) => [index, weights[at] ?? 0]),
+    );
+    order.sort((a, b) => (byIndex.get(a) ?? 0) - (byIndex.get(b) ?? 0));
+  }
+  const priority = new Set(preferred);
+  return order.sort((a, b) =>
+    Number(priority.has(b)) - Number(priority.has(a))
+  );
 }
 
 /** Refill bounded native process slots and settle every active child on failure. */
@@ -200,27 +181,13 @@ async function runPartitionChildren(
   reports: readonly string[],
   concurrency: number,
   options: OwnedChildOptions,
-  moduleSizes: readonly number[],
+  order: readonly number[],
 ): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
     "--no-check",
   ];
-  // Interleave the source universe so costly alphabetical regions start early.
   const workers = Math.min(concurrency, reports.length);
-  const span = Math.ceil(reports.length / workers);
-  const order: number[] = [];
-  for (let round = 0; round < span; round++) {
-    for (let worker = 0; worker < workers; worker++) {
-      const index = worker * span + round;
-      if (index < reports.length) order.push(index);
-    }
-  }
-  if (moduleSizes.length === reports.length) {
-    order.sort((left, right) =>
-      (moduleSizes[right] ?? 0) - (moduleSizes[left] ?? 0)
-    );
-  }
   let cursor = 0;
   let code = 0;
   let completed = 0;
@@ -276,9 +243,11 @@ export async function runTestPartitions(
   count: number,
   options: {
     readonly cwd?: string;
+    readonly env?: Readonly<Record<string, string>>;
     readonly signal?: AbortSignal;
     readonly concurrency?: number;
-    readonly scheduleModules?: boolean;
+    readonly seed?: number;
+    readonly preferredPartitions?: readonly number[];
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -306,24 +275,19 @@ export async function runTestPartitions(
   try {
     result = await withToolTempDir("test-reports", async (directory) => {
       const childOptions: OwnedChildOptions = {
-        env: { DENO_JOBS: "1" },
+        env: { ...options.env, DENO_JOBS: "1" },
         signal,
         resumeAfterInterrupt: true,
         ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
       };
-      const graph = await prepareTestGraph(
-        args,
-        childOptions,
-        directory,
-        options.scheduleModules ?? false,
-      );
-      if (graph.code !== 0 || signal.aborted) return { code: 1 };
-      const partitionCount = graph.moduleSizes.length || count;
+      const prepared = await prepareTestGraph(args, childOptions);
+      if (prepared !== 0 || signal.aborted) return { code: 1 };
+      const partitionCount = count;
       const reports = Array.from(
         { length: partitionCount },
         (_, index) => join(directory, `${index + 1}.xml`),
       );
-      if (options.scheduleModules) {
+      if (options.seed !== undefined) {
         console.error(
           `Test allocation: ${partitionCount} native partitions, ${
             Math.min(concurrency, partitionCount)
@@ -336,7 +300,12 @@ export async function runTestPartitions(
         reports,
         concurrency,
         childOptions,
-        graph.moduleSizes,
+        partitionOrder(
+          count,
+          concurrency,
+          options.seed,
+          options.preferredPartitions,
+        ),
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (!args.includes("--reporter=junit")) {

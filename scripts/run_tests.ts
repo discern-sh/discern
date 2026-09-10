@@ -111,7 +111,7 @@ if (import.meta.main) {
     const concurrency = Math.min(count, navigator.hardwareConcurrency);
     const result = await runTestPartitions(args, count, {
       concurrency,
-      scheduleModules: true,
+      seed: effectiveTestSeed(identitySeed, Deno.args),
     });
     if (result.report !== undefined) console.log(result.report);
     Deno.exit(result.code);

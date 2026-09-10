@@ -5,10 +5,10 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import {
   combineJunitReports,
-  listedModuleSizes,
+  partitionOrder,
   runTestPartitions,
   testPartitionCount,
 } from "../scripts/test_partitions.ts";
@@ -346,7 +346,7 @@ Deno.test("a type error fails shared preparation before any runtime partition st
         commands.length = 0;
         const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
           cwd: dir,
-          scheduleModules,
+          ...(scheduleModules ? { seed: 42 } : {}),
         });
         assertEquals(result.code, 1);
         assertEquals(commands.length, 1);
@@ -397,7 +397,7 @@ Deno.test("cancelling shared preparation reaps its child before any partition st
         const result = await runTestPartitions(testCommandArgs(42, [dir]), 2, {
           cwd: dir,
           signal: controller.signal,
-          scheduleModules,
+          ...(scheduleModules ? { seed: 42 } : {}),
         });
         assertEquals(result.code, 1);
         assertEquals(commands, 1);
@@ -490,149 +490,75 @@ Deno.test("queued native partitions preserve uneven and oversized process alloca
   }
 });
 
-Deno.test("module scheduling uses native discovery, prioritizes source size, and retains complete failing enrollment", async () => {
+Deno.test("seeded admission preserves every shard and deterministic priority ties", () => {
+  const baseline = partitionOrder(16, 3, 42);
+  assertEquals(baseline, partitionOrder(16, 3, 42));
+  assertEquals(
+    [...baseline].sort((a, b) => a - b),
+    Array.from({ length: 16 }, (_, i) => i),
+  );
+  assert(baseline.join() !== partitionOrder(16, 3, 99).join());
+  const preferred = [7, 2, 7, -1, 100];
+  const prioritised = partitionOrder(16, 3, 42, preferred);
+  assertEquals(
+    prioritised.slice(0, 2),
+    baseline.filter((n) => n === 7 || n === 2),
+  );
+  assertEquals(
+    prioritised.slice(2),
+    baseline.filter((n) => n !== 7 && n !== 2),
+  );
+  assertEquals(preferred, [7, 2, 7, -1, 100]);
+});
+
+Deno.test("cold and warm preparation keep the seeded allocation and complete native membership", async () => {
   await withTempDir(async (dir) => {
     const root = join(dir, "native files with ' quotes");
     await Deno.mkdir(root);
-    for (const count of [3, 4]) {
-      for (let index = 0; index < count; index++) {
+    let firstOrder: string[] | undefined;
+    for (const total of [3, 3, 4]) {
+      for (let index = 0; index < total; index++) {
         await Deno.writeTextFile(
           join(root, `${index}_test.ts`),
           `Deno.test('module ${index}', async () => {
-            await Deno.writeTextFile('order.txt', '${index},' + Deno.pid + '\\n', { append: true });
-            ${index === 1 ? "throw new Error('planted module failure');" : ""}
-          });\n/* ${"source-size hint ".repeat(index * 100)} */\n`,
+              await Deno.writeTextFile('order.txt', '${index},' + Deno.pid + '\\n', { append: true });
+              ${index === 1 ? "throw new Error('planted module failure');" : ""}
+            });\n`,
         );
       }
-      for (const checked of [true, false]) {
-        await Deno.writeTextFile(join(root, "order.txt"), "");
-        const result = await runTestPartitions(
-          testCommandArgs(42, [
-            "--reporter=junit",
-            ...(checked ? [] : ["--no-check"]),
-            root,
-          ]),
-          2,
-          { cwd: root, concurrency: 1, scheduleModules: true },
-        );
-        assertEquals(result.code, 1);
-        assertStringIncludes(
-          result.report ?? "",
-          `tests="${count}" failures="1" errors="0"`,
-        );
-        assertStringIncludes(result.report ?? "", "planted module failure");
-        const rows = (await Deno.readTextFile(join(root, "order.txt"))).trim()
-          .split("\n").map((row) => row.split(","));
-        assertEquals(rows.length, count);
-        assertEquals(new Set(rows.map((row) => row[0])).size, count);
-        const listed = checked && Deno.build.os !== "windows";
-        assertEquals(
-          new Set(rows.map((row) => row[1])).size,
-          listed ? count : 2,
-        );
-        if (listed) assertEquals(rows[0]?.[0], String(count - 1));
-      }
-    }
-    const controller = new AbortController();
-    controller.abort();
-    await assertRejects(
-      () =>
-        runTestPartitions(
-          testCommandArgs(42, ["--reporter=junit", root]),
-          2,
-          { cwd: root, scheduleModules: true, signal: controller.signal },
-        ),
-      DOMException,
-      "aborted",
-    );
-  });
-});
-
-Deno.test("module listings parse through ANSI decoration and unreadable entries", async () => {
-  await withTempDir(async (dir) => {
-    await Deno.writeTextFile(join(dir, "plain_test.ts"), "1234567890");
-    await Deno.writeTextFile(join(dir, "styled_test.ts"), "12345");
-    // A colour-forcing environment wraps the native listing in SGR escapes;
-    // parsing must survive that even when the spawn env failed to prevent it.
-    const esc = String.fromCharCode(27);
-    const output = [
-      `Check plain_test.ts`,
-      `${esc}[0m${esc}[32mCheck${esc}[0m styled_test.ts${esc}[0m`,
-      `${esc}[32mCheck${esc}[0m missing_test.ts`,
-      "unrelated line",
-    ].join("\n");
-    assertEquals(await listedModuleSizes(output, dir), [10, 5, 0]);
-  });
-});
-
-Deno.test("a colour-forcing invoking environment cannot break module scheduling", async () => {
-  // The exact harness shape that once broke scheduling: FORCE_COLOR=3 with
-  // NO_COLOR=1 exported around the whole run. The scheduler's own process
-  // inherits both, so its native listing child would arrive ANSI-wrapped
-  // unless the spawn env resolves colour off (and the parser strips escapes).
-  // Three modules with one worker must still yield three single-module
-  // partitions - the fallback would run only two interleaved ones.
-  await withTempDir(async (dir) => {
-    const root = join(dir, "forced");
-    await Deno.mkdir(root);
-    for (let index = 0; index < 3; index++) {
-      await Deno.writeTextFile(
-        join(root, `${index}_test.ts`),
-        `Deno.test('forced ${index}', async () => {
-          await Deno.writeTextFile('order.txt', '${index},' + Deno.pid + '\\n', { append: true });
-        });\n`,
-      );
-    }
-    await Deno.writeTextFile(join(root, "order.txt"), "");
-    const driver = join(dir, "driver.ts");
-    await Deno.writeTextFile(
-      driver,
-      `import { runTestPartitions } from ${
-        JSON.stringify(
-          new URL("../scripts/test_partitions.ts", import.meta.url).href,
-        )
-      };
-      import { testCommandArgs } from ${
-        JSON.stringify(new URL("../scripts/run_tests.ts", import.meta.url).href)
-      };
-      const root = Deno.args[0] ?? "";
+      await Deno.writeTextFile(join(root, "order.txt"), "");
       const result = await runTestPartitions(
-        testCommandArgs(42, ["--reporter=junit", root]),
+        testCommandArgs(42, [
+          "--no-config",
+          "--no-lock",
+          "--reporter=junit",
+          root,
+        ]),
         2,
-        { cwd: root, concurrency: 1, scheduleModules: true },
+        {
+          cwd: root,
+          concurrency: 1,
+          seed: 42,
+          env: { DENO_DIR: join(dir, "cache") },
+        },
       );
-      Deno.exit(result.code);\n`,
-    );
-    const repoRoot = new URL("../", import.meta.url);
-    const run = await new Deno.Command(Deno.execPath(), {
-      // The driver lives outside the workspace, so the repo import map is
-      // named explicitly; cwd is the repo root the config path resolves from.
-      args: [
-        "run",
-        "--quiet",
-        "--allow-all",
-        "--config",
-        "deno.json",
-        driver,
-        root,
-      ],
-      cwd: fromFileUrl(repoRoot),
-      env: { FORCE_COLOR: "3", NO_COLOR: "1" },
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const evidence = new TextDecoder().decode(run.stdout) +
-      new TextDecoder().decode(run.stderr);
-    assertEquals(run.code, 0, `forced-colour run failed:\n${evidence}`);
-    const rows = (await Deno.readTextFile(join(root, "order.txt"))).trim()
-      .split("\n").map((row) => row.split(","));
-    assertEquals(rows.length, 3);
-    const listed = Deno.build.os !== "windows";
-    assertEquals(
-      new Set(rows.map((row) => row[1])).size,
-      listed ? 3 : 2,
-      `module scheduling fell back to interleaved partitions:\n${evidence}`,
-    );
+      assertEquals(result.code, 1);
+      assertEquals(result.selection, "complete");
+      assertStringIncludes(
+        result.report ?? "",
+        `tests="${total}" failures="1" errors="0"`,
+      );
+      const rows = (await Deno.readTextFile(join(root, "order.txt"))).trim()
+        .split("\n").map((row) => row.split(","));
+      assertEquals(rows.length, total);
+      assertEquals(new Set(rows.map((row) => row[0])).size, total);
+      assertEquals(new Set(rows.map((row) => row[1])).size, 2);
+      const order = rows.map((row) => row[0] ?? "");
+      if (total === 3 && firstOrder !== undefined) {
+        assertEquals(order, firstOrder);
+      }
+      firstOrder ??= order;
+    }
   });
 });
 
