@@ -272,7 +272,7 @@ async function acceptQueueImplementation(
           if (listed === undefined) return undefined;
           const facts = await queueRowFacts(
             root,
-            initialObservation,
+            () => Promise.resolve(initialObservation),
             listed,
             trunk,
             initialQueue?.data.entries ?? [],
@@ -724,7 +724,7 @@ async function acceptQueueImplementation(
           }
           const facts = await queueRowFacts(
             root,
-            observation,
+            () => Promise.resolve(observation),
             listed,
             trunk,
             current.record.data.entries,

@@ -458,9 +458,9 @@ export const TOOLS: McpTool[] = orderTools([
       "cleanliness and trunk divergence; data.gate lists checks that would run; " +
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
-      "separate effort. data.queue lists the landing queue in order — each row one " +
-      "unlanded effort with its readiness and the single reason it waits, the same " +
-      "list an acceptance preview shows. data.git.trunk is the selected project's configured trunk. " +
+      "separate effort. data.queue lists the landing queue in order: each row an " +
+      "unlanded effort with its readiness and single waiting reason. " +
+      "data.git.trunk is the selected project's configured trunk. " +
       "data.setup_unfinished carries pending markers, known-job applicability, " +
       "and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary " +
       "discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive " +

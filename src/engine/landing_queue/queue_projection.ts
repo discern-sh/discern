@@ -14,6 +14,7 @@ import type { StatusQueueRow } from "../../shared/result_schemas.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
 import { commitIsMerged } from "../worktree/git.ts";
 import { observeExternalIntegration } from "./external_integration.ts";
+import { observeCompletionRecords } from "../validation/runtime.ts";
 import type { QueueEntry } from "./model.ts";
 import { orderedEntries } from "./model.ts";
 import { observedRecords, observeQueue } from "./repository.ts";
@@ -133,10 +134,11 @@ export function queueEntryReadiness(
 
 /** Resolve one entry's trunk-reachability facts with bounded Git reads.
  * `siblings` supplies the queue's other entries so a recorded, still-unlanded
- * source dependency can be named. */
+ * source dependency can be named; `observe` supplies the trunk-bound
+ * observation lazily — only an entry already on the trunk needs it. */
 export async function queueRowFacts(
   root: string,
-  observation: CompletionObservation,
+  observe: () => Promise<CompletionObservation>,
   entry: QueueEntry,
   trunk: string,
   siblings: readonly QueueEntry[] = [],
@@ -160,7 +162,7 @@ export async function queueRowFacts(
   }
   const integrated = await observeExternalIntegration(
     root,
-    observation,
+    await observe(),
     entry.source.branch,
     entry.source.head,
   );
@@ -173,7 +175,7 @@ export async function queueRowFacts(
 }
 
 /** Status's read-only view of the queue: the projection, or nothing when the
- * trunk or record store cannot be read — orientation colour never fails the
+ * trunk or record store cannot be read — orientation color never fails the
  * observation that reports it. */
 export async function statusQueueRows(
   root: string,
@@ -195,16 +197,20 @@ export async function queueOrderProjection(
   root: string,
   trunk: string,
 ): Promise<StatusQueueRow[]> {
-  const observation = await observeQueue(root, trunk);
-  const queue = observedRecords(observation).find((record) =>
-    record.kind === "queue"
+  const queue = observedRecords(await observeCompletionRecords(root)).find(
+    (record) => record.kind === "queue",
   );
   if (queue?.kind !== "queue") return [];
+  // The trunk-bound observation costs a Git read; only an entry whose work is
+  // already on the trunk consumes it, so it resolves lazily, once.
+  let observed: Promise<CompletionObservation> | undefined;
+  const observe = (): Promise<CompletionObservation> =>
+    observed ??= observeQueue(root, trunk);
   const rows: StatusQueueRow[] = [];
   for (const entry of orderedEntries(queue.data, { includeHeld: true })) {
     const facts = await queueRowFacts(
       root,
-      observation,
+      observe,
       entry,
       trunk,
       queue.data.entries,

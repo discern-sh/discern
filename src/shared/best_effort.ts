@@ -1664,7 +1664,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     shape: "async",
     observability: { kind: "unobservable" },
     reason:
-      "The queue section is orientation colour; an unreadable trunk or record store must not fail the read-only status observation that reports it.",
+      "The queue section is orientation color; an unreadable trunk or record store must not fail the read-only status observation that reports it.",
   },
   "status-root-canonicalization-fallback": {
     path: "src/engine/status/status.ts",
