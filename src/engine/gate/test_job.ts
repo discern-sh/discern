@@ -46,6 +46,12 @@ import {
 } from "../logbook/validation.ts";
 import { captureValidationStart } from "../logbook/validation_state.ts";
 import { terminalContext } from "../../lib/terminal.ts";
+import { byteWriter } from "../output.ts";
+import { observedGateOperation } from "./observed_operation.ts";
+import {
+  createGateProgressPresenter,
+  type GateProgressPresenterSlot,
+} from "./progress_presenter.ts";
 import {
   createGateTtyProgress,
   renderGateTtyStatus,
@@ -76,6 +82,22 @@ async function runTestGate(
     presentationWritable: boolean;
   }
 > {
+  return await observedGateOperation(
+    root,
+    "test",
+    signal,
+    (presenterSlot) => runTestGateBody(root, surface, signal, presenterSlot),
+    (completed) => completed.result,
+  );
+}
+
+/** The standalone test run behind the journalled, observed operation boundary. */
+async function runTestGateBody(
+  root: string,
+  surface: GateOutputSurface,
+  signal: AbortSignal | undefined,
+  presenterSlot: GateProgressPresenterSlot,
+): ReturnType<typeof runTestGate> {
   const cfg = await loadConfig(root);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const group = stageGroup(cfg, "test");
@@ -135,6 +157,19 @@ async function runTestGate(
   if (progress !== undefined) {
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
+  }
+  if (policy.output.kind !== "quiet-result") {
+    // Live frames carry the facts inside the frame; static human runs append
+    // the same sentences through the run's own byte sink (ADR 0030 keeps quiet
+    // results quiet).
+    const encoder = new TextEncoder();
+    presenterSlot.set(createGateProgressPresenter(
+      progress !== undefined ? { live: progress } : {
+        write: (line): void => {
+          (runOpts.write ?? byteWriter("stderr"))(encoder.encode(line));
+        },
+      },
+    ));
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.

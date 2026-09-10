@@ -87,6 +87,7 @@ Deno.test("a journalled operation retains facts, timings, and its final result",
         });
         return Promise.resolve(envelope(true, "Gate passed."));
       },
+      { result: (value) => value },
     );
     assertEquals(result.ok, true);
     const reading = await readOperationJournal(root);
@@ -166,8 +167,9 @@ Deno.test("executor cancellation closes the journal; a failed run stays failed",
         withOperationJournal(
           root,
           { verb: "done", path: root },
-          () => Promise.reject(new Error("validation cancelled")),
-          { signal: abort.signal },
+          (): Promise<DiscernResult> =>
+            Promise.reject(new Error("validation cancelled")),
+          { signal: abort.signal, result: (value) => value },
         ),
       Error,
       "validation cancelled",
@@ -180,7 +182,8 @@ Deno.test("executor cancellation closes the journal; a failed run stays failed",
         withOperationJournal(
           root,
           { verb: "done", path: root },
-          () => Promise.reject(new Error("exploded")),
+          (): Promise<DiscernResult> => Promise.reject(new Error("exploded")),
+          { result: (value) => value },
         ),
       Error,
       "exploded",
@@ -237,6 +240,7 @@ Deno.test("an oversized final result keeps a bounded account and says so", async
           ...envelope(false, "Gate failed."),
           data: { noise: "x".repeat(400 * 1024) },
         }),
+      { result: (value) => value },
     );
     assertEquals(result.ok, false);
     const reading = await readOperationJournal(root);

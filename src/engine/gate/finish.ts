@@ -132,7 +132,18 @@ import {
   proofCheckpointsData,
 } from "./checkpoint_projection.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
-import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
+import {
+  byteWriter,
+  colorEnabled,
+  makeOut,
+  type Out,
+  outSink,
+} from "../output.ts";
+import { observedGateOperation } from "./observed_operation.ts";
+import {
+  createGateProgressPresenter,
+  type GateProgressPresenterSlot,
+} from "./progress_presenter.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
   assertMainMerged,
@@ -198,6 +209,28 @@ async function runGate(
   signal: AbortSignal | undefined,
   presentation: Parameters<typeof runCandidateGate>[3],
 ): ReturnType<typeof runCandidateGate> {
+  // The whole gate run is one journalled operation: a lost observer reconnects
+  // to its facts and retained result instead of re-running anything. The live
+  // presenter registers into the slot once the run's output policy exists.
+  return await observedGateOperation(
+    root,
+    "done",
+    signal,
+    (presenterSlot) =>
+      runGateBody(root, surface, signal, presentation, presenterSlot),
+    (completed) => completed.result,
+  );
+}
+
+/** The gate execution behind the journalled, observed operation boundary. */
+async function runGateBody(
+  root: string,
+  surface: GateOutputSurface,
+  signal: AbortSignal | undefined,
+  presentation: Parameters<typeof runCandidateGate>[3],
+  presenterSlot: GateProgressPresenterSlot,
+): ReturnType<typeof runCandidateGate> {
+  presentation = { ...presentation, presenterSlot };
   const completed = await runCompleteGate<
     Awaited<ReturnType<typeof runCandidateGate>>
   >(
@@ -319,6 +352,8 @@ async function runCandidateGate(
     context?: string;
     standalone?: boolean;
     rerun?: boolean;
+    /** Where this run registers its live completion-fact presenter. */
+    presenterSlot?: GateProgressPresenterSlot;
   },
 ): Promise<
   {
@@ -376,6 +411,22 @@ async function runCandidateGate(
   if (progress !== undefined) {
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
+  }
+  if (
+    presentation.presenterSlot !== undefined &&
+    policy.output.kind !== "quiet-result"
+  ) {
+    // Live frames carry the facts inside the frame; static human runs append
+    // the same sentences through the run's own byte sink. Quiet results stay
+    // quiet — the envelope is the entire output.
+    const encoder = new TextEncoder();
+    presentation.presenterSlot.set(createGateProgressPresenter(
+      progress !== undefined ? { live: progress } : {
+        write: (line): void => {
+          (runOpts.write ?? byteWriter("stderr"))(encoder.encode(line));
+        },
+      },
+    ));
   }
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;

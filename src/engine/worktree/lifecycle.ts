@@ -37,6 +37,8 @@ import { renderResultSummaryCli } from "discern-design-system/cli";
 import { adrIndexState } from "../../lib/adr_index.ts";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { terminalLine } from "../../lib/terminal.ts";
+import { observedGateOperation } from "../gate/observed_operation.ts";
+import { createGateProgressPresenter } from "../gate/progress_presenter.ts";
 import {
   canInteract,
   confirmDestructiveAction,
@@ -2023,15 +2025,38 @@ export async function acceptResult(
   ctx: LifecycleContext,
   opts: Parameters<typeof acceptImplementation>[1],
 ): Promise<DiscernResult<AcceptData>> {
-  const result = await acceptImplementation(ctx, opts);
-  if (result.ok || hasRegisteredActionableHint(result.hints)) return result;
-  return {
-    ...result,
-    hints: appendHintTexts(result.hints, [fire(HINTS["completion-pending"], {
-      action: result.message ??
-        "Run discern status from the selected effort and follow its recovery action before retrying acceptance.",
-    })]),
-  };
+  return await observedGateOperation(
+    ctx.cwd,
+    "accept",
+    opts.signal,
+    async (presenterSlot) => {
+      if (opts.validationSurface?.kind === "human" && !ctx.log.json) {
+        // The nested validation presents its own producer facts and failures;
+        // this outer presenter narrates the coordination the owner is
+        // otherwise waiting through in silence.
+        presenterSlot.set(createGateProgressPresenter({
+          scope: "coordination",
+          write: (line): void => {
+            ctx.log.humanLine(terminalLine(line.trimEnd()));
+          },
+        }));
+      }
+      const result = await acceptImplementation(ctx, opts);
+      if (result.ok || hasRegisteredActionableHint(result.hints)) {
+        return result;
+      }
+      return {
+        ...result,
+        hints: appendHintTexts(result.hints, [
+          fire(HINTS["completion-pending"], {
+            action: result.message ??
+              "Run discern status from the selected effort and follow its recovery action before retrying acceptance.",
+          }),
+        ]),
+      };
+    },
+    (value) => value,
+  );
 }
 
 /** Route one acceptance operation without broadening its authority or effect scope. */

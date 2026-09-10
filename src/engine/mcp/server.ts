@@ -124,6 +124,7 @@ import {
 } from "../../shared/setup_state.ts";
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
+import { observedGateOperation } from "../gate/observed_operation.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test_job.ts";
 import { standardsResult } from "../gate/standards.ts";
@@ -858,22 +859,32 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
+    // The wait is journalled here at the transport most likely to lose its
+    // observer: a timed-out or killed MCP call reconnects through the handle
+    // and reads the same watch, including its retained resume continuation.
     run: (root, args, signal, context) =>
-      awaitResult(
+      observedGateOperation(
         root,
-        {
-          ...(args.green !== undefined ? { green: args.green } : {}),
-          ...(args.landed !== undefined ? { landed: args.landed } : {}),
-          ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
-          ...(args.resume !== undefined ? { resume: args.resume } : {}),
-          ...(args.timeout !== undefined
-            ? { timeoutSeconds: args.timeout }
-            : {}),
-        },
+        "await",
         signal,
-        {
-          callProfile: context.awaitCallProfile,
-        },
+        () =>
+          awaitResult(
+            root,
+            {
+              ...(args.green !== undefined ? { green: args.green } : {}),
+              ...(args.landed !== undefined ? { landed: args.landed } : {}),
+              ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
+              ...(args.resume !== undefined ? { resume: args.resume } : {}),
+              ...(args.timeout !== undefined
+                ? { timeoutSeconds: args.timeout }
+                : {}),
+            },
+            signal,
+            {
+              callProfile: context.awaitCallProfile,
+            },
+          ),
+        (value) => value,
       ),
   }),
   defineTool({

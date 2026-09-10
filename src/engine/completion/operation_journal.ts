@@ -14,6 +14,7 @@
  */
 
 import { join } from "@std/path";
+import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import { bestEffortSync } from "../../shared/best_effort.ts";
 import {
   atomicReplaceBytes,
@@ -498,18 +499,28 @@ export async function readOperationJournal(
   return reading ?? { kind: "unavailable" };
 }
 
+/** One journal covers one operation; a nested wrapped call joins its parent. */
+const JOURNAL_SCOPE = new AsyncLocalStorage<true>();
+
 /**
  * Journal one long operation. The wrapper announces the reconnect handle as a
  * progress fact, folds every observed fact into the durable record, and closes
  * it with the executor's own outcome: an observer losing its call never closes
- * anything. A store failure runs the operation without a journal.
+ * anything. A store failure runs the operation without a journal, and a
+ * wrapped call nested inside another journalled operation records into its
+ * parent's journal instead of opening a second one.
  */
-export async function withOperationJournal<T extends DiscernResult>(
+export async function withOperationJournal<T>(
   root: string,
   header: OperationJournalHeader,
   run: (handle: string | undefined) => Promise<T>,
-  options: OperationJournalOptions & { readonly signal?: AbortSignal } = {},
+  options: OperationJournalOptions & {
+    readonly signal?: AbortSignal;
+    /** Project the run's value onto the result envelope the journal retains. */
+    readonly result: (value: T) => DiscernResult;
+  },
 ): Promise<T> {
+  if (JOURNAL_SCOPE.getStore() === true) return await run(undefined);
   let journal: OperationJournalWriter | undefined;
   try {
     journal = await openOperationJournal(root, header, options);
@@ -519,26 +530,29 @@ export async function withOperationJournal<T extends DiscernResult>(
   }
   if (journal === undefined) return await run(undefined);
   const open = journal;
-  try {
-    const result = await withCompletionObserver(
-      (fact) => open.observe(fact),
-      async () => {
-        emitCompletionProgress({
-          phase: "operation",
-          state: "started",
-          candidate_id: null,
-          reason:
-            `${header.verb} is running; progress handle ${open.handle} reconnects to it.`,
-          operation_handle: open.handle,
-        });
-        return await run(open.handle);
-      },
-    );
-    await open.finish(result.ok ? "completed" : "failed", result);
-    return result;
-  } catch (error) {
-    const cancelled = options.signal?.aborted === true;
-    await open.finish(cancelled ? "cancelled" : "failed");
-    throw error;
-  }
+  return await JOURNAL_SCOPE.run(true, async () => {
+    try {
+      const value = await withCompletionObserver(
+        (fact) => open.observe(fact),
+        async () => {
+          emitCompletionProgress({
+            phase: "operation",
+            state: "started",
+            candidate_id: null,
+            reason:
+              `${header.verb} is running; progress handle ${open.handle} reconnects to it.`,
+            operation_handle: open.handle,
+          });
+          return await run(open.handle);
+        },
+      );
+      const result = options.result(value);
+      await open.finish(result.ok ? "completed" : "failed", result);
+      return value;
+    } catch (error) {
+      const cancelled = options.signal?.aborted === true;
+      await open.finish(cancelled ? "cancelled" : "failed");
+      throw error;
+    }
+  });
 }

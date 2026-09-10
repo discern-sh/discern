@@ -58,6 +58,10 @@ export function renderGateTtyTable(
 /** Live Gate producer consumed by the job scheduler and child-output path. */
 export interface GateTtyProgress extends JobRunObserver, JobOutputObserver {
   replaceGroups(groups: readonly JobGroup[]): void;
+  /** Pin one durable progress sentence into the frame's scrollback. */
+  note(text: string, tone?: "success" | "warning" | "failure"): void;
+  /** Show the latest transient progress line in the frame's bounded tail. */
+  transient(text: string): void;
   /** Collapse the transient tail to the stable job summary and restore the cursor. */
   complete(steps: readonly StepResult[]): Promise<void>;
   /** Release an incomplete frame after an unexpected product-layer failure. */
@@ -203,6 +207,16 @@ function gateActivityProducer(
 
   return {
     replaceGroups,
+    note: (text, tone): void => {
+      produce(() =>
+        tone === undefined
+          ? log.pin(terminalLine(text))
+          : log.pin(terminalLine(text), tone)
+      );
+    },
+    transient: (text): void => {
+      produce(() => log.updatePartial(terminalLine(text)));
+    },
     started: (job: Job): void => {
       if (!visible.has(job.label)) return;
       produce(() => log.pin(`${terminalLine(job.label)} started`));
@@ -326,6 +340,8 @@ export async function createGateTtyProgress(
     viewport.close();
     return {
       replaceGroups: (): void => {},
+      note: (): void => {},
+      transient: (): void => {},
       started: (): void => {},
       settled: (): void => {},
       output: (): void => {},
