@@ -2,7 +2,8 @@
 import { z } from "@zod/zod";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { ExecutionIntentSchema } from "./intent.ts";
-import { artifactPath, readExecutionDocument } from "./artifact_read.ts";
+import { readExecutionDocument } from "./artifact_read.ts";
+import { openArtifactPaths } from "../completion/artifact_paths.ts";
 import { saveExecutionChildReceipt } from "./artifacts.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import {
@@ -26,7 +27,8 @@ export async function inspectExecutionChildren(
   root: string,
   attemptId: string,
 ): Promise<{ quiescent: boolean; reason: string }> {
-  const directory = await artifactPath(root, attemptId, "environment/children");
+  const paths = await openArtifactPaths(root);
+  const directory = await paths(attemptId, "environment/children");
   try {
     let enrolled = false;
     for await (const entry of Deno.readDir(directory)) {
@@ -34,8 +36,7 @@ export async function inspectExecutionChildren(
         if (
           !entry.isFile ||
           await Deno.readTextFile(
-              await artifactPath(
-                root,
+              await paths(
                 attemptId,
                 `environment/children/${entry.name}`,
               ),
@@ -61,8 +62,7 @@ export async function inspectExecutionChildren(
       const planned = PlannedChildSchema.parse(
         JSON.parse(
           await Deno.readTextFile(
-            await artifactPath(
-              root,
+            await paths(
               attemptId,
               `environment/children/${entry.name}`,
             ),
@@ -70,8 +70,7 @@ export async function inspectExecutionChildren(
         ),
       );
       const enrollment = await Deno.readTextFile(
-        await artifactPath(
-          root,
+        await paths(
           attemptId,
           `environment/children/enrolled-${planned.token}.json`,
         ),
@@ -85,8 +84,7 @@ export async function inspectExecutionChildren(
       }
       try {
         const terminal = await Deno.readTextFile(
-          await artifactPath(
-            root,
+          await paths(
             attemptId,
             `environment/children/settled-${key}`,
           ),
@@ -107,8 +105,7 @@ export async function inspectExecutionChildren(
         const started = StartedChildSchema.parse(
           JSON.parse(
             await Deno.readTextFile(
-              await artifactPath(
-                root,
+              await paths(
                 attemptId,
                 `environment/children/started-${key}`,
               ),

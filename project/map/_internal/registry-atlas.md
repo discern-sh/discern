@@ -4747,6 +4747,7 @@ Recorded exceptions accepted by convention sweeps. Each subsection names the own
 
 - `tests/test_registration_guard_test.ts` — rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set
 - `tests/completion_publication_cost_guard_test.ts` — checks the process-observation and recovery-publication durability boundary behaviorally rather than guarding a closed member set
+- `tests/execution_child_inventory_cost_guard_test.ts` — checks that one child inventory resolves artifact storage once, independent of receipt count, rather than guarding a closed member set
 - `tests/test_elapsed_guard_test.ts` — applies timer-ownership review across authored test duration measurements rather than guarding a closed member set
 - `tests/module_loading_guard_test.ts` — applies invocation-context isolation to every runtime lazy import and context owner rather than guarding a closed member set
 - `tests/fs_presence_enrolment_test.ts` — applies an optional-read ownership rule across the authored Deno universe rather than guarding a closed member set
