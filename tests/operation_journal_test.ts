@@ -232,6 +232,74 @@ Deno.test("handles validate, refuse damage, and expired records leave the store"
   });
 });
 
+Deno.test("a full store evicts finished waits first, then finished operations, and keeps a running one", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const at = (wall: number): { clock: { wallNow: () => number } } => ({
+      clock: { wallNow: () => wall },
+    });
+    const capacity = { maxEntries: 4 };
+    const open = (
+      verb: string,
+      wall: number,
+      pid?: number,
+    ): ReturnType<typeof openOperationJournal> =>
+      openOperationJournal(root, { verb, path: root }, {
+        ...at(wall),
+        ...capacity,
+        ...(pid === undefined ? {} : { pid }),
+      });
+    // The oldest record is an unfinished gate whose executor is gone; the
+    // newest is a gate still running in this process.
+    const deadGate = await open("done", 500, 4_000_001);
+    const finishedGate = await open("done", 1_000);
+    const finishedWait = await open("await", 2_000);
+    const runningGate = await open("done", 3_000);
+    assert(
+      deadGate !== undefined && finishedGate !== undefined &&
+        finishedWait !== undefined && runningGate !== undefined,
+    );
+    await finishedGate.finish("completed", envelope(true, "passed"));
+    await finishedWait.finish("completed", envelope(true, "met"));
+    const handles = {
+      finishedGate: finishedGate.handle,
+      finishedWait: finishedWait.handle,
+      runningGate: runningGate.handle,
+      deadGate: deadGate.handle,
+    };
+    const kinds = async (): Promise<Record<string, string>> => {
+      const out: Record<string, string> = {};
+      for (const [name, handle] of Object.entries(handles)) {
+        out[name] = (await readOperationJournal(root, handle)).kind;
+      }
+      return out;
+    };
+    // Capacity is 4: each further create evicts exactly one record, and the
+    // finished wait leaves before older, more valuable records.
+    assert(await open("done", 4_000) !== undefined);
+    assertEquals(await kinds(), {
+      finishedGate: "found",
+      finishedWait: "missing",
+      runningGate: "found",
+      deadGate: "found",
+    });
+    assert(await open("done", 5_000) !== undefined);
+    assertEquals(await kinds(), {
+      finishedGate: "missing",
+      finishedWait: "missing",
+      runningGate: "found",
+      deadGate: "found",
+    });
+    assert(await open("done", 6_000) !== undefined);
+    assertEquals(await kinds(), {
+      finishedGate: "missing",
+      finishedWait: "missing",
+      runningGate: "found",
+      deadGate: "missing",
+    });
+  });
+});
+
 Deno.test("named timing boundaries stay separate facts under an injected clock", async () => {
   await withTempDir(async (root) => {
     await repository(root);

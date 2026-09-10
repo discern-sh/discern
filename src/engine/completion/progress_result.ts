@@ -94,7 +94,7 @@ export async function operationProgressResult(
         verb: "progress",
         error: "not_found",
         message:
-          "No operation with that handle is recorded in this repository. Journals expire after 7 days and a bounded store evicts the oldest records.",
+          "No operation with that handle is recorded in this repository. Journals expire after 7 days; when the bounded store fills, finished `await` records leave first, then the oldest finished operations.",
       };
     case "none-recorded":
       return {

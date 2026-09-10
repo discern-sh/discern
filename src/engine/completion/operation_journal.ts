@@ -141,12 +141,40 @@ async function removeStoreFile(path: string): Promise<void> {
   }
 }
 
-/** Reap expired records and evict the oldest before allocating another. */
+/**
+ * Verbs whose finished journals leave first under capacity pressure. A wait's
+ * resume continuation already survives a lost call on its own store, so its
+ * journal is the least valuable record here — and the most frequent, since a
+ * watching fleet opens one per call.
+ */
+const EVICT_FIRST_VERBS: ReadonlySet<string> = new Set(["await"]);
+
+/**
+ * Capacity eviction order, lowest first: an unreadable record, a finished
+ * evict-first verb, any other finished operation, an unfinished operation
+ * whose recorded executor is gone, and last an operation still running — a
+ * reader reconnecting to a live run must find it.
+ */
+function evictionRank(record: OperationJournalRecord | undefined): number {
+  if (record === undefined) return 0;
+  const finished = record.outcome !== undefined ||
+    record.operation.finished_at !== undefined;
+  if (finished) return EVICT_FIRST_VERBS.has(record.operation.verb) ? 1 : 2;
+  return executorAlive(record.operation.pid) ? 4 : 3;
+}
+
+/** Reap expired records, then evict by rank and age before allocating another. */
 async function pruneForCreate(
   directory: string,
   now: number,
+  maxEntries: number,
 ): Promise<void> {
-  const live: { path: string; mtime: number; handle: string }[] = [];
+  const live: {
+    path: string;
+    mtime: number;
+    handle: string;
+    record: OperationJournalRecord | undefined;
+  }[] = [];
   const siblings: { path: string; mtime: number; handle: string }[] = [];
   for await (const entry of Deno.readDir(directory)) {
     if (!entry.isFile) continue;
@@ -176,24 +204,36 @@ async function pruneForCreate(
       } else if (sibling !== undefined) {
         siblings.push({ path, mtime, handle: sibling });
       } else if (record !== undefined) {
-        live.push({ path, mtime, handle: record });
+        const parsed = parseRecord(await Deno.readTextFile(path));
+        live.push({
+          path,
+          mtime,
+          handle: record,
+          record: parsed.status === "recorded" ? parsed.record : undefined,
+        });
       }
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
     }
   }
-  live.sort((a, b) => a.mtime - b.mtime || a.path.localeCompare(b.path));
-  const removeCount = Math.max(
-    0,
-    live.length - OPERATION_JOURNAL_MAX_ENTRIES + 1,
+  // Within a rank the oldest start leaves first; an unreadable record has no
+  // start and falls back to its file time.
+  const ranked = live.map((entry) => ({
+    ...entry,
+    rank: evictionRank(entry.record),
+    started: entry.record?.operation.started_at ?? entry.mtime,
+  }));
+  ranked.sort((a, b) =>
+    a.rank - b.rank || a.started - b.started || a.path.localeCompare(b.path)
   );
+  const removeCount = Math.max(0, ranked.length - maxEntries + 1);
   const evicted = new Set<string>();
-  for (const entry of live.slice(0, removeCount)) {
+  for (const entry of ranked.slice(0, removeCount)) {
     evicted.add(entry.handle);
     await removeStoreFile(entry.path);
   }
   const surviving = new Set(
-    live.slice(removeCount).map((entry) => entry.handle),
+    ranked.slice(removeCount).map((entry) => entry.handle),
   );
   for (const entry of siblings) {
     if (evicted.has(entry.handle) || !surviving.has(entry.handle)) {
@@ -226,6 +266,8 @@ export interface OperationJournalOptions {
   readonly clock?: { wallNow(): number };
   readonly entropy?: SecureEntropy;
   readonly pid?: number;
+  /** The bounded store's capacity; injected by tests, otherwise the shipped bound. */
+  readonly maxEntries?: number;
 }
 
 /** The open journal for one running operation; its owner is the only writer. */
@@ -247,7 +289,11 @@ export async function openOperationJournal(
   const entropy = options.entropy ?? SYSTEM_SECURE_ENTROPY;
   let record: OperationJournalRecord | undefined;
   const opened = await withStoreLock(root, async (directory) => {
-    await pruneForCreate(directory, clock.wallNow());
+    await pruneForCreate(
+      directory,
+      clock.wallNow(),
+      options.maxEntries ?? OPERATION_JOURNAL_MAX_ENTRIES,
+    );
     for (let attempt = 0; attempt < HANDLE_CREATE_ATTEMPTS; attempt++) {
       const handle = createShortHandle(OPERATION_FAMILY, entropy);
       const path = join(directory, `${handle}${RECORD_SUFFIX}`);

@@ -35,7 +35,7 @@ One JSON object per line; every field is optional. `units` carries completed wor
 
 ## Handles and the operation journal
 
-Every one of these operations announces a reconnect handle (`R1-XXXX-XXXX-XX`, checksum-protected like `await`'s `C1` continuations) as its first progress fact. The journal lives under the common Git directory (`discern/operations/`, 7-day retention, bounded store) and records the operation's verb, branch, and process; the latest progress fact; the merged per-producer counts; each established failure; named timing intervals; and the final result envelope, bounded and marked `result_truncated` when reduced.
+Every one of these operations announces a reconnect handle (`R1-XXXX-XXXX-XX`, checksum-protected like `await`'s `C1` continuations) as its first progress fact. The journal lives under the common Git directory (`discern/operations/`) and records the operation's verb, checkout, branch, and process; the latest progress fact; the merged per-producer counts; each established failure; named timing intervals; and the final result envelope, bounded and marked `result_truncated` when reduced. A record is kept for up to 7 days in a bounded store shared by every worktree of the repository. When the store is full, finished `await` records leave first — a wait's resume continuation already survives a lost call — then the oldest finished operations; a running operation is kept while anything finished can go.
 
 After a disconnect — a closed terminal, a timed-out MCP call, a killed process — one call shows the same operation:
 
