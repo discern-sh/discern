@@ -52,12 +52,32 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
       wallTimeIso(SYSTEM_CLOCK.wallNow()),
     );
     const grant = await readEffortGrant(path);
-    const preview = await emergencyResult(ctx, { reason: "Restore service" });
-    assertEquals(preview.error, "awaiting_consent", JSON.stringify(preview));
-    const token = preview.data?.emergency?.confirmation;
+    const beforePreview = observedRecords(await observeQueue(root, "main"));
+    const cliPreview = await runAgent(path, [
+      "accept",
+      "emergency",
+      "--reason",
+      "Restore service",
+      "--json",
+    ]);
+    const decodedPreview = decodeCliResult(cliPreview.stdout, "accept");
+    assertEquals(decodedPreview.error, "awaiting_consent", cliPreview.output);
+    assert(
+      decodedPreview.data !== undefined && "emergency" in decodedPreview.data &&
+        decodedPreview.data.emergency?.confirmation,
+    );
+    assertEquals(await gitOut(root, "rev-parse", "main"), before);
+    assertEquals(await readEffortGrant(path), grant);
+    assertEquals(
+      observedRecords(await observeQueue(root, "main")),
+      beforePreview,
+      "native preview cannot publish completion records",
+    );
+    const preview = decodedPreview.data.emergency;
+    const token = preview.confirmation;
     assert(token);
     assertEquals(
-      preview.data?.emergency?.exceptions?.map((entry) => entry.state),
+      preview.exceptions?.map((entry) => entry.state),
       ["unrun", "unrun"],
     );
     const { planEmergency, emergencyToken } = await import(
@@ -294,25 +314,6 @@ for (const boundary of LANDING_BOUNDARIES) {
     });
   });
 }
-
-Deno.test("CLI emergency is a read-only review before its exact confirmation", async () => {
-  await withTempDir(async (root) => {
-    const path = await project(root, ["local"]);
-    const result = await runAgent(path, [
-      "accept",
-      "emergency",
-      "--reason",
-      "Restore service",
-      "--json",
-    ]);
-    const decoded = decodeCliResult(result.stdout, "accept");
-    assertEquals(decoded.error, "awaiting_consent", result.output);
-    assert(
-      decoded.data !== undefined && "emergency" in decoded.data &&
-        decoded.data.emergency?.confirmation,
-    );
-  });
-});
 
 Deno.test("emergency inventory distinguishes failed, unrun contexts, and stale evidence", async () => {
   await withTempDir(async (root) => {
