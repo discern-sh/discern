@@ -35,6 +35,8 @@ The trunk is the common version that new work builds from. In discern's normal w
 
 Finishing a feature does not add it to the trunk automatically. The agent commits its work and runs `discern done`, which records [Proof](proof.md) for the validated change. You can review the result before it joins the shared project, or use a recorded permission for work you have already authorized.
 
+Finished tasks wait in a queue and land in a stable order: a task that was built on another lands after it, an order you chose is kept, and the rest follow the order in which they became ready. Approving one task approves only that task.
+
 Think of the reading-list search as an example. You can try it in its worktree, discover that it should search authors as well as titles, and ask for that improvement. Those iterations can happen while the trunk continues to hold the previously accepted version.
 
 This is a working practice, not a sandbox around the agent. It separates checkouts and declared resources; your coding-agent host still governs what commands the agent may run on your machine.
@@ -67,7 +69,7 @@ The same care applies to resources. A database declared separately for each work
 
 Ordinary successful completion releases the checkout from authoring control. discern can then use eligible released environments for further validation and remove eligible checkouts after landing. If more local editing is planned, `discern done --retain-checkout` keeps authoring control.
 
-Release does not make a workspace available for another agent to adopt. Resumed work follows the reported state of its own effort. Cleanup checks ownership and current contents; if it cannot establish that removal is appropriate, the landing remains recorded and the result explains what needs attention.
+Release does not make a workspace available for another agent to adopt. Resumed work follows the reported state of its own effort. After a landing, the workspace goes when nothing else holds it. When it stays, the result says why in one sentence: it was never released, it is still in use, its branch or files changed, or its ownership could not be verified. The landing stands either way, and the result names the command that finishes cleanup.
 
 For a longer pause, parking can remove a clean checkout while keeping the task's branch, committed work, and wording. You can return to the branch later. [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#park-a-task-you-will-return-to) covers that choice; [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md) covers a session or operation that stopped unexpectedly.
 

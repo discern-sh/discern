@@ -56,7 +56,7 @@ Setup writes the instructions, map, and deferred-work list for every project. Th
 
 ## Files discern shares with you
 
-The root `discern.toml` is the configuration. It names the commands the gate runs, where task workspaces go, and the other choices that shape the practice. Your agent can explain or change these settings for you. [Configuration reference](../30-reference/config-reference.md) has the exact keys.
+The root `discern.toml` is the configuration. It names the commands the gate runs, where task workspaces go, how many tasks may be checked at once, and the other choices that shape the practice. Your agent can explain or change these settings for you. [Configuration reference](../30-reference/config-reference.md) has the exact keys.
 
 Some existing files gain clearly marked sections. `.gitignore` keeps generated and machine-local material out of Git; `.gitattributes` configures how certain files are compared or merged. Your own rules stay outside discern's marked sections.
 

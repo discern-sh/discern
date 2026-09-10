@@ -37,7 +37,7 @@ For another feature, keep those same ingredients: what should improve, what shou
 
 Your agent checks the project state, creates an isolated workspace called a **worktree**, and makes the change there. The project's shared branch, called the **trunk**, stays apart from the unfinished work.
 
-The agent then runs the project's configured checks, collectively called the **gate**. A check might confirm that the app builds or that searching still returns the expected items. If a check fails, the agent investigates and fixes the cause before reporting completion. [Fix a red gate](../10-guides/fix-a-red-gate.md) explains that path.
+The agent then commits the change and runs the project's configured checks, collectively called the **gate**. The checks need a committed version, because their evidence has to describe something that can land. A check might confirm that the app builds or that searching still returns the expected items. If a check fails, the agent investigates and fixes the cause before reporting completion. [Fix a red gate](../10-guides/fix-a-red-gate.md) explains that path.
 
 You should receive the changed wording, a way to try the right version, an account of the checks, and a **Proof line**. Proof records that the gate passed for one exact saved version of the change. It lets you connect the agent's report to the work that was checked.
 
@@ -88,7 +88,7 @@ When the result is right, say:
 
 > I've reviewed the change. Land it.
 
-Your agent uses discern's acceptance operation, which checks the evidence and your permission before moving the change onto the trunk. It reports the landing result and any cleanup still needed. If the shared project has changed in the meantime, the agent follows discern's instructions to bring the work together and verify it.
+Your agent uses discern's acceptance operation, which checks the evidence and your permission before moving the change onto the trunk. Its result answers about this change first: landed, or not landed and why. It may also land other tasks you had already approved on the way, and it reports any cleanup still needed. If the shared project has changed in the meantime, the agent follows discern's instructions to bring the work together and verify it.
 
 Landing makes the change part of the shared project. Publishing it to users is a separate step in your project's release process.
 
