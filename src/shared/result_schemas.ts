@@ -984,8 +984,24 @@ export const ProducerExecutionsSchema = z.record(
   z.number().int().nonnegative(),
 );
 
+/** Why one producer ran or had its recorded evidence reused in a validation run.
+ * `closure` is the applicability's own vocabulary: `declared` inputs let evidence
+ * travel across commits; `candidate` binds it to the exact commit. */
+export const ProducerEvidenceSchema = z.strictObject({
+  producer: z.string(),
+  use: z.enum(["executed", "reused"]),
+  closure: z.enum(["declared", "candidate"]),
+  reason: z.string(),
+  /** The reused evidence record, when `use` is `reused`. */
+  evidence_id: z.string().optional(),
+  /** The commit whose validation recorded the reused evidence. */
+  from: z.string().optional(),
+});
+export type ProducerEvidence = z.infer<typeof ProducerEvidenceSchema>;
+
 export const StandaloneValidationDataSchema = z.strictObject({
   producer_executions: ProducerExecutionsSchema,
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
   measurement: z.literal("none").optional(),
   completion: z.strictObject({
@@ -997,6 +1013,7 @@ export const StandaloneValidationDataSchema = z.strictObject({
 
 export const StandardsDataSchema = z.strictObject({
   producer_executions: ProducerExecutionsSchema.optional(),
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   standards: z.array(GateStandardSchema).optional(),
   pinned: z.array(PinnedLimitSchema).optional(),
   proposal: StandardLimitProposalResultSchema.optional(),
@@ -1230,6 +1247,7 @@ export const CompletionPendingSchema = z.strictObject({
 export const GateDataSchema = z.strictObject({
   emergency_validation: z.array(EmergencyValidationSchema).optional(),
   producer_executions: ProducerExecutionsSchema.optional(),
+  producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   completion: z.strictObject({
     kind: z.enum(["diagnostic", "complete", "pending"]),
     context: z.string(),
@@ -2706,6 +2724,24 @@ export const KnownJobAssuranceSchema = z.strictObject({
 
 /** The rolled-up known-job coverage `setup done` reports — mirrors
  * {@link import("./setup_assurance.ts").SetupAssurance}. */
+/** Setup's account of standards, evidence reuse, and coordination; additive. */
+export const CompletionAssuranceSchema = z.strictObject({
+  standards: z.array(z.string()),
+  shared: z.array(z.strictObject({
+    producer: z.string(),
+    standards: z.array(z.string()),
+  })),
+  candidate_bound: z.array(z.string()),
+  declared: z.array(z.string()),
+  speculation: z.enum([
+    "off",
+    "undeclared",
+    "unproven",
+    "no-slot",
+    "available",
+  ]),
+});
+
 export const SetupAssuranceSchema = z.strictObject({
   known_jobs: z.array(KnownJobAssuranceSchema),
   enforced: z.number(),
@@ -2715,6 +2751,8 @@ export const SetupAssuranceSchema = z.strictObject({
   known_total: z.number().optional(),
   not_applicable: z.number().optional(),
   verdict: z.enum(ASSURANCE_VERDICTS),
+  /** Present when completion derived the standards, reuse, and coordination facts. */
+  completion: CompletionAssuranceSchema.optional(),
 });
 
 /** The provider-aware reactivation handoff — mirrors `reactivationHandoff()`'s return
@@ -2813,6 +2851,14 @@ const SetupDoneBaseSchema = z.strictObject({
   /** Whether the required worktree-viability probe ran green. False only on
    * explicitly unproven completion. */
   worktree_proven: z.boolean(),
+  /** Which required contexts proved their declared environment return, which
+   * have no declaration, and which declare an isolated environment setup does
+   * not rehearse. Present when this invocation ran the probe. */
+  environment_probe: z.strictObject({
+    proven: z.array(z.string()),
+    undeclared: z.array(z.string()),
+    isolated: z.array(z.string()),
+  }).optional(),
   marker_committed: z.boolean(),
   /** The git stderr line explaining a FAILED completion-marker auto-commit
    * (absent when committed, skipped deliberately, or outside git). */
@@ -2883,7 +2929,9 @@ export const SETUP_DONE_COMPLETION_STAGES = [
   "refresh",
   "doctor",
   "worktree_probe",
+  "environment_probe",
   "done",
+  "contexts",
   "proof",
 ] as const;
 export type SetupDoneCompletionStage =
@@ -3269,6 +3317,14 @@ export const UpgradeDataSchema = z.strictObject({
     refusedGitattributesPatternSchema,
   ).optional(),
   changes: z.array(z.string()).optional(),
+  /** Recorded execution claims or unfinished checkout returns that keep this
+   * checkout from being upgraded until they are recovered. */
+  recorded_execution: z.array(z.strictObject({
+    environment_id: z.string(),
+    next_action: z.string(),
+  })).optional(),
+  /** Completion records written by a newer discern than this build. */
+  newer_records: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
   discern_version: z.string().optional(),
   migrations_applied: z.array(migrationStepSchema).optional(),

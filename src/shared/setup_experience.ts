@@ -25,6 +25,7 @@ export const SETUP_HUMAN_SURFACES = [
   "step-7",
   "step-8",
   "step-9",
+  "step-10",
   "setup-done",
   "setup-accept",
   "activation",
@@ -788,7 +789,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "lasting-project-context",
-    surfaces: ["step-4", "step-5", "step-6", "step-8"],
+    surfaces: ["step-4", "step-5", "step-6", "step-9"],
     kind: "explanation",
     phase: "project context",
     applicability: { kind: "always" },
@@ -1039,8 +1040,43 @@ export const SETUP_HUMAN_MOMENTS = [
     },
   },
   {
-    id: "documentation-claim-gap",
+    id: "coordination-explained",
     surfaces: ["step-8"],
+    kind: "explanation",
+    phase: "complete validation and coordination",
+    applicability: { kind: "always" },
+    purpose:
+      "Explain how the project's checks will be reused and coordinated once several efforts run at once.",
+    owner_outcome:
+      "The owner knows which evidence is produced again for every commit and which is reused, how many efforts can validate at the same time, and whether efforts can be validated before their predecessors land.",
+    why:
+      "Coordination settings look like performance knobs but change what is verified and when. An owner who understands the default (validate and land in order) can judge whether early validation is worth its preparation, restore, and discarded-work cost for this project.",
+    current_action:
+      "State the evidence-reuse facts, the number of simultaneous validations and the setting that limits it, and whether early validation is on; when it stays off, say why in one sentence.",
+    authority:
+      "Setup configures reuse and ordering from repository evidence. Declaring an environment that spends money, shares durable state, or destroys data is the owner's decision.",
+    reversibility:
+      "Every coordination setting is a reviewable line in discern.toml on the setup branch; lowering lookahead to 0 always returns to ordering-only behavior.",
+    recovery:
+      "When the environment cannot be declared safely, leave lookahead at 0 and record the unmet declaration as one concrete open item.",
+    recommendation:
+      "Keep ordering-only coordination until the project has a restore procedure setup can prove; enable early validation only after that proof.",
+    agent_behavior: {
+      before_owner_action: "proceed",
+      after_owner_action:
+        "Continue with the final documentation; no owner reply is required for an explanation.",
+    },
+    relay: {
+      protection: "adaptive",
+      message:
+        "Here is how discern will run your checks when several tasks are in flight. Evidence for <candidate-bound producers> is produced again for every commit; evidence for <declared producers> is reused when nothing it reads has changed. Up to <count> tasks can validate at the same time, limited by <setting>. Early validation of a task before the one ahead of it lands is <on or off>: <reason in plain words>.",
+      experienced:
+        "Reuse: <declared producers> declare closures; <candidate-bound producers> stay candidate-bound. Concurrency: <count> simultaneous validations, bound by <setting>. Speculation: <on or off> because <reason>.",
+    },
+  },
+  {
+    id: "documentation-claim-gap",
+    surfaces: ["step-9"],
     kind: "decision",
     decision_kind: "documentation-claim-gap",
     phase: "final documentation synthesis",
@@ -1102,7 +1138,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "completion-handoff",
-    surfaces: ["step-9", "setup-done"],
+    surfaces: ["step-10", "setup-done"],
     kind: "completion",
     phase: "completion handoff",
     applicability: {
@@ -1140,7 +1176,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "landing-choice",
-    surfaces: ["step-9", "setup-done"],
+    surfaces: ["step-10", "setup-done"],
     kind: "decision",
     decision_kind: "landing-choice",
     phase: "landing handoff",
@@ -1212,7 +1248,7 @@ export const SETUP_HUMAN_MOMENTS = [
   },
   {
     id: "activation-handoff",
-    surfaces: ["step-9", "setup-accept", "activation"],
+    surfaces: ["step-10", "setup-accept", "activation"],
     kind: "progress",
     phase: "provider activation",
     applicability: {

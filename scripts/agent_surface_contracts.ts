@@ -638,7 +638,7 @@ export const AGENT_SURFACE_CONTRACTS = new Map<string, AgentSurfaceContract>([
       ],
       sequence: [
         act("## Step 0 - Confirm consent, provenance, and install health"),
-        act("## Step 9 - Reconcile, commit, prove, and hand off landing"),
+        act("## Step 10 - Reconcile, commit, prove, and hand off landing"),
         verify("## You are not done until all of these are true"),
       ],
       stop_conditions: [

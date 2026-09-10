@@ -9,7 +9,16 @@ import {
 } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
-import { git, gitOut, runAgent } from "./engine_helpers.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
+import { observedRecords } from "../src/engine/landing_queue/repository.ts";
+import {
+  git,
+  gitInit,
+  gitOut,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
 import { environmentFixture } from "./completion_environments_fixture.ts";
 import { requireEnvironment } from "../src/engine/execution/registry.ts";
@@ -129,5 +138,46 @@ Deno.test("source return reads an already frozen recovery manifest in its origin
       action: "source-tip",
       declaration: null,
     }, frozen);
+  });
+});
+
+Deno.test("a declared borrowed environment does not stop completion in the main checkout, which is released as source only", async () => {
+  await withTempDir(async (root) => {
+    await scaffoldEngine(root, { agents: [] });
+    await writeConfig(
+      root,
+      `[project]
+slug = "main-declared"
+agents = []
+logbook = false
+[jobs]
+test = "printf 'DISCERN_METRIC coverage 93\\n'"
+[standards.coverage]
+producer = "jobs.test"
+direction = "up"
+limit = 90
+[execution.local]
+kind = "borrowed"
+prepare = "true"
+restore = "true"
+reusable = true
+resources = []
+ignored = []
+inputs = ["**"]
+capacity = 1
+`,
+    );
+    await gitInit(root);
+    const done = await runAgent(root, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const result = decodeCliResult(done.stdout, "done");
+    assert(result.data !== undefined && "completion" in result.data);
+    assertEquals(result.data.completion?.kind, "complete");
+    assertEquals(result.data.completion?.pending ?? [], []);
+    const environments = observedRecords(await observeCompletionRecords(root))
+      .filter((record) => record.kind === "environment");
+    assertEquals(environments.length, 1);
+    assert(environments[0]?.kind === "environment");
+    assertEquals(environments[0].data.state.kind, "idle");
   });
 });

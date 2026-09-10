@@ -560,6 +560,31 @@ const CHECK_EVAL_CASES: Record<string, EvalCase> = {
       });
     },
   },
+  complete_validation: {
+    // Reads config only — a positive lookahead with no environment declared
+    // asks for early validation that can never run; the same suite under two
+    // names and a standard naming a missing producer fail the same check.
+    fail(root): Promise<EvalCtx> {
+      return Promise.resolve({
+        root,
+        config: baseConfig({
+          jobs: { test: "deno test" },
+          completion: { lookahead: 1 },
+        }),
+      });
+    },
+    pass(root): Promise<EvalCtx> {
+      return Promise.resolve({
+        root,
+        config: baseConfig({
+          jobs: { test: "deno test" },
+          standards: {
+            coverage: { producer: "jobs.test", direction: "up", limit: 90 },
+          },
+        }),
+      });
+    },
+  },
   primary_subsystem_context: {
     async fail(root): Promise<EvalCtx> {
       const config = baseConfig();

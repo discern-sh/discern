@@ -27,7 +27,7 @@ A validation run acquires one slot when its first demanded test or measurement p
 
 ## Wrap direct test invocations
 
-Gate verbs acquire automatically. Environment capacity is a separate constraint: a standalone measurement waits for a live execution to return, while expired claims or incomplete recovery produce a pending diagnostic. Wrap the project's canonical test command so direct full and targeted runs also count:
+Gate verbs acquire automatically. Environment capacity is a separate constraint: a standalone measurement waits for a live execution to return, while expired claims or incomplete recovery produce a pending diagnostic. [Validation capacity and early validation](capacity-and-speculation.md) explains how this cap combines with `[completion].concurrency` and environment capacity. Wrap the project's canonical test command so direct full and targeted runs also count:
 
 ```sh
 discern queue -- <command> [args...]

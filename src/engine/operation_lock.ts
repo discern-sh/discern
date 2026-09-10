@@ -664,11 +664,22 @@ async function withCheckoutScope<T>(
         if (held === undefined) {
           throw new Error("Completion checkout exclusion was not acquired.");
         }
-        const checkout = [...held.leases.values()].find((lease) =>
-          lease.boundary === "checkout"
+        // A setup probe holds two checkout leases: its parent's and the
+        // probe's. The scope binds the lease for exactly this directory, so
+        // retained ownership and recovery checks compare against the checkout
+        // in use; another held checkout lease is never a substitute.
+        const own = (await resolveLockSpecs(cwd, "checkout"))?.find((spec) =>
+          spec.boundary === "checkout"
         );
+        const checkout = own === undefined
+          ? undefined
+          : [...held.leases.values()].find((lease) =>
+            lease.boundary === "checkout" && lease.key === own.key
+          );
         if (checkout === undefined) {
-          throw new Error("Completion checkout lease is unavailable.");
+          throw new Error(
+            "Completion checkout lease for this directory is unavailable.",
+          );
         }
         if (purpose === "recovery" && !locallyOwnedLeases.has(checkout)) {
           throw new Error(

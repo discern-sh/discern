@@ -726,7 +726,11 @@ export const TOOLS: McpTool[] = orderTools([
       "Verify the discern install and return each check as an actionable result: " +
       "config validity, schema currency, whether the declared job commands — " +
       "configured project commands such as format, lint, and test — " +
-      "resolve on PATH, and advisories. data.checks lists every check with its detail " +
+      "resolve on PATH, how completion.concurrency, gate.concurrent_test_runs, and " +
+      "execution capacity combine and whether early validation can run, which producers " +
+      "standards share or duplicate and which are candidate-bound, recorded execution " +
+      "claims and interrupted checkout returns, and advisories. " +
+      "data.checks lists every check with its detail " +
       "and — on failure — the exact fix. Set verbose=true only when you need " +
       "data.execution_model, which lists, per configurable " +
       "verb, the ordered steps it runs — each marked project (your configured command) " +

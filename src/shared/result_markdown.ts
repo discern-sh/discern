@@ -27,6 +27,11 @@ import {
   verbatimText,
 } from "./result_markdown_values.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
+import { describeEnvironmentProbe } from "./environment_probe.ts";
+import {
+  CompletionAssuranceSchema,
+  describeCompletionAssurance,
+} from "./completion_assurance_read.ts";
 
 export interface ResultMarkdownPresentation {
   /** One authored statement of the current result state. */
@@ -776,6 +781,10 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
 const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const assurance = object(data.assurance);
+  const environmentProbe = object(data.environment_probe);
+  const completion = CompletionAssuranceSchema.safeParse(
+    object(assurance?.completion),
+  );
   const inventory = object(data.inventory);
   const landing = object(data.landing);
   const reactivation = object(data.reactivation);
@@ -817,6 +826,14 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
       `Worktree proven: ${
         boolean(data.worktree_proven) === true ? "yes" : "no"
       }.`,
+      ...(completion.success
+        ? describeCompletionAssurance(completion.data)
+        : []),
+      environmentProbe === undefined ? undefined : describeEnvironmentProbe({
+        proven: strings(environmentProbe.proven),
+        undeclared: strings(environmentProbe.undeclared),
+        isolated: strings(environmentProbe.isolated),
+      }),
       gateProofFact(data.proof),
       inventory === undefined
         ? undefined
@@ -1134,6 +1151,30 @@ const presentConfig: ResultMarkdownPresenter = withConfigExplanation(
   defaultState,
 );
 
+/** Name each producer that ran or whose recorded evidence stood in, and why. */
+function producerEvidenceFacts(data: Record<string, unknown>): string[] {
+  const rows = records(data.producer_evidence);
+  const describe = (row: Record<string, unknown>): string =>
+    `${code(text(row.producer) ?? "producer")} (${
+      text(row.closure) === "candidate" ? "candidate-bound" : "declared inputs"
+    }${
+      text(row.from) === undefined
+        ? ""
+        : `, from ${code((text(row.from) ?? "").slice(0, 12))}`
+    })`;
+  const group = (use: string, label: string): string | undefined => {
+    const matching = rows.filter((row) => text(row.use) === use);
+    if (matching.length === 0) return undefined;
+    const shown = matching.slice(0, MAX_LIST_ITEMS).map(describe).join(", ");
+    const rest = matching.length - MAX_LIST_ITEMS;
+    return `${label}: ${shown}${rest > 0 ? `, and ${rest} more` : ""}.`;
+  };
+  return [
+    group("executed", "Producers executed"),
+    group("reused", "Evidence reused"),
+  ].filter((fact): fact is string => fact !== undefined);
+}
+
 /** Outstanding emergency checks stay visible wherever normal completion state is presented. */
 function emergencyValidationFacts(data: Record<string, unknown>): string[] {
   return records(data.emergency_validation).map((row) =>
@@ -1185,6 +1226,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
       standards.length === 0
         ? undefined
         : `Standards: ${standards.length} read, ${regressions.length} regressed.`,
+      ...producerEvidenceFacts(data),
       review === undefined
         ? undefined
         : `Checkpoint review: reported and was not enforced; ${
@@ -1446,6 +1488,7 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
       proposal === undefined
         ? undefined
         : listFact("Responsible paths", strings(proposal.evidence_paths)),
+      ...producerEvidenceFacts(data),
       ...standards.slice(0, MAX_LIST_ITEMS).map((reading) => {
         const name = text(reading.name) ?? "standard";
         const measurement = text(reading.measurement) ?? "unknown";

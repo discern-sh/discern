@@ -949,6 +949,11 @@ async function runCandidateGate(
   if (result.data !== undefined) {
     result.data.gate_proof = gateProof;
     result.data.producer_executions = { ...validationRun?.producer_executions };
+    if ((validationRun?.producer_evidence.length ?? 0) > 0) {
+      result.data.producer_evidence = [
+        ...validationRun?.producer_evidence ?? [],
+      ];
+    }
     result.data.completion = {
       kind: presentation.completion === undefined ? "diagnostic" : "pending",
       context: presentation.context ?? presentation.completion?.context ??

@@ -154,6 +154,14 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "explicitly released and exclusively claimed checkout return — only freshly verified captured leaves and the frozen Git-admin index, guarded by completion environment ownership",
   ],
   [
+    "src/engine/execution/probe.ts",
+    "one owned probe file inside setup's throwaway worktree while a differing candidate is installed — the executor's captured return removes it, under completion environment ownership",
+  ],
+  [
+    "src/engine/execution/probe_record.ts",
+    "the record of proved environment declarations — registry-resolved common Git-admin state, replaced through the atomic writer",
+  ],
+  [
     "src/engine/worktree/env_file.ts",
     "the worktree .env upsert (never created)",
   ],

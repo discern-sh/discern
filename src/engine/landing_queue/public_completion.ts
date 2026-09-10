@@ -35,7 +35,7 @@ import {
   ownValidationEnvironment,
   releasedValidationEnvironment,
 } from "../execution/public_environment.ts";
-import { integrationBranch } from "../worktree/git.ts";
+import { integrationBranch, worktreeGitKey } from "../worktree/git.ts";
 import { classifyScopeImpact } from "../scopes/scopes.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { compositionRecipe } from "./generation.ts";
@@ -71,6 +71,7 @@ import {
   releaseExecutionEnvironment,
   requireEnvironment,
 } from "../execution/registry.ts";
+import { unprovenSpeculationBlocker } from "../execution/probe_record.ts";
 
 export interface ReleasedCompletionExecution {
   readonly source: SourceRevision;
@@ -352,6 +353,11 @@ export async function withPublicCompletion<T>(
       ? finishedValidationAttempts(records)[0]?.id ?? null
       : null;
     const leaseMs = await completionLease(config);
+    // Early validation installs a differing candidate through the declared
+    // environment, so it runs only where setup has proved that declaration.
+    const unproven = declaration === null
+      ? undefined
+      : await unprovenSpeculationBlocker(root, options.context, declaration);
     const claim = await waitForCompletionCapacity({
       signal,
       waiting: (value) =>
@@ -382,6 +388,7 @@ export async function withPublicCompletion<T>(
           lease_ms: leaseMs,
           rerun_of: rerunOf,
           mode: options.mode,
+          ...(unproven === undefined ? {} : { unproven }),
         }),
     });
     if ("kind" in claim) {
@@ -695,9 +702,12 @@ export async function withPublicCompletion<T>(
     ) {
       // Source execution needs no temporary installation. Its owner's later
       // release can still enroll the declared borrowed contract for composition.
+      // Only a linked worktree can be borrowed; the main checkout is released
+      // as source only, whatever the configuration declares.
       const configured = config.execution[options.context];
+      const linked = await worktreeGitKey(root) !== undefined;
       const releaseDeclaration = declaration ??
-        (configured?.kind === "borrowed" ? configured : null);
+        (linked && configured?.kind === "borrowed" ? configured : null);
       const release = releaseDeclaration === declaration
         ? { environmentId, lifetime, workspace }
         : await ownValidationEnvironment(

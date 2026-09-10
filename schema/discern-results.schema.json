@@ -1263,6 +1263,67 @@
                                 "partial",
                                 "minimal"
                               ]
+                            },
+                            "completion": {
+                              "type": "object",
+                              "properties": {
+                                "standards": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "shared": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "producer": {
+                                        "type": "string"
+                                      },
+                                      "standards": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "producer",
+                                      "standards"
+                                    ]
+                                  }
+                                },
+                                "candidate_bound": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "declared": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "speculation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "undeclared",
+                                    "unproven",
+                                    "no-slot",
+                                    "available"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "standards",
+                                "shared",
+                                "candidate_bound",
+                                "declared",
+                                "speculation"
+                              ]
                             }
                           },
                           "required": [
@@ -4048,6 +4109,34 @@
                     "worktree_proven": {
                       "type": "boolean"
                     },
+                    "environment_probe": {
+                      "type": "object",
+                      "properties": {
+                        "proven": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "undeclared": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "isolated": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "proven",
+                        "undeclared",
+                        "isolated"
+                      ]
+                    },
                     "marker_committed": {
                       "type": "boolean"
                     },
@@ -4118,6 +4207,67 @@
                             "full",
                             "partial",
                             "minimal"
+                          ]
+                        },
+                        "completion": {
+                          "type": "object",
+                          "properties": {
+                            "standards": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shared": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "producer": {
+                                    "type": "string"
+                                  },
+                                  "standards": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "producer",
+                                  "standards"
+                                ]
+                              }
+                            },
+                            "candidate_bound": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "declared": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "speculation": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "undeclared",
+                                "unproven",
+                                "no-slot",
+                                "available"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "standards",
+                            "shared",
+                            "candidate_bound",
+                            "declared",
+                            "speculation"
                           ]
                         }
                       },
@@ -4732,7 +4882,9 @@
                             "refresh",
                             "doctor",
                             "worktree_probe",
+                            "environment_probe",
                             "done",
+                            "contexts",
                             "proof"
                           ]
                         },
@@ -6259,6 +6411,30 @@
                   }
                 },
                 "changes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "recorded_execution": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "environment_id": {
+                        "type": "string"
+                      },
+                      "next_action": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "environment_id",
+                      "next_action"
+                    ]
+                  }
+                },
+                "newer_records": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -11617,6 +11793,46 @@
                     "maximum": 9007199254740991
                   }
                 },
+                "producer_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "use": {
+                        "type": "string",
+                        "enum": [
+                          "executed",
+                          "reused"
+                        ]
+                      },
+                      "closure": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "candidate"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_id": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "use",
+                      "closure",
+                      "reason"
+                    ]
+                  }
+                },
                 "completion": {
                   "type": "object",
                   "properties": {
@@ -12843,6 +13059,46 @@
                     "maximum": 9007199254740991
                   }
                 },
+                "producer_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "use": {
+                        "type": "string",
+                        "enum": [
+                          "executed",
+                          "reused"
+                        ]
+                      },
+                      "closure": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "candidate"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_id": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "use",
+                      "closure",
+                      "reason"
+                    ]
+                  }
+                },
                 "standards": {
                   "type": "array",
                   "items": {
@@ -13359,6 +13615,46 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  }
+                },
+                "producer_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "use": {
+                        "type": "string",
+                        "enum": [
+                          "executed",
+                          "reused"
+                        ]
+                      },
+                      "closure": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "candidate"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_id": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "use",
+                      "closure",
+                      "reason"
+                    ]
                   }
                 },
                 "standards": {
@@ -15763,6 +16059,46 @@
                     "maximum": 9007199254740991
                   }
                 },
+                "producer_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "use": {
+                        "type": "string",
+                        "enum": [
+                          "executed",
+                          "reused"
+                        ]
+                      },
+                      "closure": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "candidate"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_id": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "use",
+                      "closure",
+                      "reason"
+                    ]
+                  }
+                },
                 "standards": {
                   "type": "array",
                   "items": {
@@ -16368,6 +16704,46 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
+                  }
+                },
+                "producer_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "use": {
+                        "type": "string",
+                        "enum": [
+                          "executed",
+                          "reused"
+                        ]
+                      },
+                      "closure": {
+                        "type": "string",
+                        "enum": [
+                          "declared",
+                          "candidate"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "evidence_id": {
+                        "type": "string"
+                      },
+                      "from": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "use",
+                      "closure",
+                      "reason"
+                    ]
                   }
                 },
                 "standards": {
@@ -24250,6 +24626,67 @@
                             "full",
                             "partial",
                             "minimal"
+                          ]
+                        },
+                        "completion": {
+                          "type": "object",
+                          "properties": {
+                            "standards": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shared": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "producer": {
+                                    "type": "string"
+                                  },
+                                  "standards": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "producer",
+                                  "standards"
+                                ]
+                              }
+                            },
+                            "candidate_bound": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "declared": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "speculation": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "undeclared",
+                                "unproven",
+                                "no-slot",
+                                "available"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "standards",
+                            "shared",
+                            "candidate_bound",
+                            "declared",
+                            "speculation"
                           ]
                         }
                       },

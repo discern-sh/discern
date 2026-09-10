@@ -67,6 +67,18 @@ export function retainedExecutionCount(
   }).length;
 }
 
+/** The one queue slot the effort landing next keeps whenever a later effort asks. */
+export const HEAD_RESERVED_SLOTS = 1;
+
+/**
+ * Queue slots a later effort may hold while the head effort keeps its
+ * reservation: the enforcing arithmetic and the configuration facts setup and
+ * doctor describe both read this, so they cannot drift apart.
+ */
+export function nonHeadWorkSlots(policy: CompletionPolicy): number {
+  return policy.concurrency - HEAD_RESERVED_SLOTS;
+}
+
 /** Capacity counts unresolved rows too: a crashed claim gap cannot silently free a slot. */
 export function workCapacity(
   entries: ReturnType<typeof orderedEntries>,
@@ -74,6 +86,9 @@ export function workCapacity(
   policy: CompletionPolicy,
   sourceTip = false,
   retainedExecutions = 0,
+  /** Why early validation cannot run here, when the environment it would
+   * use has not been proved; the head effort's own validation is unaffected. */
+  unproven?: CompletionBlocker,
 ): CompletionBlocker | undefined {
   const index = entries.findIndex((entry) => entry.source.effort_id === effort);
   if (index < 0) {
@@ -90,9 +105,14 @@ export function workCapacity(
   const headActive = entries[0]?.state === "active";
   const reserved = index > 0 && !headActive &&
       (!sourceTip || entries[0]?.authority_id !== null)
-    ? 1
+    ? HEAD_RESERVED_SLOTS
     : 0;
   const depth = !sourceTip && index > policy.lookahead;
+  // Inside lookahead but not at the head: this would be early validation in a
+  // temporary environment, which needs a declaration setup has proved.
+  if (!depth && index > 0 && !sourceTip && unproven !== undefined) {
+    return unproven;
+  }
   if (
     depth || active.length + retainedExecutions >= policy.concurrency - reserved
   ) {
@@ -134,6 +154,8 @@ export async function claimQueueWork(input: {
   readonly mode?: "strict" | "report";
   /** An exact source-tip candidate permits ordinary author validation without speculation. */
   readonly candidate?: Candidate;
+  /** Present when the environment this candidate would use is not proved for early validation. */
+  readonly unproven?: CompletionBlocker;
   readonly clock?: Clock;
   readonly entropy?: SecureEntropy;
   readonly afterReservation?: () => Promise<void>;
@@ -198,6 +220,7 @@ export async function claimQueueWork(input: {
       input.policy,
       sourceTip,
       retainedExecutionCount(entries, observation),
+      input.unproven,
     );
     if (blocked?.kind === "capacity-unavailable") {
       return queueCapacityBlocker(blocked, entries, observation);

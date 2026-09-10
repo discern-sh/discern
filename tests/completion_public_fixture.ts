@@ -12,7 +12,11 @@ export async function project(
   extra = "",
   testRun = "printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'",
   testInputs: readonly string[] = ["**"],
-  options: { concurrency?: number; environment?: readonly string[] } = {},
+  options: {
+    concurrency?: number;
+    lookahead?: number;
+    environment?: readonly string[];
+  } = {},
 ): Promise<string> {
   await scaffoldEngine(root, { agents: [] });
   await writeConfig(
@@ -27,6 +31,7 @@ ${
         ? ""
         : `concurrency = ${options.concurrency}`
     }
+${options.lookahead === undefined ? "" : `lookahead = ${options.lookahead}`}
 required_contexts = ${JSON.stringify(contexts)}
 [jobs]
 test = { run = ${JSON.stringify(testRun)}, inputs = ${

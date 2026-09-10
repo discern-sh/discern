@@ -109,7 +109,7 @@ recovery = [
 next_action = "discern setup step 2"
 ```
 
-The inventory is working evidence, not another map. Keep it in the setup session until Step 8 turns verified facts into the final map.
+The inventory is working evidence, not another map. Keep it in the setup session until Step 9 turns verified facts into the final map.
 
 ---
 
@@ -192,7 +192,7 @@ owner_moments = ["authored-source-collision"]
 what_not_to_do = [
   "Do not adopt or overwrite existing human documentation by inference.",
   "Do not hand-edit generated agent files or generated references.",
-  "Do not delete imported instructions before their meaning is reconciled in Step 9.",
+  "Do not delete imported instructions before their meaning is reconciled in Step 10.",
 ]
 completion_check = "Every setup file is classified as authored source, generated output, preserved project material, or a concrete unresolved collision."
 stop_conditions = [
@@ -221,7 +221,7 @@ files_to_read = [
 ]
 must_do = [
   "Replace the example with at least three project-specific principles that state a decision rule, its reason, and its practical consequence.",
-  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 8 can recheck it after smoke wiring.",
+  "Attach or retain the code/config authority for every architecture, ownership, test-behavior, or command claim so Step 9 can recheck it after smoke wiring.",
   "Recheck each drafted claim against its authority now; label anything not yet verified as an open item in {{todo_path}} instead of asserting it.",
 ]
 authority_boundaries = [
@@ -260,7 +260,7 @@ files_to_read = [
 must_do = [
   "Write a one-line project pitch and a filled Conventions section using current repository evidence.",
   "Describe the supported project commands by their real meaning, keeping the project's aggregate check distinct from the configured Gate.",
-  "Retain imported rules for Step 9 reconciliation and link to Map authorities instead of copying subsystem facts into the instructions.",
+  "Retain imported rules for Step 10 reconciliation and link to Map authorities instead of copying subsystem facts into the instructions.",
   "Recheck every architecture, ownership, test-behavior, and command claim against code/config; move an unverified claim to a concrete {{todo_path}} item.",
   "Run `discern refresh` and inspect the generated agent files for faithful compilation without editing them.",
 ]
@@ -279,7 +279,7 @@ stop_conditions = [
   "Stop when refresh reports partial output or an imported owner policy conflicts with discern's required workflow.",
 ]
 recovery = [
-  "Fix the refresh diagnostic; retain and surface an owner-policy conflict for Step 9 instead of deleting it without authority.",
+  "Fix the refresh diagnostic; retain and surface an owner-policy conflict for Step 10 instead of deleting it without authority.",
 ]
 next_action = "discern setup step 6"
 ```
@@ -379,7 +379,55 @@ The structural probe runs during `discern setup done` after the completion marke
 
 ---
 
-## Step 8 - Synthesize and fact-check the final Map
+## Step 8 - Configure complete validation and coordination
+
+```toml
+phase = "complete validation and coordination"
+stable_target = "Every configured standard reads a producer the Gate already runs or one deliberate command of its own, producers that can safely reuse evidence declare what they read, efforts land in order by default, and any early-validation declaration is backed by a return procedure `discern setup done` will prove."
+intent = "Make the Gate's evidence complete and cheap to reuse, then choose between ordering-only coordination and proved early validation from evidence, not hope."
+files_to_read = [
+  "discern.toml ([jobs], [standards], [completion], and [execution])",
+  "`discern doctor --json`: its completion capacity, producer coverage, evidence reuse, and execution environment checks",
+  "the project's build, test, and generated-output commands, and the paths each one reads and writes",
+  "tracked generated artifacts, ignored build output, databases, caches, and running services that a validation touches",
+]
+must_do = [
+  "Inventory what validation touches: each Gate command, every quality number the project should hold, the artifacts producers write, the stateful resources they use, the ignored output they create, and any existing preparation or cleanup command.",
+  "Give each quality number a `[standards.<name>]` entry whose reading comes from a producer the Gate already runs (`producer = \"jobs.test\"`, with `extract` when the reading needs deriving) or from one command of its own; never run the same suite twice under two names.",
+  "Declare `inputs` only on a producer whose command reads nothing outside the listed paths, so its evidence is reused when those paths are unchanged; leave every other producer candidate-bound and say so. Narrowing an existing closure later is a protected change the Gate checks against the trunk.",
+  "Leave `[completion].lookahead = 0` unless the project can prepare a checkout for a different commit and return it to source-ready state; in that case declare `[execution.local]` with its prepare and restore procedures, the ignored output restore covers, its resources, and its capacity, and set `[completion].concurrency` to at least 2.",
+  "Run `discern doctor --json` and act on its completion capacity, producer coverage, evidence reuse, and execution environment checks before the final documentation.",
+  "Fill the `Environment return` section of {{map_dir}}80-development/testing.md from the decision above: one sentence when nothing is declared, or the declared procedures and what their return covers.",
+  "Tell the owner, in plain terms, which evidence is reused across commits and which is produced again, how many efforts can validate at once and which setting limits that, and whether early validation is on and why.",
+]
+authority_boundaries = [
+  "Every configured standard is required for completion; sharing a producer, declaring inputs, or scheduling never makes a standard advisory or skips its measurement.",
+  "An environment declaration is the project's evidence that its restore procedure returns a checkout exactly; `discern setup done` proves it in a throwaway copy before completion and records that proof for the declaration as written, so a later change to the declaration must be proved again. Cost-bearing or shared-state execution environments remain owner decisions.",
+]
+owner_moments = ["coordination-explained"]
+what_not_to_do = [
+  "Do not add a second full test run so a standard has a producer of its own when the test job already produces the reading.",
+  "Do not declare `inputs` you have not verified, and do not infer that a checkout can be restored from a clean `git status`, a successful build, or the absence of a database.",
+  "Do not raise `lookahead` without a declaration for every required context, and do not describe a positive lookahead as early validation that runs.",
+  "Do not align `[completion].concurrency`, `[gate].concurrent_test_runs`, and `[execution.<context>].capacity` merely because they differ; they bound different work.",
+]
+completion_check = "Every configured standard names a producer that exists, no two producers run the same command, and either [completion].lookahead is 0 or every required context has an [execution.<context>] declaration."
+stop_conditions = [
+  "Stop when a standard's producer cannot be resolved, when the only way to make a standard pass is to weaken or remove it, or when declaring an environment would create, share, or destroy state the owner has not authorized.",
+]
+recovery = [
+  "Use the doctor check's named fix; keep a failing standard as it is and record the regression as one concrete {{todo_path}} item; leave lookahead at 0 and record the unmet environment declaration as an open item.",
+]
+next_action = "discern setup step 9"
+```
+
+Ordering needs no declaration: each effort validates its own commit and lands in turn. Early validation lets discern validate the next effort against work that has not landed yet, so it can land the moment its predecessor does. It costs a prepare and restore round trip per candidate, and work is discarded when an earlier effort changes. It needs three things together: `[completion].lookahead` above 0, `[completion].concurrency` of at least 2 so one slot stays free for the effort landing next, and an `[execution.<context>]` declaration for every required context. `discern setup done` proves that declaration in a throwaway copy by installing a different commit, then checking the copy returns to its exact source branch, commit, index, and declared ignored output after a passing, a failing, and a cancelled validation.
+
+`[gate].concurrent_test_runs` is a separate limit: it caps how many test stages share this machine at once and queues the rest. `discern doctor` states the combined effect for two simultaneous `done` runs and names the setting that binds, so quote it rather than deriving the arithmetic yourself. It also says whether each declared environment has been proved as it currently stands; early validation runs only for a proved declaration, and a declaration added or changed after setup stays inert until `discern setup done` proves it.
+
+---
+
+## Step 9 - Synthesize and fact-check the final Map
 
 ```toml
 phase = "final documentation synthesis"
@@ -415,14 +463,14 @@ stop_conditions = [
 recovery = [
   "Narrow or remove the claim, record the unresolved fact with evidence, follow the refresh/prepare diagnostic, and repeat the targeted recheck after the correction.",
 ]
-next_action = "discern setup step 9"
+next_action = "discern setup step 10"
 ```
 
 This is the last synthesis step because the configured smoke and worktree model now exist. Keep each page present tense and link to the authority instead of restating large command or file inventories.
 
 ---
 
-## Step 9 - Reconcile, commit, prove, and hand off landing
+## Step 10 - Reconcile, commit, prove, and hand off landing
 
 ```toml
 phase = "completion and landing handoff"

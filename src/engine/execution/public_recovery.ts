@@ -1,4 +1,3 @@
-import { runGit } from "../../shared/subprocess.ts";
 import { executionRecoveryCommand } from "../../shared/execution_recovery.ts";
 /** Explicit checkout return uses frozen intent; it never runs validation or publishes Proof. */
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -17,20 +16,25 @@ import { integrationBranch } from "../worktree/git.ts";
 import { gitValue } from "../landing_queue/composition.ts";
 import {
   observedRecords,
+  optionalQueue,
   REPOSITORY_QUEUE_ID,
-  requireQueue,
 } from "../landing_queue/repository.ts";
 import { readCompletionRecord } from "../completion/store.ts";
 import { reconcileQueueWork } from "../landing_queue/recovery.ts";
-import { observeCompletionRecords } from "../validation/runtime.ts";
+import {
+  observableCompletionCheckout,
+  observeCompletionRecords,
+} from "../validation/runtime.ts";
 import { requireEnvironment } from "./registry.ts";
+import { statIfExists } from "../../shared/fs_presence.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import {
   createEnvironmentExecutor,
   type EnvironmentExecutorOptions,
 } from "./executor.ts";
 import {
   createNativeExecutionLifetime,
-  executionChildrenQuiescent,
+  inspectExecutionChildren,
 } from "./lifetime.ts";
 import { loadExecutionIntent } from "./intent.ts";
 import { validationWorkspace } from "./public_environment.ts";
@@ -77,8 +81,10 @@ export async function recoverCompletionResult(
           "The recorded source branch changed. Preserve the environment and reconcile its exact source before recovery.",
         );
       }
-      const queue = await requireQueue(root);
-      const entry = queue.record.data.entries.find((item) =>
+      // An environment enrolled before any completion ran here (the setup
+      // probe's, for one) has no queue and therefore no reservation to settle.
+      const queue = await optionalQueue(root);
+      const entry = queue?.record.data.entries.find((item) =>
         item.source.effort_id === identity.id
       );
       const state = environment.state;
@@ -170,11 +176,11 @@ export async function recoverCompletionResult(
       if (returned.kind === "recovery-incomplete") {
         throw new Error(returned.recovery.reason);
       }
-      const freshQueue = await requireQueue(root);
-      const current = freshQueue.record.data.entries.find((item) =>
+      const freshQueue = await optionalQueue(root);
+      const current = freshQueue?.record.data.entries.find((item) =>
         item.source.effort_id === identity.id
       );
-      if (current?.state === "active") {
+      if (freshQueue !== undefined && current?.state === "active") {
         if (current.candidate_id !== intent.candidate_id) {
           throw new Error(
             "Checkout returned, but a newer queue candidate requires its own recovery. No queue entry changed.",
@@ -221,14 +227,62 @@ export async function recoverCompletionResult(
   }
 }
 
+/** One recorded claim as `status` and `doctor` report it after live observation. */
+export type ExecutionClaimObservation = NonNullable<
+  StatusData["execution_activity"]
+>[number];
+
+/**
+ * Observe a recorded execution claim without touching it: whether a native
+ * operation still holds the checkout, and, when none does, whether every child
+ * process group the attempt recorded has stopped. A recorded claim alone proves
+ * neither; an expired deadline proves neither. Only the effectful recovery
+ * command reacquires exclusion, so this observation is advisory.
+ */
+export async function observeExecutionClaim(
+  root: string,
+  record: Extract<CompletionRecord, { kind: "environment" }>,
+  state: Extract<
+    Extract<CompletionRecord, { kind: "environment" }>["data"]["state"],
+    { kind: "executing" }
+  >,
+): Promise<ExecutionClaimObservation> {
+  const path = record.data.path;
+  const observed = await statIfExists(path) === undefined
+    ? {
+      ownership: "unknown" as const,
+      reason: `The recorded checkout ${path} no longer exists.`,
+    }
+    : await observeCompletionCheckout(path);
+  const children = observed.ownership === "available"
+    ? await inspectExecutionChildren(root, state.attempt_id)
+    : undefined;
+  return {
+    environment_id: record.id,
+    attempt_id: state.attempt_id,
+    candidate_id: state.candidate_id,
+    phase: state.phase,
+    lease_expires_at: state.claim.expires_at,
+    ownership: observed.ownership,
+    ...(children === undefined
+      ? {}
+      : { children_quiescent: children.quiescent }),
+    reason: children === undefined
+      ? observed.reason
+      : `${observed.reason} ${children.reason}`,
+    next_action: observed.ownership === "held"
+      ? "Let the owning operation finish or cancel it through its running handle; recovery rechecks exclusion."
+      : `Run ${
+        executionRecoveryCommand(record.id)
+      } from ${path}. Recovery rechecks ownership and child quiescence before return; the validation deadline does not delay native takeover.`,
+  };
+}
+
 /** Read-only local obligations remain visible even if temporary detachment hides a branch. */
 export async function executionStatus(
   root: string,
 ): Promise<Pick<StatusData, "execution_activity" | "execution_recovery">> {
-  const inside = await runGit(["rev-parse", "--is-inside-work-tree"], {
-    cwd: root,
-  });
-  if (!inside.success || inside.stdout.trim() !== "true") return {};
+  if (!await observableCompletionCheckout(root)) return {};
   const records = observedRecords(
     await observeCompletionRecords(root, SYSTEM_CLOCK, ["environment"]),
   );
@@ -241,29 +295,7 @@ export async function executionStatus(
     }
     const state = record.data.state;
     if (state.kind === "executing") {
-      const observed = await observeCompletionCheckout(root);
-      const childrenQuiescent = observed.ownership === "available"
-        ? await executionChildrenQuiescent(root, state.attempt_id)
-        : undefined;
-      activity.push({
-        environment_id: record.id,
-        attempt_id: state.attempt_id,
-        candidate_id: state.candidate_id,
-        phase: state.phase,
-        lease_expires_at: state.claim.expires_at,
-        ownership: observed.ownership,
-        ...(childrenQuiescent === undefined
-          ? {}
-          : { children_quiescent: childrenQuiescent }),
-        reason: childrenQuiescent === false
-          ? `${observed.reason} Recorded child absence remains unproved.`
-          : observed.reason,
-        next_action: observed.ownership === "held"
-          ? "Let the owning operation finish or cancel it through its running handle; recovery rechecks exclusion."
-          : `Run ${
-            executionRecoveryCommand(record.id)
-          } from this worktree. Recovery rechecks ownership and child quiescence before return; the validation deadline does not delay native takeover.`,
-      });
+      activity.push(await observeExecutionClaim(root, record, state));
     }
     if (state.kind === "idle" && record.data.ownership.kind === "borrowed") {
       const queue = await readCompletionRecord(root, {

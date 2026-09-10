@@ -82,21 +82,21 @@
         },
         "concurrency": {
           "default": 1,
-          "description": "Maximum live candidate executions across the repository queue.",
+          "description": "How many efforts may hold a validation slot at once. One slot stays reserved for the effort landing next, so early validation needs 2 or more.",
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
         },
         "lookahead": {
           "default": 0,
-          "description": "Maximum speculative positions beyond the next authorized source; requires an eligible released environment.",
+          "description": "How many efforts past the next one to land may validate early. 0 lands in order; a positive value needs an [execution.<name>] declaration per required context.",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
         }
       },
       "additionalProperties": false,
-      "description": "Complete evidence and repository queue capacity."
+      "description": "How many efforts validate at once, and whether any validate early."
     },
     "execution": {
       "type": "object",
@@ -217,7 +217,7 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991,
-            "description": "Maximum simultaneous executions supported by this declaration."
+            "description": "How many checkouts this declaration can prepare for another commit at once. Validating an effort's own commit never uses one of these slots."
           }
         },
         "required": [
@@ -230,7 +230,7 @@
           "capacity"
         ],
         "additionalProperties": false,
-        "description": "Project procedures for candidate execution and return."
+        "description": "How a checkout is prepared for another commit and returned afterwards."
       }
     },
     "jobs": {

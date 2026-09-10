@@ -718,6 +718,21 @@ export type DiscernSetupResult = DiscernResultState & {
         known_total?: number;
         not_applicable?: number;
         verdict: "full" | "partial" | "minimal";
+        completion?: {
+          standards: Array<string>;
+          shared: Array<{
+            producer: string;
+            standards: Array<string>;
+          }>;
+          candidate_bound: Array<string>;
+          declared: Array<string>;
+          speculation:
+            | "off"
+            | "undeclared"
+            | "unproven"
+            | "no-slot"
+            | "available";
+        };
       };
     };
   } | {
@@ -1512,6 +1527,11 @@ export type DiscernSetupDoneResult = DiscernResultState & {
     unproven: boolean;
     gate_proven: boolean;
     worktree_proven: boolean;
+    environment_probe?: {
+      proven: Array<string>;
+      undeclared: Array<string>;
+      isolated: Array<string>;
+    };
     marker_committed: boolean;
     marker_commit_error?: string;
     proof_line?: string;
@@ -1529,6 +1549,21 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       known_total?: number;
       not_applicable?: number;
       verdict: "full" | "partial" | "minimal";
+      completion?: {
+        standards: Array<string>;
+        shared: Array<{
+          producer: string;
+          standards: Array<string>;
+        }>;
+        candidate_bound: Array<string>;
+        declared: Array<string>;
+        speculation:
+          | "off"
+          | "undeclared"
+          | "unproven"
+          | "no-slot"
+          | "available";
+      };
     };
     inventory: {
       project_context: {
@@ -1692,7 +1727,9 @@ export type DiscernSetupDoneResult = DiscernResultState & {
       | "refresh"
       | "doctor"
       | "worktree_probe"
+      | "environment_probe"
       | "done"
+      | "contexts"
       | "proof";
     rollback: "not_needed" | "owned_commit_removed" | "retained";
     state: string;
@@ -2164,6 +2201,11 @@ export type DiscernUpgradeResult = DiscernResultState & {
       reason: string;
     }>;
     changes?: Array<string>;
+    recorded_execution?: Array<{
+      environment_id: string;
+      next_action: string;
+    }>;
+    newer_records?: Array<string>;
     issues?: Array<{
       kind?: "unknown_root_section";
       path: string;
@@ -3850,6 +3892,14 @@ export type DiscernDoneResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     completion?: {
       kind: "diagnostic" | "complete" | "pending";
       context: string;
@@ -4215,6 +4265,14 @@ export type DiscernPrepareResult = DiscernResultState & {
     producer_executions: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -4380,6 +4438,14 @@ export type DiscernTestResult = DiscernResultState & {
     producer_executions: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -5095,6 +5161,14 @@ export type DiscernStandardsResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -5279,6 +5353,14 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
     producer_executions?: {
       [key: string]: number;
     };
+    producer_evidence?: Array<{
+      producer: string;
+      use: "executed" | "reused";
+      closure: "declared" | "candidate";
+      reason: string;
+      evidence_id?: string;
+      from?: string;
+    }>;
     standards?: Array<{
       name: string;
       direction: "up" | "down";
@@ -7569,6 +7651,21 @@ export type DiscernStatusResult = DiscernResultState & {
         known_total?: number;
         not_applicable?: number;
         verdict: "full" | "partial" | "minimal";
+        completion?: {
+          standards: Array<string>;
+          shared: Array<{
+            producer: string;
+            standards: Array<string>;
+          }>;
+          candidate_bound: Array<string>;
+          declared: Array<string>;
+          speculation:
+            | "off"
+            | "undeclared"
+            | "unproven"
+            | "no-slot"
+            | "available";
+        };
       };
     };
     unlanded_branches?: Array<string>;

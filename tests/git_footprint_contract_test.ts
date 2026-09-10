@@ -130,6 +130,12 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     "directory",
     false,
   ],
+  environmentProofs: [
+    "discern/completion/environment-proofs.json",
+    "common",
+    "file",
+    false,
+  ],
   resources: ["discern/resources", "common", "directory", false],
   logbook: ["discern/logbook", "common", "directory", false],
   logbookArchives: [

@@ -290,10 +290,10 @@ export const CompletionPolicySchema = z.strictObject({
     "Execution contexts required for each obligation unless it declares its own contexts.",
   ),
   concurrency: z.number().int().positive().default(1).describe(
-    "Maximum live candidate executions across the repository queue.",
+    "How many efforts may hold a validation slot at once. One slot stays reserved for the effort landing next, so early validation needs 2 or more.",
   ),
   lookahead: z.number().int().nonnegative().default(0).describe(
-    "Maximum speculative positions beyond the next authorized source; requires an eligible released environment.",
+    "How many efforts past the next one to land may validate early. 0 lands in order; a positive value needs an [execution.<name>] declaration per required context.",
   ),
 }).refine(
   (policy) =>
@@ -332,7 +332,7 @@ export const EnvironmentDeclarationSchema = z.strictObject({
     "Complete input closure of the environment procedures.",
   ),
   capacity: z.number().int().positive().describe(
-    "Maximum simultaneous executions supported by this declaration.",
+    "How many checkouts this declaration can prepare for another commit at once. Validating an effort's own commit never uses one of these slots.",
   ),
 }).refine(
   (environment) =>
@@ -992,7 +992,7 @@ const gateSection = z.strictObject({
     "Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(1).describe(
-    "Repository-wide cap on concurrent test-stage runs; excess runs wait. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.",
+    "How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap. Separate from [completion].concurrency.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 
@@ -1246,6 +1246,13 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
     const dead = deadConfigPosition(path, issue.keys);
     if (dead !== undefined) {
       return [{ path, message: dead.message(keys) }];
+    }
+    if (/^standards\.[^.]+$/.test(path) && issue.keys.includes("measure")) {
+      return [{
+        path: `${path}.measure`,
+        message:
+          `\`measure\` is not a standard setting: every standard is measured on every \`discern done\` and its limit is required for completion. Delete the key from [${path}]. To avoid running an expensive command twice, read the standard from the job that already runs it with \`producer = "jobs.<name>"\` and, when the reading needs deriving, \`extract\`.`,
+      }];
     }
     return [{
       path: `${path}.${keys}`,

@@ -4168,7 +4168,10 @@ export type WorktreeProbeOutcome =
     ok: boolean;
     detail?: string | undefined;
     diagnostics?: Diagnostic[] | undefined;
-    remedy?: "content" | "worktree" | undefined;
+    remedy?: "content" | "worktree" | "environment" | undefined;
+    /** The probe worktree was kept because a checkout return is still owed
+     * there; the caller names it and the command that finishes the return. */
+    retained_path?: string | undefined;
   };
 
 /**
@@ -4193,7 +4196,9 @@ export async function probeWorktreeViability(
     ok: boolean;
     detail?: string | undefined;
     diagnostics?: Diagnostic[] | undefined;
-    remedy?: "content" | "worktree" | undefined;
+    remedy?: "content" | "worktree" | "environment" | undefined;
+    /** Keep the worktree: a recorded checkout return must finish there first. */
+    retain?: boolean | undefined;
   }>,
 ): Promise<WorktreeProbeOutcome> {
   const asMsg = (e: unknown): string =>
@@ -4227,6 +4232,10 @@ export async function probeWorktreeViability(
     kind: "setup_failed",
     reason: "The structural probe did not produce a verdict.",
   };
+  // A probe whose checkout return is unfinished keeps its worktree: removing
+  // it would strand the frozen recovery contract at a deleted path, and only
+  // the supported recovery command may finish that return.
+  let retain = false;
   try {
     // Ready the worktree exactly as a real one: resources, env inheritance, one-shot
     // `steps`, fresh-creation `ensure`, agent-file refresh, sentinel. A throw here is
@@ -4255,6 +4264,7 @@ export async function probeWorktreeViability(
     }
     if (setupReady) {
       const verdict = await probe(dir);
+      retain = verdict.retain === true;
       outcome = {
         kind: "probed",
         ok: verdict.ok,
@@ -4263,6 +4273,7 @@ export async function probeWorktreeViability(
           ? {}
           : { diagnostics: verdict.diagnostics }),
         ...(verdict.remedy === undefined ? {} : { remedy: verdict.remedy }),
+        ...(retain ? { retained_path: dir } : {}),
       };
     }
   } catch (error) {
@@ -4283,6 +4294,7 @@ export async function probeWorktreeViability(
       }],
     };
   }
+  if (retain) return outcome;
   try {
     await discardCreatedWorktree(
       ctx.root,

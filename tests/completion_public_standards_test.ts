@@ -1,5 +1,5 @@
 /** Standalone measurements retain scoped receipts, never queue readiness or aggregate Proof. */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -86,6 +86,21 @@ limit = 90
     const pinned = decodeCliResult(pin.stdout, "standards");
     assert(pinned.data !== undefined && "producer_executions" in pinned.data);
     assertEquals(pinned.data.producer_executions, {});
+    // S07: a pin that reuses readings names the producer whose evidence stood in.
+    const reused = pinned.data.producer_evidence ?? [];
+    assertEquals(reused.map((entry) => [entry.producer, entry.use]), [[
+      "jobs.test",
+      "reused",
+    ]]);
+    assertEquals(reused[0]?.closure, "declared");
+    // Provenance is the recorded measurement candidate, the same origin a
+    // replayed standard reading names.
+    assert(/^[0-9a-f]{40}$/.test(reused[0]?.from ?? ""), pin.output);
+    assertStringIncludes(reused[0]?.reason ?? "", "coverage, second");
+    assertEquals(
+      result.data.producer_evidence?.map((entry) => entry.use),
+      ["executed", "executed"],
+    );
     assertEquals(await Deno.readTextFile(`${path}/executions`), "bt");
     assertEquals((await requireQueue(path)).record.data.entries, []);
     assertEquals(

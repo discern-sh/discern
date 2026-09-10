@@ -23,7 +23,7 @@
 
 import { join } from "@std/path";
 import { KNOWN_JOBS } from "./capabilities.ts";
-import type { DiscernConfig } from "./config_schema.ts";
+import { type DiscernConfig, toCommandList } from "./config_schema.ts";
 import { normalizeMapDir } from "./map_path.ts";
 import { instructionSeedRel } from "./paths_registry.ts";
 import { deriveSetupPrimarySubsystem } from "./setup_project_context.ts";
@@ -71,7 +71,7 @@ async function readFileOr(
 
 /**
  * The registry. Only the steps with a machine-checkable predicate appear here —
- * steps 0/1/3/6/7 are self-verified prose checks with no derived proof. Each
+ * steps 0/1/3/6/7/10 are self-verified prose checks with no derived proof. Each
  * `describe` mirrors its page's `completion_check` field; the parity test pins
  * them together so neither can drift.
  */
@@ -138,6 +138,43 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
   },
   {
     step: 8,
+    name: "complete_validation",
+    describe:
+      "Every configured standard names a producer that exists, no two producers run the same command, and either [completion].lookahead is 0 or every required context has an [execution.<context>] declaration.",
+    evaluate({ config }): Promise<boolean> {
+      const producers = new Map<string, string>();
+      const register = (selector: string, run: readonly string[]): void => {
+        producers.set(selector, JSON.stringify(run));
+      };
+      for (const [name, value] of Object.entries(config.jobs)) {
+        const run = toCommandList(value);
+        if (run.length > 0) register(`jobs.${name}`, run);
+      }
+      for (const [name, scope] of Object.entries(config.scopes)) {
+        const run = toCommandList(scope.gate);
+        if (run.length > 0) register(`scopes.${name}.gate`, run);
+      }
+      for (const [name, standard] of Object.entries(config.standards)) {
+        if (standard.run !== undefined) {
+          register(`standards.${name}`, toCommandList(standard.run));
+        }
+      }
+      const resolvable = Object.entries(config.standards).every(
+        ([name, standard]) =>
+          standard.producer === undefined
+            ? producers.has(`standards.${name}`)
+            : producers.has(standard.producer),
+      );
+      const distinct = new Set(producers.values()).size === producers.size;
+      const coordinated = config.completion.lookahead === 0 ||
+        config.completion.required_contexts.every((context) =>
+          config.execution[context] !== undefined
+        );
+      return Promise.resolve(resolvable && distinct && coordinated);
+    },
+  },
+  {
+    step: 9,
     name: "primary_subsystem_context",
     describe:
       "The final primary-subsystem README has non-empty Start here, Boundary, and Non-obvious invariant sections; an authored conventional gotchas page is wired through [project].gotchas_doc.",

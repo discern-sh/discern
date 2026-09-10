@@ -278,14 +278,15 @@ destroy = "unlink-site @site@"`,
     },
   },
   completion: {
-    what: "Complete evidence and repository queue capacity.",
+    what: "How many efforts validate at once, and whether any validate early.",
     why:
-      "Completion requires every declared obligation in its required contexts for an immutable candidate. Queue capacity and speculative depth bound active execution; an environment declaration and source-owner release establish eligibility independently.",
+      "Every `discern done` proves one exact commit against every required check and standard. `concurrency` caps how many efforts hold a validation slot at the same time; `lookahead` lets an effort validate before its predecessor lands, which needs a declared environment. Efforts land in order by default.",
   },
   execution: {
-    what: "Project procedures for candidate execution and return.",
+    what:
+      "How a checkout is prepared for another commit and returned afterwards.",
     why:
-      "Composition can change a checkout's source, generated files, ignored artifacts, and resources. These declarations identify preparation and return procedures; eligibility also requires verified ownership, release, and execution exclusion.",
+      "Validating an effort early installs a different commit in a released checkout, which changes generated files, ignored output, and resources. A declaration names the prepare and restore procedures that make that safe; `discern setup done` proves them in a throwaway copy before early validation can use them.",
     examples: [{
       lead:
         "A borrowed checkout with project-owned preparation and restoration",

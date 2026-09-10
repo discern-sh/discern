@@ -46,7 +46,7 @@ export type SetupPage = SetupStepData;
  * match it. A missing, duplicate, reordered, or misdirected page therefore fails
  * before any setup surface can serve the brief.
  */
-const SETUP_PAGE_COUNT = 10;
+const SETUP_PAGE_COUNT = 11;
 export const SETUP_PAGE_REGISTRY: readonly {
   step: number;
   nextCommand: string;
@@ -59,7 +59,7 @@ export const SETUP_PAGE_REGISTRY: readonly {
 
 /** Registered pages that author architecture, ownership, command, or
  * instruction claims and must therefore carry the final evidence-recheck action. */
-export const SETUP_DOCUMENTATION_CLAIM_STEPS = [4, 5, 6, 8] as const;
+export const SETUP_DOCUMENTATION_CLAIM_STEPS = [4, 5, 6, 9] as const;
 
 /** Useful-context ceilings for the default progressive-disclosure surfaces. */
 export const SETUP_PAGE_MAX_CHARS = 12_000;

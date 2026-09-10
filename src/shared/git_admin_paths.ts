@@ -39,6 +39,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  environmentProofs: {
+    path: "discern/completion/environment-proofs.json",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   resources: {
     path: "discern/resources",
     scope: "common",

@@ -510,6 +510,22 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         ],
       },
       {
+        id: "producer-evidence",
+        title: "Producer evidence on every validation result",
+        what:
+          "`discern done`, `discern test`, and `discern standards` list each producer the run executed or reused, whether its input closure is declared or bound to the exact candidate, the reason, and for reused evidence the evidence id and the commit it came from. Setup and doctor name candidate-bound producers and the remedy: declare `inputs`.",
+        why:
+          "Reuse is visible per producer instead of inferred from timings, and the cost of an undeclared closure is named where it is paid.",
+        plain: {
+          title: "Seeing which checks ran and which were reused",
+          what:
+            "Every final check lists the commands it actually ran and the results it reused from an earlier saved change, with the reason for each. When a command runs again only because it has not said what it reads, the result says so and names the fix.",
+          why:
+            "You can tell reuse from repetition without measuring it yourself.",
+        },
+        surfaces: ["verb:done", "verb:test", "verb:standards"],
+      },
+      {
         id: "unchanged-tree-rerun",
         title: "Current green Proof composes; red reruns stay explicit",
         what:
@@ -1682,6 +1698,22 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         },
       },
       {
+        id: "setup-environment-probe",
+        title: "The environment probe",
+        what:
+          "When `[execution.<context>]` is declared for a required context, `discern setup done` enrolls its throwaway worktree as a borrowed environment and drives the real executor against a commit whose tree differs from the source through a passing validation, a failing one, and one cancelled while a project command is still running. Each return must restore the exact branch, head, index, and declared ignored output and stop every recorded child. The proof is recorded per context against the declaration's identity; doctor reports proved, changed, or never-rehearsed declarations, early validation runs only for a proved one, and a probe whose return is unfinished keeps its worktree and names the recovery command.",
+        why:
+          "A declaration is a claim about restoration; setup turns it into evidence before any effort is validated early on the strength of it.",
+        plain: {
+          title: "Proving a checkout can be returned before relying on it",
+          what:
+            "If the project says a copy can be prepared for another saved change and put back exactly, setup checks that in a throwaway copy before finishing: it installs a different saved change, then confirms the copy comes back to its exact starting point after a pass, a failure, and a cancellation that interrupts running work. The result is recorded for that exact declaration; `discern doctor` says whether it still holds, and early validation waits until it does.",
+          why:
+            "Nothing validates early on a promise; it validates early on a rehearsal that passed.",
+        },
+        surfaces: ["verb:setup", "config:execution"],
+      },
+      {
         id: "relay-messages",
         title: "Complete owner moments",
         what:
@@ -1716,13 +1748,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, and write-denied states remain distinct. Historical lifecycle gaps do not affect the storage-health result. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, and write-denied states remain distinct. Historical lifecycle gaps do not affect the storage-health result. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also explains how `[completion].concurrency`, `[gate].concurrent_test_runs`, and `[execution.<context>].capacity` combine and whether early validation can run, which producers standards share or duplicate and which are candidate-bound, and reads the durable completion records: claims past their deadline, interrupted checkout returns, unfinished retirement, outstanding emergency validation, and records a newer discern wrote, each with its next action and none of them changed. Doctor also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         plain: {
           title: "Health check",
           what:
-            "`discern doctor` verifies the installation without changing project state: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, supporting-service instructions, and the local activity record are connected. A new empty activity record is healthy. If the environment refuses that optional record, doctor warns and disables recording for this process without blocking setup. It also explains, for every instruction, which steps are the project's and which are discern's.",
+            "`discern doctor` verifies the installation without changing project state: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, supporting-service instructions, and the local activity record are connected. A new empty activity record is healthy. If the environment refuses that optional record, doctor warns and disables recording for this process without blocking setup. It also says how many tasks can be checked at once and whether any can be checked early, which checks share one run and which repeat for every change, and whether an interrupted check left a working copy waiting to be returned, without changing any of it. It also explains, for every instruction, which steps are the project's and which are discern's.",
           why:
             "Facts before judgments, and a misconfigured installation names its own fix.",
         },
@@ -2825,7 +2857,7 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "Proof removes a category of review work: reconstructing whether the declared checks ran, whether they passed, and which change they covered. Review time can move to behavior, design, risk, and the decision to ship.",
         whyItFollows:
           "The Gate runs the project's declared checks and Standards before Proof records the result against the clean committed tree, so the check status arrives as inspectable evidence rather than an unsupported completion message.",
-        drawsOn: ["gate", "proof", "standards"],
+        drawsOn: ["gate", "proof", "standards", "producer-evidence"],
         claims: ["reduced-review-burden"],
       },
       {
@@ -3223,7 +3255,12 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.",
         whyItFollows:
           "The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and instructions, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.",
-        drawsOn: ["setup", "relay-messages", "agent-autodetect"],
+        drawsOn: [
+          "setup",
+          "relay-messages",
+          "agent-autodetect",
+          "setup-environment-probe",
+        ],
         claims: [
           "installs-a-practice",
           "no-manual-configuration",
@@ -3804,7 +3841,12 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "Done records the tree identity and verdict, Proof carries compact claims and notes, a current green Proof is reusable without work, and an unchanged red tree requires an explicit rerun before the Gate repeats.",
         boundary:
           "Proof establishes the configured machine checks and recorded declarations for one tree; it is not release authority and says nothing about later edits.",
-        drawsOn: ["proof", "proof-notes", "unchanged-tree-rerun"],
+        drawsOn: [
+          "proof",
+          "proof-notes",
+          "unchanged-tree-rerun",
+          "producer-evidence",
+        ],
         hints: ["gate-relay-proof"],
         claims: ["proof-exact-tree", "gate-grants-no-authority"],
       },
@@ -3903,6 +3945,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "setup",
           "setup-observability",
           "setup-activation",
+          "setup-environment-probe",
           "doctor",
           "upgrade",
           "uninstall",

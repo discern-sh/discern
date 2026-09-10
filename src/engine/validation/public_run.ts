@@ -13,8 +13,12 @@ import {
 import type { EnvReader } from "../../shared/env.ts";
 /** Public commands demand one canonical producer graph and project its actual executions. */
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import type { GateStandard } from "../../shared/result_schemas.ts";
 import type {
+  GateStandard,
+  ProducerEvidence,
+} from "../../shared/result_schemas.ts";
+import type {
+  CompletionObservation,
   ProducerDemand,
   ProducerEvaluator,
   ValidationDemand,
@@ -82,7 +86,84 @@ export interface PublicValidationRun {
   readonly standards: readonly GateStandard[];
   readonly standard_verdicts: ReadonlyMap<string, StandardVerdict>;
   readonly producer_executions: Readonly<Record<string, number>>;
+  /** Each producer that ran or whose recorded evidence stood in, with the reason. */
+  readonly producer_evidence: readonly ProducerEvidence[];
   readonly waited_ms: number;
+}
+
+/** Name every producer the plan executed or reused, and say why, from the plan's own facts. */
+function describeProducerEvidence(
+  plan: ValidationPlan,
+  observation: CompletionObservation,
+  executions: Readonly<Record<string, number>>,
+): ProducerEvidence[] {
+  const evidence: ProducerEvidence[] = [];
+  for (const producer of plan.producers) {
+    if ((executions[producer.selector] ?? 0) === 0) continue;
+    const consumers = [
+      ...new Set(producer.consumers.map((entry) => entry.requirement.id)),
+    ];
+    const declared = producer.recipe.inputs !== undefined;
+    evidence.push({
+      producer: producer.selector,
+      use: "executed",
+      closure: declared ? "declared" : "candidate",
+      reason: !declared
+        ? "no `inputs` declared, so its evidence is bound to this exact commit and produced again for every candidate"
+        : consumers.length === 0
+        ? "a dependency of another demanded producer"
+        : `no recorded evidence for ${
+          consumers.join(", ")
+        } matched its declared inputs, command, toolchain, environment, and policy`,
+    });
+  }
+  const records = observation.records.flatMap(({ reading }) =>
+    reading.kind === "recorded" ? [reading.record] : []
+  );
+  const reused = new Map<
+    string,
+    {
+      evidence_id: string;
+      from: string;
+      closure: "declared" | "candidate";
+      requirements: string[];
+    }
+  >();
+  for (const entry of plan.reused) {
+    const record = records.find((item) =>
+      item.kind === "evidence" && item.id === entry.evidence_id
+    );
+    if (record?.kind !== "evidence") continue;
+    const origin = records.find((item) =>
+      item.kind === "candidate" && item.id === record.data.candidate_id
+    );
+    const producer = record.data.applicability.producer;
+    const current = reused.get(producer) ?? {
+      evidence_id: entry.evidence_id,
+      from: origin?.kind === "candidate" ? origin.data.head : "",
+      closure: record.data.applicability.closure.kind,
+      requirements: [],
+    };
+    if (!current.requirements.includes(entry.requirement.id)) {
+      current.requirements.push(entry.requirement.id);
+    }
+    reused.set(producer, current);
+  }
+  for (const [producer, entry] of reused) {
+    evidence.push({
+      producer,
+      use: "reused",
+      closure: entry.closure,
+      reason: `evidence recorded${
+        entry.from === "" ? "" : ` for ${entry.from.slice(0, 12)}`
+      } still matches the declared inputs, command, toolchain, environment, and policy for ${
+        entry.requirements.join(", ")
+      }`,
+      evidence_id: entry.evidence_id,
+      ...(entry.from === "" ? {} : { from: entry.from }),
+    });
+  }
+  return evidence;
 }
 
 /** Labels follow the public scheduler's existing job, generated-group and scope vocabulary. */
@@ -638,6 +719,7 @@ export async function executePublicValidation(input: {
     standards,
     standard_verdicts: verdicts,
     producer_executions: counts,
+    producer_evidence: describeProducerEvidence(plan, observed, counts),
     waited_ms: slots?.waitedMs ?? 0,
   };
 }

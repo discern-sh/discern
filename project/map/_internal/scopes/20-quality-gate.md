@@ -29,6 +29,7 @@ This subtree documents the public gate workflow: fixing a failed run, the work `
 | `patterns-decision-evidence.md` | guide           | Guide to retaining the decision evidence behind pattern responses.                             |
 | `tidy.md`                       | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                     |
 | `concurrent-test-runs.md`       | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                              |
+| `capacity-and-speculation.md`   | guide           | Guide to the completion, test, and environment limits and when early validation runs.          |
 
 ## Source files to read
 
