@@ -108,6 +108,16 @@ Each task finishes through `discern_done` on its committed work. That runs the p
 
 Finished tasks form a queue. Each one waits for its own Proof and your approval, and discern lands the approved ones in a stable order. That order is not the order the tasks finished, and it does not change every time another task becomes ready.
 
+`discern status` shows the queue in that order, one line per task with the single reason it waits. For the reading-list plan it might read:
+
+```text
+Queue 1: `agent/reading-search-3f2a9c` — ready to land
+Queue 2: `agent/phone-layout-b81d02` — on hold: The owner put it on hold; discern accept resume --target phone-layout-b81d02 resumes it.
+Queue 3: `agent/reading-help-c04e77` — waiting: It has no Proof yet; run discern done from its clean committed worktree.
+```
+
+The acceptance preview lists the same tasks in the same order, so the two never disagree.
+
 The queue explains three situations that look alike:
 
 - **A task builds on another.** The help task was started from the search task's work, so search must land first. discern records that relationship and will not land the help task ahead of it, whatever else you approve.
@@ -140,13 +150,19 @@ The later agent verifies that the expected behavior is present and runs the full
 
 Several agents can write at once. How many can run the project's full checks at the same time is bounded by settings the project chose during setup. Each setting bounds different work, so they can legitimately hold different values:
 
-| Setting                        | What it bounds                                                          | What you see at the limit                                                        |
-| ------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `[completion].concurrency`     | How many tasks can run their full checks at once.                       | A later `discern done` waits for a slot.                                         |
-| `[gate].concurrent_test_runs`  | How many test runs can share this machine at once.                      | The test stage waits its turn; the other checks continue.                        |
-| `[execution.<name>].capacity`  | How many workspaces can be prepared for a commit other than their own.  | Early validation waits for a workspace to come back.                             |
+| Setting                       | What it bounds                                                         | What you see at the limit                                 |
+| ----------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| `[completion].concurrency`    | How many tasks can run their full checks at once.                      | A later `discern done` waits for a slot.                  |
+| `[gate].concurrent_test_runs` | How many test runs can share this machine at once.                     | The test stage waits its turn; the other checks continue. |
+| `[execution.<name>].capacity` | How many workspaces can be prepared for a commit other than their own. | Early validation waits for a workspace to come back.      |
 
-When a task waits, the result says which setting is binding, who holds the slots, and what will release them. That sentence is the fact to act on. Ask your agent to explain a wait in terms of the tasks you know, and raise a limit only after checking that the machine can carry the extra run.
+When a task waits, the result says which setting is binding, who holds the slots, and what will release them. For the reading-list plan with two validation slots, the sentence would be:
+
+```text
+Every validation slot is in use, held by agent/reading-search-3f2a9c and agent/phone-layout-b81d02 (completion.concurrency = 2). Queued efforts wait until a running validation finishes or returns its slot.
+```
+
+That sentence is the fact to act on. Ask your agent to explain a wait in terms of the tasks you know, and raise a limit only after checking that the machine can carry the extra run.
 
 By default, discern validates each task on its own commit and lands the tasks in turn. A fourth setting, `[completion].lookahead`, lets a task validate against work that has not landed yet, so it can land the moment its predecessor does. That costs a prepare-and-restore round trip per task and only runs when the project has declared, and setup has proved, an environment that can be prepared for another commit and returned exactly. Until then the setting is inert and `discern doctor` says so. [Configuration reference](../30-reference/config-reference.md#completion) lists the keys.
 

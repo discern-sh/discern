@@ -110,9 +110,25 @@ When you are satisfied, you can say:
 
 Your agent runs `discern accept` from the task's worktree and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
 
-The result answers about this task first: whether it landed, and if not, what stands in the way. Read that sentence before anything else in the result.
+The result answers about this task first: whether it landed, and if not, what stands in the way. Read that sentence before anything else in the result. A landing reads like this, with your task's branch in place of the example:
 
-Landing is a queue. Several finished tasks can be waiting, and acceptance lands them in a stable order rather than in the order they finished. The command may land approved tasks ahead of yours on the way. It may also stop at a task ahead of yours that still needs someone's approval. Neither outcome says anything about your change; the result names the task it stopped at and what that task needs. Approving your change does not approve the ones ahead of it, and their landing headlines are not yours.
+```text
+Selected effort `agent/recipe-search-0a7563`: landed. Its checkout was removed.
+```
+
+If you ran acceptance from the main checkout with several tasks waiting, name yours with `discern accept --target <task>`; the answer is organized the same way.
+
+Landing is a queue. Several finished tasks can be waiting, and acceptance lands them in a stable order rather than in the order they finished. The command may land approved tasks ahead of yours on the way. It may also stop at a task ahead of yours that still needs someone's approval. Neither outcome says anything about your change; the result names the task it stopped at and what that task needs, then lists the other tasks under their own headings:
+
+```text
+Selected effort `agent/recipe-search-0a7563`: not landed.
+- Acceptance stopped at agent/recipe-sort-7d41e2, which is ahead of this effort in the queue.
+
+Ahead of it in the queue:
+agent/recipe-sort-7d41e2 is waiting: Waiting for the owner's recorded approval of its current source.
+```
+
+Approving your change does not approve the ones ahead of it, and a landing headline under another task's branch is that task's, not yours.
 
 Acceptance checks the current evidence and permission for each change it lands. When the shared branch has moved since your Proof, discern needs evidence for the combined version. If the project has declared a validation environment, acceptance can build and check that version itself; otherwise the agent brings the trunk into the worktree and runs the full check again. Any check whose inputs are unchanged is reused. [Proof](../20-understand/proof.md#the-exact-commit-it-covers) explains how evidence follows that combined version.
 
@@ -122,17 +138,23 @@ An unmet checkpoint or a proposed standard limit change needs your explicit deci
 
 The acceptance result identifies which changes landed on the shared branch and gives the surviving checkout path.
 
-After a landing, discern removes the task's workspace when nothing else is using it. When it stays, the result says why in one sentence and names the command that finishes cleanup. The usual reasons: the workspace was never released (the agent runs `discern done --release-checkout`, then acceptance from the main checkout finishes cleanup); a preview or other process is still using it; the branch gained new commits after landing; the workspace holds changed files; or its ownership could not be verified. A kept workspace does not undo the landing.
+After a landing, discern removes the task's workspace when nothing else is using it. When it stays, the same first sentence says why and names the command that finishes cleanup. The usual reason is a workspace kept for review and never released:
+
+```text
+Selected effort `agent/recipe-search-0a7563`: landed. Its checkout stayed. It remains available for review or further edits until released; when finished with it, run discern done --release-checkout from it and the next discern accept removes it.
+```
+
+The other reasons read the same way: a preview or other process is still using it, the branch gained new commits after landing, the workspace holds changed files, or its ownership could not be verified. A kept workspace does not undo the landing.
 
 These are different states, and the result uses different words for them:
 
-| State                  | What it tells you                                                                                                                                        |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Checks passed**      | The configured checks ran and passed on one exact version.                                                                                               |
-| **Proof**              | The complete evidence for that version, including every required context and recorded judgment. Checks can pass while Proof is still pending.          |
-| **Approved**           | You, or a recorded grant, gave permission to land this version.                                                                                          |
-| **Landed**             | The version is on the shared branch.                                                                                                                     |
-| **Deployed**           | Your release process made it available to users. discern never does this.                                                                                |
+| State                   | What it tells you                                                                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Checks passed**       | The configured checks ran and passed on one exact version.                                                                                           |
+| **Proof**               | The complete evidence for that version, including every required context and recorded judgment. Checks can pass while Proof is still pending.        |
+| **Approved**            | You, or a recorded grant, gave permission to land this version.                                                                                      |
+| **Landed**              | The version is on the shared branch.                                                                                                                 |
+| **Deployed**            | Your release process made it available to users. discern never does this.                                                                            |
 | **Emergency exception** | An urgent repair landed before its checks finished, under a fresh decision of yours, with a permanent record of what was skipped. This is not Proof. |
 
 [Land an urgent repair](land-an-urgent-repair.md) covers the last row. For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).

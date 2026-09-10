@@ -39,14 +39,14 @@ For example, the recipe-search interface might be committed while a test is stil
 
 The next step follows the observed state:
 
-| What remains                                   | How work continues                                                                                            |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Uncommitted changes                            | The agent reads the files and continues from the intended work.                                               |
-| Incomplete setup                               | It follows the named setup or environment recovery.                                                           |
-| New work on the shared branch                  | It follows discern's update instructions and reviews any overlapping changes.                                 |
-| Current Proof                                  | It checks the task's landing and authoring state before deciding whether more work is needed.                 |
+| What remains                                   | How work continues                                                                                                                                                          |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uncommitted changes                            | The agent reads the files and continues from the intended work.                                                                                                             |
+| Incomplete setup                               | It follows the named setup or environment recovery.                                                                                                                         |
+| New work on the shared branch                  | It follows discern's update instructions and reviews any overlapping changes.                                                                                               |
+| Current Proof                                  | It checks the task's landing and authoring state before deciding whether more work is needed.                                                                               |
 | Stale Proof                                    | Something changed since the checks ran: an edit, the shared branch, or a review answer. It commits the intended state and runs `discern done`; unchanged checks are reused. |
-| A released workspace or interrupted validation | It follows the recorded recovery route before editing.                                                        |
+| A released workspace or interrupted validation | It follows the recorded recovery route before editing.                                                                                                                      |
 
 Keep the same worktree through the resumed task and its review. If the original cannot be recovered, establish that fact before starting a replacement. [Finish and land a change](finish-and-land-a-change.md) covers the normal path once work resumes.
 
@@ -72,7 +72,7 @@ Recovery stops, and keeps the workspace as it is, when:
 - **a child process survived.** A test runner or server from the interrupted run is still going. Stop it, then recover again.
 - **child state is unknown.** discern cannot tell whether the run's processes stopped. Inspect the machine before recovering; nothing is deleted while that is uncertain.
 - **the return failed.** The restore step could not put the workspace back. Repair what the result names, then recover again; each earlier step stays done.
-- **the branch or files changed.** Someone worked in the workspace after it was borrowed. Preserve that work and investigate before returning it.
+- **the branch or files changed.** Someone worked in the workspace after it was borrowed. Preserve that work and investigate before returning it. When the branch merely gained commits after the run was recorded, the refusal names the recorded commit and the steps that set the branch back, recover, and bring the new commits forward again.
 
 This recovery action runs no validation and lands no change. After the workspace returns, ordinary `discern done` can reuse applicable passing evidence and obtain anything still missing. Use `--rerun` when the result calls for a deliberate new validation attempt.
 
@@ -124,7 +124,11 @@ Recovery is accounted for when you know what landed, what remains pending, and w
 
 ### Reconcile work that reached the trunk another way
 
-Sometimes a change is already on the shared branch without discern having landed it: a person moved the branch by hand during an incident, for example. The task's queue entry then keeps waiting for a landing that will never come.
+Sometimes a change is already on the shared branch without discern having landed it: a person moved the branch by hand during an incident, for example. The task's queue entry then keeps waiting for a landing that will never come, and its row in status says so:
+
+```text
+Queue 2: `agent/recipe-search-0a7563` — waiting: Its work is already on main; record the outside integration with discern accept --reconcile --target recipe-search-0a7563.
+```
 
 Ask your agent to reconcile it. From the main checkout it previews `discern accept --reconcile --target <task> --dry-run`, which checks that the exact proven version is on the shared branch, then applies the preview's token. Reconciliation records what it found, settles the queue entry, and offers eligible cleanup. It moves nothing and approves nothing, so it cannot turn a hand-moved branch into a governed landing after the fact.
 
