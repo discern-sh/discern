@@ -1065,22 +1065,20 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: DESTRUCTIVE,
     description: "Ordinary acceptance: " +
       "Land only with explicit owner consent or machine-verified authority. " +
-      "Resolve the selected project's configured trunk and the selected candidate, " +
-      "which can compose this effort's committed source with earlier ready work. " +
+      "Acceptance composes this effort's committed source with earlier ready " +
+      "work against the selected project's configured trunk. " +
       "Each predecessor requires its own current evidence and authority; permission " +
       "for this effort does not authorize another. Acceptance validates the exact " +
       "candidate before advancing the trunk. Its Proof identifies that validated " +
-      "commit, which can differ from this worktree's HEAD. Released checkouts may " +
-      "supply validation environments. Eligible cleanup removes only released, " +
-      "positively owned, clean checkouts and their resources after landing. " +
+      "commit, which can differ from this worktree's HEAD. Eligible cleanup " +
+      "removes only released, positively owned, clean checkouts and their " +
+      "resources after landing. " +
       "Recorded grants never cover a checkpoint variance or standard proposal. " +
       "Without authority the call re-serves the review moment without landing. " +
-      "The result leads with the selected effort's own verdict — chosen by this " +
-      "worktree or target — and data.selected_effort marks its row in data.queue; " +
-      "other efforts follow, labelled, and a landing for one of them is never the " +
-      "selected effort's success. " +
-      "Follow the reported per-effort state and recovery action; earlier " +
-      "authorized efforts may have landed before a later stop. " +
+      "The result leads with the selected effort's own verdict; " +
+      "data.selected_effort marks its row, other efforts follow with their " +
+      "state and recovery action, and an earlier authorized effort may have " +
+      "landed before a later stop. " +
       "Set dry_run to inspect the acceptance plan without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +

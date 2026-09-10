@@ -17,7 +17,9 @@ Run it when a session starts or the next move is unclear. Terminal, JSON, Markdo
 
 ## Human dashboard
 
-Worktrees default to a local view. The main checkout shows its state, fleet task rows, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
+Worktrees default to a local view. The main checkout shows its state, fleet task rows, the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
+
+The **Landing queue** lists unlanded efforts in landing order — eligible first, then provisional, held efforts in place — one line each with its readiness and the single reason it waits. The current worktree's own effort is marked. `accept --dry-run` shows the same list, derived from the same projection, so the two surfaces cannot disagree. `data.queue` carries the rows in the structured result.
 
 `--all` explicitly adds the fleet to a worktree's detailed local view; `--local` suppresses it. The flags conflict.
 
