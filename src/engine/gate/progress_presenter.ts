@@ -5,12 +5,25 @@
  * percentage, an estimate, or a second progress model — the sentences arrive
  * already composed with the facts.
  */
-import type { CompletionObservationFact } from "../completion/events.ts";
+import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import type {
+  CompletionObservationFact,
+  CompletionProgress,
+} from "../completion/events.ts";
 import {
   completionFailureSentence,
   completionProgressSentence,
 } from "../completion/progress_prose.ts";
 import type { GateTtyProgress } from "./gate_tty.ts";
+
+/**
+ * Static output cannot replace a line, so a producer's counts are rationed:
+ * a line is written when its failure count changes or its counts turn
+ * partial, otherwise at most once per this interval, and once more with the
+ * final counts when the producer settles. A live frame replaces its transient
+ * line instead and shows every snapshot.
+ */
+export const STATIC_COUNTS_CADENCE_MS = 20_000;
 
 /** One live consumer of completion facts for a single gate run. */
 export interface GateProgressPresenter {
@@ -86,6 +99,8 @@ export interface GateProgressPresenterTarget {
    * whose nested validation presents its own producer facts and failures.
    */
   readonly scope?: CompletionFactOwner | "all";
+  /** Monotonic milliseconds for the static counts cadence; injected by tests. */
+  readonly now?: () => number;
 }
 
 /** Build the presenter for one gate run's chosen output mode. */
@@ -107,6 +122,42 @@ export function createGateProgressPresenter(
     else target.write?.(`${text}\n`);
   };
   const scope = target.scope ?? "all";
+  const now = target.now ?? ((): number => SYSTEM_CLOCK.monotonicNow());
+  const rationed = new Map<string, {
+    writtenAt: number;
+    failed: number | undefined;
+    partial: boolean;
+    held: string | undefined;
+  }>();
+  const counts = (progress: CompletionProgress): void => {
+    if (target.live !== undefined) {
+      transient(progress.reason);
+      return;
+    }
+    const producer = progress.work?.producer ?? "";
+    const failed = progress.work?.results?.failed;
+    const partial = progress.work?.partial === true;
+    const last = rationed.get(producer);
+    const due = last === undefined || failed !== last.failed ||
+      (partial && !last.partial) ||
+      now() - last.writtenAt >= STATIC_COUNTS_CADENCE_MS;
+    if (due) {
+      transient(progress.reason);
+      rationed.set(producer, {
+        writtenAt: now(),
+        failed,
+        partial,
+        held: undefined,
+      });
+    } else {
+      rationed.set(producer, { ...last, held: progress.reason });
+    }
+  };
+  const settled = (producer: string): void => {
+    const held = rationed.get(producer)?.held;
+    if (held !== undefined) transient(held);
+    rationed.delete(producer);
+  };
   return {
     observe(fact: CompletionObservationFact): void {
       if (scope !== "all" && completionFactOwner(fact) !== scope) return;
@@ -118,13 +169,19 @@ export function createGateProgressPresenter(
       const progress = fact.progress;
       if (progress.phase === "producer") {
         // Start and settle already reach the terminal as job facts; the value
-        // here is the producer's own counts while it runs.
-        if (progress.state !== "running" || progress.work === undefined) return;
+        // here is the producer's own counts while it runs, and the final
+        // counts once it settles.
+        if (progress.work === undefined) return;
+        if (progress.state === "finished") {
+          settled(progress.work.producer);
+          return;
+        }
+        if (progress.state !== "running") return;
         if (
           progress.work.units === undefined &&
           progress.work.results === undefined
         ) return;
-        transient(progress.reason);
+        counts(progress);
         return;
       }
       durable(
