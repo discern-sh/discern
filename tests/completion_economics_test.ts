@@ -1,3 +1,4 @@
+import { completionEconomicsLines } from "../src/shared/completion_economics_presentation.ts";
 import { assert, assertEquals } from "@std/assert";
 import type { CompletionEvent } from "../src/engine/completion/protocol.ts";
 import { EvidenceSchema } from "../src/engine/completion/evidence.ts";
@@ -373,4 +374,175 @@ Deno.test("native producer economics deduplicates starts, distinguishes extracto
   }]);
   assertEquals(unknown.unknown_command_identity, 2);
   assertEquals(unknown.producer_executions, null);
+});
+
+Deno.test("prediction rates require observed eligible admission and resolved ordinary outcomes", () => {
+  const admitted = (id: string): CompletionEvent =>
+    event(`admit-${id}`, {
+      kind: "admitted",
+      proof_id: `proof-${id}`,
+      mode: "strict",
+      eligible_prediction: true,
+      expected_predecessor_candidate_id: "prefix",
+    }, { candidate_id: id, at: 1 });
+  const hit = event("land-hit", {
+    kind: "landing",
+    landing_id: "transaction",
+    outcome: "landed",
+    claim_kind: "normal",
+  }, { candidate_id: "hit", at: 3 });
+  const miss = event("miss", {
+    kind: "invalidated",
+    reason: "withdrawn",
+    affected_candidate_ids: ["miss", "pending"],
+    eligible_prediction: true,
+  }, { candidate_id: "miss", at: 4 });
+  const input = [
+    admitted("hit"),
+    admitted("miss"),
+    admitted("pending"),
+    hit,
+    hit,
+    miss,
+    miss,
+    event("withdraw-before", { kind: "withdrawn", admission: "before-green" }, {
+      candidate_id: null,
+    }),
+    event("old-miss", miss.fact, { candidate_id: "old" }),
+  ];
+  const result = completionEconomics(input);
+  assertEquals(result.eligible_predictions, 3);
+  assertEquals(result.prediction_denominator, 2);
+  assertEquals(result.prediction_miss_rate, 0.5);
+  assertEquals(result.successful_predictions, 1);
+  assertEquals(result.unresolved_predictions, 1);
+  assertEquals(result.withdrawals_after_prediction, 2);
+  assertEquals(result.withdrawals_before_green, 1);
+  assertEquals(result.landings, 1);
+  assertEquals(result.invalidated_candidate_producer_work_ms, null);
+  assertEquals(completionEconomics([miss]).prediction_denominator, null);
+  for (const observation of input) {
+    assertEquals(completionObservationSchema.parse(observation), observation);
+  }
+  assertEquals(CompletionEconomicsSchema.parse(result), result);
+  const emergency = completionEconomics([
+    admitted("hit"),
+    event("emergency", {
+      ...hit.fact,
+      kind: "landing",
+      landing_id: "exception",
+      outcome: "landed",
+      claim_kind: "exception",
+    }, { candidate_id: "hit", at: 4 }),
+  ]);
+  assertEquals(emergency.prediction_denominator, 0);
+  assertEquals(emergency.prediction_miss_rate, null);
+  assertEquals(emergency.conflicting_prediction_outcomes, 1);
+  const contradiction = completionEconomics([
+    admitted("hit"),
+    hit,
+    event("invalidated-hit", miss.fact, { candidate_id: "hit", at: 5 }),
+  ]);
+  assertEquals(contradiction.prediction_denominator, 0);
+  const report = completionEconomics([
+    event("report", {
+      ...admitted("report").fact,
+      kind: "admitted",
+      proof_id: "report",
+      mode: "report",
+      eligible_prediction: true,
+      expected_predecessor_candidate_id: "prefix",
+    }),
+    hit,
+  ]);
+  assertEquals(report.eligible_predictions, 0);
+});
+
+Deno.test("completed validation summaries establish known reuse-only zero without rewriting older history", () => {
+  const summary = event("summary", {
+    kind: "validation-summary",
+    demand: "done",
+    producer_executions: 0,
+    reused_receipts: 3,
+  });
+  const result = completionEconomics([summary, summary]);
+  assertEquals(result.producer_executions, 0);
+  assertEquals(result.validation_runs, 1);
+  assertEquals(result.reuse_only_runs, 1);
+  assertEquals(completionEconomics([]).producer_executions, null);
+  assertEquals(
+    completionEconomics([{ ...summary, attempt_id: null }]).producer_executions,
+    null,
+  );
+  assertEquals(
+    completionEconomics([
+      summary,
+      event("changed", {
+        kind: "validation-summary",
+        demand: "done",
+        producer_executions: 1,
+        reused_receipts: 3,
+      }),
+    ]).producer_executions,
+    null,
+  );
+  assertEquals(completionObservationSchema.parse(summary), summary);
+  const contradictory = completionEconomics([
+    summary,
+    event("started", {
+      kind: "command-started",
+      execution_id: "native",
+      role: "producer",
+      producer: "jobs.test",
+    }),
+  ]);
+  assertEquals(contradictory.producer_executions, 1);
+  assertEquals(contradictory.reuse_only_runs, 0);
+});
+
+Deno.test("latency summaries keep their observations separate from overlapping phase unions", () => {
+  const facts = [
+    event("feedback-a", {
+      kind: "timing",
+      interval_id: "a",
+      category: "validation-feedback",
+      started_at: 0,
+      finished_at: 100,
+    }),
+    event("feedback-b", {
+      kind: "timing",
+      interval_id: "b",
+      category: "validation-feedback",
+      started_at: 20,
+      finished_at: 60,
+    }),
+    event("invalid-clock", {
+      kind: "timing",
+      interval_id: "c",
+      category: "approval-to-land",
+      started_at: 10,
+      finished_at: 9,
+    }),
+  ];
+  const result = completionEconomics(facts);
+  assertEquals(result.latencies?.["validation-feedback"], {
+    observations: 2,
+    unknown: 0,
+    median_ms: 70,
+    min_ms: 40,
+    max_ms: 100,
+  });
+  assertEquals(result.timing["validation-feedback"]?.elapsed_ms, 100);
+  assertEquals(result.latencies?.["approval-to-land"]?.median_ms, null);
+  const lines = completionEconomicsLines(result).join("\n");
+  assert(lines.includes("0.07s median across 2 observations"));
+  assert(lines.includes("Native producer executions: unknown"));
+  assert(lines.includes("denominator unknown"));
+  assertEquals(CompletionEconomicsSchema.parse(result), result);
+  assert(
+    completionEconomicsLines({
+      ...result,
+      window: { first_at: 1e100, last_at: null },
+    })[0]?.includes("unknown to unknown"),
+  );
 });

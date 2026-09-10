@@ -714,6 +714,22 @@ export async function executePublicValidation(input: {
       );
     }
   }
+  emitCompletionEvent(executionEvent(
+    execution,
+    `${execution.attempt.identity.id}:validation-summary`,
+    SYSTEM_CLOCK.wallNow(),
+    {
+      kind: "validation-summary",
+      demand: demand.kind,
+      producer_executions: Object.values(counts).reduce(
+        (sum, count) => sum + count,
+        0,
+      ),
+      reused_receipts: new Set(plan.reused.map((reuse) =>
+        reuse.evidence_id
+      )).size,
+    },
+  ));
   const finishedAt = SYSTEM_CLOCK.wallNow();
   emitCompletionEvent(
     executionEvent(

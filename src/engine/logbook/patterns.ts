@@ -1,3 +1,4 @@
+import { completionEconomicsLines } from "../../shared/completion_economics_presentation.ts";
 /**
  * `discern patterns` — the logbook's first reader, and the diagnostic ladder's
  * third question: `doctor` asks whether the install is valid, `improvement`
@@ -843,20 +844,10 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     const economics = data.completion;
     out.raw(`${
       presenter.present(renderResultSummaryGroupCli, {
-        items: [{
-          state: "unchanged",
-          fact: terminalMultiline(
-            `Completion observations: ${economics.efforts} efforts, ${economics.candidates} candidates, ${economics.landings} landings. ` +
-              `${economics.reused_receipts} reused component receipts. ` +
-              `Physical producer executions: ${
-                economics.producer_executions ?? "unknown"
-              }. ` +
-              `Prediction denominator: ${
-                economics.prediction_denominator ?? "unknown"
-              }. ` +
-              "Overlapping phase durations are reported separately; these observations grant no Proof or recovery authority.",
-          ),
-        }],
+        items: completionEconomicsLines(economics).map((line) => ({
+          state: "unchanged" as const,
+          fact: terminalMultiline(line),
+        })),
         maxWidth: width,
       })
     }\n`);

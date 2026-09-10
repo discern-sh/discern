@@ -38,3 +38,9 @@ Decision findings use the additive structured `basis` from ADR 0274. It names th
 - **Recommend every mechanically eligible pin.** Rejected because eligibility says nothing about freshness, persistence, variance, recent failure, or retirement.
 - **Count later failures as fail-fast cost without estimating cancelled work.** Rejected because it measures only one side and implies an unsupported causal relationship.
 - **Automatically edit `fail_fast` or pin a Standard.** Rejected because Patterns is advisory and the recorded evidence still requires an owner decision.
+
+## Amendment: compare equivalent costs before recommending failure policy
+
+The fail-fast ledger retains its observed later rounds and estimated cancelled job tails. It no longer compares a sum of concurrent job durations with whole-invocation elapsed time through the 1.5 multiplier above. Those quantities have different units of work, and the largest observed duration is not a guaranteed upper bound. Neither ratio establishes which policy reaches green sooner.
+
+A policy recommendation needs a controlled comparison of the same required repair journey, including producer counts, seeds, cache and load, with elapsed time separated from concurrent work. Missing clocks and incomplete reports remain explicit. The report offers a bounded investigation and never changes failure policy, queue capacity or environment rules. This amendment supersedes the fixed multiplier and its keep/change recommendations; the other evidence and pinning boundaries remain in force.

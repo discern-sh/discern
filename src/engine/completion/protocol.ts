@@ -342,7 +342,7 @@ export interface LandingPublisher {
   ): Promise<CompletionRetirement>;
 }
 
-/** Event facts are advisory projections of durable outcomes. 7A owns logbook wiring. */
+/** Event facts are advisory projections of canonical execution and durable outcomes. */
 /** Legacy categories retain their meaning; precise executor phases have distinct keys. */
 export const COMPLETION_TIMING_CATEGORIES = [
   "approval",
@@ -360,6 +360,8 @@ export const COMPLETION_TIMING_CATEGORIES = [
   "publication",
   "producer",
   "extraction",
+  "approval-to-land",
+  "validation-feedback",
 ] as const;
 
 export interface CompletionEvent {
@@ -372,6 +374,23 @@ export interface CompletionEvent {
   readonly executor_operation: string;
   readonly at: number;
   readonly fact:
+    | {
+      readonly kind: "admitted";
+      readonly proof_id: string;
+      readonly mode: "strict" | "report";
+      readonly eligible_prediction: boolean;
+      readonly expected_predecessor_candidate_id: string | null;
+    }
+    | {
+      readonly kind: "withdrawn";
+      readonly admission: "before-green" | "after-green" | "unknown";
+    }
+    | {
+      readonly kind: "validation-summary";
+      readonly demand: ValidationDemand["kind"];
+      readonly producer_executions: number;
+      readonly reused_receipts: number;
+    }
     | {
       readonly kind: "command-started";
       readonly execution_id: string;

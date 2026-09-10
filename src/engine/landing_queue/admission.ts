@@ -1,3 +1,4 @@
+import { emitCompletionEvent } from "../completion/events.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Full machine assembly and queue admission publish under one short, current subject check. */
 import type { Candidate } from "../completion/candidate.ts";
@@ -174,6 +175,29 @@ export async function publishAdmission(input: {
       clock,
     );
     if (settled.kind !== "written") return { kind: "replan" };
+    emitCompletionEvent({
+      id: `${proofId}:admitted`,
+      at: clock.wallNow(),
+      effort_id: candidate.source.effort_id,
+      source_head: candidate.source.head,
+      candidate_id: id,
+      environment_id: null,
+      attempt_id: proofId,
+      executor_operation: input.claim.attempt.identity.executor.operation_id,
+      fact: {
+        kind: "admitted",
+        proof_id: proofId,
+        mode: assembly.proof.mode,
+        eligible_prediction: assembly.proof.mode === "strict" &&
+          next.entries.some((entry) =>
+            entry.source.effort_id === input.claim.effort &&
+            entry.eligible_order !== null
+          ) &&
+          candidate.expected_predecessor.candidate_id !== null,
+        expected_predecessor_candidate_id:
+          candidate.expected_predecessor.candidate_id,
+      },
+    });
     return { kind: "admitted", proof_id: proofId };
   });
 }

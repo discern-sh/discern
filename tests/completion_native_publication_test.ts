@@ -1,3 +1,5 @@
+import { withCompletionObserver } from "../src/engine/completion/events.ts";
+import type { CompletionEvent } from "../src/engine/completion/protocol.ts";
 import { countedAdminQueries } from "./git_admin_observer.ts";
 /** Native queue publication guards use real complete done evidence and desk source grants. */
 import { assert, assertEquals, assertRejects } from "@std/assert";
@@ -167,23 +169,27 @@ Deno.test("native queue landing refuses without movement, then settles exact aut
         assertEquals(await readLandingProof(runtime, record), proof);
         const entered = Promise.withResolvers<void>();
         const release = Promise.withResolvers<void>();
-        const first = publishQueueLanding(
-          {
-            ...runtime,
-            writeNote: () =>
-              Promise.reject(new Error("controlled note failure")),
-            afterBoundary: async (boundary, planned) => {
-              await runtime.afterBoundary?.(boundary, planned);
-              if (boundary === "planned") {
-                entered.resolve();
-                await release.promise;
-              }
+        const facts: CompletionEvent[] = [];
+        const first = withCompletionObserver((fact) => {
+          if (fact.kind === "event") facts.push(fact.event);
+        }, () =>
+          publishQueueLanding(
+            {
+              ...runtime,
+              writeNote: () =>
+                Promise.reject(new Error("controlled note failure")),
+              afterBoundary: async (boundary, planned) => {
+                await runtime.afterBoundary?.(boundary, planned);
+                if (boundary === "planned") {
+                  entered.resolve();
+                  await release.promise;
+                }
+              },
             },
-          },
-          record,
-          null,
-          claim.fence,
-        );
+            record,
+            null,
+            claim.fence,
+          ));
         await entered.promise;
         try {
           await assertRejects(
@@ -196,6 +202,17 @@ Deno.test("native queue landing refuses without movement, then settles exact aut
         const result = await first;
         assert("outcome" in result);
         assertEquals(result.outcome.kind, "landed");
+        const spans = facts.flatMap((event) =>
+          event.fact.kind === "timing" &&
+            event.fact.category === "approval-to-land"
+            ? [event.fact]
+            : []
+        );
+        assertEquals(spans.length, 1);
+        assert(result.outcome.kind === "landed");
+        assertEquals(spans[0]?.finished_at, result.outcome.at);
+        assert((spans[0]?.started_at ?? Infinity) <= result.outcome.at);
+
         assertEquals(
           await gitOut(root, "rev-parse", "main"),
           record.data.target,

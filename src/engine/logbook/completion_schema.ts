@@ -13,6 +13,33 @@ import {
 } from "../completion/outcomes.ts";
 
 const facts = {
+  admitted: z.looseObject({
+    kind: z.literal("admitted"),
+    proof_id: z.string(),
+    mode: z.enum(["strict", "report"]),
+    eligible_prediction: z.boolean(),
+    expected_predecessor_candidate_id: z.string().nullable(),
+  }),
+  withdrawn: z.looseObject({
+    kind: z.literal("withdrawn"),
+    admission: z.enum(["before-green", "after-green", "unknown"]),
+  }),
+  "validation-summary": z.looseObject({
+    kind: z.literal("validation-summary"),
+    demand: z.enum([
+      "compose",
+      "done",
+      "test",
+      "standards",
+      "pin",
+      "proposal",
+      "standalone",
+      "prepare",
+      "diagnostic",
+    ]),
+    producer_executions: z.number().int().nonnegative(),
+    reused_receipts: z.number().int().nonnegative(),
+  }),
   "command-started": z.looseObject({
     kind: z.literal("command-started"),
     execution_id: z.string(),

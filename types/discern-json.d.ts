@@ -6706,6 +6706,15 @@ export type DiscernPatternsResult = DiscernResultState & {
       conflicting_command_identities?: number;
       unmatched_command_results?: number;
       producer_work_ms?: number | null;
+      latencies?: {
+        [key: string]: {
+          observations: number;
+          unknown: number;
+          median_ms: number | null;
+          min_ms: number | null;
+          max_ms: number | null;
+        };
+      };
       timing: {
         [key: string]: {
           observations: number;
@@ -6724,6 +6733,15 @@ export type DiscernPatternsResult = DiscernResultState & {
         [key: string]: number;
       };
       invalidated_predictions: number;
+      eligible_predictions?: number | null;
+      successful_predictions?: number;
+      unresolved_predictions?: number;
+      conflicting_prediction_outcomes?: number;
+      withdrawals_before_green?: number;
+      invalidated_candidate_executions?: number | null;
+      invalidated_candidate_producer_work_ms?: number | null;
+      validation_runs?: number;
+      reuse_only_runs?: number;
       prediction_denominator: number | null;
       prediction_miss_rate: number | null;
       withdrawals_after_prediction: number;

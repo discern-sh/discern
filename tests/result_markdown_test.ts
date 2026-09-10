@@ -1,3 +1,4 @@
+import { completionEconomics } from "../src/engine/logbook/completion_economics.ts";
 import {
   assert,
   assertEquals,
@@ -1394,4 +1395,24 @@ Deno.test("checkpoints Markdown renders observed economics when history exists",
       "1 landed; median time to declare 30s.",
   );
   assert(!rendered.includes("No observed checkpoint history yet."), rendered);
+});
+
+Deno.test("patterns Markdown carries completion economics without granting authority", () => {
+  const result = {
+    ok: true,
+    verb: "patterns",
+    data: { findings: [], completion: completionEconomics([]) },
+  };
+  const rendered = renderResultMarkdown(
+    result,
+    resultPresenterForVerb("patterns"),
+  );
+  for (
+    const text of [
+      "Native producer executions: unknown",
+      "Approval-to-land:",
+      "denominator unknown",
+      "Observations grant no Proof",
+    ]
+  ) assertStringIncludes(rendered, text);
 });

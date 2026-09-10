@@ -349,6 +349,39 @@ export async function mutateQueue(input: {
     }
     const written = await replaceQueue(input.root, current, queue, clock);
     if (written.kind !== "written") return { kind: "replan" };
+    if (input.mutation.kind === "withdrawn") {
+      const effort = input.mutation.effort;
+      const entry = current.record.data.entries.find((entry) =>
+        entry.source.effort_id === effort
+      );
+      if (entry !== undefined && entry.state !== "withdrawn") {
+        emitCompletionEvent({
+          id: `${current.record.id}:${
+            current.record.revision + 1
+          }:withdrawn:${effort}`,
+          at: clock.wallNow(),
+          effort_id: effort,
+          source_head: entry.source.head,
+          candidate_id: entry.candidate_id,
+          environment_id: null,
+          attempt_id: null,
+          executor_operation: actor.operation_id,
+          fact: {
+            kind: "withdrawn",
+            admission: entry.eligible_order !== null
+              ? "after-green"
+              : records.some((record) =>
+                  record.kind === "proof" && record.data.mode === "strict" &&
+                  record.data.candidate_id === entry.candidate_id
+                )
+              ? "after-green"
+              : entry.candidate_id === null
+              ? "before-green"
+              : "unknown",
+          },
+        });
+      }
+    }
     for (const id of invalidation?.candidate_ids ?? []) {
       const candidate = candidates.get(id);
       if (candidate === undefined || invalidation === null) continue;

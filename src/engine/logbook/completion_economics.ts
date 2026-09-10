@@ -1,6 +1,7 @@
 /** Advisory accounting over emitted completion facts, never an ownership reader. */
 import type { CompletionEvent } from "../completion/protocol.ts";
 import { canonicalJson } from "./validation.ts";
+import { median } from "./summary_math.ts";
 import type {
   CompletionEconomics,
   CompletionIntervalEconomics,
@@ -45,6 +46,16 @@ export function intervalEconomics(
 function observationIdentity(event: CompletionEvent): string {
   const fact = event.fact;
   switch (fact.kind) {
+    case "admitted":
+      return canonicalJson([fact.kind, fact.proof_id]);
+    case "validation-summary":
+      return canonicalJson([
+        fact.kind,
+        event.attempt_id ?? event.id,
+        event.executor_operation,
+      ]);
+    case "withdrawn":
+      return event.id;
     case "command-started":
     case "command-finished":
       return canonicalJson([fact.kind, fact.execution_id]);
@@ -235,6 +246,103 @@ function conflictingReceipts(events: readonly CompletionEvent[]): Set<string> {
   return conflicts;
 }
 
+/** A prediction needs observed admission and an unambiguous later outcome in this window. */
+function predictionObservations(events: readonly CompletionEvent[]): {
+  eligible_predictions: number | null;
+  prediction_denominator: number | null;
+  prediction_miss_rate: number | null;
+  successful_predictions: number;
+  unresolved_predictions: number;
+  conflicting_prediction_outcomes: number;
+  withdrawals_before_green: number;
+  invalidated_candidate_executions: number | null;
+  invalidated_candidate_producer_work_ms: number | null;
+} {
+  const admissions = new Map<string, CompletionEvent>();
+  const invalidated = new Set<string>();
+  const landed = new Set<string>();
+  const exceptions = new Set<string>();
+  const conflicts = new Set<string>();
+  const withdrawnBefore = new Set<string>();
+  const outcomesByCandidate = new Map<string, CompletionEvent[]>();
+  let observedAdmissions = 0;
+  for (const event of events) {
+    const fact = event.fact;
+    if (fact.kind === "withdrawn" && fact.admission === "before-green") {
+      withdrawnBefore.add(canonicalJson([event.effort_id, event.source_head]));
+    }
+    const id = event.candidate_id;
+    if (id === null) continue;
+    if (fact.kind === "admitted") {
+      observedAdmissions++;
+      if (
+        fact.mode !== "strict" || !fact.eligible_prediction ||
+        fact.expected_predecessor_candidate_id === null
+      ) continue;
+      const prior = admissions.get(id);
+      if (
+        prior !== undefined &&
+        (prior.source_head !== event.source_head ||
+          prior.effort_id !== event.effort_id ||
+          (prior.fact.kind === "admitted" &&
+            prior.fact.expected_predecessor_candidate_id !==
+              fact.expected_predecessor_candidate_id))
+      ) conflicts.add(id);
+      if (prior === undefined || event.at < prior.at) admissions.set(id, event);
+    }
+    if (
+      fact.kind === "invalidated" ||
+      (fact.kind === "landing" && fact.outcome === "landed")
+    ) {
+      const outcomes = outcomesByCandidate.get(id) ?? [];
+      outcomes.push(event);
+      outcomesByCandidate.set(id, outcomes);
+    }
+    if (fact.kind === "invalidated") invalidated.add(id);
+    if (fact.kind === "landing" && fact.outcome === "landed") {
+      (fact.claim_kind === "normal" ? landed : exceptions).add(id);
+    }
+  }
+  let successes = 0;
+  let misses = 0;
+  for (const [id, admitted] of admissions) {
+    const outcomes = outcomesByCandidate.get(id) ?? [];
+    if (
+      outcomes.some((event) =>
+        event.at < admitted.at || event.source_head !== admitted.source_head ||
+        event.effort_id !== admitted.effort_id
+      ) ||
+      (invalidated.has(id) && landed.has(id)) || exceptions.has(id)
+    ) conflicts.add(id);
+    if (conflicts.has(id)) continue;
+    if (invalidated.has(id)) misses++;
+    else if (landed.has(id)) successes++;
+  }
+  const work = events.filter((event) =>
+    event.candidate_id !== null && invalidated.has(event.candidate_id) &&
+    event.fact.kind === "command-finished" && event.fact.role === "producer"
+  );
+  const workCommands = commandObservations([
+    ...events.filter((event) =>
+      event.candidate_id !== null && invalidated.has(event.candidate_id) &&
+      event.fact.kind === "command-started"
+    ),
+    ...work,
+  ]);
+  const resolved = successes + misses;
+  return {
+    eligible_predictions: observedAdmissions === 0 ? null : admissions.size,
+    prediction_denominator: observedAdmissions === 0 ? null : resolved,
+    prediction_miss_rate: resolved === 0 ? null : misses / resolved,
+    successful_predictions: successes,
+    unresolved_predictions: admissions.size - resolved - conflicts.size,
+    conflicting_prediction_outcomes: conflicts.size,
+    withdrawals_before_green: withdrawnBefore.size,
+    invalidated_candidate_executions: workCommands.producer_executions,
+    invalidated_candidate_producer_work_ms: workCommands.producer_work_ms,
+  };
+}
+
 /** Read the historical contract at its actual resolution; absent newer facts stay unknown. */
 export function completionEconomics(
   observations: readonly CompletionEvent[],
@@ -242,6 +350,21 @@ export function completionEconomics(
   const unique = uniqueObservations(observations);
   const receiptConflicts = conflictingReceipts(observations);
   const events = unique.events;
+  const summaries = events.filter((event) =>
+    event.fact.kind === "validation-summary" && event.attempt_id !== null &&
+    event.environment_id !== null
+  );
+  const startedAttempts = new Set(
+    events.filter((event) =>
+      event.fact.kind === "command-started" && event.fact.role === "producer"
+    )
+      .map((event) => event.attempt_id),
+  );
+  const reuseOnly = summaries.filter((event) =>
+    event.fact.kind === "validation-summary" &&
+    event.fact.producer_executions === 0 &&
+    !startedAttempts.has(event.attempt_id) && event.fact.reused_receipts > 0
+  );
   const { intervals: commandIntervals, ...commands } = commandObservations(
     events,
   );
@@ -269,6 +392,9 @@ export function completionEconomics(
   for (const event of events) {
     const fact = event.fact;
     switch (fact.kind) {
+      case "admitted":
+      case "withdrawn":
+      case "validation-summary":
       case "command-started":
       case "command-finished":
         break;
@@ -347,6 +473,41 @@ export function completionEconomics(
     reused_receipts: reused.size,
     unknown_component_use_identity: unknownComponentUseIdentity,
     ...commands,
+    producer_executions: commands.producer_executions ??
+      (summaries.length > 0 &&
+          summaries.every((event) =>
+            event.fact.kind === "validation-summary" &&
+            event.fact.producer_executions === 0
+          ) &&
+          commands.unknown_command_identity === 0 &&
+          commands.unmatched_command_results === 0 && unique.conflicts === 0
+        ? 0
+        : null),
+    validation_runs: summaries.length,
+    reuse_only_runs: reuseOnly.length,
+    ...predictionObservations(events),
+    latencies: Object.fromEntries(
+      (["approval-to-land", "validation-feedback"] as const).map((category) => {
+        const intervals = timings.get(category) ?? [];
+        const durations = intervals.filter((span) =>
+          Number.isFinite(span.started_at) &&
+          Number.isFinite(span.finished_at) && span.started_at >= 0 &&
+          span.finished_at >= span.started_at
+        )
+          .map((span) => span.finished_at - span.started_at);
+        return [category, {
+          observations: durations.length,
+          unknown: intervals.length - durations.length,
+          median_ms: durations.length === 0 ? null : median(durations),
+          min_ms: durations.length === 0
+            ? null
+            : durations.reduce((min, value) => Math.min(min, value), Infinity),
+          max_ms: durations.length === 0
+            ? null
+            : durations.reduce((max, value) => Math.max(max, value), -Infinity),
+        }];
+      }),
+    ),
     timing: Object.fromEntries(
       [...timings].map((
         [category, intervals],
@@ -357,8 +518,6 @@ export function completionEconomics(
       [...invalidations].map(([reason, ids]) => [reason, ids.size]),
     ),
     invalidated_predictions: predictions.size,
-    prediction_denominator: null,
-    prediction_miss_rate: null,
     withdrawals_after_prediction: withdrawnPredictions.size,
     withdrawals_without_prediction_evidence: otherWithdrawals.size,
     landings: landed.size,
@@ -371,7 +530,7 @@ export function completionEconomics(
       "This advisory window cannot establish ownership, child quiescence, recovery permission, or Proof.",
       "Producer executions count only observed native starts. Missing starts, results or older events make the window incomplete; an unmatched start establishes neither activity nor death.",
       "Producer work is summed command-to-captured-result elapsed duration, not CPU time. Component receipts and extractor processes do not multiply producer executions.",
-      "Invalidations do not supply all eligible predictions; a miss rate needs observed admission and resolved outcomes.",
+      "Prediction rates cover observed eligible admissions with resolved outcomes in this window. Pending, contradictory and emergency outcomes are excluded; invalidated work may be reused and is not automatically discarded.",
       "A missing return duration or recovery executor identity is unknown; an interrupted attempt has no inferred failed verdict.",
       "Category spans can overlap. Their sums are separate work observations, not additive elapsed completion time or CPU time.",
       "Retirement outcomes do not establish storage reclamation or a leak; retained historical references remain valid.",

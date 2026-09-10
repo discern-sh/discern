@@ -1,3 +1,5 @@
+import { completionEconomicsLines } from "./completion_economics_presentation.ts";
+import { CompletionEconomicsSchema } from "./patterns_vocabulary.ts";
 /**
  * Authored Markdown presentations for serialized Discern results.
  *
@@ -1655,6 +1657,7 @@ const presentAwait: ResultMarkdownPresenter = (result) => {
 const presentPatterns: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const findings = records(data.findings);
+  const completion = CompletionEconomicsSchema.safeParse(data.completion);
   return {
     state: defaultState(
       result,
@@ -1663,6 +1666,7 @@ const presentPatterns: ResultMarkdownPresenter = (result) => {
       }.`,
     ),
     evidence: unique([
+      ...(completion.success ? completionEconomicsLines(completion.data) : []),
       ...findings.slice(0, MAX_LIST_ITEMS).flatMap((finding) => [
         text(finding.summary),
         text(finding.observed) === undefined

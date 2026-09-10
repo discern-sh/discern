@@ -20,6 +20,7 @@ import { withCompletionCheckout } from "../operation_lock.ts";
 import type {
   ClaimedExecution,
   CompletionBlocker,
+  CompletionEvent,
   ValidationPlan,
 } from "../completion/protocol.ts";
 import type { Candidate } from "../completion/candidate.ts";
@@ -175,8 +176,12 @@ export async function withPublicCompletion<T>(
 ): Promise<
   CompletedCandidate<T> | CompletionBlocker | { readonly kind: "replan" }
 > {
+  const requestedAt = SYSTEM_CLOCK.wallNow();
+  let attribution: Omit<CompletionEvent, "id" | "at" | "fact"> | undefined;
   const root = await Deno.realPath(rootInput);
-  return await withCompletionCheckout(root, async (signal) => {
+  const completed = await withCompletionCheckout<
+    CompletedCandidate<T> | CompletionBlocker | { readonly kind: "replan" }
+  >(root, async (signal) => {
     const config = await loadConfig(root);
     let identity;
     try {
@@ -199,6 +204,14 @@ export async function withPublicCompletion<T>(
         originating_effort: source.effort_id,
         started_at: SYSTEM_CLOCK.wallNow(),
       };
+    attribution = {
+      effort_id: source.effort_id,
+      source_head: source.head,
+      candidate_id: null,
+      environment_id: null,
+      attempt_id: null,
+      executor_operation: actor.operation_id,
+    };
     const trunk = integrationBranch(config.repository.trunk);
     const trunkHead = await gitValue(root, ["rev-parse", `${trunk}^{commit}`]);
     const queueReading = await readCompletionRecord(root, {
@@ -420,6 +433,12 @@ export async function withPublicCompletion<T>(
     if ("kind" in claim) {
       return claim;
     }
+    attribution = {
+      ...attribution,
+      candidate_id: candidateId,
+      environment_id: environmentId,
+      attempt_id: claim.fence.attempt_id,
+    };
     const executor = createEnvironmentExecutor({
       ...(options.afterClaim === undefined ? {} : {
         afterClaimPublication: () =>
@@ -774,4 +793,20 @@ export async function withPublicCompletion<T>(
       blockers: [],
     };
   }, options.signal);
+  if (attribution !== undefined) {
+    const finishedAt = SYSTEM_CLOCK.wallNow();
+    emitCompletionEvent({
+      ...attribution,
+      id: `${attribution.executor_operation}:validation-feedback`,
+      at: finishedAt,
+      fact: {
+        kind: "timing",
+        interval_id: attribution.executor_operation,
+        category: "validation-feedback",
+        started_at: requestedAt,
+        finished_at: finishedAt,
+      },
+    });
+  }
+  return completed;
 }

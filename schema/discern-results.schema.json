@@ -21574,6 +21574,67 @@
                         }
                       ]
                     },
+                    "latencies": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "observations": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "unknown": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "median_ms": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "min_ms": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "max_ms": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "observations",
+                          "unknown",
+                          "median_ms",
+                          "min_ms",
+                          "max_ms"
+                        ]
+                      }
+                    },
                     "timing": {
                       "type": "object",
                       "propertyNames": {
@@ -21678,6 +21739,71 @@
                       }
                     },
                     "invalidated_predictions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "eligible_predictions": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "successful_predictions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "unresolved_predictions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "conflicting_prediction_outcomes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "withdrawals_before_green": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "invalidated_candidate_executions": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "invalidated_candidate_producer_work_ms": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "validation_runs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "reuse_only_runs": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991

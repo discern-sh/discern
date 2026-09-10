@@ -290,6 +290,25 @@ async function settleAdvanced(
       "The recorded authority belongs to another settlement. Preserve this landing for recovery.",
     );
   }
+  if (record.data.outcome.kind === "landed") {
+    emitCompletionEvent({
+      id: `${record.id}:approval-to-land`,
+      at: record.data.outcome.at,
+      effort_id: record.data.source.effort_id,
+      source_head: record.data.source.head,
+      candidate_id: record.data.candidate_id,
+      environment_id: null,
+      attempt_id: record.data.attempt_id,
+      executor_operation: record.data.executor.operation_id,
+      fact: {
+        kind: "timing",
+        interval_id: record.id,
+        category: "approval-to-land",
+        started_at: authority.record.data.approved_at,
+        finished_at: record.data.outcome.at,
+      },
+    });
+  }
   await runtime.afterBoundary?.("authority", record);
   const cleaned = authority.record.data.source.source !== "effort-grant" ||
     await consumeEffortGrantClaimById(runtime.root, record.id, true);

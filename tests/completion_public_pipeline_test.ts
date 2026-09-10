@@ -1,3 +1,4 @@
+import { completionEconomics } from "../src/engine/logbook/completion_economics.ts";
 import {
   type CompletionObservationFact,
   withCompletionObserver,
@@ -126,6 +127,18 @@ Deno.test("complete source-tip pipeline shares producer and preserves standalone
     );
     assert(phases.includes("preparation"));
     assert(phases.includes("return"));
+    assert(phases.includes("validation-feedback"));
+    const admission = facts.flatMap((fact) =>
+      fact.kind === "event" && fact.event.fact.kind === "admitted"
+        ? [fact.event.fact]
+        : []
+    );
+    assertEquals(admission.length, 1);
+    assertEquals(
+      admission[0]?.eligible_prediction,
+      false,
+      "a source-tip Proof is not a prediction about another candidate",
+    );
     assertEquals(uses.length, 3);
     assert(
       uses.every((fact) =>
@@ -156,6 +169,13 @@ Deno.test("complete source-tip pipeline shares producer and preserves standalone
     assert(again.kind === "completed", JSON.stringify(again));
     assertEquals(again.candidate_id, result.candidate_id);
     assertEquals(again.value, {});
+    const reused = completionEconomics(
+      facts.flatMap((fact) => fact.kind === "event" ? [fact.event] : []),
+    );
+    assertEquals(reused.producer_executions, 0);
+    assertEquals(reused.reuse_only_runs, 1);
+    assertEquals(reused.timing["validation-feedback"]?.observations, 1);
+
     assertEquals(
       facts.filter((fact) =>
         fact.kind === "event" && fact.event.fact.kind === "command-started"
