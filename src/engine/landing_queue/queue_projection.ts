@@ -9,6 +9,7 @@
  */
 
 import { quoteCommandWord } from "../../shared/command_evidence.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 import type { StatusQueueRow } from "../../shared/result_schemas.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
 import { commitIsMerged } from "../worktree/git.ts";
@@ -26,6 +27,9 @@ export interface QueueRowFacts {
   readonly reconcilable: boolean;
   /** The trunk's branch name, for the stale-entry sentence. */
   readonly trunk: string;
+  /** The first RECORDED source dependency still unlanded, by display branch —
+   * a fact the effort declared, never an inference from Git ancestry. */
+  readonly blockedOn?: string;
 }
 
 /** One derivation of a queue entry's readiness and single waiting reason. */
@@ -117,26 +121,55 @@ export function queueEntryReadiness(
       reason: "Waiting for the owner's approval.",
     };
   }
+  if (facts.blockedOn !== undefined) {
+    return {
+      readiness: "waiting",
+      reason:
+        `It builds on ${facts.blockedOn}, which lands first — a recorded source dependency.`,
+    };
+  }
   return { readiness: "ready" };
 }
 
-/** Resolve one entry's trunk-reachability facts with bounded Git reads. */
+/** Resolve one entry's trunk-reachability facts with bounded Git reads.
+ * `siblings` supplies the queue's other entries so a recorded, still-unlanded
+ * source dependency can be named. */
 export async function queueRowFacts(
   root: string,
   observation: CompletionObservation,
   entry: QueueEntry,
   trunk: string,
+  siblings: readonly QueueEntry[] = [],
 ): Promise<QueueRowFacts> {
+  const unlanded = entry.dependencies.find((dependency) =>
+    siblings.some((sibling) =>
+      sibling.source.effort_id === dependency && sibling.state !== "landed" &&
+      sibling.state !== "withdrawn"
+    )
+  );
+  const blocked = unlanded === undefined ? undefined : siblings.find((
+    sibling,
+  ) => sibling.source.effort_id === unlanded);
+  const dependency = blocked === undefined
+    ? {}
+    : { blockedOn: displayBranch(blocked.source.branch) };
   const onTrunk = entry.state !== "active" &&
     await commitIsMerged(root, entry.source.head, trunk);
-  if (!onTrunk) return { onTrunk: false, reconcilable: false, trunk };
+  if (!onTrunk) {
+    return { onTrunk: false, reconcilable: false, trunk, ...dependency };
+  }
   const integrated = await observeExternalIntegration(
     root,
     observation,
     entry.source.branch,
     entry.source.head,
   );
-  return { onTrunk: true, reconcilable: !("kind" in integrated), trunk };
+  return {
+    onTrunk: true,
+    reconcilable: !("kind" in integrated),
+    trunk,
+    ...dependency,
+  };
 }
 
 /**
@@ -154,7 +187,13 @@ export async function queueOrderProjection(
   if (queue?.kind !== "queue") return [];
   const rows: StatusQueueRow[] = [];
   for (const entry of orderedEntries(queue.data, { includeHeld: true })) {
-    const facts = await queueRowFacts(root, observation, entry, trunk);
+    const facts = await queueRowFacts(
+      root,
+      observation,
+      entry,
+      trunk,
+      queue.data.entries,
+    );
     rows.push({
       effort: entry.source.effort_id,
       branch: entry.source.branch,

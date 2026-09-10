@@ -274,6 +274,7 @@ async function acceptQueueImplementation(
             initialObservation,
             stale,
             trunk,
+            initialQueue?.data.entries ?? [],
           );
           return facts.onTrunk
             ? queueEntryReadiness(stale, facts).reason
@@ -710,7 +711,13 @@ async function acceptQueueImplementation(
             merged.push(existing);
             continue;
           }
-          const facts = await queueRowFacts(root, observation, listed, trunk);
+          const facts = await queueRowFacts(
+            root,
+            observation,
+            listed,
+            trunk,
+            current.record.data.entries,
+          );
           const readiness = queueEntryReadiness(listed, facts);
           merged.push({
             ...acceptancePrefix(

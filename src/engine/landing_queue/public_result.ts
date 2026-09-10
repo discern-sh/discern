@@ -102,11 +102,31 @@ export function acceptancePending(
       reason =
         "The next effort in the queue needs the owner's recorded approval for its current source.";
       break;
-    case "missing-judgment":
-      reason = `A checkpoint or standard decision is still required${
-        "subjects" in blocker ? ": " + blocker.subjects.join(", ") : "."
-      }`;
+    case "missing-judgment": {
+      const subjects = "subjects" in blocker ? blocker.subjects : [];
+      // Queue decisions have their own plain sentences, so a first paragraph
+      // never shows the recorded subject tokens for these causes.
+      const decisions: Readonly<Record<string, string>> = {
+        "effort-held":
+          "The owner put this effort on hold. Resume it with discern accept resume --target <effort-id>, then retry acceptance.",
+        "effort-withdrawn":
+          "This effort was withdrawn from the queue. A fresh discern done from its worktree re-enrols it.",
+        "source-dependency-cycle":
+          "The recorded source dependencies form a cycle; correct the declared dependencies before approval.",
+        "source-dependency-order":
+          "The requested order puts an effort before one it builds on; keep each recorded source dependency ahead of its dependent.",
+        "queue-order-changed":
+          "The queue changed since the displayed order; preview the decision again and use its fresh token.",
+      };
+      const translated = subjects.length === 1 && subjects[0] !== undefined
+        ? decisions[subjects[0]]
+        : undefined;
+      reason = translated ??
+        `A checkpoint or standard decision is still required${
+          subjects.length ? ": " + subjects.join(", ") : "."
+        }`;
       break;
+    }
     case "validation-failed":
       reason =
         "Its checks failed. Fix the reported diagnostics, rerun discern done, then retry acceptance.";
