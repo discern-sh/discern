@@ -1,6 +1,6 @@
 ---
 title: Start, update, and accept
-description: How discern creates efforts, validates candidates, lands authorized prefixes, and retires released checkouts.
+description: How discern creates efforts, validates candidates, lands approved work in order, and retires released checkouts.
 order: 10
 aliases:
   - discern start
@@ -62,7 +62,7 @@ Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensur
 
 Commit the final source and run `discern done`. Complete strict evidence admits its immutable candidate to the green queue. [Landing authority](landing-authority.md) remains separate: each source needs its own conversation consent or recorded grant, and any checkpoint variance or standard proposal needs its exact owner decision.
 
-An active `discern accept` advances the authorized prefix in order. Each row identifies source, candidate, expected trunk, target, authority, preview actions, and pending reasons. A predecessor can land while a later entry waits for validation or a decision. With no active accept actor, no landing occurs.
+An active `discern accept` advances the approved efforts in queue order. Each row identifies source, candidate, expected trunk, target, authority, preview actions, and pending reasons. A predecessor can land while a later entry waits for validation or a decision. With no active accept actor, no landing occurs.
 
 Validation and composition execute outside the short shared publication locks. Stale evidence can be refreshed only in an eligible, explicitly released environment. Without one, the effort follows the returned `update` and `done` remedy. Source edits, changed policy, changed judgment, and unavailable environments remain distinct from red validation. A generated composition retains the reviewed source identity and procedure while producing its own exact candidate commit.
 

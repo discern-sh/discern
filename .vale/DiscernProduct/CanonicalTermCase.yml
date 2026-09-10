@@ -29,6 +29,7 @@ tokens:
   - (?:\b|_)[A-Za-z][\w-]*\s+Desks?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Engines?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+File\s+ownerships?\b
+  - (?:\b|_)[A-Za-z][\w-]*\s+Efforts?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Fleets?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Gates?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Generated\s+files?\b
