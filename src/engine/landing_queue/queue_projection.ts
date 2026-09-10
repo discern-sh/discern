@@ -172,6 +172,21 @@ export async function queueRowFacts(
   };
 }
 
+/** Status's read-only view of the queue: the projection, or nothing when the
+ * trunk or record store cannot be read — orientation colour never fails the
+ * observation that reports it. */
+export async function statusQueueRows(
+  root: string,
+  trunk: string,
+): Promise<StatusQueueRow[]> {
+  try {
+    return await queueOrderProjection(root, trunk);
+  } catch {
+    // discern-best-effort: status-queue-projection-fallback
+    return [];
+  }
+}
+
 /**
  * Project the queue in the order landing would take it, held efforts shown in
  * place. Returns an empty list when no queue exists or every entry settled.

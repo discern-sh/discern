@@ -3,7 +3,7 @@ import {
   completionStatusPresentation,
 } from "./completion_recovery.ts";
 import { checkoutLandingStatus } from "./checkout_landing.ts";
-import { queueOrderProjection } from "../landing_queue/queue_projection.ts";
+import { statusQueueRows } from "../landing_queue/queue_projection.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -389,13 +389,9 @@ export async function statusResult(
   }
   // The landing queue in order — the same derivation `accept --dry-run`
   // consumes, so the two surfaces agree. Read-only; absent when empty.
-  try {
-    const queueRows = await queueOrderProjection(root, mainBranch);
-    if (queueRows.length > 0) {
-      data.queue = queueRows;
-    }
-  } catch {
-    // discern-best-effort: status-queue-projection-fallback
+  const queueRows = await statusQueueRows(root, mainBranch);
+  if (queueRows.length > 0) {
+    data.queue = queueRows;
   }
   const gateProof = location === "worktree"
     ? await inspectGateProof(root)

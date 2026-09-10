@@ -15,17 +15,14 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import {
-  checkoutOutcomeSentence,
-  landedCheckoutFacts,
-} from "./result_completion.ts";
+import { landedCheckoutFacts } from "./result_completion.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
   code,
-  displayBranch,
   number,
   object,
+  plural,
   records,
   strings,
   text,
@@ -33,6 +30,13 @@ import {
   uniqueVerbatim,
   verbatimText,
 } from "./result_markdown_values.ts";
+import {
+  acceptOrganization,
+  checkpointEconomicsLine,
+  checkpointRowLine,
+  emergencyValidationFacts,
+  statusQueueFacts,
+} from "./result_markdown_queue.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
 import { describeEnvironmentProbe } from "./environment_probe.ts";
 import {
@@ -88,11 +92,6 @@ function configIssuesOf(
 function commandName(result: Readonly<Record<string, unknown>>): string {
   const verb = text(result.verb) ?? "result";
   return verb === "discern" ? "discern" : `discern ${verb}`;
-}
-
-/** Render a counted noun with its singular or plural form. */
-function plural(count: number, one: string, many = `${one}s`): string {
-  return `${count} ${count === 1 ? one : many}`;
 }
 
 /** The one bounded-list overflow sentence, so every count agrees with its noun. */
@@ -1182,15 +1181,6 @@ function producerEvidenceFacts(data: Record<string, unknown>): string[] {
   ].filter((fact): fact is string => fact !== undefined);
 }
 
-/** Outstanding emergency checks stay visible wherever normal completion state is presented. */
-function emergencyValidationFacts(data: Record<string, unknown>): string[] {
-  return records(data.emergency_validation).map((row) =>
-    `Emergency ${code(row.landing_id)}: validation ${
-      text(row.state) ?? "outstanding"
-    }. ${text(row.next_action) ?? ""}`
-  );
-}
-
 const presentGate: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const checkpoints = object(data.checkpoints);
@@ -1313,103 +1303,6 @@ const presentImprovement: ResultMarkdownPresenter = (result) => {
     action: text(next?.action) === undefined ? [] : [text(next?.action) ?? ""],
   };
 };
-
-/** One checkpoint row's compact state phrase, from the serialized fields. */
-function checkpointRowLine(row: Record<string, unknown>): string {
-  const id = code(row.id);
-  const mode = text(row.mode) ?? "stop";
-  const obligation = text(row.obligation);
-  const openQuestion = object(row.open_question);
-  const preview = object(row.preview);
-  const question = text(row.question);
-  const source = text(row.question_file);
-  const reference = text(row.reference);
-  const withQuestion = (phrase: string): string =>
-    [
-      phrase,
-      question === undefined ? undefined : `Question: ${question}`,
-      source === undefined ? undefined : `Question source: ${code(source)}.`,
-      reference === undefined ? undefined : `Reference: ${code(reference)}.`,
-    ].filter((part): part is string => part !== undefined).join("\n\n");
-  if (obligation === "unknown") {
-    return withQuestion(
-      `${id} (${mode}): strict obligation unknown — checkpoint state failed open.`,
-    );
-  }
-  if (
-    openQuestion !== undefined && obligation !== "none" &&
-    obligation !== "will_open"
-  ) {
-    const declaration = object(openQuestion.declaration);
-    const why = text(declaration?.why);
-    switch (text(openQuestion.state)) {
-      case "declared_met":
-        return withQuestion(`${id} (${mode}): declared met.`);
-      case "declared_unmet":
-        return withQuestion(
-          `${id} (${mode}): declared unmet${
-            openQuestion.variance_required === true
-              ? " — owner variance required to land"
-              : ""
-          }${
-            // The rationale is opaque agent evidence: in an interpreted
-            // Markdown document it renders only through the code-span escaping
-            // boundary, exactly as the Proof page renders it.
-            why === undefined ? "" : `. Rationale: ${code(why)}`}.`,
-        );
-      case "reopened":
-        return withQuestion(
-          `${id} (${mode}): reopened — a relevant change unbound the declared conclusion; declare again.`,
-        );
-      default:
-        return withQuestion(
-          `${id} (${mode}): awaiting a declared conclusion.`,
-        );
-    }
-  }
-  if (preview === undefined) {
-    return withQuestion(
-      `${id} (${mode}): state unknown — the effort diff could not be read.`,
-    );
-  }
-  if (preview.holds !== true) {
-    return withQuestion(`${id} (${mode}): idle.`);
-  }
-  const matched = strings(preview.matched).length;
-  if (preview.when_pending === true) {
-    return withQuestion(
-      `${id} (${mode}): may fire at done — its when command decides (${matched} matched).`,
-    );
-  }
-  return withQuestion(
-    `${id} (${mode}): would fire at done (${matched} matched).`,
-  );
-}
-
-/** One observed-economics row as a compact Markdown line. */
-function checkpointEconomicsLine(row: Record<string, unknown>): string {
-  const firedOn = number(row.efforts_fired) ?? 0;
-  const fires = number(row.fires) ?? 0;
-  const declared = number(row.declared) ?? 0;
-  const unchanged = number(row.declared_unchanged) ?? 0;
-  const unmet = number(row.declared_unmet) ?? 0;
-  const variances = number(row.variances) ?? 0;
-  const landed = number(row.efforts_landed) ?? 0;
-  const median = number(row.median_declare_s);
-  const parts = [
-    `fired on ${firedOn} effort${firedOn === 1 ? "" : "s"} (${
-      plural(fires, "serving")
-    })`,
-    declared === 0
-      ? undefined
-      : `declared ${declared} (${unchanged} on an unchanged subject, ${unmet} unmet)`,
-    variances === 0
-      ? undefined
-      : `${plural(variances, "authorized variance")} across ${landed} landed`,
-    median === undefined ? undefined : `median time to declare ${median}s`,
-  ].filter((part): part is string => part !== undefined);
-  return `Observed: ${code(row.id)} ${parts.join("; ")}.`;
-}
 
 const presentCheckpoints: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
@@ -1765,6 +1658,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       `${code(branch)} — ${checkpointDropLine(drop)}`
     );
   });
+  const queueFacts = statusQueueFacts(data, MAX_LIST_ITEMS);
   return {
     state: defaultState(result, state),
     evidence: unique([
@@ -1796,22 +1690,9 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
           notApplicableCountLabel(number(setupAssurance.not_applicable) ?? 0)
         }; verdict ${code(setupAssurance.verdict)}.`,
       gateProofFact(data.gate_proof),
-      ...records(data.queue).slice(0, MAX_LIST_ITEMS).map((row) => {
-        const readiness = text(row.readiness);
-        const state = readiness === "ready"
-          ? "ready to land"
-          : readiness === "landing"
-          ? "landing now"
-          : boolean(row.held) === true
-          ? "on hold"
-          : "waiting";
-        const reason = text(row.reason);
-        return `Queue ${number(row.position) ?? "?"}: ${
-          code(displayBranch(text(row.branch) ?? "unknown"))
-        } — ${state}${reason === undefined ? "." : `: ${reason}`}`;
-      }),
-      records(data.queue).length > MAX_LIST_ITEMS
-        ? omitted(records(data.queue).length - MAX_LIST_ITEMS, "queue row")
+      ...queueFacts.lines,
+      queueFacts.overflow > 0
+        ? omitted(queueFacts.overflow, "queue row")
         : undefined,
       fleetTotal === 0
         ? undefined
@@ -1904,41 +1785,19 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const consent = object(data.consent);
   const landing = object(data.landing);
-  const prefixes = records(data.queue);
   // The selected effort's section comes first, then the efforts ahead of it,
   // then everything else — the same organisation as the terminal message.
-  const selectedEffort = text(data.selected_effort);
-  const own = selectedEffort === undefined
-    ? undefined
-    : prefixes.find((row) => text(row.effort) === selectedEffort);
-  const rows = own === undefined
-    ? prefixes
-    : [own, ...prefixes.filter((row) => row !== own)];
-  const ownBranch = own === undefined
-    ? undefined
-    : displayBranch(text(own.branch) ?? selectedEffort ?? "");
-  const ownVerdict = own === undefined || ownBranch === undefined
-    ? undefined
-    : text(own.state) === "landed"
-    ? `Selected effort ${code(ownBranch)}: landed. ${
-      checkoutOutcomeSentence(own)
-    }`
-    : text(own.state) === "ready"
-    ? `Selected effort ${code(ownBranch)}: ready to land.`
-    : `Selected effort ${code(ownBranch)}: ${
-      result.dry_run === true ? "not ready" : "not landed"
-    }.`;
-  const rowLabel = (row: Record<string, unknown>): string =>
-    own !== undefined && row !== own
-      ? `Ahead in the queue — ${code(text(row.branch) ?? "candidate")}`
-      : code(text(row.branch) ?? "candidate");
+  const { rows, own, verdict, label: rowLabel } = acceptOrganization(
+    data,
+    result.dry_run === true,
+  );
   return {
     state: defaultState(
       result,
-      ownVerdict ??
+      verdict ??
         (text(data.root) === undefined
           ? undefined
-          : prefixes.some((row) => object(row.exception) !== undefined)
+          : rows.some((row) => object(row.exception) !== undefined)
           ? `Recorded landing outcomes for ${code(data.root)}.`
           : `Landed the validated tree into ${code(data.root)}.`),
     ),

@@ -1657,8 +1657,8 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "Fleet rows still report Git facts, while unavailable identity settings cannot safely derive worktree IDs or ports.",
   },
   "status-queue-projection-fallback": {
-    path: "src/engine/status/status.ts",
-    enclosingFunction: "statusResult",
+    path: "src/engine/landing_queue/queue_projection.ts",
+    enclosingFunction: "statusQueueRows",
     operation: "omit the landing-queue rows when the projection cannot read",
     kind: "direct",
     shape: "async",

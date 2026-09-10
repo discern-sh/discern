@@ -39,8 +39,8 @@ import {
   terminalLine,
   terminalMultiline,
 } from "../../lib/terminal.ts";
-import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { compactDuration } from "../output.ts";
+import { landingQueueLines } from "./queue_presentation.ts";
 import { isScopeMarker } from "../scopes/scopes.ts";
 import { taskLabel } from "../worktree/task_label.ts";
 import { isReadyToLand } from "../worktree/readiness.ts";
@@ -1516,22 +1516,7 @@ export function renderStatusDashboard(
 
   // The landing queue, in order: the selected effort is marked, and each row
   // carries its readiness and the single reason it waits.
-  const queueLines = (data.queue ?? []).map((row) => {
-    const branch = displayBranch(row.branch);
-    const mine = data.worktree !== null && data.worktree?.id === row.effort
-      ? " (this effort)"
-      : "";
-    const state = row.readiness === "ready"
-      ? "ready to land"
-      : row.readiness === "landing"
-      ? "landing now"
-      : row.held
-      ? "on hold"
-      : "waiting";
-    return `${row.position}. ${branch}${mine} — ${state}${
-      row.reason === undefined ? "" : `: ${row.reason}`
-    }`;
-  });
+  const queueLines = landingQueueLines(data);
   if (queueLines.length > 0) {
     blocks.push(section(
       "Landing queue",
