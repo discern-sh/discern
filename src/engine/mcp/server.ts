@@ -832,7 +832,10 @@ export const TOOLS: McpTool[] = orderTools([
       "data.requested_timeout_s. The condition returns as soon as it holds. " +
       "On success the hint chooses `discern_start` from the main checkout or " +
       "`discern_update` from an existing worktree, including the green " +
-      "result's immutable commit as `from` when composing below the trunk.",
+      "result's immutable commit as `from` when composing below the trunk. " +
+      "Two handles have different jobs: a progress handle (`R1-…`), announced " +
+      "while the call runs, reads back what this call recorded after a lost " +
+      "call; only `data.resume` (`C1-…`) resumes the wait itself.",
     inputSchema: {
       green: z.string().optional().describe(
         "Sibling selected by worktree id, path, local branch, or full local " +

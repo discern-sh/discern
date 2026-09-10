@@ -111,7 +111,7 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
     );
     assert(handle !== undefined);
     const announcement =
-      `done is running; progress handle ${handle} reconnects to it.`;
+      `done is running; progress handle ${handle} reads it back after a lost call.`;
     // The terminal presented the same sentences, in the same order.
     assertEquals(terminal, [
       { kind: "note", text: announcement },

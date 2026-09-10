@@ -62,9 +62,19 @@ function progressMessage(
     ? `\`${record.operation.verb}\``
     : `\`${record.operation.verb}\` on ${record.operation.branch}`;
   if (record.outcome === "completed" || record.outcome === "failed") {
+    const verdict = record.outcome === "completed"
+      ? "finished and succeeded"
+      : "finished with a failing result";
     const stored = record.result as { message?: string } | undefined;
     const summary = stored?.message === undefined ? "" : ` ${stored.message}`;
-    return `${name} finished.${summary} The retained result is included; nothing needs to run again to read it.`;
+    const retained = record.result === undefined
+      ? "No result was retained for it; run the command again to see one."
+      : record.result_truncated !== true
+      ? "The retained result is included; nothing needs to run again to read it."
+      : record.result_path === undefined
+      ? "Only a reduced account of its result could be retained; the complete envelope was too large to keep."
+      : `A reduced account of its result is included and the complete envelope is retained at ${record.result_path}; nothing needs to run again to read it.`;
+    return `${name} ${verdict}.${summary} ${retained}`;
   }
   if (record.outcome === "cancelled") {
     return `${name} was cancelled before finishing. The facts below are what it had established.`;
