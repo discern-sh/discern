@@ -7,6 +7,7 @@ import {
   runDetector,
 } from "../src/engine/logbook/detectors.ts";
 import { routeDetectorReports } from "../src/engine/logbook/routing.ts";
+import { hasRecordedValidationFailure } from "../src/engine/logbook/validation_findings.ts";
 import type { LogbookEvent, VerbEvent } from "../src/engine/logbook/schema.ts";
 import {
   canaryMiss,
@@ -77,6 +78,39 @@ Deno.test("patterns validation streaks require completed failures, not interrupt
       ).findings,
       [],
     );
+  }
+});
+
+Deno.test("patterns validation failure kinds preserve scope gates and exclude coordination", () => {
+  for (
+    const kind of ["job", "scope-gate", "standard", "resource-create", "git"]
+  ) {
+    for (
+      const outcome of [
+        "ok",
+        "failed",
+        "skipped",
+        "cancelled",
+        "unavailable",
+      ] as const
+    ) {
+      const event = verb({
+        verb: "done",
+        outcome: "failed",
+        failed_stage: "check/test",
+        steps: [{ ...step("scope:docs", 1), kind, outcome }],
+      });
+      const validationKind = ["job", "scope-gate", "standard"].includes(kind);
+      assertEquals(
+        hasRecordedValidationFailure(event),
+        validationKind && outcome === "failed",
+        `${kind}: ${outcome}`,
+      );
+      assertEquals(
+        hasRecordedValidationFailure({ ...event, gate_ran: false }),
+        false,
+      );
+    }
   }
 });
 

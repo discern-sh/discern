@@ -36,7 +36,8 @@ export function hasRecordedValidationFailure(event: VerbEvent): boolean {
   }
   if (event.steps !== undefined) {
     return event.steps.some((step) =>
-      (step.kind === "job" || step.kind === "standard") &&
+      (step.kind === "job" || step.kind === "scope-gate" ||
+        step.kind === "standard") &&
       step.outcome === "failed"
     );
   }
