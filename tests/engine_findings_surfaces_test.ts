@@ -35,7 +35,7 @@ const BRANCH_SUMMARY =
   "This branch had repeated red gates in one conversation.";
 const SESSION_SUMMARY = "The same command refusal recurred on this branch.";
 const SESSION_NEXT =
-  "Read the refusal message and satisfy the precondition it names before retrying. If the same precondition keeps recurring, capture the lesson with the `discern-teach-the-project` skill.";
+  "Read the current refusal and follow its next action. Repeated observations can reflect coordination; the count alone does not establish an instruction gap or author fault.";
 
 /** A deterministic timestamp `n` minutes after the fixture epoch. */
 function at(n: number): string {
