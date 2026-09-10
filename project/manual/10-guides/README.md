@@ -33,6 +33,7 @@ If discern is new to the project, begin with [installation and setup](../00-star
 ## Make and review changes
 
 - [Finish and land a change](finish-and-land-a-change.md): take a request through implementation and checks, review the outcome, and decide whether to add it to the shared project.
+- [Land an urgent repair](land-an-urgent-repair.md): land a fix before its checks can finish, understand what you are accepting, and settle the checks afterwards.
 - [Fix a red gate](fix-a-red-gate.md): understand a failed check and let your agent work through the cause.
 - [Recover an interrupted task](recover-an-interrupted-task.md): continue work after a session ends or an operation stops partway through.
 
