@@ -34,6 +34,8 @@ export interface ProducerWork {
   readonly active?: readonly string[];
   /** The producer's own elapsed time — not the command's, budget's, or return's. */
   readonly elapsed_ms?: number;
+  /** True when the reported counts cover only part of the completed units. */
+  readonly partial?: boolean;
 }
 
 /**

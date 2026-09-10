@@ -44,6 +44,8 @@ export interface ProducerProgressReport {
   };
   readonly active?: readonly string[];
   readonly elapsed_ms?: number;
+  /** True when the reported counts cover only part of the completed units. */
+  readonly partial?: boolean;
   readonly failure?: ProducerProgressFailure;
 }
 
@@ -168,7 +170,8 @@ export function parseProducerProgressLine(
   if (
     units === "invalid" || results === "invalid" || active === "invalid" ||
     failure === "invalid" ||
-    (raw.elapsed_ms !== undefined && elapsed === undefined)
+    (raw.elapsed_ms !== undefined && elapsed === undefined) ||
+    (raw.partial !== undefined && typeof raw.partial !== "boolean")
   ) {
     return undefined;
   }
@@ -177,6 +180,7 @@ export function parseProducerProgressLine(
     ...(results === undefined ? {} : { results }),
     ...(active === undefined ? {} : { active }),
     ...(elapsed === undefined ? {} : { elapsed_ms: elapsed }),
+    ...(raw.partial === true ? { partial: true } : {}),
     ...(failure === undefined ? {} : { failure }),
   };
   return Object.keys(report).length > 0 ? report : undefined;
