@@ -32,6 +32,8 @@ This repository's [canary registry](../../../scripts/canary_registry.ts) owns en
 
 ## Completion accounting
 
+The [report adapter](../../../src/engine/logbook/completion_report.ts) selects eligible recorded observations and presents the shared accounting prose; the [economics reader](../../../src/engine/logbook/completion_economics.ts) owns identity and interval calculations.
+
 The CLI and MCP recorder append canonical executor observations during each recorded operation, independently of its final response. Nested progress presentation receives a separate copy and cannot consume these facts. An unavailable recorder never changes the executor result. Context is gathered once per invocation; observations retain the executor’s actual source and attempt identity when the caller represents another effort.
 
 When completion observations are present, the report keeps source efforts, candidates, attempts, executor operations and landing transactions separate. Repeated delivery counts once by the durable observation identity. Conflicting facts remain an explicit evidence gap. An immutable receipt with contradictory producer or verdict observations across consumers contributes to that gap, never a last-observed verdict.

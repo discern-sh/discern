@@ -35,16 +35,7 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
     recovery:
       "Separate one analyzer phase behind a typed boundary, then remeasure the whole file.",
   },
-  {
-    file: "scripts/promise_effects.ts",
-    maxScore: 97.04,
-    maxCyclo: 218,
-    owner: "maintenance tooling",
-    reason:
-      "Type-aware promise ownership inspection crosses several syntax and effect forms.",
-    recovery:
-      "Extract a cohesive inspection phase and retain exact enrollment and diagnostics.",
-  },
+
   {
     file: "scripts/public_schema_compatibility.ts",
     maxScore: 103.46,

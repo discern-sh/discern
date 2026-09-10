@@ -1,4 +1,11 @@
-import { completionEconomicsLines } from "../../shared/completion_economics_presentation.ts";
+import {
+  completionReportData,
+  meterRow,
+  percent,
+  plural,
+  renderCompletionReport,
+  statsGateRows,
+} from "./completion_report.ts";
 /**
  * `discern patterns` — the logbook's first reader, and the diagnostic ladder's
  * third question: `doctor` asks whether the install is valid, `improvement`
@@ -104,7 +111,6 @@ import { SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
 import { configEpoch } from "./epoch.ts";
 import { computeStats } from "./stats.ts";
-import { completionEconomics } from "./completion_economics.ts";
 import {
   buildStreamFacts,
   inclusiveSpanDays,
@@ -322,11 +328,6 @@ export async function patternsResult(
   const branches = new Set(
     facts.verbs.map((e) => e.branch).filter((b): b is string => b !== null),
   );
-  const completion = facts.events.flatMap((event) =>
-    event.kind === "completion" && event.driver?.ci !== true
-      ? [event.observation]
-      : []
-  );
   const data: PatternsData = {
     logbook: {
       source,
@@ -357,9 +358,7 @@ export async function patternsResult(
       findings: r.findings.length,
     })),
     ...(opts.stats === true ? { stats: computeStats(facts) } : {}),
-    ...(completion.length === 0
-      ? {}
-      : { completion: completionEconomics(completion) }),
+    ...completionReportData(facts.events),
   };
 
   const hints: FiredHint[] = [];
@@ -461,15 +460,6 @@ export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
-
-/** Format a count with its singular or supplied plural noun. */
-function plural(
-  value: number,
-  singular: string,
-  pluralForm = `${singular}s`,
-): string {
-  return `${formatHumanNumber(value)} ${value === 1 ? singular : pluralForm}`;
-}
 
 /** "7 days (2026-07-20 → 2026-07-26) · 2,851 events · 73 branches" */
 function summaryLine(data: PatternsData): string {
@@ -840,18 +830,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     })
   }\n`);
   renderAttentionBanner(out, data, width);
-  if (data.completion !== undefined) {
-    const economics = data.completion;
-    out.raw(`${
-      presenter.present(renderResultSummaryGroupCli, {
-        items: completionEconomicsLines(economics).map((line) => ({
-          state: "unchanged" as const,
-          fact: terminalMultiline(line),
-        })),
-        maxWidth: width,
-      })
-    }\n`);
-  }
+  renderCompletionReport(out, data.completion, width);
   renderInvestigations(out, data.investigations, width);
 
   if (data.logbook.events === 0) {
@@ -903,18 +882,8 @@ export const STATS_SECTIONS = {
   breadth: "Breadth",
 } as const;
 
-/** Render a count pair as a rounded percentage for the stats card. */
-function percent(part: number, whole: number): string {
-  return `${Math.round((part / whole) * 100)}%`;
-}
-
 /** Package Meter cap keeps the reading legible without filling wide terminals. */
 export const STATS_METER_WIDTH = 48;
-
-/** A proportion row keeps the explicit denominator beside its percentage. */
-function meterRow(fraction: number, text: string): string {
-  return `${Math.round(fraction * 100)}% · ${text}`;
-}
 
 /** Cadence label beside a sparkline — "accepted per day", or the folded form
  * once the span outgrew the wire cap. */
@@ -1032,64 +1001,6 @@ function statsAcceptedRows(
         }`,
       );
     }
-  }
-  return rows;
-}
-
-/** Recorded completion-call outcomes and command-time sums, without inferring
- * validation failure or physical execution. Streaks of one stay off the card. */
-function statsGateRows(gate: PatternsStats["gate"]): string[] {
-  if (gate.runs === 0) {
-    return ["No `done` runs yet."];
-  }
-  const rows = [
-    meterRow(
-      gate.greens / gate.runs,
-      `${formatHumanNumber(gate.greens)} of ${
-        plural(gate.runs, "`done` run")
-      } green (${percent(gate.greens, gate.runs)})`,
-    ),
-  ];
-  if (gate.gated_branches > 0) {
-    rows.push(
-      meterRow(
-        gate.first_try_green_branches / gate.gated_branches,
-        `${formatHumanNumber(gate.first_try_green_branches)} of ${
-          plural(gate.gated_branches, "branch", "branches")
-        } green first try (${
-          percent(gate.first_try_green_branches, gate.gated_branches)
-        })`,
-      ),
-    );
-  }
-  const reds = gate.runs - gate.greens;
-  if (reds > 0) {
-    rows.push(
-      `${
-        plural(reds, "non-green `done` result")
-      }; validation, coordination and recovery outcomes differ`,
-    );
-  }
-  const tail: string[] = [];
-  if (gate.longest_green_streak > 1) {
-    tail.push(
-      `longest green streak ${formatHumanNumber(gate.longest_green_streak)}`,
-    );
-  }
-  if (gate.current_green_streak > 1) {
-    tail.push(
-      `current ${formatHumanNumber(gate.current_green_streak)}`,
-    );
-  }
-  if (gate.check_hours > 0) {
-    tail.push(
-      `${
-        formatHumanNumber(gate.check_hours)
-      }h summed command durations (\`done\` · \`prepare\` · \`test\`; includes waits and overlap)`,
-    );
-  }
-  if (tail.length > 0) {
-    rows.push(tail.join(" · "));
   }
   return rows;
 }
