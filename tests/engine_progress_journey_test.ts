@@ -1,6 +1,6 @@
 /** A real done narrates producer counts and leaves a reconnectable journal. */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { engineEnv, engineRunArgs } from "./engine_helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
@@ -11,6 +11,7 @@ import {
   waitUntil,
 } from "./waiting.ts";
 import { readPidsIfReady } from "./process_id.ts";
+import { shellBarrier } from "./shell_barrier.ts";
 import { completionProcessAlive } from "./completion_mcp_fixture.ts";
 
 const REPORTING_PRODUCER = [
@@ -25,13 +26,16 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
     const run = await runAgent(path, ["done"]);
     assertEquals(run.code, 0, run.output);
     // The producer's own counts reached the static terminal as sentences.
-    assertStringIncludes(run.output, "Running test: 1 of 2 suites done.");
-    assertStringIncludes(
+    assertTerminalTextIncludes(
+      run.output,
+      "Running test: 1 of 2 suites done.",
+    );
+    assertTerminalTextIncludes(
       run.output,
       "Running test: 2 of 2 suites done, no failures so far.",
     );
     // The reconnect handle was announced at the start of the run.
-    assertStringIncludes(run.output, "progress handle R1-");
+    assertTerminalTextIncludes(run.output, "progress handle R1-");
     // A second session reads the same operation back without re-running it.
     const read = await operationProgressResult(path);
     assert(read.ok, JSON.stringify(read));
@@ -57,9 +61,10 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
 Deno.test("losing a read-only observer leaves the executing gate running", async () => {
   await withTempDir(async (root) => {
     await withTempDir(async (aux) => {
-      const gated = `echo started > '${aux}/leader'; ` +
-        `until [ -f '${aux}/continue' ]; do sleep 0.05; done; ` +
-        `printf 'DISCERN_METRIC coverage 93\\n'`;
+      // The producer blocks on the barrier until the test acknowledges the
+      // observed state: no elapsed wait anywhere in the journey.
+      using barrier = await shellBarrier(`${aux}/continue`);
+      const gated = `${barrier.wait}; printf 'DISCERN_METRIC coverage 93\\n'`;
       const path = await project(root, ["local"], "", gated);
       const child = new Deno.Command("deno", {
         args: engineRunArgs(["done"]),
@@ -86,7 +91,7 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
         assertEquals(during.data?.outcome, undefined);
         // The observer goes away (no more reads); the executor is released
         // to finish and does.
-        await Deno.writeTextFile(`${aux}/continue`, "go\n");
+        await barrier.release();
         const status = await child.status;
         const output = new TextDecoder().decode(
           (await child.output()).stdout,

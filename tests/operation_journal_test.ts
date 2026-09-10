@@ -13,8 +13,10 @@ import {
   readOperationJournal,
   withOperationJournal,
 } from "../src/engine/completion/operation_journal.ts";
+import { z } from "@zod/zod";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
+import { decodeWith } from "./decode_cli_result.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
 
@@ -429,10 +431,15 @@ Deno.test("an oversized final result keeps a bounded account and retains the com
     assertEquals("data" in stored, false);
     // The complete envelope stays retrievable beside the record.
     assert(reading.record.result_path !== undefined);
-    const complete = JSON.parse(
+    const complete = decodeWith(
+      z.object({
+        ok: z.literal(false),
+        verb: z.literal("done"),
+        data: z.object({ noise: z.string() }),
+      }).passthrough(),
       await Deno.readTextFile(reading.record.result_path),
     );
-    assertEquals(complete, oversized);
+    assertEquals<unknown>(complete, oversized);
     // The sibling shares its record's lifetime: expiring the record through a
     // later create removes both.
     const expired = await openOperationJournal(root, {
@@ -487,8 +494,10 @@ Deno.test("a cancelled run that returns an ordinary envelope records cancelled, 
 Deno.test("reading a stopped executor probes liveness without resuming it", async () => {
   await withTempDir(async (root) => {
     await repository(root);
-    const child = new Deno.Command("sh", {
-      args: ["-c", "sleep 60"],
+    // A process that stays alive without an elapsed wait, so the probe has
+    // something to leave stopped.
+    const child = new Deno.Command("tail", {
+      args: ["-f", "/dev/null"],
       stdout: "null",
       stderr: "null",
     }).spawn();
