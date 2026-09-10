@@ -24,20 +24,20 @@ This tier keeps the accounts that serve agents working on discern. MCP tools sha
 
 For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality gate](../20-quality-gate/) or [worktrees](../30-worktrees/). Reference remains organized for lookup.
 
-| Reference                                                                 | Use it to                                                                                |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [Result formats & delivery](result-surfaces.md)                           | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                |
-| [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.              |
-| [Proof note format](proof-note-format.md)                                 | Consume the durable Proof record attached to each landed commit.                         |
-| [Files & ownership](artifact-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules. |
-| [The Logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.            |
-| [Crash reports](crash-reports.md)                                         | Find the saved report, exit code, and envelope a bug in discern leaves behind.           |
-| [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, identity selectors, and tokens.                   |
-| [MCP call duration](mcp-call-duration.md)                                 | Compare verified tool-call bounds and resumable waits across coding agents.              |
-| [Progress & reconnect](progress-and-reconnect.md)                        | Read a running or lost long operation: live progress facts, the producer protocol, handles. |
-| [Temp files & retention](temp-files-and-retention.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.        |
-| [Logbook lifecycle](logbook-lifecycle.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |
-| [Checkpoint state & declarations](checkpoint-state.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.     |
-| [Checkpoint `when` protocol](checkpoint-when-protocol.md)                 | Consume the versioned command input, match output, and temporary-file lifecycle.         |
-| [Setup command boundaries](setup-command-boundaries.md)                   | Separate setup consent, write access, recovery, and provider activation.                 |
-| [Worktree setup-step recovery](worktree-setup-step-recovery.md)           | Resolve an interrupted one-shot setup command without automatic replay.                  |
+| Reference                                                                 | Use it to                                                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [Result formats & delivery](result-surfaces.md)                           | Choose terminal, Markdown, JSON, or MCP delivery for one prepared result.                   |
+| [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.                 |
+| [Proof note format](proof-note-format.md)                                 | Consume the durable Proof record attached to each landed commit.                            |
+| [Files & ownership](artifact-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules.    |
+| [The Logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.               |
+| [Crash reports](crash-reports.md)                                         | Find the saved report, exit code, and envelope a bug in discern leaves behind.              |
+| [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, identity selectors, and tokens.                      |
+| [MCP call duration](mcp-call-duration.md)                                 | Compare verified tool-call bounds and resumable waits across coding agents.                 |
+| [Progress & reconnect](progress-and-reconnect.md)                         | Read a running or lost long operation: live progress facts, the producer protocol, handles. |
+| [Temp files & retention](temp-files-and-retention.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.           |
+| [Logbook lifecycle](logbook-lifecycle.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.                 |
+| [Checkpoint state & declarations](checkpoint-state.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.        |
+| [Checkpoint `when` protocol](checkpoint-when-protocol.md)                 | Consume the versioned command input, match output, and temporary-file lifecycle.            |
+| [Setup command boundaries](setup-command-boundaries.md)                   | Separate setup consent, write access, recovery, and provider activation.                    |
+| [Worktree setup-step recovery](worktree-setup-step-recovery.md)           | Resolve an interrupted one-shot setup command without automatic replay.                     |
