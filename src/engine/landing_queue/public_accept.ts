@@ -82,6 +82,11 @@ import { planQueueRetirement, retireQueueLanding } from "./retirement.ts";
 import { completionRecordBlocker } from "../completion/compatibility.ts";
 import { reclaimRetirementStorage } from "./retirement_storage.ts";
 
+/** Owners recognise the short branch name; records carry the full ref. */
+function displayBranch(ref: string): string {
+  return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+}
+
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
   readonly signal?: AbortSignal;
@@ -200,26 +205,83 @@ async function acceptQueueImplementation(
     }
     selected = active[0]?.source.effort_id ?? "main";
   }
+  // The owner selected one effort, implicitly by running from its worktree or
+  // explicitly with --target. The walk may land or stop on efforts ahead of it,
+  // so the result leads with the selected effort's own verdict and always
+  // carries its row; a landing headline for a predecessor is never the answer.
   const queueAcceptanceResult = async (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
     const result = await formatQueueAcceptanceResult(...args);
-    if (
-      selected === "main" ||
-      !result.data?.queue?.some((row) => row.state !== "landed")
-    ) return result;
-    const continuation = `discern accept --target ${
-      quoteCommandWord(selected)
-    }`;
+    if (selected === "main") return result;
+    const walked = result.data?.queue ?? [];
+    const reached = walked.find((row) => row.effort === selected);
+    if (reached?.state === "landed") return result;
+    const [, , , , dryRun = false] = args;
+    const entry = initialQueue?.data.entries.find((candidate) =>
+      candidate.source.effort_id === selected
+    );
+    const stoppedAt = [...walked].reverse().find((row) =>
+      row.state !== "landed" && row.effort !== selected
+    );
+    let own = reached;
+    if (own === undefined && entry !== undefined) {
+      const assessed = acceptancePrefix(
+        entry,
+        entry.candidate_id === null
+          ? undefined
+          : details.get(entry.candidate_id),
+      );
+      const conditions =
+        assessed.pending.length > 0 || entry.candidate_id !== null
+          ? assessed.pending
+          : [acceptancePending({ kind: "missing-evidence", requirements: [] })];
+      own = {
+        ...assessed,
+        pending: stoppedAt === undefined ? conditions : [{
+          kind: "not-reached",
+          reason: `Acceptance stopped at ${
+            displayBranch(stoppedAt.branch)
+          }, which is ahead of this effort in the queue.`,
+        }, ...conditions],
+      };
+    }
+    const branch = displayBranch(
+      own?.branch ?? entry?.source.branch ?? `refs/heads/${identity.branch}`,
+    );
+    const verdict = own === undefined
+      ? `Selected effort \`${branch}\`: not validated. Run discern done from its clean committed worktree, then retry acceptance.`
+      : own.state === "ready"
+      ? `Selected effort \`${branch}\`: ready to land.`
+      : `Selected effort \`${branch}\`: ${
+        dryRun ? "not ready" : "not landed"
+      }.${
+        own.pending.length === 0
+          ? ""
+          : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
+      }`;
+    const queue = reached === undefined && own !== undefined
+      ? [...walked, own]
+      : walked;
+    const continuation = own === undefined
+      ? undefined
+      : `discern accept --target ${quoteCommandWord(selected)}`;
     return {
       ...result,
-      data: { ...result.data, continuation },
-      hints: appendHintTexts(result.hints, [
-        fire(HINTS["completion-pending"], {
-          action:
-            `After resolving the named conditions, continue this selected effort with ${continuation}. Each predecessor still needs its own authority.`,
-        }),
-      ]),
+      message: `${verdict}\n\n${result.message ?? ""}`.trimEnd(),
+      data: {
+        ...result.data,
+        queue,
+        ...(continuation === undefined ? {} : { continuation }),
+      },
+      hints: continuation === undefined
+        ? result.hints
+        : appendHintTexts(result.hints, [
+          fire(HINTS["completion-pending"], {
+            action:
+              `After resolving the named conditions, continue this selected effort with ${continuation}. Each predecessor still needs its own authority.`,
+          }),
+        ]),
     };
   };
   const sourceEntry = initialQueue?.data.entries.find((entry) =>

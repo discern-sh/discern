@@ -10,6 +10,7 @@ import {
   observeQueue,
 } from "../src/engine/landing_queue/repository.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
+import { quoteCommandWord } from "../src/shared/command_evidence.ts";
 
 const declaration = `
 [execution.local]
@@ -214,5 +215,91 @@ preview = 'echo preview-second'
       "t",
       "No producer runs without an eligible environment",
     );
+  });
+});
+
+Deno.test("accept from a worktree leads with that effort's own verdict when the walk stops ahead of it", async () => {
+  await withTempDir(async (root) => {
+    await withTempDir(async (aux) => {
+      const first = await project(
+        root,
+        ["local"],
+        declaration,
+        `if test -f ${
+          quoteCommandWord(aux + "/fail")
+        }; then exit 1; fi; printf t >> executions; printf 'DISCERN_METRIC coverage 93\\n'`,
+      );
+      const middle = await addWorktree(root, "middle");
+      await Deno.writeTextFile(`${middle}/middle-source`, "middle author\n");
+      await git(middle, "add", "middle-source");
+      await git(middle, "commit", "-m", "Author middle source");
+      const last = await addWorktree(root, "last");
+      await Deno.writeTextFile(`${last}/last-source`, "last author\n");
+      await git(last, "add", "last-source");
+      await git(last, "commit", "-m", "Author last source");
+      for (const path of [first, middle]) {
+        const done = await runAgent(path, ["done", "--json"]);
+        assertEquals(done.code, 0, done.output);
+      }
+      await Deno.writeTextFile(`${aux}/fail`, "fail\n");
+      const red = await runAgent(last, ["done", "--json"]);
+      assertEquals(red.code, 1, red.output);
+      await Deno.remove(`${aux}/fail`);
+      const firstHead = await gitOut(first, "rev-parse", "HEAD");
+      await grantEffort(
+        first,
+        "agent/public-done",
+        wallTimeIso(SYSTEM_CLOCK.wallNow()),
+      );
+      // The owner runs accept in the last worktree. The approved first effort
+      // lands, the unapproved middle effort stops the walk, and the answer must
+      // still be about the effort the owner is standing in.
+      const accepted = await runAgent(last, ["accept", "--json"]);
+      assertEquals(accepted.code, 1, accepted.output);
+      const result = decodeCliResult(accepted.stdout, "accept");
+      assert(
+        result.data !== undefined && "queue" in result.data,
+        accepted.output,
+      );
+      const rows = result.data.queue ?? [];
+      assertEquals(
+        rows.map((row) => [row.effort, row.state]),
+        [["public-done", "landed"], ["middle", "pending"], ["last", "pending"]],
+      );
+      const own = rows.at(-1);
+      assertEquals(own?.pending[0]?.kind, "not-reached");
+      assert(
+        own?.pending.some((item) =>
+          item.kind === "missing-evidence" || item.kind === "validation-failed"
+        ),
+        accepted.output,
+      );
+      assert(
+        result.message?.startsWith(
+          "Selected effort `agent/last`: not landed.\n- Acceptance stopped at agent/middle",
+        ),
+        result.message,
+      );
+      assertEquals(result.data.continuation, "discern accept --target last");
+      assertEquals(await gitOut(root, "rev-parse", "main"), firstHead);
+      const preview = await runAgent(last, ["accept", "--dry-run", "--json"]);
+      assertEquals(preview.code, 0, preview.output);
+      const previewed = decodeCliResult(preview.stdout, "accept");
+      assert(
+        previewed.message?.startsWith(
+          "Selected effort `agent/last`: not ready.",
+        ),
+        previewed.message,
+      );
+      assert(
+        previewed.data !== undefined && "queue" in previewed.data,
+        preview.output,
+      );
+      assertEquals(
+        previewed.data.queue?.at(-1)?.effort,
+        "last",
+        preview.output,
+      );
+    });
   });
 });
