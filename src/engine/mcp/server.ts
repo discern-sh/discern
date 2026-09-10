@@ -458,7 +458,9 @@ export const TOOLS: McpTool[] = orderTools([
       "cleanliness and trunk divergence; data.gate lists checks that would run; " +
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
-      "separate effort. data.git.trunk is the selected project's configured trunk. " +
+      "separate effort. data.queue lists the landing queue in order — each row one " +
+      "unlanded effort with its readiness and the single reason it waits, the same " +
+      "list an acceptance preview shows. data.git.trunk is the selected project's configured trunk. " +
       "data.setup_unfinished carries pending markers, known-job applicability, " +
       "and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary " +
       "discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive " +
@@ -1073,8 +1075,12 @@ export const TOOLS: McpTool[] = orderTools([
       "positively owned, clean checkouts and their resources after landing. " +
       "Recorded grants never cover a checkpoint variance or standard proposal. " +
       "Without authority the call re-serves the review moment without landing. " +
-      "Follow the reported per-predecessor state and recovery action; earlier " +
-      "authorized predecessors may have landed before a later stop. " +
+      "The result leads with the selected effort's own verdict — chosen by this " +
+      "worktree or target — and data.selected_effort marks its row in data.queue; " +
+      "other efforts follow, labelled, and a landing for one of them is never the " +
+      "selected effort's success. " +
+      "Follow the reported per-effort state and recovery action; earlier " +
+      "authorized efforts may have landed before a later stop. " +
       "Set dry_run to inspect the acceptance plan without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +

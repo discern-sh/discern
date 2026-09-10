@@ -6,6 +6,10 @@ import { queueEntryReadiness } from "../src/engine/landing_queue/queue_projectio
 import type { QueueEntry } from "../src/engine/landing_queue/model.ts";
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
+import {
+  observedRecords,
+  observeQueue,
+} from "../src/engine/landing_queue/repository.ts";
 import { decodeCliResult } from "./decode_cli_result.ts";
 import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, runAgent } from "./engine_helpers.ts";
@@ -166,10 +170,16 @@ Deno.test("status and the acceptance preview list the same ordered queue, and an
         ...(row.on_trunk === undefined ? {} : { on_trunk: row.on_trunk }),
       }));
     };
+    const before = observedRecords(await observeQueue(root, "main"));
     const statusRows = await queueOf();
     assertEquals(
       statusRows.map((row) => row.effort),
       ["public-done", "second"],
+    );
+    assertEquals(
+      observedRecords(await observeQueue(root, "main")),
+      before,
+      "the status queue view is read-only: no record advances or repairs",
     );
     assertStringIncludes(
       statusRows[1]?.reason ?? "",
