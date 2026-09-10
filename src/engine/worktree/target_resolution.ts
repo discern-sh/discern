@@ -203,6 +203,32 @@ export async function conventionalBranchForWorktreeId(
   return `${settings.branchPrefix}${id}`;
 }
 
+/**
+ * The registered checkout that durably belongs to `branch`, including a
+ * managed checkout temporarily detached from it — candidate installation
+ * detaches HEAD while the effort's identity keeps naming its branch. Returns
+ * undefined when no registration matches; a detached checkout whose durable
+ * identity names another branch never matches.
+ */
+export async function worktreePathForEffortBranch(
+  root: string,
+  branch: string,
+): Promise<string | undefined> {
+  for (const row of await listRegisteredWorktrees(root)) {
+    if (row.branch === branch) return row.path;
+  }
+  const settings = await loadIdentitySettings(root);
+  if (!branch.startsWith(settings.branchPrefix)) return undefined;
+  const id = branch.slice(settings.branchPrefix.length);
+  if (normalizeWorktreeId(id) !== id) return undefined;
+  for (const row of await listRegisteredWorktrees(root)) {
+    if (row.isMain || row.branch !== "") continue;
+    const registered = await registrationId(root, row, settings);
+    if (registered === id) return row.path;
+  }
+  return undefined;
+}
+
 /** Refuse a token whose collected evidence names several canonical targets. */
 function ambiguous(
   input: string,
@@ -251,11 +277,32 @@ export async function resolveWorktreeTarget(
   }
 
   const parked = await matchingParked(root, input);
-  const derived = await matchingDerivedBranch(root, input);
+  let derived = await matchingDerivedBranch(root, input);
+  let liveCandidates = live;
+  // A managed checkout temporarily detached from its branch (candidate
+  // installation) and that branch's own name are one line of work, not an
+  // ambiguity: resolve the durable branch and keep the checkout's path.
+  const detached = live.length === 1 && live[0]?.branch === undefined &&
+      live[0]?.id !== undefined
+    ? live[0]
+    : undefined;
+  const durable = derived;
+  if (
+    detached !== undefined && durable !== undefined &&
+    durable.id === detached.id
+  ) {
+    liveCandidates = [];
+    derived = {
+      ...durable,
+      ...(detached.path === undefined ? {} : { path: detached.path }),
+      ...(detached.isMain === undefined ? {} : { isMain: detached.isMain }),
+      directRef: detached.directRef || durable.directRef,
+    };
+  }
   const aliases = new Map<string, TargetCandidate>();
   for (
     const candidate of [
-      ...live,
+      ...liveCandidates,
       ...parked,
       ...(derived === undefined ? [] : [derived]),
     ]

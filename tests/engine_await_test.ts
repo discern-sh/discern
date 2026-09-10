@@ -1133,3 +1133,53 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
     );
   });
 });
+
+Deno.test("await resolves a managed detached checkout from its durable identity, and the handle round-trips", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+    // Candidate installation detaches HEAD; the effort's durable identity
+    // still names its branch, so the watch resolves and its handle stays
+    // readable by its own parser across detach, resume, and reattach.
+    await git(dep, "checkout", "--detach");
+    const watched = await awaitResult(dir, { green: "dep", timeoutSeconds: 0 });
+    assert(watched.ok, JSON.stringify(watched));
+    assert(watched.data !== undefined && "met" in watched.data);
+    assertEquals(watched.data.met, false);
+    assertEquals(watched.data.branch, "agent/dep");
+    const resume = watched.data.resume;
+    assert(resume !== undefined, "a detached watch publishes a usable handle");
+    const resumed = await awaitResult(dir, { resume, timeoutSeconds: 0 });
+    assert(resumed.ok, JSON.stringify(resumed));
+    assert(resumed.data !== undefined && "met" in resumed.data);
+    assertEquals(resumed.data.met, false, JSON.stringify(resumed.data));
+    // Reattached, a proof recorded afterwards satisfies the SAME handle the
+    // detached phase published — the watch's identity survived the round trip.
+    await git(dep, "checkout", "agent/dep");
+    await writeHonoredProof(dep);
+    const green = await awaitResult(dir, { resume, timeoutSeconds: 0 });
+    assert(green.ok, JSON.stringify(green));
+    assert(green.data !== undefined && "met" in green.data);
+    assertEquals(green.data.met, true, JSON.stringify(green.data));
+  });
+});
+
+Deno.test("await refuses an unmanaged detached checkout instead of publishing an unusable handle", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const stray = join(dir, ".worktrees", "stray");
+    await git(dir, "worktree", "add", "--detach", stray);
+    const refused = await awaitResult(dir, {
+      green: stray,
+      timeoutSeconds: 0,
+    });
+    assertEquals(refused.ok, false, JSON.stringify(refused));
+    assertStringIncludes(
+      refused.message ?? "",
+      "no durable effort branch",
+    );
+  });
+});

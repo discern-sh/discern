@@ -68,7 +68,6 @@ import {
   resolveCommitRef,
   resolveCommonGitDir,
   worktreeGitKey,
-  worktreePathForBranch,
 } from "../worktree/git.ts";
 import { inspectGateProof } from "../gate/proof.ts";
 import {
@@ -81,6 +80,7 @@ import {
   conventionalBranchForWorktreeId,
   resolveWorktreeTarget,
   WorktreeTargetError,
+  worktreePathForEffortBranch,
 } from "../worktree/target_resolution.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
@@ -636,8 +636,29 @@ export async function awaitResult(
         mode: "branch",
         command: "discern await",
       });
-      branch = resolved.branch;
-      tip = resolved.commit;
+      if (resolved.branch !== undefined) {
+        branch = resolved.branch;
+        tip = resolved.commit;
+      } else {
+        // A managed checkout mid-candidate-installation is detached; its
+        // durable effort identity still names the branch to watch. An
+        // unmanaged detached target has no such identity — refuse rather
+        // than publish a handle its own reader would reject.
+        const durable = resolved.id === undefined
+          ? undefined
+          : await conventionalBranchForWorktreeId(root, resolved.id);
+        if (
+          durable === undefined || !(await localBranchExists(root, durable))
+        ) {
+          return refusal(
+            "invalid_arguments",
+            `'${suppliedBranch}' names a detached checkout with no durable effort branch. Pass the branch to watch, then re-run discern await.`,
+            failureRecoveryHintTexts("await"),
+          );
+        }
+        branch = durable;
+        tip = await resolveCommitRef(root, `refs/heads/${durable}`);
+      }
     } catch (error) {
       if (error instanceof WorktreeTargetError) {
         return refusal(
@@ -710,7 +731,7 @@ export async function awaitResult(
     branch !== undefined &&
     tip !== undefined
   ) {
-    if (await worktreePathForBranch(root, branch) === undefined) {
+    if (await worktreePathForEffortBranch(root, branch) === undefined) {
       const containing = await nearestContainingBranch(root, branch, trunk);
       return refusal(
         "not_found",
@@ -750,9 +771,12 @@ export async function awaitResult(
     }
     : undefined;
 
-  const continuationPayload = (): AwaitContinuationPayload => {
+  // Every continuation is validated against its own reader before
+  // publication: a handle whose payload the resume parser would reject must
+  // never reach the caller as a usable-looking `--resume` value.
+  const continuationPayload = (): AwaitContinuationPayload | undefined => {
     const currentTip = branchState?.tip ?? tip;
-    return {
+    return parseAwaitContinuationPayload({
       version: ON_DISK_FORMATS.awaitContinuation.version,
       condition,
       ...(branch !== undefined ? { branch } : {}),
@@ -762,8 +786,14 @@ export async function awaitResult(
       ...(branchState !== undefined
         ? { branch_ever_unreachable: branchState.everUnreachable }
         : {}),
-    };
+    });
   };
+  const unpublishable = (): DiscernResult<AwaitData> =>
+    refusal(
+      "invalid_arguments",
+      "discern cannot publish a resumable handle for this watch: its target lacks the durable identity the handle's reader requires. Re-run discern await with the branch to watch.",
+      failureRecoveryHintTexts("await"),
+    );
 
   let last: Evaluation = { met: false, observed: {} };
   const evaluate = async (): Promise<boolean> => {
@@ -785,10 +815,12 @@ export async function awaitResult(
   if (await evaluate()) {
     outcome = "met";
   } else {
+    const initialPayload = continuationPayload();
+    if (initialPayload === undefined) return unpublishable();
     const initialSave = await saveContinuation(
       root,
       "await",
-      continuationPayload(),
+      initialPayload,
       resumeHandle,
     );
     if (initialSave.kind === "unavailable") {
@@ -871,10 +903,12 @@ export async function awaitResult(
     };
   }
 
+  const finalPayload = continuationPayload();
+  if (finalPayload === undefined) return unpublishable();
   const finalSave = await saveContinuation(
     root,
     "await",
-    continuationPayload(),
+    finalPayload,
     resumeHandle,
   );
   if (finalSave.kind === "unavailable") {
@@ -1028,7 +1062,7 @@ async function evaluateCondition(
   // green: the proof is the truth. A landing observed mid-wait satisfies it
   // too, but only after the branch armed the transition above or a durable
   // landed proof note identifies the accepted work.
-  const worktree = await worktreePathForBranch(root, branch);
+  const worktree = await worktreePathForEffortBranch(root, branch);
   let proofStatus: NonNullable<AwaitData["observed"]["proof_status"]> =
     "no-worktree";
   if (worktree !== undefined) {
