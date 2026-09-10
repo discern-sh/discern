@@ -4,7 +4,6 @@ import {
 } from "./completion_recovery.ts";
 import { checkoutLandingStatus } from "./checkout_landing.ts";
 import { statusQueueRows } from "../landing_queue/queue_projection.ts";
-import { displayBranch } from "../../shared/result_markdown_values.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -153,8 +152,6 @@ import {
 } from "../worktree/landing_authority.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import {
-  type BranchLogbookActivity,
-  type DurationPrior,
   type FleetLogbookActivity,
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
@@ -165,7 +162,9 @@ import {
   sortFleetRows,
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
+import { queueCapacityHint } from "./queue_presentation.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
+import { applyLogbookActivity } from "./recent.ts";
 import { parkedTaskEvidence, recentCompletedTasks } from "./recent.ts";
 import {
   planTrackedRefresh,
@@ -916,65 +915,6 @@ async function fleetEntryFor(
   return entry;
 }
 
-/** Later of 2 ISO timestamps, preserving the available value when only one parses. */
-function latestActivity(
-  gitAt: string | undefined,
-  logbookAt: string | undefined,
-): string | undefined {
-  if (gitAt === undefined) {
-    return logbookAt;
-  }
-  if (logbookAt === undefined) {
-    return gitAt;
-  }
-  const gitMs = Date.parse(gitAt);
-  const logbookMs = Date.parse(logbookAt);
-  if (Number.isNaN(logbookMs)) {
-    return gitAt;
-  }
-  if (Number.isNaN(gitMs)) {
-    return logbookAt;
-  }
-  return logbookMs > gitMs ? logbookAt : gitAt;
-}
-
-/** Join one fleet row to the bounded logbook read for its branch. */
-function applyLogbookActivity(
-  entry: StatusFleetEntry,
-  activity: BranchLogbookActivity | undefined,
-  durationPriors: ReadonlyMap<string, DurationPrior> | undefined,
-  nowMs: number,
-): StatusFleetEntry {
-  if (activity === undefined) {
-    return entry;
-  }
-  entry.last_activity = latestActivity(
-    entry.last_activity,
-    activity.lastEventAt,
-  );
-  if (activity.lastAction !== undefined) {
-    entry.last_action = {
-      verb: activity.lastAction.verb,
-      outcome: activity.lastAction.outcome,
-      at: activity.lastAction.at,
-      ...(activity.lastAction.failedStage !== undefined
-        ? { failed_stage: activity.lastAction.failedStage }
-        : {}),
-    };
-  }
-  if (activity.running !== undefined) {
-    const startedMs = Date.parse(activity.running.started);
-    const typical = durationPriors?.get(activity.running.verb)?.medianMs;
-    entry.running = {
-      verb: activity.running.verb,
-      started: activity.running.started,
-      elapsed_ms: Number.isNaN(startedMs) ? 0 : Math.max(0, nowMs - startedMs),
-      ...(typical !== undefined ? { typical_duration_ms: typical } : {}),
-    };
-  }
-  return entry;
-}
-
 /** What the gate would fire: the wired declared jobs and the scope gates the current
  * change triggers — reusing the gate's own
  * scope-gate selection (`planScopeGates`) so status and `done` agree. */
@@ -1451,18 +1391,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   }
 
   // The one capacity sentence: every validation slot in use while queued
-  // efforts wait. Who holds the slots is named; counts stay in the data.
-  const landingNow = (ctx.queue ?? []).filter((row) =>
-    row.readiness === "landing"
-  );
-  if (
-    landingNow.length >= ctx.completionConcurrency &&
-    (ctx.queue ?? []).some((row) => row.readiness !== "landing")
-  ) {
-    hints.push(fire(HINTS["status-queue-capacity-saturated"], {
-      limit: ctx.completionConcurrency,
-      holders: landingNow.map((row) => displayBranch(row.branch)),
-    }));
+  // efforts wait.
+  const capacity = queueCapacityHint(ctx.queue, ctx.completionConcurrency);
+  if (capacity !== undefined) {
+    hints.push(capacity);
   }
 
   // The checkpoint obligation account rides last, after every observation
