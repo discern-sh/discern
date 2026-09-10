@@ -108,6 +108,7 @@ import {
   MapOutputSchema,
   PatternsOutputSchema,
   PrepareOutputSchema,
+  ProgressOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
   StandardsProposeOutputSchema,
@@ -125,6 +126,7 @@ import {
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
 import { observedGateOperation } from "../gate/observed_operation.ts";
+import { operationProgressResult } from "../completion/progress_result.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test_job.ts";
 import { standardsResult } from "../gate/standards.ts";
@@ -389,6 +391,7 @@ export const MCP_CORE_LIFECYCLE = [
 
 const TOOL_PRIORITY = [
   ...MCP_CORE_LIFECYCLE,
+  "discern_progress",
   "discern_test",
   "discern_standards",
   "discern_standards_propose",
@@ -890,6 +893,40 @@ export const TOOLS: McpTool[] = orderTools([
             },
           ),
         (value) => value,
+      ),
+  }),
+  defineTool({
+    name: "discern_progress",
+    title: "Read a long operation back",
+    outputSchema: ProgressOutputSchema,
+    annotations: READ_ONLY,
+    description:
+      "Read a long operation back after a lost call, read-only. Every " +
+      "discern_done, discern_test, discern_standards, discern_accept, and " +
+      "discern_await call announces a progress handle (`R1-…`) as its first " +
+      "progress fact and records the same facts in a journal. Pass that " +
+      "handle to read the operation's phase, the counts and failures known so " +
+      "far, named timing boundaries, and the retained final result — nothing " +
+      "re-runs. With no handle, read the most recently started operation of " +
+      "the selected checkout; another checkout's operation is named with its " +
+      "handle and refused, never substituted. data.executor says whether a " +
+      "process with the recorded id is still alive; data.outcome is absent " +
+      "while the executor has not finished. Reading starts, repairs, and " +
+      "cancels nothing, and the journal carries no validation or landing " +
+      "authority. A wait's own resume continuation (`C1-…`, returned by " +
+      "discern_await) is what resumes the wait; this tool only reads.",
+    inputSchema: {
+      handle: z.string().optional().describe(
+        "The progress handle the operation announced (`R1-XXXX-XXXX-XX`). " +
+          "Omit to read the selected checkout's most recently started " +
+          "operation.",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      operationProgressResult(
+        root,
+        args.handle === undefined ? {} : { handle: args.handle },
       ),
   }),
   defineTool({

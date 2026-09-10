@@ -1456,6 +1456,40 @@ const presentRefresh: ResultMarkdownPresenter = (result) => {
   };
 };
 
+/**
+ * A reconnect reading presents the sentences the engine composed — the same
+ * words the live surfaces showed — never a second account of the counts.
+ */
+const presentProgress: ResultMarkdownPresenter = (result) => {
+  const data = dataOf(result);
+  const account = strings(data.account);
+  const timings = records(data.timings);
+  const categories = unique(
+    timings.map((timing) => text(timing.category)),
+  );
+  const resultPath = text(data.result_path);
+  return {
+    state: defaultState(result, "No long operation is recorded here."),
+    evidence: unique([
+      ...account.slice(0, MAX_LIST_ITEMS),
+      account.length > MAX_LIST_ITEMS
+        ? omitted(account.length - MAX_LIST_ITEMS, "sentence")
+        : undefined,
+      timings.length === 0
+        ? undefined
+        : `${plural(timings.length, "timing interval")} recorded (${
+          categories.join(", ")
+        }).`,
+      resultPath === undefined
+        ? undefined
+        : `The complete result is retained at ${code(resultPath)}.`,
+    ]),
+    action: text(data.outcome) === undefined && text(data.executor) === "gone"
+      ? ["Run the command again to continue."]
+      : [],
+  };
+};
+
 const presentImpact: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const membership = object(data.membership);
@@ -2027,6 +2061,7 @@ export const RESULT_MARKDOWN_PRESENTERS = {
   gate: presentGate,
   improvement: presentImprovement,
   checkpoints: presentCheckpoints,
+  progress: presentProgress,
   standards: presentStandards,
   refresh: presentRefresh,
   impact: presentImpact,

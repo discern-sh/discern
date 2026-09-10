@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
-10 pillars · 141 nodes · 11 benefit statements · 9 agent-benefit clusters · 84 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 142 nodes · 11 benefit statements · 9 agent-benefit clusters · 85 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -106,6 +106,7 @@ _Each parallel task has a separate checkout, identity, and declared resources, i
 - **The fleet view** — From the main checkout, `discern status` reports a row per worktree: branch, clean state, ahead/behind, last activity, a broken flag for a checkout whose creation never completed, and cross-worktree changed-file collisions. _The human steers parallel work without visiting each checkout, and two efforts touching the same file get named before either lands._
 - **Cwd-equivalent worktree shells** — In an interactive terminal, `discern enter` shows the fleet's branches and Git state, then opens `$SHELL` in a selected checkout at the invoking directory's project-relative equivalent. If that directory is absent, it reports and opens the nearest existing ancestor. _The maintainer moves between parallel tasks without finding the checkout path or retracing the project directory tree._
 - **Awaiting a fleet condition** — `discern await` selects a sibling by exact worktree id, path, local branch, or full local ref, then blocks until it is green, its latest observed work has landed on the trunk, or the trunk has moved. Git refs, landed Proof notes, and Gate Proof records decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call. _A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human._
+- **Progress and reconnect** — Every long operation — `done`, `test`, `standards`, `accept`, and an MCP `await` — reports typed progress facts while it runs (the phase, a composed sentence, producer-reported counts, each failure the moment it is established, and what happens next) and records the same facts behind a short `R1` handle in a bounded journal under the common Git directory. A producer reports its own counts by printing `DISCERN_PROGRESS` lines. `discern progress [handle]` reads an operation back after a lost call: its phase, the counts and failures known so far, named timing boundaries, and the retained final result; with no handle it reads the calling checkout's most recent operation and names any other checkout's operation instead of substituting it. The journal is advisory: it carries no validation or landing authority, and reading it changes nothing. _A minutes-long check is never silent, and a closed terminal or timed-out tool call loses nothing: the same account is read back afterwards instead of re-running the work to recover its output._
 - **The desk** — Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches. _The maintainer can inspect and act on the fleet from one interactive surface._
   - **Desk tips** — The desk puts one tip directly below the root status per session. Its `Tip` label is yellow and the teaching text stays secondary. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook. _The desk presents one tip per session and records its id in the logbook for later adoption analysis._
 
@@ -259,6 +260,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `mcp` — interfaces
 - `patterns` — patterns
 - `prepare` — prepare
+- `progress` — progress
 - `queue` — gate
 - `refresh` — instructions
 - `scripts` — project-scripts

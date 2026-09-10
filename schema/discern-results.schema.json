@@ -15685,6 +15685,764 @@
         }
       ]
     },
+    "DiscernProgressResult": {
+      "title": "DiscernProgressResult",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "job",
+                      "scope-gate",
+                      "merge-check",
+                      "standards-limits-check",
+                      "tracked-artifacts-check",
+                      "instructions-check",
+                      "skills-check",
+                      "tracked-refresh-check",
+                      "resource-create",
+                      "resource-destroy",
+                      "git",
+                      "task-metadata",
+                      "setup-step",
+                      "repository-ensure",
+                      "checkout-clean-check",
+                      "setup-ensure",
+                      "env",
+                      "refresh",
+                      "tidy",
+                      "standard"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "disposition": {
+                    "type": "string",
+                    "enum": [
+                      "run",
+                      "skip",
+                      "gate"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "group": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "disposition"
+                ]
+              }
+            }
+          },
+          "required": [
+            "title",
+            "details",
+            "steps"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "job",
+                  "scope-gate",
+                  "merge-check",
+                  "standards-limits-check",
+                  "tracked-artifacts-check",
+                  "instructions-check",
+                  "skills-check",
+                  "tracked-refresh-check",
+                  "resource-create",
+                  "resource-destroy",
+                  "git",
+                  "task-metadata",
+                  "setup-step",
+                  "repository-ensure",
+                  "checkout-clean-check",
+                  "setup-ensure",
+                  "env",
+                  "refresh",
+                  "tidy",
+                  "standard"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "disposition": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "skip",
+                  "gate"
+                ]
+              },
+              "note": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "failed",
+                  "skipped",
+                  "cancelled"
+                ]
+              },
+              "advisory": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "acceptance-cleanup-incomplete",
+                      "checkpoint-evidence-dropped",
+                      "checkout-clean-observation-unavailable",
+                      "doctor-warning",
+                      "execution-cap-unavailable",
+                      "generated-attribute-pattern-untranslated",
+                      "ignored-file-observation-unavailable",
+                      "landing-authority-unverified",
+                      "optional-resource-unavailable",
+                      "proof-recording-unavailable",
+                      "setup-unproven-completion",
+                      "setup-machinery-commit-failed",
+                      "setup-marker-commit-failed",
+                      "standards-limits-unverified",
+                      "uninstall-strip-incomplete"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "next_action": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evidence",
+                  "next_action"
+                ]
+              },
+              "duration_s": {
+                "type": "number"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "output_lines": {
+                "type": "number"
+              },
+              "error_like_lines": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "disposition",
+              "outcome"
+            ]
+          }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "reproduce_cmd": {
+                "type": "string"
+              },
+              "output": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "output_path": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "col": {
+                "type": "number"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "fix_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "tool",
+              "severity",
+              "message",
+              "reproduce_cmd"
+            ]
+          }
+        },
+        "diagnostic_evidence": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "shown": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "repeats": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "required": [
+            "path",
+            "digest",
+            "bytes",
+            "total",
+            "shown",
+            "repeats"
+          ]
+        },
+        "hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "acceptance-cleanup-incomplete",
+                  "checkpoint-evidence-dropped",
+                  "checkout-clean-observation-unavailable",
+                  "doctor-warning",
+                  "execution-cap-unavailable",
+                  "generated-attribute-pattern-untranslated",
+                  "ignored-file-observation-unavailable",
+                  "landing-authority-unverified",
+                  "optional-resource-unavailable",
+                  "proof-recording-unavailable",
+                  "setup-unproven-completion",
+                  "setup-machinery-commit-failed",
+                  "setup-marker-commit-failed",
+                  "standards-limits-unverified",
+                  "uninstall-strip-incomplete"
+                ]
+              },
+              "evidence": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "evidence",
+              "next_action"
+            ]
+          }
+        },
+        "error": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "verb": {
+          "type": "string",
+          "const": "progress"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string"
+                },
+                "operation": {
+                  "type": "object",
+                  "properties": {
+                    "verb": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "started_at": {
+                      "type": "number"
+                    },
+                    "finished_at": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "verb",
+                    "path",
+                    "started_at"
+                  ]
+                },
+                "executor": {
+                  "type": "string",
+                  "enum": [
+                    "running",
+                    "gone",
+                    "unknown"
+                  ]
+                },
+                "executor_reason": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "progress": {
+                  "type": "object",
+                  "properties": {
+                    "phase": {
+                      "type": "string",
+                      "enum": [
+                        "producer",
+                        "environment",
+                        "queue",
+                        "pending",
+                        "operation"
+                      ]
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "candidate_id": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "operation_handle": {
+                      "type": "string"
+                    },
+                    "next": {
+                      "type": "string"
+                    },
+                    "owner_must_act": {
+                      "type": "boolean"
+                    },
+                    "work": {
+                      "type": "object",
+                      "properties": {
+                        "producer": {
+                          "type": "string"
+                        },
+                        "units": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string"
+                            },
+                            "completed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "total": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "completed",
+                            "total"
+                          ]
+                        },
+                        "results": {
+                          "type": "object",
+                          "properties": {
+                            "passed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "skipped": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "active": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "elapsed_ms": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "partial": {
+                          "type": "boolean"
+                        },
+                        "output_path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "producer"
+                      ]
+                    },
+                    "capacity": {},
+                    "environment_id": {
+                      "type": "string"
+                    },
+                    "attempt_id": {
+                      "type": "string"
+                    },
+                    "recovery": {}
+                  },
+                  "required": [
+                    "phase",
+                    "state",
+                    "candidate_id",
+                    "reason"
+                  ]
+                },
+                "producers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "units": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "completed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "total": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "completed",
+                          "total"
+                        ]
+                      },
+                      "results": {
+                        "type": "object",
+                        "properties": {
+                          "passed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "failed": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "skipped": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        }
+                      },
+                      "active": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "elapsed_ms": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "partial": {
+                        "type": "boolean"
+                      },
+                      "output_path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "producer"
+                    ]
+                  }
+                },
+                "failures": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "producer": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "file": {
+                        "type": "string"
+                      },
+                      "line": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "reproduce_cmd": {
+                        "type": "string"
+                      },
+                      "partial": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "producer",
+                      "name",
+                      "message",
+                      "partial"
+                    ]
+                  }
+                },
+                "timings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "category": {
+                        "type": "string"
+                      },
+                      "interval_id": {
+                        "type": "string"
+                      },
+                      "started_at": {
+                        "type": "number"
+                      },
+                      "finished_at": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "category",
+                      "interval_id",
+                      "started_at",
+                      "finished_at"
+                    ]
+                  }
+                },
+                "result": {},
+                "result_truncated": {
+                  "type": "boolean"
+                },
+                "result_path": {
+                  "type": "string"
+                },
+                "account": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "handle",
+                "operation",
+                "executor",
+                "account"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "unknown_root_section"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "ok",
+        "verb"
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/DiscernResultState"
+        }
+      ]
+    },
     "DiscernStandardsResult": {
       "title": "DiscernStandardsResult",
       "type": "object",
@@ -37200,6 +37958,44 @@
         "isError"
       ]
     },
+    "DiscernProgressMcpToolResult": {
+      "title": "DiscernProgressMcpToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "description": "One authored Markdown presentation that is sufficient without structuredContent.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "description": "The contract-authored Markdown projection of the prepared DiscernResult."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          }
+        },
+        "structuredContent": {
+          "$ref": "#/$defs/DiscernProgressResult",
+          "description": "The compact structured projection, sufficient without text content."
+        },
+        "isError": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "structuredContent",
+        "isError"
+      ]
+    },
     "DiscernStandardsMcpToolResult": {
       "title": "DiscernStandardsMcpToolResult",
       "type": "object",
@@ -37686,6 +38482,9 @@
           "$ref": "#/$defs/DiscernCheckpointsResult"
         },
         {
+          "$ref": "#/$defs/DiscernProgressResult"
+        },
+        {
           "$ref": "#/$defs/DiscernStandardsResult"
         },
         {
@@ -37804,6 +38603,9 @@
         },
         {
           "$ref": "#/$defs/DiscernCheckpointsMcpToolResult"
+        },
+        {
+          "$ref": "#/$defs/DiscernProgressMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernStandardsMcpToolResult"
@@ -38310,6 +39112,27 @@
       },
       "schema": "#/$defs/DiscernCheckpointsResult",
       "mcp_tool_result_schema": "#/$defs/DiscernCheckpointsMcpToolResult"
+    },
+    {
+      "id": "progress",
+      "verb": "progress",
+      "commands": [
+        "progress"
+      ],
+      "mcp_tool": "discern_progress",
+      "completion_policy": {
+        "required_postconditions": [
+          "declared-outcome"
+        ],
+        "optional_advisories": [],
+        "refusal": "failure",
+        "cancellation": "not-applicable",
+        "partial_effect": "not-applicable",
+        "no_op": "success",
+        "recovery_owner": "caller"
+      },
+      "schema": "#/$defs/DiscernProgressResult",
+      "mcp_tool_result_schema": "#/$defs/DiscernProgressMcpToolResult"
     },
     {
       "id": "standards",

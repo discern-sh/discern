@@ -472,6 +472,30 @@ export function attachEngineCommands(
     );
 
   root
+    .command("progress")
+    .description(
+      "Read a long operation back after a lost call: its phase, the counts and " +
+        "failures known so far, and the retained result. Pass the progress " +
+        "handle the operation announced; with no handle, read this checkout's " +
+        "most recently started operation. Reading changes nothing.",
+    )
+    .arguments("[handle:string]")
+    .action(
+      recordedExit("progress", async (o, handle) => {
+        const { runProgress } = await loadModule(() =>
+          import("./completion/progress_result.ts")
+        );
+        return await runProgress(
+          await requireRoot("progress", jsonFrom(o)),
+          {
+            json: jsonFrom(o),
+            ...(handle === undefined ? {} : { handle }),
+          },
+        );
+      }),
+    );
+
+  root
     .command("mcp")
     .description(
       "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",

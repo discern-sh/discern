@@ -3608,6 +3608,90 @@ export const CheckpointsOutputSchema = resultOutputSchema(
   CheckpointsDataSchema,
 );
 
+/** One producer's own reported work, as a reconnect reading retains it. */
+const ProgressWorkSchema = z.object({
+  producer: z.string(),
+  units: z.object({
+    kind: z.string(),
+    completed: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative().nullable(),
+  }).optional(),
+  results: z.object({
+    passed: z.number().int().nonnegative().optional(),
+    failed: z.number().int().nonnegative().optional(),
+    skipped: z.number().int().nonnegative().optional(),
+  }).optional(),
+  active: z.array(z.string()).optional(),
+  elapsed_ms: z.number().int().nonnegative().optional(),
+  partial: z.boolean().optional(),
+  output_path: z.string().optional(),
+});
+
+/** One failure a producer established while it was still running. */
+const ProgressFailureSchema = z.object({
+  producer: z.string(),
+  name: z.string(),
+  message: z.string(),
+  file: z.string().optional(),
+  line: z.number().int().nonnegative().optional(),
+  reproduce_cmd: z.string().optional(),
+  partial: z.boolean(),
+});
+
+/** The latest progress fact, exactly as live observers received it. */
+const ProgressFactSchema = z.object({
+  phase: z.enum(["producer", "environment", "queue", "pending", "operation"]),
+  state: z.string(),
+  candidate_id: z.string().nullable(),
+  reason: z.string(),
+  operation_handle: z.string().optional(),
+  next: z.string().optional(),
+  owner_must_act: z.boolean().optional(),
+  work: ProgressWorkSchema.optional(),
+  capacity: z.unknown().optional(),
+  environment_id: z.string().optional(),
+  attempt_id: z.string().optional(),
+  recovery: z.unknown().optional(),
+});
+
+/** One named timing boundary; each category is its own recorded fact. */
+const ProgressTimingSchema = z.object({
+  category: z.string(),
+  interval_id: z.string(),
+  started_at: z.number(),
+  finished_at: z.number(),
+});
+
+/** `progress` data: one journalled long operation read back. */
+export const ProgressDataSchema = z.object({
+  handle: z.string(),
+  operation: z.object({
+    verb: z.string(),
+    path: z.string(),
+    branch: z.string().optional(),
+    started_at: z.number(),
+    finished_at: z.number().optional(),
+  }),
+  executor: z.enum(["running", "gone", "unknown"]),
+  executor_reason: z.string().optional(),
+  outcome: z.enum(["completed", "failed", "cancelled"]).optional(),
+  progress: ProgressFactSchema.optional(),
+  producers: z.array(ProgressWorkSchema).optional(),
+  failures: z.array(ProgressFailureSchema).optional(),
+  timings: z.array(ProgressTimingSchema).optional(),
+  result: z.unknown().optional(),
+  result_truncated: z.boolean().optional(),
+  result_path: z.string().optional(),
+  /** The composed sentences every surface presents, in order. */
+  account: z.array(z.string()),
+});
+
+/** `progress` output: envelope + the reconnect reading `data`. */
+export const ProgressOutputSchema = resultOutputSchema(
+  "progress",
+  ProgressDataSchema,
+);
+
 /** `map` output: envelope + the project-map `data`. */
 export const MapOutputSchema = resultOutputSchema("map", DocsDataSchema);
 

@@ -12,12 +12,12 @@ One row per set, in registry order. The detail sections use the same order and c
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 34      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 35      | per member       | surface `verb`              |
 | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
-| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 65      | —                | —                           |
+| [`operation-effects`](#operation-effects--operation-effects)                                                          | `src/shared/operation_effects.ts#OPERATION_EFFECTS`                               | 66      | —                | —                           |
 | [`side-restricted-operations`](#side-restricted-operations--side-restricted-operations)                               | `src/engine/worktree/side_restrictions.ts#SIDE_RESTRICTED_OPS`                    | 9       | —                | node `worktrees`            |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 25      | —                | node `plan-apply`           |
-| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 19      | —                | node `mcp-surface`          |
+| [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 20      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 7       | —                | node `mcp-surface`          |
 | [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 38      | —                | —                           |
 | [`build-targets`](#build-targets--release-build-targets)                                                              | `scripts/build_targets.ts#BUILD_TARGETS`                                          | 4       | —                | —                           |
@@ -67,7 +67,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`intentional-deno-renames`](#intentional-deno-renames--intentional-deno-renames)                                     | `tests/atomic_write_renames.ts#REGISTERED_RENAMES`                                | 22      | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 5       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 196     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 200     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 44      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--package-triangle-motifs)                                      | `art/terminal/triangle.ts#DISCERN_PACKAGE_TRIANGLE_MOTIFS`                        | 8       | —                | —                           |
@@ -83,14 +83,14 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 39      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 50      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 141     | —                | —                           |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 51      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 142     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 45      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
 | [`practice-tenets`](#practice-tenets--practice-canon)                                                                 | `scripts/practice_registry.ts#PRACTICE_CANON`                                     | 12      | "Practice"       | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 51      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 52      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
-| [`result-completion-policies`](#result-completion-policies--result-completion-policies)                               | `src/shared/result_completion.ts#RESULT_COMPLETION_POLICY_DEFINITIONS`            | 51      | —                | node `published-contracts`  |
+| [`result-completion-policies`](#result-completion-policies--result-completion-policies)                               | `src/shared/result_completion.ts#RESULT_COMPLETION_POLICY_DEFINITIONS`            | 52      | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
@@ -103,7 +103,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-pages`](#manual-pages--published-manual-pages)                                                               | `src/lib/manual.ts#buildManualProjection`                                         | 48      | —                | node `bundled-docs`         |
 | [`manual-sections`](#manual-sections--manual-sections)                                                                | `src/shared/manual.ts#MANUAL_SECTION_REGISTRY`                                    | 5       | —                | node `bundled-docs`         |
 | [`manual-kinds`](#manual-kinds--manual-kinds)                                                                         | `src/shared/manual.ts#MANUAL_KIND_REGISTRY`                                       | 5       | —                | node `bundled-docs`         |
-| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 50      | —                | node `bundled-docs`         |
+| [`manual-alias-owners`](#manual-alias-owners--manual-alias-owners)                                                    | `src/shared/manual.ts#MANUAL_ALIAS_OWNER_OVERRIDES`                               | 51      | —                | node `bundled-docs`         |
 | [`manual-benefit-obligations`](#manual-benefit-obligations--manual-benefit-obligations)                               | `scripts/manual_benefits.ts#MANUAL_BENEFIT_OBLIGATIONS`                           | 21      | —                | —                           |
 | [`manual-benefit-exclusions`](#manual-benefit-exclusions--manual-benefit-exclusions)                                  | `scripts/manual_benefits.ts#MANUAL_BENEFIT_EXCLUSIONS`                            | 24      | —                | —                           |
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
@@ -417,7 +417,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 34
+- Members: 35
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -433,6 +433,7 @@ The top-level command vocabulary: every verb the dispatcher accepts through the 
   - `test`
   - `queue`
   - `await`
+  - `progress`
   - `improvement`
   - `standards`
   - `checkpoints`
@@ -474,7 +475,7 @@ Every top-level verb kept out of the operator help listing carries a reason and 
 Every live CLI command path's effect classes, exclusion boundary, and preview obligation; the live-tree guard makes new nested and top-level commands enroll before they can run.
 
 - Source: `src/shared/operation_effects.ts` — `OPERATION_EFFECTS`
-- Members: 65
+- Members: 66
   - `accept`
   - `await`
   - `checkpoints`
@@ -506,6 +507,7 @@ Every live CLI command path's effect classes, exclusion boundary, and preview ob
   - `patterns archives`
   - `patterns reset`
   - `prepare`
+  - `progress`
   - `queue`
   - `refresh`
   - `scripts`
@@ -603,7 +605,7 @@ The measured command paths that register `--dry-run`. `OPERATION_EFFECTS.preview
 The MCP tool table; verb parity ties every tool to a CLI verb, and the live tools/list guard binds each definition to its advertised schema.
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
-- Members: 19
+- Members: 20
   - `discern_status`
   - `discern_start`
   - `discern_prepare`
@@ -611,6 +613,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_update`
   - `discern_await`
   - `discern_accept`
+  - `discern_progress`
   - `discern_test`
   - `discern_standards`
   - `discern_standards_propose`
@@ -1855,7 +1858,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 196
+- Members: 200
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -1959,6 +1962,10 @@ The advisory hint registry: every hint string enters results through it.
   - `accept-requires-strict-proof`
   - `accept-authorize-variance`
   - `accept-authorize-standard-proposals`
+  - `progress-handle-required`
+  - `progress-nothing-recorded`
+  - `progress-record-unreadable`
+  - `progress-outside-repository`
   - `checkpoints-declare`
   - `checkpoints-variance-review`
   - `gate-failure-gotchas`
@@ -2447,7 +2454,7 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 50
+- Members: 51
   - `Accept`
   - `Advisory`
   - `discern version`
@@ -2484,6 +2491,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Placement is consent`
   - `Practice`
   - `Project script`
+  - `Progress handle`
   - `Proof`
   - `Proof note`
   - `Schema version`
@@ -2508,7 +2516,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 141
+- Members: 142
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -2565,6 +2573,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `fleet`
   - `worktree-shell-picker`
   - `await`
+  - `progress`
   - `desk`
   - `tips`
   - `instructions`
@@ -2774,7 +2783,7 @@ The practice registry behind the practice canon: the obligations upheld by enfor
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 51
+- Members: 52
   - `root`
   - `setup`
   - `setupBegin`
@@ -2796,6 +2805,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `test`
   - `improvement`
   - `checkpoints`
+  - `progress`
   - `standards`
   - `standardsPropose`
   - `refresh`
@@ -2849,7 +2859,7 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 The one-per-verb semantic authority that defines required outcomes, optional advisories, non-completion states, and recovery ownership.
 
 - Source: `src/shared/result_completion.ts` — `RESULT_COMPLETION_POLICY_DEFINITIONS`
-- Members: 51
+- Members: 52
   - `discern`
   - `help`
   - `setup`
@@ -2871,6 +2881,7 @@ The one-per-verb semantic authority that defines required outcomes, optional adv
   - `test`
   - `improvement`
   - `checkpoints`
+  - `progress`
   - `standards`
   - `standards propose`
   - `refresh`
@@ -3208,7 +3219,7 @@ The closed editorial purposes that choose manual comprehension policy and readin
 The explicit page-id owner for each normalized manual search name that would otherwise collide.
 
 - Source: `src/shared/manual.ts` — `MANUAL_ALIAS_OWNER_OVERRIDES`
-- Members: 50
+- Members: 51
   - `--markdown`
   - `checkpoints`
   - `coupling`
@@ -3225,6 +3236,7 @@ The explicit page-id owner for each normalized manual search name that would oth
   - `discern identity`
   - `discern improvement`
   - `discern patterns`
+  - `discern progress`
   - `discern standards`
   - `discern status`
   - `discern tidy`

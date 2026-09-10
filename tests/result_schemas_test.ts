@@ -78,6 +78,12 @@ import { standardsResult } from "../src/engine/gate/standards.ts";
 import { standardsProposeResult } from "../src/engine/gate/standard_proposals.ts";
 import { doctorResult } from "../src/commands/doctor.ts";
 import { impactResult } from "../src/engine/scopes/scopes.ts";
+import {
+  emitCompletionFailure,
+  emitCompletionProgress,
+} from "../src/engine/completion/events.ts";
+import { withOperationJournal } from "../src/engine/completion/operation_journal.ts";
+import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import { statusResult } from "../src/engine/status/status.ts";
 import {
@@ -1297,6 +1303,72 @@ const DOCTOR_EXECUTION_MODEL_FAITHFULNESS_CASE = defineFaithfulnessCase(
   });
 });
 
+const PROGRESS_FAITHFULNESS_CASE = defineFaithfulnessCase(
+  "progress result is faithful (a reading with retained facts, and a refusal)",
+  ["progress"],
+)(async ({ expectFaithful }) => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const envelope: DiscernResult = {
+      ok: false,
+      verb: "done",
+      error: "gate_failed",
+      steps: [],
+      message: "Gate failed.",
+    };
+    await withOperationJournal(
+      dir,
+      { verb: "done", path: dir, branch: "agent/faithful" },
+      () => {
+        emitCompletionProgress({
+          phase: "producer",
+          state: "running",
+          candidate_id: "candidate",
+          reason: "Running test: 3 of 8 partitions done, 1 failure so far.",
+          work: {
+            producer: "test",
+            units: { kind: "partitions", completed: 3, total: 8 },
+            results: { passed: 40, failed: 1, skipped: 0 },
+            elapsed_ms: 1_200,
+          },
+        });
+        emitCompletionFailure({
+          producer: "test",
+          name: "alpha holds",
+          message: "expected 2, got 3",
+          file: "tests/alpha_test.ts",
+          line: 7,
+          reproduce_cmd:
+            "deno task test tests/alpha_test.ts --filter 'alpha holds' --shuffle=7",
+          partial: false,
+        });
+        emitCompletionProgress({
+          phase: "pending",
+          state: "missing-judgment",
+          candidate_id: "candidate",
+          reason:
+            "Waiting for a recorded judgment on candidate-checkpoints; the owner decides.",
+          next: "Landing waits until the judgment is recorded.",
+          owner_must_act: true,
+        });
+        return Promise.resolve(envelope);
+      },
+      { result: (value) => value },
+    );
+    expectFaithful(
+      "progress",
+      await operationProgressResult(dir),
+      "progress reading",
+    );
+    expectFaithful(
+      "progress",
+      await operationProgressResult(dir, { handle: "R1-XXXX-XXXX-99" }),
+      "progress refusal",
+    );
+  });
+});
+
 const IMPACT_FAITHFULNESS_CASE = defineFaithfulnessCase(
   "impact result is faithful",
   ["impact"],
@@ -2090,6 +2162,7 @@ const WORKTREE_PARK_FAITHFULNESS_CASE = defineFaithfulnessCase(
  * the same entry; each running case reconciles only its own local calls.
  */
 const FAITHFULNESS_CASES: readonly FaithfulnessCase[] = [
+  PROGRESS_FAITHFULNESS_CASE,
   ROOT_COMMANDS_FAITHFULNESS_CASE,
   SETUP_MAINTENANCE_FAITHFULNESS_CASE,
   DONE_FAITHFULNESS_CASE,

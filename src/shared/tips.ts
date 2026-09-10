@@ -835,6 +835,10 @@ export const TIPS: readonly RegisteredTip[] = [
 export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   Record<string, string>
 > = {
+  "feature:progress":
+    "Every long run announces its own progress handle and the command that reads it back as its first line, so the teaching arrives in the moment it applies; the desk rebuild owns any tip copy.",
+  "verb:progress":
+    "The handle announcement at the start of every long run names `discern progress` in the moment it applies; the desk rebuild owns any tip copy.",
   "feature:setup-environment-probe":
     "Setup runs the probe itself and explains its outcome in the completion report; doctor's environment check teaches the recorded proof afterwards.",
   "feature:producer-evidence":

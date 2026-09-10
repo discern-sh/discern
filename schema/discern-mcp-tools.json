@@ -353,6 +353,31 @@
       }
     },
     {
+      "name": "discern_progress",
+      "title": "Read a long operation back",
+      "description": "Read a long operation back after a lost call, read-only. Every discern_done, discern_test, discern_standards, discern_accept, and discern_await call announces a progress handle (`R1-…`) as its first progress fact and records the same facts in a journal. Pass that handle to read the operation's phase, the counts and failures known so far, named timing boundaries, and the retained final result — nothing re-runs. With no handle, read the most recently started operation of the selected checkout; another checkout's operation is named with its handle and refused, never substituted. data.executor says whether a process with the recorded id is still alive; data.outcome is absent while the executor has not finished. Reading starts, repairs, and cancels nothing, and the journal carries no validation or landing authority. A wait's own resume continuation (`C1-…`, returned by discern_await) is what resumes the wait; this tool only reads.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "handle": {
+            "description": "The progress handle the operation announced (`R1-XXXX-XXXX-XX`). Omit to read the selected checkout's most recently started operation.",
+            "type": "string"
+          },
+          "path": {
+            "description": "Run this call against a specific discern project or worktree. Pass an ABSOLUTE filesystem path inside the intended checkout, including another repository in a multi-repo workspace; discern resolves its project root. Omit it to use the checkout this MCP server currently targets. Use it when you cannot re-root into a worktree or are coordinating multiple repositories. The override applies to this call only; relative paths are rejected.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
       "name": "discern_test",
       "title": "Run the tests",
       "description": "discern_test runs the project's complete test stage on demand, outside the full gate, and returns the result envelope. discern_done already includes the same test stage, so a final gate run needs no standalone test preflight. While iterating, use each diagnostic's reproduce_cmd or a targeted project command. When no test command is configured, discern_test returns a trivial pass with a hint that says so.",

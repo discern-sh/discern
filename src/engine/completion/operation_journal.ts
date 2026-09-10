@@ -735,7 +735,7 @@ export async function withOperationJournal<T>(
             state: "started",
             candidate_id: null,
             reason:
-              `${header.verb} is running; progress handle ${open.handle} reads it back after a lost call.`,
+              `${header.verb} is running. If this call is lost, \`discern progress ${open.handle}\` reads it back.`,
             operation_handle: open.handle,
           });
           return await run(open.handle);

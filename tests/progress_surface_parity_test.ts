@@ -111,7 +111,7 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
     );
     assert(handle !== undefined);
     const announcement =
-      `done is running; progress handle ${handle} reads it back after a lost call.`;
+      `done is running. If this call is lost, \`discern progress ${handle}\` reads it back.`;
     // The terminal presented the same sentences, in the same order.
     assertEquals(terminal, [
       { kind: "note", text: announcement },
@@ -179,7 +179,11 @@ Deno.test("a nested operation presents each fact exactly once between its outer 
       (value) => value,
     );
     assertEquals(outer.length, 2, JSON.stringify(outer));
-    assert(outer[0]?.startsWith("accept is running; progress handle R1-"));
+    assert(
+      outer[0]?.startsWith(
+        "accept is running. If this call is lost, `discern progress R1-",
+      ),
+    );
     assertEquals(outer[1], PENDING);
     assertEquals(inner, [COUNTS, FAILURE_SENTENCE]);
     // One journal covers the whole acceptance: the nested run opened none of

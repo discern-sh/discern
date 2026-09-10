@@ -5042,6 +5042,226 @@ export type DiscernCheckpointsResult = DiscernResultState & {
   };
 };
 
+export type DiscernProgressResult = DiscernResultState & {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "instructions-check"
+        | "skills-check"
+        | "tracked-refresh-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "task-metadata"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "instructions-check"
+      | "skills-check"
+      | "tracked-refresh-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "task-metadata"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    advisory?: {
+      kind:
+        | "acceptance-cleanup-incomplete"
+        | "checkpoint-evidence-dropped"
+        | "checkout-clean-observation-unavailable"
+        | "doctor-warning"
+        | "execution-cap-unavailable"
+        | "generated-attribute-pattern-untranslated"
+        | "ignored-file-observation-unavailable"
+        | "landing-authority-unverified"
+        | "optional-resource-unavailable"
+        | "proof-recording-unavailable"
+        | "setup-unproven-completion"
+        | "setup-machinery-commit-failed"
+        | "setup-marker-commit-failed"
+        | "standards-limits-unverified"
+        | "uninstall-strip-incomplete";
+      evidence: Array<string>;
+      next_action: string;
+    };
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  diagnostic_evidence?: {
+    path: string;
+    digest: string;
+    bytes: number;
+    total: number;
+    shown: number;
+    repeats: Array<number>;
+  };
+  hints?: Array<string>;
+  advisories?: Array<{
+    kind:
+      | "acceptance-cleanup-incomplete"
+      | "checkpoint-evidence-dropped"
+      | "checkout-clean-observation-unavailable"
+      | "doctor-warning"
+      | "execution-cap-unavailable"
+      | "generated-attribute-pattern-untranslated"
+      | "ignored-file-observation-unavailable"
+      | "landing-authority-unverified"
+      | "optional-resource-unavailable"
+      | "proof-recording-unavailable"
+      | "setup-unproven-completion"
+      | "setup-machinery-commit-failed"
+      | "setup-marker-commit-failed"
+      | "standards-limits-unverified"
+      | "uninstall-strip-incomplete";
+    evidence: Array<string>;
+    next_action: string;
+  }>;
+  error?: string;
+  message?: string;
+  verb: "progress";
+  data?: {
+    handle: string;
+    operation: {
+      verb: string;
+      path: string;
+      branch?: string;
+      started_at: number;
+      finished_at?: number;
+    };
+    executor: "running" | "gone" | "unknown";
+    executor_reason?: string;
+    outcome?: "completed" | "failed" | "cancelled";
+    progress?: {
+      phase: "producer" | "environment" | "queue" | "pending" | "operation";
+      state: string;
+      candidate_id: string | null;
+      reason: string;
+      operation_handle?: string;
+      next?: string;
+      owner_must_act?: boolean;
+      work?: {
+        producer: string;
+        units?: {
+          kind: string;
+          completed: number;
+          total: number | null;
+        };
+        results?: {
+          passed?: number;
+          failed?: number;
+          skipped?: number;
+        };
+        active?: Array<string>;
+        elapsed_ms?: number;
+        partial?: boolean;
+        output_path?: string;
+      };
+      capacity?: unknown;
+      environment_id?: string;
+      attempt_id?: string;
+      recovery?: unknown;
+    };
+    producers?: Array<{
+      producer: string;
+      units?: {
+        kind: string;
+        completed: number;
+        total: number | null;
+      };
+      results?: {
+        passed?: number;
+        failed?: number;
+        skipped?: number;
+      };
+      active?: Array<string>;
+      elapsed_ms?: number;
+      partial?: boolean;
+      output_path?: string;
+    }>;
+    failures?: Array<{
+      producer: string;
+      name: string;
+      message: string;
+      file?: string;
+      line?: number;
+      reproduce_cmd?: string;
+      partial: boolean;
+    }>;
+    timings?: Array<{
+      category: string;
+      interval_id: string;
+      started_at: number;
+      finished_at: number;
+    }>;
+    result?: unknown;
+    result_truncated?: boolean;
+    result_path?: string;
+    account: Array<string>;
+  } | {
+    issues: Array<{
+      kind?: "unknown_root_section";
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernStandardsResult = DiscernResultState & {
   ok: boolean;
   dry_run?: boolean;
@@ -11143,6 +11363,7 @@ export type DiscernCliJsonResult =
   | DiscernTestResult
   | DiscernImprovementResult
   | DiscernCheckpointsResult
+  | DiscernProgressResult
   | DiscernStandardsResult
   | DiscernStandardsProposeResult
   | DiscernRefreshResult
@@ -11196,6 +11417,7 @@ export interface DiscernResultByVerb {
   test: DiscernTestResult;
   improvement: DiscernImprovementResult;
   checkpoints: DiscernCheckpointsResult;
+  progress: DiscernProgressResult;
   standards: DiscernStandardsResult;
   "standards propose": DiscernStandardsProposeResult;
   refresh: DiscernRefreshResult;
@@ -11260,6 +11482,7 @@ export interface DiscernResultByCommand {
   test: DiscernTestResult;
   improvement: DiscernImprovementResult;
   checkpoints: DiscernCheckpointsResult;
+  progress: DiscernProgressResult;
   standards: DiscernStandardsResult;
   "standards propose": DiscernStandardsProposeResult;
   refresh: DiscernRefreshResult;
@@ -11315,6 +11538,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_test: DiscernTestResult;
   discern_improvement: DiscernImprovementResult;
   discern_checkpoints: DiscernCheckpointsResult;
+  discern_progress: DiscernProgressResult;
   discern_standards: DiscernStandardsResult;
   discern_standards_propose: DiscernStandardsProposeResult;
   discern_refresh: DiscernRefreshResult;
@@ -11337,6 +11561,7 @@ export interface DiscernMcpToolResultByTool {
   discern_test: DiscernMcpToolResult<DiscernTestResult>;
   discern_improvement: DiscernMcpToolResult<DiscernImprovementResult>;
   discern_checkpoints: DiscernMcpToolResult<DiscernCheckpointsResult>;
+  discern_progress: DiscernMcpToolResult<DiscernProgressResult>;
   discern_standards: DiscernMcpToolResult<DiscernStandardsResult>;
   discern_standards_propose: DiscernMcpToolResult<
     DiscernStandardsProposeResult
@@ -11361,6 +11586,7 @@ export type DiscernMcpStructuredContent =
   | DiscernTestResult
   | DiscernImprovementResult
   | DiscernCheckpointsResult
+  | DiscernProgressResult
   | DiscernStandardsResult
   | DiscernStandardsProposeResult
   | DiscernRefreshResult
@@ -11382,6 +11608,7 @@ export type DiscernMcpJsonResult =
   | DiscernTestMcpToolResult
   | DiscernImprovementMcpToolResult
   | DiscernCheckpointsMcpToolResult
+  | DiscernProgressMcpToolResult
   | DiscernStandardsMcpToolResult
   | DiscernStandardsProposeMcpToolResult
   | DiscernRefreshMcpToolResult
@@ -11416,6 +11643,10 @@ export type DiscernImprovementMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernCheckpointsMcpToolResult = DiscernMcpToolResult<
   DiscernCheckpointsResult
+>;
+
+export type DiscernProgressMcpToolResult = DiscernMcpToolResult<
+  DiscernProgressResult
 >;
 
 export type DiscernStandardsMcpToolResult = DiscernMcpToolResult<

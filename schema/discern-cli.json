@@ -4112,6 +4112,99 @@
     },
     {
       "path": [
+        "progress"
+      ],
+      "description": "Read a long operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Pass the progress handle the operation announced; with no handle, read this checkout's most recently started operation. Reading changes nothing.",
+      "aliases": [],
+      "hidden": false,
+      "hidden_when": null,
+      "positionals": [
+        {
+          "name": "handle",
+          "optional": true,
+          "variadic": false
+        }
+      ],
+      "usage": "",
+      "flags": [
+        {
+          "spellings": [
+            "--json"
+          ],
+          "description": "Emit one JSON result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--markdown"
+          ],
+          "description": "Emit one Markdown result on stdout.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--render"
+          ],
+          "description": "Render the Markdown result as terminal output.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--no-color"
+          ],
+          "description": "Disable color (also honors NO_COLOR and non-TTY output).",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--plain"
+          ],
+          "description": "Disable interactive input and paging; use static output. CI and non-terminal input imply this behavior.",
+          "type_definition": "",
+          "arity": 0,
+          "value_types": [],
+          "default": null,
+          "hidden": false,
+          "global": true
+        },
+        {
+          "spellings": [
+            "--theme"
+          ],
+          "description": "Set the terminal theme to `auto`, `light`, or `dark`. Default: `auto`. The automatic mode senses a colored interactive background; `--no-color` and `NO_COLOR` skip sensing.",
+          "type_definition": "<theme:string>",
+          "arity": 1,
+          "value_types": [
+            "string"
+          ],
+          "default": null,
+          "hidden": false,
+          "global": true
+        }
+      ]
+    },
+    {
+      "path": [
         "mcp"
       ],
       "description": "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",

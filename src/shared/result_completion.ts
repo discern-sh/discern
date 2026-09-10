@@ -247,6 +247,7 @@ export const RESULT_COMPLETION_POLICY_DEFINITIONS = {
   checkpoints: observationPolicy({
     advisories: ["checkpoint-evidence-dropped"],
   }),
+  progress: observationPolicy(),
   standards: effectPolicy({
     advisories: [
       "execution-cap-unavailable",

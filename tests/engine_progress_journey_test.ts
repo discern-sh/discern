@@ -13,6 +13,7 @@ import {
 import { readPidsIfReady } from "./process_id.ts";
 import { shellBarrier } from "./shell_barrier.ts";
 import { completionProcessAlive } from "./completion_mcp_fixture.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 
 const REPORTING_PRODUCER = [
   `printf 'DISCERN_PROGRESS {"units":{"kind":"suites","completed":1,"total":2}}\\n'`,
@@ -35,7 +36,7 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
       "Running test: 2 of 2 suites done, no failures so far.",
     );
     // The reconnect handle was announced at the start of the run.
-    assertTerminalTextIncludes(run.output, "progress handle R1-");
+    assertTerminalTextIncludes(run.output, "`discern progress R1-");
     // A second session reads the same operation back without re-running it.
     const read = await operationProgressResult(path);
     assert(read.ok, JSON.stringify(read));
@@ -55,6 +56,29 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
     const stored = read.data?.result as { ok?: boolean; verb?: string };
     assertEquals(stored.ok, true);
     assertEquals(stored.verb, "done");
+    // The CLI reads the same operation: by default for this checkout, by
+    // handle explicitly, and as sentences for a person.
+    const byDefault = await runAgent(path, ["progress", "--json"]);
+    assertEquals(byDefault.code, 0, byDefault.output);
+    const decoded = decodeCliResult(byDefault.stdout, "progress");
+    assert(
+      decoded.ok && decoded.data !== undefined && "handle" in decoded.data,
+    );
+    assertEquals(decoded.data.handle, read.data?.handle);
+    assertEquals(decoded.data.operation.verb, "done");
+    assertEquals(decoded.data.account.length > 0, true);
+    const byHandle = await runAgent(path, ["progress", decoded.data.handle]);
+    assertEquals(byHandle.code, 0, byHandle.output);
+    assertTerminalTextIncludes(byHandle.output, "`done` on");
+    assertTerminalTextIncludes(byHandle.output, "finished and succeeded");
+    assertTerminalTextIncludes(
+      byHandle.output,
+      "Running test: 2 of 2 suites done, no failures so far.",
+    );
+    // A damaged handle is refused by its checksum before the store is read.
+    const damaged = await runAgent(path, ["progress", "R1-XXXX-XXXX-99"]);
+    assertEquals(damaged.code, 1, damaged.output);
+    assertTerminalTextIncludes(damaged.output, "its checksum does not hold");
   });
 });
 

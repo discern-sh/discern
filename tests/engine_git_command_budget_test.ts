@@ -38,6 +38,10 @@ const UNBUDGETED_ENGINE_VERBS: ReadonlyMap<string, string> = new Map([
   ["improvement", "reads the logbook rather than the repository"],
   ["standards", "measures the project's standards, not a git workload"],
   ["checkpoints", "reads checkpoint state written by done"],
+  [
+    "progress",
+    "reads the operation journal written by done; one branch-name read",
+  ],
   ["refresh", "regenerates agent files; exercised inside start and done"],
   ["tidy", "formats the config; no repository walk"],
   ["impact", "a read-only report over the current diff"],

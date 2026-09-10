@@ -1283,6 +1283,50 @@ Rendered example:
 
 > Set [project].logbook = false to stop recording. Otherwise, recording resumes on the next verb run after this reset.
 
+## `progress-handle-required`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `progress-reconnect`
+- Emitting context: A progress read names a damaged handle, a handle no record carries, or finds only another checkout's operation.
+
+Rendered example:
+
+> Pass the handle the operation announced: `discern progress <handle>`. With no handle it reads this checkout's most recently started operation.
+
+## `progress-nothing-recorded`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `progress-reconnect`
+- Emitting context: A progress read finds no long operation recorded in the repository.
+
+Rendered example:
+
+> Every `discern done`, `discern test`, `discern standards`, and `discern accept` run announces a handle to read back; run one from this checkout first.
+
+## `progress-outside-repository`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `progress-reconnect`
+- Emitting context: A progress read runs where no repository is reachable.
+
+Rendered example:
+
+> Run it inside the repository whose operation you are reconnecting to.
+
+## `progress-record-unreadable`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `progress-reconnect`
+- Emitting context: A progress read finds the journal store or the record unreadable, or written by a newer discern.
+
+Rendered example:
+
+> The operation itself is unaffected. Run it again to produce a fresh record, or read another handle.
+
 ## `provider-integrations-missing`
 
 - Category: `next-step`

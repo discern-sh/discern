@@ -5,13 +5,25 @@
  * observation only — it starts, repairs, and cancels nothing, and an
  * observer's own loss never changes what the journal records.
  */
+import { emitResult } from "../../shared/emit.ts";
+import {
+  fire,
+  HINTS,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { colorEnabled, makeOut } from "../output.ts";
 import type {
   CompletionFailure,
   CompletionProgress,
   ProducerWork,
 } from "./events.ts";
-import { completionProgressSentence } from "./progress_prose.ts";
+import {
+  completionFailureSentence,
+  completionProgressSentence,
+  producerWorkSentence,
+} from "./progress_prose.ts";
 import {
   type ExecutorLiveness,
   type OperationJournalRecord,
@@ -50,6 +62,29 @@ export interface OperationProgressData {
   readonly result_truncated?: boolean;
   /** Where the complete envelope lives when the record holds a reduced one. */
   readonly result_path?: string;
+  /**
+   * The composed sentences every surface presents, in order: the latest
+   * progress fact, each producer's counts, each established failure. Composed
+   * once here so no surface derives its own account.
+   */
+  readonly account: readonly string[];
+}
+
+/** Compose the account once from the retained facts. */
+function accountOf(record: OperationJournalRecord): string[] {
+  const sentences: string[] = [];
+  if (record.progress !== undefined) {
+    sentences.push(completionProgressSentence(record.progress));
+  }
+  for (const work of Object.values(record.producers ?? {})) {
+    if (work.units !== undefined || work.results !== undefined) {
+      sentences.push(producerWorkSentence(work));
+    }
+  }
+  for (const failure of record.failures ?? []) {
+    sentences.push(completionFailureSentence(failure));
+  }
+  return sentences;
 }
 
 /** Compose the first paragraph: the operation, what happened, the next command. */
@@ -111,6 +146,7 @@ export async function operationProgressResult(
         error: "invalid_arguments",
         message:
           "That progress handle is not one discern issued — its checksum does not hold. Copy the handle exactly as the operation announced it.",
+        hints: hintTexts([fire(HINTS["progress-handle-required"])]),
       };
     case "missing":
       return {
@@ -119,6 +155,7 @@ export async function operationProgressResult(
         error: "not_found",
         message:
           "No operation with that handle is recorded in this repository. Journals expire after 7 days; when the bounded store fills, finished `await` records leave first, then the oldest finished operations.",
+        hints: hintTexts([fire(HINTS["progress-handle-required"])]),
       };
     case "none-recorded":
       return {
@@ -127,6 +164,7 @@ export async function operationProgressResult(
         error: "not_found",
         message:
           "No long operation has been recorded in this repository yet. Journals appear when `done`, `test`, `standards`, `accept`, or an MCP `await` runs.",
+        hints: hintTexts([fire(HINTS["progress-nothing-recorded"])]),
       };
     case "elsewhere": {
       const { handle, verb, branch, path } = reading.newest;
@@ -139,6 +177,7 @@ export async function operationProgressResult(
         error: "not_found",
         message:
           `No long operation is recorded for this checkout. The most recent one in this repository is ${name}, progress handle ${handle}; pass that handle to read it.`,
+        hints: hintTexts([fire(HINTS["progress-handle-required"])]),
       };
     }
     case "corrupt":
@@ -148,6 +187,7 @@ export async function operationProgressResult(
         error: "read_error",
         message:
           "The recorded journal for that handle is unreadable. The operation itself is unaffected; the record cannot be presented.",
+        hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
       };
     case "newer":
       return {
@@ -155,6 +195,7 @@ export async function operationProgressResult(
         verb: "progress",
         error: "schema_version_too_new",
         message: reading.reason,
+        hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
       };
     case "unavailable":
       return {
@@ -162,7 +203,8 @@ export async function operationProgressResult(
         verb: "progress",
         error: "no_repository",
         message:
-          "No repository is reachable from here, so there is no journal store to read. Run this inside the repository whose operation you are reconnecting to.",
+          "No repository is reachable from here, so there is no journal store to read.",
+        hints: hintTexts([fire(HINTS["progress-outside-repository"])]),
       };
     case "inaccessible":
       return {
@@ -171,6 +213,7 @@ export async function operationProgressResult(
         error: "read_error",
         message:
           `The journal store under this repository's Git directory could not be used: ${reading.reason}. The operation itself is unaffected; the record cannot be presented.`,
+        hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
       };
   }
   const record = reading.record;
@@ -208,6 +251,7 @@ export async function operationProgressResult(
     ...(record.result_path === undefined
       ? {}
       : { result_path: record.result_path }),
+    account: accountOf(record),
   };
   return {
     ok: true,
@@ -219,4 +263,31 @@ export async function operationProgressResult(
       reading.executor_reason,
     ),
   };
+}
+
+/** Run the `progress` verb: the reading as JSON, or its sentences for a person. */
+export async function runProgress(
+  root: string,
+  opts: { readonly json: boolean; readonly handle?: string },
+): Promise<number> {
+  const result = await operationProgressResult(
+    root,
+    opts.handle === undefined ? {} : { handle: opts.handle },
+  );
+  if (opts.json) {
+    emitResult(result);
+    return result.ok ? 0 : 1;
+  }
+  const out = makeOut(colorEnabled());
+  if (!result.ok) {
+    out.error(result.message ?? "progress refused.");
+    for (const hint of interactiveHintTexts(result.hints)) out.info(hint);
+    return 1;
+  }
+  out.info(result.message ?? "");
+  for (const sentence of result.data?.account ?? []) out.info(sentence);
+  if (result.data?.result_path !== undefined) {
+    out.info(`Complete result retained at ${result.data.result_path}.`);
+  }
+  return 0;
 }

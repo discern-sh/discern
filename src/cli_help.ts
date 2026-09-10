@@ -78,7 +78,15 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Agentic loop",
     note: "your coding agent runs these as it works",
-    commands: ["status", "prepare", "done", "test", "queue", "tidy"],
+    commands: [
+      "status",
+      "prepare",
+      "done",
+      "test",
+      "progress",
+      "queue",
+      "tidy",
+    ],
   },
   {
     name: "Worktree lifecycle",

@@ -40,6 +40,7 @@ import {
   PatternsResetOutputSchema,
   PatternsSealOutputSchema,
   PrepareOutputSchema,
+  ProgressOutputSchema,
   RefreshOutputSchema,
   ScriptsOutputSchema,
   SetupAcceptOutputSchema,
@@ -307,6 +308,14 @@ const CLI_JSON_RESULT_CONTRACT_DEFINITIONS = [
     schema: CheckpointsOutputSchema,
     presenter: RESULT_MARKDOWN_PRESENTERS.checkpoints,
     mcpTool: "discern_checkpoints",
+  },
+  {
+    id: "progress",
+    commands: ["progress"],
+    verb: "progress",
+    schema: ProgressOutputSchema,
+    presenter: RESULT_MARKDOWN_PRESENTERS.progress,
+    mcpTool: "discern_progress",
   },
   {
     id: "standards",

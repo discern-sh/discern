@@ -4,7 +4,7 @@
 
 _discern's internal commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [Agent Benefit Canon](feature-canon-agent-benefits.md) owns the corresponding coding-agent outcomes; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._
 
-8 clusters · 45 benefits · 141 of 141 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 45 benefits · 142 of 142 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -69,8 +69,8 @@ More of the backlog can move at once. The person spends less time running the wo
 ### Walk away mid-task and pick up where you left off
 
 - **Value:** A task can outlive one agent session. Whoever returns can recover the worktree, setup state, and next action instead of reconstructing the task from conversation history.
-- **Mechanism:** Worktrees persist, lifecycle hooks re-ready a resumed checkout, unfinished setup remains machine-readable, idempotent verbs converge on the intended state, and `discern status` supplies a fresh orientation in one call.
-- **Product basis:** Status · Session and lifecycle hooks · Observable incompleteness · Provider-aware activation recovery · Idempotent by contract.
+- **Mechanism:** Worktrees persist, lifecycle hooks re-ready a resumed checkout, unfinished setup remains machine-readable, idempotent verbs converge on the intended state, `discern status` supplies a fresh orientation in one call, and `discern progress` reads a long run back after a closed terminal or a timed-out call instead of running it again.
+- **Product basis:** Status · Progress and reconnect · Session and lifecycle hooks · Observable incompleteness · Provider-aware activation recovery · Idempotent by contract.
 
 ## Spend more time on the product
 
