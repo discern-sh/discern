@@ -1095,6 +1095,58 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The hint must never invent an upgrade warning when the executable identity cannot be observed, and tool dispatch remains authoritative.",
   },
+  "operation-executor-liveness-probe": {
+    path: "src/engine/completion/operation_journal.ts",
+    enclosingFunction: "executorAlive",
+    operation:
+      "report a recorded executor process as gone when the liveness probe fails",
+    kind: "direct",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "A probe the reader cannot deliver means the recorded process is not reachable from here, and the reading is advisory observation either way.",
+  },
+  "operation-journal-create-close": {
+    path: "src/engine/completion/operation_journal.ts",
+    enclosingFunction: "openOperationJournal",
+    operation: "close the journal record at the end of one create attempt",
+    kind: "capability",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "The handle or original write failure is already decided, and the error path may already have closed the file.",
+  },
+  "operation-journal-lock-fallback": {
+    path: "src/engine/completion/operation_journal.ts",
+    enclosingFunction: "withStoreLock",
+    operation:
+      "decline journal storage when its repository lock cannot be acquired",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "The journal is advisory presentation state; the operation continues without one, while running unlocked would corrupt the bounded shared store.",
+  },
+  "operation-journal-open-fallback": {
+    path: "src/engine/completion/operation_journal.ts",
+    enclosingFunction: "withOperationJournal",
+    operation: "run the operation without a journal when opening one fails",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "Progress journaling must never fail or delay the operation it describes; reconnect readers report the store unavailable on their own surface.",
+  },
+  "operation-journal-write-fallback": {
+    path: "src/engine/completion/operation_journal.ts",
+    enclosingFunction: "persist",
+    operation: "stop journal updates after one durable replace fails",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "A journal that cannot persist stops updating rather than failing the operation; the stale record still names the operation and its start.",
+  },
   "operation-lock-acquire-rollback": {
     path: "src/engine/operation_lock.ts",
     enclosingFunction: "acquireLock",

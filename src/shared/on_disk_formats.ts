@@ -223,6 +223,15 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/continuations/store.ts"],
     newerVersionPolicy: "refuse",
   },
+  operationJournal: {
+    id: "operation-journal",
+    location: { kind: "git-admin", keys: ["operations"] },
+    version: 1,
+    versionField: "schema_version",
+    reader: "src/engine/completion/operation_journal.ts#readOperationJournal",
+    writers: ["src/engine/completion/operation_journal.ts"],
+    newerVersionPolicy: "refuse",
+  },
   crashReport: {
     id: "crash-report",
     location: { kind: "git-admin", keys: ["crash"] },

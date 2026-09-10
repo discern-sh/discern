@@ -95,6 +95,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/logbook-lifecycle.lock`                   | repository | Advisory lock serializing terminal-confirmed Logbook reset and archive actions.                                                         |
 | `discern/validation-hmac-key`                      | repository | Local key that makes validation-state and execution digests opaque but comparable across this repository's worktrees.                   |
 | `discern/continuations/`                           | repository | Short-handle continuation state, kept for up to 7 days.                                                                                 |
+| `discern/operations/`                              | repository | Progress journals for long operations behind short reconnect handles, kept for up to 7 days.                                            |
 | `discern/retired-worktree-paths/`                  | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                                           |
 | `discern/parked-tasks/`                            | repository | Branch-keyed task wording retained while Park removes the checkout.                                                                     |
 | `discern/drop-recovery.lock`                       | repository | Advisory lock serializing the bounded drop-recovery ref transaction.                                                                    |

@@ -1,54 +1,29 @@
 /**
  * Short handles for continuation state relayed through an agent.
  *
- * The random identity is repository-local and collision-checked by the store.
- * The checksum catches every one-symbol substitution and adjacent transposition
+ * The `C1` family of the shared short-handle machinery: the random identity is
+ * repository-local and collision-checked by the continuation store, and the
+ * checksum catches every one-symbol substitution and adjacent transposition
  * within the random identity before a damaged handle reaches the filesystem.
  */
 
-import { type SecureEntropy, SYSTEM_SECURE_ENTROPY } from "./entropy.ts";
+import type { SecureEntropy } from "./entropy.ts";
+import {
+  createShortHandle,
+  normalizeShortHandle,
+  shortHandleFamily,
+} from "./short_handle.ts";
 
-const CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const RANDOM_SYMBOLS = 8;
-const CHECK_SYMBOLS = 2;
-const CHECK_MODULUS = 32 ** CHECK_SYMBOLS;
+const CONTINUATION_FAMILY = shortHandleFamily("C1");
 
-export const CONTINUATION_HANDLE_LENGTH = 15;
-export const CONTINUATION_HANDLE_PATTERN =
-  /^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$/u;
-
-/** Fold Crockford symbols into the 2-symbol substitution-and-transposition check. */
-function checksum(data: string): number {
-  let value = 0;
-  for (const symbol of data) {
-    const index = CROCKFORD_BASE32.indexOf(symbol);
-    if (index < 0) {
-      return -1;
-    }
-    value = (value * 33 + index) % CHECK_MODULUS;
-  }
-  return value;
-}
-
-/** Encode the bounded numeric check as 2 Crockford Base32 symbols. */
-function encodeChecksum(value: number): string {
-  return `${CROCKFORD_BASE32[Math.floor(value / 32)] ?? ""}${
-    CROCKFORD_BASE32[value % 32] ?? ""
-  }`;
-}
+export const CONTINUATION_HANDLE_LENGTH = CONTINUATION_FAMILY.length;
+export const CONTINUATION_HANDLE_PATTERN = CONTINUATION_FAMILY.pattern;
 
 /** Create one canonical handle. The store rejects and retries collisions. */
 export function createContinuationHandle(
-  entropy: SecureEntropy = SYSTEM_SECURE_ENTROPY,
+  entropy?: SecureEntropy,
 ): string {
-  const bytes = new Uint8Array(RANDOM_SYMBOLS);
-  entropy.fillBytes(bytes);
-  let data = "";
-  for (const byte of bytes) {
-    data += CROCKFORD_BASE32[byte & 31] ?? "";
-  }
-  const check = encodeChecksum(checksum(data));
-  return `C1-${data.slice(0, 4)}-${data.slice(4)}-${check}`;
+  return createShortHandle(CONTINUATION_FAMILY, entropy);
 }
 
 /**
@@ -58,18 +33,5 @@ export function createContinuationHandle(
 export function normalizeContinuationHandle(
   candidate: string,
 ): string | undefined {
-  const normalized = candidate.toUpperCase();
-  if (
-    normalized.length !== CONTINUATION_HANDLE_LENGTH ||
-    !CONTINUATION_HANDLE_PATTERN.test(normalized)
-  ) {
-    return undefined;
-  }
-  const parts = normalized.split("-");
-  const data = `${parts[1] ?? ""}${parts[2] ?? ""}`;
-  const supplied = parts[3];
-  if (supplied === undefined || supplied !== encodeChecksum(checksum(data))) {
-    return undefined;
-  }
-  return normalized;
+  return normalizeShortHandle(CONTINUATION_FAMILY, candidate);
 }

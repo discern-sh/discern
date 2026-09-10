@@ -36,6 +36,8 @@ export interface ProducerWork {
   readonly elapsed_ms?: number;
   /** True when the reported counts cover only part of the completed units. */
   readonly partial?: boolean;
+  /** Engine-observed path of the settled producer's full captured output. */
+  readonly output_path?: string;
 }
 
 /**
@@ -58,10 +60,17 @@ export interface CompletionFailure {
 
 /** The next piece of work or the exact reason it is pending, without output-log payloads. */
 export interface CompletionProgress {
-  readonly phase: "producer" | "environment" | "queue" | "pending";
+  readonly phase:
+    | "producer"
+    | "environment"
+    | "queue"
+    | "pending"
+    | "operation";
   readonly state: string;
   readonly candidate_id: string | null;
   readonly reason: string;
+  /** The running operation's reconnect handle, announced once at its start. */
+  readonly operation_handle?: string;
   /** What happens after the current work, when the transition is known. */
   readonly next?: string;
   /** True only when no actor can proceed until the owner decides something. */

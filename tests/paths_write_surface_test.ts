@@ -246,6 +246,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "short-handle continuation state — registry-resolved .git-internal state outside the project tree",
   ],
   [
+    "src/engine/completion/operation_journal.ts",
+    "operation progress journals — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/engine/checkpoints/open_questions.ts",
     "the checkpoint open-question store — registry-resolved .git-internal state outside the project tree",
   ],

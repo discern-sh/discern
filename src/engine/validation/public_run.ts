@@ -359,6 +359,12 @@ export async function executePublicValidation(input: {
             : result.status === "ok"
             ? `${producerLabel(selector)} passed.`
             : `${producerLabel(selector)} failed.`,
+          work: {
+            producer: producerLabel(selector),
+            ...(result.outputPath === undefined
+              ? {}
+              : { output_path: result.outputPath }),
+          },
         });
         if (config.gate.fail_fast && result.code !== 0) abort.abort();
       },
