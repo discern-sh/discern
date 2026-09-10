@@ -4041,6 +4041,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/progress_surface_parity_test.ts":
+    "proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set",
   "tests/test_registration_guard_test.ts":
     "rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set",
   "tests/completion_publication_cost_guard_test.ts":
