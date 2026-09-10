@@ -193,28 +193,20 @@ function checkObservationBytes(
   }
 }
 
-/** Keep raw index and staged binary patches as well as present working bytes. */
-async function captureOnce(
-  root: string,
+/** The identity facts one bounded rev-parse prints: commit, tree, and attachment. */
+export interface CheckoutIdentity {
+  readonly head: string;
+  readonly tree: string;
+  /** The attached branch's full ref name; null when HEAD is detached. */
+  readonly branch: string | null;
+}
+
+/** Decode one rev-parse observation of HEAD, its tree, and the symbolic HEAD. */
+export function decodeCheckoutIdentity(
+  observation: string,
   bounds: CaptureBounds,
-  storage?: { root: string; preserve: boolean },
-): Promise<GitSnapshot> {
-  const git = (args: string[]): Promise<string> =>
-    executionGit(root, args, {
-      ...bounds,
-      maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES),
-    });
-  const identity = await executionGit(root, [
-    "rev-parse",
-    "HEAD",
-    "HEAD^{tree}",
-    "--symbolic-full-name",
-    "HEAD",
-  ], {
-    ...bounds,
-    maxBytes: Math.min(CAPTURE_METADATA_BYTES, bounds.maxBytes * 3),
-  });
-  const fields = identity.split("\n");
+): CheckoutIdentity {
+  const fields = observation.split("\n");
   const [rawHead, rawTree, rawBranch, terminator] = fields;
   if (
     fields.length !== 4 || rawHead === undefined || rawTree === undefined ||
@@ -229,9 +221,45 @@ async function captureOnce(
     fields.slice(0, 3).map((value) => `${value}\n`),
     bounds,
   );
-  const head = rawHead.trim();
-  const tree = rawTree.trim();
-  const branch = rawBranch === "HEAD" ? "" : rawBranch.trim();
+  return {
+    head: rawHead.trim(),
+    tree: rawTree.trim(),
+    branch: rawBranch === "HEAD" ? null : rawBranch.trim(),
+  };
+}
+
+/** Every snapshot form reads its three identity facts through this one bounded Git process. */
+export async function observeCheckoutIdentity(
+  root: string,
+  bounds: CaptureBounds,
+): Promise<CheckoutIdentity> {
+  return decodeCheckoutIdentity(
+    await executionGit(root, [
+      "rev-parse",
+      "HEAD",
+      "HEAD^{tree}",
+      "--symbolic-full-name",
+      "HEAD",
+    ], {
+      ...bounds,
+      maxBytes: Math.min(CAPTURE_METADATA_BYTES, bounds.maxBytes * 3),
+    }),
+    bounds,
+  );
+}
+
+/** Keep raw index and staged binary patches as well as present working bytes. */
+async function captureOnce(
+  root: string,
+  bounds: CaptureBounds,
+  storage?: { root: string; preserve: boolean },
+): Promise<GitSnapshot> {
+  const git = (args: string[]): Promise<string> =>
+    executionGit(root, args, {
+      ...bounds,
+      maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES),
+    });
+  const { head, tree, branch } = await observeCheckoutIdentity(root, bounds);
   const gitDir = (await git(["rev-parse", "--absolute-git-dir"])).trim();
   const indexPath = join(gitDir, "index");
   const taggedIndex = await executionGit(root, [
@@ -404,7 +432,7 @@ async function captureOnce(
       : RELEASE_OBSERVATION_FORMAT,
     head,
     tree,
-    branch: branch === "" ? null : branch,
+    branch,
     git_dir: gitDir,
     index_path: indexPath,
     index,

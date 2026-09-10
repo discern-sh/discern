@@ -22,12 +22,12 @@ import { withTempDir } from "./temp_dir.ts";
 const GIT_COMMAND_BUDGET: Readonly<Record<string, number>> = {
   start: 58,
   status: 60,
-  done: 420,
+  done: 365,
   accept: 400,
 };
 
 /** Ceiling on the whole journey. */
-const JOURNEY_BUDGET = 920;
+const JOURNEY_BUDGET = 860;
 
 /** Engine verbs the journey does not exercise, each with the reason. */
 const UNBUDGETED_ENGINE_VERBS: ReadonlyMap<string, string> = new Map([

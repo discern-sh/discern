@@ -5,6 +5,7 @@ import {
   CAPTURE_METADATA_BYTES,
   type CaptureBounds,
   executionGit,
+  observeCheckoutIdentity,
   requireNativeIndex,
 } from "./snapshot.ts";
 import { type GitSnapshot, GitSnapshotSchema } from "./snapshot_schema.ts";
@@ -16,16 +17,15 @@ export async function observeSourceSnapshot(
   indexFile: string | undefined = Deno.env.get("GIT_INDEX_FILE"),
 ): Promise<GitSnapshot> {
   requireNativeIndex(indexFile);
+  const metadataBounds: CaptureBounds = {
+    ...bounds,
+    maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES),
+  };
   const git = (args: string[]): Promise<string> =>
-    executionGit(root, args, {
-      ...bounds,
-      maxBytes: Math.min(bounds.maxBytes, CAPTURE_METADATA_BYTES),
-    });
+    executionGit(root, args, metadataBounds);
   const once = async (): Promise<GitSnapshot> => {
-    const [head, tree, branch, gitDir, entries, status] = await Promise.all([
-      git(["rev-parse", "HEAD"]),
-      git(["rev-parse", "HEAD^{tree}"]),
-      git(["rev-parse", "--symbolic-full-name", "HEAD"]),
+    const [identity, gitDir, entries, status] = await Promise.all([
+      observeCheckoutIdentity(root, metadataBounds),
       git(["rev-parse", "--absolute-git-dir"]),
       git(["ls-files", "--stage", "-v", "-z"]),
       git([
@@ -38,9 +38,9 @@ export async function observeSourceSnapshot(
     ]);
     return GitSnapshotSchema.parse({
       format: SOURCE_OBSERVATION_FORMAT,
-      head: head.trim(),
-      tree: tree.trim(),
-      branch: branch.trim() === "HEAD" ? null : branch.trim(),
+      head: identity.head,
+      tree: identity.tree,
+      branch: identity.branch,
       git_dir: gitDir.trim(),
       index_path: join(gitDir.trim(), "index"),
       index: "",
