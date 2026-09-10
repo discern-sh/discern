@@ -55,6 +55,7 @@ import {
   type GateData,
   GateDataSchema,
   type GateStandard,
+  GateStandardSchema,
   type Proof,
   STANDARD_MEASUREMENTS,
   STANDARD_VERDICTS,
@@ -652,6 +653,13 @@ Deno.test("Gate Standards render every measurement and verdict without invented 
       limit: 40,
       measurement: "skipped",
     },
+    {
+      name: "interrupted",
+      direction: "up",
+      limit: 80,
+      measurement: "cancelled",
+    },
+    { name: "inapplicable", direction: "up", limit: 80, measurement: "stale" },
   ];
   const rendered = renderGateStandards(standards, {
     width: 64,
@@ -671,12 +679,34 @@ Deno.test("Gate Standards render every measurement and verdict without invented 
       "Measurement is deferred",
       "Run discern standards.",
       "The gate stopped before this standard measurement ran.",
+      "Measurement was cancelled before a complete verdict was recorded.",
+      "The measurement evidence no longer applies to the current subject.",
     ]
   ) {
     assertStringIncludes(rendered.replaceAll(/\s+/gu, " "), fact);
   }
   assertEquals(rendered.includes("Current: undefined"), false);
   assertEquals(rendered.includes("Current: 0"), false);
+  for (const measurement of ["cancelled", "stale"] as const) {
+    const reading = {
+      name: "incomplete",
+      direction: "up",
+      limit: 80,
+      measurement,
+    };
+    assert(GateStandardSchema.safeParse(reading).success);
+    for (
+      const invalid of [{ value: 0 }, { verdict: "held" }, {
+        pin_eligible: true,
+        pin_target: 90,
+      }, { replayed_from: "abc1234" }]
+    ) {
+      assertEquals(
+        GateStandardSchema.safeParse({ ...reading, ...invalid }).success,
+        false,
+      );
+    }
+  }
 });
 
 Deno.test("Gate diagnostics preserve severity, location, controls, excerpt, and retry", () => {

@@ -907,6 +907,8 @@ export const STANDARD_MEASUREMENTS = [
   "replayed", // the recorded baseline value stood in — its inputs were untouched
   "deferred", // measure = "on-demand": the gate skipped only the measurement
   "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
+  "cancelled", // interrupted production has no completed measurement verdict
+  "stale", // produced evidence no longer applies to the observed subject
 ] as const;
 /** One measurement disposition ({@link STANDARD_MEASUREMENTS}). */
 export type StandardMeasurementDisposition =
@@ -939,6 +941,18 @@ export const GateStandardSchema = z.strictObject({
   /** The exact tighter limit the Gate would apply when eligible. */
   pin_target: z.number().optional(),
 }).superRefine((reading, context) => {
+  if (
+    (reading.measurement === "cancelled" || reading.measurement === "stale") &&
+    (reading.value !== undefined || reading.verdict !== undefined ||
+      reading.pin_eligible === true || reading.replayed_from !== undefined)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["measurement"],
+      message:
+        "An incomplete measurement cannot carry a value, verdict, replay or pin authority",
+    });
+  }
   if (reading.pin_eligible === true && reading.pin_target === undefined) {
     context.addIssue({
       code: "custom",

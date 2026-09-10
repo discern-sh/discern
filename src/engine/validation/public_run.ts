@@ -475,6 +475,9 @@ export async function executePublicValidation(input: {
         obligation.applicability.protected_definitions
     );
     if (component === undefined || !("reason" in component.outcome)) continue;
+    if (
+      component.outcome.kind === "stale" || component.outcome.kind === "unrun"
+    ) continue;
     const label = producerLabel(obligation.producer);
     const prior = results.get(label);
     if (
@@ -489,6 +492,7 @@ export async function executePublicValidation(input: {
       ...prior,
       status: "failed",
       code: 1,
+      ...(component.outcome.kind === "cancelled" ? { cancelled: true } : {}),
       failureMessage: component.outcome.reason,
     });
   }
@@ -542,7 +546,7 @@ export async function executePublicValidation(input: {
         artifact.path === outputPath
       );
       let output: string | undefined;
-      if (outputArtifact !== undefined) {
+      if (outputArtifact !== undefined && component.outcome.kind === "failed") {
         try {
           output = new TextDecoder("utf-8", { fatal: true }).decode(
             await readArtifact(root, outputArtifact),
@@ -553,11 +557,13 @@ export async function executePublicValidation(input: {
           }`;
         }
       }
-      verdicts.set(standard.name, {
-        held: false,
-        reason,
-        ...(output === undefined ? {} : { output }),
-      });
+      if (component.outcome.kind === "failed") {
+        verdicts.set(standard.name, {
+          held: false,
+          reason,
+          ...(output === undefined ? {} : { output }),
+        });
+      }
     } else if (
       plan.reused.some((reuse) =>
         reuse.requirement.id === standard.name &&
@@ -598,14 +604,18 @@ export async function executePublicValidation(input: {
       }
     }
     const producerResult = results.get(producerLabel(obligation.producer));
-    const duration = producerResult?.durationS ?? 0;
+    const duration = producerResult?.durationS;
     const held = value !== undefined && standardHeld(standard, value);
     const reading: GateStandard = {
       name: standard.name,
       direction: standard.direction,
       limit: standard.limit,
       margin: standard.margin,
-      measurement: value === undefined && component === undefined
+      measurement: component?.outcome.kind === "cancelled" ||
+          component?.outcome.kind === "stale"
+        ? component.outcome.kind
+        : component?.outcome.kind === "unrun" ||
+            value === undefined && component === undefined
         ? "skipped"
         : from === undefined
         ? "measured"
@@ -616,10 +626,16 @@ export async function executePublicValidation(input: {
         ...standardPinEvidence(standard, value),
       }),
       ...(from === undefined
-        ? { duration_s: duration }
+        ? duration === undefined ? {} : { duration_s: duration }
         : { replayed_from: from }),
     };
     standards.push(reading);
+    if (
+      component?.outcome.kind === "unrun" || component?.outcome.kind === "stale"
+    ) {
+      results.delete(standardJobLabel(standard.name));
+      continue;
+    }
     if (component !== undefined || from !== undefined) {
       const label = standardJobLabel(standard.name);
       const readingOnly = demand.kind === "test";
@@ -636,7 +652,8 @@ export async function executePublicValidation(input: {
         label,
         status: held || readingOnly && value !== undefined ? "ok" : "failed",
         code: held || readingOnly && value !== undefined ? 0 : 1,
-        durationS: duration,
+        ...(component?.outcome.kind === "cancelled" ? { cancelled: true } : {}),
+        durationS: duration ?? 0,
         outputLines: 0,
         errorLikeLines: 0,
         ...(!held && !readingOnly

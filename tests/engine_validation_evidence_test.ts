@@ -150,17 +150,35 @@ concurrent_test_runs = 0
   });
 });
 
-Deno.test("failing done records the failed test job and cancelled sibling", async () => {
+Deno.test("failing done records the failed test job and cancelled sibling measurement without a false verdict", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[project]\nslug = "evidence-fixture"\n[jobs]\nlint = "tail -f /dev/null"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n`,
+      `[project]\nslug = "evidence-fixture"\n[jobs]\nlint = "tail -f /dev/null"\ntest = "false"\n\n[gate]\nconcurrent_test_runs = 0\n
+[standards.sibling_metric]
+producer = "jobs.lint"
+metric = "value"
+direction = "up"
+limit = 0
+`,
     );
     await gitInit(dir);
 
     const run = await runAgent(dir, ["done", "--json"]);
     assertEquals(run.code, 1, run.output);
+    const result = decodeCliResult(run.stdout, "done");
+    assert(result.data !== undefined && "standards" in result.data, run.output);
+    const reading = result.data.standards?.find((entry) =>
+      entry.name === "sibling_metric"
+    );
+    assertEquals(reading?.measurement, "cancelled", run.output);
+    assertEquals(reading?.value, undefined);
+    assertEquals(reading?.verdict, undefined);
+    const step = result.steps?.find((entry) =>
+      entry.label === "standard:sibling_metric"
+    );
+    assertEquals(step?.outcome, "cancelled", run.output);
     const event = (await completedEvents(dir)).find((candidate) =>
       candidate.verb === "done"
     );
@@ -170,7 +188,10 @@ Deno.test("failing done records the failed test job and cancelled sibling", asyn
     assertEquals(validation.execution.mode, "full-gate");
     assertEquals(
       validation.execution.jobs.map((job) => [job.id, job.outcome]),
-      [["lint", "cancelled"], ["test", "failed"]],
+      [["lint", "cancelled"], ["test", "failed"], [
+        "standard:sibling_metric",
+        "cancelled",
+      ]],
     );
   });
 });

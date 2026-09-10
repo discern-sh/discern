@@ -204,6 +204,8 @@ export const GATE_STANDARD_MEASUREMENT_LABEL = {
   replayed: "replayed",
   deferred: "deferred",
   skipped: "skipped",
+  cancelled: "cancelled",
+  stale: "stale",
 } as const satisfies Readonly<Record<StandardMeasurementDisposition, string>>;
 
 type GateProofRecord = NonNullable<GateData["gate_proof"]>;
@@ -721,7 +723,8 @@ function standardSummaryState(
   standard: GateStandard,
 ): ResultSummaryCliProps["state"] {
   if (
-    standard.measurement === "deferred" || standard.measurement === "skipped"
+    standard.measurement === "deferred" || standard.measurement === "skipped" ||
+    standard.measurement === "cancelled" || standard.measurement === "stale"
   ) {
     return "blocked";
   }
@@ -750,6 +753,10 @@ function standardEvidence(standard: GateStandard): string {
       return 'Measurement is deferred by measure = "on-demand".';
     case "skipped":
       return "The gate stopped before this standard measurement ran.";
+    case "cancelled":
+      return "Measurement was cancelled before a complete verdict was recorded.";
+    case "stale":
+      return "The measurement evidence no longer applies to the current subject.";
   }
 }
 

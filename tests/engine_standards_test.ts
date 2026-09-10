@@ -39,7 +39,10 @@ import {
 } from "./decode_cli_result.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { waitForPendingCondition } from "./waiting.ts";
-import { DiagnosticSchema } from "../src/shared/result_schemas.ts";
+import {
+  DiagnosticSchema,
+  StandardsDataSchema,
+} from "../src/shared/result_schemas.ts";
 import { sha256Hex } from "../src/shared/sha256.ts";
 
 type StandardsJson = CliResultForCommand<"standards">;
@@ -698,6 +701,20 @@ Deno.test("standardsResult: cancellation starts no work and stops in-flight work
         assertStringIncludes(
           result.message ?? "",
           "cancelled before it started",
+        );
+      } else {
+        const data = StandardsDataSchema.parse(result.data);
+        const reading = data.standards?.find((entry) => entry.name === "slow");
+        assertEquals(reading?.measurement, "cancelled", JSON.stringify(result));
+        assertEquals(reading?.value, undefined);
+        assertEquals(reading?.verdict, undefined);
+        assertEquals(
+          result.steps?.find((entry) => entry.step.label === "slow")?.outcome,
+          "cancelled",
+        );
+        assertStringIncludes(
+          result.diagnostics?.[0]?.message ?? "",
+          "no applicable completed verdict",
         );
       }
     }

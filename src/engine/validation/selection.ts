@@ -110,7 +110,7 @@ export function artifactKey(
   ]);
 }
 
-/** Newer attempts win by reservation order, including failures in report mode. */
+/** Newer completed verdicts win; interrupted observations cannot erase a verdict. */
 export function selectEvidence(
   obligation: ResolvedObligation,
   candidateId: string,
@@ -123,16 +123,19 @@ export function selectEvidence(
     index.receipts.get(attempt.id) ?? [];
   const applicability = JSON.stringify(obligation.applicability);
   const latest = (index.bySubject.get(`${purpose}:${obligation.subject}`) ?? [])
-    .find((record) =>
-      // A cancelled reservation with no result did not fail this producer.
-      !(record.data.state.kind === "finished" &&
-        record.data.state.outcome === "cancelled" &&
-        !receipts(record).some((receipt) =>
-          JSON.stringify(receipt.data.applicability) === applicability &&
-          (receipt.data.outcome.kind === "passed" ||
-            receipt.data.outcome.kind === "failed")
-        ))
-    );
+    .find((record) => {
+      if (record.data.state.kind !== "finished") return true;
+      // Aggregate failure can belong to another producer. Only this subject's
+      // completed verdict can replace its earlier applicable pass or failure.
+      const applicable = receipts(record).filter((receipt) =>
+        JSON.stringify(receipt.data.applicability) === applicability
+      );
+      return applicable.length > 1 ||
+        applicable.some((receipt) =>
+          receipt.data.outcome.kind === "passed" ||
+          receipt.data.outcome.kind === "failed"
+        );
+    });
   if (latest === undefined) return { kind: "missing" };
   const attempt = latest.data;
   const matching = receipts(latest).filter((record) =>
@@ -175,8 +178,8 @@ export function selectEvidence(
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.
   if (attempt.state.kind !== "finished" || matching.length !== 1) {
     return blocked({
-      kind: "validation-failed",
-      evidence_ids: matching.map((r) => r.id),
+      kind: "missing-evidence",
+      requirements: [obligation.requirement],
     });
   }
   const record = matching[0];

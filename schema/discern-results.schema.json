@@ -11977,7 +11977,9 @@
                           "measured",
                           "replayed",
                           "deferred",
-                          "skipped"
+                          "skipped",
+                          "cancelled",
+                          "stale"
                         ]
                       },
                       "value": {
@@ -13127,7 +13129,9 @@
                           "measured",
                           "replayed",
                           "deferred",
-                          "skipped"
+                          "skipped",
+                          "cancelled",
+                          "stale"
                         ]
                       },
                       "value": {
@@ -13685,7 +13689,9 @@
                           "measured",
                           "replayed",
                           "deferred",
-                          "skipped"
+                          "skipped",
+                          "cancelled",
+                          "stale"
                         ]
                       },
                       "value": {
@@ -16127,7 +16133,9 @@
                           "measured",
                           "replayed",
                           "deferred",
-                          "skipped"
+                          "skipped",
+                          "cancelled",
+                          "stale"
                         ]
                       },
                       "value": {
@@ -16774,7 +16782,9 @@
                           "measured",
                           "replayed",
                           "deferred",
-                          "skipped"
+                          "skipped",
+                          "cancelled",
+                          "stale"
                         ]
                       },
                       "value": {

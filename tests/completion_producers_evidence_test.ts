@@ -563,6 +563,22 @@ Deno.test("E13: compatible partial contexts assemble; missing, substituted and r
 });
 
 Deno.test("explicit retry bounds all earlier terminal failures while retaining unrelated green and live work", async () => {
+  /** Actual per-subject failed verdicts; aggregate attempt status cannot substitute. */
+  const failedComponents = (
+    execution: ReturnType<typeof claimed>,
+    plan: ReturnType<typeof planValidation>,
+  ): ComponentEvidence[] =>
+    plan.producers.flatMap((p) => p.evidence_subjects).map((applicability) => ({
+      attempt_id: execution.attempt.identity.id,
+      candidate_id: execution.attempt.identity.candidate_id,
+      sequence: execution.attempt.identity.sequence,
+      purpose: execution.attempt.purpose,
+      mode: execution.attempt.mode,
+      applicability,
+      finished_at: 110,
+      artifacts: [],
+      outcome: { kind: "failed", reason: "Recorded producer verdict" },
+    }));
   const names = ["amber", "birch", "cedar"];
   const first = obligations()[0];
   assert(first !== undefined);
@@ -590,7 +606,9 @@ Deno.test("explicit retry bounds all earlier terminal failures while retaining u
     const execution = claimed(snap, plan, index + 2);
     // Reusable subjects remain the same even when an earlier source candidate differs.
     execution.attempt.identity.candidate_id = completionId(80 + index);
-    records.push(...recorded(execution, [], "failed"));
+    records.push(
+      ...recorded(execution, failedComponents(execution, plan), "failed"),
+    );
     failed.push(execution.attempt.identity.id);
   }
   const boundary = failed[1];
@@ -618,7 +636,12 @@ Deno.test("explicit retry bounds all earlier terminal failures while retaining u
     id: later.attempt.identity.id,
     data: later.attempt,
   });
-  for (const extra of [[active], recorded(later, [], "failed")]) {
+  for (
+    const extra of [
+      [active],
+      recorded(later, failedComponents(later, retry), "failed"),
+    ]
+  ) {
     const protectedPlan = planValidation(
       snap,
       observation([...records, ...extra]),
@@ -762,6 +785,76 @@ Deno.test("cancelled work cannot invent or erase producer failure, and completed
   );
   assertEquals(receipts.reused.length, snap.requirements.length);
   assertEquals(receipts.blockers, []);
+  for (const kind of ["cancelled", "unrun", "stale"] as const) {
+    const noVerdicts = completed.records.map((record) =>
+      CompletionRecordSchema.parse(
+        record.kind === "evidence"
+          ? {
+            ...record,
+            data: {
+              ...record.data,
+              outcome: {
+                kind,
+                reason: "no completed verdict for this component",
+              },
+            },
+          }
+          : record.kind === "attempt"
+          ? {
+            ...record,
+            data: {
+              ...record.data,
+              state: { kind: "finished", outcome: "failed", finished_at: 120 },
+            },
+          }
+          : record,
+      )
+    );
+    const fresh = planValidation(snap, observation(noVerdicts), demand);
+    assertEquals(fresh.blockers, [], kind);
+    assertEquals(fresh.reused, [], kind);
+    assertEquals(
+      fresh.producers.flatMap((p) => p.consumers).length,
+      snap.requirements.length,
+    );
+    const stillPassed = planValidation(
+      snap,
+      observation([...baseline.records, ...noVerdicts]),
+      demand,
+    );
+    assertEquals(stillPassed.blockers, [], kind);
+    assertEquals(stillPassed.reused.length, snap.requirements.length);
+    const stillFailed = planValidation(
+      snap,
+      observation([...failed, ...noVerdicts]),
+      demand,
+    );
+    assertEquals(stillFailed.blockers.length, snap.requirements.length);
+    assert(
+      stillFailed.blockers.every((b) => b.kind === "validation-failed"),
+      kind,
+    );
+    assertEquals(stillFailed.producers, [], kind);
+
+    const firstReceipt = noVerdicts.find((r) => r.kind === "evidence");
+    assert(firstReceipt !== undefined);
+    const mixed = noVerdicts.map((record) =>
+      record.id !== firstReceipt.id ? record : CompletionRecordSchema.parse({
+        ...record,
+        data: {
+          ...record.data,
+          outcome: { kind: "failed", reason: "a real sibling failure" },
+        },
+      })
+    );
+    const mixedPlan = planValidation(snap, observation(mixed), demand);
+    assertEquals(mixedPlan.blockers.length, 1, kind);
+    assertEquals(mixedPlan.blockers[0]?.kind, "validation-failed");
+    assertEquals(
+      mixedPlan.producers.flatMap((p) => p.consumers).length,
+      snap.requirements.length - 1,
+    );
+  }
 });
 
 Deno.test("partial input observation cannot assemble the complete candidate Proof", async () => {

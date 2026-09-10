@@ -97,6 +97,11 @@ function standardLine(o: GateStandard): string {
   if (o.measurement === "skipped") {
     return `- ${code(o.name)} — not measured (the gate stopped before it ran)`;
   }
+  if (o.measurement === "cancelled" || o.measurement === "stale") {
+    return `- ${
+      code(o.name)
+    } — ${o.measurement} (no applicable completed measurement verdict)`;
+  }
   const value = o.value !== undefined ? `${fmtRate(o.value)} ` : "";
   const standing = o.verdict ?? "unmeasured";
   const how = o.measurement === "replayed"
@@ -166,6 +171,11 @@ function lineStandardsSegment(
   if (standards.length === 0) {
     return undefined;
   }
+  const incomplete =
+    standards.filter((o) =>
+      o.measurement === "cancelled" || o.measurement === "stale"
+    ).length;
+  if (incomplete > 0) return `Standards incomplete (${incomplete})`;
   const deferred = standards.filter(
     (o) => o.measurement === "deferred" || o.measurement === "skipped",
   ).length;

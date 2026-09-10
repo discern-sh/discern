@@ -573,6 +573,25 @@ Deno.test("proof line: all standards deferred is stated as such", () => {
   );
 });
 
+Deno.test("cancelled and stale measurements cannot render a held standards claim", () => {
+  for (const measurement of ["cancelled", "stale"] as const) {
+    const reading: GateStandard = {
+      name: "coverage",
+      direction: "up",
+      limit: 80,
+      measurement,
+    };
+    assertStringIncludes(
+      renderProofLine(FACTS, [reading], VERIFIED),
+      "Standards incomplete (1)",
+    );
+    assertStringIncludes(
+      renderProofMarkdown(FACTS, STEPS, [reading], VERIFIED),
+      `${measurement} (no applicable completed measurement verdict)`,
+    );
+  }
+});
+
 Deno.test("proof line: unverified limits are disclosed loudly", () => {
   assertStringIncludes(
     renderProofLine(FACTS, [HELD], {

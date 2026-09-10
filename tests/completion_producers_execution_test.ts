@@ -38,7 +38,12 @@ Deno.test("dependency failure prevents its consumers from executing; diagnostic-
         : runtime.produce(producer, execution),
   }, COMPLETION_CLOCK);
   assertEquals(counts.size, 0);
-  assert(result.evidence.every((e) => e.outcome.kind === "failed"));
+  assertEquals(result.evidence.length, snap.requirements.length);
+  assert(result.evidence.every((e) => e.outcome.kind === "unrun"));
+  assertEquals(
+    result.blockers.filter((b) => b.kind === "validation-failed").length,
+    1,
+  );
   const bare = await snapshot({
     producers: recipes({ "jobs.test": {}, "jobs.bare": { run: "exit 1" } }),
   });
@@ -244,6 +249,7 @@ Deno.test("E01 E05: failed, incomplete and malformed producer captures cannot sa
   for (
     const capture of [
       { ...captured(), outcome: "failed" as const },
+      { ...captured(), outcome: "cancelled" as const, complete: false },
       { ...captured(), complete: false },
       captured(""),
       captured("DISCERN_METRIC covered NaN"),
@@ -268,6 +274,18 @@ Deno.test("E01 E05: failed, incomplete and malformed producer captures cannot sa
       COMPLETION_CLOCK,
     );
     assert(result.blockers.length > 0);
+    if (capture.outcome === "cancelled") {
+      assert(
+        result.blockers.every((b) =>
+          b.kind === "cancelled" || b.kind === "missing-evidence"
+        ),
+      );
+      assert(
+        result.evidence.every((e) =>
+          e.outcome.kind === "cancelled" || e.outcome.kind === "unrun"
+        ),
+      );
+    }
     assertEquals(
       assembleCandidate(
         snap,

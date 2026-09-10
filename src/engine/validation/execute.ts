@@ -23,7 +23,7 @@ import { readMetrics, standardHeld, standardReading } from "./metrics.ts";
 import type { JobResult } from "../jobs/types.ts";
 
 export interface ProducerCapture {
-  readonly outcome: "passed" | "failed" | "cancelled";
+  readonly outcome: "passed" | "failed" | "cancelled" | "unrun";
   readonly complete: boolean;
   readonly output: Uint8Array;
   readonly artifacts: readonly ComponentEvidence["artifacts"][number][];
@@ -284,7 +284,14 @@ async function executeProducerGraph(
           }),
         );
         if (dependencies.some((d) => d.outcome !== "passed" || !d.complete)) {
-          throw new Error("required producer dependency failed");
+          return {
+            outcome: "unrun",
+            complete: false,
+            output: new Uint8Array(),
+            artifacts: [],
+            reason:
+              "Required producer dependencies did not complete successfully.",
+          };
         }
         if (execution.signal.aborted) {
           throw new Error("validation was cancelled");
@@ -369,11 +376,19 @@ async function executeProducerGraph(
           a.context === plan.demand.context
         ),
         outcome: {
-          kind: capture.outcome === "cancelled" ? "cancelled" : "failed",
+          kind: capture.outcome === "cancelled" || capture.outcome === "unrun"
+            ? capture.outcome
+            : "failed",
           reason: errorText(error),
         },
       }));
-      blockers.push({ kind: "validation-failed", evidence_ids: [] });
+      blockers.push(
+        capture.outcome === "cancelled"
+          ? { kind: "cancelled", reason: errorText(error) }
+          : capture.outcome === "unrun"
+          ? { kind: "missing-evidence", requirements: [obligation.requirement] }
+          : { kind: "validation-failed", evidence_ids: [] },
+      );
     }
   };
   // Each consumer awaits only its producer. No stage-wide Promise.all precedes extraction.
@@ -388,7 +403,15 @@ async function executeProducerGraph(
     }),
   ]));
   for (const capture of await Promise.all(physical.values())) {
-    if (capture.outcome !== "passed" || !capture.complete) {
+    if (capture.outcome === "cancelled") {
+      blockers.push({
+        kind: "cancelled",
+        reason: capture.reason ?? "Validation was cancelled.",
+      });
+    } else if (
+      capture.outcome === "failed" ||
+      capture.outcome === "passed" && !capture.complete
+    ) {
       blockers.push({ kind: "validation-failed", evidence_ids: [] });
     }
   }

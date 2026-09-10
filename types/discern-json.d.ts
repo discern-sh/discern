@@ -3944,7 +3944,13 @@ export type DiscernDoneResult = DiscernResultState & {
       direction: "up" | "down";
       limit: number;
       margin?: number;
-      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      measurement:
+        | "measured"
+        | "replayed"
+        | "deferred"
+        | "skipped"
+        | "cancelled"
+        | "stale";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
@@ -4278,7 +4284,13 @@ export type DiscernPrepareResult = DiscernResultState & {
       direction: "up" | "down";
       limit: number;
       margin?: number;
-      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      measurement:
+        | "measured"
+        | "replayed"
+        | "deferred"
+        | "skipped"
+        | "cancelled"
+        | "stale";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
@@ -4451,7 +4463,13 @@ export type DiscernTestResult = DiscernResultState & {
       direction: "up" | "down";
       limit: number;
       margin?: number;
-      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      measurement:
+        | "measured"
+        | "replayed"
+        | "deferred"
+        | "skipped"
+        | "cancelled"
+        | "stale";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
@@ -5174,7 +5192,13 @@ export type DiscernStandardsResult = DiscernResultState & {
       direction: "up" | "down";
       limit: number;
       margin?: number;
-      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      measurement:
+        | "measured"
+        | "replayed"
+        | "deferred"
+        | "skipped"
+        | "cancelled"
+        | "stale";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;
@@ -5366,7 +5390,13 @@ export type DiscernStandardsProposeResult = DiscernResultState & {
       direction: "up" | "down";
       limit: number;
       margin?: number;
-      measurement: "measured" | "replayed" | "deferred" | "skipped";
+      measurement:
+        | "measured"
+        | "replayed"
+        | "deferred"
+        | "skipped"
+        | "cancelled"
+        | "stale";
       value?: number;
       verdict?: "improved" | "held" | "regressed";
       duration_s?: number;

@@ -298,8 +298,11 @@ async function executeStandardPlan(
             }`
         }`,
       },
-      outcome: job?.cancelled === true
+      outcome: reading?.measurement === "cancelled" || job?.cancelled === true
         ? "cancelled"
+        : pending !== undefined || reading === undefined ||
+            reading.measurement === "skipped" || reading.measurement === "stale"
+        ? "skipped"
         : held
         ? (reading?.measurement === "replayed" ? "skipped" : "ok")
         : "failed",
@@ -322,6 +325,10 @@ async function executeStandardPlan(
               ? pending.recovery.reason
               : JSON.stringify(pending)
           }`
+          : reading?.measurement === "cancelled" ||
+              reading?.measurement === "stale" ||
+              reading?.measurement === "skipped"
+          ? `Standard '${standard.name}' measurement is ${reading.measurement}; no applicable completed verdict was recorded.`
           : job?.timedOut !== undefined
           ? jobFailureMessage(standard.name, job)
           : validation?.standard_verdicts.get(standard.name)?.reason ??
