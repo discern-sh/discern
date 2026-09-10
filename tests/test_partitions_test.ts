@@ -8,6 +8,7 @@ import {
 import { join } from "@std/path";
 import {
   combineJunitReports,
+  costAwareAdmission,
   partitionOrder,
   partitionSelections,
   prioritySafeArguments,
@@ -15,6 +16,8 @@ import {
   testPartitionCount,
 } from "../scripts/test_partitions.ts";
 import { testCommandArgs } from "../scripts/run_tests.ts";
+import { selectionSeconds } from "../scripts/test_durations.ts";
+import { durationHints } from "./test_duration_fixture.ts";
 import { junitToDiagnostics } from "../src/engine/gate/diagnostics.ts";
 import { runOwnedChild } from "../src/engine/owned_child.ts";
 import { lstatIfExists } from "../src/shared/fs_presence.ts";
@@ -695,5 +698,273 @@ Deno.test("failed and green suites execute every queued partition and every nati
         );
       }
     }
+  });
+});
+
+/** The literal files one selection names. */
+function selectionFiles(selection: readonly string[] | undefined): string[] {
+  return (selection ?? []).filter((arg) => !arg.startsWith("-"));
+}
+
+/** Greedy list scheduling: each admitted partition takes the soonest free slot. */
+function makespan(
+  order: readonly number[],
+  seconds: (index: number) => number,
+  workers: number,
+): number {
+  const ends = Array.from({ length: workers }, () => 0);
+  for (const index of order) {
+    const soonest = ends.indexOf(Math.min(...ends));
+    ends[soonest] = (ends[soonest] ?? 0) + seconds(index);
+  }
+  return Math.max(...ends);
+}
+
+Deno.test("cost-aware admission ranks fixed priority selections and leaves ordinary shards in seeded order", () => {
+  const priority = {
+    files: ["a", "b", "c", "d", "e", "f"].map((name) =>
+      `tests/${name}_test.ts`
+    ),
+    excluded: [],
+    moduleCount: 20,
+  };
+  const allocation = partitionSelections(16, 42, priority);
+  const preferred = new Set(allocation.preferred);
+  assertEquals(preferred.size, 5);
+  const base = partitionOrder(16, 3, 42, allocation.preferred);
+  const ordinary = base.filter((index) => !preferred.has(index));
+  const seededLast = base.filter((index) => preferred.has(index)).at(-1);
+  assert(seededLast !== undefined);
+  // Charge the group seeded admission runs last the most, so ranking must move it first.
+  const skewed = durationHints(Object.fromEntries(priority.files.map((
+    file,
+  ) => [
+    file,
+    selectionFiles(allocation.selections[seededLast]).includes(file) ? 100 : 1,
+  ])));
+  const ranked = costAwareAdmission(
+    base,
+    allocation.selections,
+    allocation.preferred,
+    skewed,
+  );
+  assertEquals(
+    [...ranked].sort((a, b) => a - b),
+    Array.from({ length: 16 }, (_, index) => index),
+    "every partition is admitted exactly once",
+  );
+  assertEquals(
+    [...ranked.slice(0, 5)].sort((a, b) => a - b),
+    [...preferred].sort((a, b) => a - b),
+    "priority partitions precede every ordinary shard",
+  );
+  assertEquals(ranked.slice(5), ordinary, "ordinary shards keep seeded order");
+  assertEquals(ranked[0], seededLast);
+  const costs = ranked.slice(0, 5).map((index) =>
+    selectionSeconds(allocation.selections[index] ?? [], skewed)
+  );
+  assertEquals(costs, [...costs].sort((a, b) => b - a));
+  assertEquals(
+    ranked,
+    costAwareAdmission(
+      base,
+      allocation.selections,
+      allocation.preferred,
+      skewed,
+    ),
+  );
+  assertEquals(
+    allocation,
+    partitionSelections(16, 42, priority),
+    "membership is fixed before ranking",
+  );
+  assertEquals(
+    costAwareAdmission(
+      base,
+      allocation.selections,
+      allocation.preferred,
+      undefined,
+    ),
+    base,
+    "no hints keeps the existing admission",
+  );
+  const groupOf = (file: string): number => {
+    const group = allocation.preferred.find((index) =>
+      selectionFiles(allocation.selections[index]).includes(file)
+    );
+    assert(group !== undefined);
+    return group;
+  };
+  // Every group costs exactly one second, so only the seeded order can decide.
+  const even = durationHints(Object.fromEntries(priority.files.map((
+    file,
+  ) => [
+    file,
+    1 / selectionFiles(allocation.selections[groupOf(file)]).length,
+  ])));
+  assertEquals(
+    costAwareAdmission(base, allocation.selections, allocation.preferred, even),
+    base,
+    "ties keep seeded order",
+  );
+  const other = partitionOrder(16, 3, 99, allocation.preferred);
+  assertEquals(
+    costAwareAdmission(
+      other,
+      allocation.selections,
+      allocation.preferred,
+      even,
+    ),
+    other,
+  );
+  // An unrecorded file is charged the most expensive recorded file, never zero.
+  const unrecorded = priority.files[0];
+  assert(unrecorded !== undefined);
+  const recorded = priority.files.find((file) =>
+    groupOf(file) !== groupOf(unrecorded)
+  );
+  assert(recorded !== undefined);
+  const partial = durationHints(Object.fromEntries(
+    priority.files.filter((file) => file !== unrecorded).map((
+      file,
+    ) => [file, file === recorded ? 50 : 1]),
+  ));
+  const withUnknown = costAwareAdmission(
+    base,
+    allocation.selections,
+    allocation.preferred,
+    partial,
+  );
+  assertEquals(
+    new Set(withUnknown.slice(0, 2)),
+    new Set([groupOf(unrecorded), groupOf(recorded)]),
+  );
+});
+
+Deno.test("a skewed fixed workload finishes sooner under cost-aware admission than under seeded admission", () => {
+  const priority = {
+    files: ["a", "b", "c", "d", "e"].map((name) => `tests/${name}_test.ts`),
+    excluded: [],
+    moduleCount: 8,
+  };
+  const allocation = partitionSelections(8, 42, priority);
+  const preferred = new Set(allocation.preferred);
+  assertEquals(preferred.size, 5);
+  const base = partitionOrder(8, 2, 42, allocation.preferred);
+  const heavy = base.filter((index) => preferred.has(index)).at(-1);
+  assert(heavy !== undefined);
+  const hints = durationHints(Object.fromEntries(priority.files.map((
+    file,
+  ) => [
+    file,
+    selectionFiles(allocation.selections[heavy]).includes(file) ? 10 : 1,
+  ])));
+  const seconds = (index: number): number =>
+    preferred.has(index)
+      ? selectionSeconds(allocation.selections[index] ?? [], hints)
+      : 1;
+  const seeded = makespan(base, seconds, 2);
+  const ranked = makespan(
+    costAwareAdmission(
+      base,
+      allocation.selections,
+      allocation.preferred,
+      hints,
+    ),
+    seconds,
+    2,
+  );
+  assertEquals(
+    seeded,
+    12,
+    "seeded admission leaves the heavy group as the tail",
+  );
+  assertEquals(ranked, 10, "cost-aware admission overlaps the heavy group");
+  assert(ranked < seeded);
+});
+
+Deno.test("recorded durations order launched priority partitions without changing their selections", async () => {
+  await withTempDir(async (root) => {
+    for (let index = 0; index < 4; index++) {
+      await Deno.writeTextFile(
+        join(root, `${index}_test.ts`),
+        `Deno.test('module ${index}', () => {});\n`,
+      );
+    }
+    const priority = () =>
+      Promise.resolve({
+        files: ["0_test.ts", "1_test.ts"],
+        excluded: [],
+        moduleCount: 4,
+      });
+    const launches: string[][] = [];
+    const Command = Deno.Command;
+    Deno.Command = class extends Command {
+      /** Record each native test partition at its actual launch boundary. */
+      constructor(command: string | URL, options?: Deno.CommandOptions) {
+        super(command, options);
+        if (command === Deno.execPath() && options?.args?.[0] === "test") {
+          launches.push(
+            options.args.filter((arg) => !arg.startsWith("--junit-path=")),
+          );
+        }
+      }
+    };
+    const orders: string[][][] = [];
+    try {
+      for (
+        const seconds of [
+          undefined,
+          { "0_test.ts": 100, "1_test.ts": 1 },
+          { "0_test.ts": 1, "1_test.ts": 100 },
+        ]
+      ) {
+        launches.length = 0;
+        const result = await runTestPartitions(
+          testCommandArgs(42, ["--no-check", "--reporter=junit"]),
+          4,
+          {
+            cwd: root,
+            concurrency: 1,
+            seed: 42,
+            priority,
+            ...(seconds === undefined
+              ? {}
+              : { durations: durationHints(seconds) }),
+          },
+        );
+        assertEquals(result.code, 0);
+        assertEquals(result.selection, "complete");
+        assertStringIncludes(result.report ?? "", 'tests="4" failures="0"');
+        orders.push(launches.map((args) => [...args]));
+      }
+    } finally {
+      Deno.Command = Command;
+    }
+    const [seeded, zeroFirst, oneFirst] = orders;
+    assert(
+      seeded !== undefined && zeroFirst !== undefined && oneFirst !== undefined,
+    );
+    assertEquals(seeded.length, 4);
+    const key = (args: readonly string[]): string => JSON.stringify(args);
+    const isShard = (args: readonly string[]): boolean =>
+      args.some((arg) => arg.startsWith("--shard="));
+    for (const launched of [zeroFirst, oneFirst]) {
+      assertEquals(
+        launched.map(key).sort(),
+        seeded.map(key).sort(),
+        "hints change no selection and no argument",
+      );
+      assertEquals(
+        launched.filter(isShard),
+        seeded.filter(isShard),
+        "ordinary shards keep their seeded order",
+      );
+      assertEquals(launched.slice(0, 2).some(isShard), false);
+    }
+    assert(zeroFirst[0]?.includes("0_test.ts"));
+    assert(zeroFirst[1]?.includes("1_test.ts"));
+    assert(oneFirst[0]?.includes("1_test.ts"));
+    assert(oneFirst[1]?.includes("0_test.ts"));
   });
 });

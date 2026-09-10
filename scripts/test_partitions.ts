@@ -13,6 +13,7 @@ import {
 } from "../src/engine/process_signals.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 import { priorityFile, type TestPriority } from "./test_priority.ts";
+import { selectionSeconds, type TestDurationHints } from "./test_durations.ts";
 
 /** Partition only complete runs whose forwarded options preserve native selection. */
 export function testPartitionCount(
@@ -176,6 +177,30 @@ export function partitionOrder(
   );
 }
 
+/** Rank the fixed priority selections by estimated cost; ordinary shards keep their seeded order. */
+export function costAwareAdmission(
+  order: readonly number[],
+  selections: readonly (readonly string[])[],
+  preferred: readonly number[],
+  hints: TestDurationHints | undefined,
+): number[] {
+  if (hints === undefined) return [...order];
+  const priority = new Set(preferred);
+  const ranked = order.filter((index) => priority.has(index));
+  // Estimate before sorting so the comparator only compares fixed finite numbers.
+  const seconds = new Map(
+    ranked.map((
+      index,
+    ) => [index, selectionSeconds(selections[index] ?? [], hints)]),
+  );
+  const position = new Map(ranked.map((index, at) => [index, at]));
+  ranked.sort((a, b) =>
+    (seconds.get(b) ?? 0) - (seconds.get(a) ?? 0) ||
+    (position.get(a) ?? 0) - (position.get(b) ?? 0)
+  );
+  return [...ranked, ...order.filter((index) => !priority.has(index))];
+}
+
 /** Split priority files from the remaining native selection without extra processes. */
 export function partitionSelections(
   count: number,
@@ -314,6 +339,7 @@ export async function runTestPartitions(
     readonly priority?: (
       signal: AbortSignal,
     ) => Promise<TestPriority | undefined>;
+    readonly durations?: TestDurationHints;
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -366,7 +392,11 @@ export async function runTestPartitions(
         );
         if (allocation.preferred.length > 0) {
           console.error(
-            `Test admission: ${allocation.preferred.length} priority partitions first; remaining native selection stays required.`,
+            `Test admission: ${allocation.preferred.length} priority partitions first${
+              options.durations === undefined
+                ? ""
+                : `, ranked by recorded durations from ${options.durations.source}`
+            }; remaining native selection stays required.`,
           );
         }
       }
@@ -376,11 +406,16 @@ export async function runTestPartitions(
         reports,
         concurrency,
         childOptions,
-        partitionOrder(
-          count,
-          concurrency,
-          options.seed,
+        costAwareAdmission(
+          partitionOrder(
+            count,
+            concurrency,
+            options.seed,
+            allocation.preferred,
+          ),
+          allocation.selections,
           allocation.preferred,
+          options.durations,
         ),
         allocation.selections,
       );

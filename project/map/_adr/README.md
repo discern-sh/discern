@@ -371,6 +371,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0385 — Retain Git discovery within one operation](0385-retain-git-discovery-within-one-operation.md)
 - [0386 — Retain recovery bytes through durable reference graphs](0386-retain-recovery-bytes-through-durable-reference-graphs.md)
 - [0387 — Flush recovery authority independently of process observations](0387-flush-recovery-authority-not-process-observations.md)
+- [0388 — Rank priority partitions by committed duration hints](0388-rank-priority-partitions-by-committed-duration-hints.md)
 
 <!-- END GENERATED: current ADR records -->
 
