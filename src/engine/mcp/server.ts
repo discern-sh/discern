@@ -2016,13 +2016,15 @@ async function dispatchToolCall(
       recording,
     };
   }
-  const run = await runVerb(
-    tool,
-    root,
-    args,
-    signal,
-    awaitCallProfile,
-    cliModel,
+  const run = await recording.recorder.run(() =>
+    runVerb(
+      tool,
+      root,
+      args,
+      signal,
+      awaitCallProfile,
+      cliModel,
+    )
   );
   // Data-driven re-aim (ADR 0062): after a non-preview lifecycle call, move the
   // working root per the tool's own effect-aware hook (start → the new worktree it

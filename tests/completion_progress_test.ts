@@ -1,6 +1,7 @@
 /** Progress is isolated per invocation and has no effect on its outcome. */
 import { assertEquals, assertRejects } from "@std/assert";
 import {
+  emitCompletionEvent,
   emitCompletionProgress,
   emitComponentUse,
   withCompletionObserver,
@@ -13,6 +14,40 @@ import {
   type CompletionProgressNotification,
   withMcpCompletionProgress,
 } from "../src/engine/mcp/progress.ts";
+
+Deno.test("nested presentation observers retain detached facts for the surrounding recorder", async () => {
+  const event: CompletionEvent = {
+    id: "event",
+    effort_id: "effort",
+    source_head: "head",
+    candidate_id: null,
+    environment_id: null,
+    attempt_id: null,
+    executor_operation: "operation",
+    at: 1,
+    fact: {
+      kind: "timing",
+      interval_id: "phase",
+      category: "execution",
+      started_at: 0,
+      finished_at: 1,
+    },
+  };
+  const recorded: CompletionEvent[] = [];
+  await withCompletionObserver((fact) => {
+    if (fact.kind === "event") recorded.push(fact.event);
+  }, () =>
+    withCompletionObserver((fact) => {
+      if (fact.kind === "event") {
+        Object.assign(fact.event, { source_head: "changed" });
+      }
+      throw new Error("presentation unavailable");
+    }, () => {
+      emitCompletionEvent(event);
+      return Promise.resolve();
+    }));
+  assertEquals(recorded, [event]);
+});
 
 Deno.test("completion progress uses the client's token and keeps concurrent calls separate", async () => {
   const calls = ["first", "second"].map(async (name) => {

@@ -17,7 +17,11 @@
  *  - the MCP surface records through its own chokepoint with `surface: "mcp"`.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  emitCompletionEvent,
+  withCompletionObserver,
+} from "../src/engine/completion/events.ts";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -50,6 +54,26 @@ import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 import { RECORDED_VALIDATION_VERBS } from "../src/engine/logbook/validation.ts";
 import { AcceptancePrefixSchema } from "../src/shared/result_schemas.ts";
+
+const settledObservation:
+  import("../src/engine/completion/protocol.ts").CompletionEvent = {
+    id: "settled-producer",
+    effort_id: "other-effort",
+    source_head: "actual-head",
+    candidate_id: "candidate",
+    environment_id: "environment",
+    attempt_id: "attempt",
+    executor_operation: "operation",
+    at: 42,
+    fact: {
+      kind: "producer",
+      producer: "jobs.test",
+      use: "executed",
+      evidence_id: "receipt",
+      outcome: "passed",
+      duration_ms: 1,
+    },
+  };
 
 /** Just the verb events, in order. */
 function verbEvents(
@@ -402,6 +426,24 @@ Deno.test("logbook: map-fetch payloads lift by shape under an unrelated verb", a
       surface: "mcp",
       driver: Promise.resolve({}),
     });
+    await assertRejects(
+      () =>
+        recording.run(() =>
+          withCompletionObserver(() => {}, () => {
+            emitCompletionEvent(settledObservation);
+            return Promise.reject(new Error("response interrupted"));
+          })
+        ),
+      Error,
+      "response interrupted",
+    );
+    const settled = (await readEvents(dir)).filter((event) =>
+      event.kind === "completion"
+    );
+    assertEquals(settled.length, 1);
+    assertEquals(settled[0]?.observation.source_head, "actual-head");
+    assertEquals(settled[0]?.observation.effort_id, "other-effort");
+    assertEquals(verbEvents(await readEvents(dir)), []);
     await recording.finish({
       verb: "fresh-page-reader",
       surface: "mcp",
@@ -623,6 +665,13 @@ Deno.test("logbook: a red gate still records — outcome, steps, diagnostic clas
     await gitInit(dir);
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);
+    const observations = (await readEvents(dir)).filter((event) =>
+      event.kind === "completion"
+    );
+    assert(
+      observations.some((event) => event.observation.fact.kind === "producer"),
+    );
+    assert(observations.every((event) => event.surface === "cli"));
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
     const event = events[0];
@@ -946,7 +995,13 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
     const status = TOOLS.find((t) => t.name === "discern_status");
     assert(status !== undefined);
     const result = await runTool(
-      status,
+      {
+        ...status,
+        run: async (...args) => {
+          emitCompletionEvent(settledObservation);
+          return await status.run(...args);
+        },
+      },
       new WorkingRoot(dir),
       {},
       undefined,
@@ -958,6 +1013,13 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       },
     );
     assertEquals(result.isError, false);
+    const completion = (await readEvents(dir)).filter((event) =>
+      event.kind === "completion"
+    );
+    assertEquals(completion.map((event) => event.observation), [
+      settledObservation,
+    ]);
+    assertEquals(completion[0]?.surface, "mcp");
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
     const event = events[0];

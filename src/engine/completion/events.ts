@@ -25,6 +25,7 @@ export type CompletionObservationFact =
 interface ObservationScope {
   readonly sink: (fact: CompletionObservationFact) => void | Promise<void>;
   readonly deliveries: Promise<void>[];
+  readonly parent: ObservationScope | undefined;
 }
 const OBSERVERS = new AsyncLocalStorage<ObservationScope>();
 
@@ -33,7 +34,11 @@ export async function withCompletionObserver<T>(
   sink: ObservationScope["sink"],
   operation: () => Promise<T>,
 ): Promise<T> {
-  const scope: ObservationScope = { sink, deliveries: [] };
+  const scope: ObservationScope = {
+    sink,
+    deliveries: [],
+    parent: OBSERVERS.getStore(),
+  };
   return await OBSERVERS.run(scope, async () => {
     try {
       return await operation();
@@ -46,12 +51,17 @@ export async function withCompletionObserver<T>(
 
 /** Observers receive a detached value after the emitter has decided the fact. */
 function emit(fact: CompletionObservationFact): void {
-  const scope = OBSERVERS.getStore();
-  if (scope === undefined) return;
-  const copy = structuredClone(fact);
-  const delivery = Promise.resolve().then(() => scope.sink(copy));
-  // Enroll the rejection immediately; final settlement still waits for every delivery.
-  scope.deliveries.push(Promise.allSettled([delivery]).then(() => {}));
+  for (
+    let scope = OBSERVERS.getStore();
+    scope !== undefined;
+    scope = scope.parent
+  ) {
+    const observer = scope;
+    const copy = structuredClone(fact);
+    const delivery = Promise.resolve().then(() => observer.sink(copy));
+    // Each observer receives its own copy; presentation cannot consume recorder facts.
+    observer.deliveries.push(Promise.allSettled([delivery]).then(() => {}));
+  }
 }
 
 /** Expose the current phase or pending reason without starting any work. */

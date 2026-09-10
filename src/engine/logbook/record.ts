@@ -42,6 +42,8 @@ import { AcceptancePrefixSchema } from "../../shared/result_schemas.ts";
  */
 
 import { z } from "@zod/zod";
+import { withCompletionObserver } from "../completion/events.ts";
+import { completionObservationSchema } from "./completion_schema.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
@@ -73,6 +75,7 @@ import { setActiveInvocationId } from "../../shared/invocation_context.ts";
 import type {
   BeginEvent,
   ChangeScale,
+  CompletionLogbookEvent,
   DiagnosticClass,
   DriverFacts,
   LogbookOutcome,
@@ -157,6 +160,8 @@ export interface BeginReport {
 
 /** A live recording: created at verb start, finished exactly once at completion. */
 export interface Recording {
+  /** Append established executor facts during the operation, independently of its response. */
+  run<T>(operation: () => Promise<T>): Promise<T>;
   /** Compose and append this invocation's event. Never throws, never interferes. */
   finish(report: FinishReport): Promise<void>;
 }
@@ -663,6 +668,26 @@ export function beginRecording(
     )
     : Promise.resolve();
   return {
+    run<T>(operation: () => Promise<T>): Promise<T> {
+      return withCompletionObserver(async (fact) => {
+        if (fact.kind !== "event") return;
+        await beginAppend;
+        const ctx = await context;
+        if (ctx === undefined) return;
+        const event: CompletionLogbookEvent = {
+          schema: ON_DISK_FORMATS.logbookEvent.version,
+          at: wallTimeIso(clock.wallNow()),
+          writer: DISCERN_VERSION,
+          kind: "completion",
+          invocation,
+          surface: begin.surface,
+          branch: ctx.branch,
+          epoch: ctx.epoch.fingerprint,
+          observation: completionObservationSchema.parse(fact.event),
+        };
+        await appendEvent(ctx.commonGitDir, event);
+      }, operation);
+    },
     async finish(report: FinishReport): Promise<void> {
       await bestEffort("logbook-finish-append", async () => {
         // The surface chokepoints drain the checkpoint-observation mailbox and

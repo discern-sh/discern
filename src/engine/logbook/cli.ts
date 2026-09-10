@@ -402,7 +402,7 @@ export async function recordedRun(
   let crash: CrashSignature | undefined;
   try {
     throwIfCrashProbe();
-    code = await run();
+    code = await recording.run(run);
   } catch (err) {
     // An unexpected throw still records — outcome `failed`, plus the
     // logbook-safe signature — before propagating to the crash frame.

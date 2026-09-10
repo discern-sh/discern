@@ -32,6 +32,8 @@ This repository's [canary registry](../../../scripts/canary_registry.ts) owns en
 
 ## Completion accounting
 
+The CLI and MCP recorder append canonical executor observations during each recorded operation, independently of its final response. Nested progress presentation receives a separate copy and cannot consume these facts. An unavailable recorder never changes the executor result. Context is gathered once per invocation; observations retain the executor’s actual source and attempt identity when the caller represents another effort.
+
 When completion observations are present, the report keeps source efforts, candidates, attempts, executor operations and landing transactions separate. Repeated delivery counts once by the durable observation identity. Conflicting facts remain an explicit evidence gap. An immutable receipt with contradictory producer or verdict observations across consumers contributes to that gap, never a last-observed verdict.
 
 Component receipts are not physical producer executions: one producer can yield several receipts, including failed, cancelled, unrun or stale outcomes. Reused receipts identify evidence consumed by an attempt. Without a consuming attempt identity, a known receipt can retain its verdict but cannot enter execution or reuse totals. Receipt counts and durations cannot establish physical execution counts or compute totals.
