@@ -5,7 +5,11 @@ import { project } from "./completion_public_fixture.ts";
 import { engineEnv, engineRunArgs } from "./engine_helpers.ts";
 import { runAgent } from "./engine_helpers.ts";
 import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
-import { processAllowance, waitUntil } from "./waiting.ts";
+import {
+  processAllowance,
+  waitForPendingCondition,
+  waitUntil,
+} from "./waiting.ts";
 import { readPidsIfReady } from "./process_id.ts";
 import { completionProcessAlive } from "./completion_mcp_fixture.ts";
 
@@ -68,7 +72,8 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
       try {
         // The observer: reconnect reads against the running operation. They
         // are observation only — after they stop, execution must continue.
-        await waitUntil(
+        await waitForPendingCondition(
+          child.status,
           async () => {
             const read = await operationProgressResult(path);
             return read.ok && read.data?.executor === "running";
@@ -118,7 +123,8 @@ Deno.test("a killed executor leaves its journal readable as stopped, not decided
       const pids: number[] = [];
       const allowance = processAllowance();
       try {
-        await waitUntil(
+        await waitForPendingCondition(
+          child.status,
           async () => {
             const ready = await readPidsIfReady([
               `${aux}/leader`,
@@ -131,7 +137,8 @@ Deno.test("a killed executor leaves its journal readable as stopped, not decided
           "the blocking producer to establish readiness",
           { allowance },
         );
-        await waitUntil(
+        await waitForPendingCondition(
+          child.status,
           async () => {
             const read = await operationProgressResult(path);
             return read.ok &&
