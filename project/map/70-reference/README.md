@@ -34,6 +34,7 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Crash reports](crash-reports.md)                                         | Find the saved report, exit code, and envelope a bug in discern leaves behind.           |
 | [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, identity selectors, and tokens.                   |
 | [MCP call duration](mcp-call-duration.md)                                 | Compare verified tool-call bounds and resumable waits across coding agents.              |
+| [Progress & reconnect](progress-and-reconnect.md)                        | Read a running or lost long operation: live progress facts, the producer protocol, handles. |
 | [Temp files & retention](temp-files-and-retention.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.        |
 | [Logbook lifecycle](logbook-lifecycle.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |
 | [Checkpoint state & declarations](checkpoint-state.md)                    | Look up open-question states, declaration and variance flags, and the read surfaces.     |
