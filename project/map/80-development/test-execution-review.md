@@ -31,6 +31,8 @@ Read the nearby journeys and shared fixtures before arranging another installati
 
 Keep each top-level test's repository ownership independent. Sharing state belongs within a named journey, whose steps retain meaningful failure diagnostics. Avoid stretching journeys so far that a failure becomes hard to isolate.
 
+Place shared helpers in modules without test registrations. Importing another native test module registers its cases in the importing worker as well as its own worker. The [registration guard](../../../tests/test_registration_guard_test.ts) scans the authored Deno source universe for runtime imports and re-exports of native test filenames, including literal dynamic imports. Type-only uses remain inert. Its shared [import parser](../../../tests/import_specifiers.ts) also serves the existing architectural graph guards.
+
 ## Preserve detection strength
 
 Check that each retained assertion still reaches its intended condition. A refusal caused by a missing prerequisite does not exercise a later policy check. A gate result from another state may contain the same text without testing the same behavior.

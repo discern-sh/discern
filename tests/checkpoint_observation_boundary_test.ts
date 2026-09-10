@@ -27,7 +27,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
-import { importSpecifiers } from "./logbook_no_network_test.ts";
+import { importSpecifiers } from "./import_specifiers.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));

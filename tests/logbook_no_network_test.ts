@@ -27,7 +27,7 @@ import { assert, assertEquals, assertMatch } from "@std/assert";
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
 import { NETWORK_TOKEN } from "./network_boundary.ts";
 import { structuralGuardScope } from "./structural_guard_scope.ts";
-import { Node, Project, SyntaxKind } from "ts-morph";
+import { importSpecifiers } from "./import_specifiers.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
@@ -54,43 +54,6 @@ const ALLOWED_EXTERNAL_PREFIXES = [
   "os",
   "async_hooks",
 ] as const;
-
-/** Every import/re-export specifier in a TypeScript source, static and dynamic.
- * A dynamic import of a non-literal specifier cannot be walked, so it is
- * reported as a violation rather than silently skipped. */
-export function importSpecifiers(
-  source: string,
-): { specifiers: string[]; unwalkableDynamicImport: boolean } {
-  const parsed = new Project({
-    compilerOptions: { noLib: true },
-    useInMemoryFileSystem: true,
-    skipAddingFilesFromTsConfig: true,
-  })
-    .createSourceFile("guard-input.ts", source);
-  const specifiers: string[] = [];
-  for (const statement of parsed.getStatements()) {
-    if (
-      Node.isImportDeclaration(statement) || Node.isExportDeclaration(statement)
-    ) {
-      const specifier = statement.getModuleSpecifierValue();
-      if (specifier !== undefined) specifiers.push(specifier);
-    }
-  }
-  let unwalkableDynamicImport = false;
-  for (const call of parsed.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
-    const argument = call.getArguments()[0];
-    if (
-      Node.isStringLiteral(argument) ||
-      Node.isNoSubstitutionTemplateLiteral(argument)
-    ) {
-      specifiers.push(argument.getLiteralText());
-    } else {
-      unwalkableDynamicImport = true;
-    }
-  }
-  return { specifiers, unwalkableDynamicImport };
-}
 
 /** The logbook subsystem's entry modules: every .ts file in its directory. */
 async function logbookEntryFiles(): Promise<string[]> {
