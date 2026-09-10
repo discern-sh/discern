@@ -2347,7 +2347,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "A queue prefix has current measured standard proposals awaiting the owner's exact approval.",
+      "An effort in the queue has current measured standard proposals awaiting the owner's exact approval.",
     example: { branch: "agent/example", tokens: ["approval-token"] },
     template: ({ branch, tokens }): string =>
       `Relay the proposed values and reasons for ${

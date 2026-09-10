@@ -1640,6 +1640,10 @@ export const AcceptancePrefixSchema = z.strictObject({
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  /** The effort the owner selected, implicitly by running from its worktree or
+   * explicitly with --target. Its row is always present in `queue`, and every
+   * presentation leads with its verdict before other efforts' outcomes. */
+  selected_effort: z.string().optional(),
   continuation: z.string().optional(),
   external_integration: z.strictObject({
     integration_id: z.string().optional(),

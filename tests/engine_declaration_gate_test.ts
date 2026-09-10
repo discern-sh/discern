@@ -122,7 +122,7 @@ const PROBES = {
       meaning: [
         "api-review",
         "discern done",
-        "0 prefixes landed",
+        "not landed",
       ],
       surfaces: {
         json: jsonSurface(json, env),

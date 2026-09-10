@@ -342,7 +342,7 @@ const PROBES = {
       mutated,
       meaning: {
         act: "separately recorded landing authority",
-        consequence: "0 prefixes landed",
+        consequence: "not landed",
         scope: "current source",
         continuation: "confirmed",
       },

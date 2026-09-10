@@ -15,13 +15,17 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import { landedCheckoutFacts } from "./result_completion.ts";
+import {
+  checkoutOutcomeSentence,
+  landedCheckoutFacts,
+} from "./result_completion.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
   code,
   number,
   object,
+  displayBranch,
   records,
   strings,
   text,
@@ -1884,16 +1888,48 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   const consent = object(data.consent);
   const landing = object(data.landing);
   const prefixes = records(data.queue);
+  // The selected effort's section comes first, then the efforts ahead of it,
+  // then everything else — the same organisation as the terminal message.
+  const selectedEffort = text(data.selected_effort);
+  const own = selectedEffort === undefined
+    ? undefined
+    : prefixes.find((row) => text(row.effort) === selectedEffort);
+  const rows = own === undefined
+    ? prefixes
+    : [own, ...prefixes.filter((row) => row !== own)];
+  const ownBranch = own === undefined
+    ? undefined
+    : displayBranch(text(own.branch) ?? selectedEffort ?? "");
+  const ownVerdict = own === undefined || ownBranch === undefined
+    ? undefined
+    : text(own.state) === "landed"
+    ? `Selected effort ${code(ownBranch)}: landed. ${
+      checkoutOutcomeSentence(own)
+    }`
+    : text(own.state) === "ready"
+    ? `Selected effort ${code(ownBranch)}: ready to land.`
+    : `Selected effort ${code(ownBranch)}: ${
+      result.dry_run === true ? "not ready" : "not landed"
+    }.`;
+  const rowLabel = (row: Record<string, unknown>): string =>
+    own !== undefined && row !== own
+      ? `Ahead in the queue — ${code(text(row.branch) ?? "candidate")}`
+      : code(text(row.branch) ?? "candidate");
   return {
     state: defaultState(
       result,
-      text(data.root) === undefined
+      ownVerdict ?? (text(data.root) === undefined
         ? undefined
         : prefixes.some((row) => object(row.exception) !== undefined)
         ? `Recorded landing outcomes for ${code(data.root)}.`
-        : `Landed the validated tree into ${code(data.root)}.`,
+        : `Landed the validated tree into ${code(data.root)}.`),
     ),
     evidence: unique([
+      ...(own === undefined ? [] : records(own.pending).map((item) =>
+        `${code(text(own.branch) ?? "candidate")}: ${
+          text(item.reason) ?? text(item.kind) ?? "pending"
+        }.`
+      )),
       ...records(data.execution_recovery).map((row) =>
         `Execution environment ${code(row.environment_id)} requires recovery: ${
           text(row.reason) ?? ""
@@ -1903,10 +1939,8 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       text(data.root) === undefined
         ? undefined
         : `Main checkout: ${code(data.root)}.`,
-      ...prefixes.map((row) =>
-        `${code(text(row.branch) ?? "candidate")}: ${
-          text(row.state) ?? "pending"
-        }; ${
+      ...rows.map((row) =>
+        `${rowLabel(row)}: ${text(row.state) ?? "pending"}; ${
           object(row.exception) === undefined
             ? "authority"
             : "emergency exception, no passing Proof; authorization"
@@ -1914,9 +1948,9 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
           text(row.authority_settlement) ?? text(row.authority) ?? "pending"
         }${text(row.state) === "landed" ? landedCheckoutFacts(row) : "."}`
       ),
-      ...prefixes.flatMap((row) =>
+      ...rows.filter((row) => row !== own).flatMap((row) =>
         records(row.pending).map((item) =>
-          `${code(text(row.branch) ?? "candidate")}: ${
+          `${rowLabel(row)}: ${
             text(item.reason) ?? text(item.kind) ?? "pending"
           }.`
         )
@@ -1952,12 +1986,12 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
     supportingMarkdown: uniqueVerbatim(
-      prefixes.length === 0
+      rows.length === 0
         ? [text(data.proof_line)]
-        : prefixes.map((row) => text(row.proof_line)),
+        : rows.map((row) => text(row.proof_line)),
     ),
-    boundary: prefixes.length > 0
-      ? prefixes.flatMap((row) => {
+    boundary: rows.length > 0
+      ? rows.flatMap((row) => {
         const authority = object(row.consent);
         return authority === undefined ? [] : [
           `${code(text(row.branch) ?? "candidate")} uses ${

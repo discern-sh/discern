@@ -13,10 +13,12 @@ import {
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { type StepResult, stepResultFromJson } from "../../shared/result.ts";
+import { quoteCommandWord } from "../../shared/command_evidence.ts";
 import {
+  checkoutOutcomeSentence,
   evaluateResultCompletion,
-  retainedCheckoutExplanation,
 } from "../../shared/result_completion.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 import type { AcceptData, Proof } from "../../shared/result_schemas.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
@@ -38,6 +40,24 @@ import { observedRecords } from "./repository.ts";
 import { planQueueRetirement, RetirementCaptureSchema } from "./retirement.ts";
 
 export type AcceptancePrefix = NonNullable<AcceptData["queue"]>[number];
+
+export { displayBranch };
+
+/**
+ * The effort the owner selected, implicitly by running from its worktree or
+ * explicitly with `--target`. The result leads with this effort's own verdict
+ * and always carries its row; other efforts follow, labelled. `synthesized`
+ * carries the caller-built row when the walk never produced one — it joins the
+ * rows only after global conditions are attributed to the true stopping row.
+ */
+export interface SelectedEffortPresentation {
+  readonly effort: string;
+  /** Short display branch for the verdict sentence. */
+  readonly branch: string;
+  readonly synthesized?: AcceptancePrefix;
+  /** Active queue order (effort ids) used to label other rows as ahead. */
+  readonly queueOrder?: readonly string[];
+}
 
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
 export type AcceptancePending =
@@ -71,11 +91,11 @@ export function acceptancePending(
   switch (blocker.kind) {
     case "missing-evidence":
       reason =
-        "Required validation evidence is missing. Run discern done from the intended effort's clean committed worktree, then retry acceptance.";
+        "No Proof covers this effort's current source. Run discern done from its clean committed worktree, then retry acceptance.";
       break;
     case "missing-authority":
       reason =
-        "The next prefix needs separately recorded landing authority for its current source.";
+        "The next effort in the queue needs the owner's recorded approval for its current source.";
       break;
     case "missing-judgment":
       reason = `A checkpoint or standard decision is still required${
@@ -84,7 +104,7 @@ export function acceptancePending(
       break;
     case "validation-failed":
       reason =
-        "Required validation failed. Resolve its diagnostics and deliberately rerun completion before acceptance.";
+        "Its checks failed. Fix the reported diagnostics, rerun discern done, then retry acceptance.";
       break;
     default:
       reason = JSON.stringify(blocker);
@@ -173,7 +193,7 @@ function pendingReviewText(rows: readonly AcceptancePrefix[]): string {
   ).join("\n\n");
 }
 
-/** Project prefix outcomes without losing independently pending decisions. */
+/** Project each effort's outcome without losing independently pending decisions. */
 export async function queueAcceptanceResult(
   root: string,
   rows: AcceptancePrefix[],
@@ -181,6 +201,7 @@ export async function queueAcceptanceResult(
   proof?: Proof,
   dryRun = false,
   checkpointDrops: readonly CheckpointDrop[] = [],
+  selected?: SelectedEffortPresentation,
 ): Promise<DiscernResult<AcceptData>> {
   const blockers = [
     ...new Map(
@@ -205,6 +226,19 @@ export async function queueAcceptanceResult(
         : acceptancePending(blocker)
     );
   }
+  // The synthesized row joins the presentation and returned data, but the
+  // completion verdict is evaluated over the walk's own rows below — a
+  // selected effort the walk never reached is not this call's failed effect.
+  const walkRows = rows;
+  if (
+    selected?.synthesized !== undefined &&
+    !rows.some((row) => row.effort === selected.effort)
+  ) {
+    rows = [...rows, selected.synthesized];
+  }
+  const own = selected === undefined
+    ? undefined
+    : rows.find((row) => row.effort === selected.effort);
   const noteHints: string[] = [];
   const completionRecords = rows.some((row) => row.landing_id !== undefined)
     ? observedRecords(await observeCompletionRecords(root))
@@ -265,7 +299,7 @@ export async function queueAcceptanceResult(
         blockers.push({
           kind: "convergence-incomplete",
           reason:
-            `Landing is recorded for ${row.branch}; main checkout convergence is ${row.convergence}. Resolve the retained diagnostics and retry acceptance from the main checkout. Landing and its authority do not repeat.`,
+            `${row.branch} landed, but the main checkout has not finished catching up. Resolve the retained diagnostics and retry discern accept from the main checkout; the landing and its approval do not repeat.`,
         });
       }
       if (row.retirement === "recovery") {
@@ -380,58 +414,108 @@ export async function queueAcceptanceResult(
   const authority = blockers.some((blocker) =>
     blocker.kind === "missing-authority"
   );
+  // One line per effort other than the selected one: what happened to it, and
+  // when it waits, the single reason — full sentences, each said once.
+  const rowLine = (row: AcceptancePrefix): string => {
+    const branch = displayBranch(row.branch);
+    if (row.state === "landed") {
+      return `${branch} landed${
+        row.exception === undefined
+          ? ""
+          : " by emergency exception, with no passing Proof"
+      }. ${checkoutOutcomeSentence(row)}`;
+    }
+    const reason = row.pending[0]?.reason;
+    return `${branch} is ${row.state === "ready" ? "ready to land" : "waiting"}${
+      reason === undefined ? "." : `: ${reason}`
+    }`;
+  };
+  const detailTail = rows.flatMap((row) =>
+    row.ignored_file_changes === undefined
+      ? []
+      : ignoredFileDetails(row.ignored_file_changes).map((detail) =>
+        `\n\n${row.branch}: ${detail}`
+      )
+  ).join("") +
+    (pendingReviewText(rows) === "" ? "" : `\n\n${pendingReviewText(rows)}`) +
+    rows.filter((row) => row.state !== "landed").flatMap((row) =>
+      (row.approval_requests ?? []).map(({ proposal }) =>
+        `\n\nStandard proposal ${markdownCodeSpan(proposal.standard)} for ${
+          markdownCodeSpan(row.branch)
+        }: ${proposal.trunk_limit} → ${proposal.proposed_limit}. Reason: ${
+          markdownCodeSpan(proposal.reason)
+        }`
+      )
+    ).join("");
+  let message: string;
+  if (selected === undefined) {
+    message = (dryRun
+      ? "Read-only preview; each effort in the queue lands with its own evidence and approval."
+      : `${landed} effort${landed === 1 ? "" : "s"} landed.${
+        blockers.length
+          ? " Acceptance is pending: " + blockers.map((blocker) =>
+            acceptancePending(blocker).reason
+          ).join("; ")
+          : ""
+      }`) +
+      (rows.length === 0 ? "" : "\n\n" + rows.map(rowLine).join("\n")) +
+      detailTail;
+  } else {
+    const branch = `\`${selected.branch}\``;
+    const verdict = own === undefined
+      ? `Selected effort ${branch}: not validated. Run discern done from its clean committed worktree, then retry acceptance.`
+      : own.state === "landed"
+      ? `Selected effort ${branch}: landed. ${checkoutOutcomeSentence(own)}`
+      : own.state === "ready"
+      ? `Selected effort ${branch}: ready to land.`
+      : `Selected effort ${branch}: ${dryRun ? "not ready" : "not landed"}.${
+        own.pending.length === 0
+          ? ""
+          : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
+      }`;
+    const others = rows.filter((row) => row !== own);
+    const ahead = others.filter((row) =>
+      selected.queueOrder?.includes(row.effort) ?? true
+    );
+    const elsewhere = others.filter((row) => !ahead.includes(row));
+    // A global condition no shown line already states still reaches the owner.
+    const shown = new Set([
+      ...(own?.pending ?? []).map((item) => item.reason),
+      ...others.map((row) => row.pending[0]?.reason),
+    ]);
+    const leftover = blockers.map((blocker) => acceptancePending(blocker))
+      .filter((item) =>
+        !shown.has(item.reason) &&
+        !(own === undefined && item.kind === "missing-evidence")
+      ).map((item) => item.reason);
+    message = verdict +
+      (ahead.length === 0
+        ? ""
+        : "\n\nAhead of it in the queue:\n" +
+          ahead.map(rowLine).join("\n")) +
+      (elsewhere.length === 0
+        ? ""
+        : "\n\nOther efforts in this call:\n" +
+          elsewhere.map(rowLine).join("\n")) +
+      (leftover.length === 0 ? "" : "\n\n" + leftover.join("\n")) +
+      detailTail +
+      (dryRun ? "\n\nRead-only preview; nothing changed." : "");
+  }
+  const continuation =
+    selected !== undefined && own !== undefined && own.state !== "landed"
+      ? `discern accept --target ${quoteCommandWord(selected.effort)}`
+      : undefined;
   const fields = {
     verb: "accept",
     ...(dryRun
       ? { dry_run: true as const }
       : { steps: convergenceSteps, diagnostics: convergenceDiagnostics }),
-    message:
-      (dryRun
-        ? "Read-only queue preview; each prefix has its own evidence and authority."
-        : `${landed} prefix${landed === 1 ? "" : "es"} landed.${
-          blockers.length
-            ? " Acceptance is pending: " + blockers.map((blocker) =>
-              acceptancePending(blocker).reason
-            ).join("; ")
-            : ""
-        }`) +
-      (rows.length === 0
-        ? ""
-        : "\n\n" + rows.map((row) =>
-          `${row.branch}: ${row.state}${
-            row.exception === undefined
-              ? ""
-              : "; emergency exception, no passing Proof"
-          }${row.state === "landed" ? `; checkout ${row.retirement}` : ""}${
-            row.state === "landed" && row.retirement === "retained"
-              ? `. ${retainedCheckoutExplanation(row.retirement_reason)}`
-              : ""
-          }${
-            row.pending.length
-              ? "; " + row.pending.map((item) => item.reason).join("; ")
-              : ""
-          }`
-        ).join("\n")) +
-      rows.flatMap((row) =>
-        row.ignored_file_changes === undefined
-          ? []
-          : ignoredFileDetails(row.ignored_file_changes).map((detail) =>
-            `\n\n${row.branch}: ${detail}`
-          )
-      ).join("") +
-      (pendingReviewText(rows) === "" ? "" : `\n\n${pendingReviewText(rows)}`) +
-      rows.filter((row) => row.state !== "landed").flatMap((row) =>
-        (row.approval_requests ?? []).map(({ proposal }) =>
-          `\n\nStandard proposal ${markdownCodeSpan(proposal.standard)} for ${
-            markdownCodeSpan(row.branch)
-          }: ${proposal.trunk_limit} → ${proposal.proposed_limit}. Reason: ${
-            markdownCodeSpan(proposal.reason)
-          }`
-        )
-      ).join(""),
+    message,
     data: {
       root,
       queue: rows,
+      ...(selected === undefined ? {} : { selected_effort: selected.effort }),
+      ...(continuation === undefined ? {} : { continuation }),
       checkpoint_drops: uniqueCheckpointDrops([
         ...checkpointDrops,
         ...rows.flatMap((row) =>
@@ -448,6 +532,12 @@ export async function queueAcceptanceResult(
     },
     hints: mergeHintTexts(
       noteHints,
+      continuation === undefined ? [] : hintTexts([
+        fire(HINTS["completion-pending"], {
+          action:
+            `After resolving the named conditions, continue this selected effort with ${continuation}. Each earlier effort still needs its own approval.`,
+        }),
+      ]),
       variances.length === 0 ? [] : hintTexts([
         fire(HINTS["accept-authorize-variance"], { ids: variances }),
       ]),
@@ -472,15 +562,19 @@ export async function queueAcceptanceResult(
           ? fire(HINTS["accept-awaiting-confirmation"])
           : fire(HINTS["completion-pending"], {
             action:
-              "Resolve the named pending condition, then run discern accept again. Earlier landed prefixes and spent authority remain in common recovery records.",
+              "Resolve the named pending condition, then run discern accept again. Earlier landed efforts and spent approvals stay recorded.",
           }),
       ]),
     ),
   };
+  const forEvaluation = {
+    ...fields,
+    data: { ...fields.data, queue: walkRows },
+  };
   const evaluated = evaluateResultCompletion<AcceptData>(
-    dryRun || blockers.length === 0 ? { ok: true, ...fields } : {
+    dryRun || blockers.length === 0 ? { ok: true, ...forEvaluation } : {
       ok: false,
-      ...fields,
+      ...forEvaluation,
       error: landed > 0
         ? "partial_acceptance"
         : checkpointUnavailable
@@ -500,10 +594,13 @@ export async function queueAcceptanceResult(
         : "incomplete",
     },
   );
-  return evaluated.ok || hasRegisteredActionableHint(evaluated.hints)
+  const presented = evaluated.data === undefined
     ? evaluated
+    : { ...evaluated, data: { ...evaluated.data, queue: rows } };
+  return presented.ok || hasRegisteredActionableHint(presented.hints)
+    ? presented
     : {
-      ...evaluated,
+      ...presented,
       hints: hintTexts([
         fire(HINTS["completion-pending"], {
           action:

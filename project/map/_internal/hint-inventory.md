@@ -13,7 +13,7 @@ Audience `all` renders on every surface. Audience `agent` marks an instruction o
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: A queue prefix has current measured standard proposals awaiting the owner's exact approval.
+- Emitting context: An effort in the queue has current measured standard proposals awaiting the owner's exact approval.
 
 Rendered example:
 

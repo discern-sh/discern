@@ -1,6 +1,4 @@
-import { quoteCommandWord } from "../../shared/command_evidence.ts";
-import { appendHintTexts, fire, HINTS } from "../../shared/hints.ts";
-/** An active accept actor advances one audited, separately authorized prefix at a time. */
+/** An active accept actor advances one audited, separately authorized effort at a time. */
 import { loadModule } from "../../shared/module_loading.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { landingAdvanced } from "../completion/records.ts";
@@ -63,6 +61,7 @@ import {
   acceptancePending,
   type AcceptancePrefix,
   acceptancePrefix,
+  displayBranch,
   queueAcceptanceResult as formatQueueAcceptanceResult,
 } from "./public_result.ts";
 import {
@@ -81,11 +80,6 @@ import {
 import { planQueueRetirement, retireQueueLanding } from "./retirement.ts";
 import { completionRecordBlocker } from "../completion/compatibility.ts";
 import { reclaimRetirementStorage } from "./retirement_storage.ts";
-
-/** Owners recognise the short branch name; records carry the full ref. */
-function displayBranch(ref: string): string {
-  return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
-}
 
 export interface PublicAcceptOptions {
   readonly validationSurface: FinishResultSurface;
@@ -207,25 +201,25 @@ async function acceptQueueImplementation(
   }
   // The owner selected one effort, implicitly by running from its worktree or
   // explicitly with --target. The walk may land or stop on efforts ahead of it,
-  // so the result leads with the selected effort's own verdict and always
-  // carries its row; a landing headline for a predecessor is never the answer.
-  const queueAcceptanceResult = async (
+  // so the shared formatter leads with the selected effort's own verdict and
+  // always carries its row; a landing headline for a predecessor is never the
+  // answer. This wrapper only supplies the selected identity and, when the walk
+  // never produced the row, synthesizes it from the observed queue entry.
+  const queueAcceptanceResult = (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
-    const result = await formatQueueAcceptanceResult(...args);
-    if (selected === "main") return result;
-    const walked = result.data?.queue ?? [];
-    const reached = walked.find((row) => row.effort === selected);
-    if (reached?.state === "landed") return result;
-    const [, , , , dryRun = false] = args;
+    if (selected === "main") return formatQueueAcceptanceResult(...args);
+    const [root, rows, pendingBlockers, proof, dryRun = false, drops] = args;
     const entry = initialQueue?.data.entries.find((candidate) =>
       candidate.source.effort_id === selected
     );
-    const stoppedAt = [...walked].reverse().find((row) =>
+    const stoppedAt = [...rows].reverse().find((row) =>
       row.state !== "landed" && row.effort !== selected
     );
-    let own = reached;
-    if (own === undefined && entry !== undefined) {
+    let synthesized: AcceptancePrefix | undefined;
+    if (
+      !rows.some((row) => row.effort === selected) && entry !== undefined
+    ) {
       const assessed = acceptancePrefix(
         entry,
         entry.candidate_id === null
@@ -236,7 +230,7 @@ async function acceptQueueImplementation(
         assessed.pending.length > 0 || entry.candidate_id !== null
           ? assessed.pending
           : [acceptancePending({ kind: "missing-evidence", requirements: [] })];
-      own = {
+      synthesized = {
         ...assessed,
         pending: stoppedAt === undefined ? conditions : [{
           kind: "not-reached",
@@ -246,43 +240,27 @@ async function acceptQueueImplementation(
         }, ...conditions],
       };
     }
-    const branch = displayBranch(
-      own?.branch ?? entry?.source.branch ?? `refs/heads/${identity.branch}`,
-    );
-    const verdict = own === undefined
-      ? `Selected effort \`${branch}\`: not validated. Run discern done from its clean committed worktree, then retry acceptance.`
-      : own.state === "ready"
-      ? `Selected effort \`${branch}\`: ready to land.`
-      : `Selected effort \`${branch}\`: ${
-        dryRun ? "not ready" : "not landed"
-      }.${
-        own.pending.length === 0
-          ? ""
-          : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
-      }`;
-    const queue = reached === undefined && own !== undefined
-      ? [...walked, own]
-      : walked;
-    const continuation = own === undefined
-      ? undefined
-      : `discern accept --target ${quoteCommandWord(selected)}`;
-    return {
-      ...result,
-      message: `${verdict}\n\n${result.message ?? ""}`.trimEnd(),
-      data: {
-        ...result.data,
-        queue,
-        ...(continuation === undefined ? {} : { continuation }),
+    return formatQueueAcceptanceResult(
+      root,
+      rows,
+      pendingBlockers,
+      proof,
+      dryRun,
+      drops,
+      {
+        effort: selected,
+        branch: displayBranch(
+          rows.find((row) => row.effort === selected)?.branch ??
+            entry?.source.branch ?? `refs/heads/${identity.branch}`,
+        ),
+        ...(synthesized === undefined ? {} : { synthesized }),
+        queueOrder: initialQueue === undefined
+          ? []
+          : orderedEntries(initialQueue.data).map((candidate) =>
+            candidate.source.effort_id
+          ),
       },
-      hints: continuation === undefined
-        ? result.hints
-        : appendHintTexts(result.hints, [
-          fire(HINTS["completion-pending"], {
-            action:
-              `After resolving the named conditions, continue this selected effort with ${continuation}. Each predecessor still needs its own authority.`,
-          }),
-        ]),
-    };
+    );
   };
   const sourceEntry = initialQueue?.data.entries.find((entry) =>
     entry.source.effort_id === selected
@@ -757,8 +735,7 @@ async function acceptQueueImplementation(
         phase: "queue",
         state: "planning",
         candidate_id: entry.candidate_id,
-        reason:
-          `Assessing the next separately authorized prefix: ${entry.source.branch}.`,
+        reason: `Checking the next effort in the queue: ${entry.source.branch}.`,
       });
       const plan = claimedPlan ??
         planner.plan(observation, ctx.config.completion, requested);
@@ -859,7 +836,7 @@ async function acceptQueueImplementation(
         const blockers = observedBlockers.length ? observedBlockers : [{
           kind: "environment-unavailable" as const,
           reason:
-            "Current evidence requires validation in the released environment before this prefix can advance.",
+            "Current evidence requires validation in the released environment before this effort can land.",
         }];
         rows.push({
           ...row,

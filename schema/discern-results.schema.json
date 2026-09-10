@@ -28256,6 +28256,9 @@
             {
               "type": "object",
               "properties": {
+                "selected_effort": {
+                  "type": "string"
+                },
                 "continuation": {
                   "type": "string"
                 },

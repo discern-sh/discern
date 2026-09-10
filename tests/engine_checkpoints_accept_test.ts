@@ -84,7 +84,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           (env.hints ?? []).join("\n"),
           "never authorize a variance",
         );
-        assertStringIncludes(env.message, "0 prefixes landed");
+        assertStringIncludes(env.message, "not landed");
         assertHasHint(env, HINTS["accept-authorize-variance"], {
           ids: ["api-review"],
         });
@@ -164,7 +164,7 @@ Deno.test("accept: a declared-unmet conclusion refuses with the complete owner d
           "--confirmed",
           "--variance",
           "never authorize a variance",
-          "0 prefixes landed",
+          "not landed",
         ];
         assertEquals(
           Object.keys(surfaces).sort(),
