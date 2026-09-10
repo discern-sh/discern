@@ -375,14 +375,6 @@ const feedbackLoop: InvestigationRelationship = {
   },
 };
 
-/** Whether the existing evidence supports retaining fail-fast instead. */
-function savingsConflict(finding: PatternsFinding): boolean {
-  const estimated = finding.evidence.estimated_saved_tail_seconds;
-  const later = finding.evidence.later_round_elapsed_seconds;
-  return estimated !== undefined && later !== undefined &&
-    estimated > later * 1.5;
-}
-
 const validationScheduling: InvestigationRelationship = {
   id: "validation-scheduling",
   title: "Validation scheduling experiment",
@@ -406,7 +398,6 @@ const validationScheduling: InvestigationRelationship = {
   setup: "shared-recorded-setup",
   suppressors: [
     "different or mixed recorded setups",
-    "saved-tail estimate already exceeds later-round cost by 1.5 times",
     "incomplete decision evidence",
   ],
   cohortPolicy: "pooled-only",
@@ -418,9 +409,7 @@ const validationScheduling: InvestigationRelationship = {
         all: [],
         basis: "required",
       },
-    ).find((finding) =>
-      finding.basis !== undefined && !savingsConflict(finding)
-    );
+    ).find((finding) => finding.basis !== undefined);
     if (later === undefined) return [];
     const setup = setupSignature(later);
     if (setup === undefined) return [];
@@ -457,16 +446,16 @@ const validationScheduling: InvestigationRelationship = {
         completeValidationState: false,
         limitations: [
           "Later failures and validation delay occurred under one recorded setup; their adjacency does not show that scheduling caused either one.",
-          "Any saved-tail seconds remain estimates; later-round elapsed time and queue waits are recorded observations.",
+          "Job-tail durations are estimates; later command durations and queue waits are observations. Their different overlap and overhead prevent a policy choice from their ratio.",
         ],
       }),
       summary:
         "Later gate rounds exposed other failures while validation was long-running or queued under the same recorded setup.",
       observed: joinedObservation(sources),
       diagnostic_action:
-        "Run one bounded comparison of the current schedule against a single alternative, keeping jobs and setup fixed, then compare later-round time, queue wait, and distinct failures.",
+        "Run a bounded controlled comparison across several seeds and independent or shared-cause failures, keeping required jobs and setup fixed. Compare total time through green, failures disclosed, producer counts, queue wait and CPU/I/O separately.",
       falsifier:
-        "The interpretation is weakened if the controlled alternative does not reduce later-round time or reveals the failures independently of scheduling.",
+        "The interpretation is weakened if the controlled alternative does not reduce total time through green or reveals the failures independently of scheduling.",
     }];
   },
 };

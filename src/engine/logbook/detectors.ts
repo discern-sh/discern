@@ -97,6 +97,7 @@ import {
   crossContextValidationGroups,
   type CurrentValidationRepeatGroup,
   failedValidationInvocations,
+  hasRecordedValidationFailure,
   observedEvidenceValues,
   observedGreenGateDurations,
   repeatedGreenValidationJobs,
@@ -211,8 +212,9 @@ function buildStreamAnalysis(verbs: readonly VerbEvent[]): StreamAnalysis {
     string,
     Map<string, CompletedJobSample[]>
   >();
-  for (const event of verbs) {
-    if (event.verb !== "done") {
+  const observations = verbInvocations(verbs);
+  for (const event of observations.events) {
+    if (observations.conflicts.has(event) || event.verb !== "done") {
       continue;
     }
     const setup = setupKeyOf(event);
@@ -221,7 +223,8 @@ function buildStreamAnalysis(verbs: readonly VerbEvent[]): StreamAnalysis {
       if (
         step.disposition !== "run" ||
         (step.outcome !== "ok" && step.outcome !== "failed") ||
-        step.duration_s === undefined || indexedLabels.has(step.label)
+        step.duration_s === undefined || !Number.isFinite(step.duration_s) ||
+        step.duration_s < 0 || indexedLabels.has(step.label)
       ) {
         continue;
       }
@@ -3006,9 +3009,12 @@ function comparableCompletedDurations(
   anchor: VerbEvent,
   facts: StreamFacts,
 ): readonly CompletedJobSample[] {
-  return facts.analysis.completedJobs.get(job)?.get(
+  return (facts.analysis.completedJobs.get(job)?.get(
     facts.analysis.setupKeyOf(anchor),
-  ) ?? [];
+  ) ?? []).filter((sample) =>
+    sample.event.invocation !== undefined && sample.event.gate_ran === true &&
+    ["passed", "failed"].includes(recordedJobOutcome(sample.event, job))
+  );
 }
 
 /**
@@ -3018,7 +3024,8 @@ function comparableCompletedDurations(
  * cancelled or never started later reports a distinct failure. The later
  * failure may have existed already or may have been introduced between runs;
  * the finding says so. Tail work is estimated only for cancelled jobs, from
- * at least three completed durations of that job under the same setup.
+ * at least three identified, executed durations of that job under the same
+ * setup and a known partial cancellation duration. Neither sum selects policy.
  */
 const maskedFailures: Detector = {
   id: "masked-failures",
@@ -3029,11 +3036,10 @@ const maskedFailures: Detector = {
   tone: "attention",
   threshold: MASKED_FAILURES_MIN_PAIRS,
   next_step:
-    "Compare the recorded later-round cost with the explicitly estimated saved tail. Keep the setting when savings dominate; otherwise run a controlled project-local experiment before changing it.",
+    "Use a controlled repair-journey comparison across several seeds and both independent and shared-cause failures. Record failures disclosed, first feedback, all required green work, producer counts, elapsed time and CPU/I/O. This history cannot select a fail-fast policy.",
   detect(facts): DetectorOutcome {
-    const dones = facts.verbs.filter((e) =>
-      e.verb === "done" && (e.steps?.length ?? 0) > 0
-    );
+    const observations = verbInvocations(facts.verbs);
+    const dones = observations.events.filter((e) => e.verb === "done");
     let considered = 0;
     let comparablePairs = 0;
     let excludedSetupPairs = 0;
@@ -3044,7 +3050,11 @@ const maskedFailures: Detector = {
           const n = session[i];
           const next = session[i + 1];
           if (n === undefined || next === undefined) continue;
-          if (n.outcome !== "failed") continue;
+          if (
+            observations.conflicts.has(n) || observations.conflicts.has(next) ||
+            !hasRecordedValidationFailure(n) ||
+            !hasRecordedValidationFailure(next)
+          ) continue;
           const gapMs = Date.parse(next.at) - Date.parse(n.at);
           if (
             !Number.isFinite(gapMs) || gapMs < 0 ||
@@ -3067,7 +3077,9 @@ const maskedFailures: Detector = {
             continue;
           }
           const failedN = scheduledStepLabels(n, "failed");
-          if (intersection(failedN, failedNext).length > 0) {
+          if (
+            failedN.size === 0 || intersection(failedN, failedNext).length > 0
+          ) {
             continue;
           }
           const masked = intersection(
@@ -3103,14 +3115,17 @@ const maskedFailures: Detector = {
       0,
     );
     const laterDistinctFailures = cancelledJobs + neverStartedJobs;
-    const laterRoundElapsedS = round1(
-      relationships.reduce(
+    const timedRelationships = relationships.filter(({ later }) =>
+      Number.isFinite(later.duration_ms) && later.duration_ms >= 0
+    );
+    const laterRoundCommandS = round1(
+      timedRelationships.reduce(
         (sum, relationship) => sum + relationship.later.duration_ms / 1000,
         0,
       ),
     );
-    let estimatedSavedTailS = 0;
-    let conservativeSavedTailS = 0;
+    let estimatedJobTailS = 0;
+    let maximumSampleTailS = 0;
     let unestimatedTailJobs = 0;
     const samples = new Set<string>();
     for (const relationship of relationships) {
@@ -3121,52 +3136,53 @@ const maskedFailures: Detector = {
           facts,
         );
         for (const sample of completed) {
-          samples.add(`${sample.event.at}\0${label}`);
-        }
-        if (completed.length < 3) {
-          unestimatedTailJobs += 1;
-          continue;
+          samples.add(`${sample.event.invocation}\0${label}`);
         }
         const partial = (relationship.first.steps ?? []).find((step) =>
           step.label === label && step.outcome === "cancelled"
-        )?.duration_s ?? 0;
-        const durations = completed.map((sample) =>
-          sample.seconds
-        );
-        estimatedSavedTailS += Math.max(0, median(durations) - partial);
-        conservativeSavedTailS += Math.max(
+        )?.duration_s;
+        if (
+          completed.length < 3 || partial === undefined ||
+          !Number.isFinite(partial) || partial < 0
+        ) {
+          unestimatedTailJobs += 1;
+          continue;
+        }
+        const durations = completed.map((sample) => sample.seconds);
+        estimatedJobTailS += Math.max(0, median(durations) - partial);
+        maximumSampleTailS += Math.max(
           0,
           Math.max(...durations) - partial,
         );
       }
     }
-    estimatedSavedTailS = round1(estimatedSavedTailS);
-    conservativeSavedTailS = round1(conservativeSavedTailS);
-    const recommendationSupported = cancelledJobs > 0 &&
-      unestimatedTailJobs === 0 && conservativeSavedTailS > 0 &&
-      laterRoundElapsedS > conservativeSavedTailS * 1.5;
-    const savingsFavoured = unestimatedTailJobs === 0 &&
-      estimatedSavedTailS > laterRoundElapsedS * 1.5;
+    estimatedJobTailS = round1(estimatedJobTailS);
+    maximumSampleTailS = round1(maximumSampleTailS);
+    const estimatedJobs = cancelledJobs - unestimatedTailJobs;
     const evidence = {
       cancelled_jobs: cancelledJobs,
       never_started_jobs: neverStartedJobs,
       later_distinct_failures: laterDistinctFailures,
       additional_gate_rounds: instances,
-      later_round_elapsed_seconds: laterRoundElapsedS,
-      estimated_saved_tail_seconds: estimatedSavedTailS,
-      conservative_saved_tail_seconds: conservativeSavedTailS,
+      ...(timedRelationships.length > 0
+        ? { later_round_command_seconds: laterRoundCommandS }
+        : {}),
+      later_round_duration_observations: timedRelationships.length,
+      unknown_later_round_durations: instances - timedRelationships.length,
+      ...(estimatedJobs > 0
+        ? {
+          estimated_job_tail_seconds: estimatedJobTailS,
+          maximum_sample_job_tail_seconds: maximumSampleTailS,
+        }
+        : {}),
+      estimated_tail_jobs: estimatedJobs,
       tail_duration_samples: samples.size,
       unestimated_tail_jobs: unestimatedTailJobs,
       branches:
         new Set(relationships.map((relationship) => relationship.first.branch))
           .size,
-      recommendation_supported: recommendationSupported ? 1 : 0,
+      recommendation_supported: 0,
     };
-    const nextStep = recommendationSupported
-      ? "This project's conservative rule was crossed: recorded later-round time exceeded 1.5× the maximum-duration saved-tail estimate, with at least 3 comparable samples per cancelled job. Run a controlled `[gate].fail_fast = false` trial and compare the same ledger before adopting the change."
-      : savingsFavoured
-      ? "The median-duration estimate of saved tail exceeds recorded later-round cost by more than 1.5×. Keep fail-fast for now; no configuration change is supported by this history."
-      : "The tradeoff is unresolved or undersampled. Run a controlled project-local experiment with fail-fast on and off, then compare recorded later-round time and the same saved-tail estimator; do not change the default from this evidence yet.";
     const relationshipEvents = relationships.flatMap((relationship) => [
       relationship.first,
       relationship.later,
@@ -3175,12 +3191,8 @@ const maskedFailures: Detector = {
       considered,
       findings: [{
         summary:
-          "Fail-fast avoided estimated tail time while later gate rounds exposed other failures.",
-        tone: recommendationSupported
-          ? "attention"
-          : savingsFavoured
-          ? "good"
-          : "neutral",
+          "Previously cancelled or unstarted jobs failed in later recorded runs.",
+        tone: "neutral",
         observed: `${
           formatHumanNumber(instances)
         } qualifying relationships among ${
@@ -3193,13 +3205,21 @@ const maskedFailures: Detector = {
           formatHumanNumber(neverStartedJobs)
         } jobs not started, and ${
           formatHumanNumber(laterDistinctFailures)
-        } distinct failures in later rounds; those later rounds recorded ${
-          formatHumanNumber(laterRoundElapsedS)
-        }s elapsed, while ${
+        } distinct failed job observations in later rounds. ${timedRelationships.length} later command durations sum to ${
+          timedRelationships.length > 0
+            ? `${formatHumanNumber(laterRoundCommandS)}s`
+            : "an unknown total"
+        }, including overlapping work and waits; ${
+          instances - timedRelationships.length
+        } durations are unknown. ${
           formatHumanNumber(samples.size)
-        } comparable completed-job samples estimate ${
-          formatHumanNumber(estimatedSavedTailS)
-        }s of cancelled tail avoided. The sequence does not establish when or why a later failure arose.`,
+        } identified completed-job samples support ${
+          estimatedJobs > 0
+            ? `${
+              formatHumanNumber(estimatedJobTailS)
+            }s of estimated job tail across ${estimatedJobs} cancelled job observations`
+            : "no job-tail duration estimate"
+        }; ${unestimatedTailJobs} cancelled job observations remain unestimated. Job-duration sums are not elapsed or CPU savings. The sequence does not establish when or why a later failure arose.`,
         evidence,
         basis: decisionEvidenceBasis("fail-fast-ledger", evidence, {
           comparable: comparablePairs,
@@ -3208,14 +3228,15 @@ const maskedFailures: Detector = {
           events: relationshipEvents,
           facts,
           estimated: new Set([
-            "estimated_saved_tail_seconds",
-            "conservative_saved_tail_seconds",
+            "estimated_job_tail_seconds",
+            "maximum_sample_job_tail_seconds",
           ]),
           excludedEvents: excludedSetupPairs,
           limitations: [
             "A later distinct failure may have existed during the earlier run or may have been introduced between runs; the sequence does not establish cause.",
-            "Saved tail uses the median of at least 3 completed durations for the same job and setup, less any recorded partial cancelled duration.",
-            "The conservative decision rule uses the maximum comparable completed duration for each cancelled job and requires later-round time to exceed that estimate by 1.5 times.",
+            "Job tail uses at least 3 identified executed durations for the same job and recorded setup, less a known partial cancelled duration. Missing identity, execution or duration stays unknown.",
+            "The maximum sample is not a proven upper bound. Concurrent job tails and whole-command durations have different overlap and overhead; their ratio cannot select a policy.",
+            "Changed source, test membership, seed, cache and load can affect samples even under matching recorded setup. These observations do not establish independent defect counts or author quality.",
             ...(neverStartedJobs > 0
               ? [
                 "Jobs that never started are observed separately and do not enter the cancelled-tail estimate.",
@@ -3224,7 +3245,7 @@ const maskedFailures: Detector = {
           ],
         }),
         strength: instances,
-        next_step: nextStep,
+        next_step: maskedFailures.next_step,
       }],
     };
   },

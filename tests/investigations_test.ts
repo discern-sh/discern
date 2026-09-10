@@ -189,7 +189,7 @@ function schedulingSources(
   options: {
     setup?: string;
     costSetup?: string;
-    savingsConflict?: boolean;
+    largeJobTail?: boolean;
   } = {},
 ): PatternsFinding[] {
   const later = {
@@ -197,9 +197,9 @@ function schedulingSources(
     never_started_jobs: 0,
     later_distinct_failures: 3,
     additional_gate_rounds: 3,
-    later_round_elapsed_seconds: 100,
-    estimated_saved_tail_seconds: options.savingsConflict === true ? 200 : 40,
-    conservative_saved_tail_seconds: 60,
+    later_round_command_seconds: 100,
+    estimated_job_tail_seconds: options.largeJobTail === true ? 200 : 40,
+    maximum_sample_job_tail_seconds: 60,
     tail_duration_samples: 9,
     unestimated_tail_jobs: 0,
     branches: 1,
@@ -216,8 +216,8 @@ function schedulingSources(
       basis: basis(later, {
         setup: options.setup,
         estimated: [
-          "estimated_saved_tail_seconds",
-          "conservative_saved_tail_seconds",
+          "estimated_job_tail_seconds",
+          "maximum_sample_job_tail_seconds",
         ],
       }),
     }),
@@ -360,7 +360,6 @@ Deno.test("investigation near misses and conflicting evidence leave raw findings
     ),
     feedbackSources({ mixedSetup: true }),
     schedulingSources({ costSetup: "setup-b" }),
-    schedulingSources({ savingsConflict: true }),
     [varianceSource("coverage", { reversal: 0, failure: 0 })],
     [varianceSource("coverage", { recommendation: 1 })],
   ];
@@ -377,13 +376,22 @@ Deno.test("investigation values retain observed and estimated provenance", () =>
     observation.finding_id === "masked-failures"
   );
   assert(ledger !== undefined);
-  assertEquals(ledger.values.estimated_saved_tail_seconds?.kind, "estimated");
-  assertEquals(ledger.values.later_round_elapsed_seconds?.kind, "observed");
+  assertEquals(ledger.values.estimated_job_tail_seconds?.kind, "estimated");
+  assertEquals(ledger.values.later_round_command_seconds?.kind, "observed");
   assert(
     !/\b(?:caused|causes|rank|score)\b/i.test(
       `${investigation.summary} ${investigation.observed}`,
     ),
   );
+});
+
+Deno.test("scheduling investigation never treats unlike duration totals as a policy decision", () => {
+  const [investigation] = synthesizeInvestigations(
+    schedulingSources({ largeJobTail: true }),
+  );
+  assert(investigation !== undefined);
+  assertEquals(investigation.id, "validation-scheduling");
+  assert(investigation.diagnostic_action.includes("total time through green"));
 });
 
 Deno.test("cohort evidence cannot mint or alter pooled investigations", () => {

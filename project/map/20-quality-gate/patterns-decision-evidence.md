@@ -20,13 +20,13 @@ A dominant job or generated-family percentage is a statistic. It produces optimi
 
 ## Fail-fast tradeoff ledger
 
-`masked-failures` retains its compatibility id and reports observations separately: cancelled and never-started jobs, distinct failures in later comparable red rounds, additional gate rounds, and those rounds' elapsed time. Adjacent rounds do not establish when or why a later failure arose.
+`masked-failures` retains its compatibility id and reports observations separately: cancelled and never-started jobs, distinct failed job observations in later comparable rounds, additional rounds, and the sum of those commands' durations. Repeated invocations count once. Adjacent rounds do not establish when or why a later failure arose, and cancellation alone does not establish a failed validation.
 
-Saved tail is an estimate: the median of at least 3 completed durations for the same job and setup, less recorded partial cancellation time. The finding states the sample, exclusions, and assumption.
+Job tail is an estimate: the median of at least 3 identified executed durations for the same job and recorded setup, less a known partial cancellation duration. Missing duration, execution or identity remains unknown. The finding states how many cancelled jobs have an estimate and how many do not. Its maximum-sample estimate is not a proven upper bound.
 
-If later-round time exceeds 1.5 times a fully sampled maximum-duration saved-tail estimate, the finding recommends a controlled project-local `fail_fast = false` trial before adoption. If the median saved-tail estimate exceeds later-round time by 1.5 times, it recommends keeping fail-fast. Otherwise it calls the tradeoff unresolved and routes to a controlled experiment.
+Concurrent job tails and whole-command durations have different overlap and overhead. Their ratio cannot establish elapsed savings, CPU savings or the best fail-fast policy. The finding routes to a bounded controlled repair-journey comparison across several seeds and independent or shared-cause failures, retaining the same required green work. Measure failures disclosed, first feedback, producer counts, total time through green, waits and CPU/I/O separately.
 
-When unresolved later distinct failures coincide with long-running or queued validation under one recorded setup, the additive validation-scheduling investigation proposes one bounded comparison. It preserves recorded time and queue observations separately from saved-tail estimates and makes no causal claim.
+When later failed jobs coincide with long-running or queued validation under one recorded setup, the additive validation-scheduling investigation proposes that bounded comparison. It preserves recorded command time and queue observations separately from estimated job tails and makes no causal claim. A larger job-tail sum does not suppress the investigation by pretending those quantities are interchangeable.
 
 ## Standard trajectory decisions
 
@@ -36,4 +36,4 @@ A recommendation additionally requires a current active standard, measured or re
 
 When current mechanical eligibility instead coincides with recent comparable reversals or failures, the additive standard-variance investigation replaces no finding and offers no pin advice. It directs the owner to test whether the headroom is durable ([ADR 0277](../_adr/0277-patterns-investigations-preserve-source-findings.md)).
 
-The thresholds and authority boundary are recorded for future changes ([ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md)). [Practice patterns](patterns.md) covers the report, detector families, evidence handling, and historical selection.
+The decision-evidence foundation and standard sample rules are recorded in [ADR 0276](../_adr/0276-patterns-recommendations-require-project-local-decision-evidence.md). [Practice patterns](patterns.md) covers the report, detector families, evidence handling, and historical selection.
