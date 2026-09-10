@@ -18,6 +18,27 @@ import {
 import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
 
+/** Retention describes checkout ownership separately from the recorded landing. */
+export function retainedCheckoutExplanation(
+  reason: string | undefined,
+): string {
+  switch (reason) {
+    case "unreleased":
+      return "The checkout has not been released for cleanup. It remains available for review or further edits. Stop active use, then run discern done --release-checkout from this effort and discern accept from the main checkout for eligible cleanup.";
+    case "active-use":
+      return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
+    case "moved-branch":
+      return "The source branch changed after landing. Preserve the new work and run discern status from its worktree.";
+    case "dirty":
+      return "The checkout contains changed files. Preserve and review them before retrying cleanup from the main checkout.";
+    case "ownership-uncertain":
+      return "Checkout ownership could not be verified. Preserve its files and resources and inspect discern status --verbose from the main checkout.";
+    default:
+      return reason ??
+        "Inspect discern status --verbose from the main checkout for the retained checkout's next action.";
+  }
+}
+
 export const RESULT_REQUIRED_POSTCONDITIONS = [
   "declared-outcome",
   "executed-steps",

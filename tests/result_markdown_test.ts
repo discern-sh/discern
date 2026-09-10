@@ -22,6 +22,7 @@ import {
   HINTS,
   hintTexts,
 } from "../src/shared/hints.ts";
+import { retainedCheckoutExplanation } from "../src/shared/result_completion.ts";
 import { projectStatusResult } from "../src/shared/result_wire.ts";
 import {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1415,4 +1416,83 @@ Deno.test("patterns Markdown carries completion economics without granting autho
       "Observations grant no Proof",
     ]
   ) assertStringIncludes(rendered, text);
+});
+
+Deno.test("accept rows explain a kept checkout and omit retirement for unlanded work", () => {
+  const row = {
+    effort: "one",
+    branch: "refs/heads/agent/one",
+    source_head: "a".repeat(40),
+    candidate_id: null,
+    expected_trunk: null,
+    target: null,
+    retirement: "retained" as const,
+    pending: [],
+  };
+  for (
+    const reason of [
+      "unreleased",
+      "active-use",
+      "moved-branch",
+      "dirty",
+      "ownership-uncertain",
+      "a reason the engine recorded verbatim",
+      undefined,
+    ]
+  ) {
+    const data = {
+      root: "/workspace/project",
+      queue: [{
+        ...row,
+        state: "landed" as const,
+        ...(reason === undefined ? {} : { retirement_reason: reason }),
+      }],
+    };
+    AcceptDataSchema.parse(data);
+    const rendered = renderResultMarkdown(
+      { ok: true, verb: "accept", data },
+      resultPresenterForVerb("accept"),
+    );
+    assertStringIncludes(
+      rendered,
+      reason === undefined ? "checkout kept." : `checkout kept (${reason}).`,
+    );
+    assertStringIncludes(rendered, retainedCheckoutExplanation(reason));
+  }
+  const retiredData = {
+    root: "/workspace/project",
+    queue: [{
+      ...row,
+      state: "landed" as const,
+      retirement: "retired" as const,
+    }],
+  };
+  AcceptDataSchema.parse(retiredData);
+  assertStringIncludes(
+    renderResultMarkdown(
+      { ok: true, verb: "accept", data: retiredData },
+      resultPresenterForVerb("accept"),
+    ),
+    "checkout retired.",
+  );
+  const pendingData = {
+    root: "/workspace/project",
+    queue: [{
+      ...row,
+      state: "pending" as const,
+      pending: [{ kind: "missing-evidence", reason: "Run discern done." }],
+    }],
+  };
+  AcceptDataSchema.parse(pendingData);
+  const pending = renderResultMarkdown(
+    { ok: true, verb: "accept", data: pendingData },
+    resultPresenterForVerb("accept"),
+  );
+  assertStringIncludes(
+    pending,
+    "`refs/heads/agent/one`: pending; authority pending.",
+  );
+  assert(!pending.includes("retirement"), pending);
+  assert(!pending.includes("convergence"), pending);
+  assert(!pending.includes("checkout kept"), pending);
 });

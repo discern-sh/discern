@@ -13,7 +13,10 @@ import {
 import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { type StepResult, stepResultFromJson } from "../../shared/result.ts";
-import { evaluateResultCompletion } from "../../shared/result_completion.ts";
+import {
+  evaluateResultCompletion,
+  retainedCheckoutExplanation,
+} from "../../shared/result_completion.ts";
 import type { AcceptData, Proof } from "../../shared/result_schemas.ts";
 import { checkpointServingText } from "../checkpoints/serving_text.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
@@ -35,27 +38,6 @@ import { observedRecords } from "./repository.ts";
 import { planQueueRetirement, RetirementCaptureSchema } from "./retirement.ts";
 
 export type AcceptancePrefix = NonNullable<AcceptData["queue"]>[number];
-
-/** Retention describes checkout ownership separately from the recorded landing. */
-export function retainedCheckoutExplanation(
-  reason: string | undefined,
-): string {
-  switch (reason) {
-    case "unreleased":
-      return "The checkout has not been released for cleanup. It remains available for review or further edits. Stop active use, then run discern done --release-checkout from this effort and discern accept from the main checkout for eligible cleanup.";
-    case "active-use":
-      return "The checkout is still in use. Stop its preview or active operation, then retry discern accept from the main checkout.";
-    case "moved-branch":
-      return "The source branch changed after landing. Preserve the new work and run discern status from its worktree.";
-    case "dirty":
-      return "The checkout contains changed files. Preserve and review them before retrying cleanup from the main checkout.";
-    case "ownership-uncertain":
-      return "Checkout ownership could not be verified. Preserve its files and resources and inspect discern status --verbose from the main checkout.";
-    default:
-      return reason ??
-        "Inspect discern status --verbose from the main checkout for the retained checkout's next action.";
-  }
-}
 
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
 export type AcceptancePending =

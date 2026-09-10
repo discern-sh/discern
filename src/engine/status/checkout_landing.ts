@@ -1,6 +1,7 @@
 /** Local landing status binds cleanup facts to the invoking committed source. */
 import { loadModule } from "../../shared/module_loading.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { retainedCheckoutExplanation } from "../../shared/result_completion.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
@@ -37,9 +38,6 @@ export async function checkoutLandingStatus(
   if (landing?.kind !== "landing") return undefined;
   const { planQueueRetirement } = await loadModule(
     () => import("../landing_queue/retirement.ts"),
-  );
-  const { retainedCheckoutExplanation } = await loadModule(
-    () => import("../landing_queue/public_result.ts"),
   );
   const plan = planQueueRetirement(landing, records);
   const outcome = plan.kind === "settled"
