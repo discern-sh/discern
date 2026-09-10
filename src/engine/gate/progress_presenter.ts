@@ -6,7 +6,10 @@
  * already composed with the facts.
  */
 import type { CompletionObservationFact } from "../completion/events.ts";
-import { completionFailureSentence } from "../completion/progress_prose.ts";
+import {
+  completionFailureSentence,
+  completionProgressSentence,
+} from "../completion/progress_prose.ts";
 import type { GateTtyProgress } from "./gate_tty.ts";
 
 /** One live consumer of completion facts for a single gate run. */
@@ -125,7 +128,7 @@ export function createGateProgressPresenter(
         return;
       }
       durable(
-        progress.reason,
+        completionProgressSentence(progress),
         progress.owner_must_act === true || progress.phase === "pending"
           ? "warning"
           : undefined,

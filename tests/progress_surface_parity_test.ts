@@ -53,9 +53,15 @@ function emitScriptedFacts(): void {
     state: "missing-judgment",
     candidate_id: "candidate",
     reason: account.reason,
+    next: account.next,
     owner_must_act: account.owner_must_act,
   });
 }
+
+/** The pending sentence every surface must show: the wait, then what comes next. */
+const PENDING =
+  "Waiting for a recorded judgment on candidate-checkpoints; the owner decides. " +
+  "Landing waits until the judgment is recorded.";
 
 Deno.test("one fact stream reads identically on the terminal, over MCP, and after reconnect", async () => {
   await withTempDir(async (root) => {
@@ -111,22 +117,14 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
       { kind: "note", text: announcement },
       { kind: "transient", text: COUNTS },
       { kind: "failure", text: FAILURE_SENTENCE },
-      {
-        kind: "warning",
-        text:
-          "Waiting for a recorded judgment on candidate-checkpoints; the owner decides.",
-      },
+      { kind: "warning", text: PENDING },
     ]);
     // MCP delivered the same sentences as notification messages.
     assertEquals(mcp, [
       { message: announcement },
       { message: COUNTS },
       { message: FAILURE_SENTENCE },
-      {
-        message:
-          "Waiting for a recorded judgment on candidate-checkpoints; the owner decides.",
-        owner: true,
-      },
+      { message: PENDING, owner: true },
     ]);
     // A reconnecting reader sees the same facts the live surfaces presented.
     const read = await operationProgressResult(root, { handle });
@@ -180,11 +178,9 @@ Deno.test("a nested operation presents each fact exactly once between its outer 
       },
       (value) => value,
     );
-    const pending =
-      "Waiting for a recorded judgment on candidate-checkpoints; the owner decides.";
     assertEquals(outer.length, 2, JSON.stringify(outer));
     assert(outer[0]?.startsWith("accept is running; progress handle R1-"));
-    assertEquals(outer[1], pending);
+    assertEquals(outer[1], PENDING);
     assertEquals(inner, [COUNTS, FAILURE_SENTENCE]);
     // One journal covers the whole acceptance: the nested run opened none of
     // its own, and the producer's failure reached the shared record.
@@ -192,6 +188,9 @@ Deno.test("a nested operation presents each fact exactly once between its outer 
     assert(read.ok, JSON.stringify(read));
     assertEquals(read.data?.operation.verb, "accept");
     assertEquals(read.data?.failures?.length, 1);
-    assertEquals(read.data?.progress?.reason, pending);
+    assertEquals(
+      read.data?.progress?.next,
+      "Landing waits until the judgment is recorded.",
+    );
   });
 });

@@ -4,7 +4,10 @@ import {
   type CompletionProgress,
   withCompletionObserver,
 } from "../completion/events.ts";
-import { completionFailureSentence } from "../completion/progress_prose.ts";
+import {
+  completionFailureSentence,
+  completionProgressSentence,
+} from "../completion/progress_prose.ts";
 
 export interface CompletionProgressNotification {
   readonly method: "notifications/progress";
@@ -59,7 +62,7 @@ export async function withMcpCompletionProgress<T>(
       params: {
         progressToken: token,
         progress: ++progress,
-        message: fact.progress.reason,
+        message: completionProgressSentence(fact.progress),
         _meta: { discern_completion: fact.progress },
       },
     });

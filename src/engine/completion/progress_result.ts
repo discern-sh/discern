@@ -11,6 +11,7 @@ import type {
   CompletionProgress,
   ProducerWork,
 } from "./events.ts";
+import { completionProgressSentence } from "./progress_prose.ts";
 import {
   type ExecutorLiveness,
   type OperationJournalRecord,
@@ -69,7 +70,9 @@ function progressMessage(
     return `${name} was cancelled before finishing. The facts below are what it had established.`;
   }
   if (executor === "running") {
-    const account = record.progress?.reason;
+    const account = record.progress === undefined
+      ? undefined
+      : completionProgressSentence(record.progress);
     return account === undefined
       ? `${name} is still running.`
       : `${name} is still running. ${account}`;

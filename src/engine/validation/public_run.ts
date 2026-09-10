@@ -387,6 +387,7 @@ export async function executePublicValidation(input: {
           candidate_id: claimed.candidate_id,
           reason:
             "Waiting for test-run capacity; independent checks can continue.",
+          next: "The producer starts when a test-run slot frees.",
         });
         hold = await withExecutionTiming(
           claimed,
@@ -786,6 +787,7 @@ export async function executePublicValidation(input: {
       state: blocker.kind,
       candidate_id: execution.candidate_id,
       reason: account.reason,
+      next: account.next,
       ...(account.owner_must_act ? { owner_must_act: true } : {}),
     });
   }

@@ -6,7 +6,11 @@
  * estimate, and an unknown total stays unknown.
  */
 import type { CompletionBlocker } from "./protocol.ts";
-import type { CompletionFailure, ProducerWork } from "./events.ts";
+import type {
+  CompletionFailure,
+  CompletionProgress,
+  ProducerWork,
+} from "./events.ts";
 
 /** Bound one-line renderings; the full text stays on the underlying fact. */
 const SENTENCE_MAX_CHARS = 400;
@@ -58,28 +62,54 @@ function named(values: readonly string[], noun: string): string {
   return `${values.slice(0, 3).join(", ")} and ${values.length - 3} more`;
 }
 
-/** What one pending blocker means for the reader, and whether the owner decides. */
+/** The whole account of one progress fact: what is happening, then what comes next. */
+export function completionProgressSentence(
+  progress: Pick<CompletionProgress, "reason" | "next">,
+): string {
+  return progress.next === undefined
+    ? progress.reason
+    : `${progress.reason} ${progress.next}`;
+}
+
+/**
+ * What one pending blocker means for the reader, what happens next, and
+ * whether the owner decides.
+ */
 export function completionBlockerAccount(
   blocker: CompletionBlocker,
-): { readonly reason: string; readonly owner_must_act: boolean } {
+): {
+  readonly reason: string;
+  readonly next: string;
+  readonly owner_must_act: boolean;
+} {
   switch (blocker.kind) {
     case "cancelled":
-      return { reason: sentence(blocker.reason), owner_must_act: false };
+      return {
+        reason: sentence(blocker.reason),
+        next: "Run the command again to continue.",
+        owner_must_act: false,
+      };
     case "record-incompatible":
     case "record-corrupt":
       return {
         reason: sentence(
           `Record ${blocker.record_id} cannot be read: ${blocker.reason}`,
         ),
+        next: "Follow the recovery action in status.",
         owner_must_act: false,
       };
     case "capacity-unavailable":
-      return { reason: sentence(blocker.reason), owner_must_act: false };
+      return {
+        reason: sentence(blocker.reason),
+        next: "Run again when capacity is available.",
+        owner_must_act: false,
+      };
     case "missing-judgment":
       return {
         reason: `Waiting for a recorded judgment on ${
           named(blocker.subjects, "the served questions")
         }; the owner decides.`,
+        next: "Landing waits until the judgment is recorded.",
         owner_must_act: true,
       };
     case "missing-authority":
@@ -90,6 +120,7 @@ export function completionBlockerAccount(
             "the changed sources",
           )
         }.`,
+        next: "Landing waits until the owner grants it.",
         owner_must_act: true,
       };
     case "missing-evidence":
@@ -99,13 +130,14 @@ export function completionBlockerAccount(
             blocker.requirements.map((requirement) => requirement.id),
             "required checks",
           )
-        }; the gate produces it on the next run.`,
+        }.`,
+        next: "Run the gate to produce it.",
         owner_must_act: false,
       };
     case "stale-evidence":
       return {
-        reason:
-          `Recorded evidence is stale (${blocker.reason}) and must be produced again.`,
+        reason: `Recorded evidence is stale (${blocker.reason}).`,
+        next: "Run the gate again to refresh it.",
         owner_must_act: false,
       };
     case "validation-failed":
@@ -117,25 +149,32 @@ export function completionBlockerAccount(
               ? ""
               : ` for ${blocker.requirement.id}`
           }.`,
+        next: "Fix the failure and run the gate again.",
         owner_must_act: false,
       };
     case "environment-unavailable":
-      return { reason: sentence(blocker.reason), owner_must_act: false };
+      return {
+        reason: sentence(blocker.reason),
+        next: "Run again once the environment is available.",
+        owner_must_act: false,
+      };
     case "recovery-incomplete":
       return {
-        reason:
-          "The execution environment needs recovery before another run; follow the recovery action in status.",
+        reason: "The execution environment needs recovery before another run.",
+        next: "Follow the recovery action in status, then run again.",
         owner_must_act: false,
       };
     case "waiting-for-operation":
       return {
         reason:
-          "Waiting for another active operation on this work to finish or release its claim.",
+          "Another active operation on this work has not finished or released its claim.",
+        next: "Run again once it has finished.",
         owner_must_act: false,
       };
     case "report-only":
       return {
         reason: "This report-only run records no completion evidence.",
+        next: "Run the gate as a recording run to produce evidence.",
         owner_must_act: false,
       };
   }
