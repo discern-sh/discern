@@ -46,7 +46,7 @@ From the repository root, the CI runner invokes:
 discern done --ci --standalone --context linux --policy-base refs/discern/ci-policy-base --markdown
 ```
 
-This workflow produces a separate CI report. Its results do not fulfill the evidence requirements for ordinary task completion.
+This workflow produces a separate CI report. Its results do not fulfill the evidence requirements for ordinary task completion, and a report never places the task in the landing queue.
 
 This example assumes the workflow has fetched the comparison commit into `refs/discern/ci-policy-base` and supplies the declared `linux` context. A **context** names an environment where the project requires checks or measurements. Use the name configured for your workflow.
 

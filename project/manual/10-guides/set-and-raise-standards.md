@@ -65,7 +65,7 @@ DISCERN_METRIC download_size 1200
 
 The producer must complete successfully and supply a valid measurement. A missing number, a failed command, or a value outside the limit needs attention.
 
-If the project already produces this measurement during another check, the agent can reuse that producer. It should declare all relevant inputs, toolchain facts, and environment conditions so old evidence is reused only when applicable. The [configuration reference](../30-reference/config-reference.md#standardsname) holds those fields.
+If the project already produces this measurement during another check, the agent points the standard at that check with `producer = "jobs.<name>"` instead of running a second command; the test run that already reports coverage, for example, can supply a coverage standard without running twice. A standard can also declare the files its measurement reads, so an unchanged measurement is reused rather than repeated; a standard that declares nothing is measured again for every version. The [configuration reference](../30-reference/config-reference.md#standardsname) holds those fields.
 
 ### 3. Exercise both outcomes
 
