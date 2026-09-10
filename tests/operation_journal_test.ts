@@ -317,17 +317,17 @@ Deno.test("named timing boundaries stay separate facts under an injected clock",
   });
 });
 
-Deno.test("an oversized final result keeps a bounded account and says so", async () => {
+Deno.test("an oversized final result keeps a bounded account and retains the complete envelope", async () => {
   await withTempDir(async (root) => {
     await repository(root);
+    const oversized = {
+      ...envelope(false, "Gate failed."),
+      data: { noise: "x".repeat(400 * 1024) },
+    };
     const result = await withOperationJournal(
       root,
       { verb: "done", path: root },
-      () =>
-        Promise.resolve({
-          ...envelope(false, "Gate failed."),
-          data: { noise: "x".repeat(400 * 1024) },
-        }),
+      () => Promise.resolve(oversized),
       { result: (value) => value },
     );
     assertEquals(result.ok, false);
@@ -339,5 +339,126 @@ Deno.test("an oversized final result keeps a bounded account and says so", async
     assertEquals(stored.ok, false);
     assertEquals(stored.verb, "done");
     assertEquals("data" in stored, false);
+    // The complete envelope stays retrievable beside the record.
+    assert(reading.record.result_path !== undefined);
+    const complete = JSON.parse(
+      await Deno.readTextFile(reading.record.result_path),
+    );
+    assertEquals(complete, oversized);
+    // The sibling shares its record's lifetime: expiring the record through a
+    // later create removes both.
+    const expired = await openOperationJournal(root, {
+      verb: "done",
+      path: root,
+    }, {
+      clock: { wallNow: () => Date.now() + 2 * OPERATION_JOURNAL_TTL_MS },
+    });
+    assert(expired !== undefined);
+    assertEquals(
+      await readOperationJournal(root, reading.handle),
+      { kind: "missing" },
+    );
+    await assertRejects(
+      () => Deno.stat(reading.record.result_path ?? ""),
+      Deno.errors.NotFound,
+    );
+  });
+});
+
+Deno.test("a cancelled run that returns an ordinary envelope records cancelled, not failed", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const abort = new AbortController();
+    abort.abort();
+    const cancelled = await withOperationJournal(
+      root,
+      { verb: "done", path: root },
+      () => Promise.resolve(envelope(false, "Cancelled mid-producer.")),
+      { signal: abort.signal, result: (value) => value },
+    );
+    assertEquals(cancelled.ok, false);
+    const reading = await readOperationJournal(root);
+    assert(reading.kind === "found");
+    assertEquals(reading.record.outcome, "cancelled");
+    // A run that finished green stays completed even under a late abort.
+    const completed = await withOperationJournal(
+      root,
+      { verb: "done", path: root },
+      () => Promise.resolve(envelope(true, "Gate passed.")),
+      { signal: abort.signal, result: (value) => value },
+    );
+    assertEquals(completed.ok, true);
+    const green = await readOperationJournal(root);
+    assert(green.kind === "found");
+    assertEquals(green.record.outcome, "completed");
+  });
+});
+
+Deno.test("reading a stopped executor probes liveness without resuming it", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const child = new Deno.Command("sh", {
+      args: ["-c", "sleep 60"],
+      stdout: "null",
+      stderr: "null",
+    }).spawn();
+    try {
+      Deno.kill(child.pid, "SIGSTOP");
+      const journal = await openOperationJournal(root, {
+        verb: "done",
+        path: root,
+      }, { pid: child.pid });
+      assert(journal !== undefined);
+      const reading = await readOperationJournal(root, journal.handle);
+      assert(reading.kind === "found");
+      // A stopped process is alive — and reading must leave it stopped.
+      assertEquals(reading.executor, "running");
+      const stat = await new Deno.Command("ps", {
+        args: ["-o", "stat=", "-p", String(child.pid)],
+      }).output();
+      const state = new TextDecoder().decode(stat.stdout).trim();
+      assert(state.includes("T"), `expected stopped state, saw '${state}'`);
+    } finally {
+      Deno.kill(child.pid, "SIGKILL");
+      Deno.kill(child.pid, "SIGCONT");
+      await child.status;
+    }
+  });
+});
+
+Deno.test("the default read selects the most recently started operation, not the latest write", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const older = await openOperationJournal(root, {
+      verb: "done",
+      path: root,
+      branch: "agent/older",
+    }, { clock: { wallNow: () => 1_000 } });
+    assert(older !== undefined);
+    const newer = await openOperationJournal(root, {
+      verb: "test",
+      path: root,
+      branch: "agent/newer",
+    }, { clock: { wallNow: () => 2_000 } });
+    assert(newer !== undefined);
+    // The older operation keeps reporting after the newer one started; its
+    // fresher file cannot displace the newer operation.
+    await older.observe({
+      kind: "progress",
+      progress: {
+        phase: "producer",
+        state: "running",
+        candidate_id: null,
+        reason: "Running test: 1 of 2 partitions done.",
+        work: {
+          producer: "test",
+          units: { kind: "partitions", completed: 1, total: 2 },
+        },
+      },
+    });
+    const reading = await readOperationJournal(root);
+    assert(reading.kind === "found");
+    assertEquals(reading.handle, newer.handle);
+    assertEquals(reading.record.operation.branch, "agent/newer");
   });
 });

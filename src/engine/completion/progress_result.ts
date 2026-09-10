@@ -41,6 +41,8 @@ export interface OperationProgressData {
   /** The retained final result envelope, when one exists and fit the bound. */
   readonly result?: unknown;
   readonly result_truncated?: boolean;
+  /** Where the complete envelope lives when the record holds a reduced one. */
+  readonly result_path?: string;
 }
 
 /** Compose the first paragraph: the operation, what happened, the next command. */
@@ -152,6 +154,9 @@ export async function operationProgressResult(
       : { timings: record.timings }),
     ...(record.result === undefined ? {} : { result: record.result }),
     ...(record.result_truncated === true ? { result_truncated: true } : {}),
+    ...(record.result_path === undefined
+      ? {}
+      : { result_path: record.result_path }),
   };
   return {
     ok: true,

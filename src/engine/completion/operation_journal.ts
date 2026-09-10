@@ -56,6 +56,8 @@ const FAILURES_LIMIT = 64;
 const TIMINGS_LIMIT = 128;
 const PRODUCERS_LIMIT = 64;
 const RECORD_SUFFIX = ".json";
+/** An oversized final result is retained complete in a sibling file. */
+const RESULT_SUFFIX = ".result.json";
 const LOCK_FILE = ".lock";
 const HANDLE_CREATE_ATTEMPTS = 32;
 
@@ -91,6 +93,8 @@ export interface OperationJournalRecord {
   /** The retained final result envelope, when one exists and fits the bound. */
   readonly result?: unknown;
   readonly result_truncated?: boolean;
+  /** Where the complete envelope lives when the record holds a reduced one. */
+  readonly result_path?: string;
 }
 
 /** Validate a caller-supplied handle without touching the store. */
@@ -128,12 +132,22 @@ async function withStoreLock<T>(
   }
 }
 
+/** Remove a store file, tolerating a concurrent removal. */
+async function removeStoreFile(path: string): Promise<void> {
+  try {
+    await Deno.remove(path);
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+}
+
 /** Reap expired records and evict the oldest before allocating another. */
 async function pruneForCreate(
   directory: string,
   now: number,
 ): Promise<void> {
-  const live: { path: string; mtime: number }[] = [];
+  const live: { path: string; mtime: number; handle: string }[] = [];
+  const siblings: { path: string; mtime: number; handle: string }[] = [];
   for await (const entry of Deno.readDir(directory)) {
     if (!entry.isFile) continue;
     const path = join(directory, entry.name);
@@ -146,17 +160,23 @@ async function pruneForCreate(
       }
       continue;
     }
-    if (!entry.name.endsWith(RECORD_SUFFIX)) continue;
-    const handle = normalizeOperationHandle(
-      entry.name.slice(0, -RECORD_SUFFIX.length),
-    );
-    if (handle === undefined) continue;
+    // Retained-result siblings share their record's lifetime; classify them
+    // before the plain record suffix, which they also end with.
+    const sibling = entry.name.endsWith(RESULT_SUFFIX)
+      ? normalizeOperationHandle(entry.name.slice(0, -RESULT_SUFFIX.length))
+      : undefined;
+    const record = sibling === undefined && entry.name.endsWith(RECORD_SUFFIX)
+      ? normalizeOperationHandle(entry.name.slice(0, -RECORD_SUFFIX.length))
+      : undefined;
+    if (sibling === undefined && record === undefined) continue;
     try {
       const mtime = (await Deno.stat(path)).mtime?.getTime() ?? now;
       if (now - mtime >= OPERATION_JOURNAL_TTL_MS) {
         await Deno.remove(path);
-      } else {
-        live.push({ path, mtime });
+      } else if (sibling !== undefined) {
+        siblings.push({ path, mtime, handle: sibling });
+      } else if (record !== undefined) {
+        live.push({ path, mtime, handle: record });
       }
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) throw error;
@@ -167,11 +187,17 @@ async function pruneForCreate(
     0,
     live.length - OPERATION_JOURNAL_MAX_ENTRIES + 1,
   );
+  const evicted = new Set<string>();
   for (const entry of live.slice(0, removeCount)) {
-    try {
-      await Deno.remove(entry.path);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    evicted.add(entry.handle);
+    await removeStoreFile(entry.path);
+  }
+  const surviving = new Set(
+    live.slice(removeCount).map((entry) => entry.handle),
+  );
+  for (const entry of siblings) {
+    if (evicted.has(entry.handle) || !surviving.has(entry.handle)) {
+      await removeStoreFile(entry.path);
     }
   }
 }
@@ -187,22 +213,6 @@ function mergeWork(
     ...(work.partial === true || previous?.partial === true
       ? { partial: true }
       : {}),
-  };
-}
-
-/** The retained result, reduced to a bounded account when it is oversized. */
-function boundedResult(
-  result: DiscernResult,
-): { readonly result: unknown; readonly result_truncated?: boolean } {
-  const bytes = new TextEncoder().encode(JSON.stringify(result)).length;
-  if (bytes <= RESULT_MAX_BYTES) return { result };
-  return {
-    result: {
-      ok: result.ok,
-      verb: result.verb,
-      ...(result.message === undefined ? {} : { message: result.message }),
-    },
-    result_truncated: true,
   };
 }
 
@@ -341,14 +351,49 @@ export async function openOperationJournal(
       }
       return persist();
     },
-    finish(outcome, result): Promise<void> {
+    async finish(outcome, result): Promise<void> {
+      const operation = { ...current.operation, finished_at: clock.wallNow() };
+      if (result === undefined) {
+        current = { ...current, operation, outcome };
+        return await persist();
+      }
+      const payload = new TextEncoder().encode(`${JSON.stringify(result)}\n`);
+      if (payload.length <= RESULT_MAX_BYTES) {
+        current = { ...current, operation, outcome, result };
+        return await persist();
+      }
+      // An oversized envelope stays completely retrievable: the complete
+      // bytes go to a sibling under the same retention, and the record keeps
+      // a reduced account that points at them.
+      const resultPath = `${
+        opened.path.slice(0, -RECORD_SUFFIX.length)
+      }${RESULT_SUFFIX}`;
+      let retained: string | undefined;
+      try {
+        await atomicReplaceBytes(
+          resultPath,
+          payload,
+          { mode: 0o600, sync: false },
+          entropy,
+        );
+        retained = resultPath;
+      } catch {
+        // discern-best-effort: operation-journal-result-retain
+        retained = undefined;
+      }
       current = {
         ...current,
-        operation: { ...current.operation, finished_at: clock.wallNow() },
+        operation,
         outcome,
-        ...(result === undefined ? {} : boundedResult(result)),
+        result: {
+          ok: result.ok,
+          verb: result.verb,
+          ...(result.message === undefined ? {} : { message: result.message }),
+        },
+        result_truncated: true,
+        ...(retained === undefined ? {} : { result_path: retained }),
       };
-      return persist();
+      return await persist();
     },
   };
 }
@@ -368,10 +413,16 @@ export type OperationJournalReading =
   | { readonly kind: "newer"; readonly reason: string }
   | { readonly kind: "unavailable" };
 
-/** Whether a recorded executor pid is alive; a dead observer proves nothing else. */
+/**
+ * Whether a recorded executor pid is alive; a dead process proves nothing
+ * else. POSIX signal 0 performs the existence check without delivering any
+ * signal, so probing a stopped process leaves it stopped — reading must never
+ * change the operation it reads. Deno's `Signal` type union omits 0 while the
+ * runtime accepts it, hence the cast.
+ */
 function executorAlive(pid: number): boolean {
   try {
-    Deno.kill(pid, "SIGCONT");
+    Deno.kill(pid, 0 as unknown as Deno.Signal);
     return true;
   } catch {
     // discern-best-effort: operation-executor-liveness-probe
@@ -437,66 +488,83 @@ export async function readOperationJournal(
     return { kind: "invalid-handle" };
   }
   const reading = await withStoreLock(root, async (directory) => {
-    const paths: string[] = [];
     if (handle !== undefined) {
-      paths.push(join(directory, `${handle}${RECORD_SUFFIX}`));
-    } else {
-      const entries: { path: string; mtime: number }[] = [];
-      for await (const entry of Deno.readDir(directory)) {
-        if (!entry.isFile || !entry.name.endsWith(RECORD_SUFFIX)) continue;
-        if (
-          normalizeOperationHandle(
-            entry.name.slice(0, -RECORD_SUFFIX.length),
-          ) === undefined
-        ) continue;
-        const path = join(directory, entry.name);
-        try {
-          entries.push({
-            path,
-            mtime: (await Deno.stat(path)).mtime?.getTime() ?? 0,
-          });
-        } catch (error) {
-          if (!(error instanceof Deno.errors.NotFound)) throw error;
-        }
-      }
-      entries.sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path));
-      paths.push(...entries.map((entry) => entry.path));
-      if (paths.length === 0) return { kind: "none-recorded" } as const;
-    }
-    let sawInvalid: OperationJournalReading | undefined;
-    for (const path of paths) {
       let text: string;
       try {
-        text = await Deno.readTextFile(path);
+        text = await Deno.readTextFile(
+          join(directory, `${handle}${RECORD_SUFFIX}`),
+        );
       } catch (error) {
         if (error instanceof Deno.errors.NotFound) {
-          return handle === undefined
-            ? { kind: "none-recorded" } as const
-            : { kind: "missing" } as const;
+          return { kind: "missing" } as const;
         }
         throw error;
       }
       const parsed = parseRecord(text);
-      if (parsed.status === "recorded") {
-        return {
-          kind: "found",
-          handle: parsed.record.operation.handle,
-          record: parsed.record,
-          executor: parsed.record.operation.finished_at !== undefined
-            ? "gone"
-            : executorAlive(parsed.record.operation.pid)
-            ? "running"
-            : "gone",
-        } as const;
-      }
-      sawInvalid = parsed.status === "newer"
-        ? { kind: "newer", reason: parsed.reason }
-        : { kind: "corrupt" };
-      if (handle !== undefined) return sawInvalid;
+      return parsed.status === "recorded"
+        ? foundReading(parsed.record)
+        : parsed.status === "newer"
+        ? { kind: "newer", reason: parsed.reason } as const
+        : { kind: "corrupt" } as const;
     }
+    // No handle: the most recently STARTED operation, by its own recorded
+    // stamp. File modification times move on every progress update, so an
+    // older run still reporting would otherwise displace a newer one.
+    let newest: OperationJournalRecord | undefined;
+    let sawInvalid: OperationJournalReading | undefined;
+    for await (const entry of Deno.readDir(directory)) {
+      if (!entry.isFile || !entry.name.endsWith(RECORD_SUFFIX)) continue;
+      if (entry.name.endsWith(RESULT_SUFFIX)) continue;
+      if (
+        normalizeOperationHandle(
+          entry.name.slice(0, -RECORD_SUFFIX.length),
+        ) === undefined
+      ) continue;
+      let text: string;
+      try {
+        text = await Deno.readTextFile(join(directory, entry.name));
+      } catch (error) {
+        if (error instanceof Deno.errors.NotFound) continue;
+        throw error;
+      }
+      const parsed = parseRecord(text);
+      if (parsed.status !== "recorded") {
+        sawInvalid = parsed.status === "newer"
+          ? { kind: "newer", reason: parsed.reason }
+          : sawInvalid ?? { kind: "corrupt" };
+        continue;
+      }
+      if (
+        newest === undefined ||
+        parsed.record.operation.started_at > newest.operation.started_at ||
+        (parsed.record.operation.started_at === newest.operation.started_at &&
+          parsed.record.operation.handle.localeCompare(
+              newest.operation.handle,
+            ) < 0)
+      ) {
+        newest = parsed.record;
+      }
+    }
+    if (newest !== undefined) return foundReading(newest);
     return sawInvalid ?? { kind: "none-recorded" } as const;
   });
   return reading ?? { kind: "unavailable" };
+}
+
+/** Project one parsed record into the found reading with a live executor probe. */
+function foundReading(
+  record: OperationJournalRecord,
+): Extract<OperationJournalReading, { kind: "found" }> {
+  return {
+    kind: "found",
+    handle: record.operation.handle,
+    record,
+    executor: record.operation.finished_at !== undefined
+      ? "gone"
+      : executorAlive(record.operation.pid)
+      ? "running"
+      : "gone",
+  };
 }
 
 /** One journal covers one operation; a nested wrapped call joins its parent. */
@@ -547,7 +615,13 @@ export async function withOperationJournal<T>(
         },
       );
       const result = options.result(value);
-      await open.finish(result.ok ? "completed" : "failed", result);
+      // A cancelled run may still return an ordinary unsuccessful envelope;
+      // the executor's own cancellation, not the envelope shape, decides.
+      const cancelled = options.signal?.aborted === true;
+      await open.finish(
+        result.ok ? "completed" : cancelled ? "cancelled" : "failed",
+        result,
+      );
       return value;
     } catch (error) {
       const cancelled = options.signal?.aborted === true;
