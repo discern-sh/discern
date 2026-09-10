@@ -1,6 +1,9 @@
 /** Tolerant metadata projection of the canonical completion event contract. */
 import { z } from "@zod/zod";
-import type { CompletionEvent } from "../completion/protocol.ts";
+import {
+  COMPLETION_TIMING_CATEGORIES,
+  type CompletionEvent,
+} from "../completion/protocol.ts";
 import { EvidenceSchema } from "../completion/evidence.ts";
 import { CompletionClaimSchema } from "../completion/authority.ts";
 import {
@@ -10,6 +13,22 @@ import {
 } from "../completion/outcomes.ts";
 
 const facts = {
+  "command-started": z.looseObject({
+    kind: z.literal("command-started"),
+    execution_id: z.string(),
+    producer: z.string(),
+    role: z.enum(["producer", "extractor"]),
+  }),
+  "command-finished": z.looseObject({
+    kind: z.literal("command-finished"),
+    execution_id: z.string(),
+    producer: z.string(),
+    role: z.enum(["producer", "extractor"]),
+    outcome: z.enum(["passed", "failed", "cancelled"]),
+    started_at: z.number(),
+    finished_at: z.number(),
+    duration_ms: z.number().nonnegative(),
+  }),
   producer: z.looseObject({
     kind: z.literal("producer"),
     producer: z.string(),
@@ -31,13 +50,7 @@ const facts = {
   timing: z.looseObject({
     kind: z.literal("timing"),
     interval_id: z.string(),
-    category: z.enum([
-      "approval",
-      "queue",
-      "compute",
-      "execution",
-      "environment",
-    ]),
+    category: z.enum(COMPLETION_TIMING_CATEGORIES),
     started_at: z.number(),
     finished_at: z.number(),
   }),

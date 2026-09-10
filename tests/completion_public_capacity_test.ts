@@ -38,8 +38,16 @@ for (const stop of ["failure", "owner-cancel", "waiter-cancel"] as const) {
           throw new Error(`Owner did not enter: ${JSON.stringify(value)}`);
         }),
       ]);
+      let measuredWaits = 0;
       const peer = withCompletionObserver(
         (fact) => {
+          if (
+            fact.kind === "event" && fact.event.fact.kind === "timing" &&
+            fact.event.fact.category === "capacity-wait"
+          ) {
+            assert(fact.event.fact.finished_at >= fact.event.fact.started_at);
+            measuredWaits++;
+          }
           if (
             fact.kind === "progress" && fact.progress.state === "capacity-wait"
           ) waiting.resolve();
@@ -72,6 +80,7 @@ for (const stop of ["failure", "owner-cancel", "waiter-cancel"] as const) {
         release.resolve();
         await active;
         const result = await peer;
+        assert(measuredWaits > 0);
         if (stop !== "waiter-cancel") {
           assertEquals(result.kind, "completed", JSON.stringify(result));
           assertEquals(peerRuns, 1);

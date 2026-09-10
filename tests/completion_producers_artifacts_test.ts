@@ -167,6 +167,7 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     assert(conditions !== undefined);
     let verificationQueries = 0;
     let observedVerificationQueries = 0;
+    const started: string[] = [];
     const runtime = createValidationRuntime({
       root,
       conditions,
@@ -178,6 +179,9 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
         return Promise.resolve();
       },
       clock: COMPLETION_CLOCK,
+      onStart: (label) => {
+        started.push(label);
+      },
     });
     const evaluator = createProducerEvaluator({
       snapshot: snap,
@@ -263,6 +267,27 @@ Deno.test("E02 E05 E12: real producer/extractor and frozen store assemble eviden
     const result = await evaluator.execute(plan, execution);
     assertEquals(result.blockers, []);
     assertEquals(result.evidence.length, 2);
+    assertEquals(started.filter((label) => !label.startsWith("extract:")), [
+      "jobs.test",
+    ]);
+    assertEquals(
+      started.filter((label) => label.startsWith("extract:")).length,
+      1,
+    );
+    const producer = plan.producers[0];
+    assert(producer !== undefined);
+    await assertRejects(() =>
+      runtime.produce({
+        ...producer,
+        recipe: { ...producer.recipe, artifacts: ["../unsafe"] },
+      }, execution)
+    );
+    assertEquals(
+      started.length,
+      2,
+      "a rejected artifact baseline starts no physical producer",
+    );
+
     for (const [index, data] of result.evidence.entries()) {
       assertEquals(
         (await writeCompletionRecord(

@@ -1,5 +1,6 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
+import type { Clock } from "../../shared/clock.ts";
 import type {
   CompletionCapacity,
   CompletionEvent,
@@ -79,6 +80,7 @@ export function executionEvent(
   id: string,
   at: number,
   fact: CompletionEvent["fact"],
+  executorOperation = execution.attempt.identity.executor.operation_id,
 ): CompletionEvent {
   return {
     id,
@@ -88,9 +90,35 @@ export function executionEvent(
     candidate_id: execution.candidate_id,
     environment_id: execution.environment_id,
     attempt_id: execution.attempt.identity.id,
-    executor_operation: execution.attempt.identity.executor.operation_id,
+    executor_operation: executorOperation,
     fact,
   };
+}
+
+/** Measure an actual phase, including interrupted work, without deriving a verdict. */
+export async function withExecutionTiming<T>(
+  execution: ValidationSubject,
+  category: Extract<CompletionEvent["fact"], { kind: "timing" }>["category"],
+  intervalId: string,
+  clock: Clock,
+  operation: () => Promise<T>,
+  executorOperation = execution.attempt.identity.executor.operation_id,
+): Promise<T> {
+  const startedAt = clock.wallNow();
+  try {
+    return await operation();
+  } finally {
+    const finishedAt = clock.wallNow();
+    emitCompletionEvent(
+      executionEvent(execution, `${intervalId}:${category}`, finishedAt, {
+        kind: "timing",
+        interval_id: intervalId,
+        category,
+        started_at: startedAt,
+        finished_at: finishedAt,
+      }, executorOperation),
+    );
+  }
 }
 
 /** Every event references an existing component receipt; it is never a replacement for that receipt. */

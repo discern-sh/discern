@@ -61,6 +61,8 @@ export interface SpawnOptions {
   outputObserver?: JobOutputObserver;
   /** Retain exact stdout for extraction while the ordinary diagnostic keeps both streams. */
   stdoutRecorder?: JobOutputRecorder;
+  /** Advisory notification only after the native command process exists. */
+  onSpawn?: () => void;
   /** Drain all child output but retain at most this many raw bytes, bypassing
    * line presentation/diagnostic feeds. For bounded line protocols. */
   protocolOutputMaxBytes?: number;
@@ -281,6 +283,7 @@ export async function spawnJob(
     detached: true,
   }).spawn();
   const pid = child.pid;
+  bestEffortSync("job-spawn-observer-notify", () => opts.onSpawn?.());
   try {
     await ticket?.started(pid, true);
   } catch (error) {

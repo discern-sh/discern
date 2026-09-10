@@ -772,6 +772,17 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The job summary remains complete without an output path, while publishing a file that did not close cleanly would be misleading.",
   },
+  "job-spawn-observer-notify": {
+    path: "src/engine/jobs/command.ts",
+    enclosingFunction: "spawnJob",
+    operation:
+      "notify the advisory observer after a native command has spawned",
+    kind: "capability",
+    shape: "sync",
+    observability: { kind: "unobservable" },
+    reason:
+      "Accounting is downstream of native process creation and cannot interrupt child supervision or decide a validation verdict.",
+  },
   "lifecycle-drop-identity-settings-fallback": {
     path: "src/engine/worktree/removal_plan.ts",
     enclosingFunction: "buildRemovalPlan",

@@ -683,6 +683,7 @@ export function beginRecording(
           surface: begin.surface,
           branch: ctx.branch,
           epoch: ctx.epoch.fingerprint,
+          driver: await begin.driver,
           observation: completionObservationSchema.parse(fact.event),
         };
         await appendEvent(ctx.commonGitDir, event);

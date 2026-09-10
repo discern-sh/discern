@@ -207,16 +207,22 @@ Deno.test("spawnJob runs captured commands with the non-interactive CI env contr
 Deno.test("buffered jobs retain a bounded head/tail window and a complete artifact", async () => {
   await withTempDir(async (dir) => {
     const bodyBytes = JOB_CAPTURE_CAP_BYTES + 64 * 1024;
+    let observedStarts = 0;
     const spawned = await spawnJob({
       label: "large",
       command:
         `printf 'HEAD\\n'; head -c ${bodyBytes} /dev/zero | tr '\\0' x; printf '\\nTAIL\\n'; exit 7`,
     }, {
       cwd: dir,
+      onSpawn: () => {
+        observedStarts++;
+        throw new Error("accounting unavailable");
+      },
       stream: false,
       write: () => {},
     });
 
+    assertEquals(observedStarts, 1);
     assertEquals(spawned.result.code, 7);
     const capture = new TextDecoder().decode(spawned.output);
     assertStringIncludes(capture, "HEAD\n");

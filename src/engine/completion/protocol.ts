@@ -343,6 +343,25 @@ export interface LandingPublisher {
 }
 
 /** Event facts are advisory projections of durable outcomes. 7A owns logbook wiring. */
+/** Legacy categories retain their meaning; precise executor phases have distinct keys. */
+export const COMPLETION_TIMING_CATEGORIES = [
+  "approval",
+  "queue",
+  "compute",
+  "execution",
+  "environment",
+  "preparation",
+  "return",
+  "recovery",
+  "capacity-wait",
+  "validation",
+  "reporting",
+  "cleanup",
+  "publication",
+  "producer",
+  "extraction",
+] as const;
+
 export interface CompletionEvent {
   readonly id: string;
   readonly effort_id: string;
@@ -353,6 +372,22 @@ export interface CompletionEvent {
   readonly executor_operation: string;
   readonly at: number;
   readonly fact:
+    | {
+      readonly kind: "command-started";
+      readonly execution_id: string;
+      readonly producer: string;
+      readonly role: "producer" | "extractor";
+    }
+    | {
+      readonly kind: "command-finished";
+      readonly execution_id: string;
+      readonly producer: string;
+      readonly role: "producer" | "extractor";
+      readonly outcome: "passed" | "failed" | "cancelled";
+      readonly started_at: number;
+      readonly finished_at: number;
+      readonly duration_ms: number;
+    }
     | {
       readonly kind: "producer";
       readonly producer: string;
@@ -370,12 +405,7 @@ export interface CompletionEvent {
     | {
       readonly kind: "timing";
       readonly interval_id: string;
-      readonly category:
-        | "approval"
-        | "queue"
-        | "compute"
-        | "execution"
-        | "environment";
+      readonly category: typeof COMPLETION_TIMING_CATEGORIES[number];
       readonly started_at: number;
       readonly finished_at: number;
     }

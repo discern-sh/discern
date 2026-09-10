@@ -7,6 +7,7 @@ import {
   emitCompletionEvent,
   emitCompletionProgress,
   executionEvent,
+  withExecutionTiming,
 } from "../completion/events.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Environment scheduling owns no queue order, evidence verdict, or authority. */
@@ -871,35 +872,43 @@ class ExecutorImplementation implements EnvironmentExecutor {
         async () => {
           let phase: EnvironmentPhase = "install";
           try {
-            await this.current(active);
-            signal.throwIfAborted();
-            await this.options.workspace.verify(
-              active.environment,
-              intent.source,
-              signal,
-            );
-            await this.phase(active, "install");
-            await this.snapshotArtifact(
+            await withExecutionTiming(
               active,
-              intent,
-              "installed",
-              () =>
-                this.options.workspace.install(
-                  active,
-                  intent.recipe,
+              "preparation",
+              active.attempt.identity.id,
+              this.clock,
+              async () => {
+                await this.current(active);
+                signal.throwIfAborted();
+                await this.options.workspace.verify(
+                  active.environment,
                   intent.source,
-                ),
+                  signal,
+                );
+                await this.phase(active, "install");
+                await this.snapshotArtifact(
+                  active,
+                  intent,
+                  "installed",
+                  () =>
+                    this.options.workspace.install(
+                      active,
+                      intent.recipe,
+                      intent.source,
+                    ),
+                );
+                phase = "prepare";
+                await this.phase(active, phase);
+                if (intent.recipe.action !== "source-tip") {
+                  await this.options.workspace.run(
+                    active,
+                    intent.recipe,
+                    "prepare",
+                    signal,
+                  );
+                }
+              },
             );
-            phase = "prepare";
-            await this.phase(active, phase);
-            if (intent.recipe.action !== "source-tip") {
-              await this.options.workspace.run(
-                active,
-                intent.recipe,
-                "prepare",
-                signal,
-              );
-            }
             signal.throwIfAborted();
             phase = "validate";
             await this.phase(active, phase);
@@ -928,7 +937,13 @@ class ExecutorImplementation implements EnvironmentExecutor {
             });
           }
           active = await restoreValidationBinding(this.options.root, active);
-          const returned = await this.returnEnvironment(active, intent);
+          const returned = await withExecutionTiming(
+            active,
+            "return",
+            active.attempt.identity.id,
+            this.clock,
+            () => this.returnEnvironment(active, intent),
+          );
           if (returned.kind !== "recovery-incomplete") {
             await this.settleAttempt(active, {
               kind: "finished",
@@ -1291,7 +1306,14 @@ class ExecutorImplementation implements EnvironmentExecutor {
             this.options.root,
             execution,
           );
-          const returned = await this.returnEnvironment(bound, intent);
+          const returned = await withExecutionTiming(
+            bound,
+            "recovery",
+            `${executor.operation_id}:return`,
+            this.clock,
+            () => this.returnEnvironment(bound, intent),
+            executor.operation_id,
+          );
           if (returned.kind !== "recovery-incomplete") {
             await this.options.afterReturn?.();
             await this.settleAttempt(execution, {
@@ -1306,6 +1328,7 @@ class ExecutorImplementation implements EnvironmentExecutor {
               `${execution.attempt.identity.id}:return`,
               this.clock.wallNow(),
               { kind: "restoration", outcome: returned.kind },
+              executor.operation_id,
             ),
           );
           return returned;

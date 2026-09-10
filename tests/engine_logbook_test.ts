@@ -1020,6 +1020,7 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
       settledObservation,
     ]);
     assertEquals(completion[0]?.surface, "mcp");
+    assertEquals(completion[0]?.driver?.mcp_client?.name, "codex-mcp-client");
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
     const event = events[0];

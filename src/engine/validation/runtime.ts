@@ -4,6 +4,7 @@ import {
   type ValidationInputSelection,
 } from "./input_selection.ts";
 import { gitPathRecord } from "../../shared/git_paths.ts";
+import { emitCompletionEvent, executionEvent } from "../completion/events.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
@@ -192,6 +193,7 @@ export interface ValidationRuntimeOptions {
   /** Re-observe applicable toolchain, environment, resource and input identity at effects. */
   readonly verifyConditions: () => Promise<void>;
   readonly clock?: Clock;
+  readonly onStart?: (label: string) => void;
   readonly onResult?: (label: string, result: JobResult) => void;
 }
 
@@ -230,10 +232,25 @@ function runtime(
     execution: ValidationSubject,
     stdin?: Uint8Array,
   ): Promise<ProducerCapture> => {
+    const executionId = `${execution.attempt.identity.id}:${label}`;
+    const role = label.startsWith("extract:") ? "extractor" : "producer";
+    let started: { wall: number; monotonic: number } | undefined;
     const result = await runCapturedCommands({
       root: options.root,
       label: options.jobLabel?.(label) ?? label,
       commands: runCommands,
+      onSpawn: () => {
+        started = { wall: clock.wallNow(), monotonic: clock.monotonicNow() };
+        emitCompletionEvent(
+          executionEvent(execution, `${executionId}:started`, started.wall, {
+            kind: "command-started",
+            execution_id: executionId,
+            producer: label,
+            role,
+          }),
+        );
+        options.onStart?.(label);
+      },
       ...(options.presentation === undefined
         ? {}
         : { presentation: options.presentation }),
@@ -243,6 +260,25 @@ function runtime(
       environment: options.commandEnvironment?.(label) ?? options.environment,
       ...(stdin === undefined ? {} : { stdin }),
     });
+    if (started !== undefined) {
+      const finished = clock.wallNow();
+      emitCompletionEvent(
+        executionEvent(execution, `${executionId}:finished`, finished, {
+          kind: "command-finished",
+          execution_id: executionId,
+          producer: label,
+          role,
+          outcome: result.result.cancelled
+            ? "cancelled"
+            : result.result.status === "ok"
+            ? "passed"
+            : "failed",
+          started_at: started.wall,
+          finished_at: finished,
+          duration_ms: Math.max(0, clock.monotonicNow() - started.monotonic),
+        }),
+      );
+    }
     options.onResult?.(label, result.result);
     const artifacts = result.capture_complete
       ? [

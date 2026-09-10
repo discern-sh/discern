@@ -175,10 +175,14 @@ for (const terminal of ["passed", "failed", "cancelled"] as const) {
       candidate_id: fixtures.attempt.data.identity.candidate_id,
     }, second];
     let records: CompletionRecord[] = [fixtures.attempt];
+    let now = 50;
+    const intervals: { started_at: number; finished_at: number }[] = [];
     let observations = 0;
     const running = waitForCompletionCapacity({
       signal: signal.signal,
       scheduler,
+      clock: { wallNow: () => now, monotonicNow: () => now },
+      onWaited: (interval) => intervals.push(interval),
       observe: () => {
         observations++;
         const result = workCapacity(
@@ -213,9 +217,11 @@ for (const terminal of ["passed", "failed", "cancelled"] as const) {
       ...first,
       state: terminal === "failed" ? "failed" : "provisional",
     }, second];
+    now = 150;
     scheduler.fire(100);
     assertEquals(await running, null);
     assertEquals(observations, 2);
+    assertEquals(intervals, [{ started_at: 50, finished_at: 150 }]);
     assertEquals(scheduler.pending.size, 0);
   });
 }
@@ -224,7 +230,16 @@ Deno.test("capacity cancellation disposes its wake; recovery and impossible elig
   const scheduler = new ManualScheduler();
   const controller = new AbortController();
   const observed = Promise.withResolvers<void>();
+  let now = 10;
+  const intervals: { started_at: number; finished_at: number }[] = [];
+  const timing = {
+    clock: { wallNow: () => now, monotonicNow: () => now },
+    onWaited: (interval: { started_at: number; finished_at: number }): void => {
+      intervals.push(interval);
+    },
+  };
   const running = waitForCompletionCapacity({
+    ...timing,
     signal: controller.signal,
     scheduler,
     observe: () =>
@@ -237,12 +252,15 @@ Deno.test("capacity cancellation disposes its wake; recovery and impossible elig
     onWait: () => observed.resolve(),
   });
   await observed.promise;
+  now = 17;
   controller.abort();
   assertEquals((await running).kind, "cancelled");
   assertEquals(scheduler.pending.size, 0);
+  assertEquals(intervals, [{ started_at: 10, finished_at: 17 }]);
   let reads = 0;
   assertEquals(
     (await waitForCompletionCapacity({
+      ...timing,
       signal: controller.signal,
       scheduler,
       observe: () => {
@@ -254,6 +272,7 @@ Deno.test("capacity cancellation disposes its wake; recovery and impossible elig
     "cancelled",
   );
   assertEquals(reads, 0);
+  assertEquals(intervals.at(-1), { started_at: 17, finished_at: 17 });
   for (
     const blocker of [
       {

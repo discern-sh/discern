@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import type { CompletionEvent } from "../src/engine/completion/protocol.ts";
 import { EvidenceSchema } from "../src/engine/completion/evidence.ts";
 import {
@@ -298,4 +298,79 @@ Deno.test("completion economics rejects one observation claiming inconsistent ex
   }]);
   assertEquals(result.conflicting_identities, 1);
   assertEquals(result.component_receipts, {});
+});
+
+Deno.test("native producer economics deduplicates starts, distinguishes extractors and keeps missing results unknown", () => {
+  const start = event("start", {
+    kind: "command-started",
+    execution_id: "p",
+    producer: "jobs.test",
+    role: "producer",
+  });
+  const finish = event("finish", {
+    kind: "command-finished",
+    execution_id: "p",
+    producer: "jobs.test",
+    role: "producer",
+    outcome: "cancelled",
+    started_at: 10,
+    finished_at: 30,
+    duration_ms: 20,
+  });
+  const extractor = event("extractor", {
+    kind: "command-started",
+    execution_id: "x",
+    producer: "extract:coverage",
+    role: "extractor",
+  });
+  assert(start.fact.kind === "command-started");
+  assert(finish.fact.kind === "command-finished");
+  const interrupted = event("interrupted", {
+    ...start.fact,
+    execution_id: "interrupted",
+  });
+  const orphan = event("orphan", { ...finish.fact, execution_id: "orphan" });
+  const events = [start, start, finish, finish, extractor, interrupted, orphan];
+  for (const observation of events) {
+    assertEquals(completionObservationSchema.parse(observation), observation);
+  }
+  const result = completionEconomics(events);
+  assertEquals(CompletionEconomicsSchema.parse(result), result);
+  assertEquals(result.producer_executions, 2);
+  assertEquals(result.extractor_executions, 1);
+  assertEquals(result.producer_results, { cancelled: 1 });
+  assertEquals(result.producer_result_missing, 1);
+  assertEquals(result.unmatched_command_results, 1);
+  assertEquals(result.producer_work_ms, 20);
+  assertEquals(result.timing.producer, {
+    observations: 1,
+    unknown: 0,
+    sum_ms: 20,
+    elapsed_ms: 20,
+  });
+  const conflict = completionEconomics([start, {
+    ...finish,
+    executor_operation: "different",
+  }]);
+  assertEquals(conflict.conflicting_command_identities, 1);
+  assertEquals(conflict.producer_executions, null);
+  const repeatedConflict = completionEconomics([start, {
+    ...start,
+    executor_operation: "different",
+  }]);
+  assertEquals(repeatedConflict.conflicting_identities, 1);
+  assertEquals(repeatedConflict.producer_executions, null);
+  assertEquals(
+    completionEconomics([start, {
+      ...finish,
+      fact: { ...finish.fact, duration_ms: -1 },
+    }]).producer_work_ms,
+    null,
+  );
+  const unknown = completionEconomics([{ ...start, attempt_id: null }, {
+    ...finish,
+    environment_id: null,
+  }]);
+  assertEquals(unknown.unknown_command_identity, 2);
+  assertEquals(unknown.producer_executions, null);
 });

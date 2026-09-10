@@ -1,3 +1,5 @@
+import { withCompletionObserver } from "../src/engine/completion/events.ts";
+import type { CompletionEvent } from "../src/engine/completion/protocol.ts";
 import {
   assert,
   assertEquals,
@@ -61,10 +63,26 @@ for (const phase of phases) {
       assertEquals(blocked.kind, "recovery-incomplete");
       f.lifetime.children = false;
       const next = await requireEnvironment(f.root, f.id);
-      const returned = await replacement.recover(f.id, next.stamp, {
-        ...f.actor,
-        operation_id: completionId(91),
-      });
+      const observations: CompletionEvent[] = [];
+      const returned = await withCompletionObserver((fact) => {
+        if (fact.kind === "event") observations.push(fact.event);
+      }, () =>
+        replacement.recover(f.id, next.stamp, {
+          ...f.actor,
+          operation_id: completionId(91),
+        }));
+      assert(observations.some((event) => event.fact.kind === "restoration"));
+      assert(
+        observations.some((event) =>
+          event.fact.kind === "timing" && event.fact.category === "recovery"
+        ),
+      );
+      assert(
+        observations.every((event) =>
+          event.attempt_id === execution.attempt.identity.id &&
+          event.executor_operation === completionId(91)
+        ),
+      );
       assertEquals(
         returned.kind,
         phase === "dispose" ? "disposed" : isolated ? "reset" : "restored",

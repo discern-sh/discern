@@ -24,6 +24,7 @@ export async function runCapturedCommands(input: {
   readonly stdin?: Uint8Array;
   readonly presentation?: RunOptions;
   readonly timeoutKey?: string;
+  readonly onSpawn?: () => void;
 }): Promise<
   {
     readonly result: JobResult;
@@ -65,6 +66,7 @@ export async function runCapturedCommands(input: {
     timeout: { seconds: input.timeout, key: input.timeoutKey ?? input.label },
     keepOutput: true,
     stdoutRecorder,
+    ...(input.onSpawn === undefined ? {} : { onSpawn: input.onSpawn }),
   }).finally(async () => {
     output = (await stdoutRecorder.finish()).outputPath;
   });

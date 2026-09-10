@@ -94,6 +94,38 @@ Deno.test("complete source-tip pipeline shares producer and preserves standalone
     const uses = facts.filter((fact) =>
       fact.kind === "event" && fact.event.fact.kind === "producer"
     );
+    const commands = facts.flatMap((fact) =>
+      fact.kind === "event" &&
+        (fact.event.fact.kind === "command-started" ||
+          fact.event.fact.kind === "command-finished")
+        ? [fact.event.fact]
+        : []
+    );
+    assertEquals(
+      commands.filter((fact) =>
+        fact.kind === "command-started" && fact.role === "producer"
+      ).length,
+      1,
+    );
+    assertEquals(
+      commands.filter((fact) =>
+        fact.kind === "command-finished" && fact.role === "producer"
+      ).length,
+      1,
+    );
+    assertEquals(
+      commands.filter((fact) =>
+        fact.kind === "command-started" && fact.role === "extractor"
+      ).length,
+      2,
+    );
+    const phases = facts.flatMap((fact) =>
+      fact.kind === "event" && fact.event.fact.kind === "timing"
+        ? [fact.event.fact.category]
+        : []
+    );
+    assert(phases.includes("preparation"));
+    assert(phases.includes("return"));
     assertEquals(uses.length, 3);
     assert(
       uses.every((fact) =>
@@ -124,6 +156,13 @@ Deno.test("complete source-tip pipeline shares producer and preserves standalone
     assert(again.kind === "completed", JSON.stringify(again));
     assertEquals(again.candidate_id, result.candidate_id);
     assertEquals(again.value, {});
+    assertEquals(
+      facts.filter((fact) =>
+        fact.kind === "event" && fact.event.fact.kind === "command-started"
+      ),
+      [],
+    );
+
     assertEquals(
       facts.filter((fact) =>
         fact.kind === "event" && fact.event.fact.kind === "producer" &&

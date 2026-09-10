@@ -45,6 +45,9 @@ export function intervalEconomics(
 function observationIdentity(event: CompletionEvent): string {
   const fact = event.fact;
   switch (fact.kind) {
+    case "command-started":
+    case "command-finished":
+      return canonicalJson([fact.kind, fact.execution_id]);
     case "producer":
       if (event.attempt_id === null) return event.id;
       return canonicalJson([
@@ -78,6 +81,103 @@ function observationIdentity(event: CompletionEvent): string {
   }
 }
 
+/** Native starts count executions; missing completion observations never supply a verdict. */
+function commandObservations(events: readonly CompletionEvent[]): {
+  producer_executions: number | null;
+  extractor_executions: number | null;
+  producer_results: Record<string, number>;
+  producer_result_missing: number;
+  unknown_command_identity: number;
+  conflicting_command_identities: number;
+  unmatched_command_results: number;
+  producer_work_ms: number | null;
+  intervals: {
+    category: "producer" | "extraction";
+    interval: ObservedInterval;
+  }[];
+} {
+  type Finished = Extract<
+    CompletionEvent["fact"],
+    { kind: "command-finished" }
+  >;
+  const commands = new Map<string, {
+    signature: string;
+    role: "producer" | "extractor";
+    started: boolean;
+    finished?: Finished;
+  }>();
+  const conflicts = new Set<string>();
+  let unknown = 0;
+  for (const event of events) {
+    const fact = event.fact;
+    if (fact.kind !== "command-started" && fact.kind !== "command-finished") {
+      continue;
+    }
+    if (
+      event.attempt_id === null || event.environment_id === null ||
+      fact.execution_id === ""
+    ) {
+      unknown++;
+      continue;
+    }
+    const signature = canonicalJson([
+      event.effort_id,
+      event.source_head,
+      event.candidate_id,
+      event.attempt_id,
+      event.environment_id,
+      event.executor_operation,
+      fact.producer,
+      fact.role,
+    ]);
+    const command = commands.get(fact.execution_id) ??
+      { signature, role: fact.role, started: false };
+    if (command.signature !== signature) conflicts.add(fact.execution_id);
+    if (fact.kind === "command-started") command.started = true;
+    else command.finished = fact;
+    commands.set(fact.execution_id, command);
+  }
+  const known = [...commands].filter(([id]) => !conflicts.has(id)).map((
+    [, value],
+  ) => value);
+  const started = known.filter((command) => command.started);
+  const producers = started.filter((command) => command.role === "producer");
+  const finished = producers.flatMap((command) =>
+    command.finished === undefined ? [] : [command.finished]
+  );
+  const results: Record<string, number> = {};
+  const durations = finished.map((result) => result.duration_ms).filter((
+    value,
+  ) => Number.isFinite(value) && value >= 0);
+  for (const result of finished) increment(results, result.outcome);
+  return {
+    producer_executions: producers.length === 0 ? null : producers.length,
+    extractor_executions:
+      started.some((command) => command.role === "extractor")
+        ? started.filter((command) => command.role === "extractor").length
+        : null,
+    producer_results: results,
+    producer_result_missing: producers.length - finished.length,
+    unknown_command_identity: unknown,
+    conflicting_command_identities: conflicts.size,
+    unmatched_command_results:
+      known.filter((command) =>
+        !command.started && command.finished !== undefined
+      ).length,
+    producer_work_ms: durations.length === 0
+      ? null
+      : durations.reduce((sum, duration) => sum + duration, 0),
+    intervals: started.flatMap((command) =>
+      command.finished === undefined ? [] : [{
+        category: command.role === "producer"
+          ? "producer" as const
+          : "extraction" as const,
+        interval: command.finished,
+      }]
+    ),
+  };
+}
+
 /** Repeated delivery contributes once. Contradictory facts retain an explicit gap. */
 function uniqueObservations(events: readonly CompletionEvent[]): {
   events: CompletionEvent[];
@@ -97,7 +197,10 @@ function uniqueObservations(events: readonly CompletionEvent[]): {
       prior.source_head !== event.source_head ||
       prior.candidate_id !== event.candidate_id ||
       prior.environment_id !== event.environment_id ||
-      prior.attempt_id !== event.attempt_id
+      prior.attempt_id !== event.attempt_id ||
+      ((event.fact.kind === "command-started" ||
+        event.fact.kind === "command-finished") &&
+        prior.executor_operation !== event.executor_operation)
     ) conflicts.add(key);
     else duplicates += 1;
   }
@@ -139,7 +242,15 @@ export function completionEconomics(
   const unique = uniqueObservations(observations);
   const receiptConflicts = conflictingReceipts(observations);
   const events = unique.events;
+  const { intervals: commandIntervals, ...commands } = commandObservations(
+    events,
+  );
   const timings = new Map<TimingFact["category"], ObservedInterval[]>();
+  for (const { category, interval } of commandIntervals) {
+    const prior = timings.get(category) ?? [];
+    prior.push(interval);
+    timings.set(category, prior);
+  }
   const components = new Map<string, string>();
   const executions = new Set<string>();
   const reused = new Set<string>();
@@ -158,6 +269,9 @@ export function completionEconomics(
   for (const event of events) {
     const fact = event.fact;
     switch (fact.kind) {
+      case "command-started":
+      case "command-finished":
+        break;
       case "producer":
         if (receiptConflicts.has(fact.evidence_id)) break;
         components.set(fact.evidence_id, fact.outcome);
@@ -232,7 +346,7 @@ export function completionEconomics(
     executed_component_groups: executions.size,
     reused_receipts: reused.size,
     unknown_component_use_identity: unknownComponentUseIdentity,
-    producer_executions: null,
+    ...commands,
     timing: Object.fromEntries(
       [...timings].map((
         [category, intervals],
@@ -255,7 +369,8 @@ export function completionEconomics(
     unknown_return_identity: unknownReturnIdentity,
     limitations: [
       "This advisory window cannot establish ownership, child quiescence, recovery permission, or Proof.",
-      "Component receipts do not identify physical process starts; their durations must not be summed as producer work.",
+      "Producer executions count only observed native starts. Missing starts, results or older events make the window incomplete; an unmatched start establishes neither activity nor death.",
+      "Producer work is summed command-to-captured-result elapsed duration, not CPU time. Component receipts and extractor processes do not multiply producer executions.",
       "Invalidations do not supply all eligible predictions; a miss rate needs observed admission and resolved outcomes.",
       "A missing return duration or recovery executor identity is unknown; an interrupted attempt has no inferred failed verdict.",
       "Category spans can overlap. Their sums are separate work observations, not additive elapsed completion time or CPU time.",

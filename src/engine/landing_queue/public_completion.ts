@@ -1,6 +1,9 @@
 import { completionRecordBlocker } from "../completion/compatibility.ts";
 import { waitForCompletionCapacity } from "../completion/capacity.ts";
-import { emitCompletionProgress } from "../completion/events.ts";
+import {
+  emitCompletionEvent,
+  emitCompletionProgress,
+} from "../completion/events.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
 import { emitComponentUse } from "../completion/events.ts";
 import { producerLabel } from "../validation/public_run.ts";
@@ -347,6 +350,28 @@ export async function withPublicCompletion<T>(
       );
     if ("kind" in capabilities) return capabilities;
     const { environmentId, workspace, lifetime } = capabilities;
+    const observeCapacityWait =
+      (boundary: string, attemptId: string | null = null) =>
+      (interval: { started_at: number; finished_at: number }): void => {
+        const intervalId = `${candidateId}:${boundary}`;
+        emitCompletionEvent({
+          id: `${actor.operation_id}:${intervalId}`,
+          effort_id: source.effort_id,
+          source_head: source.head,
+          candidate_id: candidateId,
+          environment_id: environmentId,
+          attempt_id: attemptId,
+          executor_operation: actor.operation_id,
+          at: interval.finished_at,
+          fact: {
+            kind: "timing",
+            category: "capacity-wait",
+            interval_id: intervalId,
+            ...interval,
+          },
+        });
+      };
+
     observation = await observeCompletionRecords(root);
     records = observedRecords(observation);
     const rerunOf = options.rerun
@@ -360,6 +385,7 @@ export async function withPublicCompletion<T>(
       : await unprovenSpeculationBlocker(root, options.context, declaration);
     const claim = await waitForCompletionCapacity({
       signal,
+      onWaited: observeCapacityWait("queue"),
       waiting: (value) =>
         "kind" in value && value.kind === "capacity-unavailable" &&
         value.transient,
@@ -437,6 +463,7 @@ export async function withPublicCompletion<T>(
     }
     const capacity = await waitForCompletionCapacity({
       signal,
+      onWaited: observeCapacityWait("environment", claim.fence.attempt_id),
       waiting: (value) =>
         value !== null && value.kind === "waiting-for-operation",
       onWait: (value) =>

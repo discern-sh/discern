@@ -9,6 +9,7 @@ import {
   emitCompletionProgress,
   emitComponentUse,
   executionEvent,
+  withExecutionTiming,
 } from "../completion/events.ts";
 import type { EnvReader } from "../../shared/env.ts";
 /** Public commands demand one canonical producer graph and project its actual executions. */
@@ -314,6 +315,11 @@ export async function executePublicValidation(input: {
             JSON.stringify(inputs)
         ) throw new Error("Candidate inputs changed during validation.");
       },
+      onStart: (selector) => {
+        if (!selector.startsWith("extract:")) {
+          counts[selector] = (counts[selector] ?? 0) + 1;
+        }
+      },
       onResult: (selector, result) => {
         if (selector.startsWith("extract:")) return;
         results.set(producerLabel(selector), {
@@ -330,6 +336,7 @@ export async function executePublicValidation(input: {
         if (config.gate.fail_fast && result.code !== 0) abort.abort();
       },
     });
+  let slotAcquisitions = 0;
   let contextArtifact: ComponentEvidence["artifacts"][number] | undefined;
   const withSlot = async <T>(
     needed: boolean,
@@ -347,7 +354,13 @@ export async function executePublicValidation(input: {
           reason:
             "Waiting for test-run capacity; independent checks can continue.",
         });
-        hold = await slots.acquire(out, claimed.signal);
+        hold = await withExecutionTiming(
+          claimed,
+          "capacity-wait",
+          `${claimed.attempt.identity.id}:slot:${++slotAcquisitions}`,
+          SYSTEM_CLOCK,
+          () => slots.acquire(out, claimed.signal),
+        );
       })();
       await acquiring;
       claimed.signal.throwIfAborted();
@@ -384,7 +397,6 @@ export async function executePublicValidation(input: {
         claimed,
         () => {
           claimed.signal.throwIfAborted();
-          counts[producer.selector] = (counts[producer.selector] ?? 0) + 1;
           input.onProgress?.({ producer: producer.selector, state: "running" });
           emitCompletionProgress({
             phase: "producer",

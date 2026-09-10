@@ -7,6 +7,7 @@ import { project } from "./completion_public_fixture.ts";
 import { measureDeclaredStandards } from "../src/engine/validation/measurement.ts";
 import { makeOut } from "../src/engine/output.ts";
 import { observeCompletionRecords } from "../src/engine/validation/runtime.ts";
+import { withCompletionObserver } from "../src/engine/completion/events.ts";
 
 Deno.test("measurements retain receipts and account only for executing producer graphs", async () => {
   await withTempDir(async (root) => {
@@ -36,13 +37,21 @@ limit = 2
         },
       },
     };
-    const measured = await measureDeclaredStandards(
-      path,
-      ["magnitude"],
-      "standards",
-      undefined,
-      capacity,
-    );
+    let slotTimings = 0;
+    const measured = await withCompletionObserver((fact) => {
+      if (
+        fact.kind === "event" && fact.event.fact.kind === "timing" &&
+        fact.event.fact.category === "capacity-wait"
+      ) slotTimings++;
+    }, () =>
+      measureDeclaredStandards(
+        path,
+        ["magnitude"],
+        "standards",
+        undefined,
+        capacity,
+      ));
+    assertEquals(slotTimings, 1);
     assert("outcome" in measured, JSON.stringify(measured));
     assertEquals(measured.outcome.blockers, []);
     assertEquals(measured.producer_executions, { "standards.magnitude": 1 });

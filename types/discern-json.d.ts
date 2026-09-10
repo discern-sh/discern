@@ -6697,6 +6697,15 @@ export type DiscernPatternsResult = DiscernResultState & {
       reused_receipts: number;
       unknown_component_use_identity: number;
       producer_executions: number | null;
+      extractor_executions?: number | null;
+      producer_results?: {
+        [key: string]: number;
+      };
+      producer_result_missing?: number;
+      unknown_command_identity?: number;
+      conflicting_command_identities?: number;
+      unmatched_command_results?: number;
+      producer_work_ms?: number | null;
       timing: {
         [key: string]: {
           observations: number;
