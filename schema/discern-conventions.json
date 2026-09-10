@@ -165,6 +165,12 @@
         "kind": "directory",
         "validation": false
       },
+      "operations": {
+        "path": "discern/operations",
+        "scope": "common",
+        "kind": "directory",
+        "validation": false
+      },
       "retiredWorktreePaths": {
         "path": "discern/retired-worktree-paths",
         "scope": "common",
@@ -599,6 +605,17 @@
         "kind": "git-admin",
         "keys": [
           "continuations"
+        ]
+      }
+    },
+    "operation-journal": {
+      "version": 1,
+      "version_field": "schema_version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "operations"
         ]
       }
     },
