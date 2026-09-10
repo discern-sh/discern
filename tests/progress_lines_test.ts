@@ -50,6 +50,14 @@ Deno.test("progress lines tolerate surrounding text and unknown keys", () => {
     ),
     { units: { kind: "files", completed: 1, total: null } },
   );
+  // Empty result counts are the same unknown fact as absent ones; the rest
+  // of the line still stands instead of being dropped with them.
+  assertEquals(
+    parseProducerProgressLine(
+      'DISCERN_PROGRESS {"units":{"kind":"files","completed":0,"total":4},"results":{}}',
+    ),
+    { units: { kind: "files", completed: 0, total: 4 } },
+  );
 });
 
 Deno.test("a malformed report is ignored whole, never accepted in part", () => {

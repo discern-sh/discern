@@ -80,7 +80,11 @@ function readUnits(
   return { kind, completed, total };
 }
 
-/** Validate reported result counts, keeping only the counts actually given. */
+/**
+ * Validate reported result counts, keeping only the counts actually given. An
+ * empty object is the same unknown fact as an absent one: the producer has
+ * established no count yet, and the rest of its line still stands.
+ */
 function readResults(
   value: unknown,
 ): ProducerProgressReport["results"] | undefined | "invalid" {
@@ -94,7 +98,7 @@ function readResults(
     if (reported === undefined) return "invalid";
     counts[name] = reported;
   }
-  return Object.keys(counts).length > 0 ? counts : "invalid";
+  return Object.keys(counts).length > 0 ? counts : undefined;
 }
 
 /** Validate the bounded list of currently running work labels. */
