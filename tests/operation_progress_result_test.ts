@@ -1,0 +1,155 @@
+/** Reconnect reads present the same operation an observer lost, and only read. */
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
+import {
+  emitCompletionFailure,
+  emitCompletionProgress,
+} from "../src/engine/completion/events.ts";
+import {
+  openOperationJournal,
+  withOperationJournal,
+} from "../src/engine/completion/operation_journal.ts";
+import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
+import type { DiscernResult } from "../src/shared/result.ts";
+import { withTempDir } from "./helpers.ts";
+import { gitInit } from "./engine_helpers.ts";
+
+/** A minimal committed repository so the common admin directory resolves. */
+async function repository(root: string): Promise<void> {
+  await Deno.writeTextFile(join(root, "readme"), "progress fixture\n");
+  await gitInit(root);
+}
+
+Deno.test("a finished operation reconnects to its retained result and failures", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const envelope: DiscernResult = {
+      ok: true,
+      verb: "done",
+      steps: [],
+      message: "Gate passed for `agent/sample`.",
+    };
+    await withOperationJournal(
+      root,
+      { verb: "done", path: root, branch: "agent/sample" },
+      () => {
+        emitCompletionProgress({
+          phase: "producer",
+          state: "running",
+          candidate_id: "candidate",
+          reason: "Running test: 8 of 8 partitions done, 1 failure so far.",
+          work: {
+            producer: "test",
+            units: { kind: "partitions", completed: 8, total: 8 },
+            results: { passed: 100, failed: 1, skipped: 0 },
+          },
+        });
+        emitCompletionFailure({
+          producer: "test",
+          name: "alpha holds",
+          message: "expected 2, got 3",
+          file: "tests/red_test.ts",
+          line: 7,
+          reproduce_cmd:
+            "deno task test tests/red_test.ts --filter 'alpha holds' --shuffle=7",
+          partial: false,
+        });
+        return Promise.resolve(envelope);
+      },
+      { result: (value) => value },
+    );
+    const read = await operationProgressResult(root);
+    assert(read.ok, JSON.stringify(read));
+    assertStringIncludes(read.message ?? "", "`done` on agent/sample finished");
+    assertStringIncludes(read.message ?? "", "Gate passed for `agent/sample`.");
+    assertEquals(read.data?.outcome, "completed");
+    assertEquals(read.data?.executor, "gone");
+    assertEquals(
+      read.data?.failures?.[0]?.reproduce_cmd?.includes("--filter"),
+      true,
+    );
+    assertEquals(read.data?.producers?.[0]?.units?.completed, 8);
+    assertEquals(
+      (read.data?.result as { message?: string }).message,
+      envelope.message,
+    );
+    const byHandle = await operationProgressResult(root, {
+      handle: read.data?.handle ?? "",
+    });
+    assert(byHandle.ok);
+    assertEquals(byHandle.data, read.data);
+  });
+});
+
+Deno.test("an interrupted operation reports its executor gone, not a verdict", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const journal = await openOperationJournal(root, {
+      verb: "done",
+      path: root,
+      branch: "agent/killed",
+    }, { pid: 4_000_001 });
+    assert(journal !== undefined);
+    await journal.observe({
+      kind: "progress",
+      progress: {
+        phase: "producer",
+        state: "running",
+        candidate_id: null,
+        reason: "Running test: 3 of 8 partitions done, no failures so far.",
+        work: {
+          producer: "test",
+          units: { kind: "partitions", completed: 3, total: 8 },
+          results: { failed: 0 },
+        },
+      },
+    });
+    const read = await operationProgressResult(root, {
+      handle: journal.handle,
+    });
+    assert(read.ok);
+    assertEquals(read.data?.outcome, undefined);
+    assertEquals(read.data?.executor, "gone");
+    assertStringIncludes(
+      read.message ?? "",
+      "stopped without finishing and its recording process is gone",
+    );
+    assertStringIncludes(read.message ?? "", "run the command again");
+  });
+});
+
+Deno.test("reconnect refusals name the exact condition without touching anything", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const none = await operationProgressResult(root);
+    assertEquals(none.ok, false);
+    assert(!none.ok);
+    assertEquals(none.error, "not_found");
+    const invalid = await operationProgressResult(root, {
+      handle: "R1-XXXX-XXXX-99",
+    });
+    assert(!invalid.ok);
+    assertEquals(invalid.error, "invalid_arguments");
+    const journal = await openOperationJournal(root, {
+      verb: "test",
+      path: root,
+    });
+    assert(journal !== undefined);
+    let other = journal.handle;
+    while (other === journal.handle) {
+      const next = await openOperationJournal(root, {
+        verb: "test",
+        path: root,
+      });
+      assert(next !== undefined);
+      other = next.handle;
+      break;
+    }
+    const running = await operationProgressResult(root, {
+      handle: journal.handle,
+    });
+    assert(running.ok);
+    assertEquals(running.data?.executor, "running");
+    assertStringIncludes(running.message ?? "", "is still running");
+  });
+});
