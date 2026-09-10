@@ -41,6 +41,7 @@ Read the next action and whether the result says the gate ran. Common cases are:
 
 | What the result names                             | Next step                                                                                                                                                                             |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. For a look at the half-finished tree, `discern done --standalone` runs the checks as a transient diagnostic. |
 | A checkpoint needs judgment                       | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).                                                         |
 | A workspace needs recovery                        | Follow the recorded environment recovery before editing it. See [returning a workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). |
 | The branch or its proposed landing needs updating | Follow the printed update or completion action. Acceptance may compose and validate the change in an eligible released workspace.                                                     |
@@ -48,6 +49,18 @@ Read the next action and whether the result says the gate ran. Common cases are:
 | The same validation input already failed          | Fix the cause first. Use `--rerun` when the result requires a deliberate new attempt on unchanged input.                                                                              |
 
 An already passing result is different: discern can reuse applicable evidence without running its jobs again. A result that says no gate ran is therefore not, by itself, a refusal. Read its completion state and any missing requirements.
+
+## The gate is waiting, not failing
+
+The project bounds how many tasks can run their full checks at once, how many test runs can share the machine, and how many workspaces can be prepared for another commit. A run that reaches one of those limits waits. The result names the setting that is binding, which tasks hold the slots, and what releases the wait.
+
+Nothing needs repairing. Let the run wait, or ask the agent which task holds the slot and whether it is close to finishing. Raise a limit only after checking that the machine can carry another run; [Coordinate parallel tasks](../10-guides/coordinate-parallel-tasks.md#share-limited-capacity) explains the settings.
+
+## The result was cut short
+
+A long result can arrive with its diagnostics abbreviated. The complete output is kept in a retained artifact whose path the result names; the agent reads that artifact. Running the gate again to see the missing text costs another run and adds nothing new.
+
+If the session that started the run is gone, the run may still be going. Ask the agent to read status before doing anything else. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
 
 ## A job failed
 
@@ -123,4 +136,4 @@ Have the agent read the question and inspect the change it names. For example, a
 
 Bring a decision to the owner when it changes the agreed outcome, approves an unmet checkpoint, changes a protected standard limit, or authorizes landing without existing authority. Routine investigation and repair can continue within the authorized task.
 
-If the named remedy does not resolve the problem, keep the original result and the failed recovery's output. Investigate the new evidence or report the unresolved condition. Repeated full gate runs are not a substitute for understanding a recurring failure.
+If the named remedy does not resolve the problem, keep the original result and the failed recovery's output. Investigate the new evidence or report the unresolved condition. Before any repeat of the full gate, the agent should be able to say what changed since the last run or what new evidence the run would obtain; a repeat that can answer neither is not a substitute for understanding a recurring failure.

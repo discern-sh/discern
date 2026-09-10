@@ -26,6 +26,10 @@ aliases:
   - "partial_acceptance"
   - "provisioned_resources"
   - "worktree disk usage"
+  - "checkout kept"
+  - "landed but worktree remains"
+  - "stale queue entry"
+  - "wrong task landed"
 ---
 
 # Worktrees and resources
@@ -119,7 +123,35 @@ Read the reason it was kept. Automatic cleanup needs recorded ownership, matchin
 
 For a deliberately chosen foreign checkout, `discern worktree drop <worktree>` accepts its exact id, path, local branch, or full local ref. Review that destructive action explicitly. When discern cannot prove ownership of the branch, it keeps the branch ref.
 
-For a landed task, `retirement: retained` is distinct from `retirement: recovery`. The former can be an intentional or protective choice; the latter names unfinished cleanup to resolve. Use the returned reason rather than assuming every remaining directory is a failed removal.
+For a landed task, a kept workspace and a workspace whose cleanup needs recovery are different outcomes. The first is a choice or a protection; the second names unfinished cleanup to resolve. Use the returned reason rather than assuming every remaining directory is a failed removal.
+
+## A landed task's workspace stayed behind
+
+The change is on the shared branch, and its worktree is still there. The landing result and `discern status` say why in one sentence. The reasons, and what finishes cleanup:
+
+| Why it stayed                              | What finishes cleanup                                                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| It was never released for cleanup          | It was kept for review or further edits. Stop active use, have the agent run `discern done --release-checkout` there, then `discern accept` from the main checkout. |
+| It is still in use                         | Stop the preview or other operation running in it, then retry `discern accept` from the main checkout.                                                 |
+| The branch changed after landing           | New commits exist that never landed. Preserve them and read `discern status` from that worktree before deciding what they are.                          |
+| It contains changed files                  | Preserve and review them before retrying cleanup from the main checkout.                                                                                |
+| Ownership could not be verified            | Preserve its files and resources and inspect `discern status --verbose` from the main checkout.                                                       |
+
+None of these undo the landing, and none need the change approved again. If the result says cleanup needs recovery rather than that the workspace was kept, follow the named recovery instead.
+
+## The landing result was about a different task
+
+Acceptance lands finished tasks in a stable order, so a run from one worktree can land approved tasks ahead of it and stop at one that needs approval. The result answers about the task you ran it from first: landed, or not landed and why. Read that sentence before the landing headlines below it; a Proof line for another task is that task's, not yours.
+
+If you ran acceptance from the main checkout with several tasks pending, name the task you mean with `--target`. [Finish and land a change](../10-guides/finish-and-land-a-change.md#land-under-verified-authority) explains the order.
+
+## A queue entry is stale
+
+A task whose work is already on the shared branch, but that discern never landed, keeps a waiting entry. Its own row in the acceptance preview offers the two ways to settle it: withdraw the entry if the work is not coming back through discern, or reconcile it when the exact proven version is on the shared branch. Both start with a preview and apply with its token; neither lands anything or spends any approval. [Reconcile work that reached the trunk another way](../10-guides/recover-an-interrupted-task.md#reconcile-work-that-reached-the-trunk-another-way) gives the procedure.
+
+## A validation run was abandoned
+
+Status names a validation environment and says no executor is active. The workspace has not been returned to its author. Have the agent recover it from the owning worktree with `discern done --recover <environment-id>`; recovery does not wait for the run's time limit and stops safely if a process from the run is still alive or its state is unknown. [Return a workspace after interrupted validation](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation) lists the conditions.
 
 ## A branch or worktree was dropped by mistake
 

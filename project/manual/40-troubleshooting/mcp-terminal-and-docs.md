@@ -16,6 +16,8 @@ aliases:
   - "exit 124"
   - "pager failed"
   - "docs target not found"
+  - "cancel a running gate"
+  - "lost output"
 ---
 
 # MCP, terminal, and docs
@@ -58,6 +60,16 @@ Other endings need a different action:
 - **The host cut off a call with no discern result.** Inspect status and available saved output. A transport timeout does not establish whether an effectful command completed, so do not repeat it just to recover the missing display.
 
 Provider limits determine how long a call can reliably wait. The [MCP reference](../30-reference/mcp-and-results.md) and [provider reference](../30-reference/platforms-and-providers.md) describe those limits.
+
+## Stopping the call did not stop the work
+
+Interrupting a tool call, closing a terminal, or a host giving up on a long call stops only the waiting. The checks or landing that call started keep running on your machine until they finish or are cancelled through discern itself.
+
+Have the agent reconnect and read `discern status` first. It reports whether the run is still active, whether its child processes have stopped, and what it has recorded so far. A run that is still active finishes on its own; a run that died needs [recovery](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). Starting the same command again while the first is alive gets a refusal, not a second run.
+
+## You need the output of a run that already happened
+
+A result keeps its complete output in a retained artifact and names the path. The agent reads that file for the diagnostics the displayed result abbreviated. Repeating the command to see its output again costs another run and can change the state you were trying to read.
 
 ## A docs or map target won't resolve
 
