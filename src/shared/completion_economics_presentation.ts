@@ -43,7 +43,9 @@ export function completionEconomicsLines(value: CompletionEconomics): string[] {
     }.`,
     `Prediction outcomes: ${
       value.successful_predictions ?? "unknown"
-    } successes; ${value.invalidated_predictions} observed invalidations; denominator ${
+    } successes; ${
+      value.resolved_prediction_misses ?? "unknown"
+    } misses; denominator ${
       value.prediction_denominator ?? "unknown"
     } resolved of ${
       value.eligible_predictions ?? "unknown"
@@ -53,7 +55,7 @@ export function completionEconomicsLines(value: CompletionEconomics): string[] {
         : `${(100 * value.prediction_miss_rate).toFixed(1)}%`
     }; ${value.unresolved_predictions ?? "unknown"} unresolved and ${
       value.conflicting_prediction_outcomes ?? "unknown"
-    } ambiguous or emergency outcomes. Withdrawals after prediction: ${value.withdrawals_after_prediction}; before observed green admission: ${
+    } ambiguous or emergency outcomes. All observed prediction invalidations: ${value.invalidated_predictions}. Withdrawals after prediction: ${value.withdrawals_after_prediction}; before observed green admission: ${
       value.withdrawals_before_green ?? "unknown"
     }.`,
     phases.length === 0

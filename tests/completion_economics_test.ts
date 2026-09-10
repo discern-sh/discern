@@ -415,6 +415,7 @@ Deno.test("prediction rates require observed eligible admission and resolved ord
   assertEquals(result.prediction_denominator, 2);
   assertEquals(result.prediction_miss_rate, 0.5);
   assertEquals(result.successful_predictions, 1);
+  assertEquals(result.resolved_prediction_misses, 1);
   assertEquals(result.unresolved_predictions, 1);
   assertEquals(result.withdrawals_after_prediction, 2);
   assertEquals(result.withdrawals_before_green, 1);
@@ -498,6 +499,28 @@ Deno.test("completed validation summaries establish known reuse-only zero withou
   ]);
   assertEquals(contradictory.producer_executions, 1);
   assertEquals(contradictory.reuse_only_runs, 0);
+  const coordinatesConflict = completionEconomics([
+    summary,
+    event("start", {
+      kind: "command-started",
+      execution_id: "native",
+      role: "producer",
+      producer: "jobs.test",
+    }),
+    event("finish", {
+      kind: "command-finished",
+      execution_id: "native",
+      role: "producer",
+      producer: "jobs.test",
+      outcome: "cancelled",
+      started_at: 0,
+      finished_at: 1,
+      duration_ms: 1,
+    }, { executor_operation: "different" }),
+  ]);
+  assertEquals(coordinatesConflict.conflicting_command_identities, 1);
+  assertEquals(coordinatesConflict.producer_executions, null);
+  assertEquals(coordinatesConflict.reuse_only_runs, 0);
 });
 
 Deno.test("latency summaries keep their observations separate from overlapping phase unions", () => {

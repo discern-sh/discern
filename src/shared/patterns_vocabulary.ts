@@ -731,6 +731,7 @@ export const CompletionEconomicsSchema = z.strictObject({
   invalidated_predictions: z.number().int().nonnegative(),
   eligible_predictions: z.number().int().nonnegative().nullable().optional(),
   successful_predictions: z.number().int().nonnegative().optional(),
+  resolved_prediction_misses: z.number().int().nonnegative().optional(),
   unresolved_predictions: z.number().int().nonnegative().optional(),
   conflicting_prediction_outcomes: z.number().int().nonnegative().optional(),
   withdrawals_before_green: z.number().int().nonnegative().optional(),

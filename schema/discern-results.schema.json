@@ -21760,6 +21760,11 @@
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
+                    "resolved_prediction_misses": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "unresolved_predictions": {
                       "type": "integer",
                       "minimum": 0,

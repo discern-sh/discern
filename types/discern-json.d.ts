@@ -6735,6 +6735,7 @@ export type DiscernPatternsResult = DiscernResultState & {
       invalidated_predictions: number;
       eligible_predictions?: number | null;
       successful_predictions?: number;
+      resolved_prediction_misses?: number;
       unresolved_predictions?: number;
       conflicting_prediction_outcomes?: number;
       withdrawals_before_green?: number;

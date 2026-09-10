@@ -252,6 +252,7 @@ function predictionObservations(events: readonly CompletionEvent[]): {
   prediction_denominator: number | null;
   prediction_miss_rate: number | null;
   successful_predictions: number;
+  resolved_prediction_misses: number;
   unresolved_predictions: number;
   conflicting_prediction_outcomes: number;
   withdrawals_before_green: number;
@@ -335,6 +336,7 @@ function predictionObservations(events: readonly CompletionEvent[]): {
     prediction_denominator: observedAdmissions === 0 ? null : resolved,
     prediction_miss_rate: resolved === 0 ? null : misses / resolved,
     successful_predictions: successes,
+    resolved_prediction_misses: misses,
     unresolved_predictions: admissions.size - resolved - conflicts.size,
     conflicting_prediction_outcomes: conflicts.size,
     withdrawals_before_green: withdrawnBefore.size,
@@ -480,7 +482,9 @@ export function completionEconomics(
             event.fact.producer_executions === 0
           ) &&
           commands.unknown_command_identity === 0 &&
-          commands.unmatched_command_results === 0 && unique.conflicts === 0
+          commands.unmatched_command_results === 0 &&
+          commands.conflicting_command_identities === 0 &&
+          unique.conflicts === 0
         ? 0
         : null),
     validation_runs: summaries.length,
