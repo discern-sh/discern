@@ -29,11 +29,18 @@ aliases:
   - "Open another worktree"
   - "switch worktrees"
   - "worktree shell picker"
+  - "landing queue"
+  - "hold a task"
+  - "reorder landing"
+  - "validation capacity"
+  - "completion concurrency"
+  - "lookahead"
+  - "early validation"
 ---
 
 # Coordinate parallel tasks
 
-You can improve several parts of a project at once without turning every handover into another job for you. Each separate task gets a worktree: its own workspace and branch. discern can tell dependent agents when the work they need is ready.
+You can improve several parts of a project at once without turning every handover into another job for you. Each separate task gets a worktree: its own workspace and branch. discern lands finished tasks in a stable order, tells dependent agents when the work they need is ready, and explains any wait in one sentence.
 
 This guide follows the work after you have agreed a task plan. If you are still deciding how to divide an idea, start with [Delegate substantial work](delegate-work.md).
 
@@ -95,7 +102,25 @@ discern update
 
 The result names overlapping files for the agent to re-read. Git may combine two edits successfully even when their behavior disagrees. For example, search could add a button that the phone layout has no room for. Trying the combined screen is how you catch that problem.
 
-Each task finishes through `discern_done`, which runs the project's configured checks, called the gate. It records [Proof](../20-understand/proof.md) for the validated candidate—the committed change proposed for landing, which may include earlier ready work. Follow the completion result's next action; it distinguishes evidence, pending work, and permission to land.
+Each task finishes through `discern_done` on its committed work. That runs the project's configured checks, called the gate, and records [Proof](../20-understand/proof.md) for the version that would land. Follow the completion result's next action; it distinguishes evidence, pending work, and permission to land.
+
+## Understand the landing order
+
+Finished tasks form a queue. Each one waits for its own Proof and your approval, and discern lands the approved ones in a stable order. That order is not the order the tasks finished, and it does not change every time another task becomes ready.
+
+The queue explains three situations that look alike:
+
+- **A task builds on another.** The help task was started from the search task's work, so search must land first. discern records that relationship and will not land the help task ahead of it, whatever else you approve.
+- **You chose an order.** You asked for the phone layout to land before search so you could review the combined screen. The plan keeps that order until you change it.
+- **Two tasks touch the same files.** Neither depends on the other, but the second to land has to take in the first. That is a re-check, not a block.
+
+Approving a task approves that task alone. If the help task lands after search, your approval of the help task does not approve search; search needs its own.
+
+You can change the plan without discarding any work. Ask your agent to hold a task, resume it, take it out of the plan, or reorder the approved tasks. Every change starts with a preview you can read, and the agent applies it only after you confirm:
+
+> Hold the phone-layout task until I've tried the search results with the new layout. Show me the plan before and after.
+
+A held task keeps its evidence and its approval; independent tasks land past it. Taking a task out of the plan keeps its worktree and branch. None of these decisions run any checks.
 
 ## Compose dependent work below the trunk
 
@@ -111,18 +136,21 @@ The later agent verifies that the expected behavior is present and runs the full
 
 [Wait for another task](wait-for-another-task.md) explains the choice between building on checked work and waiting for it to land.
 
-## Share limited test capacity
+## Share limited capacity
 
-Several agents can write at once while their full test runs take turns. This helps when tests compete for memory, processors, or a limited local service.
+Several agents can write at once. How many can run the project's full checks at the same time is bounded by settings the project chose during setup. Three of them matter here, and they bound different work, so they can legitimately hold different values:
 
-Ask your agent to recommend a cap appropriate to the project. For example, this setting allows two test runs at once:
+| Setting                        | What it bounds                                                          | What you see at the limit                                                        |
+| ------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `[completion].concurrency`     | How many tasks can run their full checks at once.                       | A later `discern done` waits for a slot.                                         |
+| `[gate].concurrent_test_runs`  | How many test runs can share this machine at once.                      | The test stage waits its turn; the other checks continue.                        |
+| `[execution.<name>].capacity`  | How many workspaces can be prepared for a commit other than their own.  | Early validation waits for a workspace to come back.                             |
 
-```toml
-[gate]
-concurrent_test_runs = 2
-```
+When a task waits, the result says which setting is binding, who holds the slots, and what will release them. That sentence is the fact to act on. Ask your agent to explain a wait in terms of the tasks you know, and raise a limit only after checking that the machine can carry the extra run.
 
-The cap applies across the repository's worktrees. discern queues its test-stage work and relevant measurements; agents run direct test commands through `discern queue -- <test-command>`. A test runner still controls how many workers it uses inside its own run, so the cap is not a limit on individual test processes.
+By default, discern validates each task on its own commit and lands the tasks in turn. A fourth setting, `[completion].lookahead`, lets a task validate against work that has not landed yet, so it can land the moment its predecessor does. That costs a prepare-and-restore round trip per task and only runs when the project has declared, and setup has proved, an environment that can be prepared for another commit and returned exactly. Until then the setting is inert and `discern doctor` says so. [Configuration reference](../30-reference/config-reference.md#completion) lists the keys.
+
+Agents run direct test commands through `discern queue -- <test-command>` so parallel tasks share the test cap. A test runner still controls how many workers it uses inside its own run.
 
 ## Coordinate several repositories
 
@@ -132,7 +160,9 @@ There is no single Proof or landing permission covering both repositories. You c
 
 ## Reclaim finished or stale worktrees safely
 
-Successful completion normally releases a checkout from authoring control. discern may use eligible released checkouts for validation and remove them after landing. If further edits are planned, the agent can use `discern done --retain-checkout` to keep authoring control.
+Successful completion normally releases a checkout from authoring control. discern may use eligible released checkouts for validation and remove them after landing. If further edits are planned, the agent can use `discern done --retain-checkout` to keep authoring control, then `discern done --release-checkout` when review is over.
+
+A landed task's workspace sometimes stays. The landing result and status say why in one sentence and name the command that finishes cleanup; the common reason is a workspace that was retained for review and never released. A task whose work reached the shared branch by another route can also leave a stale entry in the queue; its own row offers to withdraw the entry or reconcile it, and neither lands anything again.
 
 For workspaces left behind, ask your agent to inspect what can be reclaimed and show the removal plan. The command-line preview from the main checkout is:
 
@@ -154,6 +184,6 @@ The preview is `discern worktree park <id-or-path> --dry-run`. Parking requires 
 
 ## Completion
 
-You should be able to tell what each task delivers, which result it depends on, and what comes back for your review. The agents carry the workspace setup, waits, updates, and checks. Use [Finish and land a change](finish-and-land-a-change.md) to review the outcomes and follow what reaches the shared branch.
+You should be able to tell what each task delivers, which result it depends on, where it sits in the landing order, and what comes back for your review. The agents carry the workspace setup, waits, updates, and checks. Use [Finish and land a change](finish-and-land-a-change.md) to review the outcomes and follow what reaches the shared branch.
 
 For more detail, [Worktrees and the trunk](../20-understand/worktrees-and-trunk.md) explains the model, [worktrees and status](../30-reference/worktrees-and-status.md) lists the fields, and [worktree recovery](../40-troubleshooting/worktrees-and-resources.md) covers interrupted setup or cleanup.
