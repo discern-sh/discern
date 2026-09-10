@@ -84,6 +84,7 @@ import {
 } from "../worktree/target_resolution.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
+import { observedGateOperation } from "../gate/observed_operation.ts";
 import {
   AWAIT_CALL_SECONDS,
   type AwaitCallProfile,
@@ -1165,7 +1166,15 @@ export async function runAwait(
   opts: RunAwaitOptions,
   signal?: AbortSignal,
 ): Promise<number> {
-  const result = await awaitResult(root, opts, signal);
+  // The wait is a journalled operation like every other long verb, so a
+  // closed terminal can read it back through its progress handle.
+  const result = await observedGateOperation(
+    root,
+    "await",
+    signal,
+    () => awaitResult(root, opts, signal),
+    (value) => value,
+  );
   observeResult(result);
   if (opts.json === true) {
     emitResult(result);
