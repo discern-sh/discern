@@ -40,6 +40,7 @@ import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import { cancelQueueClaim, type QueueWorkClaim } from "./claims.ts";
 import { createSourceAncestry, observeSource } from "./composition.ts";
 import { orderedEntries, sameSource } from "./model.ts";
+import { queueEntryReadiness, queueRowFacts } from "./queue_projection.ts";
 import { mutateQueue } from "./mutations.ts";
 import {
   type CandidateAssessment,
@@ -154,7 +155,8 @@ async function acceptQueueImplementation(
   const root = await Deno.realPath(main);
   const trunk = integrationBranch(ctx.config.repository.trunk);
   const identity = await resolveIdentity(ctx.cwd, ctx.cwd);
-  const initialQueue = observedRecords(await observeQueue(root, trunk)).find((
+  const initialObservation = await observeQueue(root, trunk);
+  const initialQueue = observedRecords(initialObservation).find((
     record,
   ) => record.kind === "queue");
   let selected = identity.id;
@@ -205,7 +207,7 @@ async function acceptQueueImplementation(
   // always carries its row; a landing headline for a predecessor is never the
   // answer. This wrapper only supplies the selected identity and, when the walk
   // never produced the row, synthesizes it from the observed queue entry.
-  const queueAcceptanceResult = (
+  const queueAcceptanceResult = async (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
     if (selected === "main") return formatQueueAcceptanceResult(...args);
@@ -256,9 +258,27 @@ async function acceptQueueImplementation(
         ...(synthesized === undefined ? {} : { synthesized }),
         queueOrder: initialQueue === undefined
           ? []
-          : orderedEntries(initialQueue.data).map((candidate) =>
-            candidate.source.effort_id
+          : orderedEntries(initialQueue.data, { includeHeld: true }).map(
+            (candidate) => candidate.source.effort_id,
           ),
+        // A stale entry whose recorded work is already on the trunk offers
+        // its own withdrawal or reconciliation in its row, ahead of advice
+        // that would send the owner to rerun checks for integrated work.
+        resolveOnTrunk: async (row) => {
+          const stale = initialQueue?.data.entries.find((candidate) =>
+            candidate.source.effort_id === row.effort
+          );
+          if (stale === undefined) return undefined;
+          const facts = await queueRowFacts(
+            root,
+            initialObservation,
+            stale,
+            trunk,
+          );
+          return facts.onTrunk
+            ? queueEntryReadiness(stale, facts).reason
+            : undefined;
+        },
       },
     );
   };
@@ -675,6 +695,42 @@ async function acceptQueueImplementation(
               : [],
           };
         }
+        // The preview lists the whole queue — the same ordered list status
+        // shows: efforts behind the selected one and held efforts appear in
+        // place, each with the single reason it waits.
+        const present = new Map(rows.map((item) => [item.effort, item]));
+        const merged: AcceptancePrefix[] = [];
+        for (
+          const listed of orderedEntries(current.record.data, {
+            includeHeld: true,
+          })
+        ) {
+          const existing = present.get(listed.source.effort_id);
+          if (existing !== undefined) {
+            merged.push(existing);
+            continue;
+          }
+          const facts = await queueRowFacts(root, observation, listed, trunk);
+          const readiness = queueEntryReadiness(listed, facts);
+          merged.push({
+            ...acceptancePrefix(
+              listed,
+              listed.candidate_id === null
+                ? undefined
+                : details.get(listed.candidate_id),
+            ),
+            pending: readiness.reason === undefined ? [] : [{
+              kind: facts.onTrunk
+                ? "already-on-trunk"
+                : listed.held === true
+                ? "effort-held"
+                : "queued",
+              reason: readiness.reason,
+            }],
+          });
+        }
+        rows.length = 0;
+        rows.push(...merged);
         const work = plan.actions.find((action) =>
           action.kind === "compose" || action.kind === "validate"
         );
@@ -735,7 +791,8 @@ async function acceptQueueImplementation(
         phase: "queue",
         state: "planning",
         candidate_id: entry.candidate_id,
-        reason: `Checking the next effort in the queue: ${entry.source.branch}.`,
+        reason:
+          `Checking the next effort in the queue: ${entry.source.branch}.`,
       });
       const plan = claimedPlan ??
         planner.plan(observation, ctx.config.completion, requested);

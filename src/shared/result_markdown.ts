@@ -23,9 +23,9 @@ import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
   code,
+  displayBranch,
   number,
   object,
-  displayBranch,
   records,
   strings,
   text,
@@ -1796,6 +1796,23 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
           notApplicableCountLabel(number(setupAssurance.not_applicable) ?? 0)
         }; verdict ${code(setupAssurance.verdict)}.`,
       gateProofFact(data.gate_proof),
+      ...records(data.queue).slice(0, MAX_LIST_ITEMS).map((row) => {
+        const readiness = text(row.readiness);
+        const state = readiness === "ready"
+          ? "ready to land"
+          : readiness === "landing"
+          ? "landing now"
+          : boolean(row.held) === true
+          ? "on hold"
+          : "waiting";
+        const reason = text(row.reason);
+        return `Queue ${number(row.position) ?? "?"}: ${
+          code(displayBranch(text(row.branch) ?? "unknown"))
+        } — ${state}${reason === undefined ? "." : `: ${reason}`}`;
+      }),
+      records(data.queue).length > MAX_LIST_ITEMS
+        ? omitted(records(data.queue).length - MAX_LIST_ITEMS, "queue row")
+        : undefined,
       fleetTotal === 0
         ? undefined
         : `Fleet: ${plural(fleetTotal, "active worktree")}.`,
@@ -1918,18 +1935,21 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(
       result,
-      ownVerdict ?? (text(data.root) === undefined
-        ? undefined
-        : prefixes.some((row) => object(row.exception) !== undefined)
-        ? `Recorded landing outcomes for ${code(data.root)}.`
-        : `Landed the validated tree into ${code(data.root)}.`),
+      ownVerdict ??
+        (text(data.root) === undefined
+          ? undefined
+          : prefixes.some((row) => object(row.exception) !== undefined)
+          ? `Recorded landing outcomes for ${code(data.root)}.`
+          : `Landed the validated tree into ${code(data.root)}.`),
     ),
     evidence: unique([
-      ...(own === undefined ? [] : records(own.pending).map((item) =>
-        `${code(text(own.branch) ?? "candidate")}: ${
-          text(item.reason) ?? text(item.kind) ?? "pending"
-        }.`
-      )),
+      ...(own === undefined
+        ? []
+        : records(own.pending).map((item) =>
+          `${code(text(own.branch) ?? "candidate")}: ${
+            text(item.reason) ?? text(item.kind) ?? "pending"
+          }.`
+        )),
       ...records(data.execution_recovery).map((row) =>
         `Execution environment ${code(row.environment_id)} requires recovery: ${
           text(row.reason) ?? ""

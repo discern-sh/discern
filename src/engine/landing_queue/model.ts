@@ -22,10 +22,16 @@ export function sameSource(
     JSON.stringify(SourceRevisionSchema.parse(right));
 }
 
-/** Landed/withdrawn entries retain their old rank, so later approvals never reuse it. */
-export function orderedEntries(queue: CompletionQueue): QueueEntry[] {
+/** Landed/withdrawn entries retain their old rank, so later approvals never reuse it.
+ * `includeHeld` lists held efforts in their sorted position for read-only
+ * projections; the landing walk never receives them. */
+export function orderedEntries(
+  queue: CompletionQueue,
+  options: { includeHeld?: boolean } = {},
+): QueueEntry[] {
   return queue.entries.filter((entry) =>
-    entry.state !== "withdrawn" && entry.state !== "landed" && !entry.held
+    entry.state !== "withdrawn" && entry.state !== "landed" &&
+    (options.includeHeld === true || !entry.held)
   ).sort((a, b) => {
     if (a.eligible_order !== null && b.eligible_order !== null) {
       return a.eligible_order - b.eligible_order;

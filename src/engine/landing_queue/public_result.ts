@@ -57,6 +57,11 @@ export interface SelectedEffortPresentation {
   readonly synthesized?: AcceptancePrefix;
   /** Active queue order (effort ids) used to label other rows as ahead. */
   readonly queueOrder?: readonly string[];
+  /** Resolve whether a waiting row's recorded work is already on the trunk;
+   * returns that row's withdrawal or reconciliation offer when it is. */
+  readonly resolveOnTrunk?: (
+    row: AcceptancePrefix,
+  ) => Promise<string | undefined>;
 }
 
 /** Preserve the exact pending dimension alongside every earlier completed transition. */
@@ -105,6 +110,14 @@ export function acceptancePending(
     case "validation-failed":
       reason =
         "Its checks failed. Fix the reported diagnostics, rerun discern done, then retry acceptance.";
+      break;
+    case "waiting-for-operation":
+      reason =
+        "Another acceptance is still finishing this landing. Wait for it to settle, then retry discern accept; the landing does not repeat.";
+      break;
+    case "report-only":
+      reason =
+        "This run reported checks without recording reusable evidence. Run discern done from the effort's clean committed worktree, then retry acceptance.";
       break;
     default:
       reason = JSON.stringify(blocker);
@@ -213,7 +226,8 @@ export async function queueAcceptanceResult(
   const stopped = dryRun
     ? rows.find((row) =>
       row.planned_action !== undefined && row.planned_action !== "ready"
-    ) ?? rows.at(-1)
+    ) ?? [...rows].reverse().find((row) => row.planned_action !== undefined) ??
+      rows.at(-1)
     : rows.at(-1);
   if (
     blockers.length > 0 && stopped !== undefined && stopped.state !== "landed"
@@ -239,6 +253,21 @@ export async function queueAcceptanceResult(
   const own = selected === undefined
     ? undefined
     : rows.find((row) => row.effort === selected.effort);
+  // A stale entry whose work is already on the trunk leads with its own
+  // withdrawal or reconciliation offer instead of stale-source advice.
+  if (selected?.resolveOnTrunk !== undefined) {
+    for (const row of rows) {
+      if (row.state === "landed" || row.pending.length === 0) continue;
+      if (row.pending[0]?.kind === "already-on-trunk") continue;
+      const offer = await selected.resolveOnTrunk(row);
+      if (offer !== undefined) {
+        row.pending = [
+          { kind: "already-on-trunk", reason: offer },
+          ...row.pending,
+        ];
+      }
+    }
+  }
   const noteHints: string[] = [];
   const completionRecords = rows.some((row) => row.landing_id !== undefined)
     ? observedRecords(await observeCompletionRecords(root))
@@ -426,17 +455,18 @@ export async function queueAcceptanceResult(
       }. ${checkoutOutcomeSentence(row)}`;
     }
     const reason = row.pending[0]?.reason;
-    return `${branch} is ${row.state === "ready" ? "ready to land" : "waiting"}${
-      reason === undefined ? "." : `: ${reason}`
-    }`;
+    return `${branch} is ${
+      row.state === "ready" ? "ready to land" : "waiting"
+    }${reason === undefined ? "." : `: ${reason}`}`;
   };
-  const detailTail = rows.flatMap((row) =>
-    row.ignored_file_changes === undefined
-      ? []
-      : ignoredFileDetails(row.ignored_file_changes).map((detail) =>
-        `\n\n${row.branch}: ${detail}`
-      )
-  ).join("") +
+  const detailTail =
+    rows.flatMap((row) =>
+      row.ignored_file_changes === undefined
+        ? []
+        : ignoredFileDetails(row.ignored_file_changes).map((detail) =>
+          `\n\n${row.branch}: ${detail}`
+        )
+    ).join("") +
     (pendingReviewText(rows) === "" ? "" : `\n\n${pendingReviewText(rows)}`) +
     rows.filter((row) => row.state !== "landed").flatMap((row) =>
       (row.approval_requests ?? []).map(({ proposal }) =>
@@ -453,9 +483,10 @@ export async function queueAcceptanceResult(
       ? "Read-only preview; each effort in the queue lands with its own evidence and approval."
       : `${landed} effort${landed === 1 ? "" : "s"} landed.${
         blockers.length
-          ? " Acceptance is pending: " + blockers.map((blocker) =>
-            acceptancePending(blocker).reason
-          ).join("; ")
+          ? " Acceptance is pending: " +
+            blockers.map((blocker) => acceptancePending(blocker).reason).join(
+              "; ",
+            )
           : ""
       }`) +
       (rows.length === 0 ? "" : "\n\n" + rows.map(rowLine).join("\n")) +
@@ -474,10 +505,19 @@ export async function queueAcceptanceResult(
           : "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
       }`;
     const others = rows.filter((row) => row !== own);
-    const ahead = others.filter((row) =>
-      selected.queueOrder?.includes(row.effort) ?? true
+    const order = selected.queueOrder ?? [];
+    const ownIndex = order.indexOf(selected.effort);
+    const ahead = others.filter((row) => {
+      const index = order.indexOf(row.effort);
+      return index >= 0 && (ownIndex < 0 || index < ownIndex);
+    });
+    const behind = others.filter((row) => {
+      const index = order.indexOf(row.effort);
+      return ownIndex >= 0 && index > ownIndex;
+    });
+    const elsewhere = others.filter((row) =>
+      !ahead.includes(row) && !behind.includes(row)
     );
-    const elsewhere = others.filter((row) => !ahead.includes(row));
     // A global condition no shown line already states still reaches the owner.
     const shown = new Set([
       ...(own?.pending ?? []).map((item) => item.reason),
@@ -489,14 +529,12 @@ export async function queueAcceptanceResult(
         !(own === undefined && item.kind === "missing-evidence")
       ).map((item) => item.reason);
     message = verdict +
-      (ahead.length === 0
-        ? ""
-        : "\n\nAhead of it in the queue:\n" +
-          ahead.map(rowLine).join("\n")) +
-      (elsewhere.length === 0
-        ? ""
-        : "\n\nOther efforts in this call:\n" +
-          elsewhere.map(rowLine).join("\n")) +
+      (ahead.length === 0 ? "" : "\n\nAhead of it in the queue:\n" +
+        ahead.map(rowLine).join("\n")) +
+      (behind.length === 0 ? "" : "\n\nBehind it in the queue:\n" +
+        behind.map(rowLine).join("\n")) +
+      (elsewhere.length === 0 ? "" : "\n\nOther efforts in this call:\n" +
+        elsewhere.map(rowLine).join("\n")) +
       (leftover.length === 0 ? "" : "\n\n" + leftover.join("\n")) +
       detailTail +
       (dryRun ? "\n\nRead-only preview; nothing changed." : "");
