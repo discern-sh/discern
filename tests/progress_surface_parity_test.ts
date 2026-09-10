@@ -9,6 +9,7 @@ import { completionBlockerAccount } from "../src/engine/completion/progress_pros
 import { withOperationJournal } from "../src/engine/completion/operation_journal.ts";
 import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
 import { createGateProgressPresenter } from "../src/engine/gate/progress_presenter.ts";
+import { observedGateOperation } from "../src/engine/gate/observed_operation.ts";
 import { withCompletionObserver } from "../src/engine/completion/events.ts";
 import { withMcpCompletionProgress } from "../src/engine/mcp/progress.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
@@ -137,5 +138,60 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
     assertEquals(read.data?.progress?.owner_must_act, true);
     assertEquals(read.data?.producers?.[0]?.results?.failed, 1);
     assertEquals(read.data?.failures?.length, 1);
+  });
+});
+
+Deno.test("a nested operation presents each fact exactly once between its outer and inner presenters", async () => {
+  await withTempDir(async (root) => {
+    await Deno.writeTextFile(join(root, "readme"), "nesting fixture\n");
+    await gitInit(root);
+    const outer: string[] = [];
+    const inner: string[] = [];
+    const envelope: DiscernResult = { ok: true, verb: "accept", steps: [] };
+    // An acceptance presents the coordination it waits through, while the
+    // validation it runs inside presents the producer's own counts and
+    // failures — the shape `accept` takes on a human surface.
+    await observedGateOperation(
+      root,
+      "accept",
+      undefined,
+      async (outerSlot) => {
+        outerSlot.set(createGateProgressPresenter({
+          scope: "coordination",
+          write: (line): void => {
+            outer.push(line.trimEnd());
+          },
+        }));
+        return await observedGateOperation(
+          root,
+          "done",
+          undefined,
+          (innerSlot) => {
+            innerSlot.set(createGateProgressPresenter({
+              write: (line): void => {
+                inner.push(line.trimEnd());
+              },
+            }));
+            emitScriptedFacts();
+            return Promise.resolve(envelope);
+          },
+          (value) => value,
+        );
+      },
+      (value) => value,
+    );
+    const pending =
+      "Waiting for a recorded judgment on candidate-checkpoints; the owner decides.";
+    assertEquals(outer.length, 2, JSON.stringify(outer));
+    assert(outer[0]?.startsWith("accept is running; progress handle R1-"));
+    assertEquals(outer[1], pending);
+    assertEquals(inner, [COUNTS, FAILURE_SENTENCE]);
+    // One journal covers the whole acceptance: the nested run opened none of
+    // its own, and the producer's failure reached the shared record.
+    const read = await operationProgressResult(root);
+    assert(read.ok, JSON.stringify(read));
+    assertEquals(read.data?.operation.verb, "accept");
+    assertEquals(read.data?.failures?.length, 1);
+    assertEquals(read.data?.progress?.reason, pending);
   });
 });

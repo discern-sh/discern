@@ -18,6 +18,27 @@ export interface GateProgressPresenter {
 const SLOT_BUFFER_LIMIT = 16;
 
 /**
+ * Which presenter owns one fact. Producer facts — a producer's own counts and
+ * each established failure — belong to the run executing that producer;
+ * coordination facts — queue, environment, pending, and the operation itself —
+ * belong to the outermost operation. Every fact has exactly one owner, so a
+ * nested validation and the operation enclosing it never present the same
+ * sentence twice.
+ */
+export type CompletionFactOwner = "producer" | "coordination";
+
+/** Classify one fact by the presenter that owns it. */
+export function completionFactOwner(
+  fact: CompletionObservationFact,
+): CompletionFactOwner {
+  if (fact.kind === "failure") return "producer";
+  if (fact.kind === "progress" && fact.progress.phase === "producer") {
+    return "producer";
+  }
+  return "coordination";
+}
+
+/**
  * The registration point a surrounding observer scope feeds: the verb body
  * sets the presenter once its output policy exists, and the few facts
  * observed before that moment replay into it so the reconnect-handle
@@ -28,12 +49,20 @@ export interface GateProgressPresenterSlot {
   set(presenter: GateProgressPresenter): void;
 }
 
-/** Create the mutable slot one verb invocation owns. */
-export function gateProgressPresenterSlot(): GateProgressPresenterSlot {
+/**
+ * Create the mutable slot one verb invocation owns. A slot scoped to one
+ * owner passes only that owner's facts to whichever presenter registers —
+ * a nested operation's slot takes the producer side while its enclosing
+ * operation presents the coordination.
+ */
+export function gateProgressPresenterSlot(
+  scope: CompletionFactOwner | "all" = "all",
+): GateProgressPresenterSlot {
   const buffered: CompletionObservationFact[] = [];
   let current: GateProgressPresenter | undefined;
   return {
     observe(fact: CompletionObservationFact): void {
+      if (scope !== "all" && completionFactOwner(fact) !== scope) return;
       if (current !== undefined) current.observe(fact);
       else if (buffered.length < SLOT_BUFFER_LIMIT) buffered.push(fact);
     },
@@ -50,11 +79,10 @@ export interface GateProgressPresenterTarget {
   /** Static human runs append whole lines through the run's own sink. */
   readonly write?: (line: string) => void;
   /**
-   * `coordination` presents only queue, environment, pending, and operation
-   * facts — for an outer operation whose nested validation presents its own
-   * producer facts and failures, so nothing prints twice.
+   * Present only one owner's facts: `coordination` for an outer operation
+   * whose nested validation presents its own producer facts and failures.
    */
-  readonly scope?: "all" | "coordination";
+  readonly scope?: CompletionFactOwner | "all";
 }
 
 /** Build the presenter for one gate run's chosen output mode. */
@@ -75,19 +103,17 @@ export function createGateProgressPresenter(
     if (target.live !== undefined) target.live.transient(text);
     else target.write?.(`${text}\n`);
   };
-  const coordinationOnly = target.scope === "coordination";
+  const scope = target.scope ?? "all";
   return {
     observe(fact: CompletionObservationFact): void {
+      if (scope !== "all" && completionFactOwner(fact) !== scope) return;
       if (fact.kind === "failure") {
-        if (!coordinationOnly) {
-          durable(completionFailureSentence(fact.failure), "failure");
-        }
+        durable(completionFailureSentence(fact.failure), "failure");
         return;
       }
       if (fact.kind !== "progress") return;
       const progress = fact.progress;
       if (progress.phase === "producer") {
-        if (coordinationOnly) return;
         // Start and settle already reach the terminal as job facts; the value
         // here is the producer's own counts while it runs.
         if (progress.state !== "running" || progress.work === undefined) return;

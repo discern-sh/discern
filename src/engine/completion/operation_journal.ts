@@ -697,6 +697,11 @@ function foundReading(
 /** One journal covers one operation; a nested wrapped call joins its parent. */
 const JOURNAL_SCOPE = new AsyncLocalStorage<true>();
 
+/** Whether the current call runs inside a journalled operation already. */
+export function insideOperationJournal(): boolean {
+  return JOURNAL_SCOPE.getStore() === true;
+}
+
 /**
  * Journal one long operation. The wrapper announces the reconnect handle as a
  * progress fact, folds every observed fact into the durable record, and closes
@@ -715,7 +720,7 @@ export async function withOperationJournal<T>(
     readonly result: (value: T) => DiscernResult;
   },
 ): Promise<T> {
-  if (JOURNAL_SCOPE.getStore() === true) return await run(undefined);
+  if (insideOperationJournal()) return await run(undefined);
   // Every store failure is classified inside the store lock, so an open that
   // cannot proceed returns no journal rather than throwing.
   const open = await openOperationJournal(root, header, options);

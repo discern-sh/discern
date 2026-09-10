@@ -7,7 +7,10 @@
 import { runGit } from "../../shared/subprocess.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { withCompletionObserver } from "../completion/events.ts";
-import { withOperationJournal } from "../completion/operation_journal.ts";
+import {
+  insideOperationJournal,
+  withOperationJournal,
+} from "../completion/operation_journal.ts";
 import {
   type GateProgressPresenterSlot,
   gateProgressPresenterSlot,
@@ -26,7 +29,12 @@ export async function observedGateOperation<T>(
     { cwd: root },
   );
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const presenterSlot = gateProgressPresenterSlot();
+  // A nested operation joins its parent's journal, and its presenter owns
+  // only the producer facts its own run executes: the enclosing operation
+  // presents the coordination, so every sentence has exactly one owner.
+  const presenterSlot = gateProgressPresenterSlot(
+    insideOperationJournal() ? "producer" : "all",
+  );
   // The presenter scope encloses the journal so the handle announcement the
   // journal emits at start reaches the terminal once a presenter registers.
   return await withCompletionObserver(
