@@ -364,7 +364,7 @@ export async function synchronizeQueueAuthorities(
       });
       if (changed.kind !== "changed") {
         throw new Error(
-          "Authority revocation needs queue recovery before another prefix can advance.",
+          "Authority revocation needs queue recovery before another effort can land.",
         );
       }
     }

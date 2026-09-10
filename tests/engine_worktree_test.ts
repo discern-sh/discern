@@ -584,7 +584,10 @@ Deno.test("accept: one proven worktree refuses every main-checkout precondition 
           "",
           `the merged branch should be deleted\n${r.output}`,
         );
-        assertTerminalTextIncludes(r.output, "1 prefix landed");
+        assertTerminalTextIncludes(
+          r.output,
+          "landed. Its checkout was removed",
+        );
         assert(
           await targetExists(join(dir, ".codex/session.local.toml")),
           "the main checkout's local scratch file should be left alone",
@@ -865,7 +868,7 @@ Deno.test("accept: malformed tracked refresh input is refused before landing", a
     );
     assertTerminalTextIncludes(
       r.output,
-      "Required validation evidence is missing",
+      "No Proof covers this effort's current source",
     );
   });
 });
@@ -881,7 +884,7 @@ Deno.test("accept: refuses a dirty worktree without moving anything", async () =
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "Required validation evidence is missing",
+      "not validated. Run discern done from its clean committed worktree",
     );
     assertTerminalTextIncludes(r.output, "clean committed worktree");
     assertEquals(
@@ -965,7 +968,7 @@ Deno.test("accept: unproven work behind main retains all committed and uncommitt
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "Required validation evidence is missing",
+      "not validated. Run discern done from its clean committed worktree",
     );
     assert(
       await targetExists(wt),
@@ -1137,7 +1140,7 @@ Deno.test("accept: the main checkout cannot progress an unproven queue", async (
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "Required validation evidence is missing",
+      "No Proof covers this effort's current source",
     );
   });
 });

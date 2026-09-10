@@ -31,7 +31,7 @@ The exception lives in common completion records and an unsigned DSSE note. Its 
 
 ## Outstanding validation
 
-Status, desk data, and subsequent completion expose unresolved emergency validation. Run `discern done --rerun` on the current committed trunk or a repair containing it, completing every required context. A later strict Proof can resolve current obligations only when it contains the integrated repair and covers the recorded checks. Removing a required check does not discharge it.
+Status, desk data, and subsequent completion expose an exception only while its validation is outstanding; once a later strict Proof resolves it, the exception leaves those projections and its note and completion record remain the durable history. Run `discern done --rerun` on the current committed trunk or a repair containing it, completing every required context. A later strict Proof can resolve current obligations only when it contains the integrated repair and covers the recorded checks. Removing a required check does not discharge it.
 
 The [resolution reader and writer](../../../src/engine/emergency/obligations.ts) retain a separate later-Proof receipt. The original exception and its note remain intact. The receipt establishes later validation; it cannot certify that the earlier integration passed.
 

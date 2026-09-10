@@ -459,7 +459,9 @@ export const TOOLS: McpTool[] = orderTools([
       "cleanliness and trunk divergence; data.gate lists checks that would run; " +
       "data.gate_proof reports existing Proof state; data.worktree carries identity; " +
       "and main checkout results sample data.fleet. Treat every other fleet row as a " +
-      "separate effort. data.git.trunk is the selected project's configured trunk. " +
+      "separate effort. data.queue lists the landing queue in order: each row an " +
+      "unlanded effort with its readiness and single waiting reason. " +
+      "data.git.trunk is the selected project's configured trunk. " +
       "data.setup_unfinished carries pending markers, known-job applicability, " +
       "and assurance counts. data.pending_tracked_refresh names tracked paths an ordinary " +
       "discern_refresh would change; data.tracked_refresh_plan_errors names failures to derive " +
@@ -1077,18 +1079,20 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: DESTRUCTIVE,
     description: "Ordinary acceptance: " +
       "Land only with explicit owner consent or machine-verified authority. " +
-      "Resolve the selected project's configured trunk and the selected candidate, " +
-      "which can compose this effort's committed source with earlier ready work. " +
+      "Acceptance composes this effort's committed source with earlier ready " +
+      "work against the selected project's configured trunk. " +
       "Each predecessor requires its own current evidence and authority; permission " +
       "for this effort does not authorize another. Acceptance validates the exact " +
       "candidate before advancing the trunk. Its Proof identifies that validated " +
-      "commit, which can differ from this worktree's HEAD. Released checkouts may " +
-      "supply validation environments. Eligible cleanup removes only released, " +
-      "positively owned, clean checkouts and their resources after landing. " +
+      "commit, which can differ from this worktree's HEAD. Eligible cleanup " +
+      "removes only released, positively owned, clean checkouts and their " +
+      "resources after landing. " +
       "Recorded grants never cover a checkpoint variance or standard proposal. " +
       "Without authority the call re-serves the review moment without landing. " +
-      "Follow the reported per-predecessor state and recovery action; earlier " +
-      "authorized predecessors may have landed before a later stop. " +
+      "The result leads with the selected effort's own verdict; " +
+      "data.selected_effort marks its row, other efforts follow with their " +
+      "state and recovery action, and an earlier authorized effort may have " +
+      "landed before a later stop. " +
       "Set dry_run to inspect the acceptance plan without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +
       "words, then end with data.proof_line verbatim; the full review page remains " +

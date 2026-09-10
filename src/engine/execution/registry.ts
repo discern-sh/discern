@@ -445,7 +445,7 @@ export function environmentAvailabilityBlocker(
       };
     }
     return unavailable(
-      `Environment ${environmentId} is ${availability.reason}; reconcile or explicitly release it before execution.`,
+      `This effort's execution environment is ${availability.reason}. Release it with discern done --release-checkout from its worktree, or follow the recovery action discern status reports there (environment ${environmentId}).`,
     );
   }
   return null;

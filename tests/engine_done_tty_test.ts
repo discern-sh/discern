@@ -368,7 +368,10 @@ restore = 'true'
       assertTerminalTextIncludes(frame, "test started");
       assertTerminalTextIncludes(frame, "refresh-visible");
       assertStringIncludes(accepted.stdout, SHOW_CURSOR);
-      assertTerminalTextIncludes(accepted.transcript, "1 prefix landed");
+      assertTerminalTextIncludes(
+        accepted.transcript,
+        "landed. Its checkout was removed",
+      );
       assertEquals(await Deno.readTextFile(join(root, "source")), "authored\n");
       assertEquals(
         await Deno.readTextFile(join(root, "predecessor.txt")),

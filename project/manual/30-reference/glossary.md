@@ -19,6 +19,7 @@ aliases:
   - "desk"
   - "discern"
   - "discern version"
+  - "effort"
   - "engine"
   - "file ownership"
   - "fleet"
@@ -48,6 +49,7 @@ aliases:
   - "co-change advisory"
   - "harness"
   - "binary version"
+  - "queue prefix"
   - "file dispositions"
   - "done --confirmed"
   - "the binary's files"
@@ -70,7 +72,7 @@ If a result or guide uses an unfamiliar word, start here. Each definition explai
 
 Entries are alphabetical. Use the letters below or search this page for the word you need.
 
-Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#engine) · [F](#file-ownership) · [G](#gate) · [I](#improvement-review) · [L](#landing-authority) · [M](#map) · [N](#namespace) · [O](#open-question) · [P](#patterns) · [Q](#question) · [S](#schema-version) · [T](#tidy) · [U](#update) · [V](#variance) · [W](#worktree)
+Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) · [F](#file-ownership) · [G](#gate) · [I](#improvement-review) · [L](#landing-authority) · [M](#map) · [N](#namespace) · [O](#open-question) · [P](#patterns) · [Q](#question) · [S](#schema-version) · [T](#tidy) · [U](#update) · [V](#variance) · [W](#worktree)
 
 ### Accept
 
@@ -115,6 +117,10 @@ A tool that installs and runs an agent development practice in a project. One se
 ### discern version
 
 The installed version of the discern program. `discern --version` shows its semantic version. Re-running the installer supplies a newer program; `discern upgrade` then updates the project's installation to match.
+
+### Effort
+
+One task carried through implementation and review: the work a [worktree](#worktree), its branch, and its queue entry all belong to. Results name an effort by its branch. An effort keeps one worktree across feedback and resumed sessions; the landing queue orders efforts, and `discern accept` lands the selected effort's validated change on the [trunk](#trunk).
 
 ### Engine
 

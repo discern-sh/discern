@@ -25342,6 +25342,59 @@
                     ]
                   }
                 },
+                "queue": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "effort": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "provisional",
+                          "eligible",
+                          "active",
+                          "failed"
+                        ]
+                      },
+                      "held": {
+                        "type": "boolean"
+                      },
+                      "readiness": {
+                        "type": "string",
+                        "enum": [
+                          "ready",
+                          "waiting",
+                          "landing"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "on_trunk": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "effort",
+                      "branch",
+                      "position",
+                      "state",
+                      "held",
+                      "readiness"
+                    ]
+                  }
+                },
                 "recent_completed_tasks": {
                   "type": "array",
                   "items": {
@@ -28256,6 +28309,9 @@
             {
               "type": "object",
               "properties": {
+                "selected_effort": {
+                  "type": "string"
+                },
                 "continuation": {
                   "type": "string"
                 },
@@ -29961,6 +30017,15 @@
                           "ready",
                           "pending",
                           "landed"
+                        ]
+                      },
+                      "relation": {
+                        "type": "string",
+                        "enum": [
+                          "selected",
+                          "ahead",
+                          "behind",
+                          "other"
                         ]
                       },
                       "landing_id": {

@@ -262,7 +262,7 @@ For `done`, inspect `data.completion` as well as the top-level verdict:
 
 Explicit CI reports use `data.mode: "report"` and report checkpoint review without answering questions. Their feedback does not provide landing Proof. `checkpoint_drops` preserves classified uncertainty about checkpoint enforcement.
 
-Ordinary acceptance returns `data.queue`, with one row per evaluated task. Inspect every row: a later pending task does not undo an earlier landing.
+Ordinary acceptance returns `data.queue`, with one row per queued task the call considered — the task the call was about always has a row, marked by `data.selected_effort`, and a preview also lists the tasks behind it with the single reason each waits. Inspect every row: a later pending task does not undo an earlier landing.
 
 | Queue-row field                            | Contract                                                                                                        |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |

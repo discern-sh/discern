@@ -1625,6 +1625,11 @@ export const AcceptancePrefixSchema = z.strictObject({
   expected_trunk: z.string().nullable(),
   target: z.string().nullable(),
   state: z.enum(["ready", "pending", "landed"]),
+  /** How this row relates to the selected effort: its own row, an effort
+   * ahead of or behind it in the queue, or outside the current queue order.
+   * Present when the call selected an effort; presentations label rows from
+   * this field rather than re-deriving queue order. */
+  relation: z.enum(["selected", "ahead", "behind", "other"]).optional(),
   landing_id: z.string().optional(),
   note: z.enum(["pending", "published", "recovery"]).optional(),
   note_reason: z.string().optional(),
@@ -1640,6 +1645,10 @@ export const AcceptancePrefixSchema = z.strictObject({
   pending: z.array(CompletionPendingSchema),
 });
 export const AcceptDataSchema = z.strictObject({
+  /** The effort the owner selected, implicitly by running from its worktree or
+   * explicitly with --target. Its row is always present in `queue`, and every
+   * presentation leads with its verdict before other efforts' outcomes. */
+  selected_effort: z.string().optional(),
   continuation: z.string().optional(),
   external_integration: z.strictObject({
     integration_id: z.string().optional(),
@@ -2023,6 +2032,26 @@ const parkedTaskSchema = z.strictObject({
   task: TaskMetadataDataSchema,
 });
 
+/** One unlanded effort in the landing queue, as an owner reads it: eligible
+ * efforts in landing order, then provisional ones, each with its readiness and
+ * the single reason it waits. Status and `accept --dry-run` derive their lists
+ * from the same projection so the two surfaces agree. */
+export const StatusQueueRowSchema = z.strictObject({
+  effort: z.string(),
+  branch: z.string(),
+  /** 1-based place in the displayed order. */
+  position: z.number().int().positive(),
+  state: z.enum(["provisional", "eligible", "active", "failed"]),
+  held: z.boolean(),
+  readiness: z.enum(["ready", "waiting", "landing"]),
+  /** One full sentence: why the effort waits. Absent when ready or landing. */
+  reason: z.string().optional(),
+  /** The recorded source is already reachable from the trunk; the reason
+   * offers the entry's own withdrawal or reconciliation. */
+  on_trunk: z.boolean().optional(),
+});
+export type StatusQueueRow = z.infer<typeof StatusQueueRowSchema>;
+
 /** One path discern removed with a worktree that currently exists again. */
 const reappearedWorktreePathSchema = z.strictObject({
   path: z.string(),
@@ -2140,6 +2169,9 @@ export const StatusDataSchema = z.strictObject({
   contained_refs: z.array(
     z.strictObject({ branch: z.string(), contained_in: z.string() }),
   ).optional(),
+  /** The landing queue in order — present when at least one unlanded effort
+   * is queued. The same derivation feeds `accept --dry-run`. */
+  queue: z.array(StatusQueueRowSchema).optional(),
   /** Newest successful task landings from the bounded local Logbook tail. */
   recent_completed_tasks: z.array(recentCompletedTaskSchema).optional(),
   /** Paths removed through discern's worktree lifecycle that currently exist

@@ -27,7 +27,10 @@ import { git, gitOut, runAgent } from "./engine_helpers.ts";
 import { emergencyResult } from "../src/engine/emergency/action.ts";
 import { lifecycleContext } from "../src/engine/worktree/lifecycle.ts";
 import { Logger } from "../src/lib/log.ts";
-import { emergencyValidationStatus } from "../src/engine/emergency/obligations.ts";
+import {
+  emergencyValidationInventory,
+  emergencyValidationStatus,
+} from "../src/engine/emergency/obligations.ts";
 import {
   observedRecords,
   observeQueue,
@@ -191,12 +194,28 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
     );
     const validation = await runAgent(root, ["done", "--rerun", "--json"]);
     assertEquals(validation.code, 0, validation.output);
+    // A resolved exception leaves every projection; the durable inventory
+    // retains the resolution for provenance readers.
     assertEquals(
-      (await emergencyValidationStatus(root))[0]?.state,
+      await emergencyValidationStatus(root),
+      [],
+      validation.output,
+    );
+    assertEquals(
+      (await emergencyValidationInventory(root))[0]?.state,
       "resolved",
       validation.output,
     );
-    const resolved = (await emergencyValidationStatus(root))[0];
+    for (const flags of [[], ["--verbose"]]) {
+      const settled = await runAgent(root, ["status", ...flags, "--json"]);
+      assertEquals(settled.code, 0, settled.output);
+      assert(
+        !settled.stdout.includes('"emergency_validation"'),
+        `resolved exception must leave status ${flags.join(" ")}: ` +
+          settled.stdout,
+      );
+    }
+    const resolved = (await emergencyValidationInventory(root))[0];
     assert(resolved?.resolved_by);
     const receiptPath = await artifactPath(
       root,

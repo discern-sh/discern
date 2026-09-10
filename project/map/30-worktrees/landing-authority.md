@@ -46,7 +46,7 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-Each prefix needs its own current authority. A caller's `--confirmed` applies only to the selected reviewed source; it cannot approve predecessors. An earlier authorized prefix can land before a later entry reports missing authority. The result retains both outcomes.
+Each effort in the queue needs its own current authority. A caller's `--confirmed` applies only to the selected reviewed source; it cannot approve predecessors. An earlier approved effort can land before a later entry reports missing authority. The result retains both outcomes.
 
 `accept --target <effort-id>` selects the same effort from its worktree or main. Main requires a target when several efforts are pending. Recorded explicit source consent survives an interrupted call while its source and composition procedure remain unchanged.
 

@@ -81,7 +81,10 @@ ignored = ['executions']
     assert(priorSource !== otherHead);
     await git(root, "update-ref", source.branch, otherHead, priorSource);
     const changedSource = await recoverCompletionResult(path, environment.id);
-    assertStringIncludes(changedSource.message ?? "", "source branch changed");
+    assertStringIncludes(
+      changedSource.message ?? "",
+      "The branch has moved since this claim was recorded",
+    );
     await git(root, "update-ref", source.branch, priorSource, otherHead);
     assertEquals(
       (await requireEnvironment(path, environment.id)).record,
