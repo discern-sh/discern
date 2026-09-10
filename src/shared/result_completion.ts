@@ -17,6 +17,25 @@ import {
 } from "./result.ts";
 import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
+import { text } from "./result_markdown_values.ts";
+
+/** Only a landed row has a checkout outcome; say what happened to it and why. */
+export function landedCheckoutFacts(
+  row: Readonly<Record<string, unknown>>,
+): string {
+  const retirement = text(row.retirement);
+  const reason = text(row.retirement_reason);
+  const convergence = `; convergence ${text(row.convergence) ?? "pending"}`;
+  if (retirement === "retired") return `${convergence}; checkout retired.`;
+  if (retirement === "recovery") {
+    return `${convergence}; checkout cleanup requires recovery${
+      reason === undefined ? "" : `: ${reason}`
+    }.`;
+  }
+  return `${convergence}; checkout kept${
+    reason === undefined ? "" : ` (${reason})`
+  }. ${retainedCheckoutExplanation(reason)}`;
+}
 
 /** Retention describes checkout ownership separately from the recorded landing. */
 export function retainedCheckoutExplanation(

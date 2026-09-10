@@ -15,7 +15,7 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import { retainedCheckoutExplanation } from "./result_completion.ts";
+import { landedCheckoutFacts } from "./result_completion.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
@@ -1878,22 +1878,6 @@ const presentTaskRename: ResultMarkdownPresenter = (result) => {
     ]),
   };
 };
-
-/** Only a landed row has a checkout outcome; say what happened to it and why. */
-function landedCheckoutFacts(row: Readonly<Record<string, unknown>>): string {
-  const retirement = text(row.retirement);
-  const reason = text(row.retirement_reason);
-  const convergence = `; convergence ${text(row.convergence) ?? "pending"}`;
-  if (retirement === "retired") return `${convergence}; checkout retired.`;
-  if (retirement === "recovery") {
-    return `${convergence}; checkout cleanup requires recovery${
-      reason === undefined ? "" : `: ${reason}`
-    }.`;
-  }
-  return `${convergence}; checkout kept${
-    reason === undefined ? "" : ` (${reason})`
-  }. ${retainedCheckoutExplanation(reason)}`;
-}
 
 const presentAccept: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
