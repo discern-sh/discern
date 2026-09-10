@@ -15,6 +15,7 @@ aliases:
   - "worktree status"
   - "fleet status"
   - "session findings"
+  - "data.queue"
 ---
 
 # Worktrees and status
@@ -50,7 +51,9 @@ Status requires a discern project. Linked-worktree lifecycle fields require a Gi
 
 ### Human dashboard
 
-Worktrees default to a local view. The main checkout shows its state, fleet task rows, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
+Worktrees default to a local view. The main checkout shows its state, fleet task rows, the **Landing queue**, **Owner attention**, **Landing risks**, and **Next action**. `--verbose` adds per-task evidence, configured checks, local environment, landing history, shared paths, and stored Proof pages.
+
+The **Landing queue** lists every unlanded task in landing order: tasks eligible to land first, then provisional ones, with a held task kept in its place. Each line carries the task's branch, its state label (`ready to land`, `on hold`, `waiting`, or `landing now`), and, when it waits, one sentence saying why. The current worktree's own task is marked. The acceptance preview derives its list from the same projection, so the two surfaces show the same tasks in the same order. When every validation slot is in use while tasks queue, status adds one sentence naming the binding setting and the branches holding the slots.
 
 The report uses stored task titles when available; `--verbose` reveals complete worktree and branch identities. Use the stable id or branch in commands, even when a friendlier title appears in the report.
 
@@ -86,17 +89,18 @@ During setup, this read-only result reports the recorded phase, dedicated branch
 
 CLI JSON, MCP `structuredContent`, and the status resource use the same structured fields. The default is a bounded view for orientation; request full collections when a decision depends on entries outside that sample.
 
-| Field                                                 | Contract                                                                                                                 |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `data.project`, `location`, `root`, `worktree`, `git` | Identify the project, checkout, and observed Git state.                                                                  |
-| `data.projection.mode`                                | `orientation` by default; `full` with verbose structured status.                                                         |
-| `data.projection.omitted`                             | True overflow counts for capped collections, under dotted paths with zero-based indexes. Present omissions are positive. |
-| `data.fleet`                                          | In orientation mode, the main row plus at most six non-main samples.                                                     |
-| `data.fleet_total`                                    | The complete non-main task count, including omitted rows.                                                                |
-| `data.pending_tracked_refresh`                        | Tracked paths that ordinary refresh would change.                                                                        |
-| `data.tracked_refresh_plan_errors`                    | Failures deriving that refresh plan.                                                                                     |
-| `data.gate_proof`                                     | The current Proof inspection and compact evidence when available.                                                        |
-| `data.landed_proof`                                   | A readable local or fetched Proof note for the trunk tip.                                                                |
+| Field                                                 | Contract                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `data.project`, `location`, `root`, `worktree`, `git` | Identify the project, checkout, and observed Git state.                                                                                                                                                                                                                                                                  |
+| `data.projection.mode`                                | `orientation` by default; `full` with verbose structured status.                                                                                                                                                                                                                                                         |
+| `data.projection.omitted`                             | True overflow counts for capped collections, under dotted paths with zero-based indexes. Present omissions are positive.                                                                                                                                                                                                 |
+| `data.fleet`                                          | In orientation mode, the main row plus at most six non-main samples.                                                                                                                                                                                                                                                     |
+| `data.fleet_total`                                    | The complete non-main task count, including omitted rows.                                                                                                                                                                                                                                                                |
+| `data.queue`                                          | The landing queue in order. Each row carries `effort`, `branch`, 1-based `position`, `state` (`provisional`, `eligible`, `active`, or `failed`), `held`, `readiness` (`ready`, `waiting`, or `landing`), one `reason` sentence when it waits, and `on_trunk` when its recorded work is already reachable from the trunk. |
+| `data.pending_tracked_refresh`                        | Tracked paths that ordinary refresh would change.                                                                                                                                                                                                                                                                        |
+| `data.tracked_refresh_plan_errors`                    | Failures deriving that refresh plan.                                                                                                                                                                                                                                                                                     |
+| `data.gate_proof`                                     | The current Proof inspection and compact evidence when available.                                                                                                                                                                                                                                                        |
+| `data.landed_proof`                                   | A readable local or fetched Proof note for the trunk tip.                                                                                                                                                                                                                                                                |
 
 Repeated orientation collections retain at most six members; landing history is omitted. `discern status --verbose --json` or MCP `verbose: true` selects `mode: "full"`, restores complete collections and landing history, and removes the omission map. Every default result includes this route to full detail.
 

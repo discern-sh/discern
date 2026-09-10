@@ -264,18 +264,22 @@ Explicit CI reports use `data.mode: "report"` and report checkpoint review witho
 
 Ordinary acceptance returns `data.queue`, with one row per queued task the call considered — the task the call was about always has a row, marked by `data.selected_effort`, and a preview also lists the tasks behind it with the single reason each waits. Inspect every row: a later pending task does not undo an earlier landing.
 
-| Queue-row field                            | Contract                                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `effort`, `branch`, `source_head`          | Identify the authored source.                                                                                   |
-| `candidate_id`, `expected_trunk`, `target` | Candidate and exact transition, or `null` when unavailable.                                                     |
-| `state`                                    | `ready`, `pending`, or `landed`.                                                                                |
-| `pending`                                  | Conditions that still need attention.                                                                           |
-| `consent`                                  | Permission source for the row, when available; `source` is `conversation`, `standing-grant`, or `effort-grant`. |
-| `authority_settlement`                     | `pending`, `consumed`, or `restored`, when recorded.                                                            |
-| `note`                                     | `pending`, `published`, or `recovery`, when recorded.                                                           |
-| `retirement`                               | `retained`, `retired`, or `recovery`.                                                                           |
-| `convergence`                              | `pending`, `passed`, or `failed`, when recorded for main-checkout convergence.                                  |
-| `proof_line`                               | The row's consent-qualified Proof line, when available.                                                         |
+The Markdown and MCP presentations open with that task's verdict in one line (`Selected effort \`<branch>\`: landed`,`ready to land`,`not ready`,`not landed`, or`not validated`when the task has no row yet), followed by one sentence per condition and, for a landed task, what happened to its checkout. Other tasks follow under`Ahead of it in the queue`,`Behind it in the queue`, and`Other efforts in this call`, one sentence each. A dry run ends with`Read-only preview; nothing changed.`When the selected task did not land,`data.continuation` carries the command to run next.
+
+| Queue-row field                            | Contract                                                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `effort`, `branch`, `source_head`          | Identify the authored source.                                                                                       |
+| `candidate_id`, `expected_trunk`, `target` | Candidate and exact transition, or `null` when unavailable.                                                         |
+| `state`                                    | `ready`, `pending`, or `landed`.                                                                                    |
+| `relation`                                 | `selected`, `ahead`, `behind`, or `other`: the row's place relative to the task the call was about.                 |
+| `pending`                                  | Conditions that still need attention.                                                                               |
+| `consent`                                  | Permission source for the row, when available; `source` is `conversation`, `standing-grant`, or `effort-grant`.     |
+| `authority_settlement`                     | `pending`, `consumed`, or `restored`, when recorded.                                                                |
+| `note`                                     | `pending`, `published`, or `recovery`, when recorded.                                                               |
+| `retirement`                               | `retained`, `retired`, or `recovery`.                                                                               |
+| `retirement_reason`                        | Why a landed task's checkout stayed: `unreleased`, `active-use`, `moved-branch`, `dirty`, or `ownership-uncertain`. |
+| `convergence`                              | `pending`, `passed`, or `failed`, when recorded for main-checkout convergence.                                      |
+| `proof_line`                               | The row's consent-qualified Proof line, when available.                                                             |
 
 `data.pending` carries outstanding conditions for the call. `data.root` names the surviving checkout, including after removal of the invoking worktree. A landed row may also carry `proof_note`, `variances`, `standard_approvals`, and retained checkpoint review or drops. The published schema defines every optional field.
 
