@@ -221,7 +221,7 @@ async function assertSourceReady(
 ): Promise<void> {
   const branch = await gitValue(cwd, ["symbolic-ref", "HEAD"]);
   const head = await gitValue(cwd, ["rev-parse", "HEAD"]);
-  const status = await gitValue(cwd, ["status", "--porcelain"]);
+  const status = await gitValue(cwd, ["status", "--porcelain", "-z"]);
   const leftovers = (await Promise.all(
     [PROBE_CANDIDATE_PATH, PROBE_OUTPUT_PATH].map(async (path) =>
       await statIfExists(join(cwd, path)) === undefined ? [] : [path]
@@ -355,7 +355,7 @@ async function probeContext(
   observe({ context, stage, state: "started" });
   try {
     return await withCompletionCheckout(probeDir, async (signal) => {
-      const dirty = await gitValue(probeDir, ["status", "--porcelain"]);
+      const dirty = await gitValue(probeDir, ["status", "--porcelain", "-z"]);
       if (dirty !== "") {
         throw new Error(
           "The probe worktree has uncommitted changes; the probe touches only state it creates, so it will not proceed.",
