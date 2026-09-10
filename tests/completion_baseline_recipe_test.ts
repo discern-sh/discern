@@ -434,3 +434,17 @@ Deno.test("a failed suite reports coverage gaps before cleanup without publishin
     );
   });
 });
+
+Deno.test("a successful suite without reportable profiles cannot publish coverage", async () => {
+  let profile = "";
+  await assertRejects(
+    () =>
+      produceCoverage(REPO_ROOT, (path) => {
+        profile = path;
+        return Promise.resolve();
+      }),
+    Error,
+    "no reportable coverage",
+  );
+  assertEquals(await pathExists(profile), false);
+});

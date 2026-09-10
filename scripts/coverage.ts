@@ -74,11 +74,30 @@ async function shardedLcovReports(
       `pruned; ${summary.compacted} repeated observations compacted; ` +
       `${summary.opaque} unrecognized kept for the report filter`,
   );
+  console.error(
+    `coverage profile cost: ${
+      JSON.stringify({
+        input_files: summary.input_files,
+        read_bytes: summary.read_bytes,
+        enumeration_ms: summary.enumeration_ms,
+        classification_ms: summary.classification_ms,
+        compaction_ms: summary.compaction_ms,
+        weighted_parse_ms: summary.weighted_parse_ms,
+      })
+    }`,
+  );
+  const reportStarted = SYSTEM_CLOCK.monotonicNow();
   const settled = await Promise.allSettled(
     summary.shardDirs.map((dir) =>
       deno(lcovReportArgs(dir, repoRoot), { capture: true, cwd: repoRoot })
     ),
   );
+  console.error(`coverage report cost: ${
+    JSON.stringify({
+      processes: summary.shardDirs.length,
+      elapsed_ms: SYSTEM_CLOCK.monotonicNow() - reportStarted,
+    })
+  }`);
   const reports: string[] = [];
   const failures: unknown[] = [];
   for (const result of settled) {
@@ -88,7 +107,7 @@ async function shardedLcovReports(
   if (failures.length > 0) {
     throw new AggregateError(
       failures,
-      "coverage reporting failed after every shard settled",
+      `coverage reporting failed after every shard settled: ${summary.input_files} raw profiles, ${summary.read_bytes} bytes read, ${summary.sharded} retained, ${summary.pruned} outside src, ${summary.opaque} unrecognized. Inspect the native error; an unrecognized header alone does not establish its cause.`,
     );
   }
   return reports;
@@ -139,6 +158,11 @@ export async function produceCoverage(
       try {
         const reports = await shardedLcovReports(profile, repoRoot);
         lcov = reports.join("\n");
+        if (suiteFailure === undefined && lcov.trim() === "") {
+          throw new Error(
+            "The instrumented suite produced no reportable coverage. The profile inventory and native report diagnostics above distinguish missing inputs from filtered or unrecognized data; no successful coverage artifact is published.",
+          );
+        }
         if (suiteFailure !== undefined && reports.length > 0) {
           console.error(
             "Coverage from the failed suite is diagnostic only; no evidence is published.",
@@ -163,6 +187,14 @@ export async function produceCoverage(
   } finally {
     const finished = SYSTEM_CLOCK.monotonicNow();
     if (suiteAttempted) {
+      console.error(`coverage producer cost: ${
+        JSON.stringify({
+          instrumented_suites: 1,
+          suite_ms: suiteFinished - started,
+          reports_ms: reportsFinished - suiteFinished,
+          cleanup_ms: finished - reportsFinished,
+        })
+      }`);
       console.error(
         `coverage producer: 1 instrumented suite; ` +
           `suite ${((suiteFinished - started) / 1000).toFixed(1)}s; ` +
@@ -180,13 +212,23 @@ export async function coverageReadings(
   lcov: string,
   repoRoot: string = REPO_ROOT,
 ): Promise<string> {
+  const discoveryStarted = SYSTEM_CLOCK.monotonicNow();
   const modules = await sourceModuleUniverse(repoRoot);
+  const discovered = SYSTEM_CLOCK.monotonicNow();
   const cov = srcLineCoverage([lcov], repoRoot, modules);
   const moduleEvaluation = evaluateModuleCoverage(
     cov,
     MODULE_LINE_COVERAGE_FLOOR,
     MODULE_COVERAGE_EXCEPTIONS,
   );
+  console.error(`coverage extraction cost: ${
+    JSON.stringify({
+      module_discovery_ms: discovered - discoveryStarted,
+      parse_and_evaluate_ms: SYSTEM_CLOCK.monotonicNow() - discovered,
+      lcov_characters: lcov.length,
+      modules: modules.length,
+    })
+  }`);
   console.error(renderTable(cov));
   console.error(`src/ line coverage: ${cov.hit}/${cov.found} lines`);
   console.error(

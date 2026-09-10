@@ -26,6 +26,7 @@
 
 import { dirname, join } from "@std/path";
 import { z } from "@zod/zod";
+import { type Clock, SYSTEM_CLOCK } from "../src/shared/clock.ts";
 
 /** Leading bytes read from one raw profile for classification. */
 const HEAD_BYTES = 512;
@@ -76,6 +77,15 @@ export function reportShardCount(cores: number): number {
 
 /** What pruning and sharding did to one profile directory. */
 export interface ProfileShardingSummary {
+  /** Raw file inventory and bytes actually read, without a second filesystem pass. */
+  readonly input_files: number;
+  readonly read_bytes: number;
+  /** Sequential elapsed phases; weighted parsing is a subset of compaction. */
+  readonly enumeration_ms: number;
+  readonly classification_ms: number;
+  readonly compaction_ms: number;
+  readonly weighted_parse_ms: number;
+
   /** Shard directories that received at least one profile, creation order. */
   readonly shardDirs: readonly string[];
   /** Profiles moved into a shard for a report pass. */
@@ -223,8 +233,13 @@ export async function pruneAndShardProfiles(
   shardTotal: number,
   concurrency = 256,
   maxIdentityBytes = 128 * 1024 * 1024,
+  clock: Pick<Clock, "monotonicNow"> = SYSTEM_CLOCK,
 ): Promise<ProfileShardingSummary> {
+  const started = clock.monotonicNow();
   const names = await rawProfileNames(profileDir);
+  const enumerated = clock.monotonicNow();
+  let readBytes = 0;
+  let weightedParseMs = 0;
   const inputPath = (index: number): string => {
     const name = names[index];
     if (name === undefined) throw new Error(`Missing coverage input ${index}`);
@@ -245,6 +260,7 @@ export async function pruneAndShardProfiles(
   await profileWorkers(names, concurrency, async (name, index) => {
     const path = join(profileDir, name);
     const bytes = await Deno.readFile(path);
+    readBytes += bytes.byteLength;
     const head = classifyRawProfileHead(
       HEAD_DECODER.decode(bytes.subarray(0, HEAD_BYTES)),
     );
@@ -285,9 +301,12 @@ export async function pruneAndShardProfiles(
     counts[slot] = (counts[slot] ?? 0) + 1;
     await Deno.rename(path, destination);
   });
+  const classified = clock.monotonicNow();
   await profileWorkers([...groups.values()], concurrency, async (group) => {
     if (group.duplicates.length === 0) return;
+    const parseStarted = clock.monotonicNow();
     const weighted = weightedProfile(group.text, group.duplicates.length + 1);
+    weightedParseMs += clock.monotonicNow() - parseStarted;
     if (weighted === undefined) {
       for (const index of group.duplicates) {
         const path = inputPath(index);
@@ -304,6 +323,12 @@ export async function pruneAndShardProfiles(
     compacted += group.duplicates.length;
   });
   return {
+    input_files: names.length,
+    read_bytes: readBytes,
+    enumeration_ms: enumerated - started,
+    classification_ms: classified - enumerated,
+    compaction_ms: clock.monotonicNow() - classified,
+    weighted_parse_ms: weightedParseMs,
     shardDirs: dirs.filter((_, index) => (counts[index] ?? 0) > 0),
     sharded,
     pruned,

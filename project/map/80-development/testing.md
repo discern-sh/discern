@@ -189,3 +189,9 @@ The desk keeps three test layers:
 - **Pure model and view tests** exhaust decisions, action legality, filtering thresholds, fleet-size and Unicode content, responsive rows, and semantic Components with explicit dimensions.
 - **Scripted runtime tests** replace effects and prompts behind `DeskRuntime`; they cover dispatch, refresh, refusal, confirmation, and effect boundaries without process scheduling.
 - **Real-PTY Desk canaries** in [`engine_desk_tty_test.ts`](../../../tests/engine_desk_tty_test.ts) drive the source CLI through [`desk_tty_harness.ts`](../../../tests/fixtures/desk_tty_harness.ts). The fixture retains raw bytes while projecting visible cells, roles, focus, clears, cursor state, unexpected controls, and hardware wraps. Representative journeys retain package input, pager descendants, Escape and Ctrl+C, control rendering, live resize, restoration, and leaked-child evidence.
+
+### Coverage cost observations
+
+The coverage producer reports its actual raw-file inventory and bytes read while processing them once, then separates enumeration, classification, compaction, native report execution, LCOV extraction and awaited cleanup. Weighted-profile parsing is a subset of compaction; native V8 parsing and rendering share the reporter interval. These observations describe required work and can guide matched probes. They are not a CPU-only limit or a reason to reuse an old measurement on changed inputs.
+
+Empty successful production fails before artifact publication. An unrecognized header remains input to the native reporter; its presence alone does not diagnose corruption. Reporting failures retain input counts and the native error after every reporting child settles. Failed suites can supply diagnostic coverage, never successful evidence. Profile processing requires settled writers: do not run the destructive pruner on a live coverage directory to obtain an early preview.

@@ -76,7 +76,7 @@ This tracked backlog publishes with the repository by design, including its mark
 
 - [ ] **Profile remaining per-invocation orchestration cost in journey tests.** Distinguish source import, Git discovery, native child recording, durable publication, and actual project work in matched journeys. Reduce measured repeated work without attributing a whole invocation to engine startup or weakening recovery guarantees. Evidence: `tests/engine_helpers.ts`; `tests/completion_public_done_test.ts`.
 
-- [ ] **Apply the execution-review ladder to the emergency suite.** The emergency tests spend around two summed minutes across fifteen registrations with several full-journey scaffolds; review them against the smallest-sufficient-execution ladder the way the completion family was. Evidence: `tests/completion_emergency_test.ts`; `project/map/80-development/test-execution-review.md`.
+- [x] **Apply the execution-review ladder to the emergency suite.** The emergency tests spend around two summed minutes across fifteen registrations with several full-journey scaffolds; review them against the smallest-sufficient-execution ladder the way the completion family was. Evidence: `tests/completion_emergency_test.ts`; `project/map/80-development/test-execution-review.md`.
 
 - [ ] **Publish the opt-in managed GitHub gate after launch.** Replace the one-shot scaffold with a deterministic ejectable workflow after release assets and managed-version authority exist, then add annotations, summaries, and deferred-Standard measurement. Evidence: `project/map/_private/planning/managed-ci-workstreams`; `.github/workflows`.
 

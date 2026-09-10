@@ -106,6 +106,14 @@ Deno.test("pruning excludes only identified foreign profiles and shards the rest
     await Deno.writeTextFile(join(dir, "notes.txt"), "not a profile");
 
     const summary = await pruneAndShardProfiles(dir, prefix, 3, 2);
+    assertEquals(summary.input_files, Object.keys(seeded).length);
+    assertEquals(
+      summary.read_bytes,
+      Object.values(seeded).reduce(
+        (sum, text) => sum + new TextEncoder().encode(text).length,
+        0,
+      ),
+    );
     assertEquals(summary.pruned, 1);
     assertEquals(summary.sharded, 4);
     assertEquals(summary.opaque, 1);
@@ -159,7 +167,19 @@ Deno.test("identical coverage observations compact while preserving every range 
       srcCoverageUrlPrefix(REPO),
       2,
       2,
+      128 * 1024 * 1024,
+      {
+        monotonicNow: (() => {
+          let tick = 0;
+          return () => tick++;
+        })(),
+      },
     );
+    assertEquals(summary.input_files, 3);
+    assertEquals(summary.enumeration_ms, 1);
+    assertEquals(summary.classification_ms, 1);
+    assertEquals(summary.weighted_parse_ms, 1);
+    assertEquals(summary.compaction_ms, 3);
     const profiles: string[] = [];
     for (const shard of summary.shardDirs) {
       for await (const entry of Deno.readDir(shard)) {
