@@ -118,7 +118,7 @@ If another process is handling the operation, let it finish. If files, branches,
 
 ### Distinguish landed from retired
 
-“Landed, workspace kept” can be a valid outcome. The change is already part of the shared project; the workspace remains because it is still held for editing, still in use, or cannot yet be removed under its cleanup rules. The result says which, and names the one command that finishes cleanup.
+“Landed, workspace kept” can be a valid outcome. The change is already part of the shared project; the workspace remains because it is still held for editing, still in use, or cannot yet be removed under its cleanup rules. The result says which, and names the command that finishes cleanup.
 
 Recovery is accounted for when you know what landed, what remains pending, and why each retained workspace or resource remains. [Worktree troubleshooting](../40-troubleshooting/worktrees-and-resources.md) covers cleanup and resource conditions.
 

@@ -92,7 +92,7 @@ Give feedback in terms of the outcome you want:
 
 Your agent makes that change in the same worktree, prepares and commits it, then produces fresh Proof. The earlier evidence described an earlier version. The new handoff should show the amended behavior and the evidence that covers it.
 
-Fresh Proof does not always mean every check runs again. discern keeps the results of checks whose inputs have not changed and runs the ones affected by the edit. The Proof still covers the whole new version.
+Fresh Proof does not always mean every check runs again. discern keeps the results of checks whose inputs have not changed and runs the ones affected by the edit. The Proof still covers the new version.
 
 If you have no changes, the agent stops the preview and releases the workspace without repeating any check:
 
@@ -110,7 +110,7 @@ When you are satisfied, you can say:
 
 Your agent runs `discern accept` from the task's worktree and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
 
-The result answers about this task first: whether it landed, and if not, the one thing that stands in the way. Read that sentence before anything else in the result.
+The result answers about this task first: whether it landed, and if not, what stands in the way. Read that sentence before anything else in the result.
 
 Landing is a queue. Several finished tasks can be waiting, and acceptance lands them in a stable order rather than in the order they finished. The command may land approved tasks ahead of yours on the way. It may also stop at a task ahead of yours that still needs someone's approval. Neither outcome says anything about your change; the result names the task it stopped at and what that task needs. Approving your change does not approve the ones ahead of it, and their landing headlines are not yours.
 
@@ -122,7 +122,7 @@ An unmet checkpoint or a proposed standard limit change needs your explicit deci
 
 The acceptance result identifies which changes landed on the shared branch and gives the surviving checkout path.
 
-After a landing, discern removes the task's workspace when nothing else is using it. When it stays, the result says why in one sentence and names the one command that finishes cleanup. The usual reasons: the workspace was never released (the agent runs `discern done --release-checkout`, then acceptance from the main checkout finishes cleanup); a preview or other process is still using it; the branch gained new commits after landing; the workspace holds changed files; or its ownership could not be verified. A kept workspace does not undo the landing.
+After a landing, discern removes the task's workspace when nothing else is using it. When it stays, the result says why in one sentence and names the command that finishes cleanup. The usual reasons: the workspace was never released (the agent runs `discern done --release-checkout`, then acceptance from the main checkout finishes cleanup); a preview or other process is still using it; the branch gained new commits after landing; the workspace holds changed files; or its ownership could not be verified. A kept workspace does not undo the landing.
 
 These are different states, and the result uses different words for them:
 

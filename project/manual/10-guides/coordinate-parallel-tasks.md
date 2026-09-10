@@ -138,7 +138,7 @@ The later agent verifies that the expected behavior is present and runs the full
 
 ## Share limited capacity
 
-Several agents can write at once. How many can run the project's full checks at the same time is bounded by settings the project chose during setup. Three of them matter here, and they bound different work, so they can legitimately hold different values:
+Several agents can write at once. How many can run the project's full checks at the same time is bounded by settings the project chose during setup. Each setting bounds different work, so they can legitimately hold different values:
 
 | Setting                        | What it bounds                                                          | What you see at the limit                                                        |
 | ------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
