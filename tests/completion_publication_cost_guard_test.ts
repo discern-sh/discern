@@ -1,8 +1,9 @@
-/** Graph invalidation is visible to live planners without a durability barrier. */
+/** Publication paths that only need atomic visibility flush nothing to disk. */
 import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { completionId } from "./completion_producers_fixtures.ts";
 import { withRecordedExecutionChildren } from "../src/engine/execution/lifetime.ts";
+import { withCompletionPublication } from "../src/engine/operation_lock.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { gitInit } from "./engine_helpers.ts";
 import {
@@ -15,16 +16,75 @@ import {
   readCompletionPublication,
 } from "../src/engine/completion/publication_witness.ts";
 
+/** One count per flush entry point, so a new barrier cannot hide behind another. */
+interface FileSyncCounts {
+  sync: number;
+  syncData: number;
+  syncSync: number;
+  syncDataSync: number;
+}
+
+const NO_FLUSH: FileSyncCounts = {
+  sync: 0,
+  syncData: 0,
+  syncSync: 0,
+  syncDataSync: 0,
+};
+
+/** Count every file flush until `restore` runs; each wrapper still performs the flush. */
+function countFileSyncs(): {
+  counts: FileSyncCounts;
+  restore: () => void;
+} {
+  const proto = Deno.FsFile.prototype;
+  const original = {
+    sync: proto.sync,
+    syncData: proto.syncData,
+    syncSync: proto.syncSync,
+    syncDataSync: proto.syncDataSync,
+  };
+  const counts: FileSyncCounts = { ...NO_FLUSH };
+  proto.sync = function (this: Deno.FsFile): Promise<void> {
+    counts.sync++;
+    return original.sync.call(this);
+  };
+  proto.syncData = function (this: Deno.FsFile): Promise<void> {
+    counts.syncData++;
+    return original.syncData.call(this);
+  };
+  proto.syncSync = function (this: Deno.FsFile): void {
+    counts.syncSync++;
+    original.syncSync.call(this);
+  };
+  proto.syncDataSync = function (this: Deno.FsFile): void {
+    counts.syncDataSync++;
+    original.syncDataSync.call(this);
+  };
+  return {
+    counts,
+    restore: (): void => {
+      proto.sync = original.sync;
+      proto.syncData = original.syncData;
+      proto.syncSync = original.syncSync;
+      proto.syncDataSync = original.syncDataSync;
+    },
+  };
+}
+
+/** A minimal project whose common Git administration can hold locks and receipts. */
+async function receiptFixture(root: string, slug: string): Promise<void> {
+  await Deno.writeTextFile(
+    join(root, "discern.toml"),
+    `[project]\nslug = '${slug}'\n`,
+  );
+  await gitInit(root);
+}
+
 Deno.test("publication tokens change atomically without flushing recovery-independent markers", async () => {
   await withTempDir(async (root) => {
     const path = join(root, "publication.json");
     assertEquals(await readCompletionPublication(path), null);
-    const original = Deno.FsFile.prototype.sync;
-    let syncs = 0;
-    Deno.FsFile.prototype.sync = function (): Promise<void> {
-      syncs++;
-      return original.call(this);
-    };
+    const syncs = countFileSyncs();
     try {
       await invalidateCompletionPublication(path);
       const first = await readCompletionPublication(path);
@@ -32,12 +92,12 @@ Deno.test("publication tokens change atomically without flushing recovery-indepe
       await invalidateCompletionPublication(path);
       assertNotEquals(await readCompletionPublication(path), first);
       assertEquals(
-        syncs,
-        0,
-        "Live graph invalidation must not fsync per publication",
+        syncs.counts,
+        NO_FLUSH,
+        "Live graph invalidation must not flush per publication",
       );
     } finally {
-      Deno.FsFile.prototype.sync = original;
+      syncs.restore();
     }
     for (const raw of ["", "{}", '{"version":999,"token":"future"}']) {
       await Deno.writeTextFile(path, raw);
@@ -48,24 +108,34 @@ Deno.test("publication tokens change atomically without flushing recovery-indepe
   });
 });
 
+Deno.test("operation lock acquisition and release flush nothing", async () => {
+  await withTempDir(async (root) => {
+    await receiptFixture(root, "lock-fixture");
+    const syncs = countFileSyncs();
+    try {
+      for (let round = 0; round < 3; round++) {
+        await withCompletionPublication(root, () => Promise.resolve());
+        assertEquals(
+          syncs.counts,
+          NO_FLUSH,
+          `Lock round ${round}: the lease record is inert; only the OS lock on the open handle establishes exclusion`,
+        );
+      }
+    } finally {
+      syncs.restore();
+    }
+  });
+});
+
 Deno.test("child receipt durability never weakens recovery artifact durability", async () => {
   await withTempDir(async (root) => {
-    await Deno.writeTextFile(
-      join(root, "discern.toml"),
-      "[project]\nslug = 'receipt-fixture'\n",
-    );
-    await gitInit(root);
+    await receiptFixture(root, "receipt-fixture");
     const subject = {
       attempt_id: completionId(700),
       candidate_id: completionId(701),
       context: "local",
     };
-    const original = Deno.FsFile.prototype.sync;
-    let syncs = 0;
-    Deno.FsFile.prototype.sync = function (): Promise<void> {
-      syncs++;
-      return original.call(this);
-    };
+    const syncs = countFileSyncs();
     try {
       for (
         const receipt of [
@@ -77,8 +147,8 @@ Deno.test("child receipt durability never weakens recovery artifact durability",
       ) {
         await saveExecutionChildReceipt(root, subject, receipt);
         assertEquals(
-          syncs,
-          0,
+          syncs.counts,
+          NO_FLUSH,
           `Child ${receipt.kind} only needs atomic visibility`,
         );
       }
@@ -94,16 +164,16 @@ Deno.test("child receipt durability never weakens recovery artifact durability",
       );
       assertEquals(child.code, 0);
       assertEquals(
-        syncs,
-        0,
+        syncs.counts,
+        NO_FLUSH,
         "Native enrollment must use the lifecycle publication boundary",
       );
       await saveEnvironmentArtifact(root, subject, "future-recovery-kind", {
         required: "bytes",
       });
       assertEquals(
-        syncs,
-        1,
+        syncs.counts,
+        { ...NO_FLUSH, sync: 1 },
         "Every general recovery publication must still sync its data",
       );
       await assertRejects(
@@ -124,7 +194,7 @@ Deno.test("child receipt durability never weakens recovery artifact durability",
         })
       );
     } finally {
-      Deno.FsFile.prototype.sync = original;
+      syncs.restore();
     }
   });
 });

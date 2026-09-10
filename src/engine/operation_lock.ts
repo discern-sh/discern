@@ -269,7 +269,6 @@ async function replaceLockRecord(
     }
     offset += written;
   }
-  await file.syncData();
 }
 
 /** Restore inert file bytes, then close owned handles in reverse order. */

@@ -10,7 +10,7 @@ Process interruption and machine interruption have different recovery subjects. 
 
 ## Decision
 
-Recovery records, captures and ordinary environment artifacts retain their existing sync barriers. A narrow typed child-receipt publisher writes the existing immutable receipt format atomically without a disk flush. It accepts only enrollment and child lifecycle facts. The graph publication marker also requires atomic visibility, not a disk flush. Every publisher still invalidates that marker under the common lock before mutation.
+Recovery records, captures and ordinary environment artifacts retain their existing sync barriers. A narrow typed child-receipt publisher writes the existing immutable receipt format atomically without a disk flush. It accepts only enrollment and child lifecycle facts. The graph publication marker also requires atomic visibility, not a disk flush. Every publisher still invalidates that marker under the common lock before mutation. The operation lock's lease record is inert and is never flushed: exclusion comes from the operating-system lock on the open handle, and a reader only needs the record's current bytes.
 
 Child inspection continues to refuse uncertain or corrupt evidence. Reclamation still requires a valid unchanged witness and the storage exclusion boundary. Missing or corrupt state never grants destructive recovery authority. This refines the witness durability described in ADR 0386; the reference graph and retained byte guarantees remain in force.
 
