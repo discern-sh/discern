@@ -267,7 +267,12 @@ Deno.test("accept from a worktree leads with that effort's own verdict when the 
         [["public-done", "landed"], ["middle", "pending"], ["last", "pending"]],
       );
       const own = rows.at(-1);
-      assertEquals(own?.pending[0]?.kind, "not-reached");
+      // An unapproved effort waits on its own approval wherever the walk
+      // stops; where it stopped is never presented as a dependency.
+      assert(
+        !own?.pending.some((item) => item.kind === "not-reached"),
+        accepted.output,
+      );
       assert(
         own?.pending.some((item) =>
           item.kind === "missing-evidence" || item.kind === "validation-failed"
@@ -276,20 +281,19 @@ Deno.test("accept from a worktree leads with that effort's own verdict when the 
       );
       assert(
         result.message?.startsWith(
-          "Selected effort `agent/last`: not landed.\n- Acceptance stopped at agent/middle",
+          "Selected effort `agent/last`: not landed.\n- Its checks failed; rerun discern done from its worktree.",
         ),
         result.message,
       );
       assertEquals(result.data.continuation, "discern accept --target last");
-      // The first paragraph is the verdict, where the walk stopped, and the one
-      // reason the owner acts on; every other assessed condition follows under
-      // its own label, so identifiers and record vocabulary never lead.
+      // The first paragraph is the verdict and the one reason the owner acts
+      // on; every other assessed condition follows under its own label, so
+      // identifiers and record vocabulary never lead.
       const [lead = "", ...after] = (result.message ?? "").split("\n\n");
       assertEquals(
         lead,
         [
           "Selected effort `agent/last`: not landed.",
-          "- Acceptance stopped at agent/middle, which is ahead of this effort in the queue.",
           "- Its checks failed; rerun discern done from its worktree.",
         ].join("\n"),
       );

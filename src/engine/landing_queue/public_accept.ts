@@ -42,6 +42,7 @@ import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import { cancelQueueClaim, type QueueWorkClaim } from "./claims.ts";
 import { createSourceAncestry, observeSource } from "./composition.ts";
 import { orderedEntries, sameSource } from "./model.ts";
+import type { CompletionQueue } from "../completion/outcomes.ts";
 import {
   queueComposable,
   queueEntryReadiness,
@@ -214,6 +215,7 @@ async function acceptQueueImplementation(
   // always carries its row; a landing headline for a predecessor is never the
   // answer. This wrapper only supplies the selected identity and, when the walk
   // never produced the row, synthesizes it from the observed queue entry.
+  let synchronizedQueue: CompletionQueue | undefined;
   const queueAcceptanceResult = (
     ...args: Parameters<typeof formatQueueAcceptanceResult>
   ): Promise<DiscernResult<AcceptData>> => {
@@ -222,8 +224,12 @@ async function acceptQueueImplementation(
     const entry = initialQueue?.data.entries.find((candidate) =>
       candidate.source.effort_id === selected
     );
-    const stoppedAt = [...rows].reverse().find((row) =>
-      row.state !== "landed" && row.effort !== selected
+    const stoppedAt = walkStoppedBefore(
+      selected,
+      (synchronizedQueue ?? initialQueue?.data)?.entries.find((candidate) =>
+        candidate.source.effort_id === selected
+      )?.authority_id ?? null,
+      rows,
     );
     let synthesized: AcceptancePrefix | undefined;
     if (
@@ -248,7 +254,11 @@ async function acceptQueueImplementation(
           kind: "not-reached",
           reason: `Acceptance stopped at ${
             displayBranch(stoppedAt.branch)
-          }, which is ahead of this effort in the queue.`,
+          } before reaching this effort${
+            stoppedAt.pending[0] === undefined
+              ? "."
+              : `: ${stoppedAt.pending[0].reason}`
+          }`,
         }, ...conditions],
       };
     }
@@ -590,6 +600,7 @@ async function acceptQueueImplementation(
         throw new Error("The observed queue is unavailable.");
       }
       const current = { record: queue };
+      synchronizedQueue = current.record.data;
       const ordered = orderedEntries(current.record.data);
       const target = current.record.data.entries.find((entry) =>
         entry.source.effort_id === requested
@@ -1102,4 +1113,23 @@ async function acceptQueueImplementation(
       });
     }
   }
+}
+
+/**
+ * The entry the landing walk stopped at before it reached the selected
+ * effort, or undefined. Only an approved selected effort can be "not reached":
+ * an unapproved one waits on its own approval wherever the walk stops, so
+ * naming that stop would only read as a dependency it does not have.
+ */
+export function walkStoppedBefore<
+  T extends { readonly effort: string; readonly state: string },
+>(
+  selected: string,
+  selectedAuthority: string | null,
+  rows: readonly T[],
+): T | undefined {
+  if (selectedAuthority === null) return undefined;
+  return [...rows].reverse().find((row) =>
+    row.state !== "landed" && row.effort !== selected
+  );
 }
