@@ -14,6 +14,27 @@ export const CHECKOUT_LANDING_FAMILIES = [
   "environment",
 ] as const;
 
+/** A fleet row's kept-checkout sentence: present when the row's committed
+ * source has landed and the checkout can be read. */
+export async function fleetLandedCheckout(
+  entry: {
+    readonly broken?: boolean | undefined;
+    readonly git_unavailable?: boolean | undefined;
+  },
+  path: string,
+  identity: { readonly id: string; readonly branch: string },
+  records: readonly CompletionRecord[],
+): Promise<{ message: string } | undefined> {
+  if (entry.broken === true || entry.git_unavailable === true) return undefined;
+  const landed = await checkoutLandingStatus(
+    path,
+    identity,
+    "worktree",
+    records,
+  );
+  return landed === undefined ? undefined : { message: landed.message };
+}
+
 /** Read those families once for a fleet of checkouts. */
 export async function checkoutLandingRecords(
   root: string,

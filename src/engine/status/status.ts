@@ -5,8 +5,10 @@ import {
 import {
   checkoutLandingRecords,
   checkoutLandingStatus,
+  fleetLandedCheckout,
 } from "./checkout_landing.ts";
-import { operationProgressResult } from "../completion/progress_result.ts";
+import { callingCheckoutRunningOperation } from "./running_operation.ts";
+import { landedExceptionStatus } from "./landed_exception.ts";
 import type { CompletionRecord } from "../completion/records.ts";
 import {
   queueComposable,
@@ -188,26 +190,6 @@ export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
-
-/** The calling checkout's long operation while its executor is still
- * running — the fact a resumed session needs before it is told to start
- * another. Read-only; a missing or finished operation is simply absent. */
-async function callingCheckoutRunningOperation(
-  root: string,
-): Promise<StatusData["operation"]> {
-  const read = await operationProgressResult(root);
-  if (
-    !read.ok || read.data === undefined || read.data.executor !== "running" ||
-    read.data.outcome !== undefined
-  ) return undefined;
-  const { handle, operation, progress } = read.data;
-  return {
-    verb: operation.verb,
-    ...(operation.branch === undefined ? {} : { branch: operation.branch }),
-    handle,
-    ...(progress === undefined ? {} : { latest: progress.reason }),
-  };
-}
 
 /** Order the canonical fleet before any bounded wire projection samples it. */
 export function prioritizeStatusFleet(
@@ -408,13 +390,10 @@ export async function statusResult(
     const { status: _status, ...unread } = landedProof;
     data.landed_proof_unsupported = unread;
   } else if (landedProof.status === "exception") {
-    const { status: _status, ...exception } = landedProof;
-    const outstanding = (completionRecovery.data.emergency_validation ?? [])
-      .some((row) => row.landing_id === exception.landing_id);
-    data.landed_exception = {
-      ...exception,
-      validation: outstanding ? "outstanding" : "resolved",
-    };
+    data.landed_exception = landedExceptionStatus(
+      landedProof,
+      completionRecovery.data.emergency_validation ?? [],
+    );
   }
   const recentCompleted = await recentCompletedTasks(
     root,
@@ -966,19 +945,13 @@ async function fleetEntryFor(
         fallbackTitle,
         task.kind === "unavailable" ? task.reason : undefined,
       );
-    // A checkout whose committed source has landed says so from every
-    // surface, with why it stayed and the one command that finishes cleanup.
-    if (entry.broken !== true && entry.git_unavailable !== true) {
-      const landed = await checkoutLandingStatus(
-        row.path,
-        identity,
-        "worktree",
-        landingRecords,
-      );
-      if (landed !== undefined) {
-        entry.landed_checkout = { message: landed.message };
-      }
-    }
+    const landed = await fleetLandedCheckout(
+      entry,
+      row.path,
+      identity,
+      landingRecords,
+    );
+    if (landed !== undefined) entry.landed_checkout = landed;
   }
   return entry;
 }
