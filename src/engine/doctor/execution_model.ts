@@ -349,7 +349,7 @@ function standardsVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "standards",
     when:
-      "On demand — the full standalone measurement pass (always measures, never replays): deferred standards, pinning a gain, CI. The gate already measures the rest on every `discern done`.",
+      "On demand — the full standalone measurement pass (always measures, never replays): a standalone reading, pinning a gain, CI. The gate already measures the rest on every `discern done`.",
     steps,
   };
 }

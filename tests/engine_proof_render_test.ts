@@ -16,6 +16,7 @@ import {
   renderProofMarkdown,
 } from "../src/engine/gate/proof_render.ts";
 import { renderDoneTtySummary } from "../src/engine/gate/done_tty.ts";
+import { STANDARD_MEASUREMENTS } from "../src/shared/result_schemas.ts";
 import {
   renderGateTtyStatus,
   renderGateTtyTable,
@@ -542,35 +543,39 @@ Deno.test("proof line: held standards claim one segment", () => {
   );
 });
 
-Deno.test("proof line: improved and deferred standards are counted", () => {
+Deno.test("proof line: improved and unmeasured standards are counted", () => {
   const improved: GateStandard = {
     ...HELD,
     name: "instruction_words",
     verdict: "improved",
   };
-  const deferred: GateStandard = {
+  const skipped: GateStandard = {
     name: "bundle_size",
     direction: "down",
     limit: 1024,
-    measurement: "deferred",
+    measurement: "skipped",
   };
   assertStringIncludes(
-    renderProofLine(FACTS, [HELD, improved, deferred], VERIFIED),
-    "· Standards held (1 improved, 1 deferred) ·",
+    renderProofLine(FACTS, [HELD, improved, skipped], VERIFIED),
+    "· Standards held (1 improved, 1 not measured) ·",
   );
 });
 
-Deno.test("proof line: all standards deferred is stated as such", () => {
-  const deferred: GateStandard = {
+Deno.test("proof line: no measured standard is stated as such", () => {
+  const skipped: GateStandard = {
     name: "bundle_size",
     direction: "down",
     limit: 1024,
-    measurement: "deferred",
+    measurement: "skipped",
   };
   assertStringIncludes(
-    renderProofLine(FACTS, [deferred], VERIFIED),
-    "· Standards deferred (1) ·",
+    renderProofLine(FACTS, [skipped], VERIFIED),
+    "· Standards not measured (1) ·",
   );
+});
+
+Deno.test("the measurement vocabulary carries no retired on-demand disposition", () => {
+  assert(!STANDARD_MEASUREMENTS.includes("deferred" as never));
 });
 
 Deno.test("cancelled and stale measurements cannot render a held standards claim", () => {

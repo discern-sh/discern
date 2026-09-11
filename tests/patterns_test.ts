@@ -361,6 +361,8 @@ function decisionReading(
   over: {
     direction?: "up" | "down";
     margin?: number;
+    /** Logbook history may still carry `deferred` from the retired
+     * on-demand mode; the live vocabulary no longer produces it. */
     measurement?: "measured" | "replayed" | "deferred" | "skipped";
     verdict?: "improved" | "held" | "regressed";
     pinEligible?: boolean;

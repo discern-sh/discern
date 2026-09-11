@@ -86,14 +86,9 @@ function stepRow(r: StepResult): string {
 }
 
 /** One standards bullet: the value against its bound, how it was obtained
- * (measured with its cost / replayed from a commit / deferred / skipped). */
+ * (measured with its cost / replayed from a commit / skipped). */
 function standardLine(o: GateStandard): string {
   const bound = o.direction === "up" ? "floor" : "ceiling";
-  if (o.measurement === "deferred") {
-    return `- ${
-      code(o.name)
-    } — deferred (measure = "on-demand"; ${bound} ${o.limit} still verified) — run \`discern standards\``;
-  }
   if (o.measurement === "skipped") {
     return `- ${code(o.name)} — not measured (the gate stopped before it ran)`;
   }
@@ -156,11 +151,12 @@ function standardsSection(
   return lines;
 }
 
-/** The line's Standards segment: `Standards held` with improved/deferred counts
- * appended, `Standards deferred` when nothing was measured, the UNVERIFIED
- * disclosure when the trunk's limits could not be checked — or `undefined` when
- * no standards are configured (nothing to claim). A proof only exists for a
- * green gate, so a measured standard here held or improved by construction. */
+/** The line's Standards segment: `Standards held` with improved/not-measured
+ * counts appended, `Standards not measured` when nothing was measured, the
+ * UNVERIFIED disclosure when the trunk's limits could not be checked — or
+ * `undefined` when no standards are configured (nothing to claim). A proof only
+ * exists for a green gate, so a measured standard here held or improved by
+ * construction. */
 function lineStandardsSegment(
   standards: GateStandard[],
   limits: StandardsLimitsData | undefined,
@@ -176,16 +172,16 @@ function lineStandardsSegment(
       o.measurement === "cancelled" || o.measurement === "stale"
     ).length;
   if (incomplete > 0) return `Standards incomplete (${incomplete})`;
-  const deferred = standards.filter(
-    (o) => o.measurement === "deferred" || o.measurement === "skipped",
+  const unmeasured = standards.filter(
+    (o) => o.measurement === "skipped",
   ).length;
-  if (deferred === standards.length) {
-    return `Standards deferred (${deferred})`;
+  if (unmeasured === standards.length) {
+    return `Standards not measured (${unmeasured})`;
   }
   const improved = standards.filter((o) => o.verdict === "improved").length;
   const counts = [
     ...(improved > 0 ? [`${improved} improved`] : []),
-    ...(deferred > 0 ? [`${deferred} deferred`] : []),
+    ...(unmeasured > 0 ? [`${unmeasured} not measured`] : []),
   ];
   return counts.length > 0
     ? `Standards held (${counts.join(", ")})`

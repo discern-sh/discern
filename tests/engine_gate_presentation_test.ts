@@ -642,12 +642,6 @@ Deno.test("Gate Standards render every measurement and verdict without invented 
       replayed_from: "abc1234",
     },
     {
-      name: "docs",
-      direction: "up",
-      limit: 90,
-      measurement: "deferred",
-    },
-    {
       name: "prose",
       direction: "down",
       limit: 40,
@@ -676,8 +670,6 @@ Deno.test("Gate Standards render every measurement and verdict without invented 
       "bundle · drifting",
       "Current: 104",
       "replayed from abc1234",
-      "Measurement is deferred",
-      "Run discern standards.",
       "The gate stopped before this standard measurement ran.",
       "Measurement was cancelled before a complete verdict was recorded.",
       "The measurement evidence no longer applies to the current subject.",

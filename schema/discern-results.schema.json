@@ -11976,7 +11976,6 @@
                         "enum": [
                           "measured",
                           "replayed",
-                          "deferred",
                           "skipped",
                           "cancelled",
                           "stale"
@@ -13128,7 +13127,6 @@
                         "enum": [
                           "measured",
                           "replayed",
-                          "deferred",
                           "skipped",
                           "cancelled",
                           "stale"
@@ -13688,7 +13686,6 @@
                         "enum": [
                           "measured",
                           "replayed",
-                          "deferred",
                           "skipped",
                           "cancelled",
                           "stale"
@@ -16895,7 +16892,6 @@
                         "enum": [
                           "measured",
                           "replayed",
-                          "deferred",
                           "skipped",
                           "cancelled",
                           "stale"
@@ -17544,7 +17540,6 @@
                         "enum": [
                           "measured",
                           "replayed",
-                          "deferred",
                           "skipped",
                           "cancelled",
                           "stale"

@@ -198,7 +198,8 @@ export type ChangeScale = z.infer<typeof changeScaleSchema>;
 /** One standard's reading, lifted from the envelope where the gate already
  * measured it: the name, the limit it was held to, the measured value when one
  * exists, the verdict, and how the measurement happened (`measured` fresh,
- * `replayed` from the recorded baseline, `deferred` to on-demand, `skipped`).
+ * `replayed` from the recorded baseline, `skipped`; older records may carry
+ * `deferred` from the retired on-demand mode).
  * The metric trajectory over time — the single richest longitudinal series the
  * logbook holds — reads straight out of these. */
 const standardReadingSchema = z.looseObject({

@@ -905,7 +905,6 @@ export const TolerantProofNoteSchema = z.looseObject({
 export const STANDARD_MEASUREMENTS = [
   "measured", // the run command executed inside the gate's parallel group
   "replayed", // the recorded baseline value stood in — its inputs were untouched
-  "deferred", // measure = "on-demand": the gate skipped only the measurement
   "skipped", // the gate aborted (fail-fast, an earlier stage) before it ran
   "cancelled", // interrupted production has no completed measurement verdict
   "stale", // produced evidence is inapplicable to the observed subject
@@ -921,7 +920,7 @@ export type StandardVerdictLabel = (typeof STANDARD_VERDICTS)[number];
 
 /** One standard's outcome in a gate run: what the gate did about its measurement
  * (`measurement`), the value and its standing when one exists (`value` absent for
- * deferred/skipped and for an unreadable metric — the diagnostic carries why), the
+ * skipped and for an unreadable metric — the diagnostic carries why), the
  * measurement's wall-clock cost, and — for a replay — the commit whose recorded
  * measurement stood in. */
 export const GateStandardSchema = z.strictObject({

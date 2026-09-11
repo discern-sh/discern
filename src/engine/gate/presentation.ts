@@ -202,7 +202,6 @@ export const GATE_STANDARD_TREND = {
 export const GATE_STANDARD_MEASUREMENT_LABEL = {
   measured: "measured",
   replayed: "replayed",
-  deferred: "deferred",
   skipped: "skipped",
   cancelled: "cancelled",
   stale: "stale",
@@ -723,7 +722,7 @@ function standardSummaryState(
   standard: GateStandard,
 ): ResultSummaryCliProps["state"] {
   if (
-    standard.measurement === "deferred" || standard.measurement === "skipped" ||
+    standard.measurement === "skipped" ||
     standard.measurement === "cancelled" || standard.measurement === "stale"
   ) {
     return "blocked";
@@ -749,8 +748,6 @@ function standardEvidence(standard: GateStandard): string {
       return standard.replayed_from === undefined
         ? "A recorded value was replayed because the standard inputs did not change."
         : `The value was replayed from ${standard.replayed_from} because the standard inputs did not change.`;
-    case "deferred":
-      return 'Measurement is deferred by measure = "on-demand".';
     case "skipped":
       return "The gate stopped before this standard measurement ran.";
     case "cancelled":
@@ -760,7 +757,7 @@ function standardEvidence(standard: GateStandard): string {
   }
 }
 
-/** Render every Standard reading without manufacturing a value for deferred work. */
+/** Render every Standard reading without manufacturing a value for unmeasured work. */
 export function renderGateStandards(
   standards: readonly GateStandard[],
   options: GatePresentationOptions,
@@ -794,9 +791,6 @@ export function renderGateStandards(
       ...(standard.duration_s === undefined
         ? {}
         : { duration: safeLine(fmtDuration(standard.duration_s)) }),
-      ...(standard.measurement === "deferred"
-        ? { nextAction: "Run discern standards." }
-        : {}),
       maxWidth: width,
     });
     if (standard.value === undefined) return evidence;
