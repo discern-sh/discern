@@ -1,5 +1,6 @@
 /**
- * A checkout's own live run is never presented as a return needing recovery.
+ * A checkout's own live run is never presented as a return needing recovery
+ * or as an environment whose activity cannot be verified.
  * Between its queue claim and its environment enrollment, and again between
  * return and admission, the environment record reads idle while the queue
  * entry is active; status must lead with the run, not with a phantom
@@ -61,4 +62,43 @@ Deno.test("status leads with the running operation, not a phantom recovery", () 
     real.message?.startsWith("Checkout return requires recovery"),
     real.message,
   );
+});
+
+const activity = {
+  environment_id: "env-1",
+  attempt_id: "a1",
+  candidate_id: "c1",
+  phase: "install",
+  lease_expires_at: 1,
+  reason:
+    "A native operation holds the checkout; its recorded claim does not identify the lock owner.",
+};
+
+Deno.test("an environment's activity reading yields to the checkout's own running operation", () => {
+  const presented = completionStatusPresentation(
+    { data: { execution_activity: [activity] }, hints: [] },
+    [],
+    undefined,
+    running,
+  );
+  assert(
+    presented.message?.startsWith(
+      "`done` on agent/mine is still running: Running the test stage.",
+    ),
+    presented.message,
+  );
+  assert(!presented.hints.some((hint) => hint.id === "completion-pending"));
+  const unowned = completionStatusPresentation(
+    { data: { execution_activity: [activity] }, hints: [] },
+    [],
+    undefined,
+    undefined,
+  );
+  assert(
+    unowned.message?.startsWith(
+      "Environment env-1 records attempt a1 in phase install.",
+    ),
+    unowned.message,
+  );
+  assert(unowned.hints.some((hint) => hint.id === "completion-pending"));
 });

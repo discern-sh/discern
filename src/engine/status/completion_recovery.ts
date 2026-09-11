@@ -55,7 +55,9 @@ export async function completionRecoveryStatus(
   };
 }
 
-/** Active execution and recovery supersede ordinary authoring and landing directions. */
+/** Active execution and recovery supersede ordinary authoring and landing
+ * directions; the calling checkout's own live run supersedes the reading of
+ * its environment's activity, whatever phase that environment records. */
 export function completionStatusPresentation(
   recovery: Awaited<ReturnType<typeof completionRecoveryStatus>>,
   ordinaryHints: readonly FiredHint[],
@@ -76,7 +78,7 @@ export function completionStatusPresentation(
       hints.length,
       ...hints.filter((hint) => !nextSteps.has(hint.id)),
     );
-    if (!recovering && active !== undefined) {
+    if (!recovering && active !== undefined && running === undefined) {
       hints.push(fire(HINTS["completion-pending"], {
         action: active.next_action ??
           "Observe the owning command. If it ended, use the environment's supported recovery action; a recorded deadline does not prove activity.",
@@ -97,10 +99,12 @@ export function completionStatusPresentation(
     } Read it back with discern progress ${running.handle}; it needs no new command while it runs.`;
   const message = recovering
     ? "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action."
+    : runningMessage !== undefined
+    ? runningMessage
     : active !== undefined
     ? `Environment ${active.environment_id} records attempt ${active.attempt_id} in phase ${active.phase}. ${
       active.reason ?? "Current executor activity is unverified."
     }`
-    : runningMessage ?? landingMessage;
+    : landingMessage;
   return { hints, ...(message === undefined ? {} : { message }) };
 }
