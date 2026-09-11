@@ -2040,6 +2040,34 @@ export const HINTS = {
       }`,
   }),
 
+  /** A declared setting that is inert must say so on the daily surfaces. */
+  "completion-early-validation-inert": defineHint<{
+    lookahead: number;
+    contexts: readonly string[];
+    cause: "unproven" | "undeclared" | "no-slot";
+  }>({
+    id: "completion-early-validation-inert",
+    category: "notice",
+    audience: "all",
+    when:
+      "`[completion].lookahead` asks for early checking, but the declared environment is unproven, undeclared, or has no spare slot, so efforts are checked in order.",
+    example: { lookahead: 1, contexts: ["local"], cause: "unproven" },
+    template: ({ lookahead, contexts, cause }): string => {
+      const named = contexts.map((context) => `\`${context}\``).join(", ");
+      const because = cause === "unproven"
+        ? `the environment declared for ${named} has not been proven since it was declared or changed`
+        : cause === "undeclared"
+        ? `no \`[execution.<context>]\` declaration exists for ${named}`
+        : "no validation slot is spare beyond the one reserved for the next effort to land";
+      const route = cause === "unproven"
+        ? `Run ${CMD.setupDone} from a clean committed tree to prove it`
+        : cause === "undeclared"
+        ? "Declare the environment"
+        : "Raise \`[completion].concurrency\` or the environment's \`capacity\`";
+      return `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${route}, or set lookahead to 0.`;
+    },
+  }),
+
   "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
     id: "gate-proof-head-moved",
     category: "next-step",

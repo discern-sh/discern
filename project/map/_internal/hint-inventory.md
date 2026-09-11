@@ -298,6 +298,17 @@ Rendered example:
 
 > A declared-unmet conclusion stands on: api-review. Landing requires the owner to authorize each variance in the current conversation — recorded standing and effort grants never cover one. Relay each question and rationale above to the owner; the decision is served at `discern accept`.
 
+## `completion-early-validation-inert`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: `[completion].lookahead` asks for early checking, but the declared environment is unproven, undeclared, or has no spare slot, so efforts are checked in order.
+
+Rendered example:
+
+> Early checking is off: `completion.lookahead = 1` asks to check efforts early, but the environment declared for `local` has not been proven since it was declared or changed. Efforts are checked and land in order. Run `discern setup done` from a clean committed tree to prove it, or set lookahead to 0.
+
 ## `completion-pending`
 
 - Category: `next-step`
@@ -918,7 +929,7 @@ Rendered example:
 
 Rendered example:
 
-> Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. Standalone feedback passed and recorded no Proof for the dirty tree (2 tracked files changed).
+> Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and run `discern done` on the clean HEAD for Proof before handoff or acceptance. Standalone feedback does not issue Proof. A full run does, and it needs a clean committed tree; this tree was not clean when the run began — uncommitted: notes.md.
 
 ## `gate-proof-unavailable`
 

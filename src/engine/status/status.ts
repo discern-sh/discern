@@ -2,6 +2,7 @@ import {
   completionRecoveryStatus,
   completionStatusPresentation,
 } from "./completion_recovery.ts";
+import { inertEarlyValidationHint } from "../completion/early_validation_notice.ts";
 import {
   checkoutLandingRecords,
   checkoutLandingStatus,
@@ -710,6 +711,7 @@ export async function statusResult(
     ? checkpointInspectionHints(await inspectCheckpointObligations(root, cfg))
     : [];
 
+  const inertEarlyValidation = await inertEarlyValidationHint(root, cfg);
   const ordinaryHints = await buildStatusHints({
     root,
     location,
@@ -743,6 +745,7 @@ export async function statusResult(
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
     currentSourceLanded: checkoutLanding !== undefined,
+    inertEarlyValidation,
   });
   const { hints, ...presentation } = completionStatusPresentation(
     completionRecovery,
@@ -1038,6 +1041,8 @@ interface HintContext {
   checkpointPreview: FiredHint[];
   /** A durable landing names this effort's exact current committed source. */
   currentSourceLanded: boolean;
+  /** Configured early checking that cannot run here, stated once. */
+  inertEarlyValidation: FiredHint | undefined;
   /** The ordered landing queue carried by this result, when present. */
   queue: StatusData["queue"];
   /** `[completion].concurrency`, for the one capacity sentence. */
@@ -1067,6 +1072,11 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // early: every later hint assumes the work is happening where the tools point.
   if (ctx.divergence !== undefined) {
     hints.push(ctx.divergence);
+  }
+  // A declared setting that does nothing here is named on every status, so
+  // an owner never learns from a slow queue that early checking was inert.
+  if (ctx.inertEarlyValidation !== undefined) {
+    hints.push(ctx.inertEarlyValidation);
   }
   if (ctx.reappearedWorktreePaths.length > 0) {
     hints.push(
