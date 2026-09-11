@@ -1,4 +1,4 @@
-import { inertEarlyValidationHint } from "../completion/early_validation_notice.ts";
+import { greenRunNotices } from "../completion/early_validation_notice.ts";
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { recoveryRequestResult } from "../execution/public_recovery.ts";
 import { releaseCheckoutRequestResult } from "./public_release.ts";
@@ -1064,9 +1064,7 @@ async function runCandidateGate(
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
   // A green run in a project whose early checking cannot run says so here,
   // where the owner expected it to matter.
-  const inertEarlyValidation = failedStage === null
-    ? await inertEarlyValidationHint(root, cfg)
-    : undefined;
+  const runNotices = await greenRunNotices(root, cfg, failedStage !== null);
   const hints: FiredHint[] = [
     ...leadingFailureHints,
     ...(failedStage === null && gateProof.status === "skipped_dirty"
@@ -1077,7 +1075,7 @@ async function runCandidateGate(
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(strandUnavailableHint === undefined ? [] : [strandUnavailableHint]),
-    ...(inertEarlyValidation === undefined ? [] : [inertEarlyValidation]),
+    ...runNotices,
     ...checkpointAdvisoryHints,
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.

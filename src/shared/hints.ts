@@ -2043,29 +2043,26 @@ export const HINTS = {
   /** A declared setting that is inert must say so on the daily surfaces. */
   "completion-early-validation-inert": defineHint<{
     lookahead: number;
-    contexts: readonly string[];
-    cause: "unproven" | "undeclared" | "no-slot";
+    /** Why early checking cannot run, as one clause without a full stop. */
+    because: string;
+    /** The route that turns it on; undefined means proving the declaration. */
+    route: string | undefined;
   }>({
     id: "completion-early-validation-inert",
     category: "notice",
     audience: "all",
     when:
       "`[completion].lookahead` asks for early checking, but the declared environment is unproven, undeclared, or has no spare slot, so efforts are checked in order.",
-    example: { lookahead: 1, contexts: ["local"], cause: "unproven" },
-    template: ({ lookahead, contexts, cause }): string => {
-      const named = contexts.map((context) => `\`${context}\``).join(", ");
-      const because = cause === "unproven"
-        ? `the environment declared for ${named} has not been proven since it was declared or changed`
-        : cause === "undeclared"
-        ? `no \`[execution.<context>]\` declaration exists for ${named}`
-        : "no validation slot is spare beyond the one reserved for the next effort to land";
-      const route = cause === "unproven"
-        ? `Run ${CMD.setupDone} from a clean committed tree to prove it`
-        : cause === "undeclared"
-        ? "Declare the environment"
-        : "Raise \`[completion].concurrency\` or the environment's \`capacity\`";
-      return `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${route}, or set \`completion.lookahead\` to 0.`;
+    example: {
+      lookahead: 1,
+      because:
+        "the environment declared for `local` has not been proven since it was declared or changed",
+      route: undefined,
     },
+    template: ({ lookahead, because, route }): string =>
+      `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${
+        route ?? `Run ${CMD.setupDone} from a clean committed tree to prove it`
+      }, or set \`completion.lookahead\` to 0.`,
   }),
 
   "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
