@@ -2028,12 +2028,16 @@ export const HINTS = {
     when:
       "Explicit standalone feedback passed on a dirty tree and records no Proof.",
     family: "gate-proof",
-    example: { reason: "2 tracked files changed" },
+    example: {
+      reason:
+        "Standalone feedback does not issue Proof. A full run does, and it needs a clean committed tree; this tree was not clean when the run began — uncommitted: notes.md.",
+    },
     template: ({ reason }): string =>
       `Use ${CMD.prepare} or ${CMD.test} while iterating. Then commit ` +
-      `the intended final tree and re-run ${CMD.done} on the clean HEAD before ` +
-      `handoff or acceptance. Standalone feedback passed and recorded no Proof ` +
-      `for the dirty tree${reasonSuffix(reason)}.`,
+      `the intended final tree and run ${CMD.done} on the clean HEAD for ` +
+      `Proof before handoff or acceptance.${
+        reason === undefined ? "" : ` ${reason}`
+      }`,
   }),
 
   "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
