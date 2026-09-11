@@ -339,7 +339,7 @@ export async function withPublicCompletion<T>(
       return {
         kind: "environment-unavailable",
         reason:
-          `This candidate needs temporary composition. Declare execution.${options.context}, or run discern update in the source worktree and then discern done.`,
+          `This source fell behind the trunk and no declared environment can compose it here. Declare execution.${options.context}, or run discern update in this worktree, then discern done.`,
       };
     }
     if (declaration?.kind === "isolated") {

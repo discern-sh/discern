@@ -82,11 +82,15 @@ export async function publishAdmission(input: {
     const entry = current.record.data.entries.find((entry) =>
       entry.source.effort_id === input.claim.effort
     );
-    const sourceTip = entry?.eligible_order === null &&
-      candidate.head === candidate.source.head &&
+    // Ordinary author validation of a provisional (unapproved) effort is
+    // built against the trunk — as its own source tip, or composed on the
+    // trunk when the source fell behind — so admission accepts the trunk as
+    // that entry's predecessor exactly as selection did. Eligible entries
+    // still answer for their ordered predecessor.
+    const authorTip = entry?.eligible_order === null &&
       candidate.expected_predecessor.head === current.record.data.trunk;
     if (
-      !sourceTip &&
+      !authorTip &&
       ("kind" in predecessor ||
         predecessor.head !== candidate.expected_predecessor.head)
     ) return { kind: "replan" };

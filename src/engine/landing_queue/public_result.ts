@@ -91,6 +91,8 @@ export function acceptancePending(
         ? "The authored source changed after completion. Run discern done on the intended clean committed source and obtain authority for that source."
         : reason === "claim-lost"
         ? "The acceptance reservation expired or its observed state changed. Retry acceptance for the same effort; unchanged validation evidence remains reusable."
+        : reason === "external-trunk"
+        ? "The trunk moved since this source was checked. Run discern update in its worktree, then discern done."
         : `Validation evidence is stale${
           reason === undefined ? "" : ` (${reason})`
         }. Acceptance needs current evidence in an eligible released environment.`,

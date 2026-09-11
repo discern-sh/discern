@@ -210,6 +210,16 @@ export async function claimQueueWork(input: {
         entry.source.effort_id === input.effort &&
         sameSource(entry.source, proposed.source)
       );
+    // A provisional effort's candidate is built against the trunk whether or
+    // not its source is the trunk's tip; only an eligible entry answers for
+    // an ordered predecessor.
+    const authorTip = proposed !== undefined &&
+      proposed.expected_predecessor.head === current.record.data.trunk &&
+      entries.some((entry) =>
+        entry.source.effort_id === input.effort &&
+        entry.eligible_order === null &&
+        sameSource(entry.source, proposed.source)
+      );
     if (proposed !== undefined) {
       const selected = entries.find((entry) =>
         entry.source.effort_id === input.effort
@@ -227,7 +237,7 @@ export async function claimQueueWork(input: {
       if (
         selected === undefined ||
         !sameSource(selected.source, proposed.source) ||
-        (!sourceTip &&
+        (!sourceTip && !authorTip &&
           ("kind" in predecessor ||
             predecessor.head !== proposed.expected_predecessor.head))
       ) return { kind: "replan" };

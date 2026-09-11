@@ -142,12 +142,18 @@ export async function runCompleteGate<T extends CompletionGateResult>(
     (completed.proof_id === undefined || completed.blockers.length > 0) &&
     gate.result.ok
   ) {
+    const causes = completed.blockers.map((blocker) =>
+      acceptancePending(blocker).reason
+    );
     gate.result = {
       ...gate.result,
       ok: false,
       error: "incomplete",
-      message:
-        "Validation finished; complete evidence or environment recovery is still pending.",
+      message: causes.length === 0
+        ? "The checks passed, but this run is not recorded as complete: its evidence is not assembled yet."
+        : `The checks passed, but this run is not recorded as complete. ${
+          causes.join(" ")
+        }`,
     };
     gate.failedStage = "check/test";
   }
