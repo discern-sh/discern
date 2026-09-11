@@ -49,6 +49,8 @@ The journal is advisory presentation state. It carries no validation or landing 
 
 Observers divide by what they hold. A read-only observer — a reconnect read, an `await` watch, a second session following the run — can stop, time out, or die without touching execution; the [journey guard](../../../tests/engine_progress_journey_test.ts) holds that boundary. The MCP call that is itself executing a verb is not a separate observer: by the established transport contract, its explicit cancellation, or its transport closing, cancels the executor, and the journal records the run as cancelled with its facts retained for reconnect.
 
+`discern status` from the same checkout leads with an operation that is still running — its latest sentence and its handle, as `data.operation` — so a resumed session that lost the announcement finds it in the orientation call it makes first, instead of being told to start another run.
+
 ## Named timing boundaries
 
 A producer's own elapsed time, a producer budget (`[gate].timeout` or a per-entry `timeout`, always named with its config key when it fires), an environment return interval, and the command's own wall span are separate recorded facts. No surface infers one from another, and the layer that owns a deadline diagnoses its timeout.
