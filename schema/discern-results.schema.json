@@ -26892,6 +26892,17 @@
                       "broken": {
                         "type": "boolean"
                       },
+                      "landed_checkout": {
+                        "type": "object",
+                        "properties": {
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ]
+                      },
                       "gate_proof": {
                         "type": "object",
                         "properties": {

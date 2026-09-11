@@ -2,8 +2,12 @@ import {
   completionRecoveryStatus,
   completionStatusPresentation,
 } from "./completion_recovery.ts";
-import { checkoutLandingStatus } from "./checkout_landing.ts";
+import {
+  checkoutLandingRecords,
+  checkoutLandingStatus,
+} from "./checkout_landing.ts";
 import { operationProgressResult } from "../completion/progress_result.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import {
   queueComposable,
   statusQueueRows,
@@ -545,6 +549,9 @@ export async function statusResult(
   // project with no env file still gets real ids (never a truncated branch name).
   let fleet: StatusFleetEntry[] | undefined;
   let fleetCollisionPairs: FleetCollision[] | undefined;
+  // One read of the landing, retirement, and environment records serves every
+  // fleet row's kept-checkout sentence.
+  const landingRecords = includeFleet ? await checkoutLandingRecords(root) : [];
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
@@ -571,7 +578,13 @@ export async function statusResult(
     }
     fleet = await Promise.all(
       fleetRows.map(async (row) => {
-        const entry = await fleetEntryFor(row, here, cfg, settings);
+        const entry = await fleetEntryFor(
+          row,
+          here,
+          cfg,
+          settings,
+          landingRecords,
+        );
         return applyLogbookActivity(
           entry,
           logbookActivity?.byBranch.get(row.branch),
@@ -839,6 +852,7 @@ async function fleetEntryFor(
   here: string,
   cfg: DiscernConfig,
   settings: IdentitySettings | undefined,
+  landingRecords: readonly CompletionRecord[],
 ): Promise<StatusFleetEntry> {
   const entry: StatusFleetEntry = {
     path: row.path,
@@ -952,6 +966,19 @@ async function fleetEntryFor(
         fallbackTitle,
         task.kind === "unavailable" ? task.reason : undefined,
       );
+    // A checkout whose committed source has landed says so from every
+    // surface, with why it stayed and the one command that finishes cleanup.
+    if (entry.broken !== true && entry.git_unavailable !== true) {
+      const landed = await checkoutLandingStatus(
+        row.path,
+        identity,
+        "worktree",
+        landingRecords,
+      );
+      if (landed !== undefined) {
+        entry.landed_checkout = { message: landed.message };
+      }
+    }
   }
   return entry;
 }

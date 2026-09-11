@@ -256,6 +256,7 @@ const STATUS_ORIENTATION_FLEET_FIELDS = [
   "setup",
   "gate_proof",
   "landing_authority",
+  "landed_checkout",
 ] as const;
 
 /**

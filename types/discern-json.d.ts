@@ -8201,6 +8201,9 @@ export type DiscernStatusResult = DiscernResultState & {
         unavailable_reason?: string;
       };
       broken?: boolean;
+      landed_checkout?: {
+        message: string;
+      };
       gate_proof?: {
         status:
           | "honored"

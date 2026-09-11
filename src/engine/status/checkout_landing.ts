@@ -1,10 +1,29 @@
 /** Local landing status binds cleanup facts to the invoking committed source. */
 import { loadModule } from "../../shared/module_loading.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
-import { retainedCheckoutExplanation } from "../../shared/result_completion.ts";
+import { checkoutOutcomeSentence } from "../../shared/result_completion.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import { observedRecords } from "../landing_queue/repository.ts";
+import type { CompletionRecord } from "../completion/records.ts";
+
+/** The record families a landing-and-cleanup reading consults. */
+export const CHECKOUT_LANDING_FAMILIES = [
+  "landing",
+  "retirement",
+  "environment",
+] as const;
+
+/** Read those families once for a fleet of checkouts. */
+export async function checkoutLandingRecords(
+  root: string,
+): Promise<CompletionRecord[]> {
+  return observedRecords(
+    await observeCompletionRecords(root, SYSTEM_CLOCK, [
+      ...CHECKOUT_LANDING_FAMILIES,
+    ]),
+  );
+}
 
 export interface CheckoutLandingStatus {
   readonly sourceHead: string;
@@ -16,18 +35,13 @@ export async function checkoutLandingStatus(
   root: string,
   identity: { readonly id: string; readonly branch: string } | null,
   location: "worktree" | "main",
+  shared?: readonly CompletionRecord[],
 ): Promise<CheckoutLandingStatus | undefined> {
   if (location !== "worktree" || identity === null) return undefined;
   const head = await runGit(["rev-parse", "HEAD"], { cwd: root });
   if (!head.success) return undefined;
   const sourceHead = head.stdout.trim();
-  const records = observedRecords(
-    await observeCompletionRecords(
-      root,
-      SYSTEM_CLOCK,
-      ["landing", "retirement", "environment"],
-    ),
-  );
+  const records = shared ?? await checkoutLandingRecords(root);
   const landing = records.find((record) =>
     record.kind === "landing" &&
     record.data.outcome.kind === "landed" &&
@@ -45,14 +59,18 @@ export async function checkoutLandingStatus(
     : plan.kind === "resume"
     ? plan.record.data.outcome
     : undefined;
-  const cleanup = outcome?.kind === "retained"
-    ? retainedCheckoutExplanation(outcome.reason)
-    : outcome?.kind === "retired"
-    ? "Checkout cleanup is recorded as complete."
-    : outcome?.kind === "recovery"
-    ? "Checkout cleanup requires recovery: " + outcome.recovery.reason +
-      " Preserve its retained state and retry discern accept from the main checkout."
-    : "Checkout cleanup remains pending. Retry discern accept from the main checkout; it rechecks ownership before cleanup.";
+  // The same checkout sentence the acceptance verdict carries, so every
+  // surface says why the checkout stayed in the same words.
+  const cleanup = outcome === undefined
+    ? "Checkout cleanup remains pending. Retry discern accept from the main checkout; it rechecks ownership before cleanup."
+    : checkoutOutcomeSentence({
+      retirement: outcome.kind,
+      ...(outcome.kind === "retained"
+        ? { retirement_reason: outcome.reason }
+        : outcome.kind === "recovery"
+        ? { retirement_reason: outcome.recovery.reason }
+        : {}),
+    });
   return {
     sourceHead,
     message: `${identity.branch} has landed. ${cleanup}`,

@@ -1696,11 +1696,14 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       return `${code(rowBranch)}: Git state unavailable.`;
     }
     const rowProof = object(entry.gate_proof);
+    const kept = text(object(entry.landed_checkout)?.message);
     return `${code(rowBranch)}: ${
       boolean(entry.clean) === true ? "clean" : "dirty"
     }, ${number(entry.ahead) ?? "unknown"} ahead, ${
       number(entry.behind) ?? "unknown"
-    } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.`;
+    } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.${
+      kept === undefined ? "" : ` Landed. ${kept}`
+    }`;
   });
   const fleetDropFacts = fleet.slice(0, MAX_LIST_ITEMS).flatMap((entry) => {
     const branch = text(entry.branch) ?? "unknown branch";

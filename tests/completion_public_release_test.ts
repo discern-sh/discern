@@ -55,6 +55,22 @@ Deno.test("a landed effort starts its next cycle: done admits the new source as 
       [["landed", "retained"]],
       accepted.output,
     );
+    // From the main checkout, the fleet row says the same thing the effort's
+    // own status leads with: landed, why the checkout stayed, what finishes it.
+    const overview = await runAgent(root, ["status", "--json"]);
+    assertEquals(overview.code, 0, overview.output);
+    const fleetView = decodeCliResult(overview.stdout, "status");
+    const kept = fleetView.data !== undefined && "fleet" in fleetView.data
+      ? fleetView.data.fleet?.find((row) => row.branch === "agent/public-done")
+      : undefined;
+    assert(kept !== undefined, overview.output);
+    assert(
+      "landed_checkout" in kept &&
+        kept.landed_checkout?.message.startsWith(
+          "agent/public-done has landed. Its checkout stayed. It remains available for review or further edits until released;",
+        ),
+      overview.output,
+    );
     // The same effort continues in its retained checkout for a second phase —
     // the landed entry is history, not a replaceable source.
     await Deno.writeTextFile(`${path}/source`, "second phase\n");

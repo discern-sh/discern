@@ -1971,6 +1971,10 @@ const statusFleetEntrySchema = z.strictObject({
   /** The complete proof inspection for this worktree. Existing honored-only
    * fields stay for compatibility; this additive field preserves missing,
    * stale, dirty, unavailable, and read-failed states too. */
+  /** Present when this checkout's committed source has landed and the
+   * checkout stayed: one sentence with why it stayed and the command that
+   * finishes cleanup, the same words the effort's own status leads with. */
+  landed_checkout: z.strictObject({ message: z.string() }).optional(),
   gate_proof: GateProofCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
