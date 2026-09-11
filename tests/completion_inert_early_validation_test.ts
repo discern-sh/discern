@@ -82,3 +82,37 @@ Deno.test("a lookahead of 0 asks for nothing, so nothing is said", async () => {
     assertEquals(await noticeIn(path, ["status"]), undefined);
   });
 });
+
+Deno.test("a lookahead with no declaration names the missing declaration", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      "",
+      "printf 'DISCERN_METRIC coverage 93\\n'",
+      ["**"],
+      { concurrency: 2, lookahead: 1 },
+    );
+    const notice = await noticeIn(path, ["status"]);
+    assert(notice !== undefined, "status carries the notice");
+    assertStringIncludes(notice, "no `[execution.<context>]` declaration");
+    assertStringIncludes(notice, "Declare the environment");
+  });
+});
+
+Deno.test("a lookahead with no spare slot names the slot, before any proof is read", async () => {
+  await withTempDir(async (root) => {
+    const path = await project(
+      root,
+      ["local"],
+      declaration,
+      "printf 'DISCERN_METRIC coverage 93\\n'",
+      ["**"],
+      { concurrency: 1, lookahead: 1 },
+    );
+    const notice = await noticeIn(path, ["status"]);
+    assert(notice !== undefined, "status carries the notice");
+    assertStringIncludes(notice, "no validation slot is spare");
+    assertStringIncludes(notice, "`[completion].concurrency`");
+  });
+});
