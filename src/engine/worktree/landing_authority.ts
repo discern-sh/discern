@@ -335,6 +335,8 @@ interface EffortGrantState {
   readonly granted: boolean;
 }
 
+/** Read the grant beside this worktree's branch, head, tree, and composition
+ * procedure, and decide once whether it covers the current committed source. */
 async function readEffortGrantState(cwd: string): Promise<EffortGrantState> {
   const [branchRead, effort, sourceRead] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
