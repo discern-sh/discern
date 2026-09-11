@@ -86,11 +86,20 @@ export function dependencyBlocker(
   };
 }
 
+/** A landed or withdrawn entry is a finished cycle: it holds no place in the
+ * plan, so the effort's next completion — of the same source or a new one —
+ * re-enters through a fresh provisional entry. */
+export function finishedCycle(entry: QueueEntry): boolean {
+  return entry.state === "landed" || entry.state === "withdrawn";
+}
+
 /** Reserve selection before validation. A row without current complete Proof is not admission.
- * A landed entry for the same effort is history: the effort's next cycle
- * replaces it with a fresh provisional entry, and the durable landing record
- * keeps what landed. An unlanded entry with a different source still routes
- * through the explicit source-replacement decision. */
+ * A landed or withdrawn entry for the same effort is history: the effort's
+ * next cycle replaces it with a fresh provisional entry even when its source
+ * is unchanged (a retained checkout re-validating, a withdrawn effort coming
+ * back, or the trunk checkout checking itself again), and the durable landing
+ * record keeps what landed. An unlanded entry with a different source still
+ * routes through the explicit source-replacement decision. */
 export function selectSource(
   queue: CompletionQueue,
   source: SourceRevision,
@@ -99,7 +108,7 @@ export function selectSource(
   const existing = queue.entries.find((entry) =>
     entry.source.effort_id === source.effort_id
   );
-  if (existing !== undefined && existing.state !== "landed") {
+  if (existing !== undefined && !finishedCycle(existing)) {
     if (
       sameSource(existing.source, source) &&
       JSON.stringify(existing.dependencies) === JSON.stringify(dependencies)
@@ -112,11 +121,6 @@ export function selectSource(
       reason: "source-replaced",
     };
   }
-  if (
-    existing !== undefined && sameSource(existing.source, source)
-  ) {
-    return { kind: "changed", queue };
-  }
   const next = QueueSchema.parse({
     ...queue,
     entries: [...queue.entries.filter((entry) => entry !== existing), {
@@ -128,7 +132,12 @@ export function selectSource(
       ) + 1,
       eligible_order: null,
       approval_batch: null,
-      candidate_id: null,
+      // An unchanged source keeps its candidate identity across the cycle;
+      // completion decides afresh whether that candidate is still reusable.
+      candidate_id:
+        existing !== undefined && sameSource(existing.source, source)
+          ? existing.candidate_id
+          : null,
       authority_id: null,
       state: "provisional",
       invalidation: null,

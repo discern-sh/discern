@@ -67,6 +67,30 @@ export type QueueMutation =
   }
   | { readonly kind: "trunk-moved" };
 
+/** An entry authored on the trunk branch itself has nothing to land: the
+ * trunk checkout checking itself before admission settled such entries. Every
+ * mutation first settles such an entry as a finished cycle instead of leaving
+ * it waiting forever to be withdrawn. An entry mid-claim keeps its state, and
+ * `except` names the effort a selection is about to handle. */
+export function settleTrunkEntries(
+  queue: CompletionQueue,
+  trunk: string,
+  except?: string,
+): CompletionQueue {
+  const trunkBranch = `refs/heads/${trunk}`;
+  return {
+    ...queue,
+    entries: queue.entries.map((entry) =>
+      entry.source.branch === trunkBranch &&
+        entry.source.effort_id !== except &&
+        entry.state !== "active" && entry.state !== "landed" &&
+        entry.state !== "withdrawn"
+        ? { ...entry, state: "landed" as const, invalidation: null }
+        : entry
+    ),
+  };
+}
+
 /** Plan every queue mutation from the same immutable observation used at publication. */
 export function planQueueMutation(
   initial: CompletionQueue,
@@ -290,7 +314,13 @@ export async function mutateQueue(input: {
     if (unreadable !== undefined) return unreadable;
     const records = observedRecords(observation);
     const planned = planQueueMutation(
-      current.record.data,
+      settleTrunkEntries(
+        current.record.data,
+        input.trunk,
+        input.mutation.kind === "select"
+          ? input.mutation.source.effort_id
+          : undefined,
+      ),
       records,
       observation.trunk,
       input.mutation,

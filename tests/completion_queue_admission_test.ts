@@ -203,7 +203,9 @@ Deno.test("queue Q01/Q06: complete demand admits once without preflight and surv
         assertEquals(proof.record.data.requirements, snap.requirements);
         assertEquals(
           (await requireQueue(root)).record.data.entries[0]?.state,
-          "provisional",
+          // The fixture's source is the trunk head itself: admitted, and
+          // settled as a finished cycle because there is nothing to land.
+          "landed",
         );
       }
     });

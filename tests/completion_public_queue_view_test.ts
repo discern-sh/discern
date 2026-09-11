@@ -36,7 +36,13 @@ function entry(overrides: Partial<QueueEntry> = {}): QueueEntry {
   };
 }
 
-const offTrunk = { onTrunk: false, reconcilable: false, trunk: "main" };
+const offTrunk = {
+  onTrunk: false,
+  reconcilable: false,
+  trunk: "main",
+  composable: false,
+};
+const composable = { ...offTrunk, composable: true };
 
 Deno.test("queue readiness derives one plain sentence per waiting cause", () => {
   const cases: Array<[
@@ -44,13 +50,31 @@ Deno.test("queue readiness derives one plain sentence per waiting cause", () => 
     Parameters<typeof queueEntryReadiness>[1],
     ReturnType<typeof queueEntryReadiness>,
   ]> = [
-    [entry({ state: "active" }), offTrunk, { readiness: "landing" }],
-    [entry(), { onTrunk: true, reconcilable: true, trunk: "main" }, {
+    [entry({ state: "active" }), offTrunk, {
+      readiness: "landing",
+      reason:
+        "Its checks are running now; it lands in turn once they pass and the owner approves it.",
+    }],
+    [entry({ invalidation: "predecessor-changed" }), offTrunk, {
+      readiness: "waiting",
+      reason:
+        "Work ahead of it changed; run discern update in its worktree, then discern done.",
+    }],
+    [entry({ invalidation: "predecessor-changed" }), composable, {
+      readiness: "waiting",
+      reason: "Work ahead of it changed; retry discern accept to reassess it.",
+    }],
+    [entry({ invalidation: "reprioritized" }), offTrunk, {
+      readiness: "waiting",
+      reason:
+        "The queue order changed around it; run discern update in its worktree, then discern done.",
+    }],
+    [entry(), { ...offTrunk, onTrunk: true, reconcilable: true }, {
       readiness: "waiting",
       reason:
         "Its work is already on main; record the outside integration with discern accept --reconcile --target sample.",
     }],
-    [entry(), { onTrunk: true, reconcilable: false, trunk: "main" }, {
+    [entry(), { ...offTrunk, onTrunk: true, reconcilable: false }, {
       readiness: "waiting",
       reason:
         "Its work is already on main; withdraw the entry with discern accept withdraw --target sample.",

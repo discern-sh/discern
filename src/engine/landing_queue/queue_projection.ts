@@ -9,9 +9,11 @@
  */
 
 import { quoteCommandWord } from "../../shared/command_evidence.ts";
+import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { displayBranch } from "../../shared/result_markdown_values.ts";
 import type { StatusQueueRow } from "../../shared/result_schemas.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
+import { declarationProofStates } from "../execution/probe_record.ts";
 import { commitIsMerged } from "../worktree/git.ts";
 import { observeExternalIntegration } from "./external_integration.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
@@ -28,6 +30,11 @@ export interface QueueRowFacts {
   readonly reconcilable: boolean;
   /** The trunk's branch name, for the stale-entry sentence. */
   readonly trunk: string;
+  /** Acceptance can compose and re-check a candidate whose predecessor
+   * changed: every required context declares an environment setup has
+   * proved. Without that, the only route after the trunk moves is the
+   * author's own `update`, then `done`. */
+  readonly composable: boolean;
   /** The first RECORDED source dependency still unlanded, by display branch —
    * a fact the effort declared, never an inference from Git ancestry. */
   readonly blockedOn?: string;
@@ -40,7 +47,11 @@ export function queueEntryReadiness(
 ): Pick<StatusQueueRow, "readiness" | "reason"> {
   const target = quoteCommandWord(entry.source.effort_id);
   if (entry.state === "active") {
-    return { readiness: "landing" };
+    return {
+      readiness: "landing",
+      reason:
+        "Its checks are running now; it lands in turn once they pass and the owner approves it.",
+    };
   }
   if (facts.onTrunk) {
     return {
@@ -63,6 +74,10 @@ export function queueEntryReadiness(
       reason: "Its checks failed; rerun discern done from its worktree.",
     };
   }
+  // Only a project whose environments setup has proved can have acceptance
+  // re-check a candidate whose predecessor changed; elsewhere the author
+  // brings the source forward and checks it again.
+  const forward = "run discern update in its worktree, then discern done.";
   switch (entry.invalidation) {
     case "source-replaced":
       return {
@@ -73,8 +88,7 @@ export function queueEntryReadiness(
     case "external-trunk":
       return {
         readiness: "waiting",
-        reason:
-          "The trunk moved; run discern update in its worktree, then discern done.",
+        reason: `The trunk moved; ${forward}`,
       };
     case "authority-revoked":
       return {
@@ -85,14 +99,16 @@ export function queueEntryReadiness(
     case "reprioritized":
       return {
         readiness: "waiting",
-        reason:
-          "The queue order changed around it; retry discern accept to reassess it.",
+        reason: facts.composable
+          ? "The queue order changed around it; retry discern accept to reassess it."
+          : `The queue order changed around it; ${forward}`,
       };
     case "predecessor-changed":
       return {
         readiness: "waiting",
-        reason:
-          "Work ahead of it changed; retry discern accept to reassess it.",
+        reason: facts.composable
+          ? "Work ahead of it changed; retry discern accept to reassess it."
+          : `Work ahead of it changed; ${forward}`,
       };
     case "claim-lost":
       return {
@@ -132,6 +148,24 @@ export function queueEntryReadiness(
   return { readiness: "ready" };
 }
 
+/** Whether acceptance can compose and re-check candidates in this project:
+ * every required context declares an environment, and setup has proved each
+ * one as it stands (an isolated declaration needs no rehearsal). */
+export async function queueComposable(
+  root: string,
+  config: DiscernConfig,
+): Promise<boolean> {
+  const contexts = config.completion.required_contexts;
+  if (contexts.some((context) => config.execution[context] === undefined)) {
+    return false;
+  }
+  const states = await declarationProofStates(root, config);
+  return contexts.every((context) => {
+    const state = states.get(context)?.state;
+    return state === "proven" || state === "not-rehearsed";
+  });
+}
+
 /** Resolve one entry's trunk-reachability facts with bounded Git reads.
  * `siblings` supplies the queue's other entries so a recorded, still-unlanded
  * source dependency can be named; `observe` supplies the trunk-bound
@@ -142,6 +176,7 @@ export async function queueRowFacts(
   entry: QueueEntry,
   trunk: string,
   siblings: readonly QueueEntry[] = [],
+  composable = false,
 ): Promise<QueueRowFacts> {
   const unlanded = entry.dependencies.find((dependency) =>
     siblings.some((sibling) =>
@@ -158,7 +193,13 @@ export async function queueRowFacts(
   const onTrunk = entry.state !== "active" &&
     await commitIsMerged(root, entry.source.head, trunk);
   if (!onTrunk) {
-    return { onTrunk: false, reconcilable: false, trunk, ...dependency };
+    return {
+      onTrunk: false,
+      reconcilable: false,
+      trunk,
+      composable,
+      ...dependency,
+    };
   }
   const integrated = await observeExternalIntegration(
     root,
@@ -170,6 +211,7 @@ export async function queueRowFacts(
     onTrunk: true,
     reconcilable: !("kind" in integrated),
     trunk,
+    composable,
     ...dependency,
   };
 }
@@ -180,9 +222,10 @@ export async function queueRowFacts(
 export async function statusQueueRows(
   root: string,
   trunk: string,
+  composable: boolean,
 ): Promise<StatusQueueRow[]> {
   try {
-    return await queueOrderProjection(root, trunk);
+    return await queueOrderProjection(root, trunk, composable);
   } catch {
     // discern-best-effort: status-queue-projection-fallback
     return [];
@@ -196,6 +239,7 @@ export async function statusQueueRows(
 export async function queueOrderProjection(
   root: string,
   trunk: string,
+  composable: boolean,
 ): Promise<StatusQueueRow[]> {
   const queue = observedRecords(await observeCompletionRecords(root)).find(
     (record) => record.kind === "queue",
@@ -214,6 +258,7 @@ export async function queueOrderProjection(
       entry,
       trunk,
       queue.data.entries,
+      composable,
     );
     rows.push({
       effort: entry.source.effort_id,

@@ -1,6 +1,7 @@
 /** An active accept actor advances one audited, separately authorized effort at a time. */
 import { QUEUE_DECISION_SUBJECT } from "./queue_decision_subjects.ts";
 import { loadModule } from "../../shared/module_loading.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { landingAdvanced } from "../completion/records.ts";
 import type { FinishResultSurface } from "../gate/finish.ts";
@@ -41,7 +42,11 @@ import type { LifecycleContext } from "../worktree/lifecycle.ts";
 import { cancelQueueClaim, type QueueWorkClaim } from "./claims.ts";
 import { createSourceAncestry, observeSource } from "./composition.ts";
 import { orderedEntries, sameSource } from "./model.ts";
-import { queueEntryReadiness, queueRowFacts } from "./queue_projection.ts";
+import {
+  queueComposable,
+  queueEntryReadiness,
+  queueRowFacts,
+} from "./queue_projection.ts";
 import { mutateQueue } from "./mutations.ts";
 import {
   type CandidateAssessment,
@@ -155,6 +160,7 @@ async function acceptQueueImplementation(
   }
   const root = await Deno.realPath(main);
   const trunk = integrationBranch(ctx.config.repository.trunk);
+  const composable = await queueComposable(root, ctx.config);
   const identity = await resolveIdentity(ctx.cwd, ctx.cwd);
   const initialObservation = await observeQueue(root, trunk);
   const initialQueue = observedRecords(initialObservation).find((
@@ -280,6 +286,7 @@ async function acceptQueueImplementation(
             listed,
             trunk,
             initialQueue?.data.entries ?? [],
+            composable,
           );
           const readiness = queueEntryReadiness(listed, facts);
           return readiness.reason === undefined ? undefined : {
@@ -613,6 +620,28 @@ async function acceptQueueImplementation(
               ? await readLandingProof(runtime, landing)
               : undefined;
           }
+          // A finished cycle with no landing record is a source that was
+          // already on the trunk when it was checked; there was never
+          // anything to land, and the owner hears exactly that.
+          if (rows.length === 0) {
+            return {
+              ok: true,
+              verb: "accept",
+              ...(options.dryRun
+                ? { dry_run: true as const }
+                : { steps: [], diagnostics: [] }),
+              message: `Selected effort ${
+                markdownCodeSpan(displayBranch(target.source.branch))
+              }: nothing to land. Its source is already on ${trunk}.`,
+              data: {
+                root,
+                queue: [],
+                selected_effort: target.source.effort_id,
+                checkpoint_drops: [],
+                pending: [],
+              },
+            };
+          }
         }
         return queueAcceptanceResult(
           root,
@@ -732,6 +761,7 @@ async function acceptQueueImplementation(
             listed,
             trunk,
             current.record.data.entries,
+            composable,
           );
           const readiness = queueEntryReadiness(listed, facts);
           merged.push({

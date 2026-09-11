@@ -16,6 +16,7 @@ import {
   type CompletionSession,
   withPublicCompletion,
 } from "../landing_queue/public_completion.ts";
+import { acceptancePending } from "../landing_queue/public_result.ts";
 import {
   describeDirtyPaths,
   pinValidatedTree,
@@ -90,11 +91,11 @@ export async function runCompleteGate<T extends CompletionGateResult>(
     },
   );
   if (completed.kind !== "completed") {
-    const reason = "reason" in completed
-      ? completed.reason
-      : completed.kind === "recovery-incomplete"
-      ? completed.recovery.reason
-      : JSON.stringify(completed);
+    // Every pending cause reaches the owner as the plain sentence its account
+    // composes; a raw record shape is never the first paragraph.
+    const reason = completed.kind === "replan"
+      ? "The queue changed while this run was starting. Run discern done again."
+      : acceptancePending(completed).reason;
     return await unrun({
       ok: false,
       verb: "done",
@@ -130,18 +131,10 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         : { proof_id: completed.proof_id }),
       pending: completed.blockers.map((blocker) => ({
         kind: blocker.kind,
-        reason: blocker.kind === "recovery-incomplete"
-          ? blocker.recovery.reason
-          : "reason" in blocker
-          ? blocker.reason
-          : JSON.stringify(blocker),
+        reason: acceptancePending(blocker).reason,
       })),
       pending_reasons: completed.blockers.map((blocker) =>
-        blocker.kind === "recovery-incomplete"
-          ? blocker.recovery.reason
-          : "reason" in blocker
-          ? blocker.reason
-          : JSON.stringify(blocker)
+        acceptancePending(blocker).reason
       ),
     };
   }

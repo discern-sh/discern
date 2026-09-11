@@ -122,12 +122,21 @@ export async function publishAdmission(input: {
       clock,
     );
     if (proof.kind !== "written") return { kind: "replan" };
+    // A source that already sits at the trunk head — the trunk checkout
+    // checking itself, or a retained checkout re-validating after its landing
+    // — has nothing to land. Its Proof and evidence are recorded like any
+    // other; its entry settles as a finished cycle instead of taking a
+    // provisional place the owner would only be told to withdraw.
+    const atTrunkHead = candidate.head === candidate.source.head &&
+      candidate.source.head === current.record.data.trunk;
     let next = {
       ...current.record.data,
       entries: current.record.data.entries.map((entry) =>
         entry.source.effort_id !== input.claim.effort ? entry : {
           ...entry,
-          state: entry.eligible_order === null
+          state: atTrunkHead
+            ? "landed" as const
+            : entry.eligible_order === null
             ? "provisional" as const
             : "eligible" as const,
           invalidation: null,
@@ -135,6 +144,7 @@ export async function publishAdmission(input: {
       ),
     };
     if (
+      !atTrunkHead &&
       entry?.authority_id !== null && entry?.authority_id !== undefined &&
       entry.eligible_order === null && (input.mode ?? "strict") === "strict"
     ) {

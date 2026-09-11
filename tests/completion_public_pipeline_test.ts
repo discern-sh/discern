@@ -158,9 +158,11 @@ Deno.test("complete source-tip pipeline shares producer and preserves standalone
     )?.reading;
     assert(proof?.kind === "recorded" && proof.record.kind === "proof");
     assertEquals(proof.record.data.receipts.length, 3);
+    // This effort sits at the trunk head, so its checks record Proof and its
+    // entry settles as a finished cycle: there is nothing for it to land.
     assertEquals(
       (await requireQueue(path)).record.data.entries[0]?.state,
-      "provisional",
+      "landed",
     );
     facts.length = 0;
     const again = await withCompletionObserver((fact) => {

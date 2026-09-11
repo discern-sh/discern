@@ -6,6 +6,7 @@
  * estimate, and an unknown total stays unknown.
  */
 import type { CompletionBlocker } from "./protocol.ts";
+import { queueDecisionReason } from "../landing_queue/queue_decision_subjects.ts";
 
 /** Bound one-line renderings; the full text stays on the underlying fact. */
 const SENTENCE_MAX_CHARS = 400;
@@ -118,7 +119,20 @@ export function completionBlockerAccount(
         next: "Run again when capacity is available.",
         owner_must_act: false,
       };
-    case "missing-judgment":
+    case "missing-judgment": {
+      // A queue decision carries its plain sentence in one table; only a
+      // served checkpoint or standard question waits for the owner.
+      const decision = blocker.subjects.length === 1 &&
+          blocker.subjects[0] !== undefined
+        ? queueDecisionReason(blocker.subjects[0])
+        : undefined;
+      if (decision !== undefined) {
+        return {
+          reason: decision,
+          next: "Run the command again after that step.",
+          owner_must_act: false,
+        };
+      }
       return {
         reason: `Waiting for a recorded judgment on ${
           named(blocker.subjects, "the served questions")
@@ -126,6 +140,7 @@ export function completionBlockerAccount(
         next: "Landing waits until the judgment is recorded.",
         owner_must_act: true,
       };
+    }
     case "missing-authority":
       return {
         reason: `Waiting for the owner's approval covering ${

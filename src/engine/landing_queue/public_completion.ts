@@ -51,7 +51,7 @@ import {
   publishCandidate,
 } from "./composition.ts";
 import { predecessorPolicyIdentity } from "./policy.ts";
-import { expectedPredecessor, sameSource } from "./model.ts";
+import { expectedPredecessor, finishedCycle, sameSource } from "./model.ts";
 import {
   initializeQueue,
   observedRecords,
@@ -253,9 +253,10 @@ export async function withPublicCompletion<T>(
       trunk,
       expected_stamp: queue.stamp,
       mutation: {
-        // A landed entry is a finished cycle, not a replaceable source: the
-        // same effort's next change re-enters through ordinary selection.
-        kind: existing !== undefined && existing.state !== "landed" &&
+        // A landed or withdrawn entry is a finished cycle, not a replaceable
+        // source: the same effort's next completion re-enters through
+        // ordinary selection.
+        kind: existing !== undefined && !finishedCycle(existing) &&
             !sameSource(existing.source, source)
           ? "source-replaced"
           : "select",

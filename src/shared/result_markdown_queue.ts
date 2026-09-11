@@ -39,7 +39,7 @@ export function queueRowStateLabel(
   return text(row.readiness) === "ready"
     ? "ready to land"
     : text(row.readiness) === "landing"
-    ? "landing now"
+    ? "checks running now"
     : boolean(row.held) === true
     ? "on hold"
     : "waiting";
