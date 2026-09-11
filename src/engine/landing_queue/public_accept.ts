@@ -289,14 +289,19 @@ async function acceptQueueImplementation(
             composable,
           );
           const readiness = queueEntryReadiness(listed, facts);
-          return readiness.reason === undefined ? undefined : {
-            kind: facts.onTrunk
-              ? "already-on-trunk"
-              : listed.held === true
-              ? "effort-held"
-              : "queued",
-            reason: readiness.reason,
-          };
+          // A ready row's sentence is not a reason to wait; only the walk's
+          // own findings speak for an effort it found ready.
+          return readiness.reason === undefined ||
+              readiness.readiness === "ready"
+            ? undefined
+            : {
+              kind: facts.onTrunk
+                ? "already-on-trunk"
+                : listed.held === true
+                ? "effort-held"
+                : "queued",
+              reason: readiness.reason,
+            };
         },
       },
     );
@@ -771,7 +776,10 @@ async function acceptQueueImplementation(
                 ? undefined
                 : details.get(listed.candidate_id),
             ),
-            pending: readiness.reason === undefined ? [] : [{
+            pending: readiness.reason === undefined ||
+                readiness.readiness === "ready"
+              ? []
+              : [{
               kind: facts.onTrunk
                 ? "already-on-trunk"
                 : listed.held === true

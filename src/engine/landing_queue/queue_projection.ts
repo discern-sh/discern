@@ -14,7 +14,9 @@ import { displayBranch } from "../../shared/result_markdown_values.ts";
 import type { StatusQueueRow } from "../../shared/result_schemas.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
 import { declarationProofStates } from "../execution/probe_record.ts";
-import { commitIsMerged } from "../worktree/git.ts";
+import { runGit } from "../../shared/subprocess.ts";
+import { readEffortGrant } from "../worktree/effort_grant.ts";
+import { commitIsMerged, worktreePathForBranch } from "../worktree/git.ts";
 import { observeExternalIntegration } from "./external_integration.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
 import type { QueueEntry } from "./model.ts";
@@ -25,6 +27,12 @@ import { observedRecords, observeQueue } from "./repository.ts";
 export interface QueueRowFacts {
   /** The recorded source head is already reachable from the trunk. */
   readonly onTrunk: boolean;
+  /** The branch tip is no longer the recorded head: new commits await their
+   * own `done`, so the entry is not a stale one to withdraw. */
+  readonly movedOn: boolean;
+  /** A desk grant covers this exact source, so acceptance lands it without
+   * another decision even though no authority record exists yet. */
+  readonly approved: boolean;
   /** An exact proven candidate for that source is recognised on the trunk,
    * so reconciliation (not withdrawal) is the offered next command. */
   readonly reconcilable: boolean;
@@ -51,6 +59,13 @@ export function queueEntryReadiness(
       readiness: "landing",
       reason:
         "Its checks are running now; it lands in turn once they pass and the owner approves it.",
+    };
+  }
+  if (facts.onTrunk && facts.movedOn) {
+    return {
+      readiness: "waiting",
+      reason:
+        `Its checked work is already on ${facts.trunk} and its branch has moved on; run discern done from its worktree for the new work.`,
     };
   }
   if (facts.onTrunk) {
@@ -132,7 +147,7 @@ export function queueEntryReadiness(
         "It has no Proof yet; run discern done from its clean committed worktree.",
     };
   }
-  if (entry.authority_id === null) {
+  if (entry.authority_id === null && !facts.approved) {
     return {
       readiness: "waiting",
       reason: "Waiting for the owner's approval.",
@@ -145,7 +160,26 @@ export function queueEntryReadiness(
         `It builds on ${facts.blockedOn}, which lands first — a recorded source dependency.`,
     };
   }
-  return { readiness: "ready" };
+  return {
+    readiness: "ready",
+    reason: "Approved; discern accept from its worktree lands it.",
+  };
+}
+
+/** Whether a desk grant recorded in the effort's own worktree covers this
+ * exact source. Read-only; a missing worktree or grant is simply not approved. */
+async function deskApproved(
+  root: string,
+  entry: QueueEntry,
+): Promise<boolean> {
+  const path = await worktreePathForBranch(
+    root,
+    entry.source.branch.replace(/^refs\/heads\//, ""),
+  );
+  if (path === undefined) return false;
+  const grant = await readEffortGrant(path);
+  return grant.status === "granted" &&
+    grant.grant.source.head === entry.source.head;
 }
 
 /** Whether acceptance can compose and re-check candidates in this project:
@@ -195,12 +229,19 @@ export async function queueRowFacts(
   if (!onTrunk) {
     return {
       onTrunk: false,
+      movedOn: false,
       reconcilable: false,
       trunk,
       composable,
+      approved: entry.authority_id === null && entry.candidate_id !== null &&
+        await deskApproved(root, entry),
       ...dependency,
     };
   }
+  const tip = await runGit(["rev-parse", "--verify", entry.source.branch], {
+    cwd: root,
+  });
+  const movedOn = tip.success && tip.stdout.trim() !== entry.source.head;
   const integrated = await observeExternalIntegration(
     root,
     await observe(),
@@ -209,9 +250,11 @@ export async function queueRowFacts(
   );
   return {
     onTrunk: true,
+    movedOn,
     reconcilable: !("kind" in integrated),
     trunk,
     composable,
+    approved: false,
     ...dependency,
   };
 }

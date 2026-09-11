@@ -38,6 +38,8 @@ function entry(overrides: Partial<QueueEntry> = {}): QueueEntry {
 
 const offTrunk = {
   onTrunk: false,
+  movedOn: false,
+  approved: false,
   reconcilable: false,
   trunk: "main",
   composable: false,
@@ -79,6 +81,19 @@ Deno.test("queue readiness derives one plain sentence per waiting cause", () => 
       reason:
         "Its work is already on main; withdraw the entry with discern accept withdraw --target sample.",
     }],
+    [entry(), { ...offTrunk, onTrunk: true, movedOn: true }, {
+      readiness: "waiting",
+      reason:
+        "Its checked work is already on main and its branch has moved on; run discern done from its worktree for the new work.",
+    }],
+    [
+      entry({ candidate_id: "11111111-1111-4111-8111-111111111111" }),
+      { ...offTrunk, approved: true },
+      {
+        readiness: "ready",
+        reason: "Approved; discern accept from its worktree lands it.",
+      },
+    ],
     [entry({ held: true }), offTrunk, {
       readiness: "waiting",
       reason:
@@ -128,7 +143,10 @@ Deno.test("queue readiness derives one plain sentence per waiting cause", () => 
         authority_id: "22222222-2222-4222-8222-222222222222",
       }),
       offTrunk,
-      { readiness: "ready" },
+      {
+        readiness: "ready",
+        reason: "Approved; discern accept from its worktree lands it.",
+      },
     ],
   ];
   for (const [subject, facts, expected] of cases) {
@@ -209,6 +227,12 @@ Deno.test("status and the acceptance preview list the same ordered queue, and an
     assertStringIncludes(
       statusRows[1]?.reason ?? "",
       "discern accept resume --target second",
+    );
+    // The desk grant recorded in the first worktree reads as approval here,
+    // the same answer the acceptance preview gives.
+    assertEquals(
+      statusRows[0]?.reason,
+      "Approved; discern accept from its worktree lands it.",
     );
 
     const previewed = await runAgent(root, [
