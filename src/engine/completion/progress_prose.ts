@@ -6,7 +6,10 @@
  * estimate, and an unknown total stays unknown.
  */
 import type { CompletionBlocker } from "./protocol.ts";
-import { queueDecisionReason } from "../landing_queue/queue_decision_subjects.ts";
+import {
+  compositionJudgmentReason,
+  queueDecisionReason,
+} from "../landing_queue/queue_decision_subjects.ts";
 
 /** Bound one-line renderings; the full text stays on the underlying fact. */
 const SENTENCE_MAX_CHARS = 400;
@@ -122,10 +125,10 @@ export function completionBlockerAccount(
     case "missing-judgment": {
       // A queue decision carries its plain sentence in one table; only a
       // served checkpoint or standard question waits for the owner.
-      const decision = blocker.subjects.length === 1 &&
+      const decision = (blocker.subjects.length === 1 &&
           blocker.subjects[0] !== undefined
         ? queueDecisionReason(blocker.subjects[0])
-        : undefined;
+        : undefined) ?? compositionJudgmentReason(blocker.subjects);
       if (decision !== undefined) {
         return {
           reason: decision,

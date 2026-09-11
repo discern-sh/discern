@@ -34,3 +34,46 @@ export const QUEUE_DECISION_SUBJECT = Object.fromEntries(
 export function queueDecisionReason(subject: string): string | undefined {
   return (QUEUE_DECISION_REASONS as Readonly<Record<string, string>>)[subject];
 }
+
+const CONFLICT_PREFIX = "conflict:";
+const AUTHORED_PREFIX = "authored:";
+
+/** A composition conflict names the file it could not merge. */
+export function conflictSubject(file: string): string {
+  return `${CONFLICT_PREFIX}${file}`;
+}
+
+/** Composition changed an authored file no generator owns. */
+export function authoredSubject(file: string): string {
+  return `${AUTHORED_PREFIX}${file}`;
+}
+
+/** The one sentence for judgment subjects composition recorded: the files
+ * that conflicted with work already on the trunk, or the authored files it
+ * changed. Undefined when no subject is one of those. */
+export function compositionJudgmentReason(
+  subjects: readonly string[],
+): string | undefined {
+  const conflicts = subjects.filter((subject) =>
+    subject.startsWith(CONFLICT_PREFIX)
+  ).map((subject) => subject.slice(CONFLICT_PREFIX.length));
+  const authored = subjects.filter((subject) =>
+    subject.startsWith(AUTHORED_PREFIX)
+  ).map((subject) => subject.slice(AUTHORED_PREFIX.length));
+  if (conflicts.length === 0 && authored.length === 0) return undefined;
+  const parts = [
+    ...(conflicts.length === 0 ? [] : [
+      `Its changes conflict with work already on the trunk in ${
+        conflicts.join(", ")
+      }`,
+    ]),
+    ...(authored.length === 0 ? [] : [
+      `composing it changed authored files no generator owns (${
+        authored.join(", ")
+      })`,
+    ]),
+  ];
+  return `${
+    parts.join("; ")
+  }. Run discern update in its worktree, resolve what it reports, then discern done.`;
+}

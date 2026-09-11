@@ -35,7 +35,10 @@ import {
   readLandingConvergenceResult,
 } from "./convergence.ts";
 import type { QueueEntry } from "./model.ts";
-import { queueDecisionReason } from "./queue_decision_subjects.ts";
+import {
+  compositionJudgmentReason,
+  queueDecisionReason,
+} from "./queue_decision_subjects.ts";
 import type { PublicCandidateAssessment } from "./public_assessment.ts";
 import { readLandingNoteResult } from "./publication.ts";
 import { observedRecords } from "./repository.ts";
@@ -116,7 +119,7 @@ export function acceptancePending(
       const translated = subjects.length === 1 && subjects[0] !== undefined
         ? queueDecisionReason(subjects[0])
         : undefined;
-      reason = translated ??
+      reason = translated ?? compositionJudgmentReason(subjects) ??
         `A checkpoint or standard decision is still required${
           subjects.length ? ": " + subjects.join(", ") : "."
         }`;

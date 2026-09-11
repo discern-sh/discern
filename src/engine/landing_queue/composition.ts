@@ -1,3 +1,4 @@
+import { authoredSubject, conflictSubject } from "./queue_decision_subjects.ts";
 import { emitCompletionProgress } from "../completion/events.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 /** Immutable composition in an explicitly claimed checkout; source branches never move. */
@@ -278,7 +279,10 @@ export async function composeCandidate(input: {
       };
     }
     if (outcome.kind === "conflict") {
-      return { kind: "missing-judgment", subjects: outcome.files };
+      return {
+        kind: "missing-judgment",
+        subjects: outcome.files.map((file) => conflictSubject(file)),
+      };
     }
     if (outcome.kind !== "updated") {
       return {
@@ -320,7 +324,10 @@ export async function composeCandidate(input: {
     const paths = [...new Set([...changed, ...untracked])];
     const authored = paths.filter((file) => !owns(recipe, file));
     if (authored.length > 0) {
-      return { kind: "missing-judgment", subjects: authored };
+      return {
+        kind: "missing-judgment",
+        subjects: authored.map((file) => authoredSubject(file)),
+      };
     }
     if (paths.length > 0) {
       const committed = await commitUpdateRegeneration(path, paths);

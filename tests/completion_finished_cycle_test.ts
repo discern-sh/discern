@@ -27,6 +27,7 @@ import {
 } from "../src/engine/landing_queue/model.ts";
 import { queueExample } from "./completion_queue_fixture.ts";
 import { completionBlockerAccount } from "../src/engine/completion/progress_prose.ts";
+import { acceptancePending } from "../src/engine/landing_queue/public_result.ts";
 import { QUEUE_DECISION_REASONS } from "../src/engine/landing_queue/queue_decision_subjects.ts";
 
 const TRUNK_REF = "refs/heads/main";
@@ -261,6 +262,20 @@ Deno.test("a queue decision reads as its table sentence, never as a token or a r
     subjects: ["checkpoint:map-focus"],
   });
   assertEquals(served.owner_must_act, true);
+  // A composition conflict names the files and the author's next command,
+  // never a checkpoint decision the owner would look for.
+  const conflict = acceptancePending({
+    kind: "missing-judgment",
+    subjects: ["conflict:shared.txt", "authored:notes.md"],
+  });
+  assertEquals(
+    conflict.reason,
+    "Its changes conflict with work already on the trunk in shared.txt; composing it changed authored files no generator owns (notes.md). Run discern update in its worktree, resolve what it reports, then discern done.",
+  );
+  assertEquals(conflict.reason, completionBlockerAccount({
+    kind: "missing-judgment",
+    subjects: ["conflict:shared.txt", "authored:notes.md"],
+  }).reason);
   const source = await Deno.readTextFile("src/engine/gate/complete_gate.ts");
   assert(
     !/JSON\.stringify\((completed|blocker)\)/.test(source),
