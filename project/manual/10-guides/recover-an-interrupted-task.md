@@ -110,13 +110,13 @@ That tells you what is already shared, which decision remains, and what must be 
 
 ### Preview and follow the recorded recovery
 
-From the surviving checkout, your agent previews acceptance for the task you approved:
+From the surviving checkout, your agent previews acceptance:
 
 ```sh
-discern accept --target <task> --dry-run
+discern accept --dry-run
 ```
 
-It follows the reported remedy and retries acceptance when instructed. discern reconciles the recorded landing and resumes unfinished effects without landing that same change again or spending its permission twice.
+From the main checkout with several tasks waiting, it adds `--target <task>` to name the task you approved. It follows the reported remedy and retries acceptance when instructed. discern reconciles the recorded landing and resumes unfinished effects without landing that same change again or spending its permission twice.
 
 Acceptance from the main checkout can also advance other ready tasks that have their own evidence and permission. The agent should inspect each row in the preview. A new exception or uncovered task comes back for the decision it needs.
 
