@@ -194,3 +194,8 @@ export function completionFailureSentence(failure: CompletionFailure): string {
     ? base
     : `${base} Reproduce: ${failure.reproduce_cmd}`;
 }
+
+/** One retained diagnostic from a finished operation's result, as one line. */
+export function diagnosticSentence(tool: string, message: string): string {
+  return sentence(`${tool}: ${oneLine(message)}`);
+}

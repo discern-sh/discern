@@ -22,6 +22,7 @@ import type {
 import {
   completionFailureSentence,
   completionProgressSentence,
+  diagnosticSentence,
   producerWorkSentence,
 } from "./progress_prose.ts";
 import {
@@ -70,7 +71,31 @@ export interface OperationProgressData {
   readonly account: readonly string[];
 }
 
-/** Compose the account once from the retained facts. */
+/** How many of a finished operation's retained diagnostics the account repeats. */
+const RETAINED_DIAGNOSTICS_LIMIT = 3;
+
+/** The diagnostics a retained result envelope carries, when it carries any. */
+function retainedDiagnostics(
+  result: unknown,
+): readonly { readonly tool: string; readonly message: string }[] {
+  const diagnostics = (result as { diagnostics?: unknown } | undefined)
+    ?.diagnostics;
+  if (!Array.isArray(diagnostics)) return [];
+  return diagnostics.flatMap((entry) =>
+    typeof entry === "object" && entry !== null &&
+      typeof (entry as { tool?: unknown }).tool === "string" &&
+      typeof (entry as { message?: unknown }).message === "string"
+      ? [entry as { tool: string; message: string }]
+      : []
+  );
+}
+
+/**
+ * Compose the account once from the retained facts: the latest progress fact,
+ * each producer's counts, each established failure, and — for a finished
+ * operation — what its retained result diagnosed, so a failed gate read back
+ * after a lost call says why it failed.
+ */
 function accountOf(record: OperationJournalRecord): string[] {
   const sentences: string[] = [];
   if (record.progress !== undefined) {
@@ -83,6 +108,19 @@ function accountOf(record: OperationJournalRecord): string[] {
   }
   for (const failure of record.failures ?? []) {
     sentences.push(completionFailureSentence(failure));
+  }
+  const diagnostics = retainedDiagnostics(record.result);
+  for (
+    const { tool, message } of diagnostics.slice(0, RETAINED_DIAGNOSTICS_LIMIT)
+  ) {
+    sentences.push(diagnosticSentence(tool, message));
+  }
+  if (diagnostics.length > RETAINED_DIAGNOSTICS_LIMIT) {
+    sentences.push(
+      `${
+        diagnostics.length - RETAINED_DIAGNOSTICS_LIMIT
+      } more diagnostics are in the retained result.`,
+    );
   }
   return sentences;
 }
@@ -115,12 +153,7 @@ function progressMessage(
     return `${name} was cancelled before finishing. The facts below are what it had established.`;
   }
   if (executor === "running") {
-    const account = record.progress === undefined
-      ? undefined
-      : completionProgressSentence(record.progress);
-    return account === undefined
-      ? `${name} is still running.`
-      : `${name} is still running. ${account}`;
+    return `${name} is still running. The facts below are the latest it recorded.`;
   }
   if (executor === "unknown") {
     const why = executorReason === undefined ? "" : ` (${executorReason})`;
@@ -268,7 +301,7 @@ export async function operationProgressResult(
 /** Run the `progress` verb: the reading as JSON, or its sentences for a person. */
 export async function runProgress(
   root: string,
-  opts: { readonly json: boolean; readonly handle?: string },
+  opts: { readonly json: boolean; readonly handle?: string | undefined },
 ): Promise<number> {
   const result = await operationProgressResult(
     root,
