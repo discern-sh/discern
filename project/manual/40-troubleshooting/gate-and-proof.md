@@ -41,7 +41,7 @@ Read the next action and whether the result says the gate ran. Common cases are:
 
 | What the result names                             | Next step                                                                                                                                                                             |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. For a look at the half-finished tree, `discern done --standalone` runs the checks as a transient diagnostic. |
+| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. |
 | A checkpoint needs judgment                       | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).                                                         |
 | A workspace needs recovery                        | Follow the recorded environment recovery before editing it. See [returning a workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). |
 | The branch or its proposed landing needs updating | Follow the printed update or completion action. Acceptance may compose and validate the change in an eligible released workspace.                                                     |

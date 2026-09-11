@@ -88,7 +88,7 @@ When the result is right, say:
 
 > I've reviewed the change. Land it.
 
-Your agent uses discern's acceptance operation, which checks the evidence and your permission before moving the change onto the trunk. Its result answers about this change first: landed, or not landed and why. It may also land other tasks you had already approved on the way, and it reports any cleanup still needed. If the shared project has changed in the meantime, the agent follows discern's instructions to bring the work together and verify it.
+Your agent uses discern's acceptance operation, which checks the evidence and your permission before moving the change onto the trunk. Its result answers about this change first: landed, or not landed and why. Other finished tasks that already have your permission to land may land ahead of it, in order. It reports any cleanup still needed. If the shared project has changed in the meantime, the agent follows discern's instructions to bring the work together and verify it.
 
 Landing makes the change part of the shared project. Publishing it to users is a separate step in your project's release process.
 

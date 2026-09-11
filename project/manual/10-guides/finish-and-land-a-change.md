@@ -52,7 +52,7 @@ The same worktree holds implementation, review fixes, and any resumed sessions. 
 
 While working, your agent uses focused checks and `discern prepare`, which runs the project's fast fix-and-check steps. It reviews any rewritten files and commits the intended result before asking for the full gate, the project's configured quality checks.
 
-The full check needs a committed, clean tree. Evidence has to describe a version that can land, and an uncommitted edit is not one. If the agent asks for the full check with unsaved work, discern refuses and names the files. The agent commits the intended files and asks again. For a quick look at a half-finished tree, `discern done --standalone` runs the checks as a diagnostic; its results are for reading only and count for nothing later.
+The full check needs a committed, clean tree. Evidence has to describe a version that can land, and an uncommitted edit is not one. If the agent asks for the full check with unsaved work, discern refuses and names the files. The agent commits the intended files and asks again.
 
 If other work has landed, your agent follows discern's update or completion instructions. It examines any overlapping changes because two edits can merge successfully and still disagree about how a feature should behave.
 
@@ -62,7 +62,7 @@ For the review request above, the final command is:
 discern done --retain-checkout
 ```
 
-The `--retain-checkout` option keeps the workspace under the agent's authoring control for follow-up edits and a preview. Ordinary successful `discern done` releases it so discern can use it for later validation and eligible cleanup. Neither command lands the change.
+The `--retain-checkout` option keeps the workspace under the agent's authoring control for follow-up edits and for anything you want to try there before deciding. Ordinary successful `discern done` releases it so discern can use it for later validation and eligible cleanup. Neither command lands the change.
 
 Completion includes every required check and measurement context. A context is a declared environment in which the project requires evidence, such as another operating system. If one is unavailable, the agent should explain what remains unverified. Passing the checks available on this machine alone may leave completion pending.
 
@@ -94,13 +94,13 @@ Your agent makes that change in the same worktree, prepares and commits it, then
 
 Fresh Proof does not always mean every check runs again. discern keeps the results of checks whose inputs have not changed and runs the ones affected by the edit. The Proof still covers the new version.
 
-If you have no changes, the agent stops the preview and releases the workspace without repeating any check:
+If you have no changes, the agent releases the workspace without repeating any check:
 
 ```sh
 discern done --release-checkout
 ```
 
-Release lets discern reuse or clean up the workspace later. It creates no new Proof and gives no permission to land. It also works after other tasks have landed in the meantime. If the workspace was already released, your agent reads its current state and follows the recovery instructions before editing. If its recorded path is unavailable, identify what happened to that task before creating another workspace. [Recover an interrupted task](recover-an-interrupted-task.md) covers these cases.
+Release lets discern reuse or clean up the workspace later; anything the agent left running there is stopped first. It creates no new Proof and gives no permission to land. It also works after other tasks have landed in the meantime. If the workspace was already released, your agent reads its current state and follows the recovery instructions before editing. If its recorded path is unavailable, identify what happened to that task before creating another workspace. [Recover an interrupted task](recover-an-interrupted-task.md) covers these cases.
 
 ## Land under verified authority
 
@@ -109,6 +109,8 @@ When you are satisfied, you can say:
 > Land the recipe search change we've reviewed.
 
 Your agent runs `discern accept` from the task's worktree and records your consent. When consent comes from this conversation, the command-line form is `discern accept --confirmed`. A valid recorded grant can supply permission without that flag.
+
+That approval is recorded for the exact version you reviewed, so a task that has to wait behind other work keeps it. You can also grant a finished task from the desk (bare `discern` from the main checkout) before its agent asks, or pre-approve a scope of routine changes in the project's configuration. [Proof](../20-understand/proof.md#who-supplies-what) describes the three sources.
 
 The result answers about this task first: whether it landed, and if not, what stands in the way. Read that sentence before anything else in the result. A landing reads like this, with your task's branch in place of the example:
 
@@ -155,6 +157,6 @@ These are different states, and the result uses different words for them:
 | **Approved**            | You, or a recorded grant, gave permission to land this version.                                                                                      |
 | **Landed**              | The version is on the shared branch.                                                                                                                 |
 | **Deployed**            | Your release process made it available to users. discern never does this.                                                                            |
-| **Emergency exception** | An urgent repair landed before its checks finished, under a fresh decision of yours, with a permanent record of what was skipped. This is not Proof. |
+| **Emergency landing** | An urgent repair landed before its checks finished, under a fresh decision of yours, with a permanent record of what was skipped. That record is not Proof. |
 
 [Land an urgent repair](land-an-urgent-repair.md) covers the last row. For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).

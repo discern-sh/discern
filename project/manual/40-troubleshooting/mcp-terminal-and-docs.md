@@ -69,7 +69,9 @@ Have the agent reconnect and read `discern status` first. It reports whether the
 
 ## You need the output of a run that already happened
 
-A result keeps its complete output in a retained artifact and names the path. The agent reads that file for the diagnostics the displayed result abbreviated. Repeating the command to see its output again costs another run and can change the state you were trying to read.
+A result keeps each check's complete output in a file and names the path as `output_path`, on the check's step and on any diagnostic whose text was shortened. You can open that file yourself in any editor; you do not need the agent to read it for you. The files sit in your system's temp directory under names starting `discern-job-` (a check's complete output) or `discern-diag-` (the full text behind a shortened diagnostic), and discern keeps them for 24 hours. [Files named `discern-…` in the temp directory](crashes-and-local-state.md#files-named-discern--in-the-temp-directory) lists every prefix.
+
+Repeating the command to see its output again costs another run and can change the state you were trying to read.
 
 ## A docs or map target won't resolve
 

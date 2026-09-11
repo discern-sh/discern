@@ -120,7 +120,7 @@ A finished feature passes through different decisions on its way to users:
 | **Landed**             | Acceptance moved the validated candidate onto the trunk, the project's shared branch.                             |
 | **Released or live**   | Your project's release process made the change available to its users.                                            |
 
-One state sits outside this sequence. An **emergency exception** is a repair you chose to land before its checks finished. It needs a fresh decision from you, and discern keeps a permanent record of which checks failed, never ran, or were stale. That record is not Proof, and later validation can settle the outstanding checks without erasing it. [Land an urgent repair](../10-guides/land-an-urgent-repair.md) explains the route.
+One state sits outside this sequence. An **emergency landing** is a repair you chose to land before its checks finished. It needs a fresh decision from you, and discern keeps a permanent record of which checks failed, never ran, or were stale. That record is not Proof, and later validation can settle the outstanding checks without erasing it. [Land an urgent repair](../10-guides/land-an-urgent-repair.md) explains the route.
 
 Ordinary successful `discern done` releases the worktree from authoring control so it can support later validation and eligible cleanup. If the agent expects more local review edits, `--retain-checkout` keeps that control. Releasing a worktree does not land its change.
 
