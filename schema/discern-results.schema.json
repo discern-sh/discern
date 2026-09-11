@@ -26195,6 +26195,27 @@
                     ]
                   }
                 },
+                "operation": {
+                  "type": "object",
+                  "properties": {
+                    "verb": {
+                      "type": "string"
+                    },
+                    "branch": {
+                      "type": "string"
+                    },
+                    "handle": {
+                      "type": "string"
+                    },
+                    "latest": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "verb",
+                    "handle"
+                  ]
+                },
                 "recent_completed_tasks": {
                   "type": "array",
                   "items": {

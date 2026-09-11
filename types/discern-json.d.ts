@@ -8045,6 +8045,12 @@ export type DiscernStatusResult = DiscernResultState & {
       reason?: string;
       on_trunk?: boolean;
     }>;
+    operation?: {
+      verb: string;
+      branch?: string;
+      handle: string;
+      latest?: string;
+    };
     recent_completed_tasks?: Array<{
       branch: string;
       head?: string;

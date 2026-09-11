@@ -3,6 +3,7 @@ import {
   completionStatusPresentation,
 } from "./completion_recovery.ts";
 import { checkoutLandingStatus } from "./checkout_landing.ts";
+import { operationProgressResult } from "../completion/progress_result.ts";
 import {
   queueComposable,
   statusQueueRows,
@@ -184,6 +185,26 @@ export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
  * carries the true count). The intersection is usually small, so this rarely caps. */
 const STATUS_OVERLAP_CAP = 20;
 
+/** The calling checkout's long operation while its executor is still
+ * running — the fact a resumed session needs before it is told to start
+ * another. Read-only; a missing or finished operation is simply absent. */
+async function callingCheckoutRunningOperation(
+  root: string,
+): Promise<StatusData["operation"]> {
+  const read = await operationProgressResult(root);
+  if (
+    !read.ok || read.data === undefined || read.data.executor !== "running" ||
+    read.data.outcome !== undefined
+  ) return undefined;
+  const { handle, operation, progress } = read.data;
+  return {
+    verb: operation.verb,
+    ...(operation.branch === undefined ? {} : { branch: operation.branch }),
+    handle,
+    ...(progress === undefined ? {} : { latest: progress.reason }),
+  };
+}
+
 /** Order the canonical fleet before any bounded wire projection samples it. */
 export function prioritizeStatusFleet(
   fleet: readonly StatusFleetEntry[],
@@ -330,6 +351,7 @@ export async function statusResult(
   // metadata.
   const worktree = await buildCheckoutIdentityBlock(root, cfg);
   const checkoutLanding = await checkoutLandingStatus(root, worktree, location);
+  const runningOperation = await callingCheckoutRunningOperation(root);
 
   // Fleet decision. The fleet is only worth surveying from the main checkout (the
   // supervisor view) or when a worktree explicitly asks via --all — so a plain
@@ -407,6 +429,9 @@ export async function statusResult(
   );
   if (queueRows.length > 0) {
     data.queue = queueRows;
+  }
+  if (runningOperation !== undefined) {
+    data.operation = runningOperation;
   }
   const gateProof = location === "worktree"
     ? await inspectGateProof(root)
@@ -727,6 +752,7 @@ export async function statusResult(
     completionRecovery,
     ordinaryHints,
     checkoutLanding?.message,
+    runningOperation,
   );
   if (opts.verbose !== true) {
     hints.push(fire(HINTS["status-full-structured-detail"]));

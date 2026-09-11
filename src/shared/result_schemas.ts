@@ -2183,6 +2183,15 @@ export const StatusDataSchema = z.strictObject({
   /** The landing queue in order — present when at least one unlanded effort
    * is queued. The same derivation feeds `accept --dry-run`. */
   queue: z.array(StatusQueueRowSchema).optional(),
+  /** The calling checkout's most recently started long operation while it
+   * is still running: the verb, the effort, the handle that reads it back,
+   * and the latest sentence it recorded. Absent once it finishes. */
+  operation: z.strictObject({
+    verb: z.string(),
+    branch: z.string().optional(),
+    handle: z.string(),
+    latest: z.string().optional(),
+  }).optional(),
   /** Newest successful task landings from the bounded local Logbook tail. */
   recent_completed_tasks: z.array(recentCompletedTaskSchema).optional(),
   /** Paths removed through discern's worktree lifecycle that currently exist

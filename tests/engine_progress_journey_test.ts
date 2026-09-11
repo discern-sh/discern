@@ -113,6 +113,31 @@ Deno.test("losing a read-only observer leaves the executing gate running", async
         const during = await operationProgressResult(path);
         assert(during.ok);
         assertEquals(during.data?.outcome, undefined);
+        // Status from the same checkout leads with the running operation and
+        // its handle instead of telling the owner to start another run.
+        const orientation = await runAgent(path, ["status", "--json"]);
+        assertEquals(orientation.code, 0, orientation.output);
+        const oriented = decodeCliResult(orientation.stdout, "status");
+        assert(oriented.data !== undefined, orientation.output);
+        assertEquals(
+          "operation" in oriented.data
+            ? oriented.data.operation?.handle
+            : undefined,
+          during.data?.handle,
+          orientation.output,
+        );
+        assert(
+          (oriented.message ?? "").startsWith(
+            "`done` on agent/public-done is still running",
+          ),
+          oriented.message,
+        );
+        assert(
+          (oriented.hints ?? []).every((hint) =>
+            !hint.includes("Run `discern done`")
+          ),
+          orientation.output,
+        );
         // The observer goes away (no more reads); the executor is released
         // to finish and does.
         await barrier.release();
