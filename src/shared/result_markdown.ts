@@ -1848,9 +1848,18 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   );
   // A preview answers about the selected effort on this surface too: its
   // first paragraph is the verdict and the reasons the owner can act on, the
-  // same words the terminal prints, never the generic dry-run sentence.
+  // same words the terminal prints, then the conditional sentence a preview
+  // owes: what the command would do without the dry run.
   const previewLead = result.dry_run === true && verdict !== undefined
-    ? text(result.message)?.split("\n\n")[0] ?? verdict
+    ? `${text(result.message)?.split("\n\n")[0] ?? verdict}\n\n${
+      code(commandName(result))
+    } would ${
+      text(own?.state) === "ready"
+        ? "land it"
+        : text(own?.state) === "landed"
+        ? "change nothing"
+        : "stop at these conditions"
+    }.`
     : undefined;
   return {
     state: previewLead ?? defaultState(

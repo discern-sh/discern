@@ -1324,6 +1324,17 @@ Deno.test("an acceptance preview leads with the selected effort's first paragrap
     state,
     "- Its checks failed; rerun discern done from its worktree.",
   );
+  const afterLead = state.slice(
+    state.indexOf(DRY_RUN_LEAD) + DRY_RUN_LEAD.length,
+  ).trimStart();
+  assert(
+    afterLead.startsWith("Selected effort `agent/mine`: not ready."),
+    rendered,
+  );
+  assertStringIncludes(
+    state,
+    "`discern accept` would stop at these conditions.",
+  );
   assert(!state.includes("would proceed as described below"), rendered);
 });
 
