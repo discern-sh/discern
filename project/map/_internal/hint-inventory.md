@@ -538,7 +538,7 @@ Rendered example:
 
 Rendered example:
 
-> Emergency recorded-landing has outstanding validation. Run discern done --rerun on the current committed trunk or a repair containing it, in every required context. The historical exception remains intact.
+> The emergency landing at 0123abcd4567 still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.
 
 ## `ensure-main-worktree-first`
 

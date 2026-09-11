@@ -221,6 +221,16 @@ Deno.test("externally integrated proven source resolves a new wait and reconcile
       "--json",
     ]);
     assertEquals(reconciled.code, 0, reconciled.output);
+    // The owner hears which effort was recorded and what did not happen,
+    // in effort vocabulary.
+    const recorded = decodeCliResult(reconciled.stdout, "accept").message ??
+      "";
+    assert(
+      recorded.startsWith(
+        "Recorded the outside integration of `agent/public-done`; its Proof stands, nothing landed again, and no approval was spent.",
+      ),
+      recorded,
+    );
     const after = observedRecords(await observeQueue(root, "main"));
     assertEquals(after.filter((record) => record.kind === "landing"), []);
     const reservation = after.find((record) =>

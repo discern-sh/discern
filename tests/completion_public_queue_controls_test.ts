@@ -110,6 +110,14 @@ Deno.test("public queue controls preserve proof, reject changed plans, and let i
         confirmed: true,
       });
       assert(refused.ok, JSON.stringify(refused));
+      // The applied decision names the effort by its branch and gives a real
+      // next command, never a placeholder.
+      assert(
+        (action === "reprioritize" ||
+          (refused.message ?? "").includes("`agent/earlier`")) &&
+          !(refused.message ?? "").includes("<effort-id>"),
+        refused.message,
+      );
       const after = observedRecords(await observeQueue(root, "main"));
       const repeat = await call({
         action,

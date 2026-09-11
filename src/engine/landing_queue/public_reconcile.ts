@@ -21,7 +21,9 @@ import {
   withQueueLock,
 } from "./repository.ts";
 import { mutateQueue } from "./mutations.ts";
-import { acceptancePending } from "./public_result.ts";
+import { acceptancePending, displayBranch } from "./public_result.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { checkoutOutcomeSentence } from "../../shared/result_completion.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { reconcileQueueWork } from "./recovery.ts";
 import { reclaimRetirementStorage } from "./retirement_storage.ts";
@@ -213,8 +215,9 @@ export async function reconcileIntegrationResult(
       verb: "accept",
       dry_run: true,
       data: { external_integration: result },
-      message:
-        "The exact proven work is already integrated. Apply this --expected token to reconcile queue state and eligible released-checkout retirement. No governed landing receipt will be created.",
+      message: `${
+        markdownCodeSpan(displayBranch(entry.source.branch))
+      }'s checked work is already on ${trunk}. Apply this --expected token to record the outside integration; nothing lands again, no approval is spent, and a released checkout is removed.`,
     };
   }
   if (entry.state !== "landed" || observed.existing === undefined) {
@@ -315,7 +318,17 @@ export async function reconcileIntegrationResult(
         retirement: retirement.kind,
       },
     },
-    message:
-      "Observed integration reconciled. The retained Proof verifies the exact candidate; historical governed acceptance remains unrecorded. Git refs and approval consumption were unchanged.",
+    message: `Recorded the outside integration of ${
+      markdownCodeSpan(displayBranch(entry.source.branch))
+    }; its Proof stands, nothing landed again, and no approval was spent. ${
+      checkoutOutcomeSentence({
+        retirement: retirement.kind,
+        ...(retirement.kind === "retained"
+          ? { retirement_reason: retirement.reason }
+          : retirement.kind === "recovery"
+          ? { retirement_reason: retirement.recovery.reason }
+          : {}),
+      })
+    }`,
   };
 }

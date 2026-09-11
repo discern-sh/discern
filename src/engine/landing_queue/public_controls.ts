@@ -24,7 +24,9 @@ import {
   requireQueue,
   withQueueLock,
 } from "./repository.ts";
-import { acceptancePending } from "./public_result.ts";
+import { acceptancePending, displayBranch } from "./public_result.ts";
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { quoteCommandWord } from "../../shared/command_evidence.ts";
 
 export interface QueueControlOptions {
   readonly control: QueueControl;
@@ -181,8 +183,9 @@ export async function queueControlResult(
       verb: "accept",
       dry_run: true,
       data: { queue_control: control },
-      message:
-        "Queue change planned. Review the target and affected efforts; apply with --confirmed and --expected <expected_state>. No evidence or authority was changed.",
+      message: `${
+        queueControlSentence(options.control, entry, target, "planned")
+      } Apply it with --confirmed and the --expected token from this preview; nothing else changes.`,
     };
   }
   if (applied && !(options.control === "revoke" && grantId !== null)) {
@@ -249,7 +252,42 @@ export async function queueControlResult(
     ok: true,
     verb: "accept",
     data: { queue_control: { ...control, state: "applied" } },
-    message:
-      "Queue change recorded. Candidate evidence is retained. Use accept --target <effort-id> to continue eligible work.",
+    message: queueControlSentence(options.control, entry, target, "applied"),
   };
+}
+
+/** One sentence per queue decision, naming the effort by its branch and
+ * giving the one next command; identifiers stay in the data. */
+function queueControlSentence(
+  control: QueueControl,
+  entry: { readonly source: { readonly branch: string } } | undefined,
+  target: string | undefined,
+  state: "planned" | "applied",
+): string {
+  const name = entry === undefined
+    ? "the queue"
+    : markdownCodeSpan(displayBranch(entry.source.branch));
+  const id = quoteCommandWord(target ?? "<effort-id>");
+  switch (control) {
+    case "withdraw":
+      return state === "planned"
+        ? `${name} would leave the landing queue; its checks and Proof are kept.`
+        : `${name} left the landing queue. Its checks and Proof are kept; run discern done from its worktree when it is ready again.`;
+    case "hold":
+      return state === "planned"
+        ? `${name} would be put on hold; independent work may land ahead of it.`
+        : `${name} is on hold; independent work may land ahead of it, and discern accept resume --target ${id} resumes it.`;
+    case "resume":
+      return state === "planned"
+        ? `${name} would return to its place in the landing queue.`
+        : `${name} is back at its place in the landing queue.`;
+    case "revoke":
+      return state === "planned"
+        ? `The approval for ${name} would be withdrawn; a fresh approval re-enrols it.`
+        : `The approval for ${name} was withdrawn; a fresh approval re-enrols it.`;
+    case "reprioritize":
+      return state === "planned"
+        ? "The landing queue would take the requested order."
+        : "The landing queue now takes the requested order.";
+  }
 }

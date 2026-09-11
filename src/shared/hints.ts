@@ -1972,14 +1972,14 @@ export const HINTS = {
     template: executionRecoveryHint,
   }),
 
-  "emergency-outstanding": defineHint<{ id: string }>({
+  "emergency-outstanding": defineHint<{ commit: string }>({
     id: "emergency-outstanding",
     category: "notice",
     audience: "all",
     when: "An integrated emergency has no later complete validation receipt.",
-    example: { id: "recorded-landing" },
-    template: ({ id }): string =>
-      `Emergency ${id} has outstanding validation. Run discern done --rerun on the current committed trunk or a repair containing it, in every required context. The historical exception remains intact.`,
+    example: { commit: "0123abcd4567" },
+    template: ({ commit }): string =>
+      `The emergency landing at ${commit} still has its skipped checks outstanding. Run discern done --rerun on the trunk, or on a change that contains it, in every required context; the emergency record stays in the history.`,
   }),
 
   "completion-uncommitted": defineHint({

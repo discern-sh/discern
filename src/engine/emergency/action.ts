@@ -1,3 +1,5 @@
+import { markdownCodeSpan } from "../../shared/markdown_code.ts";
+import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
 import { acceptancePending } from "../landing_queue/public_result.ts";
@@ -157,16 +159,21 @@ async function prepareAndIntegrate(
         ? { ok: true as const, dry_run: true }
         : { ok: false as const, error: AWAITING_CONSENT_SLUG }),
       data: preview,
-      message:
-        `Emergency plan: ${plan.candidate.source.branch} at ${plan.candidate.head} will advance ${plan.trunk} from ${plan.candidate.expected_predecessor.head}. Reason: ${plan.reason}\n\n${
-          plan.exceptions.map((entry) =>
-            `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id} (${entry.requirement.context})`
-          ).join("\n")
-        }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
-          options.preparation === undefined
-            ? ""
-            : `--preparation ${options.preparation}, `
-        }--confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
+      message: `Emergency plan for ${
+        markdownCodeSpan(displayBranch(plan.candidate.source.branch))
+      }: land its repair on ${plan.trunk} now, skipping ${
+        plan.exceptions.length === 1
+          ? "1 check"
+          : `${plan.exceptions.length} checks`
+      }. Reason: ${plan.reason}\n\n${
+        plan.exceptions.map((entry) =>
+          `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id} (${entry.requirement.context})`
+        ).join("\n")
+      }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
+        options.preparation === undefined
+          ? ""
+          : `--preparation ${options.preparation}, `
+      }--confirmed, and --confirmation ${confirmation}. The confirmation expires in 15 minutes; changed subjects require another review.`,
     };
   }
   const approvedToken = options.confirmation;
@@ -479,11 +486,17 @@ async function emergencyOutcome(
     },
     message: `${
       landed
-        ? "Emergency integration is recorded"
+        ? `${
+          markdownCodeSpan(displayBranch(record.data.source.branch))
+        } landed on ${trunk} as an emergency, with no passing Proof.`
         : notLanded
-        ? "Emergency integration did not occur"
-        : "Emergency integration needs recovery"
-    } for ${record.data.target}. No passing Proof was issued. ${boundary}\n\n${
+        ? `${
+          markdownCodeSpan(displayBranch(record.data.source.branch))
+        } did not land; the emergency was not applied and no Proof was issued.`
+        : `The emergency landing of ${
+          markdownCodeSpan(displayBranch(record.data.source.branch))
+        } needs recovery; no passing Proof was issued.`
+    } ${boundary}\n\n${
       landed && converged && record.data.note === "published" &&
         retirement?.kind !== "recovery"
         ? "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation."

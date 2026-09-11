@@ -55,7 +55,6 @@ export async function checkoutLandingStatus(
     : "Checkout cleanup remains pending. Retry discern accept from the main checkout; it rechecks ownership before cleanup.";
   return {
     sourceHead,
-    message: "Committed source " + sourceHead + " from " + identity.branch +
-      " has landed. " + cleanup,
+    message: `${identity.branch} has landed. ${cleanup}`,
   };
 }

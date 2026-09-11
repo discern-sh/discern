@@ -26,7 +26,7 @@ export async function completionRecoveryStatus(root: string): Promise<{
         fire(HINTS["execution-recovery"], { id: row.environment_id })
       ),
       ...emergency.filter((row) => row.state === "outstanding").map((row) =>
-        fire(HINTS["emergency-outstanding"], { id: row.landing_id })
+        fire(HINTS["emergency-outstanding"], { commit: row.head.slice(0, 12) })
       ),
     ],
   };
