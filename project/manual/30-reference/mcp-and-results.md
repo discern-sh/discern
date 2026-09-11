@@ -193,6 +193,37 @@ Cursor's strict profile keeps `discern_await` below the Agent CLI's 60-second tr
 
 The long profile reserves 300 seconds for delivery and cancellation. The strict profile reserves 15 seconds against Cursor's shortest verified surface. A watch returns immediately when its condition holds. When the budget expires first, the result is `ok: true`, `data.met: false`, and includes a 15-character `data.resume` handle. Continue with that handle; do not rebuild the watch from observed state. Handles are repository-local, expire after 7 days, and share a 512-record cap. CLI reports the not-yet result with exit `124`; MCP returns a normal tool result. `timeout` may shorten a call but cannot extend its selected profile.
 
+#### Progress handles and reconnect
+
+Every `done`, `test`, `standards`, and `accept` run, and every `discern_await` call, announces a **progress handle** as its first progress fact, in the form `R1-XXXX-XXXX-XX`, together with the command that reads it back. The same facts reach a live terminal, MCP `notifications/progress` messages when the client supplies a progress token, and a journal under the repository's Git administration. A `--json` or `--markdown` run prints nothing while it runs; its result envelope is its whole output.
+
+`discern progress [handle]`, or `discern_progress` with `handle` and `path`, reads that operation back at any time. Reading changes nothing. With no handle it reads the most recently started operation of the calling checkout; another checkout's operation is refused by name. Records are kept for up to 7 days in a store shared by every worktree of the repository, with a bounded capacity that evicts finished `await` records first and keeps a running operation while anything finished can go.
+
+| Field                                            | Contract                                                                                                                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data.handle`, `data.operation`                  | The handle and the operation's `verb`, `path`, `branch`, `started_at`, and `finished_at` when it ended.                                                                                        |
+| `data.executor`                                  | `running`, `gone`, or `unknown`: whether a process with the recorded id still exists. `executor_reason` explains an unknown probe.                                                             |
+| `data.outcome`                                   | `completed`, `failed`, or `cancelled` once the executor closed the record. A gone executor with no outcome stopped without finishing.                                                          |
+| `data.progress`                                  | The latest recorded fact: `phase`, `state`, `reason`, `next`, `owner_must_act`, and the producer `work` it carried.                                                                            |
+| `data.producers`                                 | Merged counts per producer: `units` with `completed` and a `total` that is `null` when unknown, `results` with only the counts reported, `active`, `elapsed_ms`, `partial`, and `output_path`. |
+| `data.failures`                                  | Each failure established so far: `producer`, `name`, `message`, `file`, `line`, `reproduce_cmd`, and `partial`.                                                                                |
+| `data.timings`                                   | Named intervals with `category`, `started_at`, and `finished_at`. A producer's elapsed time, a budget, an environment return, and the command's span stay separate.                            |
+| `data.result`, `result_truncated`, `result_path` | The retained result envelope; an oversized envelope keeps a reduced account here and the complete one at `result_path`.                                                                        |
+| `data.account`                                   | The sentences every surface presents, in order.                                                                                                                                                |
+
+Observers and executors differ. A reconnect read, an `await` watch, or a second session can stop, time out, or die without touching the run. The MCP call that is itself executing a verb is not a separate observer: its explicit cancellation, or its transport closing, cancels the executor, and the journal records the run as `cancelled` with its facts retained. Refusals name their condition: a damaged or unknown handle, an empty store, another checkout's operation, an unreadable record, a record written by a newer discern, or no reachable repository.
+
+#### Producer progress lines
+
+A project's own check, such as its test or build command, may report its progress by printing lines to stdout or stderr:
+
+```text
+DISCERN_PROGRESS {"units":{"kind":"partitions","completed":3,"total":8},"results":{"passed":120,"failed":1,"skipped":2},"elapsed_ms":45210}
+DISCERN_PROGRESS {"failure":{"name":"alpha holds","message":"expected 2, got 3","file":"tests/alpha_test.ts","line":42,"reproduce":"deno task test tests/alpha_test.ts --filter 'alpha holds' --shuffle=7"}}
+```
+
+One JSON object per line; every field is optional. `units` carries `kind`, `completed`, and `total`, where `null` or an omitted total is a valid unknown total. `results` carries only the counts the producer established; an absent or empty `results` leaves the counts unknown. `active` lists running work labels, `elapsed_ms` is the producer's own elapsed time, and `partial: true` marks counts that cover only part of the completed units; once reported, a producer's counts stay marked partial. A `failure` names the failing test or obligation with its `message`, `file`, `line`, and a focused `reproduce` command carrying the recorded seed and instrumentation. discern presents the counts and failures live and keeps them for reconnect; the lines change nothing about scheduling, verdicts, or evidence. Unknown keys are ignored, a line that does not validate completely is ignored whole, and lines over 16 KiB are dropped. The protocol is the same for any language or runner.
+
 #### Find a map or manual page
 
 `discern_map` and `discern_docs` expose the same discovery funnel ([ADR 0174](https://discern.sh/docs/decisions/0174-agent-document-discovery-funnel)):
