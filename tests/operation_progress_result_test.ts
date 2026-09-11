@@ -9,7 +9,10 @@ import {
   openOperationJournal,
   withOperationJournal,
 } from "../src/engine/completion/operation_journal.ts";
-import { operationProgressResult } from "../src/engine/completion/progress_result.ts";
+import {
+  operationProgressResult,
+  runProgress,
+} from "../src/engine/completion/progress_result.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit } from "./engine_helpers.ts";
@@ -206,5 +209,137 @@ Deno.test("reconnect refusals name the exact condition without touching anything
         `\`done\` on agent/sibling, progress handle ${elsewhere.handle}`,
       );
     });
+  });
+});
+
+Deno.test("a finished operation's retained diagnostics read back as bounded sentences", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const diagnostics = ["lint", "typecheck", "test", "prose", "canary"].map(
+      (tool, index) => ({
+        tool,
+        severity: "error" as const,
+        message: `${tool} failed\n  at step ${index}`,
+        reproduce_cmd: `deno task ${tool}`,
+      }),
+    );
+    const envelope: DiscernResult = {
+      ok: false,
+      verb: "done",
+      error: "gate_failed",
+      steps: [],
+      message: "Gate failed.",
+      diagnostics,
+    };
+    await withOperationJournal(
+      root,
+      { verb: "done", path: root, branch: "agent/diagnosed" },
+      () => Promise.resolve(envelope),
+      { result: (value) => value },
+    );
+    const read = await operationProgressResult(root);
+    assert(read.ok, JSON.stringify(read));
+    assertStringIncludes(read.message ?? "", "finished with a failing result");
+    // Three diagnostics read back as one-line sentences, in order, and the
+    // rest are counted rather than dropped.
+    assertEquals(read.data?.account.slice(-4), [
+      "lint: lint failed at step 0.",
+      "typecheck: typecheck failed at step 1.",
+      "test: test failed at step 2.",
+      "2 more diagnostics are in the retained result.",
+    ]);
+  });
+});
+
+Deno.test("an oversized retained result reads back with the path of its complete envelope", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    const oversized: DiscernResult = {
+      ok: true,
+      verb: "done",
+      steps: [],
+      message: "Gate passed.",
+      data: { noise: "x".repeat(400 * 1024) },
+    };
+    await withOperationJournal(
+      root,
+      { verb: "done", path: root, branch: "agent/large" },
+      () => Promise.resolve(oversized),
+      { result: (value) => value },
+    );
+    const read = await operationProgressResult(root);
+    assert(read.ok, JSON.stringify(read));
+    assertEquals(read.data?.result_truncated, true);
+    assert(read.data?.result_path !== undefined);
+    assertStringIncludes(
+      read.message ?? "",
+      `the complete envelope is retained at ${read.data.result_path}`,
+    );
+  });
+});
+
+Deno.test("reading outside any repository is refused as such", async () => {
+  await withTempDir(async (root) => {
+    const read = await operationProgressResult(root);
+    assert(!read.ok);
+    assertEquals(read.error, "no_repository");
+    assertStringIncludes(read.message ?? "", "No repository is reachable");
+  });
+});
+
+Deno.test("the human progress entrypoint prints the reading's sentences and a refusal's hint", async () => {
+  await withTempDir(async (root) => {
+    await repository(root);
+    await withOperationJournal(
+      root,
+      { verb: "done", path: root, branch: "agent/human" },
+      () => {
+        emitCompletionProgress({
+          phase: "producer",
+          state: "running",
+          candidate_id: null,
+          reason: "Running test: 4 of 4 suites done, no failures so far.",
+          work: {
+            producer: "test",
+            units: { kind: "suites", completed: 4, total: 4 },
+            results: { failed: 0 },
+          },
+        });
+        return Promise.resolve(
+          { ok: true, verb: "done", steps: [] } satisfies DiscernResult,
+        );
+      },
+      { result: (value) => value },
+    );
+    const lines: string[] = [];
+    const sink = (text: string): void => {
+      lines.push(text);
+    };
+    assertEquals(
+      await runProgress(root, { json: false, stdout: sink, stderr: sink }),
+      0,
+    );
+    const printed = lines.join("");
+    assertStringIncludes(
+      printed,
+      "`done` on agent/human finished and succeeded",
+    );
+    assertStringIncludes(
+      printed,
+      "Running test: 4 of 4 suites done, no failures so far.",
+    );
+    lines.length = 0;
+    assertEquals(
+      await runProgress(root, {
+        json: false,
+        handle: "R1-XXXX-XXXX-99",
+        stdout: sink,
+        stderr: sink,
+      }),
+      1,
+    );
+    const refused = lines.join("");
+    assertStringIncludes(refused, "its checksum does not hold");
+    assertStringIncludes(refused, "Pass the handle the operation announced");
   });
 });

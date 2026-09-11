@@ -308,7 +308,13 @@ export async function operationProgressResult(
 /** Run the `progress` verb: the reading as JSON, or its sentences for a person. */
 export async function runProgress(
   root: string,
-  opts: { readonly json: boolean; readonly handle?: string | undefined },
+  opts: {
+    readonly json: boolean;
+    readonly handle?: string | undefined;
+    /** Injectable writers retained for deterministic human-entrypoint coverage. */
+    readonly stdout?: (text: string) => void;
+    readonly stderr?: (text: string) => void;
+  },
 ): Promise<number> {
   const result = await operationProgressResult(
     root,
@@ -318,7 +324,10 @@ export async function runProgress(
     emitResult(result);
     return result.ok ? 0 : 1;
   }
-  const out = makeOut(colorEnabled());
+  const out = makeOut(colorEnabled(), {
+    stdout: opts.stdout,
+    stderr: opts.stderr,
+  });
   if (!result.ok) {
     out.error(result.message ?? "progress refused.");
     for (const hint of interactiveHintTexts(result.hints)) out.info(hint);
