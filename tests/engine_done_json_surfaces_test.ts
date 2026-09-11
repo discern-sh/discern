@@ -673,6 +673,17 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         await writeExecutable(join(wt, "feature.txt"), "feature");
         await git(wt, "add", "-A");
         await git(wt, "commit", "-q", "-m", "Add the feature", "--no-gpg-sign");
+        // A clean standalone run states the rule first, and only the rule.
+        const clean = decodeGateResult(
+          (await runAgent(wt, ["done", "--standalone", "--json"])).stdout,
+        );
+        assertEquals(clean.data.gate_proof?.status, "diagnostic");
+        assert(
+          clean.data.gate_proof?.reason?.startsWith(
+            "Standalone feedback does not issue Proof.",
+          ),
+          clean.data.gate_proof?.reason,
+        );
         await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
         const dirty = decodeGateResult(
           (await runAgent(wt, ["done", "--standalone", "--json"])).stdout,
@@ -685,6 +696,14 @@ Deno.test("done --json: one proof-config repo — the trunk proves its candidate
         // The refusal NAMES what blocks the proof — in the reason and the hint —
         // so the agent commits the right file instead of diagnosing a bare "dirty".
         assertStringIncludes(dirty.data.gate_proof.reason, "wip.txt");
+        // Two facts in the true order: standalone feedback issues no Proof,
+        // and the tree was also dirty. The dirt never reads as the cause.
+        assert(
+          dirty.data.gate_proof.reason.startsWith(
+            "Standalone feedback does not issue Proof.",
+          ),
+          dirty.data.gate_proof.reason,
+        );
         assertHasHint(dirty, HINTS["gate-proof-skipped-dirty"], {
           reason: dirty.data.gate_proof.reason,
         });

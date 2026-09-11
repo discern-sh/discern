@@ -243,7 +243,7 @@ export const GATE_PROOF_RECORD_PRESENTATION = {
   skipped_dirty: {
     checkState: "skip",
     stateLabel: "not recorded",
-    summary: "The gate passed, but the worktree was dirty when the run began.",
+    summary: "The gate passed and recorded no Proof.",
   },
   skipped_head_moved: {
     checkState: "skip",

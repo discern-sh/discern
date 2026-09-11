@@ -1,3 +1,4 @@
+import { inertEarlyValidationHint } from "../completion/early_validation_notice.ts";
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { recoveryRequestResult } from "../execution/public_recovery.ts";
 import { releaseCheckoutRequestResult } from "./public_release.ts";
@@ -975,12 +976,15 @@ async function runCandidateGate(
     status: presentation.completion === undefined
       ? treePin.clean ? "diagnostic" : "skipped_dirty"
       : "pending",
+    // Two facts a standalone run can carry, in the order they are true:
+    // standalone feedback never issues Proof, and a full run would also need
+    // the tree clean. The dirt is stated beside the rule, never as its cause.
     reason: presentation.completion === undefined
       ? treePin.clean
-        ? "Standalone feedback does not issue Proof."
-        : `The worktree was not clean when the run began${
+        ? "Standalone feedback does not issue Proof. A full discern done run on this clean committed tree does."
+        : `Standalone feedback does not issue Proof. A full discern done run does, and it needs a clean committed tree; this tree was not clean when the run began${
           describeDirtyPaths(treePin.dirtyPaths)
-        }. Standalone feedback does not issue Proof.`
+        }.`
       : "Complete queue admission is pending.",
   };
   if (result.data !== undefined) {
@@ -1058,6 +1062,11 @@ async function runCandidateGate(
   // accept both read that first hint as their headline.
   const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
+  // A green run in a project whose early checking cannot run says so here,
+  // where the owner expected it to matter.
+  const inertEarlyValidation = failedStage === null
+    ? await inertEarlyValidationHint(root, cfg)
+    : undefined;
   const hints: FiredHint[] = [
     ...leadingFailureHints,
     ...(failedStage === null && gateProof.status === "skipped_dirty"
@@ -1068,6 +1077,7 @@ async function runCandidateGate(
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(strandUnavailableHint === undefined ? [] : [strandUnavailableHint]),
+    ...(inertEarlyValidation === undefined ? [] : [inertEarlyValidation]),
     ...checkpointAdvisoryHints,
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
