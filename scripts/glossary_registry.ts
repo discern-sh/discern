@@ -666,6 +666,16 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     ],
   },
   {
+    term: "Progress handle",
+    runningCase: "lowercase",
+    plain: {
+      keep:
+        "the short code that reads a long command back after a lost connection",
+    },
+    definition:
+      "The short `R1-XXXX-XXXX-XX` code a long operation announces when it starts. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](../70-reference/progress-and-reconnect.md).",
+  },
+  {
     term: "Proof",
     runningCase: "proof-family",
     matches: ["proof line"],
@@ -849,8 +859,6 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
  * member the glossary later names fails as stale.
  */
 export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
-  "verb:await":
-    "blocks until a sibling branch is green, its work has landed, or the trunk has moved; a read-only coordination verb the CLI reference and the worktree docs document, not a term of art",
   "verb:doctor":
     "checks an installation without changing it; the Installer entry carries the subsystem and the CLI reference documents the verb",
   "verb:docs":

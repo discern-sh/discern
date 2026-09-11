@@ -53,6 +53,11 @@ const SPEC: Record<string, OutsideSpec> = {
     verb: "checkpoints",
     expect: "not_initialized",
   },
+  progress: {
+    run: ["progress"],
+    verb: "progress",
+    expect: "not_initialized",
+  },
   standards: {
     run: ["standards"],
     verb: "standards",

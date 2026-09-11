@@ -175,6 +175,9 @@ const PROJECT_CASES: readonly PurityCase[] = [
     envelopeVerb: "checkpoints",
     args: ["checkpoints"],
   },
+  // No long operation has run in the scaffold, so this is the refusal
+  // envelope; a refusal must be as pure as a reading.
+  { commandPath: "progress", envelopeVerb: "progress", args: ["progress"] },
   { commandPath: "impact", envelopeVerb: "impact", args: ["impact"] },
   { commandPath: "status", envelopeVerb: "status", args: ["status"] },
   {

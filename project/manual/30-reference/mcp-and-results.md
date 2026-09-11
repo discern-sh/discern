@@ -27,6 +27,7 @@ aliases:
   - "discern_test"
   - "discern_update"
   - "discern_await"
+  - "discern_progress"
   - "discern_standards"
   - "discern_standards_propose"
   - "discern_accept"
@@ -103,6 +104,7 @@ Model Context Protocol (MCP) lets a coding agent call discern directly. The tool
 | `discern_test`              | Run the test stage on demand; `discern_done` includes it.                                                                                              | Runs project commands.                                                                              |
 | `discern_update`            | Merge the selected base into this branch and re-materialize generated files.                                                                           | Mutating and idempotent for the same inputs.                                                        |
 | `discern_await`             | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.                                                  | Read-only and idempotent; timeouts return a normal result.                                          |
+| `discern_progress`          | Read a long operation back after a lost call: its phase, the counts and failures known so far, and the retained result.                                | Read-only and idempotent; reading changes nothing.                                                  |
 | `discern_standards`         | Measure standards, compare limits, and optionally pin improvements.                                                                                    | Runs project commands; pinning changes and commits config.                                          |
 | `discern_standards_propose` | Record or preview one exact, commit-bound proposal for an intrinsically breached standard.                                                             | Mutating, closed-world, and idempotent; commits only the config limit.                              |
 | `discern_accept`            | Land validated candidates with permission for each source; remove eligible released worktrees and resources.                                           | Ordinary landing requires consent or a verified grant; emergency requires fresh exact confirmation. |
@@ -126,6 +128,7 @@ The input object is strict: undeclared keys are rejected. Optional keys by tool 
 | `discern_done`              | `dry_run`, `ci`, `rerun`, `met`, `unmet`, `path`, `standalone`, `recover`, `context`, `policy_base`, `retain_checkout`, `release_checkout`                                                            |
 | `discern_update`            | `from`, `dry_run`, `path`                                                                                                                                                                             |
 | `discern_await`             | `green`, `landed`, `trunk_moved`, `resume`, `timeout`, `path`                                                                                                                                         |
+| `discern_progress`          | `handle`, `path`                                                                                                                                                                                      |
 | `discern_accept`            | `action`, `target`, `order`, `expected`, `reconcile`, `prepare`, `preparation`, `met`, `reason`, `confirmation`, `recover`, `reclaim`, `dry_run`, `confirmed`, `variance`, `approve_standard`, `path` |
 | `discern_test`              | `path`                                                                                                                                                                                                |
 | `discern_standards`         | `dry_run`, `force`, `pin`, `names`, `path`                                                                                                                                                            |

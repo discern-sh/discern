@@ -2,7 +2,7 @@
 import { quoteCommandWord } from "../../shared/command_evidence.ts";
 import { toCommand } from "../../shared/config_schema.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
-import { spawnJob } from "./command.ts";
+import { type JobSpawnNotice, spawnJob } from "./command.ts";
 import { JobOutputRecorder } from "./output_record.ts";
 import type { JobResult } from "./types.ts";
 import { presentJobResult, type RunOptions } from "./runner.ts";
@@ -24,7 +24,7 @@ export async function runCapturedCommands(input: {
   readonly stdin?: Uint8Array;
   readonly presentation?: RunOptions;
   readonly timeoutKey?: string;
-  readonly onSpawn?: () => void;
+  readonly onSpawn?: (spawned: JobSpawnNotice) => void;
 }): Promise<
   {
     readonly result: JobResult;

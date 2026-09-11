@@ -29,6 +29,11 @@ import type {
 } from "../completion/protocol.ts";
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
+import { completionBlockerAccount } from "../completion/progress_prose.ts";
+import {
+  composeJobOutputObservers,
+  createProducerProgressObserver,
+} from "./producer_progress.ts";
 import {
   type ConfiguredValidation,
   configuredValidation,
@@ -288,6 +293,27 @@ export async function executePublicValidation(input: {
     ...input.claimed,
     signal: AbortSignal.any([input.claimed.signal, abort.signal]),
   };
+  // Producer protocol lines become progress facts on every surface, so the
+  // observer joins the presentation even when the run itself stays quiet.
+  const progressObserver = createProducerProgressObserver({
+    candidate_id: input.claimed.candidate_id,
+  });
+  const presentation: RunOptions = input.capacity?.runner === undefined
+    ? {
+      cwd: root,
+      stream: false,
+      failFast: false,
+      color: false,
+      quiet: true,
+      outputObserver: progressObserver,
+    }
+    : {
+      ...input.capacity.runner,
+      outputObserver: composeJobOutputObservers(
+        progressObserver,
+        input.capacity.runner.outputObserver,
+      ) ?? progressObserver,
+    };
   const runtime =
     (diagnostic ? createDiagnosticValidationRuntime : createValidationRuntime)({
       root,
@@ -304,9 +330,7 @@ export async function executePublicValidation(input: {
       timeout: config.gate.timeout,
       timeouts: configured.timeouts,
       jobLabel: producerLabel,
-      ...(input.capacity?.runner === undefined
-        ? {}
-        : { presentation: input.capacity.runner }),
+      presentation,
       verifyConditions: async () => {
         if (
           JSON.stringify(
@@ -331,7 +355,17 @@ export async function executePublicValidation(input: {
           phase: "producer",
           state: "finished",
           candidate_id: input.claimed.candidate_id,
-          reason: `${selector}: ${result.status}`,
+          reason: result.cancelled === true
+            ? `${producerLabel(selector)} was cancelled.`
+            : result.status === "ok"
+            ? `${producerLabel(selector)} passed.`
+            : `${producerLabel(selector)} failed.`,
+          work: {
+            producer: producerLabel(selector),
+            ...(result.outputPath === undefined
+              ? {}
+              : { output_path: result.outputPath }),
+          },
         });
         if (config.gate.fail_fast && result.code !== 0) abort.abort();
       },
@@ -353,6 +387,7 @@ export async function executePublicValidation(input: {
           candidate_id: claimed.candidate_id,
           reason:
             "Waiting for test-run capacity; independent checks can continue.",
+          next: "The producer starts when a test-run slot frees.",
         });
         hold = await withExecutionTiming(
           claimed,
@@ -402,7 +437,7 @@ export async function executePublicValidation(input: {
             phase: "producer",
             state: "running",
             candidate_id: claimed.candidate_id,
-            reason: `Running ${producer.selector}.`,
+            reason: `Running ${producerLabel(producer.selector)}.`,
           });
           return runtime.produce(producer, claimed);
         },
@@ -746,11 +781,14 @@ export async function executePublicValidation(input: {
     ),
   );
   for (const blocker of outcome.blockers) {
+    const account = completionBlockerAccount(blocker);
     emitCompletionProgress({
       phase: "pending",
       state: blocker.kind,
       candidate_id: execution.candidate_id,
-      reason: "reason" in blocker ? blocker.reason : JSON.stringify(blocker),
+      reason: account.reason,
+      next: account.next,
+      ...(account.owner_must_act ? { owner_must_act: true } : {}),
     });
   }
   return {

@@ -37,6 +37,7 @@ aliases:
   - "discern queue"
   - "discern improvement"
   - "discern checkpoints"
+  - "discern progress"
   - "discern mcp"
   - "discern scripts"
   - "discern standards"
@@ -88,7 +89,7 @@ Find a command, check its options, or look up how the terminal reader works. You
 | Area                | Commands                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Your desk           | [`desk`](#discern-desk), [`enter`](#discern-enter)                                                                                                                                                                                                                                                                                                                                      |
-| Agentic loop        | [`status`](#discern-status), [`prepare`](#discern-prepare), [`done`](#discern-done), [`test`](#discern-test), [`queue`](#discern-queue), [`tidy`](#discern-tidy)                                                                                                                                                                                                                        |
+| Agentic loop        | [`status`](#discern-status), [`prepare`](#discern-prepare), [`done`](#discern-done), [`test`](#discern-test), [`progress`](#discern-progress), [`queue`](#discern-queue), [`tidy`](#discern-tidy)                                                                                                                                                                                       |
 | Worktree lifecycle  | [`start`](#discern-start), [`update`](#discern-update), [`await`](#discern-await), [`accept`](#discern-accept), [`worktree`](#discern-worktree-subcommand), [`identity`](#discern-identity)                                                                                                                                                                                             |
 | Project Scripts     | [`scripts`](#discern-scripts)                                                                                                                                                                                                                                                                                                                                                           |
 | Setup & maintenance | [`setup`](#discern-setup-subcommand), [`upgrade`](#discern-upgrade), [`doctor`](#discern-doctor), [`config`](#discern-config-subcommand), [`refresh`](#discern-refresh), [`uninstall`](#discern-uninstall)                                                                                                                                                                              |
@@ -182,6 +183,12 @@ Usage: `discern done [options]`
 Run the project's configured tests on their own, outside the full gate.
 
 Usage: `discern test [options]`
+
+### `discern progress`
+
+Read a long operation back after a lost call: its phase, the counts and failures known so far, and the retained result. Pass the progress handle the operation announced; with no handle, read this checkout's most recently started operation. Reading changes nothing.
+
+Usage: `discern progress [handle] [options]`
 
 ### `discern queue`
 

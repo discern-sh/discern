@@ -129,6 +129,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  operations: {
+    path: "discern/operations",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   retiredWorktreePaths: {
     path: "discern/retired-worktree-paths",
     scope: "common",

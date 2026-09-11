@@ -1,5 +1,6 @@
 /** Native test partitions remain one awaited suite and one complete report. */
 import { join } from "@std/path";
+import { commandEvidence } from "../src/shared/command_evidence.ts";
 import { cksumString } from "../src/shared/crc.ts";
 import type { EnvReader } from "../src/shared/env.ts";
 import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
@@ -11,6 +12,8 @@ import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
 } from "../src/engine/process_signals.ts";
+import { junitToDiagnostics } from "../src/engine/gate/diagnostics.ts";
+import { formatProducerProgressLine } from "../src/engine/validation/progress_lines.ts";
 import { withToolTempDir } from "./temp_dir.ts";
 import { priorityFile, type TestPriority } from "./test_priority.ts";
 import { selectionSeconds, type TestDurationHints } from "./test_durations.ts";
@@ -35,6 +38,18 @@ export function testPartitionCount(
   ) return 1;
   const count = cores * 8;
   return cores > 1 && Number.isSafeInteger(count) ? count : 1;
+}
+
+/** Split one native report into its root attributes and case bodies. */
+function junitRootParts(
+  report: string,
+): { readonly attributes: string; readonly body: string } | undefined {
+  const root =
+    /^\s*(?:<\?xml[^?]*\?>\s*)?<testsuites\b([^>]*)>([\s\S]*)<\/testsuites>\s*$/
+      .exec(report);
+  return root?.[1] === undefined || root[2] === undefined
+    ? undefined
+    : { attributes: root[1], body: root[2] };
 }
 
 /** Read a required native JUnit count without accepting an incomplete report. */
@@ -68,23 +83,21 @@ export function combineJunitReports(
   const counts = { tests: 0, failures: 0, errors: 0 };
   const bodies: string[] = [];
   for (const report of reports) {
-    const root =
-      /^\s*(?:<\?xml[^?]*\?>\s*)?<testsuites\b([^>]*)>([\s\S]*)<\/testsuites>\s*$/
-        .exec(report);
-    if (root?.[1] === undefined || root[2] === undefined) {
+    const root = junitRootParts(report);
+    if (root === undefined) {
       throw new TypeError(
         "A native test partition did not produce a complete JUnit report.",
       );
     }
     for (const name of Object.keys(counts) as (keyof typeof counts)[]) {
-      counts[name] += junitCount(root[1], name);
+      counts[name] += junitCount(root.attributes, name);
       if (!Number.isSafeInteger(counts[name])) {
         throw new TypeError(
           `Combined JUnit ${name} count is not an exact integer.`,
         );
       }
     }
-    bodies.push(root[2]);
+    bodies.push(root.body);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<testsuites name="deno test" tests="${counts.tests}" failures="${counts.failures}" errors="${counts.errors}" time="${
@@ -95,6 +108,154 @@ export function combineJunitReports(
         : "incomplete"
     }" discern-reported-partitions="${reports.length}" discern-expected-partitions="${expectedPartitions}">\n` +
     bodies.join("\n") + "\n</testsuites>\n";
+}
+
+/** Bound failure emissions; the snapshot's failed count still carries the total. */
+const FAILURE_EMISSION_LIMIT = 32;
+
+/** Instrumentation flags a focused rerun must carry to reproduce conditions. */
+export function reproduceInstrumentation(
+  args: readonly string[],
+): string[] {
+  return args.filter((arg) =>
+    arg.startsWith("--coverage=") || arg === "--coverage-raw-data-only"
+  );
+}
+
+/** One focused rerun for a failing case, with the recorded seed and instrumentation. */
+export function focusedReproduceCommand(
+  name: string,
+  file: string | undefined,
+  seed: number | undefined,
+  instrumentation: readonly string[],
+): string {
+  return commandEvidence([
+    "deno",
+    "task",
+    "test",
+    ...(file === undefined ? [] : [file]),
+    "--filter",
+    name,
+    ...(seed === undefined ? [] : [`--shuffle=${seed}`]),
+    ...instrumentation,
+  ]);
+}
+
+/** How progress emission observes and reports; injectable for deterministic tests. */
+export interface PartitionProgressOptions {
+  readonly total: number;
+  readonly seed?: number;
+  /** Forwarded suite arguments, mined for instrumentation flags only. */
+  readonly forwarded: readonly string[];
+  readonly sink?: (line: string) => void;
+  /** Monotonic milliseconds; injected by tests instead of sleeping. */
+  readonly now?: () => number;
+}
+
+/**
+ * Emit protocol progress lines as partitions settle. Emission is derived from
+ * each partition's already-written native report and never changes membership,
+ * seeded order, admission, or coverage; a failure inside the emitter is
+ * swallowed so reporting can never fail the suite it reports on.
+ */
+export class PartitionProgressReporter {
+  private completed = 0;
+  private passed = 0;
+  private failed = 0;
+  private skipped = 0;
+  private partial = false;
+  private emittedFailures = 0;
+  private readonly startedAt: number;
+  private readonly sink: (line: string) => void;
+  private readonly now: () => number;
+  private readonly instrumentation: readonly string[];
+
+  constructor(private readonly options: PartitionProgressOptions) {
+    this.sink = options.sink ?? ((line): void => console.error(line));
+    this.now = options.now ?? ((): number => SYSTEM_CLOCK.monotonicNow());
+    this.instrumentation = reproduceInstrumentation(options.forwarded);
+    this.startedAt = this.now();
+  }
+
+  /** Announce the known total before any partition settles. */
+  begin(): void {
+    this.snapshot();
+  }
+
+  /** Fold one settled partition in; an unreadable report leaves counts partial. */
+  settled(report: string | undefined): void {
+    this.completed++;
+    try {
+      if (report === undefined) {
+        this.partial = true;
+      } else {
+        this.aggregate(report);
+      }
+    } catch {
+      // Progress reporting can never fail the suite it reports on.
+      this.partial = true;
+    }
+    this.snapshot();
+  }
+
+  /** Read one complete partition report's counts and emit its failures. */
+  private aggregate(report: string): void {
+    const root = junitRootParts(report);
+    if (root === undefined) {
+      this.partial = true;
+      return;
+    }
+    const tests = junitCount(root.attributes, "tests");
+    const failures = junitCount(root.attributes, "failures");
+    const errors = junitCount(root.attributes, "errors");
+    const skipped = root.body.match(/<skipped(?![\w-])/g)?.length ?? 0;
+    this.passed += Math.max(0, tests - failures - errors - skipped);
+    this.failed += failures + errors;
+    this.skipped += skipped;
+    for (const finding of junitToDiagnostics(report, "test", "") ?? []) {
+      if (this.emittedFailures >= FAILURE_EMISSION_LIMIT) break;
+      this.emittedFailures++;
+      const name = finding.rule ?? "(unnamed test)";
+      this.sink(formatProducerProgressLine({
+        failure: {
+          name,
+          message: finding.message,
+          ...(finding.file === undefined ? {} : { file: finding.file }),
+          ...(finding.line === undefined ? {} : { line: finding.line }),
+          reproduce: focusedReproduceCommand(
+            name,
+            finding.file,
+            this.options.seed,
+            this.instrumentation,
+          ),
+        },
+      }));
+    }
+  }
+
+  /** Emit the current counts; consumers coalesce unchanged snapshots. */
+  private snapshot(): void {
+    const counted = this.passed + this.failed + this.skipped > 0 ||
+      this.completed > 0;
+    this.sink(formatProducerProgressLine({
+      units: {
+        kind: "partitions",
+        completed: this.completed,
+        total: this.options.total,
+      },
+      ...(counted
+        ? {
+          results: {
+            passed: this.passed,
+            failed: this.failed,
+            skipped: this.skipped,
+          },
+        }
+        : {}),
+      elapsed_ms: Math.max(0, Math.round(this.now() - this.startedAt)),
+      ...(this.partial ? { partial: true } : {}),
+    }));
+  }
 }
 
 /** Give every native partition distinct output locations and its full selection share. */
@@ -115,9 +276,9 @@ function partitionArguments(
         : arg
     ),
     ...selection,
-    ...(args.includes("--reporter=junit")
-      ? [`--junit-path=${reportPath}`]
-      : []),
+    // Every partition writes a native report; progress emission reads it as the
+    // partition settles, and junit callers combine the same files at the end.
+    `--junit-path=${reportPath}`,
   ];
 }
 
@@ -262,6 +423,7 @@ async function runPartitionChildren(
   options: OwnedChildOptions,
   order: readonly number[],
   selections: readonly (readonly string[])[],
+  progress?: PartitionProgressReporter,
 ): Promise<{ code: number; completed: number }> {
   const runtimeArgs = args.includes("--no-check") ? args : [
     ...args.filter((arg) => !/^--(?:no-)?check(?:=|$)/.test(arg)),
@@ -292,6 +454,16 @@ async function runPartitionChildren(
         });
         completed++;
         if (!child.status.success) code = 1;
+        if (progress !== undefined) {
+          let text: string | undefined;
+          try {
+            text = await Deno.readTextFile(report);
+          } catch {
+            // The settled partition left no readable report; counts stay partial.
+            text = undefined;
+          }
+          progress.settled(text);
+        }
       } catch (error) {
         failures.push(error);
       }
@@ -340,6 +512,8 @@ export async function runTestPartitions(
       signal: AbortSignal,
     ) => Promise<TestPriority | undefined>;
     readonly durations?: TestDurationHints;
+    /** Progress-line emission seams; scheduling never observes them. */
+    readonly progress?: Pick<PartitionProgressOptions, "sink" | "now">;
   } = {},
 ): Promise<PartitionedTestResult> {
   if (!Number.isSafeInteger(count) || count < 1) {
@@ -400,6 +574,18 @@ export async function runTestPartitions(
           );
         }
       }
+      const progress = new PartitionProgressReporter({
+        total: partitionCount,
+        ...(options.seed === undefined ? {} : { seed: options.seed }),
+        forwarded: args,
+        ...(options.progress?.sink === undefined
+          ? {}
+          : { sink: options.progress.sink }),
+        ...(options.progress?.now === undefined
+          ? {}
+          : { now: options.progress.now }),
+      });
+      progress.begin();
       const started = SYSTEM_CLOCK.monotonicNow();
       const { code, completed } = await runPartitionChildren(
         args,
@@ -418,6 +604,7 @@ export async function runTestPartitions(
           options.durations,
         ),
         allocation.selections,
+        progress,
       );
       const seconds = (SYSTEM_CLOCK.monotonicNow() - started) / 1000;
       if (!args.includes("--reporter=junit")) {

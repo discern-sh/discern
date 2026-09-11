@@ -343,6 +343,7 @@ async function acquireLock(
         state: "publication-wait",
         candidate_id: null,
         reason: "Waiting for another short repository publication to finish.",
+        next: "This run continues once that publication finishes.",
       });
       const deadline = SYSTEM_CLOCK.monotonicNow() + 10_000;
       while (!acquired && SYSTEM_CLOCK.monotonicNow() < deadline) {

@@ -47,6 +47,11 @@ Commands:
                  <span style="opacity:0.68">check: format, lint, type-check, and tests.</span>
     <span style="color:rgb(135 215 255);font-weight:700">test       </span>  <span style="opacity:0.68">Run the project&#39;s configured tests on their own, outside the</span>
                  <span style="opacity:0.68">full gate.</span>
+    <span style="color:rgb(135 215 255);font-weight:700">progress   </span>  <span style="opacity:0.68">Read a long operation back after a lost call: its phase, the</span>
+                 <span style="opacity:0.68">counts and failures known so far, and the retained result. Pass</span>
+                 <span style="opacity:0.68">the progress handle the operation announced; with no handle,</span>
+                 <span style="opacity:0.68">read this checkout&#39;s most recently started operation. Reading</span>
+                 <span style="opacity:0.68">changes nothing.</span>
     <span style="color:rgb(135 215 255);font-weight:700">queue      </span>  <span style="opacity:0.68">Run a command while holding one configured concurrent test-run</span>
                  <span style="opacity:0.68">slot. Use `discern await` to watch a fleet condition instead.</span>
                  <span style="opacity:0.68">This command has no `--json`, `--markdown`, or `--render` mode;</span>

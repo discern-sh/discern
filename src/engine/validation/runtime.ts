@@ -4,7 +4,11 @@ import {
   type ValidationInputSelection,
 } from "./input_selection.ts";
 import { gitPathRecord } from "../../shared/git_paths.ts";
-import { emitCompletionEvent, executionEvent } from "../completion/events.ts";
+import {
+  emitCompletionEvent,
+  emitCompletionProgress,
+  executionEvent,
+} from "../completion/events.ts";
 import { checkoutChangesMessage } from "../../shared/checkout_changes.ts";
 import { validationInputFile } from "./inputs.ts";
 /** Production adapters use existing supervised jobs, common records and bounded artifacts. */
@@ -234,12 +238,13 @@ function runtime(
   ): Promise<ProducerCapture> => {
     const executionId = `${execution.attempt.identity.id}:${label}`;
     const role = label.startsWith("extract:") ? "extractor" : "producer";
+    const publicLabel = options.jobLabel?.(label) ?? label;
     let started: { wall: number; monotonic: number } | undefined;
     const result = await runCapturedCommands({
       root: options.root,
-      label: options.jobLabel?.(label) ?? label,
+      label: publicLabel,
       commands: runCommands,
-      onSpawn: () => {
+      onSpawn: (spawned) => {
         started = { wall: clock.wallNow(), monotonic: clock.monotonicNow() };
         emitCompletionEvent(
           executionEvent(execution, `${executionId}:started`, started.wall, {
@@ -250,6 +255,18 @@ function runtime(
           }),
         );
         options.onStart?.(label);
+        // Publish the transcript location the moment it exists, so an
+        // interrupted producer's output stays reachable through the journal.
+        if (role === "producer" && spawned.outputPath !== undefined) {
+          emitCompletionProgress({
+            phase: "producer",
+            state: "running",
+            candidate_id: execution.candidate_id,
+            reason:
+              `Running ${publicLabel}; its output is being captured at ${spawned.outputPath}.`,
+            work: { producer: publicLabel, output_path: spawned.outputPath },
+          });
+        }
       },
       ...(options.presentation === undefined
         ? {}

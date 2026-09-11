@@ -150,6 +150,9 @@ export const CONFIG_PROSE = {
     detail: [
       "A value is one command, a list run in order, or a table giving the job",
       'its own time budget: test = { run = "npm test", timeout = 1200 }.',
+      "A long-running command may report its own progress while it runs: print",
+      'DISCERN_PROGRESS {"units":{"kind":"files","completed":3,"total":8}}',
+      "lines and discern presents the counts, and any reported failures, live.",
       "Leave a known job unwired until its command exists; `discern setup` has",
       "your coding agent fill these from repository evidence.",
     ],

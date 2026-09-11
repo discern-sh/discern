@@ -18,6 +18,7 @@ The public reference tier for discern's commands, configuration, environment var
 | `result-surfaces.md`              | reference | Terminal, Markdown, JSON, and MCP projections of one prepared result.                                             |
 | `mcp-and-results.md`              | reference | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
 | `mcp-call-duration.md`            | reference | Duration fields and timing boundaries exposed by MCP calls.                                                       |
+| `progress-and-reconnect.md`       | reference | Live progress facts, the producer progress protocol, and the handle that reads a long operation back.             |
 | `proof-note-format.md`            | reference | Wire format, identifiers, and validation contract for Proof notes.                                                |
 | `artifact-ownership.md`           | reference | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
 | `temp-files-and-retention.md`     | reference | Temporary artifact locations, ownership, and retention policy.                                                    |

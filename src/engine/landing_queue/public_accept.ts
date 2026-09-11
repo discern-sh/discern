@@ -865,6 +865,7 @@ async function acceptQueueImplementation(
           candidate_id: entry.candidate_id,
           reason:
             `Validating ${entry.source.branch} in its released environment.`,
+          next: "Acceptance continues once that validation passes.",
         });
         const { finishResult } = await loadModule(() =>
           import("../gate/finish.ts")

@@ -118,6 +118,7 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   map: READ_ONLY_ABSENCE,
   mcp: "a long-running transport server, not a finite execution plan",
   patterns: READ_ONLY_ABSENCE,
+  progress: READ_ONLY_ABSENCE,
   queue:
     "an exec-style resource wrapper whose child command is supplied at invocation time",
   refresh:

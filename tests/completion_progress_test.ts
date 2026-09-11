@@ -82,7 +82,7 @@ Deno.test("completion progress uses the client's token and keeps concurrent call
       ) => [
         note.params.progressToken,
         note.params.progress,
-        note.params._meta.discern_completion.candidate_id,
+        note.params._meta.discern_completion?.candidate_id,
       ]),
       [[name, 1, name], [name, 2, name]],
     );
@@ -202,7 +202,7 @@ Deno.test("MCP progress coalesces unchanged observations but reports every trans
     },
   );
   assertEquals(
-    notes.map((note) => note.params._meta.discern_completion.state),
+    notes.map((note) => note.params._meta.discern_completion?.state),
     ["waiting", "running", "waiting"],
   );
   assertEquals(notes.map((note) => note.params.progress), [1, 2, 3]);

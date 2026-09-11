@@ -4,7 +4,7 @@
 
 _discern's canonical account of what the product gives the coding agent operating it. Each entry leads with the agent outcome, explains the product mechanism, states the boundary, and cites the feature identities, agent-only hints, and public claims that make the account checkable. The [feature canon](feature-canon.md) owns product identity; the [Human Benefit Canon](feature-canon-human-benefits.md) owns value for people._
 
-9 workflow clusters · 24 agent benefits · 127 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
+9 workflow clusters · 24 agent benefits · 128 direct feature roles · 11 supporting feature roles · 19 agent-only hints · 17 agent or shared claims carried.
 
 ## How to use this canon
 
@@ -75,9 +75,9 @@ A coding agent can keep one durable, isolated effort across sessions and compose
 ### Resume after interruption
 
 - **Agent value:** A coding agent can continue a durable effort after a process, session, or provisioning interruption without inventing a new workspace or losing partial state without an account.
-- **Why it follows:** Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.
+- **Why it follows:** Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, effectful workflows are designed for interruption safety, and every long operation journals its progress facts and retained result behind a handle so a lost call is read back rather than re-run.
 - **Boundary:** Recovery preserves and explains known lifecycle state; it cannot reconstruct external resources whose provider destroyed them outside discern's recorded contract.
-- **Direct product basis:** Crash-safe provisioning · Bounded drop recovery · Owned worktree reclamation · Clean under interruption.
+- **Direct product basis:** Crash-safe provisioning · Bounded drop recovery · Owned worktree reclamation · Clean under interruption · Progress and reconnect.
 
 ## Spend context on the change
 

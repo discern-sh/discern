@@ -2383,6 +2383,58 @@ export const HINTS = {
       "from that effort's worktree. Recorded grants cannot approve standard proposals.",
   }),
 
+  "progress-handle-required": defineHint({
+    id: "progress-handle-required",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A progress read names a damaged handle, a handle no record carries, or finds only another checkout's operation.",
+    family: "progress-reconnect",
+    example: undefined,
+    template: (): string =>
+      `Pass the handle the operation announced: ${
+        discernCommand("progress", positional("handle", "<handle>"))
+      }. With no handle it reads this checkout's most recently started operation.`,
+  }),
+
+  "progress-nothing-recorded": defineHint({
+    id: "progress-nothing-recorded",
+    category: "next-step",
+    audience: "all",
+    when: "A progress read finds no long operation recorded in the repository.",
+    family: "progress-reconnect",
+    example: undefined,
+    template: (): string =>
+      `Every ${discernCommand("done")}, ${discernCommand("test")}, ${
+        discernCommand("standards")
+      }, and ${
+        discernCommand("accept")
+      } run announces a handle to read back; run one from this checkout first.`,
+  }),
+
+  "progress-record-unreadable": defineHint({
+    id: "progress-record-unreadable",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A progress read finds the journal store or the record unreadable, or written by a newer discern.",
+    family: "progress-reconnect",
+    example: undefined,
+    template: (): string =>
+      "The operation itself is unaffected. Run it again to produce a fresh record, or read another handle.",
+  }),
+
+  "progress-outside-repository": defineHint({
+    id: "progress-outside-repository",
+    category: "next-step",
+    audience: "all",
+    when: "A progress read runs where no repository is reachable.",
+    family: "progress-reconnect",
+    example: undefined,
+    template: (): string =>
+      "Run it inside the repository whose operation you are reconnecting to.",
+  }),
+
   "checkpoints-declare": defineHint<{ ids: string[] }>({
     id: "checkpoints-declare",
     category: "next-step",

@@ -46,6 +46,11 @@ import {
 } from "../logbook/validation.ts";
 import { captureValidationStart } from "../logbook/validation_state.ts";
 import { terminalContext } from "../../lib/terminal.ts";
+import { observedGateOperation } from "./observed_operation.ts";
+import {
+  type GateProgressPresenterSlot,
+  registerGateProgressPresenter,
+} from "./progress_presenter.ts";
 import {
   createGateTtyProgress,
   renderGateTtyStatus,
@@ -76,6 +81,22 @@ async function runTestGate(
     presentationWritable: boolean;
   }
 > {
+  return await observedGateOperation(
+    root,
+    "test",
+    signal,
+    (presenterSlot) => runTestGateBody(root, surface, signal, presenterSlot),
+    (completed) => completed.result,
+  );
+}
+
+/** The standalone test run behind the journalled, observed operation boundary. */
+async function runTestGateBody(
+  root: string,
+  surface: GateOutputSurface,
+  signal: AbortSignal | undefined,
+  presenterSlot: GateProgressPresenterSlot,
+): ReturnType<typeof runTestGate> {
   const cfg = await loadConfig(root);
   const policy = resolveGateRunPolicy(cfg.gate.stream, surface);
   const group = stageGroup(cfg, "test");
@@ -136,6 +157,12 @@ async function runTestGate(
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
   }
+  registerGateProgressPresenter(
+    presenterSlot,
+    policy.output.kind,
+    progress,
+    runOpts.write,
+  );
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);

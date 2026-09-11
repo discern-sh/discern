@@ -46,6 +46,7 @@ tokens:
   - (?:\b|_)[A-Za-z][\w-]*\s+Placement\s+is\s+consents?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Practices?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Project\s+scripts?\b
+  - (?:\b|_)[A-Za-z][\w-]*\s+Progress\s+handles?\b
   - \bproof\s+(?:line|note)(?:s|['’]s)?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Schema\s+versions?\b
   - (?:\b|_)[A-Za-z][\w-]*\s+Scopes?\b

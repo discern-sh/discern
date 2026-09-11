@@ -9,12 +9,74 @@ import type {
 import type { CompletionRecovery } from "./environment.ts";
 import type { ComponentEvidence } from "./evidence.ts";
 
+/**
+ * Counts one producer reported about its own current run. Every field is an
+ * observed fact: an absent field is unknown, and `total: null` is a valid
+ * unknown total. Consumers present the counts as counts — unequal units mean
+ * no percentage or time estimate can be derived from them.
+ */
+export interface ProducerWork {
+  /** The reporting producer's selector; one shared producer counts once. */
+  readonly producer: string;
+  readonly units?: {
+    /** What the producer's units are, in its own words (e.g. "partitions"). */
+    readonly kind: string;
+    readonly completed: number;
+    readonly total: number | null;
+  };
+  /** Only counts the producer actually reported; an absent count is unknown. */
+  readonly results?: {
+    readonly passed?: number;
+    readonly failed?: number;
+    readonly skipped?: number;
+  };
+  /** Labels of the work currently running, in the producer's own vocabulary. */
+  readonly active?: readonly string[];
+  /** The producer's own elapsed time — not the command's, budget's, or return's. */
+  readonly elapsed_ms?: number;
+  /** True when the reported counts cover only part of the completed units. */
+  readonly partial?: boolean;
+  /** Engine-observed path of the settled producer's full captured output. */
+  readonly output_path?: string;
+}
+
+/**
+ * One failure a still-running producer has already established. Advisory: the
+ * producer's final verdict comes from its component evidence, never from this
+ * projection, and a running producer with reported failures is still running.
+ */
+export interface CompletionFailure {
+  readonly producer: string;
+  /** The failing test or obligation, named exactly. */
+  readonly name: string;
+  readonly message: string;
+  readonly file?: string;
+  readonly line?: number;
+  /** Focused reproduction carrying the recorded seed and instrumentation. */
+  readonly reproduce_cmd?: string;
+  /** True when the report this failure came from is itself incomplete. */
+  readonly partial: boolean;
+}
+
 /** The next piece of work or the exact reason it is pending, without output-log payloads. */
 export interface CompletionProgress {
-  readonly phase: "producer" | "environment" | "queue" | "pending";
+  readonly phase:
+    | "producer"
+    | "environment"
+    | "queue"
+    | "pending"
+    | "operation";
   readonly state: string;
   readonly candidate_id: string | null;
   readonly reason: string;
+  /** The running operation's reconnect handle, announced once at its start. */
+  readonly operation_handle?: string;
+  /** What happens after the current work, when the transition is known. */
+  readonly next?: string;
+  /** True only when no actor can proceed until the owner decides something. */
+  readonly owner_must_act?: boolean;
+  /** Producer-reported counts, present only where a producer supplies them. */
+  readonly work?: ProducerWork;
   readonly capacity?: CompletionCapacity;
   readonly environment_id?: string;
   readonly attempt_id?: string;
@@ -22,7 +84,8 @@ export interface CompletionProgress {
 }
 export type CompletionObservationFact =
   | { readonly kind: "event"; readonly event: CompletionEvent }
-  | { readonly kind: "progress"; readonly progress: CompletionProgress };
+  | { readonly kind: "progress"; readonly progress: CompletionProgress }
+  | { readonly kind: "failure"; readonly failure: CompletionFailure };
 interface ObservationScope {
   readonly sink: (fact: CompletionObservationFact) => void | Promise<void>;
   readonly deliveries: Promise<void>[];
@@ -68,6 +131,10 @@ function emit(fact: CompletionObservationFact): void {
 /** Expose the current phase or pending reason without starting any work. */
 export function emitCompletionProgress(progress: CompletionProgress): void {
   emit({ kind: "progress", progress });
+}
+/** Report a failure the moment it is known, ahead of the producer's verdict. */
+export function emitCompletionFailure(failure: CompletionFailure): void {
+  emit({ kind: "failure", failure });
 }
 /** Deliver an advisory projection of an established outcome. */
 export function emitCompletionEvent(event: CompletionEvent): void {

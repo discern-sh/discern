@@ -208,6 +208,7 @@ export const OPERATION_EFFECTS = {
     "checkout",
     "disclose",
   ),
+  progress: OBSERVATION,
   queue: policy(
     ["project-command"],
     "none",

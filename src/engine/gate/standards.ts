@@ -1,6 +1,7 @@
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
 import { fmtRate, standardHeld } from "../validation/metrics.ts";
 import { measureDeclaredStandards } from "../validation/measurement.ts";
+import { observedGateOperation } from "./observed_operation.ts";
 /**
  * Standalone standards demand the shared producer graph and preserve valid
  * component evidence for pin and proposal operations. Every invocation checks
@@ -1061,6 +1062,29 @@ async function pinStandardsResult(
  * flow.
  */
 export async function standardsResult(
+  root: string,
+  opts: {
+    dryRun?: boolean;
+    force?: boolean;
+    pin?: boolean;
+    pinNames?: string[];
+    signal?: AbortSignal;
+  } = {},
+): Promise<DiscernResult> {
+  // A dry run previews and stays out of the journal; a measuring run is a
+  // long operation with a reconnect handle like every other.
+  if (opts.dryRun ?? false) return await standardsResultBody(root, opts);
+  return await observedGateOperation(
+    root,
+    "standards",
+    opts.signal,
+    () => standardsResultBody(root, opts),
+    (value) => value,
+  );
+}
+
+/** The standards run behind the journalled operation boundary. */
+async function standardsResultBody(
   root: string,
   opts: {
     dryRun?: boolean;

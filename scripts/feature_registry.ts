@@ -956,6 +956,23 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         surfaces: ["verb:await"],
       },
       {
+        id: "progress",
+        title: "Progress and reconnect",
+        what:
+          "Every long operation — `done`, `test`, `standards`, `accept`, and an MCP `await` — reports typed progress facts while it runs (the phase, a composed sentence, producer-reported counts, each failure the moment it is established, and what happens next) and records the same facts behind a short `R1` handle in a bounded journal under the common Git directory. A producer reports its own counts by printing `DISCERN_PROGRESS` lines. `discern progress [handle]` reads an operation back after a lost call: its phase, the counts and failures known so far, named timing boundaries, and the retained final result; with no handle it reads the calling checkout's most recent operation and names any other checkout's operation instead of substituting it. The journal is advisory: it carries no validation or landing authority, and reading it changes nothing.",
+        why:
+          "A minutes-long check is never silent, and a closed terminal or timed-out tool call loses nothing: the same account is read back afterwards instead of re-running the work to recover its output.",
+        plain: {
+          title:
+            "See progress while checks run, and read it back after a lost connection",
+          what:
+            "While a long command runs, discern says what it is doing in plain sentences: which step is running, how many parts are done, any failure the moment it is known, and what happens next. It also writes the same facts to a short record with a handle. If the terminal closes or the tool call times out, `discern progress` with that handle shows the same account, including the final result, without running anything again. With no handle it shows the latest command run from this working copy.",
+          why:
+            "Waiting on a long check is never a silent gamble, and a lost connection never means running the whole thing again to find out what happened.",
+        },
+        surfaces: ["verb:progress"],
+      },
+      {
         id: "desk",
         title: "The desk",
         what:
@@ -2829,9 +2846,10 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
         value:
           "A task can outlive one agent session. Whoever returns can recover the worktree, setup state, and next action instead of reconstructing the task from conversation history.",
         whyItFollows:
-          "Worktrees persist, lifecycle hooks re-ready a resumed checkout, unfinished setup remains machine-readable, idempotent verbs converge on the intended state, and `discern status` supplies a fresh orientation in one call.",
+          "Worktrees persist, lifecycle hooks re-ready a resumed checkout, unfinished setup remains machine-readable, idempotent verbs converge on the intended state, `discern status` supplies a fresh orientation in one call, and `discern progress` reads a long run back after a closed terminal or a timed-out call instead of running it again.",
         drawsOn: [
           "status",
+          "progress",
           "session-hooks",
           "setup-observability",
           "setup-activation",
@@ -3749,7 +3767,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
         value:
           "A coding agent can continue a durable effort after a process, session, or provisioning interruption without inventing a new workspace or losing partial state without an account.",
         whyItFollows:
-          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, and effectful workflows are designed for interruption safety.",
+          "Provisioning records recoverable state, drop repairs interrupted lifecycle operations, prune reconciles positively identified abandoned worktrees through an explicit action, effectful workflows are designed for interruption safety, and every long operation journals its progress facts and retained result behind a handle so a lost call is read back rather than re-run.",
         boundary:
           "Recovery preserves and explains known lifecycle state; it cannot reconstruct external resources whose provider destroyed them outside discern's recorded contract.",
         drawsOn: [
@@ -3757,6 +3775,7 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "drop-recovery",
           "worktree-prune",
           "interruption-safety",
+          "progress",
         ],
       },
     ],

@@ -38,6 +38,7 @@ aliases:
   - patterns
   - placement is consent
   - practice
+  - progress handle
   - project script
   - project-owned file
   - proof
@@ -209,6 +210,10 @@ Choosing a managed source location authorizes discern to maintain that content. 
 ### Practice
 
 The connected way of working discern installs and the project carries between sessions. Tasks use separate [worktrees](#worktree), configured [gate](#gate) checks, held [standards](#standard), exact completion [Proof](#proof), and owner-controlled [landing authority](#landing-authority). Bundled [skills](#skill) guide delegation, lasting project knowledge, and improvements that address a problem's cause. You direct the work and make the consequential decisions; your agents operate the workflow. See [the practice](the-practice.md).
+
+### Progress handle
+
+The short `R1-XXXX-XXXX-XX` code a long operation announces when it starts. `discern progress <handle>`, or the `discern_progress` tool, reads that operation back after a lost call: its phase, the counts and failures known so far, and the retained result. It only reads; the `C1` continuation that `discern await` returns is what resumes a wait. See [progress and reconnect](../70-reference/progress-and-reconnect.md).
 
 ### Project script
 

@@ -130,6 +130,7 @@ export const MANUAL_ALIAS_OWNER_OVERRIDES: Readonly<Record<string, string>> = {
   "discern identity": "reference-cli",
   "discern improvement": "reference-cli",
   "discern patterns": "reference-cli",
+  "discern progress": "reference-cli",
   "discern standards": "reference-cli",
   "discern status": "reference-cli",
   "discern tidy": "reference-cli",

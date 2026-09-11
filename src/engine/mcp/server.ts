@@ -108,6 +108,7 @@ import {
   MapOutputSchema,
   PatternsOutputSchema,
   PrepareOutputSchema,
+  ProgressOutputSchema,
   RefreshOutputSchema,
   StandardsOutputSchema,
   StandardsProposeOutputSchema,
@@ -124,6 +125,8 @@ import {
 } from "../../shared/setup_state.ts";
 import { Logger } from "../../lib/log.ts";
 import { finishResult } from "../gate/finish.ts";
+import { observedGateOperation } from "../gate/observed_operation.ts";
+import { operationProgressResult } from "../completion/progress_result.ts";
 import { prepareResult } from "../gate/prepare.ts";
 import { testResult } from "../gate/test_job.ts";
 import { standardsResult } from "../gate/standards.ts";
@@ -388,6 +391,7 @@ export const MCP_CORE_LIFECYCLE = [
 
 const TOOL_PRIORITY = [
   ...MCP_CORE_LIFECYCLE,
+  "discern_progress",
   "discern_test",
   "discern_standards",
   "discern_standards_propose",
@@ -833,7 +837,10 @@ export const TOOLS: McpTool[] = orderTools([
       "data.requested_timeout_s. The condition returns as soon as it holds. " +
       "On success the hint chooses `discern_start` from the main checkout or " +
       "`discern_update` from an existing worktree, including the green " +
-      "result's immutable commit as `from` when composing below the trunk.",
+      "result's immutable commit as `from` when composing below the trunk. " +
+      "Two handles have different jobs: a progress handle (`R1-…`), announced " +
+      "while the call runs, reads back what this call recorded after a lost " +
+      "call; only `data.resume` (`C1-…`) resumes the wait itself.",
     inputSchema: {
       green: z.string().optional().describe(
         "Sibling selected by worktree id, path, local branch, or full local " +
@@ -860,22 +867,66 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
+    // The wait is journalled here at the transport most likely to lose its
+    // observer: a timed-out or killed MCP call reconnects through the handle
+    // and reads the same watch, including its retained resume continuation.
     run: (root, args, signal, context) =>
-      awaitResult(
+      observedGateOperation(
         root,
-        {
-          ...(args.green !== undefined ? { green: args.green } : {}),
-          ...(args.landed !== undefined ? { landed: args.landed } : {}),
-          ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
-          ...(args.resume !== undefined ? { resume: args.resume } : {}),
-          ...(args.timeout !== undefined
-            ? { timeoutSeconds: args.timeout }
-            : {}),
-        },
+        "await",
         signal,
-        {
-          callProfile: context.awaitCallProfile,
-        },
+        () =>
+          awaitResult(
+            root,
+            {
+              ...(args.green !== undefined ? { green: args.green } : {}),
+              ...(args.landed !== undefined ? { landed: args.landed } : {}),
+              ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
+              ...(args.resume !== undefined ? { resume: args.resume } : {}),
+              ...(args.timeout !== undefined
+                ? { timeoutSeconds: args.timeout }
+                : {}),
+            },
+            signal,
+            {
+              callProfile: context.awaitCallProfile,
+            },
+          ),
+        (value) => value,
+      ),
+  }),
+  defineTool({
+    name: "discern_progress",
+    title: "Read a long operation back",
+    outputSchema: ProgressOutputSchema,
+    annotations: READ_ONLY,
+    description:
+      "Read a long operation back after a lost call, read-only. Every " +
+      "discern_done, discern_test, discern_standards, discern_accept, and " +
+      "discern_await call announces a progress handle (`R1-…`) as its first " +
+      "progress fact and records the same facts in a journal. Pass that " +
+      "handle to read the operation's phase, the counts and failures known so " +
+      "far, named timing boundaries, and the retained final result — nothing " +
+      "re-runs. With no handle, read the most recently started operation of " +
+      "the selected checkout; another checkout's operation is named with its " +
+      "handle and refused, never substituted. data.executor says whether a " +
+      "process with the recorded id is still alive; data.outcome is absent " +
+      "while the executor has not finished. Reading starts, repairs, and " +
+      "cancels nothing, and the journal carries no validation or landing " +
+      "authority. A wait's own resume continuation (`C1-…`, returned by " +
+      "discern_await) is what resumes the wait; this tool only reads.",
+    inputSchema: {
+      handle: z.string().optional().describe(
+        "The progress handle the operation announced (`R1-XXXX-XXXX-XX`). " +
+          "Omit to read the selected checkout's most recently started " +
+          "operation.",
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args) =>
+      operationProgressResult(
+        root,
+        args.handle === undefined ? {} : { handle: args.handle },
       ),
   }),
   defineTool({
