@@ -219,7 +219,7 @@ A project's own check, such as its test or build command, may report its progres
 
 ```text
 DISCERN_PROGRESS {"units":{"kind":"partitions","completed":3,"total":8},"results":{"passed":120,"failed":1,"skipped":2},"elapsed_ms":45210}
-DISCERN_PROGRESS {"failure":{"name":"alpha holds","message":"expected 2, got 3","file":"tests/alpha_test.ts","line":42,"reproduce":"deno task test tests/alpha_test.ts --filter 'alpha holds' --shuffle=7"}}
+DISCERN_PROGRESS {"failure":{"name":"alpha holds","message":"expected 2, got 3","file":"tests/alpha_test.py","line":42,"reproduce":"tools/test --only 'alpha holds' --seed 7"}}
 ```
 
 One JSON object per line; every field is optional. `units` carries `kind`, `completed`, and `total`, where `null` or an omitted total is a valid unknown total. `results` carries only the counts the producer established; an absent or empty `results` leaves the counts unknown. `active` lists running work labels, `elapsed_ms` is the producer's own elapsed time, and `partial: true` marks counts that cover only part of the completed units; once reported, a producer's counts stay marked partial. A `failure` names the failing test or obligation with its `message`, `file`, `line`, and a focused `reproduce` command carrying the recorded seed and instrumentation. discern presents the counts and failures live and keeps them for reconnect; the lines change nothing about scheduling, verdicts, or evidence. Unknown keys are ignored, a line that does not validate completely is ignored whole, and lines over 16 KiB are dropped. The protocol is the same for any language or runner.
