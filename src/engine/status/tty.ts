@@ -1390,6 +1390,25 @@ function renderLastLanding(
       maxWidth: width,
     })];
   }
+  if (data.landed_exception !== undefined) {
+    const exception = data.landed_exception;
+    const outstanding = exception.validation === "outstanding";
+    return [c.presenter.present(renderResultSummaryCli, {
+      state: outstanding ? "blocked" : "changed",
+      fact: terminalLine(
+        `The trunk tip landed as an emergency with no passing Proof: ${exception.reason}. ${
+          outstanding
+            ? `Its ${
+              exception.exceptions === 1
+                ? "skipped check is"
+                : "skipped checks are"
+            } still outstanding; run discern done --rerun on the trunk.`
+            : "A later complete run settled its skipped checks; the emergency record stays in the history."
+        }`,
+      ),
+      maxWidth: width,
+    })];
+  }
   return [];
 }
 

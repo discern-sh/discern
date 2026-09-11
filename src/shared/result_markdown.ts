@@ -133,6 +133,22 @@ function listFact(
   return values.length === 0 ? undefined : `${label}: ${boundedCodes(values)}.`;
 }
 
+/** The trunk tip's emergency landing, in the words its checks deserve. */
+function landedExceptionFact(
+  data: Record<string, unknown>,
+): string | undefined {
+  const exception = object(data.landed_exception);
+  if (exception === undefined) return undefined;
+  const outstanding = text(exception.validation) === "outstanding";
+  return `The trunk tip landed as an emergency with no passing Proof: ${
+    text(exception.reason) ?? "no reason recorded"
+  }. ${
+    outstanding
+      ? "Its skipped checks are still outstanding; run discern done --rerun on the trunk."
+      : "A later complete run settled its skipped checks; the emergency record stays in the history."
+  }`;
+}
+
 /** Select the result message or the standard state sentence. */
 function defaultState(
   result: Readonly<Record<string, unknown>>,
@@ -1703,6 +1719,7 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
         } Next: ${code(row.next_action)}.`
       ),
       ...emergencyValidationFacts(data),
+      landedExceptionFact(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,
       git === undefined
         ? undefined

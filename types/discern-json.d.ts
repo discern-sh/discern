@@ -7959,6 +7959,14 @@ export type DiscernStatusResult = DiscernResultState & {
       ref: string;
       format: string;
     };
+    landed_exception?: {
+      commit: string;
+      ref: string;
+      landing_id: string;
+      reason: string;
+      exceptions: number;
+      validation: "outstanding" | "resolved";
+    };
     pending_tracked_refresh?: Array<string>;
     tracked_refresh_plan_errors?: Array<string>;
     tracked_ignored_artifacts?: Array<string>;

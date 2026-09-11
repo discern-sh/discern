@@ -2128,6 +2128,17 @@ export const StatusDataSchema = z.strictObject({
     ref: z.string(),
     format: z.string(),
   }).optional(),
+  /** The trunk tip landed by emergency exception. It carries no passing
+   * Proof; `validation` says whether a later complete run has settled the
+   * checks it skipped. */
+  landed_exception: z.strictObject({
+    commit: z.string(),
+    ref: z.string(),
+    landing_id: z.string(),
+    reason: z.string(),
+    exceptions: z.number().int().nonnegative(),
+    validation: z.enum(["outstanding", "resolved"]),
+  }).optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
   /** Tracked files the read-only refresh plan would change. This is the
    * complete convergence view. */

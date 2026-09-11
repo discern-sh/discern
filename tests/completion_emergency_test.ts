@@ -124,6 +124,12 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
     });
     assert(landed.ok, JSON.stringify(landed));
     assertEquals(landed.data?.emergency?.outcome, "landed");
+    assert(
+      (landed.message ?? "").startsWith(
+        "`agent/public-done` landed on main as an emergency, with no passing Proof.",
+      ),
+      landed.message,
+    );
     assertEquals(landed.data?.proof, undefined);
     assertEquals(
       await readEffortGrant(path),
@@ -184,13 +190,29 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
       "already_present",
     );
     assertEquals(ProofNotePayloadSchema.safeParse(payload).success, false);
-    assertEquals(
-      (await readProofNoteAt(root, exception.data.target)).status,
-      "unsupported",
-    );
+    // The exception note is a distinct record kind: never passing Proof, and
+    // never mistaken for a format this build cannot read.
+    const reading = await readProofNoteAt(root, exception.data.target);
+    assertEquals(reading.status, "exception");
+    assert(reading.status === "exception");
+    assertEquals(reading.landing_id, exception.id);
+    assert(exception.data.claim.kind === "exception");
+    assertEquals(reading.reason, exception.data.claim.reason);
     assertEquals(
       (await emergencyValidationStatus(root))[0]?.state,
       "outstanding",
+    );
+    const pending = await runAgent(root, ["status", "--json"]);
+    assertEquals(pending.code, 0, pending.output);
+    const pendingStatus = decodeCliResult(pending.stdout, "status");
+    assert(pendingStatus.data !== undefined, pending.output);
+    assert(!("landed_proof_unsupported" in pendingStatus.data), pending.output);
+    assertEquals(
+      "landed_exception" in pendingStatus.data
+        ? pendingStatus.data.landed_exception?.validation
+        : undefined,
+      "outstanding",
+      pending.output,
     );
     const validation = await runAgent(root, ["done", "--rerun", "--json"]);
     assertEquals(validation.code, 0, validation.output);
@@ -213,6 +235,15 @@ Deno.test("emergency preview rejects ordinary grants, changed reason and source;
         !settled.stdout.includes('"emergency_validation"'),
         `resolved exception must leave status ${flags.join(" ")}: ` +
           settled.stdout,
+      );
+      const settledStatus = decodeCliResult(settled.stdout, "status");
+      assert(settledStatus.data !== undefined, settled.output);
+      assertEquals(
+        "landed_exception" in settledStatus.data
+          ? settledStatus.data.landed_exception?.validation
+          : undefined,
+        "resolved",
+        settled.output,
       );
     }
     const resolved = (await emergencyValidationInventory(root))[0];

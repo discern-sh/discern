@@ -17,7 +17,11 @@ import {
 } from "../../shared/git_conventions.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
-import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
+import {
+  EMERGENCY_NOTE_PAYLOAD_TYPE,
+  PROOF_NOTE_PAYLOAD_TYPE,
+} from "../../shared/public_schemas.ts";
+import { EmergencyNotePayloadSchema } from "../../shared/emergency_note.ts";
 import { z } from "@zod/zod";
 import {
   CompleteProofEvidenceSchema,
@@ -531,6 +535,15 @@ type ParsedProofNote =
     brief?: string;
   }
   | { kind: "unsupported"; format: string }
+  /** An emergency landing's exception record: never passing Proof, and never
+   * a newer format this build cannot read. */
+  | {
+    kind: "exception";
+    landing_id: string;
+    candidate_head: string;
+    reason: string;
+    exceptions: number;
+  }
   | {
     kind: "stale";
     reason: string;
@@ -679,6 +692,27 @@ const IncompleteProofNotePayloadSchema = TolerantProofNotePayloadSchema.extend({
   }).optional(),
 });
 
+/** Read an emergency exception envelope: its recorded facts, or an unsupported
+ * reading when the bytes do not carry the registered exception payload. */
+function parseExceptionNote(parsed: object): ParsedProofNote {
+  const envelope = TolerantProofNoteSchema.safeParse(parsed);
+  const decoded = envelope.success
+    ? EmergencyNotePayloadSchema.safeParse(
+      decodeProofNotePayload(envelope.data.payload),
+    )
+    : undefined;
+  if (decoded === undefined || !decoded.success) {
+    return { kind: "unsupported", format: EMERGENCY_NOTE_PAYLOAD_TYPE };
+  }
+  return {
+    kind: "exception",
+    landing_id: decoded.data.landing_id,
+    candidate_head: decoded.data.claim.candidate_head,
+    reason: decoded.data.claim.reason,
+    exceptions: decoded.data.claim.exceptions.length,
+  };
+}
+
 /**
  * Parse one note body. `payloadType` is the in-band format identity: the current
  * type reads the envelope and decoded payload tolerantly, any other type is
@@ -697,6 +731,9 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   }
   if (!("payloadType" in parsed)) return undefined;
   const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
+  if (payloadType === EMERGENCY_NOTE_PAYLOAD_TYPE) {
+    return parseExceptionNote(parsed);
+  }
   if (payloadType !== PROOF_NOTE_PAYLOAD_TYPE) {
     return {
       kind: "unsupported",
@@ -897,6 +934,16 @@ export async function writeProofNote(
           `the landed commit already carries a Proof note in a format this discern does not know (${parsed.format})`,
       };
     }
+    if (parsed?.kind === "exception") {
+      return {
+        status: "record_failed",
+        ref: PROOF_NOTES_REF,
+        commit,
+        merged_refs: mergedRefs,
+        reason:
+          "the landed commit already carries an emergency exception record, which is never replaced by Proof",
+      };
+    }
     // Note identity is the annotated subject plus the stable proof claim. A
     // retry may render different Markdown, line text, or timing telemetry, but
     // notes are records and must never be rewritten merely for presentation.
@@ -1002,6 +1049,16 @@ export type LandedProofReading =
     readonly ref: string;
     readonly format: string;
   }
+  /** The commit landed by emergency exception: a distinct record kind that is
+   * never passing Proof and never a version this build cannot read. */
+  | {
+    readonly status: "exception";
+    readonly commit: string;
+    readonly ref: string;
+    readonly landing_id: string;
+    readonly reason: string;
+    readonly exceptions: number;
+  }
   | {
     readonly status: "stale";
     readonly commit: string;
@@ -1106,6 +1163,19 @@ export async function readProofNoteAt(
         ref,
         format: parsed.format,
       };
+      continue;
+    }
+    if (parsed.kind === "exception") {
+      if (abbreviatedObjectIdMatches(parsed.candidate_head, commit)) {
+        return {
+          status: "exception",
+          commit,
+          ref,
+          landing_id: parsed.landing_id,
+          reason: parsed.reason,
+          exceptions: parsed.exceptions,
+        };
+      }
       continue;
     }
     if (boundToCommit(parsed, commit)) {

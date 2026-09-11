@@ -381,6 +381,14 @@ export async function statusResult(
   } else if (landedProof.status === "unsupported") {
     const { status: _status, ...unread } = landedProof;
     data.landed_proof_unsupported = unread;
+  } else if (landedProof.status === "exception") {
+    const { status: _status, ...exception } = landedProof;
+    const outstanding = (completionRecovery.data.emergency_validation ?? [])
+      .some((row) => row.landing_id === exception.landing_id);
+    data.landed_exception = {
+      ...exception,
+      validation: outstanding ? "outstanding" : "resolved",
+    };
   }
   const recentCompleted = await recentCompletedTasks(
     root,
