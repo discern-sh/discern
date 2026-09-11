@@ -16196,6 +16196,7 @@
                           }
                         },
                         "active": {
+                          "readOnly": true,
                           "type": "array",
                           "items": {
                             "type": "string"
@@ -16292,6 +16293,7 @@
                         }
                       },
                       "active": {
+                        "readOnly": true,
                         "type": "array",
                         "items": {
                           "type": "string"
@@ -16382,6 +16384,9 @@
                   "type": "boolean"
                 },
                 "result_path": {
+                  "type": "string"
+                },
+                "result_retention_error": {
                   "type": "string"
                 },
                 "account": {

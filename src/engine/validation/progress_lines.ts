@@ -11,6 +11,9 @@
  * a producer's malformed report as a smaller true one.
  */
 
+import { z } from "@zod/zod";
+import { decodeUnknown } from "../../shared/runtime_decode.ts";
+
 /** Ignore pathological lines instead of buffering them. */
 const PROGRESS_LINE_MAX_BYTES = 16 * 1024;
 /** Bound retained failure text; the full transcript stays with the producer's capture. */
@@ -163,7 +166,11 @@ export function parseProducerProgressLine(
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return undefined;
   }
-  const raw = parsed as Record<string, unknown>;
+  const raw = decodeUnknown(
+    z.record(z.string(), z.unknown()),
+    parsed,
+    "producer progress line",
+  );
   const units = readUnits(raw.units);
   const results = readResults(raw.results);
   const active = readActive(raw.active);

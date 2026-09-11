@@ -3609,7 +3609,7 @@ export const CheckpointsOutputSchema = resultOutputSchema(
 );
 
 /** One producer's own reported work, as a reconnect reading retains it. */
-const ProgressWorkSchema = z.object({
+export const ProgressWorkSchema = z.object({
   producer: z.string(),
   units: z.object({
     kind: z.string(),
@@ -3621,14 +3621,14 @@ const ProgressWorkSchema = z.object({
     failed: z.number().int().nonnegative().optional(),
     skipped: z.number().int().nonnegative().optional(),
   }).optional(),
-  active: z.array(z.string()).optional(),
+  active: z.array(z.string()).readonly().optional(),
   elapsed_ms: z.number().int().nonnegative().optional(),
   partial: z.boolean().optional(),
   output_path: z.string().optional(),
 });
 
 /** One failure a producer established while it was still running. */
-const ProgressFailureSchema = z.object({
+export const ProgressFailureSchema = z.object({
   producer: z.string(),
   name: z.string(),
   message: z.string(),
@@ -3639,7 +3639,7 @@ const ProgressFailureSchema = z.object({
 });
 
 /** The latest progress fact, exactly as live observers received it. */
-const ProgressFactSchema = z.object({
+export const ProgressFactSchema = z.object({
   phase: z.enum(["producer", "environment", "queue", "pending", "operation"]),
   state: z.string(),
   candidate_id: z.string().nullable(),
@@ -3655,7 +3655,7 @@ const ProgressFactSchema = z.object({
 });
 
 /** One named timing boundary; each category is its own recorded fact. */
-const ProgressTimingSchema = z.object({
+export const ProgressTimingSchema = z.object({
   category: z.string(),
   interval_id: z.string(),
   started_at: z.number(),
@@ -3682,6 +3682,8 @@ export const ProgressDataSchema = z.object({
   result: z.unknown().optional(),
   result_truncated: z.boolean().optional(),
   result_path: z.string().optional(),
+  /** Why only a reduced account of an oversized result could be kept. */
+  result_retention_error: z.string().optional(),
   /** The composed sentences every surface presents, in order. */
   account: z.array(z.string()),
 });

@@ -14,6 +14,14 @@
  */
 
 import { join } from "@std/path";
+import { z } from "@zod/zod";
+import { decodeJson } from "../../shared/runtime_decode.ts";
+import {
+  ProgressFactSchema,
+  ProgressFailureSchema,
+  ProgressTimingSchema,
+  ProgressWorkSchema,
+} from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import {
   atomicReplaceBytes,
@@ -42,9 +50,7 @@ import {
 } from "../../shared/short_handle.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
-  type CompletionFailure,
   type CompletionObservationFact,
-  type CompletionProgress,
   emitCompletionProgress,
   type ProducerWork,
   withCompletionObserver,
@@ -76,30 +82,44 @@ export interface OperationTiming {
 /** How the executor closed the operation; absent while it has not. */
 export type OperationOutcome = "completed" | "failed" | "cancelled";
 
-export interface OperationJournalRecord {
-  readonly schema_version: typeof ON_DISK_FORMATS.operationJournal.version;
-  readonly operation: {
-    readonly handle: string;
-    readonly verb: string;
-    readonly path: string;
-    readonly branch?: string;
-    readonly pid: number;
-    readonly started_at: number;
-    readonly finished_at?: number;
-  };
-  /** The latest progress fact, exactly as live observers received it. */
-  readonly progress?: CompletionProgress;
-  /** The latest known account per producer, merged the way live surfaces merge. */
-  readonly producers?: Readonly<Record<string, ProducerWork>>;
-  readonly failures?: readonly CompletionFailure[];
-  readonly timings?: readonly OperationTiming[];
-  readonly outcome?: OperationOutcome;
-  /** The retained final result envelope, when one exists and fits the bound. */
-  readonly result?: unknown;
-  readonly result_truncated?: boolean;
-  /** Where the complete envelope lives when the record holds a reduced one. */
-  readonly result_path?: string;
-}
+/**
+ * One journalled operation as it lives on disk. The schema is the authority a
+ * reader validates every record against before trusting a field: the header
+ * (verb, checkout, branch, process, stamps), the latest progress fact exactly
+ * as live observers received it, the per-producer accounts merged the way
+ * live surfaces merge, each established failure, named timing intervals, the
+ * executor's outcome, and the retained result — complete, or reduced with the
+ * complete envelope's path or the reason it could not be kept.
+ */
+const OperationJournalRecordSchema = z.object({
+  schema_version: z.literal(ON_DISK_FORMATS.operationJournal.version),
+  operation: z.object({
+    handle: z.string(),
+    verb: z.string(),
+    path: z.string(),
+    branch: z.string().optional(),
+    pid: z.number().int(),
+    started_at: z.number(),
+    finished_at: z.number().optional(),
+  }),
+  progress: ProgressFactSchema.optional(),
+  producers: z.record(z.string(), ProgressWorkSchema).optional(),
+  failures: z.array(ProgressFailureSchema).optional(),
+  timings: z.array(ProgressTimingSchema).optional(),
+  outcome: z.enum(["completed", "failed", "cancelled"]).optional(),
+  result: z.unknown().optional(),
+  result_truncated: z.boolean().optional(),
+  result_path: z.string().optional(),
+  result_retention_error: z.string().optional(),
+});
+
+export type OperationJournalRecord = z.infer<
+  typeof OperationJournalRecordSchema
+>;
+/** The retained shapes a reader receives, as the schema earned them. */
+export type JournalledProgressFact = z.infer<typeof ProgressFactSchema>;
+export type JournalledProducerWork = z.infer<typeof ProgressWorkSchema>;
+export type JournalledFailure = z.infer<typeof ProgressFailureSchema>;
 
 /** Validate a caller-supplied handle without touching the store. */
 export function normalizeOperationHandle(
@@ -268,9 +288,9 @@ async function pruneForCreate(
 
 /** Merge one work report the way live surfaces do: fields persist until replaced. */
 function mergeWork(
-  previous: ProducerWork | undefined,
+  previous: JournalledProducerWork | undefined,
   work: ProducerWork,
-): ProducerWork {
+): JournalledProducerWork {
   return {
     ...previous,
     ...work,
@@ -440,7 +460,10 @@ export async function openOperationJournal(
       const resultPath = `${
         store.path.slice(0, -RECORD_SUFFIX.length)
       }${RESULT_SUFFIX}`;
+      // A sibling that cannot be written is reported on the record, so a
+      // reader learns why only the reduced account is available.
       let retained: string | undefined;
+      let retention: string | undefined;
       try {
         await atomicReplaceBytes(
           resultPath,
@@ -449,9 +472,8 @@ export async function openOperationJournal(
           entropy,
         );
         retained = resultPath;
-      } catch {
-        // discern-best-effort: operation-journal-result-retain
-        retained = undefined;
+      } catch (error) {
+        retention = describeError(error);
       }
       current = {
         ...current,
@@ -464,6 +486,9 @@ export async function openOperationJournal(
         },
         result_truncated: true,
         ...(retained === undefined ? {} : { result_path: retained }),
+        ...(retention === undefined
+          ? {}
+          : { result_retention_error: retention }),
       };
       return await persist();
     },
@@ -502,7 +527,7 @@ export type OperationJournalReading =
       readonly started_at: number;
     };
   }
-  | { readonly kind: "corrupt" }
+  | { readonly kind: "corrupt"; readonly reason: string }
   | { readonly kind: "newer"; readonly reason: string }
   /** No repository is reachable from the given root. */
   | { readonly kind: "unavailable" }
@@ -537,23 +562,16 @@ function executorLiveness(
   }
 }
 
-/** Parse one stored record, refusing newer formats without interpreting them. */
+/**
+ * Parse one stored record: refuse a newer format without interpreting it,
+ * and validate everything else against the schema before any field is read.
+ */
 function parseRecord(
   text: string,
 ):
   | { readonly status: "recorded"; readonly record: OperationJournalRecord }
-  | { readonly status: "corrupt" }
+  | { readonly status: "corrupt"; readonly reason: string }
   | { readonly status: "newer"; readonly reason: string } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-    return { status: "corrupt" };
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return { status: "corrupt" };
-  }
   const version = inspectOnDiskJsonVersion("operationJournal", text);
   if (version.status === "newer") {
     return {
@@ -561,23 +579,18 @@ function parseRecord(
       reason: newerOnDiskFormatMessage("operationJournal", version.found),
     };
   }
-  const value = parsed as Record<string, unknown>;
-  const operation = value.operation as Record<string, unknown> | undefined;
-  if (
-    value.schema_version !== ON_DISK_FORMATS.operationJournal.version ||
-    typeof operation !== "object" || operation === null ||
-    typeof operation.handle !== "string" ||
-    typeof operation.verb !== "string" ||
-    typeof operation.path !== "string" ||
-    typeof operation.pid !== "number" ||
-    typeof operation.started_at !== "number"
-  ) {
-    return { status: "corrupt" };
+  try {
+    return {
+      status: "recorded",
+      record: decodeJson(
+        OperationJournalRecordSchema,
+        text,
+        "operation journal record",
+      ),
+    };
+  } catch (error) {
+    return { status: "corrupt", reason: describeError(error) };
   }
-  return {
-    status: "recorded",
-    record: value as unknown as OperationJournalRecord,
-  };
 }
 
 /**
@@ -607,7 +620,7 @@ export async function readOperationJournal(
         ? foundReading(parsed.record)
         : parsed.status === "newer"
         ? { kind: "newer", reason: parsed.reason } as const
-        : { kind: "corrupt" } as const;
+        : { kind: "corrupt", reason: parsed.reason } as const;
     }
     // No handle: the most recently STARTED operation of this checkout, by its
     // own recorded stamp. File modification times move on every progress
@@ -641,7 +654,7 @@ export async function readOperationJournal(
       if (parsed.status !== "recorded") {
         sawInvalid = parsed.status === "newer"
           ? { kind: "newer", reason: parsed.reason }
-          : sawInvalid ?? { kind: "corrupt" };
+          : sawInvalid ?? { kind: "corrupt", reason: parsed.reason };
         continue;
       }
       if (startedLater(parsed.record, newestAnywhere)) {

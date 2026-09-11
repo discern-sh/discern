@@ -14,11 +14,6 @@ import {
 } from "../../shared/hints.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { colorEnabled, makeOut } from "../output.ts";
-import type {
-  CompletionFailure,
-  CompletionProgress,
-  ProducerWork,
-} from "./events.ts";
 import {
   completionFailureSentence,
   completionProgressSentence,
@@ -27,6 +22,9 @@ import {
 } from "./progress_prose.ts";
 import {
   type ExecutorLiveness,
+  type JournalledFailure,
+  type JournalledProducerWork,
+  type JournalledProgressFact,
   type OperationJournalRecord,
   type OperationOutcome,
   type OperationTiming,
@@ -54,15 +52,17 @@ export interface OperationProgressData {
   /** How the executor closed the operation; absent while it has not. */
   readonly outcome?: OperationOutcome;
   /** The latest progress fact, exactly as live observers received it. */
-  readonly progress?: CompletionProgress;
-  readonly producers?: readonly ProducerWork[];
-  readonly failures?: readonly CompletionFailure[];
+  readonly progress?: JournalledProgressFact;
+  readonly producers?: readonly JournalledProducerWork[];
+  readonly failures?: readonly JournalledFailure[];
   readonly timings?: readonly OperationTiming[];
   /** The retained final result envelope, when one exists and fit the bound. */
   readonly result?: unknown;
   readonly result_truncated?: boolean;
   /** Where the complete envelope lives when the record holds a reduced one. */
   readonly result_path?: string;
+  /** Why only a reduced account of an oversized result could be kept. */
+  readonly result_retention_error?: string;
   /**
    * The composed sentences every surface presents, in order: the latest
    * progress fact, each producer's counts, each established failure. Composed
@@ -145,7 +145,11 @@ function progressMessage(
       : record.result_truncated !== true
       ? "The retained result is included; nothing needs to run again to read it."
       : record.result_path === undefined
-      ? "Only a reduced account of its result could be retained; the complete envelope was too large to keep."
+      ? `Only a reduced account of its result could be retained; the complete envelope was too large to keep inline${
+        record.result_retention_error === undefined
+          ? ""
+          : ` and could not be written beside the record (${record.result_retention_error})`
+      }.`
       : `A reduced account of its result is included and the complete envelope is retained at ${record.result_path}; nothing needs to run again to read it.`;
     return `${name} ${verdict}.${summary} ${retained}`;
   }
@@ -219,7 +223,7 @@ export async function operationProgressResult(
         verb: "progress",
         error: "read_error",
         message:
-          "The recorded journal for that handle is unreadable. The operation itself is unaffected; the record cannot be presented.",
+          `The recorded journal for that handle is unreadable (${reading.reason}). The operation itself is unaffected; the record cannot be presented.`,
         hints: hintTexts([fire(HINTS["progress-record-unreadable"])]),
       };
     case "newer":
@@ -284,6 +288,9 @@ export async function operationProgressResult(
     ...(record.result_path === undefined
       ? {}
       : { result_path: record.result_path }),
+    ...(record.result_retention_error === undefined
+      ? {}
+      : { result_retention_error: record.result_retention_error }),
     account: accountOf(record),
   };
   return {

@@ -1095,17 +1095,6 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "The hint must never invent an upgrade warning when the executable identity cannot be observed, and tool dispatch remains authoritative.",
   },
-  "operation-journal-result-retain": {
-    path: "src/engine/completion/operation_journal.ts",
-    enclosingFunction: "finish",
-    operation:
-      "keep the reduced result account when the complete-envelope sibling cannot be written",
-    kind: "direct",
-    shape: "async",
-    observability: { kind: "unobservable" },
-    reason:
-      "The bounded record still names the operation and its verdict; a reader missing the complete envelope re-reads the command's own surfaces instead of the journal failing its operation.",
-  },
   "operation-journal-write-fallback": {
     path: "src/engine/completion/operation_journal.ts",
     enclosingFunction: "persist",

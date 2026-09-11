@@ -6,11 +6,6 @@
  * estimate, and an unknown total stays unknown.
  */
 import type { CompletionBlocker } from "./protocol.ts";
-import type {
-  CompletionFailure,
-  CompletionProgress,
-  ProducerWork,
-} from "./events.ts";
 
 /** Bound one-line renderings; the full text stays on the underlying fact. */
 const SENTENCE_MAX_CHARS = 400;
@@ -28,8 +23,27 @@ function sentence(text: string): string {
   return /[.!?…]$/u.test(text) ? text : `${text}.`;
 }
 
+/**
+ * The facts one producer sentence reads. Structural, with explicit undefined
+ * allowed, so a live fact and a journalled one read through the same words.
+ */
+export type ProducerWorkFacts = {
+  readonly producer: string;
+  readonly units?: {
+    readonly kind: string;
+    readonly completed: number;
+    readonly total: number | null;
+  } | undefined;
+  readonly results?: {
+    readonly passed?: number | undefined;
+    readonly failed?: number | undefined;
+    readonly skipped?: number | undefined;
+  } | undefined;
+  readonly partial?: boolean | undefined;
+};
+
 /** The running account of one producer's own reported counts. */
-export function producerWorkSentence(work: ProducerWork): string {
+export function producerWorkSentence(work: ProducerWorkFacts): string {
   const parts: string[] = [];
   if (work.units !== undefined) {
     const { completed, total, kind } = work.units;
@@ -64,7 +78,7 @@ function named(values: readonly string[], noun: string): string {
 
 /** The whole account of one progress fact: what is happening, then what comes next. */
 export function completionProgressSentence(
-  progress: Pick<CompletionProgress, "reason" | "next">,
+  progress: { readonly reason: string; readonly next?: string | undefined },
 ): string {
   return progress.next === undefined
     ? progress.reason
@@ -180,8 +194,17 @@ export function completionBlockerAccount(
   }
 }
 
+/** The facts one failure sentence reads, live or journalled. */
+export type FailureFacts = {
+  readonly name: string;
+  readonly message: string;
+  readonly file?: string | undefined;
+  readonly line?: number | undefined;
+  readonly reproduce_cmd?: string | undefined;
+};
+
 /** One failure the moment it is known: the test, the message, the reproduction. */
-export function completionFailureSentence(failure: CompletionFailure): string {
+export function completionFailureSentence(failure: FailureFacts): string {
   const location = failure.file === undefined
     ? ""
     : ` (${failure.file}${

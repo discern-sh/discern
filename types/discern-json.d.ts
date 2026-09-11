@@ -5252,6 +5252,7 @@ export type DiscernProgressResult = DiscernResultState & {
     result?: unknown;
     result_truncated?: boolean;
     result_path?: string;
+    result_retention_error?: string;
     account: Array<string>;
   } | {
     issues: Array<{
