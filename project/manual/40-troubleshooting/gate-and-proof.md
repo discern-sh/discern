@@ -41,7 +41,7 @@ Read the next action and whether the result says the gate ran. Common cases are:
 
 | What the result names                             | Next step                                                                                                                                                                             |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again. |
+| Uncommitted or untracked files                    | The full check needs a committed tree. Have the agent run `discern prepare`, review and commit the intended files, then ask again.                                                    |
 | A checkpoint needs judgment                       | Have the agent answer the served question against the actual change. See [checkpoint answers](#a-checkpoint-needs-an-answer).                                                         |
 | A workspace needs recovery                        | Follow the recorded environment recovery before editing it. See [returning a workspace](../10-guides/recover-an-interrupted-task.md#return-a-workspace-after-interrupted-validation). |
 | The branch or its proposed landing needs updating | Follow the printed update or completion action. Acceptance may compose and validate the change in an eligible released workspace.                                                     |
@@ -58,7 +58,7 @@ Nothing needs repairing. Let the run wait, or ask the agent which task holds the
 
 ## The result was cut short
 
-A long result can arrive with its diagnostics abbreviated. The complete output is kept in a retained artifact whose path the result names; the agent reads that artifact. Running the gate again to see the missing text costs another run and adds nothing new.
+A long result can arrive with its diagnostics abbreviated. `discern progress <handle>`, with the handle the run announced when it started, returns the retained result with every failure and its reproduce command; each check's complete transcript is in the file the result names. Running the gate again to see the missing text costs another run and adds nothing new.
 
 If the session that started the run is gone, the run may still be going. Ask the agent to read status before doing anything else. [Recover an interrupted task](../10-guides/recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) covers that case.
 

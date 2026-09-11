@@ -78,9 +78,15 @@ This recovery action runs no validation and lands no change. After the workspace
 
 ## Stop a run you can no longer see
 
-If you close a terminal, or your coding tool gives up on a long call, the checks may still be running. Stopping the wait stops only the waiting. Ask your agent to reconnect and read status before doing anything else; it shows whether the run is still going, whether its child processes have stopped, and what the run has recorded so far. A run that is still alive finishes on its own. A run that has died is the case above.
+If you close a terminal, or your coding tool gives up on a long call, the checks may still be running. Stopping the wait stops only the waiting. Every long run announces a short handle when it starts, in a line like `done is running. If this call is lost, discern progress R1-H596-N6BT-K5 reads it back.` Ask your agent to read the run back with that handle before doing anything else:
 
-Never repeat the checks to recover their output. The result keeps its complete output in a retained artifact, and the agent reads that instead.
+```sh
+discern progress R1-H596-N6BT-K5
+```
+
+The reading says whether the run is still going, what it has counted and which checks have failed so far, and, once it finishes, its complete result. Without a handle, `discern progress` reads the most recent run started from that workspace. A run that is still alive finishes on its own. A run whose process has died reads as stopped without finishing, which is the case above.
+
+Never repeat the checks to recover their output. The reading keeps the result, and each check's full transcript stays in the file the result names.
 
 ## Recover an interrupted acceptance
 

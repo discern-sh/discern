@@ -30,6 +30,12 @@ Ask for an explanation such as “Search crashes when the box is empty,” or �
 
 If other checks were canceled after the first failure, their results remain unknown. They will need evidence too before completion. The agent should retrieve captured output when a result is abbreviated, rather than repeat an operation merely to see its text again.
 
+You do not have to wait for the run to finish to learn what failed. While the checks run, discern reports each failure as soon as it is known, with the test's name, message, and a focused command that reproduces it alone, when the project's test command reports its progress. Most test runners can be made to do that; ask your agent:
+
+> Have our test command report its progress to discern, so failures show up while the run is still going and each one comes with a command that reproduces it on its own.
+
+The agent adds a few lines of output to the command, in the form the [configuration reference](../30-reference/config-reference.md#jobs) describes, and nothing about what the tests check changes. Any check can report this way, including a build.
+
 <!-- discern-workflow:result-summary -->
 
 **Failed:** A check or prerequisite needs attention; current completion Proof is unavailable.

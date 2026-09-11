@@ -54,6 +54,8 @@ While working, your agent uses focused checks and `discern prepare`, which runs 
 
 The full check needs a committed, clean tree. Evidence has to describe a version that can land, and an uncommitted edit is not one. If the agent asks for the full check with unsaved work, discern refuses and names the files. The agent commits the intended files and asks again.
 
+A full check can take a while. It announces a short handle the moment it starts; if the terminal or tool loses the call, the agent reads the run back with `discern progress` instead of starting it again. [Recover an interrupted task](recover-an-interrupted-task.md#stop-a-run-you-can-no-longer-see) shows what that reading contains.
+
 If other work has landed, your agent follows discern's update or completion instructions. It examines any overlapping changes because two edits can merge successfully and still disagree about how a feature should behave.
 
 For the review request above, the final command is:
@@ -150,13 +152,13 @@ The other reasons read the same way: a preview or other process is still using i
 
 These are different states, and the result uses different words for them:
 
-| State                   | What it tells you                                                                                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Checks passed**       | The configured checks ran and passed on one exact version.                                                                                           |
-| **Proof**               | The complete evidence for that version, including every required context and recorded judgment. Checks can pass while Proof is still pending.        |
-| **Approved**            | You, or a recorded grant, gave permission to land this version.                                                                                      |
-| **Landed**              | The version is on the shared branch.                                                                                                                 |
-| **Deployed**            | Your release process made it available to users. discern never does this.                                                                            |
+| State                 | What it tells you                                                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Checks passed**     | The configured checks ran and passed on one exact version.                                                                                                  |
+| **Proof**             | The complete evidence for that version, including every required context and recorded judgment. Checks can pass while Proof is still pending.               |
+| **Approved**          | You, or a recorded grant, gave permission to land this version.                                                                                             |
+| **Landed**            | The version is on the shared branch.                                                                                                                        |
+| **Deployed**          | Your release process made it available to users. discern never does this.                                                                                   |
 | **Emergency landing** | An urgent repair landed before its checks finished, under a fresh decision of yours, with a permanent record of what was skipped. That record is not Proof. |
 
 [Land an urgent repair](land-an-urgent-repair.md) covers the last row. For the evidence and permission model, read [Proof](../20-understand/proof.md). For exact commands, use the [CLI reference](../30-reference/cli-reference.md).
