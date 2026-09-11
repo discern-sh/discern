@@ -2064,7 +2064,7 @@ export const HINTS = {
         : cause === "undeclared"
         ? "Declare the environment"
         : "Raise \`[completion].concurrency\` or the environment's \`capacity\`";
-      return `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${route}, or set lookahead to 0.`;
+      return `Early checking is off: \`completion.lookahead = ${lookahead}\` asks to check efforts early, but ${because}. Efforts are checked and land in order. ${route}, or set \`completion.lookahead\` to 0.`;
     },
   }),
 

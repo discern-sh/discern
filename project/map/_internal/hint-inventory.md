@@ -307,7 +307,7 @@ Rendered example:
 
 Rendered example:
 
-> Early checking is off: `completion.lookahead = 1` asks to check efforts early, but the environment declared for `local` has not been proven since it was declared or changed. Efforts are checked and land in order. Run `discern setup done` from a clean committed tree to prove it, or set lookahead to 0.
+> Early checking is off: `completion.lookahead = 1` asks to check efforts early, but the environment declared for `local` has not been proven since it was declared or changed. Efforts are checked and land in order. Run `discern setup done` from a clean committed tree to prove it, or set `completion.lookahead` to 0.
 
 ## `completion-pending`
 
