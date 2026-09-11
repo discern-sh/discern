@@ -1,6 +1,6 @@
 import { SYSTEM_CLOCK, wallTimeIso } from "../src/shared/clock.ts";
 /** Active public actors coordinate a separately authorized prefix and recover from competing actors. */
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, gitOut, runAgent } from "./engine_helpers.ts";
@@ -281,6 +281,28 @@ Deno.test("accept from a worktree leads with that effort's own verdict when the 
         result.message,
       );
       assertEquals(result.data.continuation, "discern accept --target last");
+      // The first paragraph is the verdict, where the walk stopped, and the one
+      // reason the owner acts on; every other assessed condition follows under
+      // its own label, so identifiers and record vocabulary never lead.
+      const [lead = "", ...after] = (result.message ?? "").split("\n\n");
+      assertEquals(
+        lead,
+        [
+          "Selected effort `agent/last`: not landed.",
+          "- Acceptance stopped at agent/middle, which is ahead of this effort in the queue.",
+          "- Its checks failed; rerun discern done from its worktree.",
+        ].join("\n"),
+      );
+      assert(
+        !/[0-9a-f]{8}-[0-9a-f]{4}-|candidate|prefix|claim|convergence|retirement/
+          .test(lead),
+        lead,
+      );
+      const details = after.find((section) =>
+        section.startsWith("Details for `agent/last`:")
+      );
+      assert(details !== undefined, result.message);
+      assertStringIncludes(details, "has no passing evidence from attempt");
       assertEquals(await gitOut(root, "rev-parse", "main"), firstHead);
       const preview = await runAgent(last, ["accept", "--dry-run", "--json"]);
       assertEquals(preview.code, 0, preview.output);

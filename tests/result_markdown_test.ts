@@ -1285,6 +1285,48 @@ Deno.test("accept renders the landing state from its canonical fields", () => {
   assertStringIncludes(rendered, "Landing used `conversation` consent.");
 });
 
+Deno.test("an acceptance preview leads with the selected effort's first paragraph on the Markdown surface", () => {
+  const data = {
+    root: "/workspace/project",
+    selected_effort: "mine",
+    queue: [{
+      effort: "mine",
+      branch: "refs/heads/agent/mine",
+      source_head: "a".repeat(40),
+      candidate_id: null,
+      expected_trunk: null,
+      target: null,
+      state: "pending" as const,
+      relation: "selected" as const,
+      retirement: "retained" as const,
+      pending: [{
+        kind: "validation-failed",
+        reason: "Its checks failed; rerun discern done from its worktree.",
+      }],
+    }],
+    checkpoint_drops: [],
+    pending: [],
+  };
+  AcceptDataSchema.parse(data);
+  const message = [
+    "Selected effort `agent/mine`: not ready.",
+    "- Its checks failed; rerun discern done from its worktree.",
+    "",
+    "Read-only preview; nothing changed.",
+  ].join("\n");
+  const rendered = renderResultMarkdown(
+    { ok: true, verb: "accept", dry_run: true, data, message },
+    resultPresenterForVerb("accept"),
+  );
+  const state = rendered.split("## Evidence")[0] ?? "";
+  assertStringIncludes(state, "Selected effort `agent/mine`: not ready.");
+  assertStringIncludes(
+    state,
+    "- Its checks failed; rerun discern done from its worktree.",
+  );
+  assert(!state.includes("would proceed as described below"), rendered);
+});
+
 Deno.test("the accept presenter reads only canonical landing-state fields", async () => {
   const source = await Deno.readTextFile("src/shared/result_markdown.ts");
   const start = source.indexOf("const presentAccept: ResultMarkdownPresenter");

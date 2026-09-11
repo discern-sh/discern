@@ -280,20 +280,24 @@ export async function queueAcceptanceResult(
   // shows — including a stale entry's own withdrawal or reconciliation offer —
   // ahead of the assessed detail. The not-reached line stays first on the
   // selected effort's own row.
+  const sharedItems = new Set<AcceptancePrefix["pending"][number]>();
   if (selected?.resolveQueueReason !== undefined) {
     for (const row of rows) {
       if (row.state === "landed" || row.pending.length === 0) continue;
       const shared = await selected.resolveQueueReason(row);
-      if (
-        shared === undefined ||
-        row.pending.some((item) => item.reason === shared.reason)
-      ) continue;
+      if (shared === undefined) continue;
+      const already = row.pending.find((item) => item.reason === shared.reason);
+      if (already !== undefined) {
+        sharedItems.add(already);
+        continue;
+      }
       const keepFirst = row.pending[0]?.kind === "not-reached" ? 1 : 0;
       row.pending = [
         ...row.pending.slice(0, keepFirst),
         shared,
         ...row.pending.slice(keepFirst),
       ];
+      sharedItems.add(shared);
     }
   }
   const noteHints: string[] = [];
@@ -520,15 +524,32 @@ export async function queueAcceptanceResult(
       (rows.length === 0 ? "" : "\n\n" + rows.map(rowLine).join("\n")) +
       detailTail;
   } else {
+    // The first paragraph carries what the owner acts on: where the walk
+    // stopped and the one shared reason the status queue shows (or, without
+    // one, the first assessed reason). Every other assessed condition follows
+    // under its own label, identifiers and all.
+    const ownItems = own !== undefined && own.state !== "landed" &&
+        own.state !== "ready"
+      ? own.pending
+      : [];
+    const notReached = ownItems.filter((item) => item.kind === "not-reached");
+    const sharedLead = ownItems.filter((item) => sharedItems.has(item));
+    const rest = ownItems.filter((item) =>
+      !notReached.includes(item) && !sharedLead.includes(item)
+    );
+    const lead = [
+      ...notReached,
+      ...(sharedLead.length > 0 ? sharedLead : rest.slice(0, 1)),
+    ];
+    const details = ownItems.filter((item) => !lead.includes(item));
     const verdict = selectedVerdictSentence({
       branch: selected.branch,
       state: own?.state,
       dryRun,
       ...(own === undefined ? {} : { checkout: own }),
     }) +
-      (own !== undefined && own.state !== "landed" && own.state !== "ready" &&
-          own.pending.length > 0
-        ? "\n" + own.pending.map((item) => `- ${item.reason}`).join("\n")
+      (lead.length > 0
+        ? "\n" + lead.map((item) => `- ${item.reason}`).join("\n")
         : "");
     const others = rows.filter((row) => row !== own);
     const order = selected.queueOrder ?? [];
@@ -567,6 +588,10 @@ export async function queueAcceptanceResult(
         behind.map(rowLine).join("\n")) +
       (elsewhere.length === 0 ? "" : "\n\nOther efforts in this call:\n" +
         elsewhere.map(rowLine).join("\n")) +
+      (details.length === 0
+        ? ""
+        : `\n\nDetails for ${markdownCodeSpan(selected.branch)}:\n` +
+          details.map((item) => `- ${item.reason}`).join("\n")) +
       (leftover.length === 0 ? "" : "\n\n" + leftover.join("\n")) +
       detailTail +
       (dryRun ? "\n\nRead-only preview; nothing changed." : "");

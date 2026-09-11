@@ -1826,8 +1826,14 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
     data,
     result.dry_run === true,
   );
+  // A preview answers about the selected effort on this surface too: its
+  // first paragraph is the verdict and the reasons the owner can act on, the
+  // same words the terminal prints, never the generic dry-run sentence.
+  const previewLead = result.dry_run === true && verdict !== undefined
+    ? text(result.message)?.split("\n\n")[0] ?? verdict
+    : undefined;
   return {
-    state: defaultState(
+    state: previewLead ?? defaultState(
       result,
       verdict ??
         (text(data.root) === undefined

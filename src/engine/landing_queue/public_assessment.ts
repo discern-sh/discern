@@ -340,7 +340,7 @@ export async function assessPublicCandidate(input: {
           : {
             kind: "environment-unavailable",
             reason:
-              "No declared, released environment can validate this candidate.",
+              "No released environment is available to check this effort's current source; run discern done from its worktree.",
           },
     },
   });
