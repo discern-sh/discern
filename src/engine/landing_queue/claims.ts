@@ -104,7 +104,7 @@ export function workCapacity(
     return {
       kind: "environment-unavailable",
       reason:
-        "This candidate already has a work reservation; inspect its attempt or reconcile the claim gap.",
+        "This effort already holds a validation slot from an earlier run; wait for that run to finish, or follow the recovery action discern status reports for it.",
     };
   }
   const headActive = entries[0]?.state === "active";
@@ -151,7 +151,7 @@ export function workCapacity(
           reserved > 0
             ? ", and one is reserved for the next effort to land"
             : ""
-        } (completion.concurrency). Wait for a running validation to finish or return its slot, then retry discern done.`,
+        } (completion.concurrency).`,
     };
   }
   return undefined;
@@ -677,9 +677,18 @@ export function queueCapacityBlocker(
   const transient = blocked.capacity.setting === "completion.concurrency" &&
     owners.length > 0 &&
     blocked.capacity.limit > blocked.capacity.reserved;
+  // The fact is the same sentence either way; what follows it is the truth
+  // about this run: it waits and continues on its own while a live run holds
+  // the slot, and only a run that cannot wait is told to come back.
+  const continuation = blocked.capacity.setting !== "completion.concurrency"
+    ? ""
+    : transient
+    ? " This run continues when a slot frees."
+    : " Wait for a running validation to finish or return its slot, then retry discern done.";
   return {
     ...blocked,
     transient,
+    reason: `${blocked.reason}${continuation}`,
     capacity: { ...blocked.capacity, blockers: [...new Set(owners)] },
   };
 }

@@ -381,20 +381,23 @@ export async function executePublicValidation(input: {
     slotUsers++;
     try {
       acquiring ??= (async () => {
-        emitCompletionProgress({
-          phase: "queue",
-          state: "waiting",
-          candidate_id: claimed.candidate_id,
-          reason:
-            "Waiting for test-run capacity; independent checks can continue.",
-          next: "The producer starts when a test-run slot frees.",
-        });
+        // A wait is announced only when a slot is actually unavailable; an
+        // immediate acquisition says nothing, so a quiet host reads quiet.
         hold = await withExecutionTiming(
           claimed,
           "capacity-wait",
           `${claimed.attempt.identity.id}:slot:${++slotAcquisitions}`,
           SYSTEM_CLOCK,
-          () => slots.acquire(out, claimed.signal),
+          () =>
+            slots.acquire(out, claimed.signal, () =>
+              emitCompletionProgress({
+                phase: "queue",
+                state: "waiting",
+                candidate_id: claimed.candidate_id,
+                reason:
+                  "Waiting for test-run capacity; independent checks can continue.",
+                next: "The producer starts when a test-run slot frees.",
+              })),
         );
       })();
       await acquiring;

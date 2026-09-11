@@ -61,7 +61,11 @@ export interface TestRunSlots {
    * undefined when the signal aborted or the slot files were unusable — the
    * caller proceeds either way; an aborted run's jobs die on the same signal.
    */
-  acquire(out: Out, signal?: AbortSignal): Promise<TestRunSlotHold | undefined>;
+  acquire(
+    out: Out,
+    signal?: AbortSignal,
+    onQueued?: () => void,
+  ): Promise<TestRunSlotHold | undefined>;
 }
 
 /** Inputs that let a caller prove an upstream accounting decision explicitly. */
@@ -110,11 +114,13 @@ export function buildTestRunSlots(
     async acquire(
       out: Out,
       signal?: AbortSignal,
+      onQueued?: () => void,
     ): Promise<TestRunSlotHold | undefined> {
       return await acquirer.acquire((event: TestRunSlotEvent): void => {
         if (event.kind === "queued") {
           waits.push(event.hint);
           out.info(event.hint.text);
+          onQueued?.();
         } else if (event.kind === "unavailable") {
           waits.push(event.hint);
           out.warn(event.hint.text);

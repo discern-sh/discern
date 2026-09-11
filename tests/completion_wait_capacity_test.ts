@@ -72,6 +72,13 @@ Deno.test("completion capacity names unequal limits, reservation, lookahead, liv
   );
   assert(live.kind === "capacity-unavailable" && live.transient);
   assertEquals(live.capacity.blockers, [fixtures.attempt.id]);
+  // A live holder means this run waits and continues on its own; only a run
+  // that cannot wait is told to come back.
+  assert(
+    live.reason.endsWith(" This run continues when a slot frees."),
+    live.reason,
+  );
+  assert(!live.reason.includes("retry discern done"), live.reason);
   assertEquals(
     workCapacity(
       entries,
@@ -148,10 +155,17 @@ Deno.test("completion capacity names unequal limits, reservation, lookahead, liv
   );
   assert(reserved?.kind === "capacity-unavailable");
   assertEquals(reserved.capacity.reserved, 1);
-  assertEquals(
-    queueCapacityBlocker(reserved, example.queue.entries, observation([])),
+  const refused = queueCapacityBlocker(
     reserved,
+    example.queue.entries,
+    observation([]),
   );
+  assert(refused.kind === "capacity-unavailable" && !refused.transient);
+  assertEquals(
+    refused.reason,
+    `${reserved.reason} Wait for a running validation to finish or return its slot, then retry discern done.`,
+  );
+  assertEquals(refused.capacity, reserved.capacity);
   const depth = workCapacity(
     entries,
     second.source.effort_id,
