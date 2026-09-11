@@ -32,7 +32,7 @@ export async function fleetLandedCheckout(
     "worktree",
     records,
   );
-  return landed === undefined ? undefined : { message: landed.message };
+  return landed === undefined ? undefined : { message: landed.lead };
 }
 
 /** Read those families once for a fleet of checkouts. */
@@ -48,6 +48,9 @@ export async function checkoutLandingRecords(
 
 export interface CheckoutLandingStatus {
   readonly sourceHead: string;
+  /** The branch and its checkout outcome: what every surface leads with. */
+  readonly lead: string;
+  /** The lead, then the landed commit, as one paragraph every surface can render. */
   readonly message: string;
 }
 
@@ -92,8 +95,10 @@ export async function checkoutLandingStatus(
         ? { retirement_reason: outcome.recovery.reason }
         : {}),
     });
+  const lead = `${identity.branch} has landed. ${cleanup}`;
   return {
     sourceHead,
-    message: `${identity.branch} has landed. ${cleanup}`,
+    lead,
+    message: `${lead} The landed commit is ${sourceHead}.`,
   };
 }
