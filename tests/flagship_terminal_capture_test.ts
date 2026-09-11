@@ -60,6 +60,7 @@ Deno.test("flagship normalizers replace facts without hiding visible structure",
       "version-strings",
       "runtime-platform",
       "commit-identifiers",
+      "short-handles",
       "trailing-whitespace",
     ],
   );

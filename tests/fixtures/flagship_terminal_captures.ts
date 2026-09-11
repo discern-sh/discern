@@ -143,6 +143,17 @@ const commitIdentifiers: TerminalCaptureNormalizer = {
     ),
 };
 
+/** Replace the random identity of a short handle — a progress handle or an
+ * await continuation — while keeping its family prefix and shape visible. */
+const shortHandles: TerminalCaptureNormalizer = {
+  name: "short-handles",
+  normalize: (output: string): string =>
+    output.replace(
+      /\b([CR]1)-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}\b/gu,
+      "$1-XXXX-XXXX-XX",
+    ),
+};
+
 /** Strip per-line trailing padding so right-edge alignment cannot encode an
  * environment-variable width the earlier scalar normalizers preserved. */
 const trailingWhitespace: TerminalCaptureNormalizer = {
@@ -158,6 +169,7 @@ export const FLAGSHIP_CAPTURE_NORMALIZERS = [
   versions,
   runtimePlatform,
   commitIdentifiers,
+  shortHandles,
   trailingWhitespace,
 ] as const satisfies readonly TerminalCaptureNormalizer[];
 
