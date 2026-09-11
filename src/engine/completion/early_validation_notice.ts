@@ -2,7 +2,6 @@
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { provenContexts } from "../execution/probe_record.ts";
-import { observableCompletionCheckout } from "../validation/runtime.ts";
 import { completionCapacityFacts } from "./capacity_facts.ts";
 
 /** The named contexts, each as a code span. */
@@ -13,13 +12,16 @@ function named(contexts: readonly string[]): string {
 /**
  * A declared `[completion].lookahead` that cannot take effect, read the way
  * doctor and setup read it: the same capacity facts over the same proof
- * records. Undefined when early checking is off by configuration or runs.
+ * records. Undefined when early checking is off by configuration or runs;
+ * a lookahead of 0 reads nothing at all.
  */
 export async function inertEarlyValidationHint(
   root: string,
   config: DiscernConfig,
 ): Promise<FiredHint | undefined> {
-  if (!await observableCompletionCheckout(root)) return undefined;
+  // Nothing is asked when lookahead is 0, so nothing is read: the daily
+  // commands keep their git command budgets untouched by this notice.
+  if (config.completion.lookahead === 0) return undefined;
   const speculation = completionCapacityFacts(
     config,
     2,
