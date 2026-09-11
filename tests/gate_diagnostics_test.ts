@@ -13,6 +13,9 @@ import {
   normalizeDiagnostics,
   sarifToDiagnostics,
 } from "../src/engine/gate/diagnostics.ts";
+import { normalizableJobOutput } from "../src/engine/gate/diagnostic_output.ts";
+import { captureElisionMarker } from "../src/engine/jobs/command.ts";
+import { withTempDir } from "./helpers.ts";
 
 const SARIF = JSON.stringify({
   version: "2.1.0",
@@ -216,4 +219,59 @@ Deno.test("normalizeDiagnostics: JUnit output routes through the JUnit tier", ()
   const diags = normalizeDiagnostics(JUNIT, "test", "deno task test");
   assert(diags !== undefined, "JUnit should normalize");
   assertEquals(diags.length, 2);
+});
+
+Deno.test("normalization reads the complete capture when the window elided the failing cases", async () => {
+  await withTempDir(async (dir) => {
+    const failing = (name: string): string =>
+      `<testcase name="${name}" classname="./tests/${name}_test.ts" line="7" col="6"><failure message="Uncaught AssertionError: ${name}">boom</failure></testcase>`;
+    const green = (i: number): string =>
+      `<testcase name="ok ${i}" classname="./tests/ok_test.ts" line="1" col="1"/>`;
+    const early = Array.from({ length: 200 }, (_, i) => green(i)).join("\n");
+    const late = Array.from({ length: 200 }, (_, i) => green(1000 + i)).join(
+      "\n",
+    );
+    const report =
+      `<testsuites><testsuite name="./tests/x_test.ts">\n${early}\n${
+        failing("first")
+      }\n${failing("second")}\n${late}\n</testsuite></testsuites>`;
+    const path = `${dir}/capture.log`;
+    await Deno.writeTextFile(path, report);
+    // The window a capture larger than its cap keeps — head, marker, tail —
+    // with every failing case fallen in between.
+    const window = `${report.slice(0, early.length + 40)}${
+      captureElisionMarker(report.length)
+    }${report.slice(-late.length)}`;
+    assertEquals(normalizeDiagnostics(window, "test", "run tests"), undefined);
+    assertEquals(
+      await normalizableJobOutput({ output: window, outputPath: path }),
+      report,
+    );
+    const complete = await normalizableJobOutput({
+      output: window,
+      outputPath: path,
+    });
+    assertEquals(
+      normalizeDiagnostics(complete ?? "", "test", "run tests")?.map((d) =>
+        d.rule
+      ),
+      ["first", "second"],
+    );
+    // A window that elided nothing is complete; the artifact is never read.
+    assertEquals(
+      await normalizableJobOutput({
+        output: "plain",
+        outputPath: `${dir}/missing.log`,
+      }),
+      "plain",
+    );
+    // A window whose artifact is gone still normalizes what it kept.
+    assertEquals(
+      await normalizableJobOutput({
+        output: window,
+        outputPath: `${dir}/missing.log`,
+      }),
+      window,
+    );
+  });
 });

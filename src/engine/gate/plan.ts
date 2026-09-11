@@ -15,7 +15,10 @@
 import { type DiscernConfig, toCommand } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
 import { jobsInStage } from "./stages.ts";
-import { diagnosticOutputFields } from "./diagnostic_output.ts";
+import {
+  diagnosticOutputFields,
+  normalizableJobOutput,
+} from "./diagnostic_output.ts";
 import { normalizeDiagnostics } from "./diagnostics.ts";
 import type {
   GateData,
@@ -657,10 +660,13 @@ export async function serializeJobSteps(
         // it; its plain-language message (below) names the likely cause instead.
         // An evaluated verdict (`failureMessage`) IS the diagnostic — its output
         // is evidence, not a machine format to parse.
-        const normalized = r.timedOut === undefined &&
-            r.failureMessage === undefined && r.output !== undefined
-          ? normalizeDiagnostics(r.output, j.label, j.command)
+        const complete = r.timedOut === undefined &&
+            r.failureMessage === undefined
+          ? await normalizableJobOutput(r)
           : undefined;
+        const normalized = complete === undefined
+          ? undefined
+          : normalizeDiagnostics(complete, j.label, j.command);
         if (normalized !== undefined) {
           diagnostics.push(...withFixAvailable(normalized, fixAvailable));
         } else {

@@ -8,11 +8,32 @@ import { sha256Hex } from "../../shared/sha256.ts";
 import { bestEffort } from "../../shared/best_effort.ts";
 import { makeTempArtifact } from "../../shared/temp_artifacts.ts";
 import { tempArtifactScopeFor } from "../temp_artifact_scope.ts";
+import { captureElided } from "../jobs/command.ts";
+import { readTextIfExists } from "../../shared/fs_presence.ts";
 
 export interface DiagnosticOutputFields {
   output: string;
   truncated?: true;
   output_path?: string;
+}
+
+/**
+ * The text format normalization reads for a failed job: the complete capture
+ * artifact once the in-memory window elided bytes, else the window itself. A
+ * report larger than the window keeps every failing case this way, not only
+ * the cases that landed in its head or tail.
+ */
+export async function normalizableJobOutput(
+  job: {
+    readonly output?: string | undefined;
+    readonly outputPath?: string | undefined;
+  },
+): Promise<string | undefined> {
+  if (job.output === undefined) return undefined;
+  if (job.outputPath === undefined || !captureElided(job.output)) {
+    return job.output;
+  }
+  return await readTextIfExists(job.outputPath) ?? job.output;
 }
 
 /** Offload only oversized results. A failed write keeps complete inline evidence. */

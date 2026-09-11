@@ -99,6 +99,17 @@ const DECODER = new TextDecoder();
  * trailing summary without letting static or machine output grow without bound.
  */
 export const JOB_CAPTURE_CAP_BYTES = 1_000_000;
+
+/** The line a bounded capture carries in place of the bytes it elided. */
+export function captureElisionMarker(bytes: number): string {
+  return `\n… ${bytes} bytes elided …\n`;
+}
+
+/** Whether a bounded capture elided bytes, so the durable artifact — not the
+ * window — holds the complete text. */
+export function captureElided(text: string): boolean {
+  return /\n… \d+ bytes elided …\n/.test(text);
+}
 const HEAD_CAP = JOB_CAPTURE_CAP_BYTES / 2;
 const TAIL_CAP = JOB_CAPTURE_CAP_BYTES - HEAD_CAP;
 /**
@@ -431,7 +442,7 @@ export async function spawnJob(
     if (tailBuf.length === 0) {
       return head;
     }
-    return `${head}\n… ${elidedBytes} bytes elided …\n${
+    return `${head}${captureElisionMarker(elidedBytes)}${
       DECODER.decode(concat(tailBuf))
     }`;
   };
