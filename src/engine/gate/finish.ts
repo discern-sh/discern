@@ -132,17 +132,11 @@ import {
   proofCheckpointsData,
 } from "./checkpoint_projection.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
-import {
-  byteWriter,
-  colorEnabled,
-  makeOut,
-  type Out,
-  outSink,
-} from "../output.ts";
+import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
 import { observedGateOperation } from "./observed_operation.ts";
 import {
-  createGateProgressPresenter,
   type GateProgressPresenterSlot,
+  registerGateProgressPresenter,
 } from "./progress_presenter.ts";
 import { type TerminalContext, terminalContext } from "../../lib/terminal.ts";
 import {
@@ -412,21 +406,13 @@ async function runCandidateGate(
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
   }
-  if (
-    presentation.presenterSlot !== undefined &&
-    policy.output.kind !== "quiet-result"
-  ) {
-    // Live frames carry the facts inside the frame; static human runs append
-    // the same sentences through the run's own byte sink. Quiet results stay
-    // quiet — the envelope is the entire output.
-    const encoder = new TextEncoder();
-    presentation.presenterSlot.set(createGateProgressPresenter(
-      progress !== undefined ? { live: progress } : {
-        write: (line): void => {
-          (runOpts.write ?? byteWriter("stderr"))(encoder.encode(line));
-        },
-      },
-    ));
+  if (presentation.presenterSlot !== undefined) {
+    registerGateProgressPresenter(
+      presentation.presenterSlot,
+      policy.output.kind,
+      progress,
+      runOpts.write,
+    );
   }
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;

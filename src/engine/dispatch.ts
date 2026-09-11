@@ -487,10 +487,7 @@ export function attachEngineCommands(
         );
         return await runProgress(
           await requireRoot("progress", jsonFrom(o)),
-          {
-            json: jsonFrom(o),
-            ...(handle === undefined ? {} : { handle }),
-          },
+          { json: jsonFrom(o), handle },
         );
       }),
     );

@@ -6,6 +6,7 @@
  * already composed with the facts.
  */
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
+import { byteWriter } from "../output.ts";
 import type {
   CompletionObservationFact,
   CompletionProgress,
@@ -192,4 +193,27 @@ export function createGateProgressPresenter(
       );
     },
   };
+}
+
+/**
+ * Register a run's presenter once its output policy exists. A live frame
+ * carries the facts inside the frame; a static human run appends the same
+ * sentences through the run's own byte sink; a quiet result registers nothing,
+ * because the envelope is its entire output.
+ */
+export function registerGateProgressPresenter(
+  slot: GateProgressPresenterSlot,
+  outputKind: string,
+  live: Pick<GateTtyProgress, "note" | "transient"> | undefined,
+  write: ((bytes: Uint8Array) => void) | undefined,
+): void {
+  if (outputKind === "quiet-result") return;
+  const encoder = new TextEncoder();
+  slot.set(createGateProgressPresenter(
+    live !== undefined ? { live } : {
+      write: (line): void => {
+        (write ?? byteWriter("stderr"))(encoder.encode(line));
+      },
+    },
+  ));
 }

@@ -46,11 +46,10 @@ import {
 } from "../logbook/validation.ts";
 import { captureValidationStart } from "../logbook/validation_state.ts";
 import { terminalContext } from "../../lib/terminal.ts";
-import { byteWriter } from "../output.ts";
 import { observedGateOperation } from "./observed_operation.ts";
 import {
-  createGateProgressPresenter,
   type GateProgressPresenterSlot,
+  registerGateProgressPresenter,
 } from "./progress_presenter.ts";
 import {
   createGateTtyProgress,
@@ -158,19 +157,12 @@ async function runTestGateBody(
     runOpts.observer = progress;
     runOpts.outputObserver = progress;
   }
-  if (policy.output.kind !== "quiet-result") {
-    // Live frames carry the facts inside the frame; static human runs append
-    // the same sentences through the run's own byte sink (ADR 0030 keeps quiet
-    // results quiet).
-    const encoder = new TextEncoder();
-    presenterSlot.set(createGateProgressPresenter(
-      progress !== undefined ? { live: progress } : {
-        write: (line): void => {
-          (runOpts.write ?? byteWriter("stderr"))(encoder.encode(line));
-        },
-      },
-    ));
-  }
+  registerGateProgressPresenter(
+    presenterSlot,
+    policy.output.kind,
+    progress,
+    runOpts.write,
+  );
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
