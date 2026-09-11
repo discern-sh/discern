@@ -185,12 +185,27 @@ export function createGateProgressPresenter(
         counts(progress);
         return;
       }
-      durable(
-        completionProgressSentence(progress),
-        progress.owner_must_act === true || progress.phase === "pending"
-          ? "warning"
-          : undefined,
-      );
+      const sentence = completionProgressSentence(progress);
+      const decisive = progress.owner_must_act === true ||
+        progress.phase === "pending";
+      if (target.live !== undefined) {
+        // A live frame carries every pinned line in its own height, so only
+        // a failure or a decision earns a pin there; the announcement, a
+        // wait, and an environment step show as the frame's transient line,
+        // and the journal keeps them all.
+        if (decisive) durable(sentence, "warning");
+        else transient(sentence);
+        return;
+      }
+      if (
+        progress.phase === "environment" && progress.next === undefined &&
+        !decisive
+      ) {
+        // Static output has no line to replace: an environment step without
+        // a next step is left to the journal rather than filling scrollback.
+        return;
+      }
+      durable(sentence, decisive ? "warning" : undefined);
     },
   };
 }

@@ -112,9 +112,11 @@ Deno.test("one fact stream reads identically on the terminal, over MCP, and afte
     assert(handle !== undefined);
     const announcement =
       `done is running. If this call is lost, \`discern progress ${handle}\` reads it back.`;
-    // The terminal presented the same sentences, in the same order.
+    // The terminal presented the same sentences, in the same order: a live
+    // frame shows the announcement and counts in its transient line and pins
+    // only the failure and the owner's decision.
     assertEquals(terminal, [
-      { kind: "note", text: announcement },
+      { kind: "transient", text: announcement },
       { kind: "transient", text: COUNTS },
       { kind: "failure", text: FAILURE_SENTENCE },
       { kind: "warning", text: PENDING },
