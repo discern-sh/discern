@@ -15,7 +15,7 @@ import type { StatusQueueRow } from "../../shared/result_schemas.ts";
 import type { CompletionObservation } from "../completion/protocol.ts";
 import { declarationProofStates } from "../execution/probe_record.ts";
 import { runGit } from "../../shared/subprocess.ts";
-import { readEffortGrant } from "../worktree/effort_grant.ts";
+import { grantedSourceHead } from "../worktree/landing_authority.ts";
 import { commitIsMerged, worktreePathForBranch } from "../worktree/git.ts";
 import { observeExternalIntegration } from "./external_integration.ts";
 import { observeCompletionRecords } from "../validation/runtime.ts";
@@ -177,9 +177,7 @@ async function deskApproved(
     entry.source.branch.replace(/^refs\/heads\//, ""),
   );
   if (path === undefined) return false;
-  const grant = await readEffortGrant(path);
-  return grant.status === "granted" &&
-    grant.grant.source.head === entry.source.head;
+  return await grantedSourceHead(path) === entry.source.head;
 }
 
 /** Whether acceptance can compose and re-check candidates in this project:

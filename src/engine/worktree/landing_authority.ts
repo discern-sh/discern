@@ -324,16 +324,18 @@ async function classifyLanding(
   };
 }
 
-/**
- * Read the current worktree's landing authority. The trunk snapshot is pinned
- * before its config and diff are read, so a branch cannot alter either side of
- * the standing-grant decision.
- */
-export async function inspectLandingAuthority(
-  cwd: string,
-  trunk: string,
-  opts: { includeScopeEvidence?: boolean } = {},
-): Promise<LandingAuthorityResolution> {
+/** The effort grant read against this worktree's current committed source. */
+interface EffortGrantState {
+  readonly effort: Awaited<ReturnType<typeof readEffortGrant>>;
+  readonly branch: string | undefined;
+  readonly sourceHead: string | undefined;
+  readonly sourceTree: string | undefined;
+  /** Granted only when the branch, head, tree, and composition procedure
+   * all match what a landing would take. */
+  readonly granted: boolean;
+}
+
+async function readEffortGrantState(cwd: string): Promise<EffortGrantState> {
   const [branchRead, effort, sourceRead] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
     readEffortGrant(cwd),
@@ -346,21 +348,49 @@ export async function inspectLandingAuthority(
   const branch = branchRead.success && branchRead.stdout.trim() !== ""
     ? branchRead.stdout.trim()
     : undefined;
-  let effortGranted = effort.status === "granted" &&
+  let granted = effort.status === "granted" &&
     branch !== undefined && effort.grant.branch === branch &&
     sourceHead !== undefined && sourceTree !== undefined &&
     effort.grant.source.head === sourceHead &&
     effort.grant.source.tree === sourceTree;
-  const warnings = effortWarnings(effort, branch);
-  if (effortGranted && effort.status === "granted" && branch !== undefined) {
+  if (granted && effort.status === "granted" && branch !== undefined) {
     try {
       const subject = await inspectEffortGrantSubject(cwd, branch);
-      effortGranted =
+      granted =
         subject.composition_procedure === effort.grant.composition_procedure;
     } catch {
-      effortGranted = false;
+      granted = false;
     }
   }
+  return { effort, branch, sourceHead, sourceTree, granted };
+}
+
+/**
+ * The committed source head a desk grant in this worktree covers, or
+ * undefined. Every surface that reports desk approval derives it here, so a
+ * grant counts the same way in the landing queue as at acceptance.
+ */
+export async function grantedSourceHead(
+  cwd: string,
+): Promise<string | undefined> {
+  const state = await readEffortGrantState(cwd);
+  return state.granted ? state.sourceHead : undefined;
+}
+
+/**
+ * Read the current worktree's landing authority. The trunk snapshot is pinned
+ * before its config and diff are read, so a branch cannot alter either side of
+ * the standing-grant decision.
+ */
+export async function inspectLandingAuthority(
+  cwd: string,
+  trunk: string,
+  opts: { includeScopeEvidence?: boolean } = {},
+): Promise<LandingAuthorityResolution> {
+  const { effort, branch, granted: effortGranted } = await readEffortGrantState(
+    cwd,
+  );
+  const warnings = effortWarnings(effort, branch);
   if (effort.status === "granted" && !effortGranted) {
     warnings.push(
       "The effort grant is stale for the current source or composition procedure. Review the current committed source before granting it again.",
