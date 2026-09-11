@@ -185,6 +185,7 @@ const FROZEN_V1_GIT_ADMIN_STATE = {
     false,
   ],
   continuations: ["discern/continuations", "common", "directory", false],
+  operations: ["discern/operations", "common", "directory", false],
   retiredWorktreePaths: [
     "discern/retired-worktree-paths",
     "common",
