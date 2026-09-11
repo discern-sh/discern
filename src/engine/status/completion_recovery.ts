@@ -5,8 +5,26 @@ import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { emergencyValidationStatus } from "../emergency/obligations.ts";
 import { executionStatus } from "../execution/public_recovery.ts";
 
+/**
+ * The recovery rows that remain once the calling checkout's own live run is
+ * known. A reservation-phase row is that run's queue claim while its
+ * environment is still idle — the moments before enrollment and after return
+ * — not an orphaned checkout; a run that is still running owns it.
+ */
+export function liveRecoveryRows(
+  rows: StatusData["execution_recovery"],
+  running: StatusData["operation"],
+): NonNullable<StatusData["execution_recovery"]> {
+  return (rows ?? []).filter((row) =>
+    running === undefined || row.phase !== "reservation"
+  );
+}
+
 /** Pair outstanding validation and checkout recovery with their registered next actions. */
-export async function completionRecoveryStatus(root: string): Promise<{
+export async function completionRecoveryStatus(
+  root: string,
+  running?: StatusData["operation"],
+): Promise<{
   data: Pick<
     StatusData,
     "emergency_validation" | "execution_recovery" | "execution_activity"
@@ -17,13 +35,17 @@ export async function completionRecoveryStatus(root: string): Promise<{
     emergencyValidationStatus(root),
     executionStatus(root),
   ]);
+  const recovery = liveRecoveryRows(execution.execution_recovery, running);
   return {
     data: {
       ...(emergency.length ? { emergency_validation: emergency } : {}),
-      ...execution,
+      ...(execution.execution_activity === undefined
+        ? {}
+        : { execution_activity: execution.execution_activity }),
+      ...(recovery.length ? { execution_recovery: recovery } : {}),
     },
     hints: [
-      ...(execution.execution_recovery ?? []).map((row) =>
+      ...recovery.map((row) =>
         fire(HINTS["execution-recovery"], { id: row.environment_id })
       ),
       ...emergency.filter((row) => row.state === "outstanding").map((row) =>

@@ -355,7 +355,11 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
-  const completionRecovery = await completionRecoveryStatus(root);
+  // The calling checkout's own live run settles which recovery rows are real.
+  const completionRecovery = await completionRecoveryStatus(
+    root,
+    runningOperation,
+  );
   const data: StatusData = {
     ...completionRecovery.data,
     location,
