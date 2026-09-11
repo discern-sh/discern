@@ -7,8 +7,8 @@
  * out of `done` nor sit in the queue waiting to be withdrawn. Every pending
  * cause reaches the owner as a sentence, never as a record shape.
  */
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assert, assertEquals } from "@std/assert";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, runAgent } from "./engine_helpers.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
@@ -139,7 +139,7 @@ Deno.test("the trunk checkout checking itself takes no place in the landing queu
     assertEquals(await queueRows(root), []);
     const nothing = await runAgent(empty, ["accept", "--dry-run", "--json"]);
     assertEquals(nothing.code, 0, nothing.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       decodeCliResult(nothing.stdout, "accept").message ?? "",
       "Selected effort `agent/empty`: nothing to land. Its source is already on main.",
     );
@@ -243,7 +243,7 @@ Deno.test("a withdrawn effort and a landed retained checkout re-validate their u
     ]);
     const answer = await runAgent(kept, ["accept", "--dry-run", "--json"]);
     assertEquals(answer.code, 0, answer.output);
-    assertStringIncludes(
+    assertTerminalTextIncludes(
       decodeCliResult(answer.stdout, "accept").message ?? "",
       "Selected effort `agent/kept`: landed. Its checkout stayed.",
     );
@@ -272,10 +272,13 @@ Deno.test("a queue decision reads as its table sentence, never as a token or a r
     conflict.reason,
     "Its changes conflict with work already on the trunk in shared.txt; composing it changed authored files no generator owns (notes.md). Run discern update in its worktree, resolve what it reports, then discern done.",
   );
-  assertEquals(conflict.reason, completionBlockerAccount({
-    kind: "missing-judgment",
-    subjects: ["conflict:shared.txt", "authored:notes.md"],
-  }).reason);
+  assertEquals(
+    conflict.reason,
+    completionBlockerAccount({
+      kind: "missing-judgment",
+      subjects: ["conflict:shared.txt", "authored:notes.md"],
+    }).reason,
+  );
   const source = await Deno.readTextFile("src/engine/gate/complete_gate.ts");
   assert(
     !/JSON\.stringify\((completed|blocker)\)/.test(source),

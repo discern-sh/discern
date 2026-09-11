@@ -136,7 +136,10 @@ Deno.test("queue A02: substantive merge conflicts return judgment and preserve t
       clock: COMPLETION_CLOCK,
     });
     assert("kind" in candidate && candidate.kind === "missing-judgment");
-    assert(candidate.subjects.includes("conflict:a"), candidate.subjects.join());
+    assert(
+      candidate.subjects.includes("conflict:a"),
+      candidate.subjects.join(),
+    );
     assertEquals(
       await gitOut(fixture.slot, "rev-parse", "HEAD"),
       fixture.execution.candidate.source.head,

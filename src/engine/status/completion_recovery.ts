@@ -64,13 +64,15 @@ export function completionStatusPresentation(
   hints.push(...recovery.hints);
   // A run this checkout started and has not finished is the first thing a
   // resumed session needs to hear: it must not be told to start another.
-  const runningMessage = running === undefined ? undefined : `\`${
-    running.verb
-  }\` on ${
-    running.branch === undefined ? "this checkout" : displayBranch(running.branch)
-  } is still running${
-    running.latest === undefined ? "." : `: ${running.latest}`
-  } Read it back with discern progress ${running.handle}; it needs no new command while it runs.`;
+  const runningMessage = running === undefined
+    ? undefined
+    : `\`${running.verb}\` on ${
+      running.branch === undefined
+        ? "this checkout"
+        : displayBranch(running.branch)
+    } is still running${
+      running.latest === undefined ? "." : `: ${running.latest}`
+    } Read it back with discern progress ${running.handle}; it needs no new command while it runs.`;
   const message = recovering
     ? "Checkout return requires recovery before update, validation, release, or further authoring. Preserve the recorded paths and follow the environment's recovery action."
     : active !== undefined

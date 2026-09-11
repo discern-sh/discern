@@ -27,7 +27,7 @@ import { observedRecords, observeQueue } from "./repository.ts";
 export interface QueueRowFacts {
   /** The recorded source head is already reachable from the trunk. */
   readonly onTrunk: boolean;
-  /** The branch tip is no longer the recorded head: new commits await their
+  /** The branch tip differs from the recorded head: new commits await their
    * own `done`, so the entry is not a stale one to withdraw. */
   readonly movedOn: boolean;
   /** A desk grant covers this exact source, so acceptance lands it without

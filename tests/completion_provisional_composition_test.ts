@@ -6,7 +6,7 @@
  * paragraph.
  */
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { withTempDir } from "./helpers.ts";
+import { assertTerminalTextIncludes, withTempDir } from "./helpers.ts";
 import { project } from "./completion_public_fixture.ts";
 import { addWorktree, git, gitOut, runAgent } from "./engine_helpers.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
@@ -116,7 +116,7 @@ Deno.test("a provisional effort behind the trunk composes on done at any queue p
         "--json",
       ]);
       assertEquals(accepted.code, 0, accepted.output);
-      assertStringIncludes(
+      assertTerminalTextIncludes(
         decodeCliResult(accepted.stdout, "accept").message ?? "",
         "Selected effort `agent/third`: landed.",
       );

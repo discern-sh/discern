@@ -780,13 +780,13 @@ async function acceptQueueImplementation(
                 readiness.readiness === "ready"
               ? []
               : [{
-              kind: facts.onTrunk
-                ? "already-on-trunk"
-                : listed.held === true
-                ? QUEUE_DECISION_SUBJECT["effort-held"]
-                : "queued",
-              reason: readiness.reason,
-            }],
+                kind: facts.onTrunk
+                  ? "already-on-trunk"
+                  : listed.held === true
+                  ? QUEUE_DECISION_SUBJECT["effort-held"]
+                  : "queued",
+                reason: readiness.reason,
+              }],
           });
         }
         rows.length = 0;
