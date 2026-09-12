@@ -174,33 +174,6 @@
 # Help:    `discern config explain jobs`
 # ─────────────────────────────────────────────────────────────────────────────
 
-[completion]
-  required_contexts = ["local"]
-  concurrency = 2
-  lookahead = 1
-
-# The same required convergence runs on the composed tree and after source return.
-# Caches below may change; retained binary outputs never supply a measurement.
-[execution.local]
-  kind = "borrowed"
-  prepare = "deno run --allow-read --allow-write --allow-env --allow-run scripts/completion_environment.ts"
-  restore = "deno run --allow-read --allow-write --allow-env --allow-run scripts/completion_environment.ts"
-  reusable = true
-  resources = ["lifecycle-probe"]
-  ignored = [
-    "node_modules/**",
-    "dist/**",
-    ".vale/**",
-    "site/pages/**",
-    ".discern-bundled-manual/**",
-    ".deno_compile_bundle_*.mjs",
-    "coverage/**",
-    ".agents/skills/**",
-    ".claude/skills/**",
-  ]
-  inputs = ["**"]
-  capacity = 2
-
 [jobs]
   format = ["deno fmt", "discern tidy"]
   # `deno task codegen` runs as the [generated.codegen] group below — one
