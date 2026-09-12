@@ -46,7 +46,7 @@ function defineBestEffortBoundaries<
 /** The complete named set of deliberate production error-discard boundaries. */
 export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   "accept-post-convergence-clean-check-fallback": {
-    path: "src/engine/worktree/accept.ts",
+    path: "src/engine/worktree/accept_convergence.ts",
     enclosingFunction: "convergeMainCheckout",
     operation: "read the main checkout's tracked status after convergence",
     kind: "direct",
@@ -56,7 +56,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "The trunk has already landed; an unreadable status makes the clean-check step fail visibly instead of undoing the landing.",
   },
   "accept-post-landing-dirty-baseline-fallback": {
-    path: "src/engine/worktree/accept.ts",
+    path: "src/engine/worktree/accept_convergence.ts",
     enclosingFunction: "convergeMainCheckout",
     operation:
       "read the main checkout's tracked status right after the fast-forward",
@@ -67,7 +67,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
       "The trunk has already landed; an unavailable baseline is reported through the clean-check step's advisory rather than failing the landing.",
   },
   "accept-post-landing-templates-fallback": {
-    path: "src/engine/worktree/accept.ts",
+    path: "src/engine/worktree/accept_convergence.ts",
     enclosingFunction: "postLandingLocalTemplatesDir",
     operation:
       "resolve the templates directory for post-landing materialization",
