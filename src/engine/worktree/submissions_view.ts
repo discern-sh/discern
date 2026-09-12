@@ -12,13 +12,15 @@
 import { runGit } from "../../shared/subprocess.ts";
 import { readCompleteProof } from "../gate/completion_proof.ts";
 import { candidatePredecessor } from "../completion/candidate.ts";
-import { readEffortGrant } from "./effort_grant.ts";
 import {
   commitIsMerged,
   integrationBranch,
   listRegisteredWorktrees,
 } from "./git.ts";
-import { inspectLandingAuthority } from "./landing_authority.ts";
+import {
+  effortGrantCovering,
+  inspectLandingAuthority,
+} from "./landing_authority.ts";
 import { readSubmission, type Submission } from "./submission.ts";
 
 export type SubmissionAuthority = "pre-authorized" | "awaiting-owner";
@@ -128,14 +130,14 @@ async function submissionRow(
     { cwd: root },
   );
   const branchCurrent = tip.success && tip.stdout.trim() === submission.head;
-  const grant = await readEffortGrant(path);
+  const covering = await effortGrantCovering(path, submission.branch);
   let authority: SubmissionAuthority = "awaiting-owner";
   let source: SubmissionRow["authority_source"];
   let grantedAt: string | undefined;
-  if (grant.status === "granted" && grant.grant.branch === submission.branch) {
+  if (covering !== undefined) {
     authority = "pre-authorized";
     source = "effort-grant";
-    grantedAt = grant.grant.granted_at;
+    grantedAt = covering.granted_at;
   } else if (branchCurrent) {
     const standing = await inspectLandingAuthority(path, trunk);
     if (

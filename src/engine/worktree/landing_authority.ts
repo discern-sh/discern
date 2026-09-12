@@ -343,6 +343,20 @@ async function readEffortGrantState(cwd: string): Promise<EffortGrantState> {
   return { effort, branch, granted };
 }
 
+/** The recorded effort grant covering `branch`, when one is granted for it.
+ * The one row-level grant derivation the landing queue's view consumes, so
+ * grant validity keeps a single runtime reader boundary. */
+export async function effortGrantCovering(
+  path: string,
+  branch: string,
+): Promise<{ readonly granted_at: string } | undefined> {
+  const grant = await readEffortGrant(path);
+  if (grant.status !== "granted" || grant.grant.branch !== branch) {
+    return undefined;
+  }
+  return { granted_at: grant.grant.granted_at };
+}
+
 /**
  * Read the current worktree's landing authority. The trunk snapshot is pinned
  * before its config and diff are read, so a branch cannot alter either side of

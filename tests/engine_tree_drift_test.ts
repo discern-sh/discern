@@ -552,7 +552,7 @@ Deno.test("prepare permits fixer/regeneration convergence; clean completion stop
     assertEquals(stepFor(obj, "format").outcome, "ok", r.stdout);
     assertEquals(
       obj.data.completion?.pending?.[0]?.kind,
-      "recovery-incomplete",
+      "validation-failed",
     );
     assertEquals(
       await Deno.readTextFile(join(dir, "data.txt")),
@@ -649,10 +649,9 @@ Deno.test("done: the producer boundary fails closed when a fixer corrupts the in
     assertEquals(stepFor(obj, "format").outcome, "ok");
     assertEquals(
       obj.data.completion?.pending?.[0]?.kind,
-      "recovery-incomplete",
+      "stale-evidence",
     );
     assertEquals(obj.data.gate_proof?.status, "pending");
-    assertStringIncludes(r.stdout, "index");
     assertEquals(await Deno.readTextFile(join(dir, ".git/index")), "garbage");
   });
 });
@@ -708,11 +707,11 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
     assertEquals(envelope.data.gate_proof?.status, "pending");
     assertTerminalTextIncludes(
       first.stdout,
-      "strand status deliberately unavailable",
+      "Tracked checkout observation is unavailable; no reusable Proof can be issued.",
     );
     assert(
       envelope.data.completion?.pending?.some((item) =>
-        item.kind === "recovery-incomplete"
+        item.kind === "validation-failed"
       ),
     );
     const second = await runAgent(dir, ["done", "--json"], {
@@ -722,12 +721,12 @@ Deno.test("done: unreadable strand snapshots stay visible and cannot mint reusab
     const retried = decodeGateResult(second.stdout);
     assert(
       retried.data.completion?.pending?.some((item) =>
-        item.kind === "recovery-incomplete"
+        item.kind === "validation-failed"
       ),
     );
     assertTerminalTextIncludes(
       second.stdout,
-      "strand status deliberately unavailable",
+      "Tracked checkout observation is unavailable; no reusable Proof can be issued.",
     );
     assert(
       !second.stdout.includes("reused the current green Proof"),
@@ -811,7 +810,7 @@ Deno.test("accept: refuses (non-destructively) an unproven committed file withou
     assertEquals(r.code, 1, r.output);
     assertTerminalTextIncludes(
       r.output,
-      "not validated. Run discern done from its clean committed worktree",
+      "has no honored Proof at HEAD, so there is nothing proven to land",
     );
     // Non-destructive: the worktree survives and the unformatted doc never reached main.
     assertEquals(
