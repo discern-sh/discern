@@ -51,7 +51,11 @@ import {
   PROJECT_RELATIVE_FILE_INPUT_RE,
   projectRelativePathIssue,
 } from "./project_path.ts";
-import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
+import {
+  DEAD_CONFIG_POSITIONS,
+  deadConfigPosition,
+  retiredConfigKeySuccessor,
+} from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
 import { CONFIG_PROSE } from "./config_prose.ts";
 import {
@@ -1145,7 +1149,9 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
     if (path === "") {
       return issue.keys.map((key): ConfigIssue => {
         const dead = deadConfigPosition("", [key]);
-        if (dead !== undefined) return { path: key, message: dead.message(key) };
+        if (dead !== undefined) {
+          return { path: key, message: dead.message(key) };
+        }
         const successor = retiredConfigKeySuccessor(key);
         return successor === undefined
           ? {
@@ -1420,15 +1426,35 @@ export function validateConfigValue(
   return { config: undefined, issues: [...formIssues, ...schemaIssues] };
 }
 
-/** Read committed policy across the measurement cutover without enabling deferrals.
- * Only the retired enum is removed. Every standard, bound, grant and checkpoint
- * remains subject to the current schema; unknown values stay invalid. */
+/** A governing document predating a config retirement still governs: the
+ * registered dead root sections are dropped before validation, so committed
+ * policy is read from its surviving current-schema content while a project's
+ * own live config keeps the loud dead-position refusal. Root positions only:
+ * every registered retirement is a root section; a nested retirement extends
+ * this walk when one exists. */
+function withoutDeadConfigSections(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const deadRootKeys = DEAD_CONFIG_POSITIONS.flatMap((position) =>
+    position.path === "" && position.key !== undefined ? [position.key] : []
+  );
+  if (deadRootKeys.every((key) => !(key in value))) return value;
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !deadRootKeys.includes(key)),
+  );
+}
+
+/** Read committed policy across the measurement cutover and the config
+ * retirements without enabling deferrals. Only the retired enum and the
+ * registered dead sections are removed. Every standard, bound, grant and
+ * checkpoint remains subject to the current schema; unknown values stay
+ * invalid. */
 export function governingConfigValue(value: unknown): unknown {
-  if (!isRecord(value) || !isRecord(value.standards)) return value;
+  const governed = withoutDeadConfigSections(value);
+  if (!isRecord(governed) || !isRecord(governed.standards)) return governed;
   return {
-    ...value,
+    ...governed,
     standards: Object.fromEntries(
-      Object.entries(value.standards).map(([name, spec]) => {
+      Object.entries(governed.standards).map(([name, spec]) => {
         if (
           !isRecord(spec) ||
           (spec.measure !== "gate" && spec.measure !== "on-demand")
