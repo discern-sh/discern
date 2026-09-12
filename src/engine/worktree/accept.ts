@@ -115,6 +115,7 @@ import {
   varianceBinding,
 } from "./acceptance_checkpoints.ts";
 import {
+  clearCompletedAcceptanceJournal,
   inspectInterruptedAcceptance,
   performAcceptanceTransition,
   recoverInterruptedAcceptance,
@@ -1184,7 +1185,8 @@ function recoveryStep(outcome: StepOutcome): StepResult {
       kind: "git",
       label: BUILT_IN_STEP_LABELS.recoverInterruptedAcceptance,
       disposition: "run",
-      note: "reconcile the journal-bound transaction before any new landing",
+      note:
+        "complete or roll back the recorded transaction before any new landing",
     },
     outcome,
   };
@@ -1892,6 +1894,7 @@ async function executeLanding(
     },
     outcome: "ok",
   });
+  const postTransitionStepStart = progress.steps.length;
 
   // The trunk now names the proven commit. Everything below fails open: the
   // landing is durable and no recording, convergence, or cleanup step may
@@ -1927,6 +1930,21 @@ async function executeLanding(
     );
   }
   const disposition = await cleanUpEffort(effort, subject.head, progress);
+  // A kept checkout outlives its transaction. Once every post-transition step
+  // settled, the journal is a spent retry vehicle and must not send the next
+  // accept into recovery; while any step remains failed, the journal stays so
+  // a retry can finish it.
+  if (
+    disposition.kind !== "removed" &&
+    progress.steps
+      .slice(postTransitionStepStart)
+      .every((entry) => entry.outcome !== "failed") &&
+    !(await clearCompletedAcceptanceJournal(effort.path, subject.head))
+  ) {
+    log.warn(
+      "Could not retire the completed landing's recovery journal; the next accept will verify it before landing new work.",
+    );
+  }
   const message = landedMessage(effort, subject.head, disposition);
   log.heading("Acceptance complete.");
   log.line(`  ${message}`);

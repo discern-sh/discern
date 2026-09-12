@@ -2,10 +2,12 @@
  * The durable transaction around acceptance's one-shot authority, trunk CAS,
  * and checked-out-tree convergence.
  *
- * The journal is written before either durable boundary. A normal successful
- * acceptance keeps it until Git removes the worktree admin directory; an
- * interrupted retry reconciles facts before ordinary authority and dirty-tree
- * guards can mistake the transaction's own state for user work.
+ * The journal is written before either durable boundary. A landing that
+ * removes its worktree lets Git reap the journal with the admin directory; a
+ * landing that keeps its checkout retires the journal once every
+ * post-transition step settles; an interrupted retry reads recorded facts
+ * before ordinary authority and dirty-tree guards can mistake the
+ * transaction's own state for user work.
  */
 
 import { dirname, isAbsolute } from "@std/path";
@@ -389,6 +391,25 @@ async function readAcceptanceTransaction(
   }
 }
 
+/** Retire the journal of a landing that completed with its checkout kept.
+ *
+ * A journal recording exactly the landed target is the spent retry vehicle of
+ * a transaction whose post-transition obligations all settled; leaving it in
+ * a surviving checkout would send the next acceptance into recovery for a
+ * finished landing instead of landing new work. The worktree-scoped marker
+ * ref stays, so landed authority remains spent. Any other journal — another
+ * target, or unreadable — stays for recovery to classify. */
+export async function clearCompletedAcceptanceJournal(
+  cwd: string,
+  landedTarget: string,
+): Promise<boolean> {
+  const read = await readAcceptanceTransaction(cwd);
+  if (read.status === "missing") return true;
+  if (read.status === "invalid") return false;
+  if (read.transaction.target !== landedTarget) return false;
+  return await removeJournal(read.path);
+}
+
 /** Delete a recovery journal while treating prior cleanup as success. */
 async function removeJournal(path: string): Promise<boolean> {
   try {
@@ -682,7 +703,7 @@ export async function inspectInterruptedAcceptance(
   };
 }
 
-/** Remove a reconciled journal after its recorded effects converge. */
+/** Remove a recovered journal after its recorded effects converge. */
 async function clearRecoveredJournal(
   recorded: RecordedAcceptanceTransaction,
 ): Promise<boolean> {
@@ -693,7 +714,7 @@ async function clearRecoveredJournal(
 function journalCleanupFailure(
   recorded: RecordedAcceptanceTransaction,
 ): string {
-  return `discern reconciled the interrupted acceptance but could not remove its ` +
+  return `discern completed the interrupted acceptance but could not remove its ` +
     `journal at ${recorded.path}. Re-run \`discern accept\` to retry that ` +
     "idempotent cleanup before starting another landing.";
 }
@@ -708,7 +729,7 @@ function stoppedRecovery(
 }
 
 /**
- * Reconcile one already-inspected, already-authorized interrupted acceptance.
+ * Complete or roll back one already-inspected, already-authorized interrupted acceptance.
  * A pre-CAS/explicitly rolled-back claim is restored and ordinary acceptance
  * may continue under freshly checked authority. A durable CAS consumes its
  * one-shot authority, converges only an exact journal-owned old checkout, and
@@ -833,7 +854,7 @@ export async function recoverInterruptedAcceptance(
       );
     }
     return stoppedRecovery(
-      `discern reconciled the interrupted landing of ${transaction.target} ` +
+      `discern completed the interrupted landing of ${transaction.target} ` +
         `onto ${transaction.trunk}. No landing authority was replayed.` +
         effortConsumedClause(transaction) +
         ` Run \`discern worktree prune\` from ${transaction.main_repo} to finish ` +

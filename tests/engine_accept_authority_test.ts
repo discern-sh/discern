@@ -494,7 +494,7 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
     assertResultDataKey(retriedResult, "proof_note");
     assert(retriedResult.message !== undefined);
     const message = retriedResult.message;
-    assertStringIncludes(message, "reconciled the interrupted landing");
+    assertStringIncludes(message, "completed the interrupted landing");
     assertStringIncludes(message, "discern worktree prune");
     assert(
       !message.includes("uncommitted tracked changes"),
@@ -1413,7 +1413,7 @@ Deno.test("accept retry consumes an effort claim interrupted after trunk CAS wit
     const retriedResult = decodeCliResult(retried.stdout, "accept");
     assert(retriedResult.message !== undefined);
     const message = retriedResult.message;
-    assertStringIncludes(message, "reconciled the interrupted landing");
+    assertStringIncludes(message, "completed the interrupted landing");
     assertStringIncludes(message, "discern worktree prune");
     assert(
       !message.includes("Re-authorize"),
