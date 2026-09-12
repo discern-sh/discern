@@ -310,6 +310,16 @@ export async function executePublicValidation(input: {
         input.capacity.runner.outputObserver,
       ) ?? progressObserver,
     };
+  // `[gate].fail_fast` cancels a gate run's in-flight siblings so a failed
+  // gate ends sooner. A measurement report (`standards`, `pin`, `proposal`,
+  // or the standalone form demanding only standards) instead exists to read
+  // every demanded standard: a failing measurement process fails its own
+  // consumers only, because aborting siblings would leave the set of
+  // completed readings dependent on process scheduling.
+  const measurementReport = demand.kind === "standards" ||
+    demand.kind === "pin" || demand.kind === "proposal" ||
+    demand.kind === "standalone" && demand.requirements.length > 0 &&
+      demand.requirements.every((entry) => entry.kind === "standard");
   const runtime =
     (diagnostic ? createDiagnosticValidationRuntime : createValidationRuntime)({
       root,
@@ -363,7 +373,9 @@ export async function executePublicValidation(input: {
               : { output_path: result.outputPath }),
           },
         });
-        if (config.gate.fail_fast && result.code !== 0) abort.abort();
+        if (config.gate.fail_fast && !measurementReport && result.code !== 0) {
+          abort.abort();
+        }
       },
     });
   let slotAcquisitions = 0;
