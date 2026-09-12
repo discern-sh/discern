@@ -11,6 +11,15 @@ export const MODULE_LINE_COVERAGE_FLOOR = 80;
  */
 export const MODULE_COVERAGE_EXCEPTIONS = [
   {
+    path: "src/engine/worktree/accept_convergence.ts",
+    measuredPct: 73.5,
+    owner: "worktree lifecycle",
+    reason:
+      "The fail-open catch arms (refresh throw, smoke run-context failure, unreadable status) need fault injection; the sequence itself is covered end to end by the landing and emergency journeys.",
+    recovery:
+      "Inject one fault per catch arm through a seam the module owns, then remove this row.",
+  },
+  {
     path: "src/commands/setup_accept.ts",
     measuredPct: 69.3,
     owner: "setup lifecycle",
