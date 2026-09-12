@@ -58,6 +58,7 @@ const FROZEN_V1_GIT_CONVENTIONS = {
   branches: {
     worktree_prefix_default: "agent/",
     setup: "discern-setup",
+    integration_namespace: "integration/",
     detached_fallback: "<branch>-<8-character-commit>",
   },
   worktree_root: {

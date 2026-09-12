@@ -81,6 +81,11 @@ export const GENERATED_ARTIFACT_MARKER_PREFIX = "# Generated automatically ";
 export const SETUP_BRANCH = "discern-setup";
 /** Default namespace for agent-authored effort branches. */
 export const DEFAULT_WORKTREE_BRANCH_PREFIX = "agent/";
+/** Namespace for the disposable integration worktrees a landing composes a
+ * moved trunk in. The name helps people recognize the copy; ownership and the
+ * exact input identity live in the recorded integration state, never in the
+ * branch name. */
+export const INTEGRATION_BRANCH_NAMESPACE = "integration/";
 /** Suffix used by the default sibling worktree directory. */
 export const DEFAULT_WORKTREE_ROOT_SUFFIX = ".worktrees";
 /** Detached-branch disambiguation template, before an optional counter. */
@@ -155,6 +160,7 @@ export const GIT_CONVENTIONS = Object.freeze(
     branches: {
       worktree_prefix_default: DEFAULT_WORKTREE_BRANCH_PREFIX,
       setup: SETUP_BRANCH,
+      integration_namespace: INTEGRATION_BRANCH_NAMESPACE,
       detached_fallback: DETACHED_BRANCH_FALLBACK_TEMPLATE,
     },
     worktree_root: {
