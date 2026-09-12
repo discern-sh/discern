@@ -29,6 +29,7 @@ aliases:
   - improvement review
   - installer
   - instruction source
+  - integration worktree
   - landing authority
   - logbook
   - map
@@ -99,7 +100,7 @@ Jump to: [A](#accept) · [C](#checkpoint) · [D](#declaration) · [E](#effort) �
 
 ### Accept
 
-Land validated, authorized work on the [trunk](#trunk), the project's shared branch. From an effort's worktree, `discern accept` records the effort's [submission](#submission), the exact proven commit, and lands it when conversation consent or a recorded grant authorizes it: it fast-forwards the trunk, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission. Without authority it refuses, and the submission waits for the owner. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).
+Land validated, authorized work on the [trunk](#trunk), the project's shared branch. From an effort's worktree, `discern accept` records the effort's [submission](#submission), the exact proven commit, and lands it when conversation consent or a recorded grant authorizes it: it fast-forwards the trunk, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission. When the trunk moved after the Proof, the landing composes and checks the combined code in an [integration worktree](#integration-worktree) and lands that exact proven commit; a second accept waits its turn and resumes on its own. Without authority it refuses, and the submission waits for the owner. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).
 
 ### Advisory
 
@@ -184,6 +185,10 @@ The commands that set up and maintain discern in a project. They include `setup`
 ### Instruction source
 
 The project's authored instructions for coding agents. Their paths are named by `[instructions].sources` (default `discern/instructions.md`). discern prepends its built-in instructions when compiling the agent files; your project instructions follow them. Covered in [agent instructions](../40-agent-instructions/).
+
+### Integration worktree
+
+A disposable [worktree](#worktree) a landing creates for itself when the [trunk](#trunk) moved after a [submission](#submission)'s Proof. discern creates it from the exact submitted commit through the same setup a task worktree gets, brings the trunk in, proves the combined committed tree with the full gate, lands that exact proven commit, and removes the copy, its resources, and its `integration/` branch. It is discern-owned — never an effort an agent may adopt — with its ownership and exact input recorded, not inferred from its name. A conflict or red combined check removes the copy and returns to the author with nothing landed; a copy whose owning process died is reclaimed by `discern worktree prune`, which never touches a live one. See [worktrees](../30-worktrees/).
 
 ### Landing authority
 

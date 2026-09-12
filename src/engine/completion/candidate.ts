@@ -69,7 +69,7 @@ export function candidateIsIntegrated(candidate: Candidate): boolean {
  * one version; bytes on disk are never rewritten). Every other value passes
  * through untouched, so validation still owns the verdict.
  */
-export function migrateLegacyCandidateData(value: unknown): unknown {
+export function migrateSingularSourceCandidate(value: unknown): unknown {
   if (
     typeof value !== "object" || value === null || Array.isArray(value)
   ) return value;

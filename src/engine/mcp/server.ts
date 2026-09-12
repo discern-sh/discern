@@ -1096,7 +1096,13 @@ export const TOOLS: McpTool[] = orderTools([
       "and its resources when the branch holds nothing beyond the landed commit; " +
       "a branch with later commits keeps its checkout and is told to run " +
       "discern_done then discern_accept for them. A trunk that moved after the " +
-      "Proof refuses with the update route. Recorded grants never cover a " +
+      "Proof is composed and checked in a disposable integration worktree this " +
+      "landing owns, then landed as that exact proven commit; a conflict or red " +
+      "combined check returns to the author with nothing changed. A second " +
+      "accept waits its turn and resumes on its own. With target, the selected " +
+      "submission lands first and the remaining queue lands under its own " +
+      "recorded grants, stopping at the first refusal; data.landings reports " +
+      "each attempted landing. Recorded grants never cover a " +
       "checkpoint variance or standard proposal. " +
       "Set dry_run to inspect the landing plan and the queue without changing anything. " +
       "After success, report what landed and any unresolved cleanup in your own " +

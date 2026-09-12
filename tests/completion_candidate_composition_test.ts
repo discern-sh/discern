@@ -12,7 +12,7 @@ import {
   candidateAuthor,
   candidateIsIntegrated,
   CandidateSchema,
-  migrateLegacyCandidateData,
+  migrateSingularSourceCandidate,
 } from "../src/engine/completion/candidate.ts";
 import {
   completionRecordPath,
@@ -80,26 +80,26 @@ Deno.test("an integrated candidate records its procedure and tested result separ
   assert(!empty.success, "the composition input list is nonempty");
 });
 
-Deno.test("the legacy singular-source migration touches only candidate payloads", () => {
-  const legacy = {
+Deno.test("the singular-source migration touches only candidate payloads", () => {
+  const stored = {
     version: ON_DISK_FORMATS.completionRecord.version,
     kind: "candidate",
     id: completionId(1),
     revision: 1,
     data: { ...ordinaryCandidate(), sources: undefined },
   };
-  const data = legacy.data as Record<string, unknown>;
+  const data = stored.data as Record<string, unknown>;
   delete data.sources;
   data.source = COMPLETION_SOURCE;
-  const migrated = migrateLegacyCandidateData(legacy) as {
+  const migrated = migrateSingularSourceCandidate(stored) as {
     data: Record<string, unknown>;
   };
   assertEquals(migrated.data.sources, [COMPLETION_SOURCE]);
   assert(!("source" in migrated.data));
 
   const attempt = completionFixtures().attempt;
-  assertEquals(migrateLegacyCandidateData(attempt), attempt);
-  assertEquals(migrateLegacyCandidateData("text"), "text");
+  assertEquals(migrateSingularSourceCandidate(attempt), attempt);
+  assertEquals(migrateSingularSourceCandidate("text"), "text");
 });
 
 Deno.test("the store reads a stored singular-source candidate as the current list shape", async () => {
@@ -109,7 +109,7 @@ Deno.test("the store reads a stored singular-source candidate as the current lis
     const selector = { kind: "candidate" as const, id: completionId(1) };
     const path = await completionRecordPath(dir, selector);
     assert(path !== undefined);
-    const legacy = {
+    const stored = {
       version: ON_DISK_FORMATS.completionRecord.version,
       kind: "candidate",
       id: selector.id,
@@ -125,7 +125,7 @@ Deno.test("the store reads a stored singular-source candidate as the current lis
       },
     };
     await Deno.mkdir(dirname(path), { recursive: true });
-    await Deno.writeTextFile(path, `${JSON.stringify(legacy)}\n`);
+    await Deno.writeTextFile(path, `${JSON.stringify(stored)}\n`);
     const reading = await readCompletionRecord(dir, selector);
     assert(reading.kind === "recorded", JSON.stringify(reading));
     assert(reading.record.kind === "candidate");

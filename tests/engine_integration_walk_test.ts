@@ -264,8 +264,9 @@ Deno.test("the walk stops at the first submission awaiting the owner and reports
         "--json",
       ]);
       assertEquals(retried.code, 1);
+      const retriedResult = decodeCliResult(retried.stdout, "accept");
       assertStringIncludes(
-        retried.output,
+        retriedResult.message ?? "",
         "No worktree matches 'agent/alpha'",
         "the landed effort's worktree is gone; nothing repeats",
       );

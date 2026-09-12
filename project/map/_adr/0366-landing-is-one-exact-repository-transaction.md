@@ -3,6 +3,7 @@
 > **Amendments.**
 >
 > - **Completion-model direction (2026-09-05; settled 2026-09-12):** [ADR 0376](_superseded/0376-active-commands-advance-an-authorized-landing-queue.md) and [ADR 0378](_superseded/0378-landing-completion-survives-checkout-retirement.md) separated claims, validation, publication, and retirement around this transaction; [ADR 0389](0389-the-workspace-contract.md) superseded both. The exact-commit and ref-transition guarantees below remain required and unchanged.
+> - **Integration landings ([ADR 0391](0391-landings-compose-a-moved-trunk-in-an-integration-worktree.md), 2026-09-12):** the journal's recorded ownership extends to the landing's integration worktree, its exact submission, and its Proof pointer, all as optional version-1 fields; retry completes or rolls back the recorded transaction, integration cleanup included, and never lands twice.
 
 **Status**: accepted. Extends the exact-tree landing model in [ADR 0110](0110-the-landing-model.md), the recoverable authority boundary in [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md), the lock order in [ADR 0331](0331-common-repository-locks-precede-checkout-locks.md), and ambient trunk resolution in [ADR 0336](0336-ambient-process-state-resolves-at-boundaries.md). Amends detached-drop recovery in [ADR 0271](0271-destructive-drops-retain-bounded-recovery-refs.md).
 

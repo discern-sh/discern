@@ -943,7 +943,10 @@ export function attachEngineCommands(
       `Submit this worktree's proven commit and land it on the trunk${trunkName}, ` +
         "the shared landing branch. Landing needs the owner's consent in this " +
         "conversation or a recorded grant; without one, the submission waits in " +
-        "the landing queue. Landing removes the worktree and its branch when the " +
+        "the landing queue. If the trunk moved after the Proof, the landing " +
+        "composes and checks the combined code in a disposable integration " +
+        "worktree and lands that exact proven commit; a second accept waits its " +
+        "turn. Landing removes the worktree and its branch when the " +
         "branch holds nothing beyond the landed commit. Use accept emergency " +
         "--reason <text> to review an explicit exception against actual trunk. " +
         "Emergency integration requires fresh exact owner confirmation and issues no passing Proof.",

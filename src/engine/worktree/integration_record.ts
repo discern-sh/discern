@@ -21,7 +21,7 @@ import {
   removeIfExists,
 } from "../../shared/atomic_write.ts";
 import { CompletionProofPointerSchema } from "../../shared/completion_proof.ts";
-import { readTextIfExists } from "../../shared/fs_presence.ts";
+import { readDirIfExists, readTextIfExists } from "../../shared/fs_presence.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   inspectOnDiskRecordVersion,
@@ -169,16 +169,8 @@ export async function listIntegrationLandingRecords(
   const directory = await gitAdminStatePath(root, "integrationLandings");
   if (directory === undefined) return [];
   const entries: IntegrationLandingEntry[] = [];
-  let names: Deno.DirEntry[];
-  try {
-    names = [];
-    for await (const entry of Deno.readDir(directory)) {
-      names.push(entry);
-    }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) return [];
-    throw error;
-  }
+  const names = await readDirIfExists(directory);
+  if (names === undefined) return [];
   for (const entry of names) {
     if (!entry.isFile || !entry.name.endsWith(".json")) continue;
     const raw = await readTextIfExists(join(directory, entry.name));

@@ -83,7 +83,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 39      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 8       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 52      | —                | node `glossary-canon`       |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 53      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 141     | —                | —                           |
 | [`human-benefit-canon`](#human-benefit-canon--human-benefit-canon)                                                    | `scripts/feature_registry.ts#HUMAN_BENEFIT_CANON`                                 | 45      | —                | —                           |
 | [`agent-benefit-canon`](#agent-benefit-canon--agent-benefit-canon)                                                    | `scripts/feature_registry.ts#AGENT_BENEFIT_CANON`                                 | 24      | —                | —                           |
@@ -109,7 +109,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`manual-front-doors`](#manual-front-doors--manual-front-doors)                                                       | `project/manual/README.md` (authored)                                             | —       | —                | node `bundled-docs`         |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 10      | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 380     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 381     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -136,8 +136,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`scheduler-primitive-boundaries`](#scheduler-primitive-boundaries--scheduler-primitive-boundaries)                   | `src/shared/scheduler.ts#SCHEDULER_PRIMITIVE_BOUNDARIES`                          | 8       | —                | —                           |
 | [`scheduling-jitter-boundaries`](#scheduling-jitter-boundaries--scheduling-jitter-boundaries)                         | `src/shared/scheduler.ts#JITTER_PRIMITIVE_BOUNDARIES`                             | 1       | —                | —                           |
 | [`secure-entropy-primitive-boundaries`](#secure-entropy-primitive-boundaries--secure-entropy-primitive-boundaries)    | `src/shared/entropy.ts#SECURE_ENTROPY_PRIMITIVE_BOUNDARIES`                       | 2       | —                | —                           |
-| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 187     | —                | —                           |
-| [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 10      | —                | —                           |
+| [`best-effort-boundaries`](#best-effort-boundaries--error-discard-boundaries)                                         | `src/shared/best_effort.ts#BEST_EFFORT_BOUNDARIES`                                | 189     | —                | —                           |
+| [`detached-promise-boundaries`](#detached-promise-boundaries--detached-promise-boundaries)                            | `src/shared/promise_effects.ts#DETACHED_PROMISE_BOUNDARIES`                       | 11      | —                | —                           |
 | [`tool-temp-directory-kinds`](#tool-temp-directory-kinds--tool-temp-directory-kinds)                                  | `scripts/temp_dir.ts#TOOL_TEMP_DIR_KINDS`                                         | 13      | —                | —                           |
 | [`test-temp-directory-ownership-modes`](#test-temp-directory-ownership-modes--test-temp-directory-ownership-modes)    | `tests/temp_dir.ts#TEMP_DIR_OWNERSHIP_POLICIES`                                   | 2       | —                | —                           |
 | [`generated-inventory-policies`](#generated-inventory-policies--generated-inventory-policies)                         | `scripts/generated_inventory_policy.ts#GENERATED_INVENTORY_POLICIES`              | 3       | —                | —                           |
@@ -2444,8 +2444,9 @@ The improvement catalog's categories, in display order. The runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 52
+- Members: 53
   - `Accept`
+  - `Integration worktree`
   - `Advisory`
   - `discern version`
   - `Gate job`
@@ -3382,7 +3383,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 380
+- Members: 381
   - `0003`
   - `0005`
   - `0006`
@@ -3732,6 +3733,7 @@ The numbered decision records in the map, including records later superseded.
   - `0388`
   - `0389`
   - `0390`
+  - `0391`
   - `0001`
   - `0002`
   - `0004`
@@ -4381,10 +4383,12 @@ Every direct WebCrypto UUID or byte-fill operation retained by the system secure
 Every named production error discard, with its exact module, enclosing function, operation, shape, observability policy, and reason.
 
 - Source: `src/shared/best_effort.ts` — `BEST_EFFORT_BOUNDARIES`
-- Members: 187
+- Members: 189
+  - `accept-landing-wait-journal-fallback`
   - `accept-post-convergence-clean-check-fallback`
   - `accept-post-landing-dirty-baseline-fallback`
   - `accept-post-landing-templates-fallback`
+  - `accept-recovery-proof-pointer-fallback`
   - `acceptance-transaction-temp-cleanup`
   - `adr-duplicate-scan-fallback`
   - `agent-gitignore-template-fallback`
@@ -4578,7 +4582,8 @@ Every named production error discard, with its exact module, enclosing function,
 Every registered promise effect transferred beyond its caller's sequence, with its exact module, enclosing function, operation, lifecycle owner, rejection policy, cancellation ownership, and reason.
 
 - Source: `src/shared/promise_effects.ts` — `DETACHED_PROMISE_BOUNDARIES`
-- Members: 10
+- Members: 11
+  - `accept-landing-wait-report`
   - `canon-editor-guard-run`
   - `canon-editor-watch-refresh`
   - `job-output-reader-cancel-detach`

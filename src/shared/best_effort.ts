@@ -45,6 +45,16 @@ function defineBestEffortBoundaries<
 
 /** The complete named set of deliberate production error-discard boundaries. */
 export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
+  "accept-landing-wait-journal-fallback": {
+    path: "src/engine/worktree/accept.ts",
+    enclosingFunction: "reportLandingWait",
+    operation: "name the running landing a waiting accept queues behind",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "The wait itself is the behavior; an unreadable operation journal only degrades the sentence to the plain form.",
+  },
   "accept-post-convergence-clean-check-fallback": {
     path: "src/engine/worktree/accept_convergence.ts",
     enclosingFunction: "convergeMainCheckout",
@@ -76,6 +86,16 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     observability: { kind: "unobservable" },
     reason:
       "Materialization falls back to the default templates directory; the landing and its convergence steps report their own outcomes.",
+  },
+  "accept-recovery-proof-pointer-fallback": {
+    path: "src/engine/worktree/accept.ts",
+    enclosingFunction: "recoverInterruptedJournal",
+    operation: "read the journal's recorded Proof presentation for recovery",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "Recovery falls back to the worktree's honored gate marker; the Proof-note step reports its own unavailable outcome when neither reads.",
   },
   "acceptance-transaction-temp-cleanup": {
     path: "src/engine/worktree/acceptance_transaction.ts",

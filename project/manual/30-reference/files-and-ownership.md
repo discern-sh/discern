@@ -148,6 +148,7 @@ These local working records live under `discern/` inside Git's administrative di
 | `discern/desk/preferences.json`                    | repository | Desk display preferences.                                                                                                                  |
 | `discern/parked-tasks/`                            | repository | Branch-keyed task wording retained while `discern worktree park` removes the checkout.                                                     |
 | `discern/temp-artifact-sweep`                      | repository | Temp-retention sweep stamp and cursor.                                                                                                     |
+| `discern/integration-landings/`                    | repository | One record per live or interrupted integration worktree: its owner and the frozen submission it composes.                                  |
 | `discern/gate-proof`                               | worktree   | Proof from a clean `done` run.                                                                                                             |
 | `discern/last-gate-run`                            | worktree   | Last gate verdict.                                                                                                                         |
 | `discern/standard-measurements`                    | worktree   | Reusable measurements.                                                                                                                     |

@@ -34,7 +34,8 @@ import {
   AWAITING_VARIANCE_SLUG,
 } from "../../shared/declarations.ts";
 import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
-import { targetExists } from "../../shared/fs_presence.ts";
+import { detachPromise } from "../../shared/promise_effects.ts";
+import { realPathIfExists, targetExists } from "../../shared/fs_presence.ts";
 import type { CliModelProvider } from "../../shared/cli_reference_codegen.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
 import {
@@ -525,17 +526,16 @@ async function trunkTip(effort: EffortCheckout): Promise<string> {
   return run.stdout.trim();
 }
 
-/** The one-sentence refusal for a Proof that predates the trunk's tip. */
+/** The refusal when the trunk moved between this landing's reads. */
 function refuseTrunkMoved(effort: EffortCheckout): never {
   const where = effort.explicit ? ` from ${effort.path}` : "";
   refusal(
     "precondition_failed",
-    `The trunk moved after ${effort.branch}'s Proof; run discern update, discern done, then discern accept${where}.`,
+    `The trunk moved while this acceptance was preparing; re-run discern accept${where} — it composes and checks the moved trunk in an integration worktree before landing.`,
     {
       hints: hintTexts([
         fire(HINTS["completion-pending"], {
-          action:
-            `Run discern update${where}, then discern done, then discern accept.`,
+          action: `Re-run discern accept${where}.`,
         }),
       ]),
     },
@@ -1763,7 +1763,7 @@ async function executeLanding(
       ? " Git restored the old trunk ref after checkout convergence failed."
       : "";
     throw new WorktreeGitError(
-      `The trunk moved after ${effort.branch}'s Proof; run discern update, discern done, then discern accept from ${effort.path}.${checkoutDetail} Your worktree is fully intact, resources included, and your commits are safe on ${effort.branch}. Git said: ${ff.detail}${settlementClause}`,
+      `The trunk moved while this landing ran; re-run discern accept from ${effort.path} — it composes and checks the moved trunk in an integration worktree before landing.${checkoutDetail} Your worktree is fully intact, resources included, and your commits are safe on ${effort.branch}. Git said: ${ff.detail}${settlementClause}`,
     );
   }
   progress.landing.trunk_landed = true;
@@ -2046,10 +2046,10 @@ async function executeIntegrationLanding(
       includeScopeEvidence: true,
       classifyAt: composed.record.worktree.path,
     });
-    let consent: LandingConsent | undefined = decision.consent.source ===
-        "conversation"
-      ? decision.consent
-      : availableLandingConsent(authorityNow, false);
+    const consent: LandingConsent | undefined =
+      decision.consent.source === "conversation"
+        ? decision.consent
+        : availableLandingConsent(authorityNow, false);
     if (consent === undefined) {
       const failures = await removeIntegrationWorktree(
         mainRepo,
@@ -2756,7 +2756,7 @@ async function walkQueue(
   ];
   const paragraphs: string[] = [];
   const attempted = new Set([
-    await Deno.realPath(effort.path).catch(() => effort.path),
+    await realPathIfExists(effort.path) ?? effort.path,
   ]);
   let stopped: string | undefined;
   while (stopped === undefined) {
@@ -2901,7 +2901,11 @@ async function landingResult(
   return await withAcceptanceTransactionLock(effort.path, body, {
     ...(request.signal === undefined ? {} : { signal: request.signal }),
     onContended: () => {
-      void reportLandingWait(effort);
+      detachPromise(
+        "accept-landing-wait-report",
+        () => reportLandingWait(effort),
+        globalThis.reportError,
+      );
     },
   });
 }

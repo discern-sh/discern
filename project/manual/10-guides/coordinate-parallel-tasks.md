@@ -107,12 +107,12 @@ Each line names the task's branch and, when it cannot land yet, the reason:
 | Why a task waits                           | What it means                                     | What happens next                                                        |
 | ------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------ |
 | It is waiting for your decision            | The submission has Proof, and no grant covers it. | Approve it in conversation, pre-authorize it from the desk, or leave it. |
-| The shared branch moved since its Proof    | Other work landed after its checks ran.           | Its agent runs `discern update`, `discern done`, then `discern accept`.  |
 | Its branch moved on after it was submitted | The agent committed more work after submitting.   | Its agent runs `discern done`, then `discern accept` for the new work.   |
+| A landing is checking it now               | Its combined code is being proven before landing. | Nothing; the line names the running landing's progress handle.           |
 
-A task you pre-authorized lands with its agent's next `discern accept`. A task that failed its checks, or that its agent never submitted, is not in the list. Approving one task approves that task alone; if the help task depends on search, each needs its own permission.
+A submission the shared branch overtook does not wait on its author: its landing checks the combined version in a fresh integration worktree and lands the exact commit it proved, and its queue line says the composition is what landing will do. A task you pre-authorized lands with its agent's next `discern accept`. A task that failed its checks, or that its agent never submitted, is not in the list. Approving one task approves that task alone; if the help task depends on search, each needs its own permission.
 
-You do not have to land tasks in the order they finished. Decide about each one when you are ready; a task waiting for you does not block an independent task you have approved.
+You do not have to land tasks in the order they finished. Decide about each one when you are ready; a task waiting for you does not block an independent task you have approved. When you land a selected task with `discern accept --target`, the remaining submissions follow in the queue's own order, each under its own grant, and the walk stops at the first task that still needs you — the result reports every landing it attempted.
 
 ## Compose dependent work below the trunk
 

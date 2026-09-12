@@ -44,7 +44,10 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { readOperationJournal } from "../src/engine/completion/operation_journal.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
+import { waitUntil } from "./waiting.ts";
 import { withTempDir } from "./helpers.ts";
 
 const CONFIG = [
@@ -190,11 +193,15 @@ Deno.test("a kill after the trunk moved retries into Proof, exact consumption, a
 
     const retried = await runAgent(beta, ["accept", "--json"]);
     assertEquals(retried.code, 1, retried.output);
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
     assertStringIncludes(
-      retried.output,
+      retriedResult.message ?? "",
       "completed the interrupted landing",
     );
-    assertStringIncludes(retried.output, "No landing authority was replayed.");
+    assertStringIncludes(
+      retriedResult.message ?? "",
+      "No landing authority was replayed.",
+    );
 
     // The retry recorded the Proof note for the exact composed commit from
     // the journal's own pointer, consumed exactly the recorded submission,
@@ -218,7 +225,7 @@ Deno.test("a kill after the trunk moved retries into Proof, exact consumption, a
     // The author's checkout and branch still hold the submitted work; the
     // recovery message named `discern worktree prune` as the cleanup route.
     assertEquals(await gitOut(beta, "rev-parse", "HEAD"), frozenHead);
-    assertStringIncludes(retried.output, "discern worktree prune");
+    assertStringIncludes(retriedResult.message ?? "", "discern worktree prune");
   });
 });
 
@@ -278,7 +285,11 @@ Deno.test("a replacement submission survives settling the older snapshot's landi
 
     const retried = await runAgent(beta, ["accept", "--json"]);
     assertEquals(retried.code, 1, retried.output);
-    assertStringIncludes(retried.output, "completed the interrupted landing");
+    const retriedResult = decodeCliResult(retried.stdout, "accept");
+    assertStringIncludes(
+      retriedResult.message ?? "",
+      "completed the interrupted landing",
+    );
 
     // Settling the older snapshot consumed nothing of the newer record.
     const current = await readSubmission(effort.path);
@@ -416,15 +427,23 @@ Deno.test("a waiting accept whose submission a predecessor landed returns that s
     const tip = await gitOut(dir, "rev-parse", "main");
     const root = await Deno.realPath(dir);
 
-    let waiting: Promise<
-      { code: number; stdout: string; stderr: string; output: string }
-    >;
+    let waiting:
+      | Promise<
+        { code: number; stdout: string; stderr: string; output: string }
+      >
+      | undefined;
+    const betaPath = await Deno.realPath(beta);
     await withAcceptanceTransactionLock(root, async () => {
       // The predecessor holds the landing boundary; beta's accept queues.
       waiting = runAgent(beta, ["accept", "--confirmed", "--json"]);
-      // Give the waiter time to reach the boundary, then land its exact
-      // submission the way a queue walk's direct path does.
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // The waiter's own journal records the landing-wait progress fact —
+      // the positive condition that it reached the boundary.
+      await waitUntil(async () => {
+        const reading = await readOperationJournal(betaPath);
+        return reading.kind === "found" &&
+          reading.record.progress?.state === "landing-wait";
+      }, "the second accept reports waiting behind the running landing");
+      // Land its exact submission the way a queue walk's direct path does.
       const landed = await fastForwardCheckedOutBranch(
         root,
         "main",
@@ -432,16 +451,18 @@ Deno.test("a waiting accept whose submission a predecessor landed returns that s
         read.submission.head,
       );
       assertEquals(landed.kind, "updated");
-      await clearSubmission(await Deno.realPath(beta));
+      await clearSubmission(betaPath);
     });
-    const settled = await waiting!;
+    assert(waiting !== undefined);
+    const settled = await waiting;
     assertEquals(settled.code, 0, settled.output);
+    const settledResult = decodeCliResult(settled.stdout, "accept");
     assertStringIncludes(
-      settled.output,
+      settledResult.message ?? "",
       "already landed on main through a preceding landing",
     );
     assertStringIncludes(
-      settled.output,
+      settledResult.message ?? "",
       "verified that outcome and changed nothing",
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), read.submission.head);

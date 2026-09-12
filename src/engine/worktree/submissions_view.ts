@@ -69,8 +69,8 @@ export interface SubmissionFacts {
 }
 
 /** Derive one row's readiness, single waiting reason, and optional
- * integration detail (pure). A trunk that moved after the Proof no longer
- * waits on the author: acceptance composes and checks the combined code in an
+ * integration detail (pure). A trunk that moved after the Proof is not a
+ * waiting reason: acceptance composes and checks the combined code in an
  * integration worktree, so the row stays ready and says so. */
 export function submissionReadiness(
   facts: SubmissionFacts,

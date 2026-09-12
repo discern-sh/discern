@@ -206,7 +206,7 @@ export async function removeIntegrationWorktree(
       });
       if (deleted.kind === "refused") {
         failures.push(
-          `the integration branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
+          `the integration worktree's branch ${record.worktree.branch} could not be deleted: ${deleted.reason}`,
         );
       }
     }
