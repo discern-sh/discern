@@ -5,12 +5,16 @@
  * status declares it superseded belongs under `_superseded/`, every record
  * carries the one `**Status**:` form a scan can find, a current record that
  * claims to supersede a sibling names one that answers back (the target either
- * moved to `_superseded/` or references the claimer), and every archived
- * record opens with the banner that explains its retirement. Each rule failed
+ * moved to `_superseded/` or references the claimer), every archived
+ * record opens with the banner that explains its retirement, and a current
+ * record's amendment notes read timelessly (ADR 0310): no note claims a cited
+ * direction still awaits implementation, and no bold "Accepted …" label cites
+ * a record that has since moved to `_superseded/`. Each rule failed
  * somewhere in the corpus before this guard existed — a status flipped to
  * "superseded" on a record that never moved, a `**Status:**` misspelling that
- * hid from pattern scans, and supersessions recorded on only one of their two
- * records.
+ * hid from pattern scans, supersessions recorded on only one of their two
+ * records, and eight "accepted direction … implementation pending" notes
+ * whose referents had long been implemented, amended, or superseded.
  */
 
 import { basename, dirname, join } from "@std/path";
@@ -174,6 +178,43 @@ Deno.test("every archived record opens with its retirement banner", async () => 
       failures.push(
         `${record.path}: no leading \`> **…**\` banner — an archived record opens by naming its successor, or stating that it retired without one`,
       );
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("a current record never claims a direction awaits implementation", async () => {
+  const failures: string[] = [];
+  for (const record of await recordsIn(false)) {
+    if (/implementation pending/i.test(record.text)) {
+      failures.push(
+        `${record.path}: claims "implementation pending" — implementation state lives on the referent's own \`**Status**: \` line, which updates when it lands; an amendment note reads timelessly (ADR 0310): say what the cited record decided and what later settled it`,
+      );
+    }
+  }
+  assertEquals(failures, []);
+});
+
+Deno.test("an amendment label never asserts acceptance of an archived direction", async () => {
+  const failures: string[] = [];
+  const archivedNumbers = new Set(
+    (await recordsIn(true)).map((r) => r.number),
+  );
+  for (const record of await recordsIn(false)) {
+    for (const line of record.text.split("\n")) {
+      if (!/\*\*Accepted\b/.test(line)) {
+        continue;
+      }
+      const archivedCited = citedNumbers(line).filter((n) =>
+        archivedNumbers.has(n)
+      );
+      if (archivedCited.length > 0) {
+        failures.push(
+          `${record.path}: a bold "Accepted …" label cites ADR ${
+            archivedCited.join(", ADR ")
+          }, which now lives under _superseded/ — reword the label and name what superseded the cited direction`,
+        );
+      }
     }
   }
   assertEquals(failures, []);
