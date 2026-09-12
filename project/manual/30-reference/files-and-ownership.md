@@ -160,6 +160,7 @@ These local working records live under `discern/` inside Git's administrative di
 | `discern/ignored-baseline`                         | worktree   | Ignored-file baseline.                                                                                                                     |
 | `discern/effort-grant`                             | worktree   | Desk landing grant.                                                                                                                        |
 | `discern/effort-grant-claims/`                     | worktree   | Claims held by acceptance.                                                                                                                 |
+| `discern/submission`                               | worktree   | The effort's submitted revision.                                                                                                           |
 | `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                               |
 | `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                                           |
 | `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                                      |

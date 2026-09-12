@@ -243,6 +243,12 @@
         "kind": "directory",
         "validation": false
       },
+      "submission": {
+        "path": "discern/submission",
+        "scope": "worktree",
+        "kind": "file",
+        "validation": false
+      },
       "completionGrantClaims": {
         "path": "discern/completion/grant-claims",
         "scope": "common",
@@ -662,6 +668,17 @@
           "effortGrant",
           "effortGrantClaims",
           "completionGrantClaims"
+        ]
+      }
+    },
+    "submission": {
+      "version": 1,
+      "version_field": "version",
+      "newer_version_policy": "refuse",
+      "location": {
+        "kind": "git-admin",
+        "keys": [
+          "submission"
         ]
       }
     },

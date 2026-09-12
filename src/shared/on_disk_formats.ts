@@ -272,6 +272,15 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/worktree/effort_grant_writer.ts"],
     newerVersionPolicy: "refuse",
   },
+  submission: {
+    id: "submission",
+    location: { kind: "git-admin", keys: ["submission"] },
+    version: 1,
+    versionField: "version",
+    reader: "src/engine/worktree/submission.ts#readSubmission",
+    writers: ["src/engine/worktree/submission.ts"],
+    newerVersionPolicy: "refuse",
+  },
   freshStandardMeasurementEvidence: {
     id: "fresh-standard-measurement-evidence",
     location: {

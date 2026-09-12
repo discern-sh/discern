@@ -113,6 +113,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/ignored-baseline`                         | worktree   | Ignored-file baseline.                                                                                                                  |
 | `discern/effort-grant`                             | worktree   | Desk landing grant.                                                                                                                     |
 | `discern/effort-grant-claims/`                     | worktree   | Claims held by acceptance.                                                                                                              |
+| `discern/submission`                               | worktree   | The effort's submitted revision.                                                                                                            |
 | `discern/task-metadata.json`                       | worktree   | Display title, optional brief, and creation source.                                                                                     |
 | `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                            |
 | `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                                        |

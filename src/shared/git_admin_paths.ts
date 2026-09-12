@@ -207,6 +207,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  submission: {
+    path: "discern/submission",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   completionGrantClaims: {
     path: "discern/completion/grant-claims",
     scope: "common",
