@@ -8,7 +8,7 @@ import {
   toFileUrl,
 } from "@std/path";
 import { z } from "@zod/zod";
-import { readTextIfExists } from "../src/shared/fs_presence.ts";
+import { fileExists, readTextIfExists } from "../src/shared/fs_presence.ts";
 import { loadIdentitySettings } from "../src/engine/worktree/identity.ts";
 import { collectPaths } from "../src/engine/scopes/scopes.ts";
 import { denoMetadata } from "../src/shared/deno_metadata.ts";
@@ -20,7 +20,9 @@ import { SYSTEM_CLOCK } from "../src/shared/clock.ts";
 import { listTestModules } from "./test_modules.ts";
 
 export interface TestPriority {
-  /** Literal paths relative to the native test cwd, preserving filesystem aliases. */
+  /** Literal paths relative to the native test cwd, preserving filesystem
+   * aliases. Every path existed on disk at discovery time; the runner drops
+   * any that vanish before admission. */
   readonly files: readonly string[];
   readonly excluded: readonly string[];
   readonly moduleCount: number;
@@ -119,10 +121,18 @@ export async function discoverTestPriority(
       return undefined;
     }
     if (changed.length === 0) return undefined;
+    // The comparison diff also names deleted tracked files — absent inputs. An
+    // absent path must never join the module set: `deno info` tolerates it in
+    // the aggregate entry (exit 0, an error node in the graph), so it would
+    // flow into `files` and fail every test partition told to load it.
+    const candidates = changed.filter(priorityFile).map((path) =>
+      join(root, path)
+    );
+    const present = await Promise.all(candidates.map(fileExists));
     const modules = [
       ...new Set([
         ...await listTestModules(join(root, "tests")),
-        ...changed.filter(priorityFile).map((path) => join(root, path)),
+        ...candidates.filter((_, index) => present[index] === true),
       ]),
     ].map((path) => toFileUrl(path).href).sort();
     const changedUrls = changed.map((path) => toFileUrl(join(root, path)).href);
