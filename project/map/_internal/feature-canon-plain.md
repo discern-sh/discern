@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md); the outcome-first accounts are the [Human Benefit Canon](feature-canon-human-benefits.md) and [Agent Benefit Canon](feature-canon-agent-benefits.md)._
 
-10 main areas · 142 detailed entries · 11 statements of benefit · 85 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 141 detailed entries · 11 statements of benefit · 81 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -174,7 +174,6 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **Setup led by the coding agent** — `discern setup` is a staged, permission-first conversation led by the coding assistant. It recommends a strong reasoning model and explains why: this one careful study of the project creates the checks, separate-copy rules, project guide, and instructions later sessions use. It previews before writing, preserves existing work, proves the project in a separate copy, and explains the project understanding and protections it created before asking whether to add them to the main shared version. Only then does a fresh session check that the integration loaded. _One careful study of the project gives later coding sessions better working conditions, while every consequential choice remains yours._
 - **Clearly showing unfinished setup** — An unfinished setup is a state tools can read, reported by `discern status` and by the automatic session-start action until the conversation completes. _Current-state and session-start results keep unfinished setup visible until completion._
 - **One restart check and one way to continue** — Setup resumes from its recorded point. A finished setup stays at review until you land it. After landing, each configured coding assistant receives one exact check for a fresh session, one local recovery step, and the same command-line fallback. Seeing a file made automatically from a source the project owns does not prove the new session loaded it, and optional improvement waits for a successful check. _An interrupted setup or a restart has one limited continuation instead of a string of improvised low-level changes._
-- **Proving a checkout can be returned before relying on it** — If the project says a copy can be prepared for another saved change and put back exactly, setup checks that in a throwaway copy before finishing: it installs a different saved change, then confirms the copy comes back to its exact starting point after a pass, a failure, and a cancellation that interrupts running work. The result is recorded for that exact declaration; `discern doctor` says whether it still holds, and early validation waits until it does. _Nothing validates early on a promise; it validates early on a rehearsal that passed._
 - **Complete explanations at every choice** — From the welcome through activation, setup explains what each important moment means for you. A real choice includes its recommendation, what every option changes, what you need to do, what the coding assistant will do, and whether it is waiting. The permission conversation protects every required fact and numbered answer from being shortened away. _You can make an informed choice on your first encounter without already knowing how discern works._
 - **Fresh proof of permission, every time** — Starting a fresh installation requires `--confirmed` in that same instruction. Sharing finished work requires the owner's confirmation for that source or an applicable recorded permission. The same unchanged source can continue after review without another confirmation. Each earlier task still needs its own permission. Every successful addition records which permission allowed it. _Permission comes from evidence at the moment of action, never from a coding agent's memory of an earlier conversation._
 - **Health check** — `discern doctor` verifies the installation without changing project state: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, supporting-service instructions, and the local activity record are connected. A new empty activity record is healthy. If the environment refuses that optional record, doctor warns and disables recording for this process without blocking setup. It also says how many tasks can be checked at once and whether any can be checked early, which checks share one run and which repeat for every change, and whether an interrupted check left a working copy waiting to be returned, without changing any of it. It also explains, for every instruction, which steps are the project's and which are discern's. _Facts before judgments, and a misconfigured installation names its own fix._
@@ -250,7 +249,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `queue` — gate
 - `refresh` — instructions
 - `scripts` — project-scripts
-- `setup` — setup, setup-environment-probe
+- `setup` — setup
 - `skills` — skills
 - `standards` — producer-evidence, standards
 - `start` — start
@@ -282,9 +281,7 @@ Every member of the product's official fixed lists appears below beside the feat
 
 - `acceptance` — consent-attestations
 - `checkpoints` — checkpoints
-- `completion` — gate
 - `coupling` — insight
-- `execution` — worktrees, setup-environment-probe
 - `gate` — gate
 - `generated` — generated-artifact-declarations
 - `instructions` — instructions

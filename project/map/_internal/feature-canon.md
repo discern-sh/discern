@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative and technical work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same tree appears in [plain language](feature-canon-plain.md); the [Human Benefit Canon](feature-canon-human-benefits.md) composes commercial human value, and the [Agent Benefit Canon](feature-canon-agent-benefits.md) composes coding-agent outcomes._
 
-10 pillars · 142 nodes · 11 benefit statements · 9 agent-benefit clusters · 85 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
+10 pillars · 141 nodes · 11 benefit statements · 9 agent-benefit clusters · 81 closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.
 
 ## At a glance
 
@@ -188,7 +188,6 @@ _A project adopts discern through one tracked root file and can remove its wirin
 - **Agent-driven setup** — `discern setup` is a staged, consent-driven handshake the coding agent completes. It recommends the strongest suitable reasoning model and explains that the model authors the Gate, worktree policy, Map, and instructions later sessions inherit. It verifies the project read-only, detects the default branch (offering git init on a bare directory), configures `[jobs]` and records which known lifecycles do not apply, proves the project in a worktree, and leaves the finished configuration for review and `setup accept`. Predictable writes are probed before each effectful command. Completion explains the primary subsystem, principles, instructions, protections, and open items beside derived inventories and exact Proof. Landing precedes fresh-session activation. _One careful repository study creates useful working conditions for later sessions while consequential choices and landing remain with the owner._
 - **Observable incompleteness** — An unfinished setup is a machine-readable state, reported by `discern status` and the session-start hook until the handshake completes. _Status and session-start results keep unfinished setup visible until completion._
 - **Provider-aware activation recovery** — Setup phase state is resumable through `discern setup` and `discern status`. An unlanded completion stops at Proof and the owner's landing choice. After landing, the provider registry serves one exact fresh-session activation check for each configured agent, one local recovery step when it fails, and `discern status --json` as the CLI fallback. Generated files alone never prove that a fresh session loaded the integration; optional improvement follows successful activation. _An interrupted setup or a provider restart boundary has one bounded continuation instead of a sequence of improvised low-level mutations._
-- **The environment probe** — When `[execution.<context>]` is declared for a required context, `discern setup done` enrolls its throwaway worktree as a borrowed environment and drives the real executor against a commit whose tree differs from the source through a passing validation, a failing one, and one cancelled while a project command is still running. Each return must restore the exact branch, head, index, and declared ignored output and stop every recorded child. The proof is recorded per context against the declaration's identity; doctor reports proved, changed, or never-rehearsed declarations, early validation runs only for a proved one, and a probe whose return is unfinished keeps its worktree and names the recovery command. _A declaration is a claim about restoration; setup turns it into evidence before any effort is validated early on the strength of it._
 - **Complete owner moments** — Welcome, consent, progress, genuine owner decisions, completion, landing, and activation use enrolled human-moment contracts. Each explains the owner outcome, reason, current action, authority, reversibility, and recovery. A decision also carries one recommendation, option consequences, separate owner and agent actions, and an explicit wait boundary. Consent protects each must-survive fact and numbered confirmation; every result representation derives from the same authority. _A first-time owner understands why a choice matters, what each option changes, and whether the agent is waiting instead of receiving mechanically correct but incomplete prompts._
 - **Landing authority is proved per invocation** — Scaffolding a fresh install requires a `--confirmed` conversation attestation. Landing checks an explicit source attestation or a recorded applicable grant. An attestation remains bound to the unchanged source and composition procedure across continuations; absent authority, landing refuses. Every successful landing records which source authorized it. _Consent comes from evidence at the landing boundary, never from an agent's memory of an earlier conversation._
 - **Doctor** — `discern doctor` verifies the installation without changing project state: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, instructions, skills, automation, resource commands, and Logbook configuration. An enabled but empty Logbook is healthy on a new install; disabled, invalid, and write-denied states remain distinct. Historical lifecycle gaps do not affect the storage-health result. An environment-denied advisory recording write warns that recording is disabled for this process. The warning does not block setup. Doctor also explains how `[completion].concurrency`, `[gate].concurrent_test_runs`, and `[execution.<context>].capacity` combine and whether early validation can run, which producers standards share or duplicate and which are candidate-bound, and reads the durable completion records: claims past their deadline, interrupted checkout returns, unfinished retirement, outstanding emergency validation, and records a newer discern wrote, each with its next action and none of them changed. Doctor also prints each verb's execution model: which steps are the project's and which are discern's. _Facts before judgments, and a misconfigured install names its own fix._
@@ -264,7 +263,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `queue` — gate
 - `refresh` — instructions
 - `scripts` — project-scripts
-- `setup` — setup, setup-environment-probe
+- `setup` — setup
 - `skills` — skills
 - `standards` — producer-evidence, standards
 - `start` — start
@@ -296,9 +295,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 - `acceptance` — consent-attestations
 - `checkpoints` — checkpoints
-- `completion` — gate
 - `coupling` — insight
-- `execution` — worktrees, setup-environment-probe
 - `gate` — gate
 - `generated` — generated-artifact-declarations
 - `instructions` — instructions

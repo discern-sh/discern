@@ -144,7 +144,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       "verb:queue",
       "config:jobs",
       "config:gate",
-      "config:completion",
     ],
     children: [
       {
@@ -743,7 +742,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Each simultaneous task has its own project copy, identity, network number, private settings, and supporting services, separate from the copy used by the person in charge.",
     },
-    surfaces: ["config:worktree", "config:repository", "config:execution"],
+    surfaces: ["config:worktree", "config:repository"],
     children: [
       {
         id: "start",
@@ -1713,22 +1712,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "An interrupted setup or a restart has one limited continuation instead of a string of improvised low-level changes.",
         },
-      },
-      {
-        id: "setup-environment-probe",
-        title: "The environment probe",
-        what:
-          "When `[execution.<context>]` is declared for a required context, `discern setup done` enrolls its throwaway worktree as a borrowed environment and drives the real executor against a commit whose tree differs from the source through a passing validation, a failing one, and one cancelled while a project command is still running. Each return must restore the exact branch, head, index, and declared ignored output and stop every recorded child. The proof is recorded per context against the declaration's identity; doctor reports proved, changed, or never-rehearsed declarations, early validation runs only for a proved one, and a probe whose return is unfinished keeps its worktree and names the recovery command.",
-        why:
-          "A declaration is a claim about restoration; setup turns it into evidence before any effort is validated early on the strength of it.",
-        plain: {
-          title: "Proving a checkout can be returned before relying on it",
-          what:
-            "If the project says a copy can be prepared for another saved change and put back exactly, setup checks that in a throwaway copy before finishing: it installs a different saved change, then confirms the copy comes back to its exact starting point after a pass, a failure, and a cancellation that interrupts running work. The result is recorded for that exact declaration; `discern doctor` says whether it still holds, and early validation waits until it does.",
-          why:
-            "Nothing validates early on a promise; it validates early on a rehearsal that passed.",
-        },
-        surfaces: ["verb:setup", "config:execution"],
       },
       {
         id: "relay-messages",
@@ -3277,7 +3260,6 @@ export const HUMAN_BENEFIT_CANON: readonly HumanBenefitCluster[] = [
           "setup",
           "relay-messages",
           "agent-autodetect",
-          "setup-environment-probe",
         ],
         claims: [
           "installs-a-practice",
@@ -3964,7 +3946,6 @@ export const AGENT_BENEFIT_CANON: readonly AgentBenefitCluster[] = [
           "setup",
           "setup-observability",
           "setup-activation",
-          "setup-environment-probe",
           "doctor",
           "upgrade",
           "uninstall",

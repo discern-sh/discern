@@ -181,7 +181,7 @@
 # your coding agent fill these from repository evidence.
 #
 # Custom:  stage, run, inputs, needs, artifacts, environment, toolchain,
-#          contexts, provides, timeout
+#          provides, timeout
 # Help:    `discern config explain jobs`
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -246,7 +246,7 @@
 #          runs every stage.
 #
 # Params:  paths, neutral, preview, inputs, needs, artifacts, environment,
-#          toolchain, contexts, gate, timeout
+#          toolchain, gate, timeout
 # Help:    `discern config explain scopes`
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -400,10 +400,9 @@
 # Why:     Every `discern done` requires current readings for each standard and
 #          refuses a limit looser than the trunk's. Producers run once for
 #          their consumers, and reusable evidence must match the declared
-#          inputs, policy, toolchain, environment, and execution context. Hold
-#          a raw count for an invariant, a rate through `per` for a quality
-#          that scales, and give a total that grows with the product a
-#          `margin`.
+#          inputs, policy, toolchain, and environment. Hold a raw count for an
+#          invariant, a rate through `per` for a quality that scales, and give
+#          a total that grows with the product a `margin`.
 #
 # A producer or extractor reports a number: DISCERN_METRIC <name> <number>
 # Set run for an inline producer, or producer for an existing selector.
@@ -412,8 +411,8 @@
 # tell a gain from a loosening.
 #
 # Params:  metric, direction, limit, run, producer, extract, artifact, inputs,
-#          needs, artifacts, environment, toolchain, contexts, per, scale,
-#          margin, timeout
+#          needs, artifacts, environment, toolchain, per, scale, margin,
+#          timeout
 # Help:    `discern config explain standards`
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -422,62 +421,6 @@
   # direction = "up"
   # limit     = 80
   # run       = "your-coverage-tool"  # DISCERN_METRIC coverage <percent>
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [completion]
-#
-# What:    How many efforts validate at once, and whether any validate early.
-# Why:     Every `discern done` proves one exact commit against every required
-#          check and standard. `concurrency` caps how many efforts hold a
-#          validation slot at the same time; `lookahead` lets an effort
-#          validate before its predecessor lands, which needs a declared
-#          environment. Efforts land in order by default.
-#
-# Help:    `discern config explain completion`
-# ─────────────────────────────────────────────────────────────────────────────
-
-[completion]
-  # Execution contexts required for each obligation unless it declares its own
-  # contexts.
-  required_contexts = ["local"]
-
-  # How many efforts may hold a validation slot at once. One slot stays
-  # reserved for the effort landing next, so early validation needs 2 or more.
-  concurrency = 1
-
-  # How many efforts past the next one to land may validate early. 0 lands in
-  # order; a positive value needs an [execution.<name>] declaration per
-  # required context.
-  lookahead = 0
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [execution.<name>]
-#
-# What:    How a checkout is prepared for another commit and returned
-#          afterwards.
-# Why:     Validating an effort early installs a different commit in a released
-#          checkout, which changes generated files, ignored output, and
-#          resources. A declaration names the prepare and restore procedures
-#          that make that safe; `discern setup done` proves them in a throwaway
-#          copy before early validation can use them.
-#
-# Params:  kind, prepare, restore, reset, dispose, reusable, resources,
-#          ignored, inputs, capacity
-# Help:    `discern config explain execution`
-# ─────────────────────────────────────────────────────────────────────────────
-
-# A borrowed checkout with project-owned preparation and restoration.
-# [execution.local]
-  # kind = "borrowed"
-  # prepare = "project-prepare-candidate"
-  # restore = "project-restore-source"
-  # reusable = true
-  # resources = []
-  # ignored = ["build/**"]
-  # inputs = ["**"]
-  # capacity = 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -558,7 +501,7 @@
 
   # How many test stages may run on this machine at once; the rest wait for a
   # slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>`
-  # shares the cap. Separate from [completion].concurrency.
+  # shares the cap.
   concurrent_test_runs = 1
 
 

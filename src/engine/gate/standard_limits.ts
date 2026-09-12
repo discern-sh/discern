@@ -334,29 +334,6 @@ function retainsDefinitionField(
   return false;
 }
 
-/** A branch cannot remove a required context or relax an existing return contract. */
-function completionPolicyChanges(
-  before: DiscernConfig,
-  after: DiscernConfig,
-): string[] {
-  const changes: string[] = [];
-  for (const [name, declaration] of Object.entries(before.execution)) {
-    const current = after.execution[name];
-    if (current === undefined) {
-      changes.push(`execution.${name}`);
-      continue;
-    }
-    const { capacity: oldCapacity, ...oldContract } = declaration;
-    const { capacity: newCapacity, ...newContract } = current;
-    void oldCapacity;
-    void newCapacity;
-    if (!sameNormalizedValue(oldContract, newContract)) {
-      changes.push(`execution.${name}`);
-    }
-  }
-  return changes;
-}
-
 interface StandardDefinitionChange {
   field: keyof StandardConfig;
   trunk: unknown;
@@ -587,26 +564,15 @@ export async function verifyTrunkLimits(
     trunk: await protectedStandardProducers(parsedTrunk),
     branch: await protectedStandardProducers(branch),
   };
-  if (parsedTrunk !== undefined) {
-    for (const field of completionPolicyChanges(parsedTrunk, branch)) {
-      diagnostics.push({
-        tool: "standards",
-        severity: "error",
-        message:
-          `${field} weakens or changes protected completion policy versus ${mainBranch}. ${REDEFINITION_NEXT_STEP}`,
-        reproduce_cmd: "discern standards --dry-run",
-      });
-    }
-  } else if (
-    Object.keys(branch.execution).length > 0 ||
-    trunk.config.subsections("execution").length > 0 ||
+  if (
+    parsedTrunk === undefined &&
     standards.some((standard) => standard.spec.producer !== undefined)
   ) {
     diagnostics.push({
       tool: "standards",
       severity: "error",
       message:
-        "The committed producer or completion policy cannot be resolved; restore valid governing configuration before validation.",
+        "The committed producer configuration cannot be resolved; restore valid governing configuration before validation.",
       reproduce_cmd: `git show ${mainBranch}:./discern.toml`,
     });
   }

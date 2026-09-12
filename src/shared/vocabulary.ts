@@ -62,7 +62,22 @@ export interface DeadConfigPosition {
  * Rows exist only when an actual migration needs a targeted refusal. Synthetic
  * tests exercise the matching mechanism without publishing private-era names.
  */
-export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [];
+export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [
+  {
+    path: "",
+    key: "completion",
+    message: () =>
+      "[completion] is no longer a discern config section: `discern done` proves the effort's committed tip against the trunk's current tip, so efforts neither validate early nor share validation slots. Delete the section; `[gate].concurrent_test_runs` is the one capacity setting.",
+    example: "[completion]\nconcurrency = 2\n",
+  },
+  {
+    path: "",
+    key: "execution",
+    message: () =>
+      "[execution.<name>] is no longer a discern config section: validation runs in the effort's own checkout, so no prepare or restore procedure is declared. Delete the section.",
+    example: '[execution.local]\nkind = "borrowed"\n',
+  },
+];
 
 /** The first dead-position row matching an unrecognized-keys issue, if any.
  * `positions` is injectable so tests can prove the matching semantics

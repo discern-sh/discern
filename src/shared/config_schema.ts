@@ -282,61 +282,6 @@ export function planStandardInput(input: StandardInput): StandardInputPlan {
   };
 }
 
-/** Completion policy keeps execution capacity separate from speculative depth. */
-export const CompletionPolicySchema = z.strictObject({
-  concurrency: z.number().int().positive().default(1).describe(
-    "How many efforts may hold a validation slot at once. One slot stays reserved for the effort landing next, so early validation needs 2 or more.",
-  ),
-  lookahead: z.number().int().nonnegative().default(0).describe(
-    "How many efforts past the next one to land may validate early. 0 lands in order; a positive value needs an [execution.<name>] declaration per required context.",
-  ),
-}).describe(CONFIG_PROSE.completion.what);
-export type CompletionPolicy = z.infer<typeof CompletionPolicySchema>;
-
-/** A project-owned preparation and return contract for an execution environment. */
-export const EnvironmentDeclarationSchema = z.strictObject({
-  kind: z.enum(["borrowed", "isolated"]).describe(
-    "Borrow a released source checkout or execute in separately owned isolation.",
-  ),
-  prepare: completionCommandsSchema.describe(
-    "Prepare the candidate state and declared resources before validation.",
-  ),
-  restore: completionCommandsSchema.optional().describe(
-    "Restore the source state and resources after borrowed execution; required for borrowing.",
-  ),
-  reset: completionCommandsSchema.optional().describe(
-    "Reset reusable isolation before another execution.",
-  ),
-  dispose: completionCommandsSchema.optional().describe(
-    "Dispose of owned isolated resources after execution; required for isolation.",
-  ),
-  reusable: z.boolean().describe(
-    "Whether the environment supports reuse after its verified return procedure.",
-  ),
-  resources: z.array(z.string().min(1).regex(NAME_RE)).describe(
-    "Declared worktree resource names affected by preparation and return.",
-  ),
-  ignored: z.array(z.string().min(1)).describe(
-    "Ignored artifact paths whose changes the return procedure restores.",
-  ),
-  inputs: z.array(z.string().min(1)).min(1).describe(
-    "Complete input closure of the environment procedures.",
-  ),
-  capacity: z.number().int().positive().describe(
-    "How many checkouts this declaration can prepare for another commit at once. Validating an effort's own commit never uses one of these slots.",
-  ),
-}).refine(
-  (environment) =>
-    environment.kind === "borrowed"
-      ? environment.restore !== undefined
-      : environment.dispose !== undefined &&
-        (!environment.reusable || environment.reset !== undefined),
-  "borrowing requires restore; isolation requires disposal and reusable isolation requires reset",
-).describe(CONFIG_PROSE.execution.what);
-export type EnvironmentDeclaration = z.infer<
-  typeof EnvironmentDeclarationSchema
->;
-
 /** Fields shared by every configured producer. Missing inputs bind reuse to the candidate. */
 const producerFields = {
   inputs: ProducerDeclarationSchema.shape.inputs.describe(
@@ -912,7 +857,6 @@ export const RECORD_ENTRY_SCHEMAS = {
   standards: standardValue,
   checkpoints: checkpointValue,
   "worktree.resources": resourceValue,
-  execution: EnvironmentDeclarationSchema,
 } as const;
 
 const worktreeSection = z.strictObject({
@@ -970,7 +914,7 @@ const gateSection = z.strictObject({
     "Time budget in seconds for every command the gate runs. A command that overruns is tree-killed and the stage fails with a timeout diagnostic, so a watch-mode runner cannot hang the gate. 0 removes the bound.",
   ),
   concurrent_test_runs: z.number().int().min(0).default(1).describe(
-    "How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap. Separate from [completion].concurrency.",
+    "How many test stages may run on this machine at once; the rest wait for a slot. Fresh projects use 1; 0 is uncapped. `discern queue -- <command>` shares the cap.",
   ),
 }).prefault({}).describe(CONFIG_PROSE.gate.what);
 
@@ -1003,9 +947,6 @@ export const configSchema = z.strictObject({
   acceptance: acceptanceSection,
   worktree: worktreeSection,
   standards: standardsSection,
-  completion: CompletionPolicySchema.prefault({}),
-  execution: z.record(z.string().regex(NAME_RE), EnvironmentDeclarationSchema)
-    .default({}),
   checkpoints: checkpointsSection,
   gate: gateSection,
   coupling: couplingSection,
@@ -1113,9 +1054,6 @@ export const configDocSchema = z.strictObject({
   map: mapSection.optional().describe(
     "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
   ),
-  completion: CompletionPolicySchema.optional(),
-  execution: z.record(z.string().regex(NAME_RE), EnvironmentDeclarationSchema)
-    .optional(),
   jobs: jobsObject.optional().describe(
     "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
   ),
@@ -1206,6 +1144,8 @@ function toConfigIssues(issue: z.core.$ZodIssue): ConfigIssue[] {
     const keys = issue.keys.join(", ");
     if (path === "") {
       return issue.keys.map((key): ConfigIssue => {
+        const dead = deadConfigPosition("", [key]);
+        if (dead !== undefined) return { path: key, message: dead.message(key) };
         const successor = retiredConfigKeySuccessor(key);
         return successor === undefined
           ? {
