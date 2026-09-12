@@ -31,13 +31,8 @@ export function proofNotesFetchMapping(remote: string): string {
 
 /** Namespace retaining branch tips after an explicitly requested drop. */
 export const DROP_RECOVERY_REF_PREFIX = "refs/discern/recovery";
-/** Immutable integration candidates, partitioned by candidate and attempt id. */
-export const CANDIDATE_REF_PREFIX = "refs/discern/candidates";
 /** Maximum retained recovery refs per repository. */
 export const DROP_RECOVERY_REF_LIMIT = 32;
-
-/** Common marker retaining a queue landing after disposable checkout retirement. */
-export const COMPLETION_LANDING_MARKER_PREFIX = "refs/discern/landings";
 
 /** Per-worktree marker coupled atomically to an acceptance transaction. */
 export const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
@@ -140,7 +135,6 @@ export const GIT_CONVENTIONS = Object.freeze(
       proof_notes_tracking_reservation:
         `${PROOF_NOTES_TRACKING_PREFIX}/<remote>/notes*`,
       drop_recovery_prefix: DROP_RECOVERY_REF_PREFIX,
-      candidate_prefix: CANDIDATE_REF_PREFIX,
       acceptance_transaction_prefix: ACCEPTANCE_TRANSACTION_MARKER_PREFIX,
     },
     refspec_templates: {

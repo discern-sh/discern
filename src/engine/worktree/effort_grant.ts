@@ -3,17 +3,14 @@
  * separately enrolled modules: the interactive desk owns grant creation, while
  * desk revocation and successful acceptance share the cleanup capability.
  *
- * The marker resolves through GIT_ADMIN_STATE, so it lives under this linked
- * worktree's Git administrative directory and disappears when Git removes the
- * worktree.
+ * The grant binds to the effort, not to one revision: any later green `done`
+ * on the granted branch is covered until a landing consumes it. The marker
+ * resolves through GIT_ADMIN_STATE, so it lives under this linked worktree's
+ * Git administrative directory and disappears when Git removes the worktree.
  */
 
 import { z } from "@zod/zod";
-import {
-  DigestSchema,
-  RecordIdSchema,
-  SourceRevisionSchema,
-} from "../completion/identity.ts";
+import { RecordIdSchema } from "../completion/identity.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
   inspectOnDiskRecordVersion,
@@ -22,13 +19,7 @@ import {
 } from "../../shared/on_disk_formats.ts";
 import { inspectOnDiskJsonFile } from "../../shared/on_disk_json.ts";
 
-/** Source and declared composition are the subject the desk actually previews. */
-export const EffortGrantSubjectSchema = z.strictObject({
-  source: SourceRevisionSchema,
-  composition_procedure: DigestSchema,
-});
-export type EffortGrantSubject = z.infer<typeof EffortGrantSubjectSchema>;
-export const EffortGrantSchema = EffortGrantSubjectSchema.extend({
+export const EffortGrantSchema = z.strictObject({
   version: z.literal(ON_DISK_FORMATS.effortGrant.version),
   id: RecordIdSchema,
   branch: z.string().min(1),
@@ -36,10 +27,7 @@ export const EffortGrantSchema = EffortGrantSubjectSchema.extend({
     (value) => !Number.isNaN(Date.parse(value)),
     "grant time must be ISO-8601",
   ),
-}).refine(
-  (value) => value.source.branch === `refs/heads/${value.branch}`,
-  "grant branch must match its approved source",
-);
+});
 export type EffortGrant = z.infer<typeof EffortGrantSchema>;
 
 export type EffortGrantRead =
@@ -84,7 +72,7 @@ export function parseEffortGrant(raw: string): EffortGrantRead {
     return {
       status: "invalid",
       reason:
-        "The effort-grant record does not bind a supported exact source revision and composition procedure. Reconcile any old acceptance claim first; record new source authority from the desk.",
+        "The effort-grant record does not bind a supported branch. Reconcile any old acceptance claim first; record landing authority again from the desk.",
     };
   }
   return { status: "granted", grant: parsed.data };

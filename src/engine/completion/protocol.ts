@@ -1,43 +1,19 @@
-/** Shared completion, execution, queue and advisory event contracts. */
+/** Shared completion, validation, and advisory event contracts. */
 import type { Candidate } from "./candidate.ts";
 import type {
-  CompletionPolicy,
-  EnvironmentDeclaration,
   ProducerDeclaration,
   StandardInputPlan,
 } from "../../shared/config_schema.ts";
-import type {
-  CompletionAttempt,
-  CompletionRecovery,
-  ExecutionEnvironment,
-} from "./environment.ts";
+import type { CompletionAttempt } from "./attempt.ts";
 import type {
   CandidateProof,
   ComponentEvidence,
   Requirement,
 } from "./evidence.ts";
-import type { Executor, SourceRevision } from "./identity.ts";
-import type {
-  CompletionLanding,
-  CompletionQueue,
-  CompletionRetirement,
-  InvalidationReason,
-} from "./outcomes.ts";
+import type { SourceRevision } from "./identity.ts";
+import type { InvalidationReason } from "./outcomes.ts";
 import type { CompletionRecord, RecordSelector } from "./records.ts";
 import type { CompletionRecordReading, PublicationFence } from "./store.ts";
-
-/** Capacity facts describe the enforcing boundary, not a combined invented limit. */
-export interface CompletionCapacity {
-  readonly setting:
-    | "completion.concurrency"
-    | "completion.lookahead"
-    | "execution.capacity";
-  readonly limit: number;
-  readonly occupied: number;
-  readonly reserved: number;
-  readonly blockers: readonly string[];
-  readonly wake_condition: string;
-}
 
 export type CompletionBlocker =
   | { readonly kind: "cancelled"; readonly reason: string }
@@ -46,17 +22,7 @@ export type CompletionBlocker =
     readonly record_id: string;
     readonly reason: string;
   }
-  | {
-    readonly kind: "capacity-unavailable";
-    readonly reason: string;
-    readonly capacity: CompletionCapacity;
-    readonly transient: boolean;
-  }
   | { readonly kind: "missing-judgment"; readonly subjects: readonly string[] }
-  | {
-    readonly kind: "missing-authority";
-    readonly sources: readonly SourceRevision[];
-  }
   | {
     readonly kind: "missing-evidence";
     readonly requirements: readonly Requirement[];
@@ -73,12 +39,8 @@ export type CompletionBlocker =
     readonly attempt_id?: string;
     readonly reason?: string;
   }
-  | { readonly kind: "environment-unavailable"; readonly reason: string }
-  | {
-    readonly kind: "recovery-incomplete";
-    readonly record_id: string;
-    readonly recovery: CompletionRecovery;
-  }
+  /** The checkout, its records, or its trunk cannot serve this run. */
+  | { readonly kind: "unavailable"; readonly reason: string }
   | {
     readonly kind: "waiting-for-operation";
     readonly attempt_id: string;
@@ -113,7 +75,6 @@ export type ValidationDemand =
     readonly mode: ComponentEvidence["mode"];
   }
   & (
-    | { readonly kind: "compose" }
     | { readonly kind: "done"; readonly requirements: readonly Requirement[] }
     | {
       readonly kind: "test";
@@ -155,18 +116,20 @@ export interface ValidationPlan {
   readonly blockers: readonly CompletionBlocker[];
 }
 
-/** Returned only after durable exclusive claim publication. A plan alone cannot execute. */
+/** Returned only after durable claim publication. A plan alone cannot execute. */
 export interface ClaimedExecution {
   readonly fence: PublicationFence;
   readonly attempt: CompletionAttempt;
-  readonly environment_id: string;
-  readonly environment: ExecutionEnvironment;
+  /** The checkout the producers run in: the effort's own worktree. */
+  readonly path: string;
+  /** The checkout's deterministic test-order seed. */
+  readonly seed: number;
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly signal: AbortSignal;
 }
 
-/** A transient observation of the working checkout; it has no release or publication capability.
+/** A transient observation of the working checkout; it has no publication capability.
  * The candidate is the committed comparison reference, not a claim about dirty bytes.
  */
 export interface DiagnosticExecution {
@@ -176,8 +139,7 @@ export interface DiagnosticExecution {
     & {
       readonly purpose: "diagnostic";
     };
-  readonly environment_id: string;
-  readonly environment: { readonly path: string };
+  readonly path: string;
   readonly seed: number;
   readonly candidate_id: string;
   readonly candidate: Candidate;
@@ -197,7 +159,7 @@ export type MachineAssembly =
     readonly blockers: readonly CompletionBlocker[];
   };
 
-/** 2A implements the evaluator, including exact aggregate assembly and rerun precedence. */
+/** The evaluator plans demand over recorded evidence and assembles exact Proof. */
 export interface ProducerEvaluator {
   observe(candidateId: string): Promise<CompletionObservation>;
   plan(
@@ -215,152 +177,17 @@ export interface ProducerEvaluator {
     requirements: readonly Requirement[],
     evidence: readonly CompletionRecord[],
     mode: ValidationDemand["mode"],
+    /** The live completion attempt the assembled Proof is attributed to. */
+    assembler: PublicationFence,
   ): MachineAssembly;
 }
 
-export type EnvironmentPlan =
-  & {
-    readonly environment_id: string;
-    readonly expected_stamp: string | null;
-    readonly candidate_id: string;
-    readonly validation: ValidationPlan;
-  }
-  & (
-    | { readonly action: "source-tip"; readonly declaration: null }
-    | {
-      readonly action: "borrow" | "provision" | "reuse";
-      readonly declaration: EnvironmentDeclaration;
-    }
-  );
-export type EnvironmentReturn =
-  | {
-    readonly kind: "restored" | "reset" | "disposed";
-    readonly environment: ExecutionEnvironment;
-  }
-  | {
-    readonly kind: "recovery-incomplete";
-    readonly recovery: CompletionRecovery;
-  };
-
-/** 2B owns process supervision and checkout/resource effects through existing capabilities. */
-export interface EnvironmentExecutor {
-  observe(environmentId: string): Promise<CompletionRecordReading>;
-  plan(
-    observation: CompletionObservation,
-    validation: ValidationPlan,
-  ): EnvironmentPlan | CompletionBlocker;
-  claim(
-    plan: EnvironmentPlan,
-    executor: Executor,
-  ): Promise<ClaimedExecution | CompletionBlocker>;
-  execute<T>(
-    execution: ClaimedExecution,
-    validate: (execution: ClaimedExecution) => Promise<T>,
-  ): Promise<
-    { readonly validation: T | null; readonly returned: EnvironmentReturn }
-  >;
-  recover(
-    environmentId: string,
-    expectedStamp: string,
-    executor: Executor,
-  ): Promise<EnvironmentReturn>;
-}
-
-export type QueueAction =
-  | {
-    readonly kind: "ready";
-    readonly candidate_id: string;
-    readonly expected_trunk: string;
-    readonly authority_id: string;
-  }
-  | {
-    readonly kind: "compose";
-    readonly source: SourceRevision;
-    readonly predecessor: Candidate["expected_predecessor"];
-    readonly environment_id: string;
-    readonly expected_stamp: string;
-  }
-  | {
-    readonly kind: "validate";
-    readonly plan: ValidationPlan;
-    readonly environment: EnvironmentPlan;
-  }
-  | {
-    readonly kind: "land";
-    readonly record: Extract<CompletionRecord, { kind: "landing" }>;
-    readonly expected_stamp: string | null;
-  }
-  | {
-    readonly kind: "retire";
-    readonly record: Extract<CompletionRecord, { kind: "retirement" }>;
-    readonly expected_stamp: string | null;
-  };
-export interface QueuePlan {
-  readonly queue_id: string;
-  readonly expected_stamp: string | null;
-  readonly queue: CompletionQueue;
-  readonly actions: readonly QueueAction[];
-  readonly blockers: readonly CompletionBlocker[];
-}
-
-/** 3A plans eligible work; 4A publishes exact transitions under current evidence. */
-export interface QueuePlanner {
-  observe(): Promise<CompletionObservation>;
-  plan(
-    observation: CompletionObservation,
-    policy: CompletionPolicy,
-    requestedEffort: string,
-  ): QueuePlan;
-  publish(
-    plan: QueuePlan,
-    executor: Executor,
-  ): Promise<
-    { readonly kind: "published" } | CompletionBlocker | {
-      readonly kind: "replan";
-    }
-  >;
-}
-
-export interface LandingPublisher {
-  plan(
-    observation: CompletionObservation,
-    candidateId: string,
-  ): CompletionLanding | CompletionBlocker;
-  publish(
-    record: Extract<CompletionRecord, { kind: "landing" }>,
-    expectedStamp: string | null,
-    fence: PublicationFence,
-  ): Promise<CompletionLanding | CompletionBlocker>;
-  recover(
-    landingId: string,
-    executor: Executor,
-  ): Promise<CompletionLanding | CompletionBlocker>;
-  retire(
-    record: Extract<CompletionRecord, { kind: "retirement" }>,
-    expectedStamp: string | null,
-    executor: Executor,
-  ): Promise<CompletionRetirement>;
-}
-
 /** Event facts are advisory projections of canonical execution and durable outcomes. */
-/** Coarse categories and precise executor phases have distinct keys. */
 export const COMPLETION_TIMING_CATEGORIES = [
-  "approval",
-  "queue",
-  "compute",
-  "execution",
-  "environment",
-  "preparation",
-  "return",
-  "recovery",
   "capacity-wait",
-  "validation",
-  "reporting",
-  "cleanup",
-  "publication",
   "producer",
   "extraction",
-  "approval-to-land",
+  "validation",
   "validation-feedback",
 ] as const;
 
@@ -369,21 +196,14 @@ export interface CompletionEvent {
   readonly effort_id: string;
   readonly source_head: string;
   readonly candidate_id: string | null;
-  readonly environment_id: string | null;
   readonly attempt_id: string | null;
   readonly executor_operation: string;
   readonly at: number;
   readonly fact:
     | {
-      readonly kind: "admitted";
+      readonly kind: "proven";
       readonly proof_id: string;
       readonly mode: "strict" | "report";
-      readonly eligible_prediction: boolean;
-      readonly expected_predecessor_candidate_id: string | null;
-    }
-    | {
-      readonly kind: "withdrawn";
-      readonly admission: "before-green" | "after-green" | "unknown";
     }
     | {
       readonly kind: "validation-summary";
@@ -419,7 +239,6 @@ export interface CompletionEvent {
       readonly kind: "invalidated";
       readonly reason: InvalidationReason;
       readonly affected_candidate_ids: readonly string[];
-      readonly eligible_prediction: boolean;
     }
     | {
       readonly kind: "timing";
@@ -427,20 +246,5 @@ export interface CompletionEvent {
       readonly category: typeof COMPLETION_TIMING_CATEGORIES[number];
       readonly started_at: number;
       readonly finished_at: number;
-    }
-    | {
-      readonly kind: "restoration";
-      readonly outcome: EnvironmentReturn["kind"];
-    }
-    | {
-      readonly kind: "landing";
-      readonly landing_id: string;
-      readonly outcome: CompletionLanding["outcome"]["kind"];
-      readonly claim_kind: CompletionLanding["claim"]["kind"];
-    }
-    | {
-      readonly kind: "retirement";
-      readonly retirement_id: string;
-      readonly outcome: CompletionRetirement["outcome"]["kind"];
     };
 }

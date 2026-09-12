@@ -27,12 +27,12 @@ import { RecordIdSchema } from "../completion/identity.ts";
 import type { EnvReader } from "../../shared/env.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import { jobEnvironment } from "../jobs/command.ts";
-import { AttemptSchema, EnvironmentSchema } from "../completion/environment.ts";
+import { AttemptSchema } from "../completion/attempt.ts";
 import { CandidateSchema } from "../completion/candidate.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import { lstatIfExists } from "../../shared/fs_presence.ts";
-import { containedFile } from "../execution/snapshot.ts";
+import { containedCheckoutFile } from "./inputs.ts";
 import { readCompleteCapture, runCapturedCommands } from "../jobs/captured.ts";
 import {
   commands,
@@ -145,14 +145,14 @@ export async function observeValidationInputs(
     const entry = gitPathRecord(path);
     if (entry.kind === "directory") {
       if (!boundary) continue;
-      await containedFile(root, entry.path);
+      await containedCheckoutFile(root, entry.path);
       throw new Error(
         `Validation input ${
           JSON.stringify(path)
         } is a Git directory record, not captured file bytes. Commit or reconcile the nested repository before validating this source.`,
       );
     }
-    const safe = await containedFile(root, path);
+    const safe = await containedCheckoutFile(root, path);
     const stat = await lstatIfExists(safe);
     if (stat === undefined) continue;
     if (!stat.isFile && !stat.isSymlink) {
@@ -180,7 +180,7 @@ export async function observeValidationInputs(
   };
 }
 
-/** A validation adapter never installs, restores or changes an environment checkout. */
+/** A validation adapter never installs, restores or changes the checkout it runs in. */
 export interface ValidationRuntimeOptions {
   readonly root: string;
   readonly conditions: ValidationConditions;
@@ -201,7 +201,7 @@ export interface ValidationRuntimeOptions {
   readonly onResult?: (label: string, result: JobResult) => void;
 }
 
-/** A durable runtime verifies the live candidate, environment and attempt at every effect. */
+/** A durable runtime verifies the live candidate and attempt at every effect. */
 export function createValidationRuntime(
   options: ValidationRuntimeOptions,
 ): ValidationRuntime {
@@ -334,8 +334,8 @@ function runtime(
       }
       if (
         await Deno.realPath(options.root) !==
-          await Deno.realPath(execution.environment.path)
-      ) throw new Error("validation environment path differs from its claim");
+          await Deno.realPath(execution.path)
+      ) throw new Error("validation checkout path differs from its claim");
       if (diagnostic) {
         if (
           !("diagnostic" in execution) ||
@@ -358,15 +358,11 @@ function runtime(
           "Cannot verify completion records; common Git administration is unavailable. Preserve the checkout for recovery.",
         );
       }
-      const [attempt, environment, candidate, head, status] = await Promise.all(
+      const [attempt, candidate, head, status] = await Promise.all(
         [
           store.read({
             kind: "attempt",
             id: execution.fence.attempt_id,
-          }),
-          store.read({
-            kind: "environment",
-            id: execution.environment_id,
           }),
           store.read({
             kind: "candidate",
@@ -385,10 +381,6 @@ function runtime(
         attempt.record.data.state.claim.expires_at <= clock.wallNow() ||
         JSON.stringify(attempt.record.data) !==
           JSON.stringify(AttemptSchema.parse(execution.attempt)) ||
-        environment.kind !== "recorded" ||
-        environment.record.kind !== "environment" ||
-        JSON.stringify(environment.record.data) !==
-          JSON.stringify(EnvironmentSchema.parse(execution.environment)) ||
         candidate.kind !== "recorded" ||
         candidate.record.kind !== "candidate" ||
         JSON.stringify(candidate.record.data) !==
@@ -424,13 +416,9 @@ function runtime(
           );
         }
       }
-      if (
-        execution.environment.ownership.kind === "borrowed" &&
-        execution.environment.ownership.identity.seed !==
-          options.conditions.seed
-      ) {
+      if (execution.seed !== options.conditions.seed) {
         throw new Error(
-          "candidate environment seed differs from planned applicability",
+          "checkout seed differs from planned applicability",
         );
       }
     },

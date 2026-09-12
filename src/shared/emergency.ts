@@ -25,5 +25,8 @@ export const EmergencyDataSchema = z.strictObject({
   landing_id: z.string().optional(),
   outcome: z.enum(["preview", "prepared", "landed", "not-landed", "recovery"])
     .optional(),
-  retirement: z.string().optional(),
+  /** Whether the exception note reached the landed commit. */
+  note: z.enum(["pending", "published", "failed"]).optional(),
+  /** What became of the repair's checkout after the landing. */
+  cleanup: z.enum(["removed", "kept", "failed"]).optional(),
 });

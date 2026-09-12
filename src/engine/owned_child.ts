@@ -24,7 +24,6 @@ import {
   reraiseInterrupt,
   signalProcessGroup,
 } from "./process_signals.ts";
-import { planExecutionChild } from "../shared/execution_child_context.ts";
 import { bestEffortSync } from "../shared/best_effort.ts";
 import { operationLockChildEnv } from "../shared/operation_lock_context.ts";
 import { spawnedByEnv } from "../shared/invocation_context.ts";
@@ -115,7 +114,6 @@ export async function superviseSpawn<T>(
   opts: SuperviseOptions,
 ): Promise<SupervisedRun<T>> {
   opts.signal?.throwIfAborted();
-  const ticket = await planExecutionChild();
   const scheduler = opts.scheduler ?? SYSTEM_SCHEDULER;
   let child: Deno.ChildProcess | undefined;
   let interruptedBy: Deno.Signal | null = null;
@@ -157,7 +155,6 @@ export async function superviseSpawn<T>(
   try {
     opts.signal?.throwIfAborted();
     child = spawn();
-    await ticket?.started(child.pid, opts.isolatedGroup);
     // A signal that arrived between listener install and the spawn found no
     // child to hit — deliver it now.
     if (interruptedBy !== null) signalChild(interruptedBy);
@@ -185,7 +182,6 @@ export async function superviseSpawn<T>(
     for (const [signal, handler] of handlers) {
       Deno.removeSignalListener(signal, handler);
     }
-    await ticket?.settled();
   }
 
   if (interruptedBy !== null && !(opts.resumeAfterInterrupt ?? false)) {

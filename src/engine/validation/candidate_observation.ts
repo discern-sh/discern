@@ -6,7 +6,6 @@ import {
   parseConfigOrThrow,
 } from "../../shared/config_schema.ts";
 import { readCheckpointQuestionFileAtCommit } from "../../shared/checkpoint_question_files.ts";
-import { DISCERN_VERSION } from "../../lib/version.ts";
 import type { Candidate } from "../completion/candidate.ts";
 import type {
   CompletionObservation,
@@ -19,10 +18,6 @@ import {
   type PlannedStandard,
 } from "../gate/standard_plan.ts";
 import { collectPaths, scopesForPaths } from "../scopes/scopes.ts";
-import {
-  type CompositionRecipe,
-  compositionRecipe,
-} from "../landing_queue/generation.ts";
 import {
   type ConfiguredValidation,
   configuredValidation,
@@ -40,7 +35,6 @@ export interface CandidateValidationObservation {
   readonly configured: ConfiguredValidation;
   readonly snapshot: ValidationSnapshot;
   readonly evaluator: ProducerEvaluator;
-  readonly recipe: CompositionRecipe;
   readonly demand: Extract<ValidationDemand, { kind: "done" }>;
   readonly standards: readonly PlannedStandard[];
 }
@@ -85,7 +79,7 @@ export async function observeCandidateValidation(input: {
   const config = await candidateConfig(root, candidate.head);
   const paths = await collectPaths(
     root,
-    candidate.expected_predecessor.head,
+    candidate.predecessor,
     candidate.head,
     false,
   );
@@ -138,14 +132,6 @@ export async function observeCandidateValidation(input: {
       snapshot,
       observe: () => Promise.resolve(input.observation),
     }),
-    recipe: await compositionRecipe(
-      root,
-      config,
-      DISCERN_VERSION,
-      Math.max(1, config.gate.timeout),
-      {},
-      candidate.head,
-    ),
     demand: {
       kind: "done",
       mode: "strict",

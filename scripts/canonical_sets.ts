@@ -4070,10 +4070,6 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
     "proves that the terminal, MCP notifications, the operation journal, and nested presenters present one completion fact stream identically rather than guarding a closed member set",
   "tests/test_registration_guard_test.ts":
     "rejects execution-time imports of test-registration modules across authored Deno sources rather than guarding a closed member set",
-  "tests/completion_publication_cost_guard_test.ts":
-    "checks the process-observation and recovery-publication durability boundary behaviorally rather than guarding a closed member set",
-  "tests/execution_child_inventory_cost_guard_test.ts":
-    "checks that one child inventory resolves artifact storage once, independent of receipt count, rather than guarding a closed member set",
   "tests/test_elapsed_guard_test.ts":
     "applies timer-ownership review across authored test duration measurements rather than guarding a closed member set",
   "tests/module_loading_guard_test.ts":

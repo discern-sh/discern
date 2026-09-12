@@ -15,69 +15,7 @@ import {
   type ResultAdvisoryKind,
   stepResultSatisfiesCompletion,
 } from "./result.ts";
-import { ExceptionClaimSchema } from "../engine/completion/exception_claim.ts";
 import { appendHintTexts, fire, firedHintsFromTexts, HINTS } from "./hints.ts";
-import { text } from "./result_markdown_values.ts";
-
-/** Only a landed row has a checkout outcome; say what happened to it and why. */
-export function landedCheckoutFacts(
-  row: Readonly<Record<string, unknown>>,
-): string {
-  const retirement = text(row.retirement);
-  const reason = text(row.retirement_reason);
-  const convergence = `; convergence ${text(row.convergence) ?? "pending"}`;
-  if (retirement === "retired") return `${convergence}; checkout retired.`;
-  if (retirement === "recovery") {
-    return `${convergence}; checkout cleanup requires recovery${
-      reason === undefined ? "" : `: ${reason}`
-    }.`;
-  }
-  return `${convergence}; checkout kept${
-    reason === undefined ? "" : ` (${reason})`
-  }. ${retainedCheckoutExplanation(reason)}`;
-}
-
-/** The one plain sentence a landed effort's first paragraph carries about its
- * checkout: removed, why it stayed with the one command that finishes cleanup,
- * or the recovery it needs. Terminal, Markdown, and status share this source. */
-export function checkoutOutcomeSentence(
-  row: {
-    readonly retirement?: unknown;
-    readonly retirement_reason?: unknown;
-  },
-): string {
-  const retirement = text(row.retirement);
-  const reason = text(row.retirement_reason);
-  if (retirement === "retired") return "Its checkout was removed.";
-  if (retirement === "recovery") {
-    const cause = reason === undefined
-      ? "."
-      : `: ${reason}${/[.!?]$/.test(reason) ? "" : "."}`;
-    return `Checkout cleanup needs recovery${cause} Landing itself is settled; run discern accept again from the main checkout to resume cleanup.`;
-  }
-  return `Its checkout stayed. ${retainedCheckoutExplanation(reason)}`;
-}
-
-/** Retention describes checkout ownership separately from the recorded landing. */
-export function retainedCheckoutExplanation(
-  reason: string | undefined,
-): string {
-  switch (reason) {
-    case "unreleased":
-      return "It remains available for review or further edits until released; when finished with it, run discern done --release-checkout from it and the next discern accept removes it.";
-    case "active-use":
-      return "Something is still using it; stop that preview or operation, then run discern accept from the main checkout.";
-    case "moved-branch":
-      return "Its branch moved after landing, so the new work is preserved; run discern status from that worktree to continue it.";
-    case "dirty":
-      return "It holds changed files, which are preserved; review them, then run discern accept from the main checkout.";
-    case "ownership-uncertain":
-      return "Its ownership could not be verified, so its files and resources are preserved; run discern status --verbose from the main checkout.";
-    default:
-      return reason ??
-        "Run discern status --verbose from the main checkout for the retained checkout's next action.";
-  }
-}
 
 export const RESULT_REQUIRED_POSTCONDITIONS = [
   "declared-outcome",
@@ -453,7 +391,7 @@ function instructionRefreshFailure(
   return undefined;
 }
 
-/** Emergency success is separate from ordinary Proof and queue acceptance. */
+/** Emergency success is separate from ordinary Proof and landing. */
 function emergencyCompletionFailure(
   data: Record<string, unknown>,
   emergency: Record<string, unknown>,
@@ -467,31 +405,12 @@ function emergencyCompletionFailure(
     ["landing_id", "candidate_id", "reason"].every((key) =>
       nonBlank(emergency[key]) !== undefined
     ) && Array.isArray(emergency.exceptions) &&
-    (emergency.retirement === "retained" || emergency.retirement === "retired");
+    emergency.note === "published" &&
+    (emergency.cleanup === "removed" || emergency.cleanup === "kept");
   return independent && (prepared || landed) ? undefined : failed(
     "partial_acceptance",
     "Emergency success requires a preparation receipt or a recorded landing with settled cleanup. It cannot carry ordinary Proof or acceptance claims. Preserve the recorded effects before recovery.",
   );
-}
-
-/** Recovery retains the original authority kind and exact transition subject. */
-function settledPrefixAuthority(prefix: UnknownRecord): boolean {
-  if (prefix.authority_settlement !== "consumed") return false;
-  if (prefix.exception === undefined) {
-    return nonBlank(prefix.authority_id) !== undefined;
-  }
-  const parsed = ExceptionClaimSchema.safeParse(prefix.exception);
-  if (!parsed.success) return false;
-  const claim = parsed.data;
-  return prefix.authority_id === null &&
-    ["proof_line", "proof_note", "consent", "variances", "standard_approvals"]
-      .every((field) => prefix[field] === undefined) &&
-    prefix.effort === claim.source.effort_id &&
-    prefix.branch === claim.source.branch &&
-    prefix.source_head === claim.source.head &&
-    prefix.candidate_id === claim.candidate_id &&
-    prefix.expected_trunk === claim.actual_trunk &&
-    prefix.target === claim.candidate_head;
 }
 
 /** Evaluate one named typed postcondition against an unevaluated result. */
@@ -581,53 +500,9 @@ function requiredFailure(
     }
     case "accept-landing": {
       if (result.dry_run === true) return undefined;
-      const control = record(data?.queue_control);
-      if (control !== undefined) {
-        return control.state === "applied" &&
-            nonBlank(control.expected_state) !== undefined
-          ? undefined
-          : failed(
-            "precondition_failed",
-            "The requested queue decision has not been applied; review its current plan.",
-          );
-      }
-      const integration = record(data?.external_integration);
-      if (integration !== undefined) {
-        return integration.state === "observed" &&
-            integration.governed_landing_receipt === null &&
-            nonBlank(integration.candidate_id) !== undefined &&
-            nonBlank(integration.proof_id) !== undefined &&
-            nonBlank(integration.target) !== undefined &&
-            nonBlank(integration.observed_trunk) !== undefined &&
-            (integration.retirement === "retired" ||
-              integration.retirement === "retained")
-          ? undefined
-          : failed(
-            "incomplete",
-            "External integration reconciliation or retirement recovery remains incomplete.",
-          );
-      }
       const emergency = record(data?.emergency);
       if (emergency !== undefined) {
         return emergencyCompletionFailure(data ?? {}, emergency);
-      }
-      if (Array.isArray(data?.queue)) {
-        const prefixes = records(data.queue);
-        return prefixes.length === data.queue.length &&
-            Array.isArray(data.pending) && data.pending.length === 0 &&
-            prefixes.every((prefix) =>
-              prefix.state === "landed" &&
-              nonBlank(prefix.landing_id) !== undefined &&
-              nonBlank(prefix.expected_trunk) !== undefined &&
-              nonBlank(prefix.target) !== undefined &&
-              settledPrefixAuthority(prefix) &&
-              Array.isArray(prefix.pending) && prefix.pending.length === 0
-            )
-          ? undefined
-          : failed(
-            "partial_acceptance",
-            "Some efforts are still pending or settling their approval; each effort's row preserves every completed landing.",
-          );
       }
       const landing = record(data?.landing);
       if (landing === undefined) {
@@ -773,25 +648,6 @@ function derivedAdvisories(
       ],
       "Repair the reported Proof storage problem, then re-run the command that records or clears Proof.",
     );
-  }
-
-  for (const prefix of records(data?.queue)) {
-    if (prefix.note === "recovery") {
-      add(
-        "proof-recording-unavailable",
-        [`${String(prefix.branch)} landed; its Proof note needs recovery.`],
-        "Run discern accept again to retry the recorded note without repeating landing or spending authority again.",
-      );
-    }
-    if (prefix.retirement === "recovery") {
-      add(
-        "acceptance-cleanup-incomplete",
-        [`${
-          String(prefix.branch)
-        } remains after landing; retirement needs recovery.`],
-        "Resolve the retained cleanup state and run discern accept again; landing is already durable.",
-      );
-    }
   }
 
   const proofNote = record(data?.proof_note);

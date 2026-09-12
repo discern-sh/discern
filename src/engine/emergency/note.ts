@@ -2,7 +2,7 @@ import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { EmergencyNotePayloadSchema } from "../../shared/emergency_note.ts";
 /** Exception notes retain the unsigned DSSE boundary without a Proof-shaped payload. */
 import { encodeBase64 } from "@std/encoding/base64";
-import type { LandingRecord } from "../landing_queue/publication.ts";
+import type { ExceptionRecord } from "../completion/exception.ts";
 import { EMERGENCY_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
   PROOF_NOTES_REF,
@@ -14,17 +14,19 @@ import type { EnvReader } from "../../shared/env.ts";
 import type { ProofNoteWriteData } from "../../shared/result_schemas.ts";
 
 /** Exact bytes remain inside the existing DSSE payload boundary, ready for future verification. */
-export function canonicalExceptionNote(record: LandingRecord): string {
-  if (
-    record.data.outcome.kind !== "landed" ||
-    record.data.authority_settlement !== "consumed"
-  ) throw new Error("An exception note requires its settled integration.");
+export function canonicalExceptionNote(
+  id: string,
+  record: ExceptionRecord,
+): string {
+  if (record.outcome.kind !== "landed") {
+    throw new Error("An exception note requires its landed integration.");
+  }
   const payload = EmergencyNotePayloadSchema.parse({
     kind: "emergency-exception",
     version: ON_DISK_FORMATS.proofNote.version,
-    landing_id: record.id,
-    claim: record.data.claim,
-    executor: record.data.executor,
+    landing_id: id,
+    claim: record.claim,
+    executor: record.executor,
   });
   return JSON.stringify({
     payloadType: EMERGENCY_NOTE_PAYLOAD_TYPE,
@@ -36,12 +38,13 @@ export function canonicalExceptionNote(record: LandingRecord): string {
 /** Create-only publication preserves every existing claim, including a later or unsupported note. */
 export async function recordExceptionNote(
   root: string,
-  record: LandingRecord,
+  id: string,
+  record: ExceptionRecord,
   env: EnvReader = Deno.env,
 ): Promise<ProofNoteWriteData> {
-  const commit = record.data.target;
+  const commit = record.target;
   const base = { ref: PROOF_NOTES_REF, commit, merged_refs: [] };
-  const body = canonicalExceptionNote(record);
+  const body = canonicalExceptionNote(id, record);
   const existing = await runGit([
     "notes",
     `--ref=${PROOF_NOTES_SHORT_REF}`,

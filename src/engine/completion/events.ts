@@ -1,12 +1,7 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { Clock } from "../../shared/clock.ts";
-import type {
-  CompletionCapacity,
-  CompletionEvent,
-  ValidationSubject,
-} from "./protocol.ts";
-import type { CompletionRecovery } from "./environment.ts";
+import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
 import type { ComponentEvidence } from "./evidence.ts";
 
 /**
@@ -60,12 +55,8 @@ export interface CompletionFailure {
 
 /** The next piece of work or the exact reason it is pending, without output-log payloads. */
 export interface CompletionProgress {
-  readonly phase:
-    | "producer"
-    | "environment"
-    | "queue"
-    | "pending"
-    | "operation";
+  /** `queue` is the test-run slot queue a producer may wait in. */
+  readonly phase: "producer" | "queue" | "pending" | "operation";
   readonly state: string;
   readonly candidate_id: string | null;
   readonly reason: string;
@@ -77,10 +68,7 @@ export interface CompletionProgress {
   readonly owner_must_act?: boolean;
   /** Producer-reported counts, present only where a producer supplies them. */
   readonly work?: ProducerWork;
-  readonly capacity?: CompletionCapacity;
-  readonly environment_id?: string;
   readonly attempt_id?: string;
-  readonly recovery?: CompletionRecovery;
 }
 export type CompletionObservationFact =
   | { readonly kind: "event"; readonly event: CompletionEvent }
@@ -155,7 +143,6 @@ export function executionEvent(
     effort_id: execution.candidate.source.effort_id,
     source_head: execution.candidate.source.head,
     candidate_id: execution.candidate_id,
-    environment_id: execution.environment_id,
     attempt_id: execution.attempt.identity.id,
     executor_operation: executorOperation,
     fact,

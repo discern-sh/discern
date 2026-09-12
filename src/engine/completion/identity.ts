@@ -1,6 +1,5 @@
 /** Identities shared by completion domains; none implies approval or readiness. */
 import { z } from "@zod/zod";
-import { CANDIDATE_REF_PREFIX } from "../../shared/git_conventions.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   type SecureEntropy,
@@ -65,11 +64,4 @@ export function newAttemptIdentity(
     id: entropy.uuid(),
     started_at: clock.wallNow(),
   });
-}
-
-/** A candidate ref never aliases a mutable source branch or another attempt. */
-export function candidateRef(candidateId: string, attemptId: string): string {
-  return `${CANDIDATE_REF_PREFIX}/${RecordIdSchema.parse(candidateId)}/${
-    RecordIdSchema.parse(attemptId)
-  }`;
 }

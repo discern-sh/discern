@@ -37,7 +37,7 @@ const SLOT_BUFFER_LIMIT = 16;
 /**
  * Which presenter owns one fact. Producer facts — a producer's own counts and
  * each established failure — belong to the run executing that producer;
- * coordination facts — queue, environment, pending, and the operation itself —
+ * coordination facts — the slot queue, pending, and the operation itself —
  * belong to the outermost operation. Every fact has exactly one owner, so a
  * nested validation and the operation enclosing it never present the same
  * sentence twice.
@@ -195,14 +195,6 @@ export function createGateProgressPresenter(
         // and the journal keeps them all.
         if (decisive) durable(sentence, "warning");
         else transient(sentence);
-        return;
-      }
-      if (
-        progress.phase === "environment" && progress.next === undefined &&
-        !decisive
-      ) {
-        // Static output has no line to replace: an environment step without
-        // a next step is left to the journal rather than filling scrollback.
         return;
       }
       durable(sentence, decisive ? "warning" : undefined);

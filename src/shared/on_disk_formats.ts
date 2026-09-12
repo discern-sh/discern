@@ -18,8 +18,7 @@ export type OnDiskVersionField =
   | "schema_version"
   | "version"
   | "payloadType"
-  | "header"
-  | "format";
+  | "header";
 
 export type OnDiskFormatLocation =
   | {
@@ -33,9 +32,6 @@ export interface OnDiskFormatDefinition {
   readonly location: OnDiskFormatLocation;
   readonly version: number;
   readonly versionField: OnDiskVersionField;
-  readonly historicalVersions?: readonly number[];
-  /** First writer version retaining required artifact edges in revision history. */
-  readonly referenceHistorySince?: number;
   readonly schemaContract?: {
     readonly module: string;
     readonly export: string;
@@ -51,9 +47,7 @@ export const ON_DISK_FORMATS = {
   completionRecord: {
     id: "completion-record",
     location: { kind: "git-admin", keys: ["completionRecords"] },
-    version: 5,
-    historicalVersions: [2, 3, 4],
-    referenceHistorySince: 4,
+    version: 1,
     schemaContract: {
       module: "src/engine/completion/records.ts",
       export: "CompletionRecordSchema",
@@ -65,97 +59,6 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/completion/store.ts"],
     newerVersionPolicy: "refuse",
   },
-  completionPublication: {
-    id: "completion-publication",
-    location: { kind: "git-admin", keys: ["completionPublication"] },
-    version: 1,
-    versionField: "version",
-    reader:
-      "src/engine/completion/publication_witness.ts#readCompletionPublication",
-    writers: ["src/engine/completion/publication_witness.ts"],
-    newerVersionPolicy: "refuse",
-  },
-  environmentProof: {
-    id: "environment-proof",
-    location: { kind: "git-admin", keys: ["environmentProofs"] },
-    version: 1,
-    versionField: "version",
-    reader: "src/engine/execution/probe_record.ts#readEnvironmentProofs",
-    writers: ["src/engine/execution/probe_record.ts"],
-    newerVersionPolicy: "observe",
-  },
-  executionGitSnapshot: {
-    id: "execution-git-snapshot",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 1,
-    versionField: "format",
-    reader: "src/engine/execution/snapshot.ts#captureGitSnapshot",
-    writers: [
-      "src/engine/execution/snapshot_schema.ts",
-      "src/engine/execution/snapshot.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
-  executionSourceObservation: {
-    id: "execution-source-observation",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 1,
-    versionField: "format",
-    reader: "src/engine/execution/source_snapshot.ts#observeSourceSnapshot",
-    writers: [
-      "src/engine/execution/snapshot_schema.ts",
-      "src/engine/execution/source_snapshot.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
-  executionGitManifest: {
-    id: "execution-git-manifest",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 2,
-    versionField: "format",
-    reader: "src/engine/execution/snapshot.ts#captureGitSnapshot",
-    writers: [
-      "src/engine/execution/snapshot_schema.ts",
-      "src/engine/execution/snapshot.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
-  executionReleaseObservation: {
-    id: "execution-release-observation",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 2,
-    versionField: "format",
-    reader: "src/engine/execution/snapshot.ts#captureGitSnapshot",
-    writers: [
-      "src/engine/execution/snapshot_schema.ts",
-      "src/engine/execution/snapshot.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
-  executionWorkspaceState: {
-    id: "execution-workspace-state",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 1,
-    versionField: "format",
-    reader: "src/engine/execution/workspace_state.ts#WorkspaceStateSchema",
-    writers: [
-      "src/engine/execution/workspace_state.ts",
-      "src/engine/execution/workspace_state.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
-  executionIntent: {
-    id: "execution-intent",
-    location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 1,
-    versionField: "format",
-    reader: "src/engine/execution/intent.ts#loadExecutionIntent",
-    writers: [
-      "src/engine/execution/intent.ts",
-      "src/engine/execution/intent.ts",
-    ],
-    newerVersionPolicy: "refuse",
-  },
   candidateReview: {
     id: "candidate-review",
     location: { kind: "git-admin", keys: ["completionArtifacts"] },
@@ -163,7 +66,7 @@ export const ON_DISK_FORMATS = {
     versionField: "version",
     reader: "src/engine/gate/candidate_review.ts#readCandidateReview",
     writers: [
-      "src/engine/execution/artifact_contracts.ts",
+      "src/engine/completion/documents.ts",
       "src/engine/gate/candidate_review.ts",
     ],
     newerVersionPolicy: "refuse",
@@ -171,17 +74,17 @@ export const ON_DISK_FORMATS = {
   emergencyResolution: {
     id: "emergency-resolution",
     location: { kind: "git-admin", keys: ["completionArtifacts"] },
-    version: 2,
+    version: 1,
     versionField: "version",
     schemaContract: {
-      module: "src/engine/execution/artifact_contracts.ts",
+      module: "src/engine/completion/documents.ts",
       export: "EmergencyResolutionSchema",
       sha256:
         "727f025495d5e2481c52bb860149a5d5cac7780983bffe6d8a77637b24c1cf48",
     },
     reader: "src/engine/emergency/obligations.ts#resolution",
     writers: [
-      "src/engine/execution/artifact_contracts.ts",
+      "src/engine/completion/documents.ts",
       "src/engine/emergency/obligations.ts",
     ],
     newerVersionPolicy: "refuse",
@@ -263,10 +166,9 @@ export const ON_DISK_FORMATS = {
     id: "effort-grant",
     location: {
       kind: "git-admin",
-      keys: ["effortGrant", "effortGrantClaims", "completionGrantClaims"],
+      keys: ["effortGrant", "effortGrantClaims"],
     },
-    version: 2,
-    historicalVersions: [1],
+    version: 1,
     versionField: "version",
     reader: "src/engine/worktree/effort_grant.ts#readEffortGrant",
     writers: ["src/engine/worktree/effort_grant_writer.ts"],
@@ -278,7 +180,7 @@ export const ON_DISK_FORMATS = {
     version: 1,
     versionField: "version",
     reader: "src/engine/worktree/submission.ts#readSubmission",
-    writers: ["src/engine/worktree/submission.ts"],
+    writers: ["src/engine/worktree/submission_writer.ts"],
     newerVersionPolicy: "refuse",
   },
   freshStandardMeasurementEvidence: {
@@ -543,15 +445,6 @@ export function inspectOnDiskRecordVersion(
   }
   const field = definition.versionField;
   const raw = (value as Record<string, unknown>)[field];
-  if (field === "format") {
-    if (typeof raw !== "string") return { status: "missing" };
-    const prefix = `${definition.id}-v`;
-    const suffix = raw.startsWith(prefix) ? raw.slice(prefix.length) : "";
-    return inspectOnDiskVersion(
-      format,
-      /^[1-9][0-9]*$/u.test(suffix) ? Number(suffix) : undefined,
-    );
-  }
   if (field === "payloadType") {
     if (typeof raw !== "string") return { status: "missing" };
     const match = /\/schema\/v([0-9]+)\/discern-proof-note\.schema\.json#/u

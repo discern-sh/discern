@@ -604,7 +604,7 @@ export async function buildGateProof(
       root,
       completion === undefined
         ? `${trunk}...HEAD`
-        : `${completion.candidate.expected_predecessor.head}..${completion.candidate.head}`,
+        : `${completion.candidate.predecessor}..${completion.candidate.head}`,
       0,
     );
   } catch {

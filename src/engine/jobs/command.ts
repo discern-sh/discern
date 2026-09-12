@@ -14,7 +14,6 @@ import { bestEffort, bestEffortSync } from "../../shared/best_effort.ts";
 import { colorResolvedEnv } from "../../shared/color_env.ts";
 import { detachPromise } from "../../shared/promise_effects.ts";
 import { operationLockChildEnv } from "../../shared/operation_lock_context.ts";
-import { planExecutionChild } from "../../shared/execution_child_context.ts";
 import { spawnedByEnv } from "../../shared/invocation_context.ts";
 import type { Job, JobOutputObserver, JobResult, JobTimeout } from "./types.ts";
 import { JobOutputRecorder } from "./output_record.ts";
@@ -288,7 +287,6 @@ export async function spawnJob(
   const outputRecorder = protocolLimit === undefined
     ? await JobOutputRecorder.create(artifactScope)
     : undefined;
-  const ticket = await planExecutionChild();
   const start = clock.monotonicNow();
 
   const child = new Deno.Command("sh", {
@@ -311,15 +309,6 @@ export async function spawnJob(
         capturePath === undefined ? {} : { outputPath: capturePath },
       ),
   );
-  try {
-    await ticket?.started(pid, true);
-  } catch (error) {
-    killProcessTree(pid, "SIGKILL");
-    await child.status;
-    await Promise.all([child.stdout.cancel(), child.stderr.cancel()]);
-    throw error;
-  }
-
   // The readers draining the child's pipes, registered so the kill path can
   // cancel a read blocked on a pipe the tree-kill could not close.
   const readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
@@ -507,7 +496,6 @@ export async function spawnJob(
   if (signal) {
     signal.removeEventListener("abort", onAbort);
   }
-  await ticket?.settled();
   const outputSummary = outputRecorder === undefined
     ? { outputLines: 0, errorLikeLines: 0 }
     : await outputRecorder.finish();

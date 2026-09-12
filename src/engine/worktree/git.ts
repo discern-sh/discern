@@ -33,7 +33,6 @@ import { gitOperationMarkerPath } from "../../shared/git_admin_paths.ts";
 import {
   ACCEPTANCE_TRANSACTION_MARKER_PREFIX,
   acceptanceReflogMessage,
-  COMPLETION_LANDING_MARKER_PREFIX,
 } from "../../shared/git_conventions.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import {
@@ -523,12 +522,6 @@ export interface CheckedOutFastForwardOptions {
   readonly transactionId?: string;
   /** Worktree whose per-worktree marker ref joins the trunk ref transaction. */
   readonly transactionCwd?: string;
-  /** Common markers and exact source/candidate checks are retained by queue landing. */
-  readonly commonMarker?: boolean;
-  readonly verifyRefs?: readonly {
-    readonly ref: string;
-    readonly head: string;
-  }[];
 }
 
 export type AcceptanceTransactionMarkerRead =
@@ -539,24 +532,16 @@ export type AcceptanceTransactionMarkerRead =
 export { ACCEPTANCE_TRANSACTION_MARKER_PREFIX };
 
 /** Derive the per-worktree proof ref coupled to one acceptance transaction. */
-export function acceptanceTransactionMarkerRef(
-  transactionId: string,
-  common = false,
-): string {
-  return `${
-    common
-      ? COMPLETION_LANDING_MARKER_PREFIX
-      : ACCEPTANCE_TRANSACTION_MARKER_PREFIX
-  }/${transactionId}`;
+export function acceptanceTransactionMarkerRef(transactionId: string): string {
+  return `${ACCEPTANCE_TRANSACTION_MARKER_PREFIX}/${transactionId}`;
 }
 
 /** Read the per-worktree ref proving an acceptance CAS committed. */
 export async function readAcceptanceTransactionMarker(
   cwd: string,
   transactionId: string,
-  common = false,
 ): Promise<AcceptanceTransactionMarkerRead> {
-  const marker = acceptanceTransactionMarkerRef(transactionId, common);
+  const marker = acceptanceTransactionMarkerRef(transactionId);
   const exists = await git(["show-ref", "--verify", "--quiet", marker], cwd);
   if (exists.code === 1) {
     return { kind: "missing" };
@@ -678,10 +663,7 @@ function rollbackCheckedOutBranchRef(
     [
       `update ${ref} ${expected} ${target}`,
       `delete ${
-        acceptanceTransactionMarkerRef(
-          options.transactionId,
-          options.commonMarker,
-        )
+        acceptanceTransactionMarkerRef(options.transactionId)
       } ${target}`,
     ],
   );
@@ -794,17 +776,6 @@ export async function fastForwardCheckedOutBranch(
   target: string,
   options: CheckedOutFastForwardOptions = {},
 ): Promise<CheckedOutFastForwardResult> {
-  for (const item of options.verifyRefs ?? []) {
-    if (
-      !item.ref.startsWith("refs/") || /[\s~^:?*\[\\]/u.test(item.ref) ||
-      !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(item.head)
-    ) {
-      return {
-        kind: "moved",
-        detail: "A source ref assertion is not canonical.",
-      };
-    }
-  }
   const ancestor = await git(
     ["merge-base", "--is-ancestor", expected, target],
     cwd,
@@ -866,15 +837,9 @@ export async function fastForwardCheckedOutBranch(
       options.transactionCwd ?? cwd,
       updateMessage,
       [
-        ...(options.verifyRefs ?? []).map(({ ref, head }) =>
-          `verify ${ref} ${head}`
-        ),
         `update ${ref} ${target} ${expected}`,
         `create ${
-          acceptanceTransactionMarkerRef(
-            options.transactionId,
-            options.commonMarker,
-          )
+          acceptanceTransactionMarkerRef(options.transactionId)
         } ${target}`,
       ],
     );

@@ -2,19 +2,9 @@ import {
   completionRecoveryStatus,
   completionStatusPresentation,
 } from "./completion_recovery.ts";
-import { inertEarlyValidationHint } from "../completion/early_validation_notice.ts";
-import {
-  checkoutLandingRecords,
-  checkoutLandingStatus,
-  fleetLandedCheckout,
-} from "./checkout_landing.ts";
 import { callingCheckoutRunningOperation } from "./running_operation.ts";
 import { landedExceptionStatus } from "./landed_exception.ts";
-import type { CompletionRecord } from "../completion/records.ts";
-import {
-  queueComposable,
-  statusQueueRows,
-} from "../landing_queue/queue_projection.ts";
+import { submissionRows } from "../worktree/submissions_view.ts";
 /**
  * `status` — the situation/orientation verb: *what is true right now, and what
  * should I do next?* (ADR 0033). It complements the two setup-facing verbs without
@@ -173,7 +163,6 @@ import {
   sortFleetRows,
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
-import { queueCapacityHint } from "./queue_presentation.ts";
 import { fleetFilesystem, fleetSetupEvidence } from "./recovery.ts";
 import { applyLogbookActivity } from "./recent.ts";
 import { parkedTaskEvidence, recentCompletedTasks } from "./recent.ts";
@@ -337,7 +326,6 @@ export async function statusResult(
   // identity derives from the configured trunk branch rather than worktree
   // metadata.
   const worktree = await buildCheckoutIdentityBlock(root, cfg);
-  const checkoutLanding = await checkoutLandingStatus(root, worktree, location);
   const runningOperation = await callingCheckoutRunningOperation(root);
 
   // Fleet decision. The fleet is only worth surveying from the main checkout (the
@@ -356,11 +344,7 @@ export async function statusResult(
   // AND gains the fleet, so it is not fleet-led.
   const fleetLed = includeFleet && location === "main";
 
-  // The calling checkout's own live run settles which recovery rows are real.
-  const completionRecovery = await completionRecoveryStatus(
-    root,
-    runningOperation,
-  );
+  const completionRecovery = await completionRecoveryStatus(root);
   const data: StatusData = {
     ...completionRecovery.data,
     location,
@@ -408,13 +392,9 @@ export async function statusResult(
   if (recentCompleted.length > 0) {
     data.recent_completed_tasks = recentCompleted;
   }
-  // The landing queue in order — the same derivation `accept --dry-run`
-  // consumes, so the two surfaces agree. Read-only; absent when empty.
-  const queueRows = await statusQueueRows(
-    root,
-    mainBranch,
-    await queueComposable(root, cfg),
-  );
+  // The landing queue in order — the same derivation `accept --dry-run` and
+  // the desk consume, so every surface agrees. Read-only; absent when empty.
+  const queueRows = await submissionRows(root, mainBranch);
   if (queueRows.length > 0) {
     data.queue = queueRows;
   }
@@ -533,9 +513,6 @@ export async function statusResult(
   // project with no env file still gets real ids (never a truncated branch name).
   let fleet: StatusFleetEntry[] | undefined;
   let fleetCollisionPairs: FleetCollision[] | undefined;
-  // One read of the landing, retirement, and environment records serves every
-  // fleet row's kept-checkout sentence.
-  const landingRecords = includeFleet ? await checkoutLandingRecords(root) : [];
   if (includeFleet) {
     // Canonicalize the invocation root once so each row's is_current compares like
     // for like against row.path (also canonical).
@@ -562,13 +539,7 @@ export async function statusResult(
     }
     fleet = await Promise.all(
       fleetRows.map(async (row) => {
-        const entry = await fleetEntryFor(
-          row,
-          here,
-          cfg,
-          settings,
-          landingRecords,
-        );
+        const entry = await fleetEntryFor(row, here, cfg, settings);
         return applyLogbookActivity(
           entry,
           logbookActivity?.byBranch.get(row.branch),
@@ -711,13 +682,10 @@ export async function statusResult(
     ? checkpointInspectionHints(await inspectCheckpointObligations(root, cfg))
     : [];
 
-  const inertEarlyValidation = await inertEarlyValidationHint(root, cfg);
   const ordinaryHints = await buildStatusHints({
     root,
     location,
     mainBranch,
-    queue: data.queue,
-    completionConcurrency: cfg.completion.concurrency,
     git,
     changed,
     incomingOverlap: overlapInfo,
@@ -744,13 +712,10 @@ export async function statusResult(
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
     checkpointPreview,
-    currentSourceLanded: checkoutLanding !== undefined,
-    inertEarlyValidation,
   });
   const { hints, ...presentation } = completionStatusPresentation(
     completionRecovery,
     ordinaryHints,
-    checkoutLanding?.message,
     runningOperation,
   );
   if (opts.verbose !== true) {
@@ -838,7 +803,6 @@ async function fleetEntryFor(
   here: string,
   cfg: DiscernConfig,
   settings: IdentitySettings | undefined,
-  landingRecords: readonly CompletionRecord[],
 ): Promise<StatusFleetEntry> {
   const entry: StatusFleetEntry = {
     path: row.path,
@@ -952,13 +916,6 @@ async function fleetEntryFor(
         fallbackTitle,
         task.kind === "unavailable" ? task.reason : undefined,
       );
-    const landed = await fleetLandedCheckout(
-      entry,
-      row.path,
-      identity,
-      landingRecords,
-    );
-    if (landed !== undefined) entry.landed_checkout = landed;
   }
   return entry;
 }
@@ -1039,14 +996,6 @@ interface HintContext {
    * and both `done` paths): each required stop question, served early. Empty
    * while setup is unfinished. */
   checkpointPreview: FiredHint[];
-  /** A durable landing names this effort's exact current committed source. */
-  currentSourceLanded: boolean;
-  /** Configured early checking that cannot run here, stated once. */
-  inertEarlyValidation: FiredHint | undefined;
-  /** The ordered landing queue carried by this result, when present. */
-  queue: StatusData["queue"];
-  /** `[completion].concurrency`, for the one capacity sentence. */
-  completionConcurrency: number;
 }
 
 /**
@@ -1072,11 +1021,6 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // early: every later hint assumes the work is happening where the tools point.
   if (ctx.divergence !== undefined) {
     hints.push(ctx.divergence);
-  }
-  // A declared setting that does nothing here is named on every status, so
-  // an owner never learns from a slow queue that early checking was inert.
-  if (ctx.inertEarlyValidation !== undefined) {
-    hints.push(ctx.inertEarlyValidation);
   }
   if (ctx.reappearedWorktreePaths.length > 0) {
     hints.push(
@@ -1226,9 +1170,8 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       );
     }
     if (
-      !ctx.currentSourceLanded &&
-      (g.behind_trunk === UNKNOWN_GIT_COUNT ||
-        (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk)))
+      g.behind_trunk === UNKNOWN_GIT_COUNT ||
+      (g.behind_trunk !== null && isPositiveGitCount(g.behind_trunk))
     ) {
       hints.push(
         fire(HINTS["status-branch-behind"], {
@@ -1246,7 +1189,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       ahead: g.ahead_trunk,
       behind: g.behind_trunk,
     };
-    if (!ctx.currentSourceLanded && isLandingCandidate(readinessFacts)) {
+    if (isLandingCandidate(readinessFacts)) {
       // accept would refuse against tracked changes in the main checkout — say so
       // if we can see them.
       const mainDirty = await isMainCheckoutDirty(ctx.root);
@@ -1443,13 +1386,6 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         fire(HINTS["status-contained-refs"], { refs: ctx.containedRefs }),
       );
     }
-  }
-
-  // The one capacity sentence: every validation slot in use while queued
-  // efforts wait.
-  const capacity = queueCapacityHint(ctx.queue, ctx.completionConcurrency);
-  if (capacity !== undefined) {
-    hints.push(capacity);
   }
 
   // The checkpoint obligation account rides last, after every observation

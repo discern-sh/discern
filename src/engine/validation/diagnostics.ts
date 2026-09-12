@@ -81,7 +81,7 @@ export async function standaloneValidation(input: {
     );
     const candidate = CandidateSchema.parse({
       attempt_id: attempt.id,
-      // Detached diagnostics have no authored branch and cannot enter the queue.
+      // Detached diagnostics have no authored branch and never become a candidate record.
       source: {
         effort_id: effort,
         branch: branch.success
@@ -90,34 +90,22 @@ export async function standaloneValidation(input: {
         head,
         tree,
       },
-      dependencies: [],
-      expected_predecessor: {
-        head: input.base === undefined
-          ? head
-          : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {
-            cwd: root,
-          })).stdout.trim(),
-        candidate_id: null,
-      },
+      predecessor: input.base === undefined
+        ? head
+        : (await runGit(["rev-parse", "--verify", `${input.base}^{commit}`], {
+          cwd: root,
+        })).stdout.trim(),
       head,
       tree,
       policy: reference,
       requirement_set: await requirementSetIdentity(
         configured.obligations.map((obligation) => obligation.requirement),
       ),
-      composition: {
-        procedure: reference,
-        generated_ownership: reference,
-        generators: reference,
-        merge_commit: null,
-        regeneration_commit: null,
-      },
     });
     const execution: DiagnosticExecution = {
       diagnostic: true,
       attempt: { identity: attempt, subjects: [], mode, purpose: "diagnostic" },
-      environment_id: SYSTEM_SECURE_ENTROPY.uuid(),
-      environment: { path: root },
+      path: root,
       seed: seedForBranch(
         branch.success
           ? branch.stdout.trim().replace(/^refs\/heads\//u, "")

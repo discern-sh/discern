@@ -31,7 +31,7 @@ export function selectDemandObligations<
   demand: ValidationDemand,
   candidate: Candidate,
 ): T[] {
-  if (demand.kind === "prepare" || demand.kind === "compose") return [];
+  if (demand.kind === "prepare") return [];
   let selected = obligations.filter((o) =>
     o.requirement.context === demand.context
   );
@@ -58,11 +58,10 @@ export function selectDemandObligations<
     if (
       JSON.stringify(demand.source) !==
         JSON.stringify(candidate.source) ||
-      demand.base !== candidate.expected_predecessor.head ||
-      candidate.dependencies.length !== 0
+      demand.base !== candidate.predecessor
     ) {
       throw new Error(
-        "diagnostic comparison needs the same source/base and cannot remove a real dependency",
+        "diagnostic comparison needs the same source and base",
       );
     }
     selected = selected.filter((o) =>

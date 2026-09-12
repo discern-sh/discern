@@ -2,11 +2,8 @@ import { markdownCodeSpan } from "../../shared/markdown_code.ts";
 import { displayBranch } from "../../shared/result_markdown_values.ts";
 import { emergencyOptionError } from "./arguments.ts";
 import { prepareEmergency } from "./prepare.ts";
-import { acceptancePending } from "../landing_queue/public_result.ts";
 import { fire, HINTS, hintTexts } from "../../shared/hints.ts";
-import { readLandingConvergenceResult } from "../landing_queue/convergence.ts";
-import { ownValidationEnvironment } from "../execution/public_environment.ts";
-/** The emergency exchange delegates its transition and retirement to the ordinary landing engine. */
+/** The emergency exchange lands one approved exception through the acceptance transaction. */
 import type { DiscernResult } from "../../shared/result.ts";
 import type { AcceptData } from "../../shared/result_schemas.ts";
 import { SYSTEM_CLOCK } from "../../shared/clock.ts";
@@ -14,35 +11,50 @@ import { SYSTEM_SECURE_ENTROPY } from "../../shared/entropy.ts";
 import { ON_DISK_FORMATS } from "../../shared/on_disk_formats.ts";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { AWAITING_CONSENT_SLUG } from "../../shared/consent.ts";
-import type { LifecycleContext } from "../worktree/lifecycle.ts";
-import { integrationBranch, mainRepoPath } from "../worktree/git.ts";
-import { withCompletionCheckout } from "../operation_lock.ts";
-import type { LandingConverger } from "../landing_queue/convergence.ts";
 import {
-  type LandingRecord,
-  publishEmergencyLanding,
-  type QueueLandingRuntime,
-  recoverQueueLanding,
-} from "../landing_queue/publication.ts";
-import { retireQueueLanding } from "../landing_queue/retirement.ts";
-import { registeredSourcePath } from "../landing_queue/public_authority.ts";
+  type LifecycleContext,
+  lifecycleContext,
+} from "../worktree/lifecycle.ts";
 import {
-  initializeQueue,
-  REPOSITORY_QUEUE_ID,
-  reserveQueueAttempt,
-} from "../landing_queue/repository.ts";
+  commitIsMerged,
+  integrationBranch,
+  mainRepoPath,
+  WorktreeGitError,
+} from "../worktree/git.ts";
+import {
+  inspectInterruptedAcceptance,
+  performAcceptanceTransition,
+  recoverInterruptedAcceptance,
+  withAcceptanceTransactionLock,
+} from "../worktree/acceptance_transaction.ts";
+import { worktreePathForEffortBranch } from "../worktree/target_resolution.ts";
+import {
+  type AcceptExecutionProgress,
+  assertMainCheckoutReady,
+  type CleanupDisposition,
+  cleanUpEffort,
+  convergeMainCheckout,
+  type EffortCheckout,
+  effortCheckout,
+  freshAcceptExecutionProgress,
+  landingPlan,
+} from "../worktree/accept.ts";
+import { inspectIgnoredFileChanges } from "../worktree/ignored.ts";
+import type { ExceptionRecord } from "../completion/exception.ts";
+import type { CompletionRecord } from "../completion/records.ts";
 import {
   readCompletionRecord,
   writeCompletionRecord,
 } from "../completion/store.ts";
-import { retainMeasurementCandidate } from "../landing_queue/composition.ts";
 import {
   EMERGENCY_CONFIRMATION_MS,
   emergencyConfirmationCurrent,
   emergencyId,
+  type EmergencyPlan,
   emergencyToken,
   planEmergency,
 } from "./plan.ts";
+import { recordExceptionNote } from "./note.ts";
 import { emergencyValidationStatus } from "./obligations.ts";
 
 export interface EmergencyOptions {
@@ -55,10 +67,9 @@ export interface EmergencyOptions {
   readonly dryRun?: boolean;
   readonly recover?: string;
   readonly signal?: AbortSignal;
-  readonly converge?: LandingConverger;
-  /** Fault injection covers the same durable transition boundaries as ordinary acceptance. */
-  readonly afterBoundary?: QueueLandingRuntime["afterBoundary"];
 }
+
+type RecordedException = Extract<CompletionRecord, { kind: "exception" }>;
 
 const boundary =
   "This authorizes only the displayed local emergency integration. No passing Proof, ordinary grant, remote push, deployment, or change to external branch protections is implied.";
@@ -123,6 +134,35 @@ async function runEmergencyResult(
   }
 }
 
+/** Replace the exception record's settlement fields by compare-and-swap. */
+async function settleException(
+  root: string,
+  current: RecordedException,
+  next: Pick<ExceptionRecord, "outcome" | "note">,
+): Promise<RecordedException> {
+  const reading = await readCompletionRecord(root, {
+    kind: "exception",
+    id: current.id,
+  });
+  if (reading.kind !== "recorded" || reading.record.kind !== "exception") {
+    throw new Error(
+      `Exception record ${current.id} is ${reading.kind}; preserve it and inspect status.`,
+    );
+  }
+  const record: RecordedException = {
+    ...reading.record,
+    revision: reading.record.revision + 1,
+    data: { ...reading.record.data, ...next },
+  };
+  const written = await writeCompletionRecord(root, record, reading.stamp);
+  if (written.kind !== "written") {
+    throw new Error(
+      `Exception settlement ${written.kind}; run discern accept emergency --recover ${current.id}.`,
+    );
+  }
+  return record;
+}
+
 /** Publish only the source and exceptions approved in the current review. */
 async function prepareAndIntegrate(
   ctx: LifecycleContext,
@@ -179,7 +219,7 @@ async function prepareAndIntegrate(
   const approvedToken = options.confirmation;
   const id = emergencyId(await sha256Hex(approvedToken));
   const previous = await readCompletionRecord(plan.root, {
-    kind: "landing",
+    kind: "exception",
     id,
   });
   if (previous.kind !== "missing") {
@@ -187,103 +227,22 @@ async function prepareAndIntegrate(
       `This emergency authorization already has a record. Use discern accept emergency --recover ${id}; do not replay confirmation.`,
     );
   }
-  const queue = await readCompletionRecord(plan.root, {
-    kind: "queue",
-    id: REPOSITORY_QUEUE_ID,
-  });
-  if (queue.kind === "missing") {
-    const initialized = await initializeQueue(
-      plan.root,
-      plan.observation.trunk,
-    );
-    if (initialized.kind !== "written") {
-      throw new Error(
-        `Queue initialization is ${initialized.kind}; preserve its records and retry the plan.`,
-      );
-    }
-  }
   const actor = {
     operation_id: SYSTEM_SECURE_ENTROPY.uuid(),
     originating_effort: plan.candidate.source.effort_id,
     started_at: now,
   };
-  const environment = await withCompletionCheckout(
-    ctx.cwd,
-    () =>
-      ownValidationEnvironment(
-        ctx.cwd,
-        ctx.config,
-        plan.candidate.source,
-        actor,
-        ctx.config.execution.local ?? null,
-      ),
-    options.signal,
-  );
-  if ("kind" in environment) {
-    throw new Error(
-      "The repair environment is unavailable or requires recovery. Restore it before emergency integration.",
-    );
-  }
-  const attempt = await reserveQueueAttempt(plan.root, {
-    candidate_id: plan.candidate_id,
-  }, actor);
-  const token = SYSTEM_SECURE_ENTROPY.uuid();
-  const fence = { attempt_id: attempt.id, token };
-  const written = await writeCompletionRecord(plan.root, {
+  const record: RecordedException = {
     version: ON_DISK_FORMATS.completionRecord.version,
-    kind: "attempt",
-    id: attempt.id,
-    revision: 1,
-    data: {
-      identity: attempt,
-      environment_id: environment.environmentId,
-      subjects: [],
-      purpose: "completion",
-      mode: "strict",
-      state: {
-        kind: "claimed",
-        claim: {
-          token,
-          executor: actor,
-          acquired_at: now,
-          expires_at: now + 60_000,
-        },
-      },
-    },
-  }, null);
-  if (written.kind !== "written") {
-    throw new Error(
-      `Emergency actor publication is ${written.kind}; re-observe before another action.`,
-    );
-  }
-  const existingCandidate = await readCompletionRecord(plan.root, {
-    kind: "candidate",
-    id: plan.candidate_id,
-  });
-  if (existingCandidate.kind === "missing") {
-    await retainMeasurementCandidate(ctx.cwd, plan.candidate_id, {
-      ...plan.candidate,
-      attempt_id: attempt.id,
-    }, fence);
-  }
-  const record: LandingRecord = {
-    version: ON_DISK_FORMATS.completionRecord.version,
-    kind: "landing",
+    kind: "exception",
     id,
     revision: 1,
     data: {
-      attempt_id: attempt.id,
-      candidate_id: plan.candidate_id,
-      source: plan.candidate.source,
-      executor: actor,
-      expected_trunk: plan.candidate.expected_predecessor.head,
-      target: plan.candidate.head,
-      policy: plan.candidate.policy,
       claim: {
         kind: "exception",
         authorization_id: id,
         authorized_at: now,
-        actual_trunk: plan.candidate.expected_predecessor.head,
+        actual_trunk: plan.candidate.predecessor,
         source: plan.candidate.source,
         candidate_id: plan.candidate_id,
         candidate_head: plan.candidate.head,
@@ -292,81 +251,167 @@ async function prepareAndIntegrate(
         exceptions: plan.exceptions,
         ...(plan.review === undefined ? {} : { review: plan.review }),
       },
+      executor: actor,
+      expected_trunk: plan.candidate.predecessor,
+      target: plan.candidate.head,
       outcome: { kind: "planned" },
-      authority_settlement: "pending",
       note: "pending",
     },
   };
-  const runtime: QueueLandingRuntime = {
-    emergencyAuthorizationExpiresAt: Number(approvedToken.split(".")[0]),
-    root: plan.root,
-    mainRepo: plan.root,
-    trunk: plan.trunk,
-    sourceCheckout: (record) =>
-      registeredSourcePath(plan.root, record.data.source),
-    ...(options.signal === undefined ? {} : { signal: options.signal }),
-    ...(options.converge === undefined ? {} : { converge: options.converge }),
-    ...(options.afterBoundary === undefined
-      ? {}
-      : { afterBoundary: options.afterBoundary }),
-    audit: async () => {
-      const current = await planEmergency(
-        ctx,
-        plan.reason,
-        options.preparation,
+  const written = await writeCompletionRecord(plan.root, record, null);
+  if (written.kind !== "written") {
+    throw new Error(
+      `Emergency record publication is ${written.kind}; re-observe before another action.`,
+    );
+  }
+  const effort = await effortCheckout(ctx, undefined);
+  if (effort === undefined) {
+    throw new Error("Emergency integration runs from the repair's worktree.");
+  }
+  return await withAcceptanceTransactionLock(effort.path, async () => {
+    // The approved subject must still be exactly what the owner reviewed.
+    const current = await planEmergency(ctx, plan.reason, options.preparation);
+    if (!await emergencyConfirmationCurrent(current, approvedToken)) {
+      const settled = await settleException(plan.root, record, {
+        outcome: {
+          kind: "not-landed",
+          at: SYSTEM_CLOCK.wallNow(),
+          reason: "the approved subject changed before the transition",
+        },
+        note: "pending",
+      });
+      return notLandedResult(
+        plan,
+        settled,
+        "The emergency subject changed after the owner's approval. Inspect current state and prepare a new owner review.",
       );
-      if (!await emergencyConfirmationCurrent(current, approvedToken)) {
-        return { kind: "missing-authority", sources: [plan.candidate.source] };
-      }
-      return current.observation;
-    },
-  };
-  let landed;
-  try {
-    landed = await publishEmergencyLanding(runtime, record, fence);
-  } catch (error) {
-    const retained = await readCompletionRecord(plan.root, {
-      kind: "landing",
-      id,
+    }
+    await assertMainCheckoutReady(effort);
+    const transition = await performAcceptanceTransition(effort.path, {
+      mainRepo: plan.root,
+      trunk: plan.trunk,
+      worktreeBranch: effort.branch,
+      expectedTrunk: plan.candidate.predecessor,
+      target: plan.candidate.head,
+      effortClaim: false,
+      consent: { source: "conversation" },
+      variances: [],
+      standardProposals: [],
     });
-    return {
-      ok: false,
-      verb: "accept",
-      error: "partial_acceptance",
-      message: `${error instanceof Error ? error.message : String(error)}. ${
-        retained.kind === "recorded"
-          ? `The exception record is retained; run discern accept emergency --recover ${id}.`
-          : "The transition was not recorded; inspect state before preparing a new plan."
-      }`,
-      data: {
-        root: plan.root,
-        ...(retained.kind === "recorded"
-          ? { emergency: { landing_id: id, outcome: "recovery" } }
-          : {}),
-      },
-    };
-  }
-  if ("kind" in landed) {
-    return {
-      ok: false,
-      verb: "accept",
-      error: "precondition_failed",
-      message: `The emergency subject or publication conditions changed: ${
-        acceptancePending(landed).reason
-      }. Inspect current state and prepare a new owner review.`,
-      data: {
-        root: plan.root,
-        emergency: preview.emergency,
-      },
-    };
-  }
-  return await emergencyOutcome(ctx, options, plan.root, plan.trunk, {
-    ...record,
-    data: landed,
+    if (transition.kind === "authority-changed") {
+      throw new Error("Emergency integration claims no effort grant.");
+    }
+    const ff = transition.outcome;
+    const advanced = ff.kind === "updated" ||
+      (ff.kind === "checkout-failed" && !ff.rolledBack);
+    if (!advanced) {
+      const settled = await settleException(plan.root, record, {
+        outcome: {
+          kind: "not-landed",
+          at: SYSTEM_CLOCK.wallNow(),
+          reason: ff.kind === "dirty"
+            ? `the main checkout was not clean at the landing boundary: ${ff.detail}`
+            : `the trunk moved before the transition: ${ff.detail}`,
+        },
+        note: "pending",
+      });
+      return notLandedResult(
+        plan,
+        settled,
+        ff.kind === "dirty"
+          ? `The main checkout at ${plan.root} changed at the landing boundary, so nothing landed. Inspect it, then prepare a new emergency plan.`
+          : `The trunk moved after the owner's approval, so nothing landed. Run discern update in the repair worktree, then prepare a new emergency plan.`,
+      );
+    }
+    const landed = await settleException(plan.root, record, {
+      outcome: { kind: "landed", at: SYSTEM_CLOCK.wallNow() },
+      note: "pending",
+    });
+    return await settleLanded(ctx, effort, landed, options.signal);
   });
 }
 
-/** Reconcile the durable marker and original exception without fresh landing consent. */
+/** The result for an approved exception whose transition did not advance the trunk. */
+function notLandedResult(
+  plan: EmergencyPlan,
+  record: RecordedException,
+  message: string,
+): DiscernResult<AcceptData> {
+  return {
+    ok: false,
+    verb: "accept",
+    error: "precondition_failed",
+    message: `${message} ${boundary}`,
+    data: {
+      root: plan.root,
+      emergency: {
+        landing_id: record.id,
+        candidate_id: record.data.claim.candidate_id,
+        reason: record.data.claim.reason,
+        exceptions: record.data.claim.exceptions,
+        outcome: "not-landed",
+      },
+    },
+  };
+}
+
+/** Record the note, converge the main checkout, and clean up the repair after a landed exception. */
+async function settleLanded(
+  ctx: LifecycleContext,
+  effort: EffortCheckout | undefined,
+  record: RecordedException,
+  signal: AbortSignal | undefined,
+): Promise<DiscernResult<AcceptData>> {
+  const root = effort?.mainRepo ?? (await mainRepoPath(ctx.cwd)) ?? ctx.root;
+  const trunk = integrationBranch(ctx.config.repository.trunk);
+  let current = record;
+  if (current.data.note !== "published") {
+    const note = await recordExceptionNote(root, current.id, current.data);
+    const published = note.status === "recorded" ||
+      note.status === "already_present";
+    current = await settleException(root, current, {
+      outcome: current.data.outcome,
+      note: published ? "published" : "failed",
+    });
+    if (!published) ctx.log.warn(note.reason ?? "The exception note failed.");
+  }
+  const progress = freshAcceptExecutionProgress();
+  progress.landing.trunk_landed = true;
+  let cleanup: "removed" | "kept" | "failed" = "kept";
+  let cleanupDetail: string | undefined;
+  if (effort !== undefined) {
+    const plan = landingPlan(
+      effort,
+      await inspectIgnoredFileChanges(
+        effort.path,
+        effort.ctx.config.worktree.ignored_file_drift,
+      ),
+    );
+    await convergeMainCheckout(effort, plan, progress, signal);
+    let disposition: CleanupDisposition;
+    try {
+      disposition = await cleanUpEffort(effort, current.data.target, progress);
+      cleanup = disposition.kind === "removed" ? "removed" : "kept";
+    } catch (error) {
+      cleanup = "failed";
+      cleanupDetail = error instanceof WorktreeGitError
+        ? error.message
+        : String(error);
+    }
+  } else {
+    cleanup = "removed";
+  }
+  return emergencyOutcome(
+    root,
+    trunk,
+    current,
+    progress,
+    cleanup,
+    cleanupDetail,
+  );
+}
+
+/** Reconcile the durable record and original exception without fresh landing consent. */
 async function recoverEmergency(
   ctx: LifecycleContext,
   options: EmergencyOptions,
@@ -376,17 +421,15 @@ async function recoverEmergency(
     throw new Error("The main checkout or landing id is unavailable.");
   }
   const reading = await readCompletionRecord(root, {
-    kind: "landing",
+    kind: "exception",
     id: options.recover,
   });
-  if (
-    reading.kind !== "recorded" || reading.record.kind !== "landing" ||
-    reading.record.data.claim.kind !== "exception"
-  ) {
+  if (reading.kind !== "recorded" || reading.record.kind !== "exception") {
     throw new Error(
       "No readable emergency landing exists at that id. Preserve the records and inspect status.",
     );
   }
+  const record = reading.record;
   const trunk = integrationBranch(ctx.config.repository.trunk);
   if (options.dryRun) {
     return {
@@ -396,113 +439,122 @@ async function recoverEmergency(
       data: {
         root,
         emergency: {
-          landing_id: reading.record.id,
-          reason: reading.record.data.claim.reason,
-          exceptions: reading.record.data.claim.exceptions,
+          landing_id: record.id,
+          reason: record.data.claim.reason,
+          exceptions: record.data.claim.exceptions,
         },
       },
       message:
         "Recover only this recorded emergency transition and its cleanup. No new integration or authorization is created.",
     };
   }
-  const runtime: QueueLandingRuntime = {
-    root,
-    mainRepo: root,
-    trunk,
-    sourceCheckout: (record) => registeredSourcePath(root, record.data.source),
-    audit: () => {
-      throw new Error("Recovery cannot authorize a new transition.");
-    },
-    ...(options.signal === undefined ? {} : { signal: options.signal }),
-    ...(options.converge === undefined ? {} : { converge: options.converge }),
-  };
-  const recovered = await recoverQueueLanding(runtime, reading.record.id);
-  if ("kind" in recovered) {
+  const branch = record.data.claim.source.branch.slice("refs/heads/".length);
+  const worktree = await worktreePathForEffortBranch(root, branch);
+  const effort = worktree === undefined ? undefined : await effortCheckout(
+    { ...ctx, ...(await lifecycleContext(worktree, ctx.log, worktree)) },
+    undefined,
+  );
+  let current = record;
+  if (current.data.outcome.kind === "planned") {
+    // The transition was recorded but never settled: the journal in the
+    // repair's checkout says whether the trunk advanced.
+    let landed = await commitIsMerged(root, current.data.target, trunk);
+    if (effort !== undefined) {
+      const interrupted = await inspectInterruptedAcceptance(
+        effort.path,
+        trunk,
+      );
+      if (interrupted.kind === "recorded") {
+        const recovered = await withAcceptanceTransactionLock(
+          effort.path,
+          () => recoverInterruptedAcceptance(effort.path, interrupted),
+        );
+        if (recovered.kind === "stopped" && !recovered.trunkLanded) {
+          throw new WorktreeGitError(recovered.message);
+        }
+        landed = recovered.kind === "ready"
+          ? await commitIsMerged(root, current.data.target, trunk)
+          : recovered.trunkLanded;
+      }
+    }
+    current = await settleException(root, current, {
+      outcome: landed ? { kind: "landed", at: SYSTEM_CLOCK.wallNow() } : {
+        kind: "not-landed",
+        at: SYSTEM_CLOCK.wallNow(),
+        reason: "the recorded transition never advanced the trunk",
+      },
+      note: "pending",
+    });
+  }
+  if (current.data.outcome.kind === "not-landed") {
     return {
       ok: false,
       verb: "accept",
       error: "precondition_failed",
-      message: acceptancePending(recovered).reason,
+      message: `${
+        markdownCodeSpan(displayBranch(current.data.claim.source.branch))
+      } did not land; the emergency was not applied and no Proof was issued. ${boundary}\n\nThe unlanded outcome is settled. Return to the repair worktree and prepare a new emergency plan for fresh owner review.`,
       data: {
         root,
-        emergency: { landing_id: reading.record.id, outcome: "recovery" },
+        emergency: {
+          landing_id: current.id,
+          candidate_id: current.data.claim.candidate_id,
+          reason: current.data.claim.reason,
+          exceptions: current.data.claim.exceptions,
+          outcome: "not-landed",
+        },
       },
     };
   }
-  return await emergencyOutcome(ctx, options, root, trunk, {
-    ...reading.record,
-    data: recovered,
-  });
+  return await settleLanded(ctx, effort, current, options.signal);
 }
 
-/** Keep integration, convergence, note publication, and retirement outcomes separate. */
+/** Keep integration, note publication, and cleanup outcomes separate. */
 async function emergencyOutcome(
-  ctx: LifecycleContext,
-  options: EmergencyOptions,
   root: string,
   trunk: string,
-  record: LandingRecord,
+  record: RecordedException,
+  progress: AcceptExecutionProgress,
+  cleanup: "removed" | "kept" | "failed",
+  cleanupDetail: string | undefined,
 ): Promise<DiscernResult<AcceptData>> {
   const claim = record.data.claim;
-  if (claim.kind !== "exception") {
-    throw new Error("Emergency result requires its exception claim.");
-  }
-  const landed = record.data.outcome.kind === "landed";
-  const notLanded = record.data.outcome.kind === "not-landed";
-  const convergence = await readLandingConvergenceResult(root, record.data);
-  const converged = options.converge === undefined &&
-      record.data.convergence_result === undefined || convergence?.ok === true;
-  const retirement = landed && converged
-    ? await retireQueueLanding({
-      root,
-      trunk,
-      config: ctx.config,
-      executor: record.data.executor,
-      log: ctx.log,
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    }, record)
-    : undefined;
+  const published = record.data.note === "published";
+  const settled = published && cleanup !== "failed";
+  const branch = markdownCodeSpan(displayBranch(claim.source.branch));
+  const lead =
+    `${branch} landed on ${trunk} as an emergency, with no passing Proof.`;
+  const next = !published
+    ? `The exception note was not recorded. Run discern accept emergency --recover ${record.id} after repairing Git notes access.`
+    : cleanup === "failed"
+    ? `${
+      cleanupDetail ?? "Cleanup did not complete."
+    } Run discern worktree prune from ${root}.`
+    : cleanup === "kept"
+    ? "The repair's checkout stays for the work it still holds. Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation."
+    : "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation.";
   return {
     verb: "accept",
-    ...(!landed || !converged || record.data.note !== "published" ||
-        retirement?.kind === "recovery"
-      ? { ok: false as const, error: "partial_acceptance" as const }
-      : { ok: true as const }),
+    ...(settled
+      ? { ok: true as const }
+      : { ok: false as const, error: "partial_acceptance" as const }),
+    ...(progress.steps.length === 0 ? {} : { steps: [...progress.steps] }),
+    ...(progress.diagnostics.length === 0
+      ? {}
+      : { diagnostics: [...progress.diagnostics] }),
     data: {
       root,
       emergency: {
         landing_id: record.id,
-        candidate_id: record.data.candidate_id,
+        candidate_id: claim.candidate_id,
         reason: claim.reason,
         exceptions: claim.exceptions,
-        outcome: landed
-          ? "landed"
-          : record.data.outcome.kind === "not-landed"
-          ? "not-landed"
-          : "recovery",
-        ...(retirement === undefined ? {} : { retirement: retirement.kind }),
+        outcome: "landed",
+        note: record.data.note,
+        cleanup,
       },
       emergency_validation: await emergencyValidationStatus(root),
     },
-    message: `${
-      landed
-        ? `${
-          markdownCodeSpan(displayBranch(record.data.source.branch))
-        } landed on ${trunk} as an emergency, with no passing Proof.`
-        : notLanded
-        ? `${
-          markdownCodeSpan(displayBranch(record.data.source.branch))
-        } did not land; the emergency was not applied and no Proof was issued.`
-        : `The emergency landing of ${
-          markdownCodeSpan(displayBranch(record.data.source.branch))
-        } needs recovery; no passing Proof was issued.`
-    } ${boundary}\n\n${
-      landed && converged && record.data.note === "published" &&
-        retirement?.kind !== "recovery"
-        ? "Run discern done --rerun on the current committed trunk or a repair containing it to resolve outstanding validation."
-        : notLanded
-        ? "The unlanded outcome is settled. Return to the repair worktree and prepare a new emergency plan for fresh owner review."
-        : `Run discern accept emergency --recover ${record.id} to reconcile this recorded transition.`
-    }`,
+    message: `${lead} ${boundary}\n\n${next}`,
   };
 }

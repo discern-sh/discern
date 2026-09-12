@@ -9,9 +9,6 @@
  */
 
 import { dirname, isAbsolute } from "@std/path";
-import type { SourceRevision } from "../completion/identity.ts";
-import { sameSource } from "../landing_queue/model.ts";
-import { inspectEffortGrantSubject } from "./effort_grant_subject.ts";
 import {
   LANDING_CONSENT_SOURCES,
   type LandingConsent,
@@ -506,9 +503,7 @@ export async function performAcceptanceTransition(
     readonly expectedTrunk: string;
     readonly target: string;
     readonly effortClaim: boolean;
-    readonly source?: SourceRevision;
     readonly grantId?: string;
-    readonly compositionProcedure?: string;
     readonly consent: LandingConsent;
     /** The owner-authorized variances this exact transition lands under. */
     readonly variances: readonly AuthorizedVarianceData[];
@@ -541,23 +536,10 @@ export async function performAcceptanceTransition(
       return { kind: "authority-changed", claim: claimed };
     }
     claim = claimed.claim;
-    let valid = false;
-    try {
-      const current = await inspectEffortGrantSubject(
-        cwd,
-        input.worktreeBranch,
-      );
-      valid = sameSource(claim.grant.source, current.source) &&
-        (input.source === undefined
-          ? current.source.head === input.target
-          : sameSource(input.source, current.source)) &&
-        claim.grant.composition_procedure === current.composition_procedure &&
-        (input.compositionProcedure === undefined ||
-          input.compositionProcedure === current.composition_procedure) &&
-        (input.grantId === undefined || input.grantId === claim.grant.id);
-    } catch {
-      valid = false;
-    }
+    // The grant binds to the effort: its branch must be the one landing, and
+    // a caller that reviewed a specific grant must still hold that one.
+    const valid = claim.grant.branch === input.worktreeBranch &&
+      (input.grantId === undefined || input.grantId === claim.grant.id);
     if (!valid) {
       const restored = await restoreEffortGrantClaim(cwd, claim);
       if (restored) await removeJournal(recorded.path);
@@ -566,8 +548,8 @@ export async function performAcceptanceTransition(
         claim: {
           status: "invalid",
           reason: restored
-            ? "The claimed grant no longer covers the reviewed source and composition procedure. Review the current source; the trunk did not move."
-            : "The claimed grant no longer covers the source and could not be restored. Recover the recorded acceptance before retrying; the trunk did not move.",
+            ? "The recorded grant is not the one this landing reviewed. Review the desk's current grant; the trunk did not move."
+            : "The recorded grant changed and could not be restored. Recover the recorded acceptance before retrying; the trunk did not move.",
         },
       };
     }
@@ -620,7 +602,7 @@ async function restoreRecordedClaim(
   );
   return read.status === "missing"
     ? true
-    : read.status === "claimed" || read.status === "historical-claim"
+    : read.status === "claimed"
     ? await restoreEffortGrantClaim(cwd, read.claim)
     : false;
 }

@@ -169,12 +169,8 @@ import {
 import { type AcceptPlan, acceptPlanToEngine } from "./plan.ts";
 import { readResourceSpecs } from "./resources.ts";
 import { standardLimitApprovalRequests } from "./standard_approval.ts";
-import {
-  clearSubmission,
-  readSubmission,
-  recordSubmission,
-  type Submission,
-} from "./submission.ts";
+import { readSubmission, type Submission } from "./submission.ts";
+import { clearSubmission, recordSubmission } from "./submission_writer.ts";
 import { type SubmissionRow, submissionRows } from "./submissions_view.ts";
 import { resolveWorktreeTarget } from "./target_resolution.ts";
 
@@ -195,15 +191,18 @@ const ACCEPT_NOTHING_LANDED =
 
 const SHORT_SHA_LENGTH = 12;
 
+/** The abbreviated commit id every landing sentence uses. */
 function short(sha: string): string {
   return sha.slice(0, SHORT_SHA_LENGTH);
 }
 
+/** Git's own words for a failed command, with a status fallback. */
 function gitFailureDetail(result: GitResult): string {
   return result.stderr.trim() || result.stdout.trim() ||
     `git exited with status ${result.code}`;
 }
 
+/** Stop before any effect with a complete result the surfaces render as-is. */
 function refusal(
   error: ErrorSlug,
   message: string,
@@ -223,7 +222,7 @@ function refusal(
 // ── the effort ───────────────────────────────────────────────────────────────
 
 /** The checkout whose revision this call submits or lands. */
-interface EffortCheckout {
+export interface EffortCheckout {
   readonly ctx: LifecycleContext;
   readonly path: string;
   readonly branch: string;
@@ -275,7 +274,7 @@ async function refuseFromMainCheckout(
 }
 
 /** Resolve the effort checkout this call operates on. Read-only. */
-async function resolveEffort(
+export async function effortCheckout(
   ctx: LifecycleContext,
   target: string | undefined,
 ): Promise<EffortCheckout | undefined> {
@@ -415,6 +414,7 @@ async function resolveSubject(
       }, but its Proof cannot be read: ${
         error instanceof Error ? error.message : String(error)
       }. Run discern done from ${effort.path}, then discern accept.`,
+      { cause: error },
     );
   }
   if (complete.candidate.head !== submission.head) {
@@ -539,6 +539,7 @@ const ACCEPT_AWAITING_CONSENT_BASE =
   "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
   "or at the desk are checked automatically.";
 
+/** The one refusal an agent relays when landing still needs the owner. */
 function acceptAwaitingConsentMessage(
   authority: LandingAuthorityResolution,
   submitted: boolean,
@@ -643,6 +644,7 @@ function subjectAuthority(
 
 // ── checkpoints and standard proposals ───────────────────────────────────────
 
+/** A reopened or missing checkpoint declaration routes back to `done`. */
 function refuseDeclarationsStale(ids: readonly string[]): never {
   refusal(
     AWAITING_DECLARATION_SLUG,
@@ -673,6 +675,7 @@ function serveUnmetConclusion(unmet: StandingUnmetConclusion): string {
   ].join("\n");
 }
 
+/** Serve the owner's one complete variance decision over every unmet checkpoint. */
 function refuseAwaitingVariance(
   unmet: readonly StandingUnmetConclusion[],
   missing: readonly string[],
@@ -733,6 +736,7 @@ function enforceAcceptanceCheckpoints(
   }
 }
 
+/** Serve the exact standard-limit proposals the owner must approve by token. */
 function refuseAwaitingStandardApproval(
   approvals: readonly StandardLimitApprovalRequestData[],
   confirmed: boolean,
@@ -935,7 +939,9 @@ function trackedRefreshAcceptRefusal(plan: TrackedRefreshPlan): string {
 }
 
 /** Assert the main checkout is clean, idle, and on the trunk. */
-async function assertMainCheckoutReady(effort: EffortCheckout): Promise<void> {
+export async function assertMainCheckoutReady(
+  effort: EffortCheckout,
+): Promise<void> {
   const { mainRepo, trunk } = effort;
   const mainStatus = await runGit(
     ["status", "--porcelain", "-z", "--untracked-files=no"],
@@ -984,6 +990,32 @@ async function assertMainCheckoutReady(effort: EffortCheckout): Promise<void> {
   }
 }
 
+/** The landing's projected steps for one effort, from its own configuration. */
+export function landingPlan(
+  effort: EffortCheckout,
+  ignoredFileChanges: AcceptPlan["ignoredFileChanges"],
+): AcceptPlan {
+  return {
+    worktreeBranch: effort.branch,
+    worktreePath: effort.path,
+    mainRepo: effort.mainRepo,
+    trunk: effort.trunk,
+    proofNotes: effort.ctx.config.repository.proof_notes,
+    repositoryEnsureSteps: effort.ctx.config.repository.ensure,
+    smokeSteps: planStageJobs(effort.ctx.config, "test")
+      .filter((job) =>
+        job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)
+      )
+      .map((job) => ({
+        label: job.label,
+        command: job.command,
+        ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
+      })),
+    hasResources: readResourceSpecs(effort.ctx.config).length > 0,
+    ignoredFileChanges,
+  };
+}
+
 /** The read-only diagnosis an acceptance acts on. */
 async function buildAcceptPlan(
   effort: EffortCheckout,
@@ -1020,29 +1052,12 @@ async function buildAcceptPlan(
     effort.ctx.config.worktree.ignored_file_drift,
   );
   await assertMainCheckoutReady(effort);
-  return {
-    worktreeBranch: effort.branch,
-    worktreePath: effort.path,
-    mainRepo: effort.mainRepo,
-    trunk: effort.trunk,
-    proofNotes: effort.ctx.config.repository.proof_notes,
-    repositoryEnsureSteps: effort.ctx.config.repository.ensure,
-    smokeSteps: planStageJobs(effort.ctx.config, "test")
-      .filter((job) =>
-        job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)
-      )
-      .map((job) => ({
-        label: job.label,
-        command: job.command,
-        ...(job.timeout !== undefined ? { timeout: job.timeout } : {}),
-      })),
-    hasResources: readResourceSpecs(effort.ctx.config).length > 0,
-    ignoredFileChanges,
-  };
+  return landingPlan(effort, ignoredFileChanges);
 }
 
 // ── progress and partial effects ─────────────────────────────────────────────
 
+/** No effect has happened yet. */
 function freshAcceptLandingState(): AcceptLandingState {
   return {
     recovery_performed: false,
@@ -1052,7 +1067,7 @@ function freshAcceptLandingState(): AcceptLandingState {
   };
 }
 
-interface AcceptExecutionProgress {
+export interface AcceptExecutionProgress {
   readonly steps: StepResult[];
   readonly landing: AcceptLandingState;
   readonly scopesChanged: string[];
@@ -1065,7 +1080,8 @@ interface AcceptExecutionProgress {
   readonly authorityWarnings: string[];
 }
 
-function freshAcceptExecutionProgress(
+/** The mutable record of what a landing has done so far, for results and partial reports. */
+export function freshAcceptExecutionProgress(
   steps: StepResult[] = [],
   scopesChanged: string[] = [],
 ): AcceptExecutionProgress {
@@ -1079,6 +1095,7 @@ function freshAcceptExecutionProgress(
   };
 }
 
+/** Project the progress record into the result's data fields. */
 function progressData(
   root: string,
   consent: LandingConsent,
@@ -1133,6 +1150,7 @@ function partialAcceptanceResult(
   };
 }
 
+/** Report a landing that performed some effects and then stopped, effect by effect. */
 function throwPartialAcceptance(
   root: string,
   consent: LandingConsent,
@@ -1145,6 +1163,7 @@ function throwPartialAcceptance(
   );
 }
 
+/** Whether any irreversible effect has been recorded. */
 function landingHasEffects(landing: AcceptLandingState): boolean {
   return landing.recovery_performed || landing.trunk_landed ||
     landing.worktree_removed || landing.branch_deleted;
@@ -1283,7 +1302,7 @@ async function postLandingLocalTemplatesDir(
 }
 
 /** Converge the main checkout on the landed tree; every step is non-fatal. */
-async function convergeMainCheckout(
+export async function convergeMainCheckout(
   effort: EffortCheckout,
   plan: AcceptPlan,
   progress: AcceptExecutionProgress,
@@ -1496,13 +1515,13 @@ async function convergeMainCheckout(
 // ── the landing ──────────────────────────────────────────────────────────────
 
 /** What the cleanup tail found in the effort's checkout after the landing. */
-type CleanupDisposition =
+export type CleanupDisposition =
   | { readonly kind: "removed" }
   | { readonly kind: "later-commits" }
   | { readonly kind: "uncommitted-changes" };
 
 /** Remove the effort's resources, checkout, and branch when nothing remains beyond the landing. */
-async function cleanUpEffort(
+export async function cleanUpEffort(
   effort: EffortCheckout,
   landed: string,
   progress: AcceptExecutionProgress,
@@ -1622,7 +1641,7 @@ async function cleanUpEffort(
 }
 
 /** The first paragraph of a completed landing: the branch, what happened, one next command. */
-function landedMessage(
+export function landedMessage(
   effort: EffortCheckout,
   landed: string,
   disposition: CleanupDisposition,
@@ -1697,7 +1716,7 @@ async function executeLanding(
       );
     }
     const bindingKey = (v: AuthorizedVarianceData): string =>
-      [v.checkpoint, v.definition_hash, v.subject, v.why].join(" ");
+      [v.checkpoint, v.definition_hash, v.subject, v.why].join("\0");
     const live = checkpointsNow.unmet.map((unmet) =>
       bindingKey(varianceBinding(unmet))
     ).sort();
@@ -2050,7 +2069,7 @@ async function landingResult(
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
-  const effort = await resolveEffort(ctx, request.target);
+  const effort = await effortCheckout(ctx, request.target);
   if (effort === undefined) {
     return await refuseFromMainCheckout(
       ctx,

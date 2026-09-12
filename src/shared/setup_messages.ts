@@ -29,10 +29,6 @@
 
 import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { SetupAssurance } from "./setup_assurance.ts";
-import {
-  describeEnvironmentProbe,
-  type EnvironmentProbeSummary,
-} from "./environment_probe.ts";
 import type { SetupCompletionInventory } from "./setup_inventory.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import { type DiscernConfig, parseConfigOrThrow } from "./config_schema.ts";
@@ -578,8 +574,6 @@ export interface CompletionContext {
   reactivation?: CompletionReactivation | undefined;
   proofLine?: string | undefined;
   unproven: boolean;
-  /** Present when completion ran the environment probe. */
-  environmentProbe?: EnvironmentProbeSummary | undefined;
   /** Plain sentences about standards, evidence reuse, and coordination. */
   completionLines?: readonly string[] | undefined;
 }
@@ -661,7 +655,6 @@ export function completionMessage(ctx: CompletionContext): string {
     reactivation,
     proofLine,
     unproven,
-    environmentProbe,
     completionLines = [],
   } = ctx;
   const readyForActivation = !landing.inRepo || landing.onTarget;
@@ -724,9 +717,6 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     `  • ${coverageLine(assurance)}`,
     ...completionLines.map((line) => `  • ${line}`),
-    ...(environmentProbe === undefined
-      ? []
-      : [`  • ${describeEnvironmentProbe(environmentProbe)}`]),
     ...inventoryLines,
     `  • The installed footprint is \`discern.toml\`, the \`discern/\` folder, and the selected coding tools' integration files. ${SETUP_REVERSIBILITY.uninstall}`,
     `  • ${

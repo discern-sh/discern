@@ -15,7 +15,6 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
-import { landedCheckoutFacts } from "./result_completion.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
@@ -31,15 +30,13 @@ import {
   verbatimText,
 } from "./result_markdown_values.ts";
 import {
-  acceptOrganization,
   checkpointEconomicsLine,
   checkpointRowLine,
-  closedSentence,
   emergencyValidationFacts,
   statusQueueFacts,
+  submissionRowLine,
 } from "./result_markdown_queue.ts";
 import { notApplicableCountLabel } from "./setup_assurance.ts";
-import { describeEnvironmentProbe } from "./environment_probe.ts";
 import {
   CompletionAssuranceSchema,
   describeCompletionAssurance,
@@ -804,7 +801,6 @@ const presentSetupStep: ResultMarkdownPresenter = (result) => {
 const presentSetupDone: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const assurance = object(data.assurance);
-  const environmentProbe = object(data.environment_probe);
   const completion = CompletionAssuranceSchema.safeParse(
     object(assurance?.completion),
   );
@@ -852,11 +848,6 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
       ...(completion.success
         ? describeCompletionAssurance(completion.data)
         : []),
-      environmentProbe === undefined ? undefined : describeEnvironmentProbe({
-        proven: strings(environmentProbe.proven),
-        undeclared: strings(environmentProbe.undeclared),
-        isolated: strings(environmentProbe.isolated),
-      }),
       gateProofFact(data.proof),
       inventory === undefined
         ? undefined
@@ -1219,11 +1210,6 @@ const presentGate: ResultMarkdownPresenter = (result) => {
         : `${code(commandName(result))} stopped at ${code(failedStage)}.`,
     ),
     evidence: unique([
-      ...records(data.execution_recovery).map((row) =>
-        `Execution environment ${code(row.environment_id)} requires recovery: ${
-          text(row.reason) ?? ""
-        } Next: ${code(row.next_action)}.`
-      ),
       ...emergencyValidationFacts(data),
       failedStage === undefined
         ? undefined
@@ -1696,14 +1682,11 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
       return `${code(rowBranch)}: Git state unavailable.`;
     }
     const rowProof = object(entry.gate_proof);
-    const kept = text(object(entry.landed_checkout)?.message);
     return `${code(rowBranch)}: ${
       boolean(entry.clean) === true ? "clean" : "dirty"
     }, ${number(entry.ahead) ?? "unknown"} ahead, ${
       number(entry.behind) ?? "unknown"
-    } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.${
-      kept === undefined ? "" : ` Landed. ${kept}`
-    }`;
+    } behind, Proof ${code(text(rowProof?.status) ?? "unknown")}.`;
   });
   const fleetDropFacts = fleet.slice(0, MAX_LIST_ITEMS).flatMap((entry) => {
     const branch = text(entry.branch) ?? "unknown branch";
@@ -1716,11 +1699,6 @@ const presentStatus: ResultMarkdownPresenter = (result) => {
   return {
     state: defaultState(result, state),
     evidence: unique([
-      ...records(data.execution_recovery).map((row) =>
-        `Execution environment ${code(row.environment_id)} requires recovery: ${
-          text(row.reason) ?? ""
-        } Next: ${code(row.next_action)}.`
-      ),
       ...emergencyValidationFacts(data),
       landedExceptionFact(data),
       text(data.root) === undefined ? undefined : `Root: ${code(data.root)}.`,
@@ -1840,74 +1818,46 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
   const consent = object(data.consent);
   const landing = object(data.landing);
-  // The selected effort's section comes first, then the efforts ahead of it,
-  // then everything else — the same organisation as the terminal message.
-  const { rows, own, verdict, label: rowLabel } = acceptOrganization(
-    data,
-    result.dry_run === true,
-  );
-  // A preview answers about the selected effort on this surface too: its
-  // first paragraph is the verdict and the reasons the owner can act on, the
-  // same words the terminal prints, then the conditional sentence a preview
-  // owes: what the command would do without the dry run.
-  const previewLead = result.dry_run === true && verdict !== undefined
-    ? `${text(result.message)?.split("\n\n")[0] ?? verdict}\n\n${
-      code(commandName(result))
-    } would ${
-      text(own?.state) === "ready"
-        ? "land it"
-        : text(own?.state) === "landed"
-        ? "change nothing"
-        : "stop at these conditions"
-    }.`
+  const emergency = object(data.emergency);
+  const queue = records(data.queue);
+  // A preview answers in the terminal's own first paragraph: the verdict and
+  // the reasons the owner can act on, then what the command would do.
+  const previewLead = result.dry_run === true
+    ? text(result.message)?.split("\n\n")[0]
     : undefined;
   return {
     state: previewLead ?? defaultState(
       result,
-      verdict ??
-        (text(data.root) === undefined
-          ? undefined
-          : rows.some((row) => object(row.exception) !== undefined)
-          ? `Recorded landing outcomes for ${code(data.root)}.`
-          : `Landed the validated tree into ${code(data.root)}.`),
+      text(data.root) === undefined
+        ? undefined
+        : emergency !== undefined
+        ? `Recorded an emergency landing into ${code(data.root)}.`
+        : `Landed the validated tree into ${code(data.root)}.`,
     ),
     evidence: unique([
-      ...(own === undefined
-        ? []
-        : records(own.pending).map((item) =>
-          closedSentence(
-            `${code(text(own.branch) ?? "candidate")}: ${
-              text(item.reason) ?? text(item.kind) ?? "pending"
-            }`,
-          )
-        )),
-      ...records(data.execution_recovery).map((row) =>
-        `Execution environment ${code(row.environment_id)} requires recovery: ${
-          text(row.reason) ?? ""
-        } Next: ${code(row.next_action)}.`
-      ),
       ...emergencyValidationFacts(data),
       text(data.root) === undefined
         ? undefined
         : `Main checkout: ${code(data.root)}.`,
-      ...rows.map((row) =>
-        `${rowLabel(row)}: ${text(row.state) ?? "pending"}; ${
-          object(row.exception) === undefined
-            ? "authority"
-            : "emergency exception, no passing Proof; authorization"
-        } ${
-          text(row.authority_settlement) ?? text(row.authority) ?? "pending"
-        }${text(row.state) === "landed" ? landedCheckoutFacts(row) : "."}`
+      ...queue.slice(0, MAX_LIST_ITEMS).map((row) =>
+        submissionRowLine(row, undefined)
       ),
-      ...rows.filter((row) => row !== own).flatMap((row) =>
-        records(row.pending).map((item) =>
-          closedSentence(
-            `${rowLabel(row)}: ${
-              text(item.reason) ?? text(item.kind) ?? "pending"
-            }`,
-          )
-        )
-      ),
+      queue.length > MAX_LIST_ITEMS
+        ? `${queue.length - MAX_LIST_ITEMS} more submissions wait behind these.`
+        : undefined,
+      emergency === undefined
+        ? undefined
+        : `Emergency ${code(text(emergency.landing_id) ?? "landing")}: ${
+          text(emergency.outcome) ?? "preview"
+        }${
+          text(emergency.note) === undefined
+            ? ""
+            : `; exception note ${text(emergency.note)}`
+        }${
+          text(emergency.cleanup) === undefined
+            ? ""
+            : `; checkout ${text(emergency.cleanup)}`
+        }.`,
       listFact("Landed scopes", strings(data.scopes_changed)),
       landing === undefined
         ? undefined
@@ -1938,21 +1888,8 @@ const presentAccept: ResultMarkdownPresenter = (result) => {
       }),
       ...records(data.checkpoint_drops).map(checkpointDropLine),
     ]),
-    supportingMarkdown: uniqueVerbatim(
-      rows.length === 0
-        ? [text(data.proof_line)]
-        : rows.map((row) => text(row.proof_line)),
-    ),
-    boundary: rows.length > 0
-      ? rows.flatMap((row) => {
-        const authority = object(row.consent);
-        return authority === undefined ? [] : [
-          `${code(text(row.branch) ?? "candidate")} uses ${
-            code(text(authority.source) ?? "recorded")
-          } consent.`,
-        ];
-      })
-      : consent === undefined
+    supportingMarkdown: uniqueVerbatim([text(data.proof_line)]),
+    boundary: consent === undefined
       ? []
       : [`Landing used ${code(text(consent.source) ?? "recorded")} consent.`],
   };

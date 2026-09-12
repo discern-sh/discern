@@ -45,6 +45,38 @@ function defineBestEffortBoundaries<
 
 /** The complete named set of deliberate production error-discard boundaries. */
 export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
+  "accept-post-convergence-clean-check-fallback": {
+    path: "src/engine/worktree/accept.ts",
+    enclosingFunction: "convergeMainCheckout",
+    operation: "read the main checkout's tracked status after convergence",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "reported", authority: "DiscernResult" },
+    reason:
+      "The trunk has already landed; an unreadable status makes the clean-check step fail visibly instead of undoing the landing.",
+  },
+  "accept-post-landing-dirty-baseline-fallback": {
+    path: "src/engine/worktree/accept.ts",
+    enclosingFunction: "convergeMainCheckout",
+    operation:
+      "read the main checkout's tracked status right after the fast-forward",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "reported", authority: "DiscernResult" },
+    reason:
+      "The trunk has already landed; an unavailable baseline is reported through the clean-check step's advisory rather than failing the landing.",
+  },
+  "accept-post-landing-templates-fallback": {
+    path: "src/engine/worktree/accept.ts",
+    enclosingFunction: "postLandingLocalTemplatesDir",
+    operation:
+      "resolve the templates directory for post-landing materialization",
+    kind: "direct",
+    shape: "async",
+    observability: { kind: "unobservable" },
+    reason:
+      "Materialization falls back to the default templates directory; the landing and its convergence steps report their own outcomes.",
+  },
   "acceptance-transaction-temp-cleanup": {
     path: "src/engine/worktree/acceptance_transaction.ts",
     enclosingFunction: "writeAcceptanceTransaction",
@@ -1666,15 +1698,15 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
     reason:
       "Fleet rows still report Git facts, while unavailable identity settings cannot safely derive worktree IDs or ports.",
   },
-  "status-queue-projection-fallback": {
-    path: "src/engine/landing_queue/queue_projection.ts",
-    enclosingFunction: "statusQueueRows",
-    operation: "omit the landing-queue rows when the projection cannot read",
+  "submission-row-proof-unreadable": {
+    path: "src/engine/worktree/submissions_view.ts",
+    enclosingFunction: "submissionRow",
+    operation: "treat an unreadable submitted Proof as a waiting row",
     kind: "direct",
     shape: "async",
-    observability: { kind: "unobservable" },
+    observability: { kind: "reported", authority: "DiscernResult" },
     reason:
-      "The queue section is orientation color; an unreadable trunk or record store must not fail the read-only status observation that reports it.",
+      "The queue row states that the Proof cannot be read and names the route; the landing itself re-reads the Proof under its own lock before any effect.",
   },
   "status-root-canonicalization-fallback": {
     path: "src/engine/status/status.ts",

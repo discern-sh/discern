@@ -229,7 +229,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     // "accept" is also an HTTP header and an ordinary verb in the manual.
     matches: ["discern accept"],
     definition:
-      "Land validated, authorized work on the [trunk](#trunk), the project's shared branch. `discern accept` checks the candidate's evidence and permission, including separate permission for earlier work it contains. It lands the exact validated candidate, which can combine several committed changes. Eligible released worktrees and their resources are then retired; a retained checkout or cleanup failure leaves the landing intact. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).",
+      "Land validated, authorized work on the [trunk](#trunk), the project's shared branch. From an effort's worktree, `discern accept` records the effort's [submission](#submission), the exact proven commit, and lands it when conversation consent or a recorded grant authorizes it: it fast-forwards the trunk, records the Proof note, converges the main checkout, and removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed submission. Without authority it refuses, and the submission waits for the owner. See [worktrees](../30-worktrees/) and [landing authority](../30-worktrees/landing-authority.md).",
   },
   {
     term: "Advisory",
@@ -457,7 +457,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     runningCase: "lowercase",
     plain: { keep: "an everyday English word for one piece of work" },
     definition:
-      "One task carried through implementation and review: the work a [worktree](#worktree), its branch, and its queue entry all belong to. Results name an effort by its branch. An effort keeps one worktree across feedback and resumed sessions; the landing queue orders efforts, and `discern accept` lands the selected effort's validated change on the [trunk](#trunk).",
+      "One task carried through implementation and review: the work a [worktree](#worktree), its branch, and its [submission](#submission) all belong to. Results name an effort by its branch. An effort keeps one worktree across feedback and resumed sessions; the landing queue lists efforts by their submissions, and `discern accept` lands the selected effort's submitted commit on the [trunk](#trunk).",
     retired: [{
       phrase: "queue prefix",
       // The queue-walk noun: results once counted "prefixes landed" and told
@@ -557,7 +557,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\blanding\s+authorit(?:y|ies)\b`,
     },
     definition:
-      "Permission for a particular change to join the [trunk](#trunk). It can come from the current conversation, a standing scope grant, or an effort grant recorded from the [desk](#desk). Acceptance checks the permission against the work it would land; earlier included work needs its own authority. A passing [Proof](#proof) is evidence, not permission. See [landing authority](../30-worktrees/landing-authority.md).",
+      "Permission for a particular change to join the [trunk](#trunk). It can come from the current conversation, a standing scope grant on the trunk, or an effort grant recorded from the [desk](#desk), which covers the effort's branch so any later green `done` on it is covered once its agent submits it. Acceptance checks the permission against the submitted commit's changed paths. A passing [Proof](#proof) is evidence, not permission. See [landing authority](../30-worktrees/landing-authority.md).",
   },
   {
     term: "Logbook",
@@ -684,7 +684,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: false,
     },
     definition:
-      "discern's completion evidence for the exact committed change it validated. `discern done` records machine results, held [standards](#standard), and declared checkpoint judgments for the selected candidate, which may combine the task's source with earlier ready work. The Proof line summarizes that evidence; `discern status --verbose` retrieves the full page. Applicable evidence can be reused, but later changes need current validation. Proof does not grant [landing authority](#landing-authority). See [the Proof](../20-quality-gate/the-proof.md).",
+      "discern's completion evidence for the exact committed change it validated. `discern done` records machine results, held [standards](#standard), and declared checkpoint judgments for the committed tip of the invoking worktree. The Proof line summarizes that evidence; `discern status --verbose` retrieves the full page. Evidence whose inputs are unchanged can be reused, but a later commit needs current validation. Proof does not grant [landing authority](#landing-authority). See [the Proof](../20-quality-gate/the-proof.md).",
   },
   {
     term: "Proof note",
@@ -756,7 +756,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bstandards\b`,
     },
     definition:
-      "A held limit for a repeatable project measurement. A `[standards]` entry sets a floor that may rise or a ceiling that may fall. The gate checks the limit and protected measurement definition against the preceding committed policy; an ordinary branch cannot weaken or delete them. Completion requires every standard in each required context, using applicable evidence or a new measurement. `discern standards --pin` captures a gain; `discern prepare` requests no measurements. A weaker limit needs the separate owner-approved proposal process. See [standards](../20-quality-gate/standards.md).",
+      "A held limit for a repeatable project measurement. A `[standards]` entry sets a floor that may rise or a ceiling that may fall. The gate checks the limit and protected measurement definition against the preceding committed policy; an ordinary branch cannot weaken or delete them. Completion requires every standard, using applicable evidence or a new measurement. `discern standards --pin` captures a gain; `discern prepare` requests no measurements. A weaker limit needs the separate owner-approved proposal process. See [standards](../20-quality-gate/standards.md).",
   },
   {
     term: "Trunk",
@@ -766,7 +766,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\btrunks?\b`,
     },
     definition:
-      "The shared branch that accepted work joins, usually `main`. `[repository].trunk` selects it. Tasks bring its changes into their own worktrees with `discern update`; `discern accept` lands validated, authorized candidates on it.",
+      "The shared branch that accepted work joins, usually `main`. `[repository].trunk` selects it. Tasks bring its changes into their own worktrees with `discern update`; `discern accept` fast-forwards it to a submitted, proven, authorized commit.",
     retired: [
       { phrase: "integration branch" },
       {
@@ -780,6 +780,15 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
         pattern: String.raw`\bnot_on_integration_branch\b`,
       },
     ],
+  },
+  {
+    term: "Submission",
+    runningCase: "lowercase",
+    plain: {
+      phrase: "the agent's request to land one exact finished version",
+    },
+    definition:
+      "An effort's recorded request to land one exact commit. `discern accept` writes it from the effort's worktree, naming the effort, its branch, the committed revision, and the [Proof](#proof) that covers it, and stores it beside the effort grant under the worktree's Git administration so no branch can forge it. A later `discern accept` from the same effort replaces it, a landing consumes it, and dropping the worktree removes it. The landing queue lists submissions with honored [Proof](#proof) that have not landed, pre-authorized ones first; a green run its agent never submitted is absent and lands only by the owner's explicit act. See [landing authority](../30-worktrees/landing-authority.md).",
   },
   {
     term: "Tidy",
@@ -824,7 +833,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bworktrees?\b`,
     },
     definition:
-      "A separate working copy and branch for one effort. `discern start` creates it so task edits stay apart from the main checkout and other efforts. Review and resumed sessions continue the same effort. Successful completion normally releases authoring control; discern may then use or retire an eligible released checkout. `discern done --retain-checkout` keeps authoring control when further edits are planned. Each worktree has a derived port and declared [resources](#worktree-resource); `discern enter` opens a child shell in a selected checkout. See [worktrees](../30-worktrees/).",
+      "A separate working copy and branch for one effort. `discern start` creates it so task edits stay apart from the main checkout and other efforts. Review and resumed sessions continue the same effort; a worktree changes only through the operation run in it, and no operation installs another revision into it. A landing removes the worktree, its resources, and its branch when the branch holds nothing beyond the landed [submission](#submission). Each worktree has a derived port and declared [resources](#worktree-resource); `discern enter` opens a child shell in a selected checkout. See [worktrees](../30-worktrees/).",
   },
   {
     term: "Worktree resource",

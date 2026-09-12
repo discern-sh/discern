@@ -1,7 +1,4 @@
-import { greenRunNotices } from "../completion/early_validation_notice.ts";
 import { retainResultDiagnostics } from "./diagnostic_output.ts";
-import { recoveryRequestResult } from "../execution/public_recovery.ts";
-import { releaseCheckoutRequestResult } from "./public_release.ts";
 import {
   emergencyValidationStatus,
   resolveEmergencyValidation,
@@ -12,11 +9,8 @@ import type { ProducerBoundary } from "../validation/execute.ts";
 import { createGeneratedBuildBoundary } from "./generated_drift.ts";
 import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { captureCandidateReview } from "./candidate_review.ts";
-import type { EnvironmentArtifact } from "../execution/types.ts";
-import type {
-  CompletionSession,
-  ReleasedCompletionExecution,
-} from "../landing_queue/public_completion.ts";
+import type { CompletionArtifact } from "../completion/artifacts.ts";
+import type { CompletionSession } from "../completion/source_tip.ts";
 import { configuredValidation } from "../validation/configuration.ts";
 import { standaloneValidation } from "../validation/diagnostics.ts";
 import {
@@ -25,7 +19,7 @@ import {
   type PublicValidationRun,
 } from "../validation/public_run.ts";
 import { completionTreeRefusal, runCompleteGate } from "./complete_gate.ts";
-import { reusableGreenProof, reuseReviewedProof } from "./review_release.ts";
+import { reusableGreenProof } from "./review_release.ts";
 import { retainProofPresentation } from "./proof_presentation.ts";
 import { readCompleteProof } from "./completion_proof.ts";
 import type { CompletionProofPointer } from "../../shared/completion_proof.ts";
@@ -238,10 +232,6 @@ async function runGateBody(
       ...(presentation.standalone === undefined
         ? {}
         : { standalone: presentation.standalone }),
-      ...(presentation.execution ?? {}),
-      ...(presentation.retainCheckout === undefined
-        ? {}
-        : { retainCheckout: presentation.retainCheckout }),
       ...(signal === undefined ? {} : { signal }),
     },
     async (session) => {
@@ -259,7 +249,7 @@ async function runGateBody(
       if (request !== undefined) {
         const preamble = await resolveDonePreamble(root, request, {
           ...donePreambleOperations(
-            session.execution.candidate.expected_predecessor.head,
+            session.execution.candidate.predecessor,
           ),
           reusableGreenProof: () => Promise.resolve(undefined),
         });
@@ -340,9 +330,6 @@ async function runCandidateGate(
       ciRecovery: boolean;
     };
     completion?: CompletionSession;
-    execution?: ReleasedCompletionExecution;
-    recover?: string;
-    retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
     standalone?: boolean;
@@ -362,7 +349,7 @@ async function runCandidateGate(
     outputWithheld: boolean;
     presentationWritable: boolean;
     validationRun?: PublicValidationRun;
-    review?: EnvironmentArtifact;
+    review?: CompletionArtifact;
     finalize: (pointer: CompletionProofPointer) => Promise<boolean>;
   }
 > {
@@ -456,7 +443,7 @@ async function runCandidateGate(
   //     config both fail closed; a remote-tracking ref never substitutes for
   //     the configured local ref.
   const policyBase = presentation.policyBase ??
-    presentation.completion?.execution.candidate.expected_predecessor.head ??
+    presentation.completion?.execution.candidate.predecessor ??
     mainBranch;
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
@@ -781,7 +768,7 @@ async function runCandidateGate(
           context: presentation.completion.context,
           mode: presentation.completion.mode,
         },
-        bindComposition: true,
+        bindAttempt: true,
         ...(presentation.completion.rerun_of === undefined
           ? {}
           : { rerun_of: presentation.completion.rerun_of }),
@@ -971,7 +958,7 @@ async function runCandidateGate(
       diagnostics: result.diagnostics ?? [],
     })
     : undefined;
-  // Landing evidence is published only after the environment has returned and queue admission succeeds.
+  // Landing evidence is published only after the complete Proof is assembled.
   const gateProof: NonNullable<GateData["gate_proof"]> = {
     status: presentation.completion === undefined
       ? treePin.clean ? "diagnostic" : "skipped_dirty"
@@ -985,7 +972,7 @@ async function runCandidateGate(
         : `Standalone feedback does not issue Proof. A full discern done run does, and it needs a clean committed tree; this tree was not clean when the run began${
           describeDirtyPaths(treePin.dirtyPaths)
         }.`
-      : "Complete queue admission is pending.",
+      : "Complete Proof is pending.",
   };
   if (result.data !== undefined) {
     result.data.gate_proof = gateProof;
@@ -1001,7 +988,7 @@ async function runCandidateGate(
         "local",
       pending_reasons: presentation.completion === undefined
         ? []
-        : ["Complete queue admission is pending."],
+        : ["Complete Proof is pending."],
     };
   }
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
@@ -1062,9 +1049,6 @@ async function runCandidateGate(
   // accept both read that first hint as their headline.
   const leadingFailureHints = failedStage !== null ? jobOutputHints : [];
   const trailingJobHints = failedStage === null ? jobOutputHints : [];
-  // A green run in a project whose early checking cannot run says so here,
-  // where the owner expected it to matter.
-  const runNotices = await greenRunNotices(root, cfg, failedStage !== null);
   const hints: FiredHint[] = [
     ...leadingFailureHints,
     ...(failedStage === null && gateProof.status === "skipped_dirty"
@@ -1075,7 +1059,6 @@ async function runCandidateGate(
     ...(divergenceWarning !== undefined ? [divergenceWarning] : []),
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(strandUnavailableHint === undefined ? [] : [strandUnavailableHint]),
-    ...runNotices,
     ...checkpointAdvisoryHints,
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
@@ -1715,7 +1698,6 @@ const DONE_PREAMBLE_OPERATIONS = {
 /** Report comparisons name the fetched predecessor before checkpoint inspection. */
 function donePreambleOperations(
   predecessor?: string,
-  ownership?: { retain: boolean; signal?: AbortSignal },
 ): DonePreambleOperations {
   return {
     ...DONE_PREAMBLE_OPERATIONS,
@@ -1730,14 +1712,6 @@ function donePreambleOperations(
           predecessor,
         ),
     } satisfies Partial<DonePreambleOperations>),
-    ...(ownership === undefined ? {} : {
-      reusableGreenProof: (root) =>
-        reuseReviewedProof(
-          root,
-          DONE_PREAMBLE_OPERATIONS.reusableGreenProof,
-          ownership,
-        ),
-    } satisfies Partial<DonePreambleOperations>),
   };
 }
 
@@ -1749,11 +1723,6 @@ export type FinishResultSurface =
 /** Options for an in-process full-gate run. The required surface prevents a new
  * composite command from inheriting machine silence while a person waits. */
 export interface FinishResultOptions {
-  /** Internal accept capability names an already released slot and its observed stamp. */
-  execution?: ReleasedCompletionExecution;
-  recover?: string;
-  releaseCheckout?: boolean;
-  retainCheckout?: boolean;
   policyBase?: string;
   standalone?: boolean;
   context?: string;
@@ -1792,10 +1761,6 @@ export async function finishResult(
   root: string,
   opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
-  const release = await releaseCheckoutRequestResult(root, opts);
-  if (release !== undefined) return release;
-  const recovery = await recoveryRequestResult(root, opts);
-  if (recovery !== undefined) return recovery;
   const treeRefusal = await completionTreeRefusal(root, opts.standalone);
   if (treeRefusal !== undefined) return treeRefusal;
   const mode = opts.ci === true ? "report" as const : "strict" as const;
@@ -1805,7 +1770,7 @@ export async function finishResult(
       verb: "done",
       error: "invalid_arguments",
       message:
-        "An explicit policy base is available only for standalone CI reports; strict completion always uses its recorded queue predecessor.",
+        "An explicit policy base is available only for standalone CI reports; strict completion always checks against the trunk's current tip.",
     };
     return refusal;
   }
@@ -1840,8 +1805,7 @@ export async function finishResult(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    ("execution" in opts && opts.execution !== undefined);
+  const rerunRequested = opts.rerun === true || opts.standalone === true;
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
     root,
@@ -1854,22 +1818,13 @@ export async function finishResult(
         (await pinValidatedTree(root)).clean,
       ...(opts.signal === undefined ? {} : { signal: opts.signal }),
     },
-    donePreambleOperations(opts.policyBase, {
-      retain: opts.retainCheckout === true,
-      ...(opts.signal === undefined ? {} : { signal: opts.signal }),
-    }),
+    donePreambleOperations(opts.policyBase),
   );
   if (preamble.kind !== "proceed") return preamble.result;
   if (opts.surface.kind === "quiet") {
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
       cliModel: opts.cliModel,
-      ...(opts.retainCheckout === undefined
-        ? {}
-        : { retainCheckout: opts.retainCheckout }),
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...("execution" in opts && opts.execution !== undefined
-        ? { execution: opts.execution }
-        : {}),
       ...(opts.context === undefined ? {} : { context: opts.context }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
@@ -1897,13 +1852,7 @@ export async function finishResult(
     opts.signal,
     {
       cliModel: opts.cliModel,
-      ...(opts.retainCheckout === undefined
-        ? {}
-        : { retainCheckout: opts.retainCheckout }),
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...("execution" in opts && opts.execution !== undefined
-        ? { execution: opts.execution }
-        : {}),
       ...(opts.context === undefined ? {} : { context: opts.context }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
@@ -1964,9 +1913,6 @@ export async function runFinish(
   opts: {
     json: boolean;
     standalone?: boolean;
-    recover?: string;
-    releaseCheckout?: boolean;
-    retainCheckout?: boolean;
     policyBase?: string;
     context?: string;
     /** Fully attached live command tree, owned and injected by the entry point. */
@@ -1979,18 +1925,6 @@ export async function runFinish(
     unmet?: { id: string; why: string };
   },
 ): Promise<number> {
-  const release = await releaseCheckoutRequestResult(root, opts);
-  if (release !== undefined) {
-    observeResult(release);
-    emitResult(release);
-    return release.ok ? 0 : 1;
-  }
-  const recovery = await recoveryRequestResult(root, opts);
-  if (recovery !== undefined) {
-    observeResult(recovery);
-    emitResult(recovery);
-    return recovery.ok ? 0 : 1;
-  }
   const treeRefusal = await completionTreeRefusal(root, opts.standalone);
   if (treeRefusal !== undefined) {
     observeResult(treeRefusal);
@@ -2017,8 +1951,7 @@ export async function runFinish(
     met: opts.met ?? [],
     ...(opts.unmet !== undefined ? { unmet: opts.unmet } : {}),
   };
-  const rerunRequested = opts.rerun === true || opts.standalone === true ||
-    ("execution" in opts && opts.execution !== undefined);
+  const rerunRequested = opts.rerun === true || opts.standalone === true;
   const terminal = terminalContext();
   const preamble = await resolveDonePreamble(
     root,
@@ -2030,9 +1963,7 @@ export async function runFinish(
       deferRerunGuard: !opts.standalone &&
         (await pinValidatedTree(root)).clean,
     },
-    donePreambleOperations(opts.policyBase, {
-      retain: opts.retainCheckout === true,
-    }),
+    donePreambleOperations(opts.policyBase),
   );
   if (preamble.kind === "reuse") {
     observeResult(preamble.result);
@@ -2066,9 +1997,6 @@ export async function runFinish(
       undefined,
       {
         cliModel: opts.cliModel,
-        ...(opts.retainCheckout === undefined
-          ? {}
-          : { retainCheckout: opts.retainCheckout }),
         ...(opts.policyBase === undefined
           ? {}
           : { policyBase: opts.policyBase }),

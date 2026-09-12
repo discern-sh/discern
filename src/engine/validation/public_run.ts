@@ -50,7 +50,7 @@ import {
   observeCompletionRecords,
   observeValidationInputs,
 } from "./runtime.ts";
-import { bindExecutionValidation } from "../execution/validation_binding.ts";
+import { bindAttemptDemand } from "../completion/attempt_lifecycle.ts";
 import {
   candidateConditions,
   ContextFactsSchema,
@@ -186,7 +186,7 @@ export function producerLabel(selector: string): string {
     : selector;
 }
 
-/** All process effects remain below the environment lease; diagnostic results stay transient. */
+/** All process effects remain within the attempt's lease; diagnostic results stay transient. */
 export async function executePublicValidation(input: {
   readonly root: string;
   readonly config: DiscernConfig;
@@ -194,7 +194,8 @@ export async function executePublicValidation(input: {
   readonly claimed: ValidationSubject;
   readonly demand: ValidationDemand;
   readonly stageDependencies?: boolean;
-  readonly bindComposition?: boolean;
+  /** Bind the reserved attempt to the planned demand before producers run. */
+  readonly bindAttempt?: boolean;
   readonly rerun_of?: string;
   readonly producerBoundary?: ProducerBoundary;
   readonly capacity?: PublicValidationCapacity;
@@ -219,11 +220,7 @@ export async function executePublicValidation(input: {
   const inherited = await observeCompletionRecords(root);
   const observation = diagnostic ? { ...inherited, records: [] } : inherited;
   const overrides = { [TEST_RUN_SLOT_ENV]: TEST_RUN_SLOT_VALUE };
-  const seed = "diagnostic" in input.claimed
-    ? input.claimed.seed
-    : input.claimed.environment.ownership.kind === "borrowed"
-    ? input.claimed.environment.ownership.identity.seed
-    : 0;
+  const seed = input.claimed.seed;
   const conditions = await currentValidationConditions(
     root,
     configured,
@@ -463,11 +460,11 @@ export async function executePublicValidation(input: {
   });
   const observed = await evaluator.observe(snapshot.candidate_id);
   const plan = evaluator.plan(observed, demand, snapshot.candidate_id);
-  if (input.bindComposition && plan.blockers.length === 0) {
+  if (input.bindAttempt && plan.blockers.length === 0) {
     if (!("fence" in execution)) {
       throw new Error("Diagnostics cannot bind a completion attempt.");
     }
-    execution = await bindExecutionValidation(root, execution, plan);
+    execution = await bindAttemptDemand(root, execution, plan);
   }
   if ("diagnostic" in execution) {
     execution = {
@@ -777,7 +774,7 @@ export async function executePublicValidation(input: {
       {
         kind: "timing",
         interval_id: execution.attempt.identity.id,
-        category: "execution",
+        category: "validation",
         started_at: startedAt,
         finished_at: finishedAt,
       },

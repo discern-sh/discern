@@ -705,7 +705,7 @@ export async function runChecks(
   // the standards share or duplicate, and whose evidence is candidate-bound.
   // Derived from the same authorities `setup done` reports, so the two surfaces
   // cannot disagree.
-  checks.push(...await completionConfigurationChecks(destDir, config));
+  checks.push(...await completionConfigurationChecks(config));
 
   // 5b. Git attributes and generated-artifact declarations — verify the managed
   // block, then probe the command and ownership facts the gate and update rely

@@ -1095,7 +1095,7 @@ export const DESK_ACTION_REGISTRY = {
     // point, so a Gate run cannot make this human authority choice unsafe.
     availableWhileRunning: true,
     label: (_context: DeskActionLabelContext): string =>
-      "Approve this committed source",
+      "Pre-authorize landing once green",
     command: (_context: DeskActionLabelContext): DeskCommandEvidence => ({
       argv: ["discern", "desk"],
       workingDirectory: "main",
@@ -1103,9 +1103,12 @@ export const DESK_ACTION_REGISTRY = {
     consequence: (_context: DeskActionLabelContext): DeskConsequence =>
       consequences(
         ["Task and branch"],
-        ["Record human landing authority for this task"],
+        ["Let any later green done on this branch land without a further conversation"],
         [],
-        ["Revoke the grant from this task before it lands"],
+        [
+          "Revoke the grant from this task before it lands",
+          "A variance, a standard proposal, or an emergency still needs you",
+        ],
       ),
     confirmation: {
       kind: "confirm",
@@ -1117,7 +1120,7 @@ export const DESK_ACTION_REGISTRY = {
       isUnhealthy(facts.entry)
         ? "The task is not healthy enough to receive landing authority."
         : facts.effortGranted
-        ? "This committed source already has landing approval."
+        ? "This task is already pre-authorized to land once green."
         : undefined,
     recommended: (_facts: DeskActionFacts): boolean => false,
   },

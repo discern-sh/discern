@@ -728,28 +728,10 @@ export const CompletionEconomicsSchema = z.strictObject({
   timing: z.record(z.string(), CompletionIntervalEconomicsSchema),
   observed_wall: CompletionIntervalEconomicsSchema,
   invalidations: z.record(z.string(), z.number().int().nonnegative()),
-  invalidated_predictions: z.number().int().nonnegative(),
-  eligible_predictions: z.number().int().nonnegative().nullable().optional(),
-  successful_predictions: z.number().int().nonnegative().optional(),
-  resolved_prediction_misses: z.number().int().nonnegative().optional(),
-  unresolved_predictions: z.number().int().nonnegative().optional(),
-  conflicting_prediction_outcomes: z.number().int().nonnegative().optional(),
-  withdrawals_before_green: z.number().int().nonnegative().optional(),
-  invalidated_candidate_executions: z.number().int().nonnegative().nullable()
-    .optional(),
-  invalidated_candidate_producer_work_ms: z.number().nonnegative().nullable()
-    .optional(),
   validation_runs: z.number().int().nonnegative().optional(),
   reuse_only_runs: z.number().int().nonnegative().optional(),
-  prediction_denominator: z.number().int().nonnegative().nullable(),
-  prediction_miss_rate: z.number().min(0).max(1).nullable(),
-  withdrawals_after_prediction: z.number().int().nonnegative(),
-  withdrawals_without_prediction_evidence: z.number().int().nonnegative(),
-  landings: z.number().int().nonnegative(),
-  emergency_landings: z.number().int().nonnegative(),
-  retirements: z.record(z.string(), z.number().int().nonnegative()),
-  returns: z.record(z.string(), z.number().int().nonnegative()),
-  unknown_return_identity: z.number().int().nonnegative(),
+  /** Distinct strict Proofs observed in the window. */
+  proofs: z.number().int().nonnegative(),
   limitations: z.array(z.string()),
 });
 export type CompletionEconomics = z.infer<typeof CompletionEconomicsSchema>;

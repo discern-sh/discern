@@ -5,29 +5,17 @@ import {
   type CompletionEvent,
 } from "../completion/protocol.ts";
 import { EvidenceSchema } from "../completion/evidence.ts";
-import { CompletionClaimSchema } from "../completion/authority.ts";
-import {
-  InvalidationReasonSchema,
-  LandingSchema,
-  RetirementSchema,
-} from "../completion/outcomes.ts";
+import { InvalidationReasonSchema } from "../completion/outcomes.ts";
 
 const facts = {
-  admitted: z.looseObject({
-    kind: z.literal("admitted"),
+  proven: z.looseObject({
+    kind: z.literal("proven"),
     proof_id: z.string(),
     mode: z.enum(["strict", "report"]),
-    eligible_prediction: z.boolean(),
-    expected_predecessor_candidate_id: z.string().nullable(),
-  }),
-  withdrawn: z.looseObject({
-    kind: z.literal("withdrawn"),
-    admission: z.enum(["before-green", "after-green", "unknown"]),
   }),
   "validation-summary": z.looseObject({
     kind: z.literal("validation-summary"),
     demand: z.enum([
-      "compose",
       "done",
       "test",
       "standards",
@@ -72,7 +60,6 @@ const facts = {
     kind: z.literal("invalidated"),
     reason: InvalidationReasonSchema,
     affected_candidate_ids: z.array(z.string()),
-    eligible_prediction: z.boolean(),
   }),
   timing: z.looseObject({
     kind: z.literal("timing"),
@@ -80,31 +67,6 @@ const facts = {
     category: z.enum(COMPLETION_TIMING_CATEGORIES),
     started_at: z.number(),
     finished_at: z.number(),
-  }),
-  restoration: z.looseObject({
-    kind: z.literal("restoration"),
-    outcome: z.enum(["restored", "reset", "disposed", "recovery-incomplete"]),
-  }),
-  landing: z.looseObject({
-    kind: z.literal("landing"),
-    landing_id: z.string(),
-    outcome: z.enum(
-      LandingSchema.shape.outcome.options.map((schema) =>
-        schema.shape.kind.value
-      ),
-    ),
-    claim_kind: z.enum(
-      CompletionClaimSchema.options.map((schema) => schema.shape.kind.value),
-    ),
-  }),
-  retirement: z.looseObject({
-    kind: z.literal("retirement"),
-    retirement_id: z.string(),
-    outcome: z.enum(
-      RetirementSchema.shape.outcome.options.map((schema) =>
-        schema.shape.kind.value
-      ),
-    ),
   }),
 } satisfies {
   [Kind in CompletionEvent["fact"]["kind"]]: z.ZodType<
@@ -118,7 +80,6 @@ export const completionObservationSchema = z.looseObject({
   effort_id: z.string(),
   source_head: z.string(),
   candidate_id: z.string().nullable(),
-  environment_id: z.string().nullable(),
   attempt_id: z.string().nullable(),
   executor_operation: z.string(),
   at: z.number(),

@@ -6,15 +6,11 @@
  * with the worktree. A later `accept` from the same effort replaces it; a
  * landing consumes it. The landing queue is the list of these records, so a
  * green run its agent never submitted is absent from the queue and lands only
- * by the owner's explicit act.
+ * by the owner's explicit act. This module reads; `submission_writer.ts`
+ * holds the capability to record and consume.
  */
 
-import { dirname } from "@std/path";
 import { z } from "@zod/zod";
-import {
-  atomicReplaceJson,
-  removeIfExists,
-} from "../../shared/atomic_write.ts";
 import { CompletionProofPointerSchema } from "../../shared/completion_proof.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import {
@@ -99,38 +95,4 @@ export async function readSubmission(cwd: string): Promise<SubmissionRead> {
     : read.status === "malformed"
     ? { status: "invalid", reason: "the submission is malformed" }
     : read;
-}
-
-/** Record or replace the effort's submission with the exact revision given. */
-export async function recordSubmission(
-  cwd: string,
-  submission: Omit<Submission, "version">,
-): Promise<Submission> {
-  const path = await gitAdminStatePath(cwd, "submission");
-  if (path === undefined) {
-    throw new Error("Git could not resolve the submission path.");
-  }
-  const record = SubmissionSchema.parse({
-    version: ON_DISK_FORMATS.submission.version,
-    ...submission,
-  });
-  await Deno.mkdir(dirname(path), { recursive: true });
-  await atomicReplaceJson(path, record, {
-    mode: 0o600,
-    sync: true,
-    trailingNewline: true,
-  });
-  return record;
-}
-
-/** Consume the submission after its landing, or withdraw it; absence is settled. */
-export async function clearSubmission(cwd: string): Promise<boolean> {
-  const path = await gitAdminStatePath(cwd, "submission");
-  if (path === undefined) return false;
-  try {
-    await removeIfExists(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

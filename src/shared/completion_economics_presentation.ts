@@ -32,37 +32,16 @@ export function completionEconomicsLines(value: CompletionEconomics): string[] {
     } sum (${spans.observations} observed, ${spans.unknown} unknown)`
   );
   return [
-    `Completion window ${first} to ${last}: ${value.efforts} efforts, ${value.candidates} candidates, ${value.landings} landings (${value.emergency_landings} emergency).`,
+    `Completion window ${first} to ${last}: ${value.efforts} efforts, ${value.candidates} candidates, ${value.proofs} strict Proofs.`,
     `Native producer executions: ${
       value.producer_executions ?? "unknown"
     }; reused component receipts: ${value.reused_receipts}; observed reuse-only validations: ${
       value.reuse_only_runs ?? "unknown"
     }. Summed producer work: ${seconds(value.producer_work_ms)}.`,
-    `Approval-to-land: ${latency("approval-to-land")}. Validation feedback: ${
-      latency("validation-feedback")
-    }.`,
-    `Prediction outcomes: ${
-      value.successful_predictions ?? "unknown"
-    } successes; ${
-      value.resolved_prediction_misses ?? "unknown"
-    } misses; denominator ${
-      value.prediction_denominator ?? "unknown"
-    } resolved of ${
-      value.eligible_predictions ?? "unknown"
-    } eligible admissions. Miss rate: ${
-      value.prediction_miss_rate === null
-        ? "unknown"
-        : `${(100 * value.prediction_miss_rate).toFixed(1)}%`
-    }; ${value.unresolved_predictions ?? "unknown"} unresolved and ${
-      value.conflicting_prediction_outcomes ?? "unknown"
-    } ambiguous or emergency outcomes. All observed prediction invalidations: ${value.invalidated_predictions}. Withdrawals after prediction: ${value.withdrawals_after_prediction}; before observed green admission: ${
-      value.withdrawals_before_green ?? "unknown"
-    }.`,
+    `Validation feedback: ${latency("validation-feedback")}.`,
     phases.length === 0
       ? "Phase durations are unknown."
       : `Phase spans: ${phases.join("; ")}.`,
-    `Durations overlap and are not additive completion latency or CPU use. Work on invalidated candidates (${
-      seconds(value.invalidated_candidate_producer_work_ms)
-    }) can be reused; it is not an estimate of discarded work. Missing history and changed conditions limit comparisons. Observations grant no Proof, ownership or recovery authority.`,
+    "Durations overlap and are not additive completion latency or CPU use. Invalidated work can be reused; it is not an estimate of discarded work. Missing history and changed conditions limit comparisons. Observations grant no Proof or ownership authority.",
   ];
 }

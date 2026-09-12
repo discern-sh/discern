@@ -15,6 +15,7 @@ import type {
   MachineAssembly,
   ValidationDemand,
 } from "../completion/protocol.ts";
+import type { PublicationFence } from "../completion/store.ts";
 import { type Clock, SYSTEM_CLOCK } from "../../shared/clock.ts";
 import {
   requirementKey,
@@ -168,13 +169,6 @@ export function selectEvidence(
       expires_at: attempt.state.claim.expires_at,
     });
   }
-  if (attempt.state.kind === "recovery") {
-    return blocked({
-      kind: "recovery-incomplete",
-      record_id: latest.id,
-      recovery: attempt.state.recovery,
-    });
-  }
   // A finished attempt can have an unrelated failed producer. Its valid siblings survive.
   if (attempt.state.kind !== "finished" || matching.length !== 1) {
     return blocked({
@@ -263,6 +257,7 @@ export function assembleCandidate(
   requirements: readonly Requirement[],
   records: readonly CompletionRecord[] | EvidenceIndex,
   mode: ValidationDemand["mode"],
+  assembler: PublicationFence,
   audited: ReadonlySet<string> = new Set(),
   clock: Clock = SYSTEM_CLOCK,
 ): MachineAssembly {
@@ -318,24 +313,21 @@ export function assembleCandidate(
     }
   }
   if (blockers.length > 0) return { kind: "incomplete", blockers };
-  // Publication must be attributed to a completion attempt for the consuming candidate.
-  const assembler =
-    index.attempts.filter((r) =>
-      r.kind === "attempt" && r.data.identity.candidate_id === candidateId &&
-      r.data.purpose === "completion" && r.data.mode === mode &&
-      r.data.subjects.length === 0
-    )
-      .sort((a, b) => b.data.identity.sequence - a.data.identity.sequence)[0];
+  // Publication is attributed to the live completion attempt that asked.
+  const owner = index.attempts.find((r) => r.id === assembler.attempt_id);
   if (
-    assembler === undefined || assembler.data.state.kind !== "claimed" ||
-    assembler.data.state.claim.expires_at <= clock.wallNow()
+    owner === undefined || owner.data.identity.candidate_id !== candidateId ||
+    owner.data.purpose !== "completion" || owner.data.mode !== mode ||
+    owner.data.state.kind !== "claimed" ||
+    owner.data.state.claim.token !== assembler.token ||
+    owner.data.state.claim.expires_at <= clock.wallNow()
   ) {
     return { kind: "incomplete", blockers: [missing] };
   }
   return {
     kind: "complete",
     proof: CandidateProofSchema.parse({
-      attempt_id: assembler.id,
+      attempt_id: owner.id,
       candidate_id: candidateId,
       head: candidate.head,
       policy: candidate.policy,

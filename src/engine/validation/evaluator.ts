@@ -15,7 +15,7 @@ import {
 } from "./selection.ts";
 import { auditArtifacts } from "./artifacts.ts";
 
-/** 4A supplies candidate/policy observation, explicit rerun and the claimed environment. */
+/** The run supplies candidate observation, an explicit rerun, and its claimed attempt. */
 export function createProducerEvaluator(options: {
   readonly snapshot: ValidationSnapshot;
   readonly root: string;
@@ -69,7 +69,7 @@ export function createProducerEvaluator(options: {
     execute: (plan, execution) => {
       if (options.runtime === undefined) {
         throw new Error(
-          "Read-only candidate assessment cannot execute producers. Claim an eligible released environment before validation.",
+          "Read-only candidate assessment cannot execute producers.",
         );
       }
       if (execution.attempt.identity.rerun_of !== (options.rerun_of ?? null)) {
@@ -83,7 +83,14 @@ export function createProducerEvaluator(options: {
         options.clock,
       );
     },
-    assemble: (candidateId, candidate, requirements, evidence, mode) =>
+    assemble: (
+      candidateId,
+      candidate,
+      requirements,
+      evidence,
+      mode,
+      assembler,
+    ) =>
       assembleCandidate(
         options.snapshot,
         candidateId,
@@ -91,6 +98,7 @@ export function createProducerEvaluator(options: {
         requirements,
         evidence,
         mode,
+        assembler,
         audited,
         options.clock,
       ),
