@@ -39,6 +39,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  integrationLandings: {
+    path: "discern/integration-landings",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   logbook: {
     path: "discern/logbook",
     scope: "common",

@@ -188,6 +188,16 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/worktree/submission_writer.ts"],
     newerVersionPolicy: "refuse",
   },
+  integrationLanding: {
+    id: "integration-landing",
+    location: { kind: "git-admin", keys: ["integrationLandings"] },
+    version: 1,
+    versionField: "version",
+    reader:
+      "src/engine/worktree/integration_record.ts#parseIntegrationLandingRecord",
+    writers: ["src/engine/worktree/integration_record.ts"],
+    newerVersionPolicy: "refuse",
+  },
   freshStandardMeasurementEvidence: {
     id: "fresh-standard-measurement-evidence",
     location: {

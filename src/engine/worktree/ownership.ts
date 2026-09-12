@@ -39,6 +39,13 @@ export type AutomaticBranchOwnershipEvidence =
      * ownership evidence was live, and only the final ref update failed. */
     readonly kind: "landing-record";
     readonly branch: string;
+  }
+  | {
+    /** A recorded integration landing: the branch its stored record names is
+     * discern's own disposable integration copy, never an authored effort. */
+    readonly kind: "integration";
+    readonly branch: string;
+    readonly recordedBranch: string;
   };
 
 export type AutomaticBranchOwnership =
@@ -63,6 +70,19 @@ export function classifyAutomaticBranchOwnership(
       reason:
         "a completed landing recorded this branch's verified deletion as outstanding",
     };
+  }
+  if (evidence.kind === "integration") {
+    return evidence.branch === evidence.recordedBranch
+      ? {
+        owned: true,
+        reason:
+          "the recorded integration landing names this branch as its own disposable copy",
+      }
+      : {
+        owned: false,
+        reason:
+          `the recorded integration landing names ${evidence.recordedBranch}, not ${evidence.branch}`,
+      };
   }
   const expected = deriveIdentity(evidence.id, evidence.settings).branch;
   return evidence.branch === expected
