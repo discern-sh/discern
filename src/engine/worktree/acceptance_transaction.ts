@@ -44,6 +44,7 @@ import {
 } from "./git.ts";
 import {
   OperationLockError,
+  type OperationLockWait,
   withAcceptanceRecoveryBoundary,
 } from "../operation_lock.ts";
 import {
@@ -157,13 +158,16 @@ const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
  * The shared capability acquires the common-repository lock before this
  * checkout's lock, so two linked worktrees cannot inspect one another's active
  * acceptance as interrupted state or overlap the shared trunk transition.
+ * With `wait`, a contended boundary queues behind the running landing and
+ * resumes on its own instead of refusing.
  */
 export async function withAcceptanceTransactionLock<T>(
   cwd: string,
   operation: () => Promise<T>,
+  wait?: OperationLockWait,
 ): Promise<T> {
   try {
-    return await withAcceptanceRecoveryBoundary(cwd, operation);
+    return await withAcceptanceRecoveryBoundary(cwd, operation, wait);
   } catch (error) {
     if (error instanceof OperationLockError) {
       throw new WorktreeResultError(error.message, error.result, {

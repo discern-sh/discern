@@ -347,6 +347,78 @@ Deno.test("conflicting writers in one checkout refuse instead of interleaving", 
   });
 });
 
+Deno.test("a waiting acceptance queues behind the running landing and resumes on its own", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const first = await addWorktree(dir, "wt-a");
+    const second = await addWorktree(dir, "wt-b");
+
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const running = withAcceptanceTransactionLock(
+      first,
+      heldOperation(entered.resolve, release.promise),
+    );
+    await entered.promise;
+
+    // Without a wait, the second acceptance refuses at the shared boundary.
+    const refusal = await assertRejects(
+      () => withAcceptanceTransactionLock(second, () => Promise.resolve()),
+      WorktreeResultError,
+    );
+    assertStringIncludes(refusal.message, "common repository boundary");
+
+    // With a wait, it reports the contention once and resumes after release.
+    let contended = 0;
+    const order: string[] = [];
+    const waiting = withAcceptanceTransactionLock(second, () => {
+      order.push("second");
+      return Promise.resolve();
+    }, {
+      onContended: () => {
+        contended += 1;
+        if (contended === 1) release.resolve();
+      },
+    });
+    await running;
+    order.push("first-settled");
+    await waiting;
+    assertEquals(contended, 1);
+    assertEquals(order, ["first-settled", "second"]);
+  });
+});
+
+Deno.test("a cancelled landing wait refuses without running the operation", async () => {
+  await withTempDir(async (dir) => {
+    await initializeRepo(dir);
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const running = withAcceptanceTransactionLock(
+      dir,
+      heldOperation(entered.resolve, release.promise),
+    );
+    await entered.promise;
+
+    const controller = new AbortController();
+    let ran = false;
+    const refusal = await assertRejects(
+      () =>
+        withAcceptanceTransactionLock(dir, () => {
+          ran = true;
+          return Promise.resolve();
+        }, {
+          signal: controller.signal,
+          onContended: () => controller.abort(),
+        }),
+      WorktreeResultError,
+    );
+    assertEquals(ran, false);
+    assertStringIncludes(refusal.message, "cancelled");
+    release.resolve();
+    await running;
+  });
+});
+
 Deno.test("an orphaned lock path is not treated as ownership", async () => {
   await withTempDir(async (dir) => {
     await initializeRepo(dir);

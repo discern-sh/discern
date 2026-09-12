@@ -55,6 +55,8 @@ import {
   type StepResult,
 } from "../../shared/result.ts";
 import { observeCheckpointActivity } from "../../shared/result_capture.ts";
+import { emitCompletionProgress } from "../completion/events.ts";
+import { readOperationJournal } from "../completion/operation_journal.ts";
 import {
   type AcceptData,
   type AcceptLandingState,
@@ -1890,6 +1892,38 @@ async function decideLanding(
   return { authority, consent, variances, standardProposals, drops };
 }
 
+/** Name the landing this call queues behind, from the operation journal, and
+ * report the wait as progress. Advisory: an unreadable journal degrades to the
+ * plain sentence, never to a refusal. */
+async function reportLandingWait(effort: EffortCheckout): Promise<void> {
+  let behind = "another landing";
+  let next = "This call resumes automatically when its turn arrives.";
+  try {
+    const reading = await readOperationJournal(effort.mainRepo);
+    const running = reading.kind === "found"
+      ? { ...reading.record.operation, handle: reading.handle }
+      : reading.kind === "elsewhere"
+      ? reading.newest
+      : undefined;
+    if (running !== undefined) {
+      behind = `\`${running.verb}\` on ${running.branch ?? running.path}`;
+      next =
+        `This call resumes automatically when its turn arrives; read that run with \`discern progress ${running.handle}\`.`;
+    }
+  } catch {
+    // discern-best-effort: accept-landing-wait-journal-fallback
+  }
+  const reason = `Waiting behind ${behind} for the landing boundary.`;
+  effort.ctx.log.info(reason);
+  emitCompletionProgress({
+    phase: "queue",
+    state: "landing-wait",
+    candidate_id: null,
+    reason,
+    next,
+  });
+}
+
 /**
  * Submit and land under the effort's acceptance lock. The apply path recovers
  * an interrupted transaction first, then decides and lands once.
@@ -2026,7 +2060,14 @@ async function landingResult(
     }
   };
   if (request.dryRun) return await body();
-  return await withAcceptanceTransactionLock(effort.path, body);
+  // A second accept waits its turn behind a running landing and resumes on
+  // its own against the resulting trunk; the caller's signal cancels the wait.
+  return await withAcceptanceTransactionLock(effort.path, body, {
+    ...(request.signal === undefined ? {} : { signal: request.signal }),
+    onContended: () => {
+      void reportLandingWait(effort);
+    },
+  });
 }
 
 /**
