@@ -185,6 +185,7 @@ export async function observeEmergencySubject(
   );
   const retained = recordedCandidate(records, {
     sources: [source],
+    head: source.head,
     predecessor: trunkHead,
     policy,
     requirement_set: requirementSet,

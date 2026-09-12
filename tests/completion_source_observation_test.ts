@@ -85,6 +85,7 @@ Deno.test("recorded candidates match on every coordinate and select deterministi
   assert(fixture.kind === "candidate");
   const subject = {
     sources: fixture.data.sources,
+    head: fixture.data.head,
     predecessor: fixture.data.predecessor,
     policy: fixture.data.policy,
     requirement_set: fixture.data.requirement_set,

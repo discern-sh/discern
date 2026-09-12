@@ -116,6 +116,7 @@ export async function measureDeclaredStandards(
       ),
       {
         sources: [source],
+        head: source.head,
         predecessor,
         requirement_set: requirementSet,
         policy,

@@ -76,12 +76,15 @@ export async function predecessorPolicyIdentity(
   return await sha256Hex(read.kind === "absent" ? "absent-config" : read.text);
 }
 
-/** The recorded candidate for exactly these sources, predecessor, policy, and requirement set. */
+/** The recorded candidate for exactly these sources, tested head,
+ * predecessor, policy, and requirement set. The head participates because two
+ * compositions of the same sources yield distinct merge commits; a source-tip
+ * candidate's head is already implied by its single source. */
 export function recordedCandidate(
   records: readonly CompletionRecord[],
   subject: Pick<
     Candidate,
-    "sources" | "predecessor" | "policy" | "requirement_set"
+    "sources" | "head" | "predecessor" | "policy" | "requirement_set"
   >,
 ): Extract<CompletionRecord, { kind: "candidate" }> | undefined {
   return records.filter((
@@ -89,6 +92,7 @@ export function recordedCandidate(
   ): record is Extract<CompletionRecord, { kind: "candidate" }> =>
     record.kind === "candidate" &&
     sameSources(record.data.sources, subject.sources) &&
+    record.data.head === subject.head &&
     record.data.predecessor === subject.predecessor &&
     record.data.policy === subject.policy &&
     record.data.requirement_set === subject.requirement_set
