@@ -181,9 +181,13 @@ export async function completeSourceTip<T>(
       requirement_set: requirementSet,
     });
     const candidateId = prior?.id ?? SYSTEM_SECURE_ENTROPY.uuid();
+    // The newest finished attempt this effort recorded, whichever candidate
+    // recorded it: reusable subjects survive source edits, so an explicit
+    // retry must bound failures a predecessor candidate left behind.
     const rerunOf = options.rerun
       ? finishedValidationAttempts(records).find((attempt) =>
-        attempt.data.identity.candidate_id === candidateId
+        attempt.data.identity.candidate_id === candidateId ||
+        attempt.data.identity.executor.originating_effort === source.effort_id
       )?.id ?? null
       : null;
     const reserved = await reserveAttempt(root, {
