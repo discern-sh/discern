@@ -1,5 +1,5 @@
 import type { EnvReader } from "../../shared/env.ts";
-/** Context observations carry digests, never effective process secrets. */
+/** Condition observations carry digests, never effective process secrets. */
 import { z } from "@zod/zod";
 import { sha256Hex } from "../../shared/sha256.ts";
 import { DISCERN_VERSION } from "../../lib/version.ts";
@@ -10,20 +10,21 @@ import { readArtifact } from "./artifacts.ts";
 import type { ConfiguredValidation } from "./configuration.ts";
 import type { ValidationConditions } from "./catalog.ts";
 
-export const ContextFactsSchema = z.strictObject({
+/** The retained artifact naming the conditions an attempt validated under. */
+export const CONDITION_FACTS_ARTIFACT = "conditions/facts.json";
+
+export const ConditionFactsSchema = z.strictObject({
   version: z.literal(1),
   candidate_id: RecordIdSchema,
-  context: z.string().min(1),
   seed: z.number().int(),
   identity: DigestSchema,
   environment_digests: z.record(z.string(), DigestSchema),
 });
 
-/** Platform and runtime facts belong to execution, independently of composition procedure. */
+/** Platform and runtime facts belong to the validating process, never to the source. */
 export async function currentValidationConditions(
   root: string,
   configured: ConfiguredValidation,
-  context: string,
   seed: number,
   overrides: Readonly<Record<string, string>>,
   inherited: EnvReader = Deno.env,
@@ -40,13 +41,11 @@ export async function currentValidationConditions(
     names.map((name) => [name, effective[name] ?? inherited.get(name)]),
   );
   return {
-    context,
     seed,
     environment,
     identity: await sha256Hex(
       JSON.stringify([
-        "completion-context-v1",
-        context,
+        "completion-conditions-v1",
         DISCERN_VERSION,
         Deno.version,
         Deno.build,
@@ -62,15 +61,18 @@ export async function currentValidationConditions(
   };
 }
 
-/** Each other lane supplies its own observed facts or remains explicitly unobserved. */
+/**
+ * The conditions a candidate's evidence was produced under. A process that
+ * observed its own conditions uses them; a reader of another process's work
+ * takes the retained facts, or states that none were observed.
+ */
 export async function candidateConditions(
   candidateId: string,
-  configured: ConfiguredValidation,
   current: ValidationConditions | undefined,
   observation: CompletionObservation,
   root: string,
 ): Promise<ValidationConditions[]> {
-  const result: ValidationConditions[] = current === undefined ? [] : [current];
+  if (current !== undefined) return [current];
   const records = observation.records.flatMap(({ reading }) =>
     reading.kind === "recorded" ? [reading.record] : []
   );
@@ -88,59 +90,38 @@ export async function candidateConditions(
       ? proof.data.receipts.map((receipt) => receipt.evidence_id)
       : [],
   );
-  const contexts = [
-    ...new Set(
-      configured.obligations.map((obligation) =>
-        obligation.requirement.context
-      ),
-    ),
-  ];
-  for (const context of contexts.filter((name) => name !== current?.context)) {
-    let found: ValidationConditions | undefined;
-    // A complete Proof can refer to unchanged-input receipts produced for an earlier
-    // candidate. Their original context facts remain required; the reader supplies none.
-    const evidence = records.flatMap((record) =>
-      record.kind === "evidence" &&
-        (record.data.candidate_id === candidateId ||
-          referenced.has(record.id)) &&
-        record.data.applicability.context === context
-        ? [record.data]
-        : []
-    )
-      .sort((a, b) => b.sequence - a.sequence);
-    for (const record of evidence) {
-      const artifact = record.artifacts.find((item) =>
-        item.path === "context/facts.json"
-      );
-      if (artifact === undefined) continue;
-      const facts = ContextFactsSchema.parse(
-        JSON.parse(
-          new TextDecoder().decode(await readArtifact(root, artifact)),
-        ),
-      );
-      if (
-        facts.candidate_id !== record.candidate_id ||
-        facts.context !== context ||
-        artifact.context !== context ||
-        artifact.candidate_id !== record.candidate_id ||
-        artifact.attempt_id !== record.attempt_id
-      ) {
-        throw new Error(
-          "Context evidence names a substituted lane or candidate.",
-        );
-      }
-      found = { ...facts, environment: {} };
-      break;
-    }
-    result.push(
-      found ??
-        {
-          context,
-          seed: current?.seed ?? 0,
-          environment: {},
-          identity: await sha256Hex(`unobserved-context:${context}`),
-        },
+  // A complete Proof can refer to unchanged-input receipts produced for an
+  // earlier candidate. Their original condition facts remain required; the
+  // reader supplies none.
+  const evidence = records.flatMap((record) =>
+    record.kind === "evidence" &&
+      (record.data.candidate_id === candidateId || referenced.has(record.id))
+      ? [record.data]
+      : []
+  )
+    .sort((a, b) => b.sequence - a.sequence);
+  for (const record of evidence) {
+    const artifact = record.artifacts.find((item) =>
+      item.path === CONDITION_FACTS_ARTIFACT
     );
+    if (artifact === undefined) continue;
+    const facts = ConditionFactsSchema.parse(
+      JSON.parse(
+        new TextDecoder().decode(await readArtifact(root, artifact)),
+      ),
+    );
+    if (
+      facts.candidate_id !== record.candidate_id ||
+      artifact.candidate_id !== record.candidate_id ||
+      artifact.attempt_id !== record.attempt_id
+    ) {
+      throw new Error("Condition evidence names a substituted candidate.");
+    }
+    return [{ ...facts, environment: {} }];
   }
-  return result;
+  return [{
+    seed: 0,
+    environment: {},
+    identity: await sha256Hex("unobserved-conditions"),
+  }];
 }

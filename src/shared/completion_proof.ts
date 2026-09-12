@@ -66,8 +66,6 @@ export const CompleteProofEvidenceSchema = CompletionProofPointerSchema.extend({
       value.components.some((component) =>
         component.id === receipt.evidence_id &&
         component.evidence.purpose === "completion" &&
-        component.evidence.applicability.context ===
-          receipt.requirement.context &&
         (value.validation.mode === "report" ||
           component.evidence.mode === "strict") &&
         component.evidence.outcome.kind === "passed"

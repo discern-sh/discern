@@ -22,7 +22,7 @@ import {
   type ConfiguredValidation,
   configuredValidation,
 } from "./configuration.ts";
-import { candidateConditions } from "./context.ts";
+import { candidateConditions } from "./conditions.ts";
 import {
   prepareValidationSnapshot,
   type ValidationSnapshot,
@@ -73,9 +73,8 @@ export async function observeCandidateValidation(input: {
   readonly candidate_id: string;
   readonly candidate: Candidate;
   readonly observation: CompletionObservation;
-  readonly context: string;
 }): Promise<CandidateValidationObservation> {
-  const { root, candidate, candidate_id, context } = input;
+  const { root, candidate, candidate_id } = input;
   const config = await candidateConfig(root, candidate.head);
   const paths = await collectPaths(
     root,
@@ -117,7 +116,6 @@ export async function observeCandidateValidation(input: {
     inputs,
     conditions: await candidateConditions(
       candidate_id,
-      configured,
       undefined,
       input.observation,
       root,
@@ -135,7 +133,6 @@ export async function observeCandidateValidation(input: {
     demand: {
       kind: "done",
       mode: "strict",
-      context,
       requirements: snapshot.requirements,
     },
     standards: buildStandardPlan(config).standards,

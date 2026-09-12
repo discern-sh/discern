@@ -56,7 +56,6 @@ export async function retainProofPresentation(
     {
       attempt_id: complete.validation.attempt_id,
       candidate_id: pointer.candidate_id,
-      context: complete.validation.review.context,
     },
     `gate-proof-${pointer.proof_id}`,
     proof,
@@ -90,8 +89,6 @@ export async function readProofPresentation(
     retained.record.data.candidate_id !== pointer.candidate_id ||
     retained.record.data.artifact.attempt_id !==
       complete.validation.attempt_id ||
-    retained.record.data.artifact.context !==
-      complete.validation.review?.context ||
     retained.record.data.artifact.path !==
       `environment/gate-proof-${pointer.proof_id}.json`
   ) {

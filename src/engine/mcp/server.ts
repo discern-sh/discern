@@ -570,9 +570,6 @@ export const TOOLS: McpTool[] = orderTools([
       standalone: z.boolean().optional().describe(
         "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
       ),
-      context: z.string().optional().describe(
-        "The declared execution context this invocation supplies; defaults to local.",
-      ),
     },
     run: (root, args, signal, context) =>
       finishResult(root, {
@@ -582,7 +579,6 @@ export const TOOLS: McpTool[] = orderTools([
         ...(args.standalone === undefined
           ? {}
           : { standalone: args.standalone }),
-        ...(args.context === undefined ? {} : { context: args.context }),
         surface: { kind: "quiet" },
         cliModel: context.cliModel,
         dryRun: args.dry_run === true,

@@ -225,7 +225,6 @@ async function runGateBody(
   >(
     root,
     {
-      context: presentation.context ?? "local",
       mode: presentation.checkpointRequest?.mode ??
         presentation.checkpoints?.mode ?? "strict",
       rerun: presentation.rerun ?? false,
@@ -331,7 +330,6 @@ async function runCandidateGate(
     };
     completion?: CompletionSession;
     policyBase?: string;
-    context?: string;
     standalone?: boolean;
     rerun?: boolean;
     /** Where this run registers its live completion-fact presenter. */
@@ -749,7 +747,6 @@ async function runCandidateGate(
         kind: "standalone",
         base: policyBase,
         mode: presentation.checkpoints?.mode ?? "strict",
-        context: presentation.context ?? "local",
         ...(signal === undefined ? {} : { signal }),
         onProgress,
         producerBoundary,
@@ -765,7 +762,6 @@ async function runCandidateGate(
           requirements: configured.obligations.map((entry) =>
             entry.requirement
           ),
-          context: presentation.completion.context,
           mode: presentation.completion.mode,
         },
         bindAttempt: true,
@@ -984,8 +980,6 @@ async function runCandidateGate(
     }
     result.data.completion = {
       kind: presentation.completion === undefined ? "diagnostic" : "pending",
-      context: presentation.context ?? presentation.completion?.context ??
-        "local",
       pending_reasons: presentation.completion === undefined
         ? []
         : ["Complete Proof is pending."],
@@ -1725,7 +1719,6 @@ export type FinishResultSurface =
 export interface FinishResultOptions {
   policyBase?: string;
   standalone?: boolean;
-  context?: string;
   surface: FinishResultSurface;
   /** Fully attached live command tree, owned and injected by the entry point. */
   cliModel: CliModelProvider;
@@ -1825,7 +1818,6 @@ export async function finishResult(
     return (await runGate(root, { kind: "quiet-result" }, opts.signal, {
       cliModel: opts.cliModel,
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...(opts.context === undefined ? {} : { context: opts.context }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
       ...(preamble.preflight === undefined
@@ -1853,7 +1845,6 @@ export async function finishResult(
     {
       cliModel: opts.cliModel,
       ...(opts.policyBase === undefined ? {} : { policyBase: opts.policyBase }),
-      ...(opts.context === undefined ? {} : { context: opts.context }),
       ...(opts.standalone === undefined ? {} : { standalone: opts.standalone }),
       ...(opts.rerun === undefined ? {} : { rerun: opts.rerun }),
       ...(preamble.preflight === undefined
@@ -1914,7 +1905,6 @@ export async function runFinish(
     json: boolean;
     standalone?: boolean;
     policyBase?: string;
-    context?: string;
     /** Fully attached live command tree, owned and injected by the entry point. */
     cliModel: CliModelProvider;
     dryRun?: boolean;
@@ -2000,8 +1990,6 @@ export async function runFinish(
         ...(opts.policyBase === undefined
           ? {}
           : { policyBase: opts.policyBase }),
-
-        ...(opts.context === undefined ? {} : { context: opts.context }),
         ...(opts.standalone === undefined
           ? {}
           : { standalone: opts.standalone }),

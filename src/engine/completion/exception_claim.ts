@@ -29,7 +29,6 @@ export const ExceptionClaimSchema = z.strictObject({
   (claim) =>
     claim.review === undefined ||
     (claim.review.candidate_id === claim.candidate_id &&
-      claim.review.context === "local" &&
       claim.review.path === "environment/emergency-review.json"),
   "Emergency review must name this candidate and its preparation artifact.",
 );

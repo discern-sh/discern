@@ -39,9 +39,9 @@ export async function readEmergencyPreparation(
     new TextDecoder().decode(decodeBase64(handle.slice(prefix.length))),
     "emergency preparation receipt",
   );
-  if (artifact.candidate_id !== candidateId || artifact.context !== "local") {
+  if (artifact.candidate_id !== candidateId) {
     throw new Error(
-      "Emergency preparation belongs to another candidate or context. Prepare the current repair again.",
+      "Emergency preparation belongs to another candidate. Prepare the current repair again.",
     );
   }
   const review = await readCandidateReviewArtifact(

@@ -102,7 +102,6 @@ export async function prepareEmergency(
       {
         attempt_id: SYSTEM_SECURE_ENTROPY.uuid(),
         candidate_id: after.candidate_id,
-        context: "local",
       },
       "strict",
       proofCheckpointsData(preflight),

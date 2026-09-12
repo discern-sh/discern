@@ -28,7 +28,6 @@ export async function standaloneValidation(input: {
   readonly root: string;
   readonly config: DiscernConfig;
   readonly scopes: readonly string[];
-  readonly context?: string;
   readonly base?: string;
   readonly mode?: "strict" | "report";
   readonly kind: "test" | "standalone";
@@ -49,7 +48,6 @@ export async function standaloneValidation(input: {
       input.scopes,
       stageDependencies,
     );
-    const context = input.context ?? "local";
     const mode = input.mode ?? "strict";
     const effort = `diagnostic-${await sha256Hex(root)}`;
     const facts = await runGit(["rev-parse", "HEAD", "HEAD^{tree}"], {
@@ -118,7 +116,6 @@ export async function standaloneValidation(input: {
     const demand: ValidationDemand = input.kind === "test"
       ? {
         kind: "test",
-        context,
         mode,
         readings: "already-produced",
         producers: [...configured.stages].filter(([, stage]) =>
@@ -127,7 +124,6 @@ export async function standaloneValidation(input: {
       }
       : {
         kind: "standalone",
-        context,
         mode,
         requirements: configured.obligations.filter((entry) =>
           input.standards === undefined ||

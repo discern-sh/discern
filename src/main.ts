@@ -916,11 +916,6 @@ export function buildCli(
       "Toolchain identity file; repeat for every file.",
       { collect: true },
     )
-    .option(
-      "--contexts <value:string>",
-      "Required execution context; repeat for every context.",
-      { collect: true },
-    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
       recordedExit(
@@ -946,8 +941,6 @@ export function buildCli(
             artifacts: options.artifacts,
             environment: options.environment,
             toolchain: options.toolchain,
-            contexts: options.contexts,
-
             notApplicable: options.notApplicable,
             applicable: options.applicable,
           });
@@ -995,11 +988,6 @@ export function buildCli(
       "Toolchain identity file; repeat for every file.",
       { collect: true },
     )
-    .option(
-      "--contexts <value:string>",
-      "Required execution context; repeat for every context.",
-      { collect: true },
-    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(recordedExit(
       "config set-scope",
@@ -1019,7 +1007,6 @@ export function buildCli(
           artifacts: options.artifacts,
           environment: options.environment,
           toolchain: options.toolchain,
-          contexts: options.contexts,
         });
       },
     ));
@@ -1090,11 +1077,6 @@ export function buildCli(
       "Toolchain identity file; repeat for every file.",
       { collect: true },
     )
-    .option(
-      "--contexts <value:string>",
-      "Required execution context; repeat for every context.",
-      { collect: true },
-    )
     .option("--dry-run", "Print the edit and write nothing.")
     .action(
       recordedExit(
@@ -1124,7 +1106,6 @@ export function buildCli(
             artifacts: options.artifacts,
             environment: options.environment,
             toolchain: options.toolchain,
-            contexts: options.contexts,
           });
         },
       ),

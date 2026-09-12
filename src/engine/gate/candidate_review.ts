@@ -34,7 +34,6 @@ export async function captureCandidateReview(
     {
       attempt_id: session.execution.fence.attempt_id,
       candidate_id: session.execution.candidate_id,
-      context: session.context,
     },
     session.mode,
     checkpoints,
@@ -46,7 +45,7 @@ export async function captureCandidateReview(
 export async function recordCandidateReview(
   root: string,
   candidate: Candidate,
-  subject: Pick<CompletionArtifact, "attempt_id" | "candidate_id" | "context">,
+  subject: Pick<CompletionArtifact, "attempt_id" | "candidate_id">,
   mode: "strict" | "report",
   checkpoints: ProofCheckpointsData | undefined,
   proposals: CandidateDecisions["proposals"] = [],

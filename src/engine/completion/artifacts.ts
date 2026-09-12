@@ -19,10 +19,7 @@ export type CompletionArtifact = z.infer<typeof ArtifactSchema>;
 /** The largest document a reader accepts from common storage. */
 export const COMPLETION_DOCUMENT_BYTES = 64 * 1024 * 1024;
 
-type ArtifactSubject = Pick<
-  CompletionArtifact,
-  "attempt_id" | "candidate_id" | "context"
->;
+type ArtifactSubject = Pick<CompletionArtifact, "attempt_id" | "candidate_id">;
 
 /** Reject oversized documents during traversal, before JSON constructs an aggregate string. */
 export function encodeCompletionDocument(value: unknown): string {

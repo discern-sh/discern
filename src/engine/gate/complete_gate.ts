@@ -81,7 +81,6 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   ], { cwd: root });
   // The gate preflight owns the unreadable policy-base diagnostic.
   if (!trunk.success) return (await run(undefined)).value;
-  const context = options.context;
   const completed = await completeSourceTip(
     root,
     options,
@@ -111,7 +110,6 @@ export async function runCompleteGate<T extends CompletionGateResult>(
         producer_executions: {},
         completion: {
           kind: "pending",
-          context,
           pending_reasons: [reason],
           pending: [{ kind: completed.kind, reason }],
         },
@@ -122,7 +120,6 @@ export async function runCompleteGate<T extends CompletionGateResult>(
   if (gate.result.data !== undefined) {
     gate.result.data.completion = {
       kind: completed.proof_id === undefined ? "pending" : "complete",
-      context,
       candidate_id: completed.candidate_id,
       ...(completed.proof_id === undefined
         ? {}

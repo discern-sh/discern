@@ -156,7 +156,6 @@ export async function measureDeclaredStandards(
         bindAttempt: true,
         demand: {
           kind,
-          context: "local",
           mode: "strict",
           requirements: configured.obligations.filter((entry) =>
             entry.requirement.kind === "standard" &&

@@ -166,11 +166,7 @@ export const SETUP_COMPLETION_CHECKS: readonly SetupCompletionCheck[] = [
             : producers.has(standard.producer),
       );
       const distinct = new Set(producers.values()).size === producers.size;
-      const coordinated = config.completion.lookahead === 0 ||
-        config.completion.required_contexts.every((context) =>
-          config.execution[context] !== undefined
-        );
-      return Promise.resolve(resolvable && distinct && coordinated);
+      return Promise.resolve(resolvable && distinct);
     },
   },
   {

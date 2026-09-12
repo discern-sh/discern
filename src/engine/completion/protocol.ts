@@ -70,10 +70,7 @@ export interface ProducerDemand {
 }
 
 export type ValidationDemand =
-  & {
-    readonly context: string;
-    readonly mode: ComponentEvidence["mode"];
-  }
+  & { readonly mode: ComponentEvidence["mode"] }
   & (
     | { readonly kind: "done"; readonly requirements: readonly Requirement[] }
     | {

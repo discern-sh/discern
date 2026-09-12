@@ -263,10 +263,6 @@ export function attachEngineCommands(
       "Run complete diagnostic feedback, including on a dirty tree. Results are transient and issue no Proof.",
     )
     .option(
-      "--context <name:string>",
-      "Supply evidence only for this declared execution context (default: local).",
-    )
-    .option(
       "--rerun",
       "Run the full gate even when current green Proof covers this exact tree, or explicitly retry an unchanged red verdict. The rerun is recorded.",
     )
@@ -341,7 +337,6 @@ export function attachEngineCommands(
         return await runFinish(await requireRoot("done", json), {
           ...(o.policyBase === undefined ? {} : { policyBase: o.policyBase }),
           ...(o.standalone === undefined ? {} : { standalone: o.standalone }),
-          ...(o.context === undefined ? {} : { context: o.context }),
           json,
           cliModel,
           dryRun: o.dryRun ?? false,

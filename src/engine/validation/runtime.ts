@@ -221,13 +221,11 @@ function runtime(
   diagnostic = false,
 ): ValidationRuntime {
   const clock = options.clock ?? SYSTEM_CLOCK;
-  const context = options.conditions.context;
   const subject = (
     execution: ValidationSubject,
-  ): { attempt_id: string; candidate_id: string; context: string } => ({
+  ): { attempt_id: string; candidate_id: string } => ({
     attempt_id: execution.attempt.identity.id,
     candidate_id: execution.candidate_id,
-    context,
   });
   const run = async (
     label: string,
@@ -474,8 +472,7 @@ function runtime(
         if (
           artifact === undefined ||
           artifact.attempt_id !== execution.attempt.identity.id ||
-          artifact.candidate_id !== execution.candidate_id ||
-          artifact.context !== context
+          artifact.candidate_id !== execution.candidate_id
         ) throw new Error("required attempt artifact is absent or mismatched");
         stdin = await readArtifact(options.root, artifact);
       }

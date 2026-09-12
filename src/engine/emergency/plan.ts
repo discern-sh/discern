@@ -179,7 +179,6 @@ export async function observeEmergencySubject(
     candidate_id: provisional.attempt_id,
     candidate: provisional,
     observation,
-    context: "local",
   });
   const requirementSet = await requirementSetIdentity(
     validation.snapshot.requirements,

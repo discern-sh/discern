@@ -49,7 +49,6 @@ import type { CompletionRecord } from "./records.ts";
 /** What the gate receives once the run holds its attempt. */
 export interface CompletionSession {
   readonly execution: ClaimedExecution;
-  readonly context: string;
   readonly mode: "strict" | "report";
   readonly rerun_of?: string;
 }
@@ -99,7 +98,6 @@ function observedRecords(
 export async function completeSourceTip<T>(
   rootInput: string,
   options: {
-    readonly context: string;
     readonly mode: "strict" | "report";
     readonly rerun?: boolean;
     readonly signal?: AbortSignal;
@@ -231,7 +229,6 @@ export async function completeSourceTip<T>(
     try {
       result = await run({
         execution,
-        context: options.context,
         mode: options.mode,
         ...(rerunOf === null ? {} : { rerun_of: rerunOf }),
       });

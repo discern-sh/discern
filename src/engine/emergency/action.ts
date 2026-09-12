@@ -207,7 +207,7 @@ async function prepareAndIntegrate(
           : `${plan.exceptions.length} checks`
       }. Reason: ${plan.reason}\n\n${
         plan.exceptions.map((entry) =>
-          `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id} (${entry.requirement.context})`
+          `${entry.state}: ${entry.requirement.kind} ${entry.requirement.id}`
         ).join("\n")
       }\n\n${boundary}\n\nReview this plan with the owner. After fresh explicit approval, repeat accept emergency with the same --reason, ${
         options.preparation === undefined

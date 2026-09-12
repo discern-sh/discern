@@ -54,7 +54,6 @@ interface ProducerOptions {
   artifacts?: string[] | undefined;
   environment?: string[] | undefined;
   toolchain?: string[] | undefined;
-  contexts?: string[] | undefined;
 }
 
 /** Preserve every supplied producer fact in one atomic record edit. */
@@ -65,7 +64,6 @@ function producerEdits(prefix: string, opts: ProducerOptions): Edit[] {
     "artifacts",
     "environment",
     "toolchain",
-    "contexts",
   ].flatMap((key) => {
     const value = opts[key as keyof ProducerOptions];
     return value === undefined

@@ -105,8 +105,7 @@ async function resolvesLanding(
   if (!contains.success) return false;
   return exception.claim.exceptions.every(({ requirement }) =>
     complete.validation.requirements.some((current) =>
-      current.kind === requirement.kind && current.id === requirement.id &&
-      current.context === requirement.context
+      current.kind === requirement.kind && current.id === requirement.id
     )
   );
 }
@@ -130,7 +129,6 @@ export async function resolveEmergencyValidation(
         {
           attempt_id: exception.id,
           candidate_id: exception.data.claim.candidate_id,
-          context: "local",
         },
         resolutionName(exception),
         {

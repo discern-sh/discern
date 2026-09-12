@@ -54,7 +54,6 @@ export async function emergencyExceptions(
     ): record is Extract<CompletionRecord, { kind: "evidence" }> =>
       record.kind === "evidence" && record.data.purpose === "completion" &&
       record.data.applicability.producer === obligation.producer &&
-      record.data.applicability.context === obligation.requirement.context &&
       (selection.kind !== "blocked" ||
         record.data.attempt_id === selection.attempt_id)
     ).sort((a, b) => b.data.sequence - a.data.sequence)[0];

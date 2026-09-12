@@ -104,7 +104,6 @@ export function artifactKey(
   return JSON.stringify([
     artifact.attempt_id,
     artifact.candidate_id,
-    artifact.context,
     artifact.path,
     artifact.digest,
     artifact.bytes,
@@ -154,7 +153,7 @@ export function selectEvidence(
         requirement: obligation.requirement,
         attempt_id: latest.id,
         reason:
-          `${obligation.requirement.kind} '${obligation.requirement.id}' in context '${obligation.requirement.context}' has no passing evidence from attempt ${latest.id} (${
+          `${obligation.requirement.kind} '${obligation.requirement.id}' has no passing evidence from attempt ${latest.id} (${
             attempt.state.kind === "finished"
               ? attempt.state.outcome
               : attempt.state.kind

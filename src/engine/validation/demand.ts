@@ -32,9 +32,7 @@ export function selectDemandObligations<
   candidate: Candidate,
 ): T[] {
   if (demand.kind === "prepare") return [];
-  let selected = obligations.filter((o) =>
-    o.requirement.context === demand.context
-  );
+  let selected = [...obligations];
   if (
     demand.kind === "done" || demand.kind === "standards" ||
     demand.kind === "pin" || demand.kind === "proposal" ||

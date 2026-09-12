@@ -69,7 +69,6 @@ export async function configuredValidation(
     kind: "job" | "scope",
     run: ProducerDeclaration,
     stage: Stage | "scope_gates",
-    contexts: readonly string[] | undefined,
     required: boolean,
   ): Promise<void> => {
     if (Object.hasOwn(producers, selector)) {
@@ -78,17 +77,14 @@ export async function configuredValidation(
     producers[selector] = run;
     stages.set(selector, stage);
     if (!required) return;
-    for (const context of contexts ?? config.completion.required_contexts) {
-      obligations.push({
-        requirement: {
-          id,
-          kind,
-          context,
-          definition: await sha256Hex(JSON.stringify([selector, run])),
-        },
-        input: { producer: selector },
-      });
-    }
+    obligations.push({
+      requirement: {
+        id,
+        kind,
+        definition: await sha256Hex(JSON.stringify([selector, run])),
+      },
+      input: { producer: selector },
+    });
   };
   for (const [name, value] of Object.entries(config.jobs)) {
     const run = toCommandList(value);
@@ -122,7 +118,6 @@ export async function configuredValidation(
         timeout: table?.timeout,
       }),
       stage,
-      table?.contexts,
       true,
     );
   }
@@ -140,7 +135,6 @@ export async function configuredValidation(
         ...(group.timeout === undefined ? {} : { timeout: group.timeout }),
       }),
       "build",
-      undefined,
       true,
     );
   }
@@ -166,7 +160,6 @@ export async function configuredValidation(
         timeout: scope.timeout,
       }),
       "scope_gates",
-      scope.contexts,
       changedScopes.includes(name),
     );
   }
@@ -208,40 +201,33 @@ export async function configuredValidation(
       });
       stages.set(selector, "standards");
     }
-    for (
-      const context of spec.contexts ?? config.completion.required_contexts
-    ) {
-      const extraction = {
-        ...(spec.extract === undefined ? {} : {
-          extract: toCommandList(spec.extract).map((command) =>
-            expandSourcePathReferences(command, config)
-          ),
-        }),
-        ...(spec.artifact === undefined ? {} : { artifact: spec.artifact }),
-      };
-      obligations.push({
-        requirement: {
-          kind: "standard",
-          id: standard.name,
-          context,
-          definition: await sha256Hex(
-            JSON.stringify([spec, config.completion.required_contexts]),
-          ),
-        },
-        input: spec.producer === undefined
-          ? { run: producers[selector]?.run ?? [], ...extraction }
-          : { producer: spec.producer, ...extraction },
-        standard: {
-          name: standard.name,
-          metric: standard.metric,
-          direction: standard.direction,
-          limit: standard.limit,
-          scale: standard.scale,
-          ...(standard.per === undefined ? {} : { per: standard.per }),
-        },
-        ...(standard.inputs === undefined ? {} : { inputs: standard.inputs }),
-      });
-    }
+    const extraction = {
+      ...(spec.extract === undefined ? {} : {
+        extract: toCommandList(spec.extract).map((command) =>
+          expandSourcePathReferences(command, config)
+        ),
+      }),
+      ...(spec.artifact === undefined ? {} : { artifact: spec.artifact }),
+    };
+    obligations.push({
+      requirement: {
+        kind: "standard",
+        id: standard.name,
+        definition: await sha256Hex(JSON.stringify(spec)),
+      },
+      input: spec.producer === undefined
+        ? { run: producers[selector]?.run ?? [], ...extraction }
+        : { producer: spec.producer, ...extraction },
+      standard: {
+        name: standard.name,
+        metric: standard.metric,
+        direction: standard.direction,
+        limit: standard.limit,
+        scale: standard.scale,
+        ...(standard.per === undefined ? {} : { per: standard.per }),
+      },
+      ...(standard.inputs === undefined ? {} : { inputs: standard.inputs }),
+    });
   }
   if (stageDependencies) {
     const prerequisites = [...stages].filter(([, stage]) =>
@@ -260,7 +246,6 @@ export async function configuredValidation(
       "job",
       recipe(config, { run: ":" }),
       "check",
-      undefined,
       true,
     );
   }

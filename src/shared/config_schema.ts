@@ -284,22 +284,13 @@ export function planStandardInput(input: StandardInput): StandardInputPlan {
 
 /** Completion policy keeps execution capacity separate from speculative depth. */
 export const CompletionPolicySchema = z.strictObject({
-  required_contexts: z.array(z.string().min(1).regex(NAME_RE)).min(1).default([
-    "local",
-  ]).describe(
-    "Execution contexts required for each obligation unless it declares its own contexts.",
-  ),
   concurrency: z.number().int().positive().default(1).describe(
     "How many efforts may hold a validation slot at once. One slot stays reserved for the effort landing next, so early validation needs 2 or more.",
   ),
   lookahead: z.number().int().nonnegative().default(0).describe(
     "How many efforts past the next one to land may validate early. 0 lands in order; a positive value needs an [execution.<name>] declaration per required context.",
   ),
-}).refine(
-  (policy) =>
-    new Set(policy.required_contexts).size === policy.required_contexts.length,
-  "required contexts must be distinct",
-).describe(CONFIG_PROSE.completion.what);
+}).describe(CONFIG_PROSE.completion.what);
 export type CompletionPolicy = z.infer<typeof CompletionPolicySchema>;
 
 /** A project-owned preparation and return contract for an execution environment. */
@@ -368,15 +359,6 @@ const producerFields = {
       "Project-relative identity files for the applicable toolchain.",
     ),
 };
-const requirementContexts = z.array(z.string().min(1).regex(NAME_RE)).min(1)
-  .refine(
-    (values) => new Set(values).size === values.length,
-    "contexts must be distinct",
-  )
-  .optional().describe(
-    "Required execution contexts for this obligation; omission uses completion.required_contexts.",
-  );
-
 /** A known-job value: the bare command-or-list, or the table form
  * `{ run = "…", timeout = N }` when the job needs its own time budget. */
 const knownJobCommand = z.union([
@@ -388,7 +370,6 @@ const knownJobCommand = z.union([
     ),
     timeout: jobTimeout,
     ...producerFields,
-    contexts: requirementContexts,
   }),
 ]).describe(
   'A single command, a list of commands run in order, or a table { run = "…", timeout = N } declaring producer facts and a time budget. ' +
@@ -450,7 +431,6 @@ const customJobValue = z.strictObject({
     `The command(s) to run. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   ...producerFields,
-  contexts: requirementContexts,
   provides: z.string().optional().describe(
     "A free-text label for humans and audit.",
   ),
@@ -479,7 +459,6 @@ const scopeValue = z.strictObject({
     `A read-only command an agent can run from this worktree to preview a change in this scope. discern reports this action but never executes it. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
   ...producerFields,
-  contexts: requirementContexts,
   gate: commandOrList.optional().describe(
     `A command \`discern done\` runs when this scope changed: a sub-component's own self-contained gate. ${LIVE_SOURCE_PATH_REFERENCE_DESCRIPTION}`,
   ),
@@ -528,7 +507,6 @@ const standardValue = z.strictObject({
     "Declared producer artifact supplied on stdin to extract; requires extract.",
   ),
   ...producerFields,
-  contexts: requirementContexts,
   per: perValue.optional().describe(
     "Divide the metric to hold a rate rather than a raw count, so the number does not rise because the project grew: " +
       "a second metric the run emits, or a built-in extent discern measures itself, " +

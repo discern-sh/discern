@@ -1003,7 +1003,6 @@ export const StandaloneValidationDataSchema = z.strictObject({
   measurement: z.literal("none").optional(),
   completion: z.strictObject({
     kind: z.literal("diagnostic"),
-    context: z.string(),
     proof: z.literal("not-issued"),
   }).optional(),
 });
@@ -1247,7 +1246,6 @@ export const GateDataSchema = z.strictObject({
   producer_evidence: z.array(ProducerEvidenceSchema).optional(),
   completion: z.strictObject({
     kind: z.enum(["diagnostic", "complete", "pending"]),
-    context: z.string(),
     candidate_id: z.string().optional(),
     proof_id: z.string().optional(),
     pending_reasons: z.array(z.string()),

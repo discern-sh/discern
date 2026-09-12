@@ -53,9 +53,10 @@ import {
 import { bindAttemptDemand } from "../completion/attempt_lifecycle.ts";
 import {
   candidateConditions,
-  ContextFactsSchema,
+  CONDITION_FACTS_ARTIFACT,
+  ConditionFactsSchema,
   currentValidationConditions,
-} from "./context.ts";
+} from "./conditions.ts";
 import { retainArtifact } from "./artifacts.ts";
 import { buildStandardPlan, standardJobLabel } from "../gate/standard_plan.ts";
 import {
@@ -224,7 +225,6 @@ export async function executePublicValidation(input: {
   const conditions = await currentValidationConditions(
     root,
     configured,
-    demand.context,
     seed,
     overrides,
     hostEnv,
@@ -264,7 +264,6 @@ export async function executePublicValidation(input: {
     inputs,
     conditions: await candidateConditions(
       input.claimed.candidate_id,
-      configured,
       conditions,
       observation,
       root,
@@ -368,7 +367,7 @@ export async function executePublicValidation(input: {
       },
     });
   let slotAcquisitions = 0;
-  let contextArtifact: ComponentEvidence["artifacts"][number] | undefined;
+  let conditionsArtifact: ComponentEvidence["artifacts"][number] | undefined;
   const withSlot = async <T>(
     needed: boolean,
     claimed: ValidationSubject,
@@ -442,9 +441,9 @@ export async function executePublicValidation(input: {
           return runtime.produce(producer, claimed);
         },
       );
-      return contextArtifact === undefined ? captured : {
+      return conditionsArtifact === undefined ? captured : {
         ...captured,
-        artifacts: [...captured.artifacts, contextArtifact],
+        artifacts: [...captured.artifacts, conditionsArtifact],
       };
     },
   };
@@ -480,22 +479,20 @@ export async function executePublicValidation(input: {
     };
   }
   if (!diagnostic && plan.blockers.length === 0) {
-    const facts = ContextFactsSchema.parse({
-      version: ContextFactsSchema.shape.version.value,
+    const facts = ConditionFactsSchema.parse({
+      version: ConditionFactsSchema.shape.version.value,
       candidate_id: snapshot.candidate_id,
-      context: conditions.context,
       seed: conditions.seed,
       identity: conditions.identity,
       environment_digests: conditions.environment_digests,
     });
-    contextArtifact = await retainArtifact(
+    conditionsArtifact = await retainArtifact(
       root,
       {
         attempt_id: execution.attempt.identity.id,
         candidate_id: snapshot.candidate_id,
-        context: demand.context,
       },
-      "context/facts.json",
+      CONDITION_FACTS_ARTIFACT,
       new TextEncoder().encode(JSON.stringify(facts)),
     );
   }
@@ -548,8 +545,7 @@ export async function executePublicValidation(input: {
   for (const standard of buildStandardPlan(config).standards) {
     const obligation = snapshot.obligations.find((entry) =>
       entry.requirement.kind === "standard" &&
-      entry.requirement.id === standard.name &&
-      entry.requirement.context === demand.context
+      entry.requirement.id === standard.name
     );
     if (obligation === undefined) continue;
     const failedIds = plan.blockers.flatMap((blocker) =>
@@ -562,8 +558,7 @@ export async function executePublicValidation(input: {
         : []
     ).find((entry) =>
       entry.applicability.protected_definitions ===
-        obligation.applicability.protected_definitions &&
-      entry.applicability.context === demand.context
+        obligation.applicability.protected_definitions
     );
     const component = outcome.evidence.find((entry) =>
       entry.applicability.protected_definitions ===
@@ -622,8 +617,7 @@ export async function executePublicValidation(input: {
       );
       const receipt = plan.reused.find((reuse) =>
         reuse.requirement.kind === "standard" &&
-        reuse.requirement.id === standard.name &&
-        reuse.requirement.context === demand.context
+        reuse.requirement.id === standard.name
       );
       const selected = records.find((record) =>
         record.kind === "evidence" && record.id === receipt?.evidence_id

@@ -46,13 +46,12 @@ export interface ValidationInputs {
   readonly complete: boolean;
 }
 export interface ValidationConditions {
-  readonly context: string;
   readonly seed: number;
   /** Effective child environment, after runner overrides. Never persisted in evidence. */
   readonly environment: Readonly<Record<string, string | undefined>>;
   /** Caller-defined execution contract, including resources and runtime identity. */
   readonly identity: string;
-  /** Remote contexts retain only per-value digests from their producing invocation. */
+  /** Retained facts carry only per-value digests from their producing invocation. */
   readonly environment_digests?: Readonly<Record<string, string>>;
 }
 export interface ResolvedProducer {
@@ -79,12 +78,11 @@ export interface ValidationSnapshot {
   readonly conditions: readonly ValidationConditions[];
 }
 
-/** Key one exact obligation, context and protected definition. */
+/** Key one exact obligation and its protected definition. */
 export function requirementKey(requirement: Requirement): string {
   return JSON.stringify([
     requirement.kind,
     requirement.id,
-    requirement.context,
     requirement.definition,
   ]);
 }
@@ -96,12 +94,10 @@ export async function requirementSetIdentity(
   const keys = requirements.map((r) =>
     requirementKey(RequirementSchema.parse(r))
   ).sort();
-  const obligations = requirements.map((r) =>
-    JSON.stringify([r.kind, r.id, r.context])
-  );
+  const obligations = requirements.map((r) => JSON.stringify([r.kind, r.id]));
   if (keys.length === 0 || new Set(obligations).size !== keys.length) {
     throw new Error(
-      "requirements must contain one definition per obligation and context",
+      "requirements must contain one definition per obligation",
     );
   }
   return await sha256Hex(JSON.stringify(keys));
@@ -282,9 +278,9 @@ export async function prepareValidationSnapshot(source: {
     );
   }
   const graph = resolveProducerGraph(input.producers, input.obligations);
-  const conditions = new Map(input.conditions.map((c) => [c.context, c]));
-  if (conditions.size !== input.conditions.length) {
-    throw new Error("duplicate context conditions");
+  const condition = input.conditions[0];
+  if (condition === undefined || input.conditions.length !== 1) {
+    throw new Error("validation needs exactly one set of observed conditions");
   }
   const obligations: ResolvedObligation[] = [];
   for (let index = 0; index < input.obligations.length; index++) {
@@ -301,12 +297,6 @@ export async function prepareValidationSnapshot(source: {
         requirementKey(requirement) === requirementKey(declaration.requirement)
       )
     ) continue;
-    const condition = conditions.get(declaration.requirement.context);
-    if (condition === undefined) {
-      throw new Error(
-        `missing conditions for '${declaration.requirement.context}'`,
-      );
-    }
     if (
       (declaration.requirement.kind === "standard") !==
         (declaration.standard !== undefined)
@@ -346,7 +336,6 @@ export async function prepareValidationSnapshot(source: {
       toolchain.every((path) => Object.hasOwn(input.inputs.files, path));
     const applicability = ApplicabilitySchema.parse({
       producer: selector,
-      context: condition.context,
       policy: candidate.policy,
       protected_definitions: await sha256Hex(
         JSON.stringify([
