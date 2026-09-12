@@ -254,7 +254,7 @@ Its registered JSON format is version 1:
 | `proof`                   | Structured Proof and its renderings, including the live standard-proposal set when applicable. Its `head` names the validated candidate. |
 | `evidence`                | Checkpoint declaration evidence identity.                                                                                                |
 
-The authored `head` and candidate `proof.head` can differ when completion combines changes. Current CI reports provide feedback without queue admission or landing Proof, and a report does not replace valid strict evidence.
+The authored `head` and the Proof's `head` name the same commit: completion validates the invoked checkout's own committed tip. CI report runs provide feedback without landing Proof, and a report does not replace valid strict evidence.
 
 A record missing `completion`, `proof` or `evidence` cannot narrow standard measurement, satisfy gate reuse, or skip acceptance validation. A text marker without a version is missing evidence and requires a fresh `discern done`. A marker with a version newer than 1 is retained and reports that discern must be updated before it can be used or replaced.
 
@@ -262,7 +262,7 @@ This worktree-local cache disappears with the worktree. After landing, the [Proo
 
 ## Checkpoint state and declarations
 
-A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. Completion reads governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk or proven queued work it would follow. CI reports use their declared comparison policy. This commit supplies the **policy identity** every report and Proof names. A `stop` checkpoint pauses `discern done` for a recorded conclusion. An `advise` checkpoint presents the question without blocking.
+A [checkpoint](glossary.md#checkpoint) pairs a deterministic trigger with a question the agent judges. Completion reads governing definitions from `[checkpoints]` at the candidate's expected predecessor: the trunk's current tip. CI reports use their declared comparison policy. This commit supplies the **policy identity** every report and Proof names. A `stop` checkpoint pauses `discern done` for a recorded conclusion. An `advise` checkpoint presents the question without blocking.
 
 ### Open question states
 

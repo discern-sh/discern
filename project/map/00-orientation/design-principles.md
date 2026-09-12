@@ -75,7 +75,7 @@ Source revisions, composition, authority, validation evidence, and recovery stat
 
 ### 15. A checkout changes only under its own operation
 
-An operation changes the checked-out revision, index, or working tree only of the checkout it was invoked in, of a worktree discern itself created, or of the main checkout a landing converges to the trunk it advanced. No operation installs another revision into an authoring worktree, and no checkout is borrowed. A structural guard registers every Git invocation that could do otherwise under one of those three allowances ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
+An operation changes the checked-out revision, index, or working tree only of the checkout it was invoked in, of a worktree discern itself created, or of the main checkout a landing converges to the trunk it advanced. No operation installs another revision into an authoring worktree, and no operation takes over another's checkout, however idle or clean. A structural guard registers every Git invocation that could do otherwise under one of those three allowances ([ADR 0389](../_adr/0389-the-workspace-contract.md)).
 
 ## When a principle bends
 

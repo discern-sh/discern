@@ -1,6 +1,6 @@
 ---
 title: Interrupted landing recovery
-description: How discern reconciles an interrupted acceptance without replaying authority or overwriting changed checkout data.
+description: How discern completes or rolls back an interrupted acceptance without replaying authority or overwriting changed checkout data.
 order: 130
 aliases:
   - acceptance recovery
@@ -16,11 +16,11 @@ Read the recorded outcome before retrying. Acceptance separates the ref transiti
 
 Before claiming effort authority or changing the trunk ref, acceptance writes one worktree-scoped journal under the worktree's Git administration: the submitted commit, the expected trunk, the consent source, and any variances and standard approvals. It then advances the trunk from the expected commit to the submitted commit and creates the marker ref in one Git ref transaction. The operation lock serializes the apply path from recovery through cleanup; a concurrent apply refuses immediately ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md), [ADR 0366](../_adr/0366-landing-is-one-exact-repository-transaction.md)).
 
-## How a retry reconciles it
+## How a retry completes or rolls it back
 
 A retry reads the journal and the current trunk before the usual dirty-checkout gates. When the trunk names the landed target, the transition is complete: recovery finishes the remaining steps and never requests fresh consent or lands again. When the trunk still names the expected commit, the attempt rolls back and the result reports what stood in the way. The trunk ref, not checkout convergence, decides whether an effort grant was spent: a failed transition restores the grant; a transition that remains advanced consumes it and the submission.
 
-If the main checkout contains unfamiliar data, recovery preserves it and reports the required reconciliation. A valid old or target checkout can converge to the recorded target. Proof-note recording uses the worktree's honored evidence; after worktree removal, recovery verifies the landed SHA and can remove a still-merged branch from the main checkout, but it cannot manufacture a note from an incomplete marker.
+If the main checkout contains unfamiliar data, recovery preserves it and reports what must be resolved. A valid old or target checkout can converge to the recorded target. Proof-note recording uses the worktree's honored evidence; after worktree removal, recovery verifies the landed SHA and can remove a still-merged branch from the main checkout, but it cannot manufacture a note from an incomplete marker.
 
 Main-checkout convergence runs after the transition, under checkout exclusion. It materializes local agent artifacts, runs repository ensure commands, and checks smoke and tracked cleanliness. A failed convergence is reported and retried on the same target; it cannot roll the trunk back.
 

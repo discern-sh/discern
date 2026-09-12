@@ -52,7 +52,7 @@ Each submission needs its own current authority. A caller's `--confirmed` applie
 
 `accept --target <effort-id>` selects the same effort from its worktree or the main checkout; the main checkout requires a target. Recorded conversation consent survives an interrupted call while its submitted commit remains unchanged.
 
-`accept --dry-run` shows the landing queue, each submission with honored Proof that has not landed with pre-authorized ones first, and the selected effort's recorded authority and pending decisions, without changing anything. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
+`accept --dry-run` shows the landing queue, each submission with honored Proof that has not landed with pre-authorized ones first, and the selected effort's recorded authority and pending decisions, without changing anything. Ordinary grants cannot approve a checkpoint variance, a standard proposal, an emergency exception, a push, or a deployment. An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry completes or rolls it back.
 
 ## Approve a Standard limit proposal
 

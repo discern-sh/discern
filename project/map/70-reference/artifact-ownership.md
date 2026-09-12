@@ -83,11 +83,8 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 
 | Registered path                                    | Lifetime   | Purpose                                                                                                                                 |
 | -------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern/completion/records/`                      | repository | Candidate evidence, execution state, queue authority, and durable landing and retirement records used by public commands.               |
-| `discern/completion/publication.json`              | repository | Marker used to stop recovery cleanup when completion records or artifacts have changed during inspection.                               |
-| `discern/completion/artifacts/`                    | repository | Captured producer output, candidate reviews, and restoration evidence retained beyond checkout retirement.                              |
-| `discern/completion/environment-proofs.json`       | repository | Records each declared checkout-return procedure that `discern setup done` rehearsed and proved, exactly as the declaration was written. |
-| `discern/completion/grant-claims/`                 | repository | Claims joining recorded effort grants to common completion authority and settlement.                                                    |
+| `discern/completion/records/`                      | repository | Candidate, attempt, evidence, Proof, presentation, and exception records used by public commands.                                       |
+| `discern/completion/artifacts/`                    | repository | Captured producer output and extraction artifacts consumed by standards and emergency review.                                           |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                                        |
 | `discern/logbook/`                                 | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                                                  |
 | `discern/logbook-archives/`                        | repository | Sealed Logbook event streams for historical Patterns and Stats reads.                                                                   |
@@ -116,7 +113,6 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/submission`                               | worktree   | The effort's submitted revision.                                                                                                            |
 | `discern/task-metadata.json`                       | worktree   | Display title, optional brief, and creation source.                                                                                     |
 | `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                            |
-| `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                                        |
 | `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                                   |
 | `discern/worktree-ready`                           | worktree   | Completed-setup marker.                                                                                                                 |
 | `discern/worktree-setup-steps.json`                | worktree   | Step journal for interrupted worktree setup.                                                                                            |

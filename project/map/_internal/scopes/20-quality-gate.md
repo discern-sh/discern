@@ -17,7 +17,7 @@ This subtree documents the public gate workflow: fixing a failed run, the work `
 | `practice-stats.md`                   | guide           | Guide to measuring repeated development practices from the Logbook.                            |
 | `checkpoints.md`                      | guide           | Guide to deterministic triggers and judgment-bearing checkpoint answers.                       |
 | `checkpoint-recipes.md`               | guide           | Task recipes for placing and tuning common checkpoint boundaries.                              |
-| `complete-evidence.md`                | guide           | Complete candidate evidence, shared producers, declared contexts, and the completion boundary. |
+| `complete-evidence.md`                | guide           | Complete candidate evidence, shared producers, and the completion boundary.                    |
 | `the-proof.md`                        | guide           | Guide to review Proof and the exact-tree identity it records; `order: 30`.                     |
 | `proof-notes.md`                      | guide           | Guide to local Proof notes, opt-in fetch transport, and publication; `order: 40`.              |
 | `strand-detection.md`                 | guide           | Concept page for tracked output left by a Gate stage; `order: 50`.                             |
@@ -30,7 +30,6 @@ This subtree documents the public gate workflow: fixing a failed run, the work `
 | `patterns-decision-evidence.md`       | guide           | Guide to retaining the decision evidence behind pattern responses.                             |
 | `tidy.md`                             | guide           | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                     |
 | `concurrent-test-runs.md`             | guide           | Guide to the Fleet-wide test-stage concurrency cap; `order: 110`.                              |
-| `capacity-and-speculation.md`         | guide           | Guide to the completion, test, and environment limits and when early validation runs.          |
 
 ## Source files to read
 

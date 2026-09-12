@@ -130,11 +130,8 @@ These local working records live under `discern/` inside Git's administrative di
 
 | Registered path                                    | Lifetime   | Purpose                                                                                                                                    |
 | -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `discern/completion/records/`                      | repository | Candidate evidence, execution state, queue authority, and durable landing and retirement records used by public commands.                  |
-| `discern/completion/publication.json`              | repository | Marker used to stop recovery cleanup when completion records or artifacts have changed during inspection.                                  |
-| `discern/completion/artifacts/`                    | repository | Captured producer output, candidate reviews, and restoration evidence retained beyond checkout retirement.                                 |
-| `discern/completion/environment-proofs.json`       | repository | Records each declared checkout-return procedure that `discern setup done` rehearsed and proved, exactly as the declaration was written.    |
-| `discern/completion/grant-claims/`                 | repository | Claims joining recorded effort grants to common completion authority and settlement.                                                       |
+| `discern/completion/records/`                      | repository | Candidate, attempt, evidence, Proof, presentation, and exception records used by public commands.                                          |
+| `discern/completion/artifacts/`                    | repository | Captured producer output and extraction artifacts consumed by standards and emergency review.                                              |
 | `discern/resources/`                               | repository | Resource ledger.                                                                                                                           |
 | `discern/logbook/`                                 | repository | [Logbook](../20-understand/local-control.md) events.                                                                                       |
 | `discern/logbook-archives/`                        | repository | Sealed logbook event streams for historical patterns and Stats reads.                                                                      |
@@ -162,7 +159,6 @@ These local working records live under `discern/` inside Git's administrative di
 | `discern/effort-grant-claims/`                     | worktree   | Claims held by acceptance.                                                                                                                 |
 | `discern/submission`                               | worktree   | The effort's submitted revision.                                                                                                           |
 | `discern/acceptance-transaction.json`              | worktree   | Acceptance recovery journal.                                                                                                               |
-| `discern/acceptance-transaction.lock`              | worktree   | Single-acceptance advisory lock.                                                                                                           |
 | `discern/setup-machinery-commit-evidence.json`     | worktree   | Setup retry evidence.                                                                                                                      |
 | `discern/worktree-ready`                           | worktree   | Completed-setup marker.                                                                                                                    |
 | `discern/worktree-setup-steps.json`                | worktree   | Step journal for interrupted worktree setup.                                                                                               |
@@ -176,7 +172,7 @@ Repository records use the common Git directory; worktree records disappear with
 
 Git stores drop recovery through ordinary refs under `refs/discern/recovery/`. Git can therefore choose its files-based or `reftable` storage format. The newest 32 refs keep committed tips reachable after their worktree branches are deleted. They remain local unless a person configures transport. `discern uninstall` leaves them in place because a ref may be the only remaining name for user-authored commits. Review and delete them with `git update-ref -d <ref>` when that recovery history is no longer needed ([ADR 0271](https://discern.sh/docs/decisions/0271-destructive-drops-retain-bounded-recovery-refs)).
 
-Ordinary acceptance atomically updates the trunk and a shared marker under `refs/discern/landings/<id>`. That marker survives checkout retirement and supports recovery without repeating the landing. Candidate refs keep the composed commits available while discern gathers and records their evidence.
+Ordinary acceptance fast-forwards the trunk and creates its marker under `refs/worktree/discern/acceptance-transactions/<transaction-id>` in the same ref transaction. An interrupted landing resumes from that marker and the worktree's journal without repeating the landing.
 
 ## Git refs
 
@@ -187,11 +183,9 @@ Ordinary acceptance atomically updates the trunk and a shared marker under `refs
 | `refs/notes/discern`                                             | `accept`                                            | Durable local landing evidence.                                           | Retained  |
 | `refs/discern/remotes/<remote>/notes`                            | An ordinary user-owned fetch after discern wires it | Durable fetched landing evidence.                                         | Retained  |
 | `refs/discern/recovery/<timestamp>-<worktree-id>-<nonce>`        | `worktree drop`                                     | Bounded recovery evidence.                                                | Retained  |
-| `refs/discern/landings/<id>`                                     | Queue acceptance                                    | Shared landing and recovery evidence, retained after checkout retirement. | Retained  |
-| `refs/discern/candidates/<candidate-id>/<attempt-id>`            | Candidate composition                               | Keeps composed candidate commits reachable.                               | Retained  |
-| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | Worktree-local acceptance recovery                  | Temporary compare-and-swap recovery evidence.                             | Retained  |
+| `refs/worktree/discern/acceptance-transactions/<transaction-id>` | `accept`                                            | Temporary compare-and-swap recovery evidence.                             | Retained  |
 
-Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for retained private refs. Those suggestions do not enumerate the shared candidate and landing namespaces. Keep their recovery evidence unless you have established it is no longer needed. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
+Uninstall never deletes a ref. Its result can suggest exact `git update-ref -d '<ref>'` commands for retained private refs. Keep their recovery evidence unless you have established it is no longer needed. Ordinary local branches remain visible as branches and receive no automatic cleanup suggestion.
 
 ## Temporary files and crash records
 

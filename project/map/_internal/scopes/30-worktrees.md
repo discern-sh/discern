@@ -23,10 +23,8 @@ This subtree documents the public worktree workflow: isolation, identity, resour
 | `desk-tips.md`                      | guide    | Task-focused interpretation of Desk tips and next actions.                         |
 | `opening-worktrees.md`              | guide    | Supported ways to enter an assigned worktree without splitting an effort.          |
 | `landing-authority.md`              | guide    | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
-| `queue-decisions.md`                | guide    | Reviewed holds, withdrawal, revocation, and source-dependent ordering.             |
 | `emergency-integration.md`          | guide    | Explicit emergency consent, durable exceptions, and subsequent validation.         |
-| `execution-recovery.md`             | guide    | Frozen checkout return, preserved ignored data, and queue reconciliation.          |
-| `acceptance-recovery.md`            | guide    | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
+| `acceptance-recovery.md`            | guide    | Interrupted landing evidence, completion or rollback, and partial results; `order: 100`. |
 | `cleanup-ownership.md`              | guide    | Ownership rules for removing stale worktrees, branches, and resource records.      |
 | `drop-recovery.md`                  | guide    | Recovery paths after an interrupted or partially applied drop operation.           |
 | `reappeared-worktree-paths.md`      | guide    | Diagnosis and recovery when a removed worktree path returns.                       |

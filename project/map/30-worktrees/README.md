@@ -33,7 +33,7 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |   100 | [Open another worktree](opening-worktrees.md)                       | Move sideways into another checkout while preserving your relative directory.   |
 |   110 | [Desk tips](desk-tips.md)                                           | One deterministic teaching line per session and where its record lands.         |
 |   120 | [Landing authority](landing-authority.md)                           | See how conversation consent and recorded grants control landing.               |
-|   130 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
+|   130 | [Interrupted landing recovery](acceptance-recovery.md)              | Complete or roll back a recorded landing without replaying authority.           |
 |   140 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
 |   150 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |
 |   160 | [Cleanup ownership and teardown](cleanup-ownership.md)              | Prove cleanup authority and verify checkout absence before reporting success.   |
