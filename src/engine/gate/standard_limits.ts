@@ -410,7 +410,14 @@ export type TrunkConfigRead =
   }
   | { kind: "absent"; commit: string }
   | { kind: "unreadable"; reason: string }
-  | { kind: "parse_failed"; reason: string; commit: string; path: string };
+  | {
+    kind: "parse_failed";
+    reason: string;
+    /** The committed bytes, retained so identity readers can still digest them. */
+    text: string;
+    commit: string;
+    path: string;
+  };
 
 /**
  * Read the trunk's committed config raw (it may be older or un-migrated, so it
@@ -451,6 +458,7 @@ export async function readTrunkConfig(
     } catch (error) {
       return {
         kind: "parse_failed",
+        text: out.stdout,
         commit,
         path: rel,
         reason: `the trunk's ${rel} does not parse: ${

@@ -50,13 +50,15 @@ export function sameSource(a: SourceRevision, b: SourceRevision): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** The trunk's committed configuration identity at one immutable commit. */
+/** The trunk's committed configuration identity at one immutable commit.
+ * Identity digests the committed bytes: an unparseable committed config still
+ * has an exact identity, and the gate's own policy checks report what it means. */
 export async function predecessorPolicyIdentity(
   root: string,
   predecessor: string,
 ): Promise<string> {
   const read = await readTrunkConfig(root, predecessor);
-  if (read.kind === "unreadable" || read.kind === "parse_failed") {
+  if (read.kind === "unreadable") {
     throw new Error(read.reason);
   }
   return await sha256Hex(read.kind === "absent" ? "absent-config" : read.text);
