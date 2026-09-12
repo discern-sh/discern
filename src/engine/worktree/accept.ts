@@ -2861,8 +2861,8 @@ async function walkQueue(
 async function landingResult(
   ctx: LifecycleContext,
   request: AcceptRequest,
-  env: Pick<typeof Deno.env, "get"> = Deno.env,
   operationHandle?: string,
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
   const effort = await effortCheckout(ctx, request.target);
@@ -2893,7 +2893,14 @@ async function landingResult(
       operationHandle,
     );
     if (request.dryRun || !selected.ok || !effort.explicit) return selected;
-    return await walkQueue(ctx, effort, selected, request, env);
+    return await walkQueue(
+      ctx,
+      effort,
+      selected,
+      request,
+      env,
+      operationHandle,
+    );
   };
   if (request.dryRun) return await body();
   // A second accept waits its turn behind a running landing and resumes on
@@ -2919,8 +2926,10 @@ export async function acceptLandingResult(
   ctx: LifecycleContext,
   request: AcceptRequest,
 ): Promise<DiscernResult<AcceptData>> {
-  const run = async (): Promise<DiscernResult<AcceptData>> => {
-    const result = await landingResult(ctx, request);
+  const run = async (
+    operationHandle?: string,
+  ): Promise<DiscernResult<AcceptData>> => {
+    const result = await landingResult(ctx, request, operationHandle);
     if (result.ok || hasRegisteredActionableHint(result.hints)) return result;
     return {
       ...result,
@@ -2940,7 +2949,7 @@ export async function acceptLandingResult(
     ctx.cwd,
     "accept",
     request.signal,
-    () => run(),
+    (_presenter, handle) => run(handle),
     (value) => value,
   );
 }
