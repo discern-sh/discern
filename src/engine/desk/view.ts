@@ -1341,7 +1341,7 @@ export function renderDeskStartPreview(
       [
         "Landing authority",
         input.preauthorizeLanding
-          ? "Approve this committed source after checks pass"
+          ? "Pre-authorized to land once green"
           : "A later conversation must authorize landing",
       ],
       ...(plan.note === undefined ? [] : [["Worktree name", plan.note]]),
