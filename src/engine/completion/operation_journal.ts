@@ -291,10 +291,16 @@ function mergeWork(
   previous: JournalledProducerWork | undefined,
   work: ProducerWork,
 ): JournalledProducerWork {
+  const retained = work.state === "running" && previous?.state !== "running"
+    ? undefined
+    : previous;
   return {
-    ...previous,
+    ...retained,
     ...work,
-    ...(work.partial === true || previous?.partial === true
+    ...(work.state !== undefined && work.state !== "running"
+      ? { active: [] }
+      : {}),
+    ...(work.partial === true || retained?.partial === true
       ? { partial: true }
       : {}),
   };
@@ -507,6 +513,7 @@ export type ExecutorLiveness = "running" | "gone" | "unknown";
 export type OperationJournalReading =
   | {
     readonly kind: "found";
+    readonly record_path: string;
     readonly handle: string;
     readonly record: OperationJournalRecord;
     readonly executor: ExecutorLiveness;
@@ -617,7 +624,7 @@ export async function readOperationJournal(
       if (text === undefined) return { kind: "missing" } as const;
       const parsed = parseRecord(text);
       return parsed.status === "recorded"
-        ? foundReading(parsed.record)
+        ? foundReading(parsed.record, directory)
         : parsed.status === "newer"
         ? { kind: "newer", reason: parsed.reason } as const
         : { kind: "corrupt", reason: parsed.reason } as const;
@@ -667,7 +674,7 @@ export async function readOperationJournal(
         newest = parsed.record;
       }
     }
-    if (newest !== undefined) return foundReading(newest);
+    if (newest !== undefined) return foundReading(newest, directory);
     if (newestAnywhere !== undefined) {
       const { handle, verb, branch, path, started_at } =
         newestAnywhere.operation;
@@ -694,12 +701,14 @@ export async function readOperationJournal(
 /** Project one parsed record into the found reading with a live executor probe. */
 function foundReading(
   record: OperationJournalRecord,
+  directory: string,
 ): Extract<OperationJournalReading, { kind: "found" }> {
   const probe = record.operation.finished_at !== undefined
     ? { state: "gone" as const }
     : executorLiveness(record.operation.pid);
   return {
     kind: "found",
+    record_path: join(directory, `${record.operation.handle}${RECORD_SUFFIX}`),
     handle: record.operation.handle,
     record,
     executor: probe.state,

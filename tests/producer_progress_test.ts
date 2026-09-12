@@ -60,6 +60,7 @@ Deno.test("reports merge per producer, coalesce repeats, and keep partial sticky
   ]);
   assertEquals(progress[0]?.work, {
     producer: "test",
+    state: "running",
     units: { kind: "partitions", completed: 3, total: 8 },
   });
   assertEquals(progress[1]?.work?.partial, true);
@@ -125,18 +126,18 @@ Deno.test("work sentences state counts without percentages or estimates", () => 
       units: { kind: "partitions", completed: 3, total: 8 },
       results: { passed: 120, failed: 1, skipped: 2 },
     }),
-    "Running test: 3 of 8 partitions done, 1 failure so far.",
+    "Recorded progress for test: 3 of 8 partitions done, 120 passed, 1 failure, 2 skipped.",
   );
   assertEquals(
     producerWorkSentence({
       producer: "test",
       results: { passed: 12, failed: 0 },
     }),
-    "Running test: no failures so far.",
+    "Recorded progress for test: 12 passed, no failures.",
   );
   assertEquals(
     producerWorkSentence({ producer: "test" }),
-    "Running test.",
+    "Recorded progress for test.",
   );
 });
 

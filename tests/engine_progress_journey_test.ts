@@ -33,7 +33,7 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
     );
     assertTerminalTextIncludes(
       run.output,
-      "Running test: 2 of 2 suites done, no failures so far.",
+      "Running test: 2 of 2 suites done, 5 passed, no failures so far, 0 skipped.",
     );
     // The reconnect handle was announced at the start of the run.
     assertTerminalTextIncludes(run.output, "`discern progress R1-");
@@ -53,6 +53,12 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
       failed: 0,
       skipped: 0,
     });
+    assertEquals(read.data?.producers?.[0]?.state, "passed");
+    assertEquals(read.data?.producers?.[0]?.active, []);
+    const rendered = await runAgent(path, ["progress", "--markdown"]);
+    assertEquals(rendered.code, 0, rendered.output);
+    assertTerminalTextIncludes(rendered.stdout, "### Retained result");
+    assertTerminalTextIncludes(rendered.stdout, "> **Proof:**");
     const stored = read.data?.result as { ok?: boolean; verb?: string };
     assertEquals(stored.ok, true);
     assertEquals(stored.verb, "done");
@@ -73,7 +79,7 @@ Deno.test("a static human done narrates counts and retains a reconnectable resul
     assertTerminalTextIncludes(byHandle.output, "finished and succeeded");
     assertTerminalTextIncludes(
       byHandle.output,
-      "Running test: 2 of 2 suites done, no failures so far.",
+      "test passed: 2 of 2 suites done, 5 passed, no failures, 0 skipped.",
     );
     // A damaged handle is refused by its checksum before the store is read.
     const damaged = await runAgent(path, ["progress", "R1-XXXX-XXXX-99"]);

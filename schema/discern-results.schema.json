@@ -15966,6 +15966,9 @@
                 "handle": {
                   "type": "string"
                 },
+                "record_path": {
+                  "type": "string"
+                },
                 "operation": {
                   "type": "object",
                   "properties": {
@@ -16052,6 +16055,15 @@
                       "properties": {
                         "producer": {
                           "type": "string"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "running",
+                            "passed",
+                            "failed",
+                            "cancelled"
+                          ]
                         },
                         "units": {
                           "type": "object",
@@ -16144,6 +16156,15 @@
                     "properties": {
                       "producer": {
                         "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "running",
+                          "passed",
+                          "failed",
+                          "cancelled"
+                        ]
                       },
                       "units": {
                         "type": "object",

@@ -1548,6 +1548,7 @@ export function renderMcpResult(result: DiscernResult): ToolResult {
       text: renderResultMarkdown(
         serialized,
         resultPresenterForVerb(completed.verb),
+        resultPresenterForVerb,
       ),
     }],
     structuredContent: serialized,

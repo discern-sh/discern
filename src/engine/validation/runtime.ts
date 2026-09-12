@@ -262,7 +262,11 @@ function runtime(
             candidate_id: execution.candidate_id,
             reason:
               `Running ${publicLabel}; its output is being captured at ${spawned.outputPath}.`,
-            work: { producer: publicLabel, output_path: spawned.outputPath },
+            work: {
+              producer: publicLabel,
+              state: "running",
+              output_path: spawned.outputPath,
+            },
           });
         }
       },

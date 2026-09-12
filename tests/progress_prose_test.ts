@@ -81,13 +81,16 @@ Deno.test("every pending blocker kind has a plain account with a next step", () 
 });
 
 Deno.test("producer sentences state counts as counts, and unknown as unknown", () => {
-  assertEquals(producerWorkSentence({ producer: "test" }), "Running test.");
+  assertEquals(
+    producerWorkSentence({ producer: "test" }),
+    "Recorded progress for test.",
+  );
   assertEquals(
     producerWorkSentence({
       producer: "test",
       units: { kind: "suites", completed: 2, total: null },
     }),
-    "Running test: 2 suites done.",
+    "Recorded progress for test: 2 suites done.",
   );
   assertEquals(
     producerWorkSentence({
@@ -96,11 +99,11 @@ Deno.test("producer sentences state counts as counts, and unknown as unknown", (
       results: { failed: 2 },
       partial: true,
     }),
-    "Running test: 3 of 8 partitions done, 2 failures so far; counts are incomplete.",
+    "Recorded progress for test: 3 of 8 partitions done, 2 failures; counts are incomplete.",
   );
   assertEquals(
     producerWorkSentence({ producer: "lint", results: { failed: 0 } }),
-    "Running lint: no failures so far.",
+    "Recorded progress for lint: no failures.",
   );
 });
 

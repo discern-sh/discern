@@ -181,6 +181,7 @@ export interface ProducerEvaluator {
 
 /** Event facts are advisory projections of canonical execution and durable outcomes. */
 export const COMPLETION_TIMING_CATEGORIES = [
+  "capacity-acquisition",
   "capacity-wait",
   "producer",
   "extraction",

@@ -3489,9 +3489,19 @@ export const CheckpointsOutputSchema = resultOutputSchema(
   CheckpointsDataSchema,
 );
 
+/** Engine-observed producer lifecycle; unit counts never determine a verdict. */
+export const PRODUCER_WORK_STATES = [
+  "running",
+  "passed",
+  "failed",
+  "cancelled",
+] as const;
+
 /** One producer's own reported work, as a reconnect reading retains it. */
 export const ProgressWorkSchema = z.object({
   producer: z.string(),
+  /** Engine-observed state; an absent state is unknown, including older records. */
+  state: z.enum(PRODUCER_WORK_STATES).optional(),
   units: z.object({
     kind: z.string(),
     completed: z.number().int().nonnegative(),
@@ -3507,6 +3517,8 @@ export const ProgressWorkSchema = z.object({
   partial: z.boolean().optional(),
   output_path: z.string().optional(),
 });
+
+export type ProgressWork = z.infer<typeof ProgressWorkSchema>;
 
 /** One failure a producer established while it was still running. */
 export const ProgressFailureSchema = z.object({
@@ -3543,6 +3555,8 @@ export const ProgressTimingSchema = z.object({
 /** `progress` data: one journalled long operation read back. */
 export const ProgressDataSchema = z.object({
   handle: z.string(),
+  /** Complete journal facts, including omitted telemetry and the retained result. */
+  record_path: z.string().optional(),
   operation: z.object({
     verb: z.string(),
     path: z.string(),

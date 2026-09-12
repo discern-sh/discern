@@ -1,4 +1,5 @@
 /** Invocation-scoped advisory facts; observers have no validation or publication capability. */
+import type { ProgressWork } from "../../shared/result_schemas.ts";
 import { AsyncLocalStorage } from "../../shared/module_loading.ts";
 import type { Clock } from "../../shared/clock.ts";
 import type { CompletionEvent, ValidationSubject } from "./protocol.ts";
@@ -10,30 +11,7 @@ import type { ComponentEvidence } from "./evidence.ts";
  * unknown total. Consumers present the counts as counts — unequal units mean
  * no percentage or time estimate can be derived from them.
  */
-export interface ProducerWork {
-  /** The reporting producer's selector; one shared producer counts once. */
-  readonly producer: string;
-  readonly units?: {
-    /** What the producer's units are, in its own words (e.g. "partitions"). */
-    readonly kind: string;
-    readonly completed: number;
-    readonly total: number | null;
-  };
-  /** Only counts the producer actually reported; an absent count is unknown. */
-  readonly results?: {
-    readonly passed?: number;
-    readonly failed?: number;
-    readonly skipped?: number;
-  };
-  /** Labels of the work currently running, in the producer's own vocabulary. */
-  readonly active?: readonly string[];
-  /** The producer's own elapsed time — not the command's, budget's, or return's. */
-  readonly elapsed_ms?: number;
-  /** True when the reported counts cover only part of the completed units. */
-  readonly partial?: boolean;
-  /** Engine-observed path of the settled producer's full captured output. */
-  readonly output_path?: string;
-}
+export type ProducerWork = Readonly<ProgressWork>;
 
 /**
  * One failure a still-running producer has already established. Advisory: the
@@ -173,6 +151,47 @@ export async function withExecutionTiming<T>(
       }, executorOperation),
     );
   }
+}
+
+/** Keep routine slot acquisition separate from time spent in its queue. */
+export async function withExecutionQueueTiming<T>(
+  execution: ValidationSubject,
+  intervalId: string,
+  clock: Clock,
+  operation: (onQueued: () => void) => Promise<T>,
+): Promise<T> {
+  return await withExecutionTiming(
+    execution,
+    "capacity-acquisition",
+    intervalId,
+    clock,
+    async () => {
+      let queuedAt: number | undefined;
+      try {
+        return await operation(() => {
+          queuedAt ??= clock.wallNow();
+        });
+      } finally {
+        if (queuedAt !== undefined) {
+          const finishedAt = clock.wallNow();
+          emitCompletionEvent(
+            executionEvent(
+              execution,
+              `${intervalId}:capacity-wait`,
+              finishedAt,
+              {
+                kind: "timing",
+                category: "capacity-wait",
+                interval_id: intervalId,
+                started_at: queuedAt,
+                finished_at: finishedAt,
+              },
+            ),
+          );
+        }
+      }
+    },
+  );
 }
 
 /** Every event references an existing component receipt; it is never a replacement for that receipt. */

@@ -326,7 +326,7 @@ Deno.test("the human progress entrypoint prints the reading's sentences and a re
     );
     assertStringIncludes(
       printed,
-      "Running test: 4 of 4 suites done, no failures so far.",
+      "Recorded progress for test: 4 of 4 suites done, no failures.",
     );
     lines.length = 0;
     assertEquals(

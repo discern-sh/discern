@@ -83,9 +83,11 @@ export function emitResult(result: DiscernResult): void {
       "internal result invariant: Markdown presenter resolver is not installed",
     );
   }
-  const markdown = presenter === undefined
-    ? undefined
-    : renderResultMarkdown(serialized, presenter).trimEnd();
+  const markdown = presenter === undefined ? undefined : renderResultMarkdown(
+    serialized,
+    presenter,
+    resultMarkdownPresenterResolver,
+  ).trimEnd();
   const output = markdown === undefined
     ? JSON.stringify(serialized)
     : (resultMarkdownTerminalRenderer?.(markdown) ?? markdown).trimEnd();

@@ -15,6 +15,8 @@ import { withConfigExplanation } from "./config_explain.ts";
 import * as view from "./docs_presentation.ts";
 import { firedHintsFromTexts, type HintCategory, HINTS } from "./hints.ts";
 import { productSentence } from "./product_sentence.ts";
+import { renderProviderTrustMarkdown } from "./provider_trust.ts";
+import { ProviderTrustDataSchema } from "./result_schemas.ts";
 import { sampleDiagnostics } from "./diagnostic_summary.ts";
 import {
   boolean,
@@ -49,6 +51,8 @@ export interface ResultMarkdownPresentation {
   evidence?: readonly string[] | undefined;
   /** Authored Markdown that must remain intact, such as a requested document. */
   supportingMarkdown?: readonly string[] | undefined;
+  /** A retained operation result, rendered through its own registered contract. */
+  retainedResult?: Readonly<Record<string, unknown>> | undefined;
   /** Authority, consent, or stop conditions that constrain the next move. */
   boundary?: readonly string[] | undefined;
   /** Decisions or supervision that belong to the owner, not the reading agent. */
@@ -66,6 +70,10 @@ const MAX_LIST_ITEMS = 6;
 const MAX_DIAGNOSTICS = 3;
 const MAX_DIAGNOSTIC_OUTPUT = 2_400;
 const MAX_DIAGNOSTIC_MESSAGE = 900;
+/** Sub-tenth-second queue intervals remain available in the journal. */
+const MIN_CAPACITY_WAIT_NOTICE_MS = 100;
+/** Journals contain one retained operation; bound malformed or nested observations. */
+const MAX_RETAINED_RESULT_DEPTH = 4;
 
 /** The state lead shared by every effectful Markdown preview. */
 export const RESULT_MARKDOWN_DRY_RUN_LEAD = "**Dry run: nothing changed.**";
@@ -281,13 +289,13 @@ function envelopeEvidence(
   if (plan !== undefined) {
     const steps = records(plan.steps);
     const title = text(plan.title) ?? "Plan";
-    const details = strings(plan.details).slice(0, MAX_LIST_ITEMS);
+    const details = strings(plan.details);
     if (details.length > 0) {
       facts.push(...details);
     }
     facts.push(withDetails(
       `${title}: ${plural(steps.length, "step")}.`,
-      steps.slice(0, MAX_LIST_ITEMS).map((step) => {
+      steps.map((step) => {
         const label = text(step.label) ?? "unnamed step";
         const disposition = text(step.disposition) ?? "planned";
         const note = text(step.note);
@@ -302,7 +310,7 @@ function envelopeEvidence(
           note === undefined ? "." : ` (${note}).`
         }`;
       }),
-      steps.length - MAX_LIST_ITEMS,
+      0,
       "plan step",
     ));
   }
@@ -320,20 +328,21 @@ function envelopeEvidence(
         [...counts.entries()].map(([outcome, count]) => `${count} ${outcome}`)
           .join(", ")
       }.`,
-      notable.slice(0, MAX_LIST_ITEMS).map((step) => {
-        const label = text(step.label) ?? "unnamed step";
+      notable.map((step) => {
+        const label = text(step.label) ?? text(object(step.step)?.label) ??
+          "unnamed step";
         const outcome = text(step.outcome) ?? "unknown";
-        const outputPath = text(step.output_path);
+        const outputPath = text(step.output_path) ?? text(step.outputPath);
         return `${code(label)}: ${outcome}${
           outputPath === undefined ? "" : `; full output: ${code(outputPath)}`
         }.`;
       }),
-      notable.length - MAX_LIST_ITEMS,
+      0,
       "step",
     ));
   }
 
-  const waitedMs = number(result.waited_ms);
+  const waitedMs = number(result.waited_ms) ?? number(result.waitedMs);
   if (waitedMs !== undefined && waitedMs > 0) {
     facts.push(`Waited ${duration(waitedMs)} for an execution slot.`);
   }
@@ -342,18 +351,19 @@ function envelopeEvidence(
   if (configIssues.length > 0) {
     facts.push(withDetails(
       `Config issues: ${plural(configIssues.length, "issue")}.`,
-      configIssues.slice(0, MAX_LIST_ITEMS).map((issue) => {
+      configIssues.map((issue) => {
         const path = text(issue.path) ?? "discern.toml";
         const message = text(issue.message) ?? "No issue message was recorded.";
         return `${code(path)}: ${message}`;
       }),
-      configIssues.length - MAX_LIST_ITEMS,
+      0,
       "config issue",
     ));
   }
 
   const diagnostics = records(result.diagnostics);
-  const evidence = object(result.diagnostic_evidence);
+  const evidence = object(result.diagnostic_evidence) ??
+    object(result.diagnosticEvidence);
   const repeats = Array.isArray(evidence?.repeats) ? evidence.repeats : [];
   const displayed = sampleDiagnostics(diagnostics, MAX_DIAGNOSTICS).map(
     (entry) => ({
@@ -580,6 +590,8 @@ function completionAdvisorySections(
 export function renderResultMarkdown(
   result: Readonly<Record<string, unknown>>,
   presenter: ResultMarkdownPresenter,
+  resolvePresenter?: (verb: string) => ResultMarkdownPresenter,
+  retainedDepth = 0,
 ): string {
   // A config-load refusal occurs before the selected verb can produce its own
   // data. Use the universal envelope state instead of asking (for example) the
@@ -596,9 +608,28 @@ export function renderResultMarkdown(
     ...advisories.evidence,
     ...hints.evidence,
   ]);
+  const retained = presented.retainedResult;
+  if (retained !== undefined && resolvePresenter === undefined) {
+    throw new Error(
+      "A retained result requires the registered Markdown presenter resolver.",
+    );
+  }
+  const retainedMarkdown = retained === undefined
+    ? undefined
+    : retainedDepth >= MAX_RETAINED_RESULT_DEPTH
+    ? "Further nested result detail is in the recorded operation journal."
+    : renderResultMarkdown(
+      retained,
+      resolvePresenter?.(text(retained.verb) ?? "result") ?? presentEnvelope,
+      resolvePresenter,
+      retainedDepth + 1,
+    );
   const supporting = uniqueVerbatim([
     ...(presented.supportingMarkdown ?? []),
     ...envelope.markdown,
+    retainedMarkdown === undefined ? undefined : `### Retained result
+
+${retainedMarkdown}`,
   ]);
   const boundary = unique([
     ...(presented.boundary ?? []),
@@ -741,7 +772,7 @@ const presentSetupVerify: ResultMarkdownPresenter = (result) => {
         : `Preflight found ${
           plural(conflicts.length, "condition")
         } to account for.`,
-      ...conflicts.slice(0, MAX_LIST_ITEMS).map((entry) => text(entry.detail)),
+      ...conflicts.map((entry) => text(entry.detail)),
     ]),
     supportingMarkdown: instructions === undefined
       ? []
@@ -868,16 +899,13 @@ const presentSetupDone: ResultMarkdownPresenter = (result) => {
           strings(object(inventory.jobs)?.not_applicable).join(", ") || "none"
         }.`,
       listFact("Leftover setup markers", strings(data.leftover)),
-      ...unmet.slice(0, MAX_LIST_ITEMS).map((check) => {
+      ...unmet.map((check) => {
         const step = number(check.step);
         const describe = text(check.describe) ?? "Unmet setup check.";
         return `${
           step === undefined ? "Setup check" : `Step ${step}`
         }: ${describe}`;
       }),
-      unmet.length > MAX_LIST_ITEMS
-        ? omitted(unmet.length - MAX_LIST_ITEMS, "setup check")
-        : undefined,
     ]),
     supportingMarkdown: uniqueVerbatim([
       gateProofLine(data.proof),
@@ -1033,7 +1061,7 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
         : `Platform: ${code(environment.platform)}; Git: ${
           code(text(environment.git) ?? "unavailable")
         }.`,
-      ...problems.slice(0, MAX_LIST_ITEMS).map((check) => {
+      ...problems.map((check) => {
         const name = text(check.name) ?? "check";
         const detail = text(check.detail) ?? "No detail recorded.";
         const fix = text(check.fix);
@@ -1041,7 +1069,36 @@ const presentDoctor: ResultMarkdownPresenter = (result) => {
           fix === undefined ? "" : ` Fix: ${fix}`
         }`;
       }),
+      ...records(data.provider_trust).flatMap((provider) => {
+        const trust = ProviderTrustDataSchema.safeParse(provider);
+        return trust.success
+          ? [
+            `${code(trust.data.provider)}: ${
+              renderProviderTrustMarkdown(trust.data)
+            }`,
+          ]
+          : [];
+      }),
     ]),
+    supportingMarkdown: records(data.execution_model).map((model) =>
+      `### ${code(model.verb)} execution
+
+${text(model.when) ?? ""}
+
+${
+        renderItems(
+          records(model.steps).map((step) =>
+            `${code(step.label)} (${text(step.actor) ?? "unknown"}, ${
+              text(step.kind) ?? "step"
+            }).${text(step.note) === undefined ? "" : ` ${code(step.note)}`}${
+              text(step.condition) === undefined
+                ? ""
+                : ` When: ${text(step.condition)}`
+            }${text(step.hint) === undefined ? "" : ` ${text(step.hint)}`}`
+          ),
+        )
+      }`
+    ),
   };
 };
 
@@ -1095,17 +1152,40 @@ const presentDocs: ResultMarkdownPresenter = (result) => {
     evidence: unique([
       text(doc?.path) === undefined ? undefined : `Source: ${code(doc?.path)}.`,
       listFact("Ambiguous candidates", strings(data.candidates)),
-      ...suggestions.slice(0, MAX_LIST_ITEMS).map((entry) => {
+      ...docs.map((entry) =>
+        `${view.kindPrefix(text(entry.manual_kind))}${
+          code(text(entry.target) ?? entry.path)
+        }: ${text(entry.title) ?? "Untitled"}. ${
+          text(entry.description) ?? ""
+        }${
+          text(entry.page_id) === undefined
+            ? ""
+            : ` Page id: ${code(entry.page_id)}.`
+        }`
+      ),
+      ...records(data.regions).map((region) =>
+        `${code(region.name)}: ${text(region.title) ?? "Region"}. ${
+          text(region.description) ?? ""
+        } ${number(region.page_count) ?? 0} pages.${
+          text(region.pages_changed_at) === undefined
+            ? ""
+            : ` Pages changed: ${text(region.pages_changed_at)}.`
+        }${
+          number(region.code_changes_since) === undefined
+            ? ""
+            : ` ${
+              number(region.code_changes_since)
+            } code changes since those pages changed.`
+        }`
+      ),
+      ...suggestions.map((entry) => {
         const target = text(entry.target) ?? text(entry.path) ?? "unknown";
         const suggestionTitle = text(entry.title);
         return suggestionTitle === undefined
           ? `${code(target)}.`
           : productSentence(`${code(target)}: ${suggestionTitle}`);
       }),
-      suggestions.length > MAX_LIST_ITEMS
-        ? omitted(suggestions.length - MAX_LIST_ITEMS, "suggestion")
-        : undefined,
-      ...results.slice(0, MAX_LIST_ITEMS).map((entry) => {
+      ...results.map((entry) => {
         const target = text(entry.target) ?? "unknown";
         const resultTitle = text(entry.title) ?? target;
         const snippet = text(entry.snippet);
@@ -1235,7 +1315,7 @@ const presentGate: ResultMarkdownPresenter = (result) => {
               " unreviewed"
             : "no review was needed"
         }.`,
-      ...unreviewed.slice(0, MAX_LIST_ITEMS).map((entry) => {
+      ...unreviewed.map((entry) => {
         const source = text(entry.question_file);
         const reference = text(entry.reference);
         return `${code(entry.id)} (${
@@ -1247,11 +1327,8 @@ const presentGate: ResultMarkdownPresenter = (result) => {
             : `\n\nQuestion source: ${code(source)}.`) +
           (reference === undefined ? "" : `\n\nReference: ${code(reference)}.`);
       }),
-      unreviewed.length > MAX_LIST_ITEMS
-        ? omitted(unreviewed.length - MAX_LIST_ITEMS, "checkpoint question")
-        : undefined,
       ...records(checkpoints?.drops).map(checkpointDropLine),
-      ...standardProposals.slice(0, MAX_LIST_ITEMS).map((proposal) => {
+      ...standardProposals.map((proposal) => {
         const standard = text(proposal.standard) ?? "unknown";
         const proposed = number(proposal.proposed_limit);
         const delta = number(proposal.delta);
@@ -1262,12 +1339,6 @@ const presentGate: ResultMarkdownPresenter = (result) => {
           delta === undefined ? "" : ` (delta ${delta >= 0 ? "+" : ""}${delta})`
         }.\n\nReason: ${reason}`;
       }),
-      standardProposals.length > MAX_LIST_ITEMS
-        ? omitted(
-          standardProposals.length - MAX_LIST_ITEMS,
-          "Standard limit proposal",
-        )
-        : undefined,
       gateProofFact(data.gate_proof),
     ]),
     supportingMarkdown: uniqueVerbatim([
@@ -1330,24 +1401,15 @@ const presentCheckpoints: ResultMarkdownPresenter = (result) => {
         }.`,
     ),
     evidence: unique([
-      ...rows.slice(0, MAX_LIST_ITEMS).map(checkpointRowLine),
-      rows.length > MAX_LIST_ITEMS
-        ? omitted(rows.length - MAX_LIST_ITEMS, "checkpoint")
-        : undefined,
-      ...ungoverned.slice(0, MAX_LIST_ITEMS).map((entry) =>
+      ...rows.map(checkpointRowLine),
+      ...ungoverned.map((entry) =>
         `${
           code(entry.id)
         }: a recorded open question stands, but the current governing policy does not contain it.`
       ),
       ...advisories.map((advisory) => `Fail-open: ${advisory}`),
       ...records(data.drops).map(checkpointDropLine),
-      ...economicsRows.slice(0, MAX_LIST_ITEMS).map(checkpointEconomicsLine),
-      economicsRows.length > MAX_LIST_ITEMS
-        ? omitted(
-          economicsRows.length - MAX_LIST_ITEMS,
-          "observed checkpoint",
-        )
-        : undefined,
+      ...economicsRows.map(checkpointEconomicsLine),
       rows.length === 0 || economicsRows.length > 0
         ? undefined
         : "No observed checkpoint history yet.",
@@ -1392,7 +1454,12 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
         ? undefined
         : listFact("Responsible paths", strings(proposal.evidence_paths)),
       ...producerEvidenceFacts(data),
-      ...standards.slice(0, MAX_LIST_ITEMS).map((reading) => {
+      ...pinned.map((pin) =>
+        `${code(pin.name)}: tightened ${number(pin.from) ?? "unknown"} → ${
+          number(pin.to) ?? "unknown"
+        }; measured ${number(pin.measured) ?? "unknown"}.`
+      ),
+      ...standards.map((reading) => {
         const name = text(reading.name) ?? "standard";
         const measurement = text(reading.measurement) ?? "unknown";
         const value = number(reading.value);
@@ -1404,9 +1471,6 @@ const presentStandards: ResultMarkdownPresenter = (result) => {
           verdict === undefined ? "" : `, ${verdict}`
         }.`;
       }),
-      standards.length > MAX_LIST_ITEMS
-        ? omitted(standards.length - MAX_LIST_ITEMS, "standard")
-        : undefined,
     ]),
     boundary: proposal === undefined ? [] : [
       "The gate must remeasure this exact value. Landing requires explicit owner approval for this standard/value/reason tuple; generic grants never cover it.",
@@ -1464,28 +1528,49 @@ const presentRefresh: ResultMarkdownPresenter = (result) => {
  */
 const presentProgress: ResultMarkdownPresenter = (result) => {
   const data = dataOf(result);
-  const account = strings(data.account);
-  const timings = records(data.timings);
-  const categories = unique(
-    timings.map((timing) => text(timing.category)),
-  );
-  const resultPath = text(data.result_path);
+  const operation = object(data.operation);
+  const waitMs = records(data.timings).filter((timing) =>
+    timing.category === "capacity-wait"
+  )
+    .reduce(
+      (sum, timing) =>
+        sum +
+        Math.max(
+          0,
+          (number(timing.finished_at) ?? 0) - (number(timing.started_at) ?? 0),
+        ),
+      0,
+    );
+  const retained = object(data.result);
   return {
     state: defaultState(result, "No long operation is recorded here."),
     evidence: unique([
-      ...account.slice(0, MAX_LIST_ITEMS),
-      account.length > MAX_LIST_ITEMS
-        ? omitted(account.length - MAX_LIST_ITEMS, "sentence")
-        : undefined,
-      timings.length === 0
+      text(data.handle) === undefined
         ? undefined
-        : `${plural(timings.length, "timing interval")} recorded (${
-          categories.join(", ")
-        }).`,
-      resultPath === undefined
+        : `Progress handle: ${code(data.handle)}.`,
+      text(operation?.path) === undefined
         ? undefined
-        : `The complete result is retained at ${code(resultPath)}.`,
+        : `Checkout: ${code(operation?.path)}.`,
+      ...strings(data.account),
+      waitMs < MIN_CAPACITY_WAIT_NOTICE_MS
+        ? undefined
+        : `Waited ${
+          duration(waitMs)
+        } for test-run capacity shared by this repository's worktrees.`,
+      text(data.record_path) === undefined
+        ? undefined
+        : `Complete recorded facts, timing detail, and retained result: ${
+          code(data.record_path)
+        }.`,
+      text(data.result_path) === undefined
+        ? undefined
+        : `The complete result is retained at ${code(data.result_path)}.`,
     ]),
+    retainedResult:
+      retained !== undefined && text(retained.verb) !== undefined &&
+        boolean(retained.ok) !== undefined
+        ? retained
+        : undefined,
     action: text(data.outcome) === undefined && text(data.executor) === "gone"
       ? ["Run the command again to continue."]
       : [],
@@ -1536,7 +1621,7 @@ const presentCoupling: ResultMarkdownPresenter = (result) => {
       text(data.target) === undefined
         ? undefined
         : `Target: ${code(data.target)}.`,
-      ...partners.slice(0, MAX_LIST_ITEMS).map((partner) => {
+      ...partners.map((partner) => {
         const path = text(partner.path) ?? "unknown";
         return `${code(path)}: ${number(partner.cochanges) ?? 0} of ${
           number(partner.of) ?? 0
@@ -1545,7 +1630,7 @@ const presentCoupling: ResultMarkdownPresenter = (result) => {
       commits.length === 0
         ? undefined
         : `Shared-history commits: ${commits.length}.`,
-      ...commits.slice(0, MAX_LIST_ITEMS).map((commit) => {
+      ...commits.map((commit) => {
         const sha = text(commit.sha) ?? "unknown";
         const date = text(commit.date);
         const subject = text(commit.subject) ?? "No subject recorded.";
@@ -1553,9 +1638,6 @@ const presentCoupling: ResultMarkdownPresenter = (result) => {
           date === undefined ? "" : ` (${date})`
         }: ${subject}`;
       }),
-      commits.length > MAX_LIST_ITEMS
-        ? omitted(commits.length - MAX_LIST_ITEMS, "commit")
-        : undefined,
     ]),
   };
 };
@@ -1602,16 +1684,14 @@ const presentPatterns: ResultMarkdownPresenter = (result) => {
     ),
     evidence: unique([
       ...(completion.success ? completionEconomicsLines(completion.data) : []),
-      ...findings.slice(0, MAX_LIST_ITEMS).flatMap((finding) => [
+      ...findings.flatMap((finding) => [
         text(finding.summary),
         text(finding.observed) === undefined
           ? undefined
           : `Observed: ${text(finding.observed)}`,
       ]),
     ]),
-    action: text(findings[0]?.next_step) === undefined
-      ? []
-      : [text(findings[0]?.next_step) ?? ""],
+    action: unique(findings.map((finding) => text(finding.next_step))),
   };
 };
 
@@ -1950,7 +2030,7 @@ const presentScripts: ResultMarkdownPresenter = (result) => {
       text(data.directory) === undefined
         ? undefined
         : `Directory: ${code(data.directory)}.`,
-      ...scripts.slice(0, MAX_LIST_ITEMS).map((script) => {
+      ...scripts.map((script) => {
         const name = text(script.name) ?? "unknown";
         const description = text(script.description);
         return description === undefined
@@ -1971,14 +2051,11 @@ const presentSkillsList: ResultMarkdownPresenter = (result) => {
       `Found ${plural(active.length, "effective skill")}.`,
     ),
     evidence: unique([
-      ...active.slice(0, MAX_LIST_ITEMS).map((skill) => {
+      ...active.map((skill) => {
         const name = text(skill.name) ?? "unknown";
         const source = text(skill.source) ?? "unknown";
         return `${code(name)}: ${source}.`;
       }),
-      skills.length > MAX_LIST_ITEMS
-        ? omitted(skills.length - MAX_LIST_ITEMS, "skill")
-        : undefined,
     ]),
   };
 };

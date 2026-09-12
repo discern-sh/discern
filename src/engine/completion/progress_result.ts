@@ -34,6 +34,8 @@ import {
 /** What one reconnect read returns about the selected operation. */
 export interface OperationProgressData {
   readonly handle: string;
+  /** Read-only route to the complete retained facts and result. */
+  readonly record_path: string;
   /** The journalled operation's own verb, path, and branch. */
   readonly operation: {
     readonly verb: string;
@@ -98,11 +100,22 @@ function retainedDiagnostics(
  */
 function accountOf(record: OperationJournalRecord): string[] {
   const sentences: string[] = [];
+  const latestProducer = record.progress?.work?.producer;
   if (record.progress !== undefined) {
-    sentences.push(completionProgressSentence(record.progress));
+    const work = latestProducer === undefined
+      ? undefined
+      : record.producers?.[latestProducer];
+    sentences.push(
+      completionProgressSentence(
+        work === undefined ? record.progress : {
+          ...record.progress,
+          reason: producerWorkSentence(work),
+        },
+      ),
+    );
   }
   for (const work of Object.values(record.producers ?? {})) {
-    if (work.units !== undefined || work.results !== undefined) {
+    if (work.producer !== latestProducer) {
       sentences.push(producerWorkSentence(work));
     }
   }
@@ -122,7 +135,7 @@ function accountOf(record: OperationJournalRecord): string[] {
       } more diagnostics are in the retained result.`,
     );
   }
-  return sentences;
+  return [...new Set(sentences)];
 }
 
 /** Compose the first paragraph: the operation, what happened, the next command. */
@@ -143,7 +156,7 @@ function progressMessage(
     const retained = record.result === undefined
       ? "No result was retained for it; run the command again to see one."
       : record.result_truncated !== true
-      ? "The retained result is included; nothing needs to run again to read it."
+      ? "Its result was retained; reading it does not rerun the operation."
       : record.result_path === undefined
       ? `Only a reduced account of its result could be retained; the complete envelope was too large to keep inline${
         record.result_retention_error === undefined
@@ -259,6 +272,7 @@ export async function operationProgressResult(
     : Object.values(record.producers);
   const data: OperationProgressData = {
     handle: reading.handle,
+    record_path: reading.record_path,
     operation: {
       verb: record.operation.verb,
       path: record.operation.path,
@@ -335,6 +349,11 @@ export async function runProgress(
   }
   out.info(result.message ?? "");
   for (const sentence of result.data?.account ?? []) out.info(sentence);
+  if (result.data !== undefined) {
+    out.info(
+      `Complete recorded facts and retained result: ${result.data.record_path}.`,
+    );
+  }
   if (result.data?.result_path !== undefined) {
     out.info(`Complete result retained at ${result.data.result_path}.`);
   }

@@ -5048,6 +5048,7 @@ export type DiscernProgressResult = DiscernResultState & {
   verb: "progress";
   data?: {
     handle: string;
+    record_path?: string;
     operation: {
       verb: string;
       path: string;
@@ -5068,6 +5069,7 @@ export type DiscernProgressResult = DiscernResultState & {
       owner_must_act?: boolean;
       work?: {
         producer: string;
+        state?: "running" | "passed" | "failed" | "cancelled";
         units?: {
           kind: string;
           completed: number;
@@ -5087,6 +5089,7 @@ export type DiscernProgressResult = DiscernResultState & {
     };
     producers?: Array<{
       producer: string;
+      state?: "running" | "passed" | "failed" | "cancelled";
       units?: {
         kind: string;
         completed: number;

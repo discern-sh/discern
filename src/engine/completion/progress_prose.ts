@@ -5,6 +5,7 @@
  * counts: unequal units mean no sentence here derives a percentage or a time
  * estimate, and an unknown total stays unknown.
  */
+import type { ProgressWork } from "../../shared/result_schemas.ts";
 import type { CompletionBlocker } from "./protocol.ts";
 
 /** Bound one-line renderings; the full text stays on the underlying fact. */
@@ -23,26 +24,10 @@ function sentence(text: string): string {
   return /[.!?…]$/u.test(text) ? text : `${text}.`;
 }
 
-/**
- * The facts one producer sentence reads. Structural, with explicit undefined
- * allowed, so a live fact and a journalled one read through the same words.
- */
-export type ProducerWorkFacts = {
-  readonly producer: string;
-  readonly units?: {
-    readonly kind: string;
-    readonly completed: number;
-    readonly total: number | null;
-  } | undefined;
-  readonly results?: {
-    readonly passed?: number | undefined;
-    readonly failed?: number | undefined;
-    readonly skipped?: number | undefined;
-  } | undefined;
-  readonly partial?: boolean | undefined;
-};
+/** The wire schema owns every reported work field, including its lifecycle. */
+export type ProducerWorkFacts = ProgressWork;
 
-/** The running account of one producer's own reported counts. */
+/** Read reported counts and engine state without deriving a verdict from units. */
 export function producerWorkSentence(work: ProducerWorkFacts): string {
   const parts: string[] = [];
   if (work.units !== undefined) {
@@ -53,20 +38,59 @@ export function producerWorkSentence(work: ProducerWorkFacts): string {
         : `${completed} of ${total} ${kind} done`,
     );
   }
+  if (work.results?.passed !== undefined) {
+    parts.push(`${work.results.passed} passed`);
+  }
   const failed = work.results?.failed;
   if (failed !== undefined) {
     parts.push(
       failed === 0
-        ? "no failures so far"
-        : `${failed} failure${failed === 1 ? "" : "s"} so far`,
+        ? "no failures" + (work.state === "running" ? " so far" : "")
+        : `${failed} failure${failed === 1 ? "" : "s"}${
+          work.state === "running" ? " so far" : ""
+        }`,
     );
   }
-  const account = parts.length === 0
-    ? `Running ${work.producer}`
-    : `Running ${work.producer}: ${parts.join(", ")}`;
-  return sentence(
-    work.partial === true ? `${account}; counts are incomplete` : account,
-  );
+  if (work.results?.skipped !== undefined) {
+    parts.push(`${work.results.skipped} skipped`);
+  }
+  const labels = {
+    running: `Running ${work.producer}`,
+    passed: `${work.producer} passed`,
+    failed: `${work.producer} failed`,
+    cancelled: `${work.producer} was cancelled`,
+  } satisfies Record<NonNullable<ProducerWorkFacts["state"]>, string>;
+  const lead = work.state === undefined
+    ? `Recorded progress for ${work.producer}`
+    : labels[work.state];
+  const account = [
+    sentence(
+      `${lead}${parts.length === 0 ? "" : `: ${parts.join(", ")}`}${
+        work.partial === true ? "; counts are incomplete" : ""
+      }`,
+    ),
+  ];
+  if (
+    (work.state === "running" || work.state === undefined) &&
+    work.active !== undefined && work.active.length > 0
+  ) {
+    account.push(
+      sentence(
+        `${
+          work.state === undefined ? "Last reported active work" : "Active"
+        }: ${work.active.join("; ")}`,
+      ),
+    );
+  }
+  if (work.elapsed_ms !== undefined) {
+    account.push(
+      `Producer elapsed: ${Math.round(work.elapsed_ms / 100) / 10} s.`,
+    );
+  }
+  if (work.output_path !== undefined) {
+    account.push(`Full output: ${work.output_path}`);
+  }
+  return account.join(" ");
 }
 
 /** Name a small identifier set without flooding the sentence. */
