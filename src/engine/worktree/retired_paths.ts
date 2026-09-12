@@ -1,11 +1,17 @@
 /**
- * Repository-local evidence for worktree paths discern removed.
+ * Repository-local bounded evidence the worktree lifecycle leaves behind.
  *
- * External programs can keep a removed checkout open and later write new files
- * at its old path. Git has no registration left by then, so a bounded record in
- * the common Git directory lets status observe that reappearance and lets an
- * explicitly confirmed prune remove it. Paths discern never removed are absent
- * from the store and remain outside this deletion boundary.
+ * Two record families share one store directory, lock, and retention policy.
+ * Path records: external programs can keep a removed checkout open and later
+ * write new files at its old path. Git has no registration left by then, so a
+ * bounded record in the common Git directory lets status observe that
+ * reappearance and lets an explicitly confirmed prune remove it. Paths discern
+ * never removed are absent from the store and remain outside this deletion
+ * boundary. Branch records (under `branches/`): a landing can remove the
+ * worktree and then fail only the final owned-branch deletion, which strands
+ * the branch with no registration left to prove ownership. The record written
+ * at that verified seam is the ownership evidence `worktree prune` consumes to
+ * finish — or safely abandon — the deletion, and it is cleared once settled.
  */
 
 import { isAbsolute, join, relative, resolve } from "@std/path";
@@ -46,11 +52,21 @@ const LOCK_FILE = ".lock";
 const TEMP_PREFIX = ".retired-path-write-";
 const TEMP_SUFFIX = ".tmp";
 const RECORD_MAX_BYTES = 8_192;
+const BRANCH_RECORD_SUBDIRECTORY = "branches";
 
 interface RetiredWorktreePathRecord {
   readonly schema_version: typeof ON_DISK_FORMATS.retiredWorktreePath.version;
   readonly path: string;
   readonly removed_at: string;
+}
+
+/** One landed branch whose verified final ref deletion is still outstanding. */
+export interface RetiredWorktreeBranchRecord {
+  readonly schema_version: typeof ON_DISK_FORMATS.retiredWorktreeBranch.version;
+  readonly branch: string;
+  readonly expected_commit: string;
+  readonly merged_into: string;
+  readonly recorded_at: string;
 }
 
 export type ReappearedWorktreePathKind =
@@ -136,22 +152,25 @@ export type RetiredWorktreePathRecordRead =
   | { readonly status: "missing" | "malformed" }
   | { readonly status: "newer"; readonly reason: string };
 
-/** Parse the small versioned record and reject foreign or malformed fields. */
-function parseRecord(text: string): RetiredWorktreePathRecordRead {
-  let parsed: unknown;
+/** Decode one evidence text as an unvalidated value; nothing when it is not JSON. */
+function decodeEvidenceJson(text: string): unknown {
   try {
-    parsed = JSON.parse(text);
+    return JSON.parse(text);
   } catch (error) {
     if (!(error instanceof SyntaxError)) throw error;
     // discern-best-effort: retired-path-record-decode-fallback
-    return { status: "malformed" };
+    return undefined;
   }
+}
+
+/** Parse the small versioned record and reject foreign or malformed fields. */
+function parseRecord(text: string): RetiredWorktreePathRecordRead {
+  const parsed = decodeEvidenceJson(text);
   if (
     typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
   ) {
     return { status: "malformed" };
   }
-  const value = parsed as Record<string, unknown>;
   const version = inspectOnDiskJsonVersion("retiredWorktreePath", text);
   if (version.status === "newer") {
     return {
@@ -159,14 +178,20 @@ function parseRecord(text: string): RetiredWorktreePathRecordRead {
       reason: newerOnDiskFormatMessage("retiredWorktreePath", version.found),
     };
   }
+  const fields = ["schema_version", "path", "removed_at"];
   if (
-    Object.keys(value).some((key) =>
-      key !== "schema_version" && key !== "path" && key !== "removed_at"
-    ) ||
-    value.schema_version !== ON_DISK_FORMATS.retiredWorktreePath.version ||
-    typeof value.path !== "string" || !isAbsolute(value.path) ||
-    typeof value.removed_at !== "string" ||
-    Number.isNaN(Date.parse(value.removed_at))
+    Object.keys(parsed).some((key) => !fields.includes(key)) ||
+    !("schema_version" in parsed) || !("path" in parsed) ||
+    !("removed_at" in parsed)
+  ) {
+    return { status: "malformed" };
+  }
+  const { schema_version, path, removed_at } = parsed;
+  if (
+    schema_version !== ON_DISK_FORMATS.retiredWorktreePath.version ||
+    typeof path !== "string" || !isAbsolute(path) ||
+    typeof removed_at !== "string" ||
+    Number.isNaN(Date.parse(removed_at))
   ) {
     return { status: "malformed" };
   }
@@ -174,8 +199,70 @@ function parseRecord(text: string): RetiredWorktreePathRecordRead {
     status: "recorded",
     record: {
       schema_version: ON_DISK_FORMATS.retiredWorktreePath.version,
-      path: value.path,
-      removed_at: value.removed_at,
+      path,
+      removed_at,
+    },
+  };
+}
+
+export type RetiredWorktreeBranchRecordRead =
+  | {
+    readonly status: "recorded";
+    readonly record: RetiredWorktreeBranchRecord;
+  }
+  | { readonly status: "missing" | "malformed" }
+  | { readonly status: "newer"; readonly reason: string };
+
+/** Parse the small versioned branch record and reject foreign or malformed fields. */
+function parseBranchRecord(text: string): RetiredWorktreeBranchRecordRead {
+  const parsed = decodeEvidenceJson(text);
+  if (
+    typeof parsed !== "object" || parsed === null || Array.isArray(parsed)
+  ) {
+    return { status: "malformed" };
+  }
+  const version = inspectOnDiskJsonVersion("retiredWorktreeBranch", text);
+  if (version.status === "newer") {
+    return {
+      status: "newer",
+      reason: newerOnDiskFormatMessage("retiredWorktreeBranch", version.found),
+    };
+  }
+  const fields = [
+    "schema_version",
+    "branch",
+    "expected_commit",
+    "merged_into",
+    "recorded_at",
+  ];
+  if (
+    Object.keys(parsed).some((key) => !fields.includes(key)) ||
+    !("schema_version" in parsed) || !("branch" in parsed) ||
+    !("expected_commit" in parsed) || !("merged_into" in parsed) ||
+    !("recorded_at" in parsed)
+  ) {
+    return { status: "malformed" };
+  }
+  const { schema_version, branch, expected_commit, merged_into, recorded_at } =
+    parsed;
+  if (
+    schema_version !== ON_DISK_FORMATS.retiredWorktreeBranch.version ||
+    typeof branch !== "string" || branch === "" ||
+    typeof expected_commit !== "string" ||
+    !/^[0-9a-f]{40,64}$/u.test(expected_commit) ||
+    typeof merged_into !== "string" || merged_into === "" ||
+    typeof recorded_at !== "string" || Number.isNaN(Date.parse(recorded_at))
+  ) {
+    return { status: "malformed" };
+  }
+  return {
+    status: "recorded",
+    record: {
+      schema_version: ON_DISK_FORMATS.retiredWorktreeBranch.version,
+      branch,
+      expected_commit,
+      merged_into,
+      recorded_at,
     },
   };
 }
@@ -191,6 +278,19 @@ export async function inspectRetiredWorktreePathRecord(
   }
   const text = await readTextIfExists(path);
   return text === undefined ? { status: "missing" } : parseRecord(text);
+}
+
+/** Read one bounded branch record without following names outside the owned store. */
+export async function inspectRetiredWorktreeBranchRecord(
+  path: string,
+): Promise<RetiredWorktreeBranchRecordRead> {
+  const stat = await statIfExists(path);
+  if (stat === undefined) return { status: "missing" };
+  if (!stat.isFile || stat.size <= 0 || stat.size > RECORD_MAX_BYTES) {
+    return { status: "malformed" };
+  }
+  const text = await readTextIfExists(path);
+  return text === undefined ? { status: "missing" } : parseBranchRecord(text);
 }
 
 /** Resolve the repository-shared evidence directory. */
@@ -226,6 +326,18 @@ async function withStoreLock<T>(
   }
 }
 
+/** Serialize, bound, and atomically place one evidence record of either family. */
+async function writeEvidenceRecord(
+  target: string,
+  record: RetiredWorktreePathRecord | RetiredWorktreeBranchRecord,
+): Promise<void> {
+  const text = `${JSON.stringify(record)}\n`;
+  if (new TextEncoder().encode(text).byteLength > RECORD_MAX_BYTES) {
+    throw new Error("retired worktree evidence record exceeds its byte limit");
+  }
+  await atomicReplaceText(target, text, { mode: 0o600, sync: false });
+}
+
 /** Atomically replace one path record through a target-adjacent temp file. */
 async function replaceRecord(
   directory: string,
@@ -234,12 +346,34 @@ async function replaceRecord(
   const target = join(directory, await recordName(record.path));
   const existing = await inspectRetiredWorktreePathRecord(target);
   if (existing.status === "newer") return false;
-  const text = `${JSON.stringify(record)}\n`;
-  if (new TextEncoder().encode(text).byteLength > RECORD_MAX_BYTES) {
-    throw new Error("retired worktree path record exceeds its byte limit");
-  }
-  await atomicReplaceText(target, text, { mode: 0o600, sync: false });
+  await writeEvidenceRecord(target, record);
   return true;
+}
+
+/** The retention timestamp of one live record, `"newer"` to leave the bytes
+ * untouched, or `undefined` for a malformed record the sweep may remove. */
+type EvidenceTimestampRead = number | "newer" | undefined;
+
+/** Retention reader for path records, feeding the shared bounded sweep. */
+async function pathRecordTimestamp(
+  path: string,
+): Promise<EvidenceTimestampRead> {
+  const read = await inspectRetiredWorktreePathRecord(path);
+  if (read.status === "newer") return "newer";
+  return read.status === "recorded"
+    ? Date.parse(read.record.removed_at)
+    : undefined;
+}
+
+/** Retention reader for branch records, feeding the shared bounded sweep. */
+async function branchRecordTimestamp(
+  path: string,
+): Promise<EvidenceTimestampRead> {
+  const read = await inspectRetiredWorktreeBranchRecord(path);
+  if (read.status === "newer") return "newer";
+  return read.status === "recorded"
+    ? Date.parse(read.record.recorded_at)
+    : undefined;
 }
 
 /** Remove expired and excess owned records after a successful write. */
@@ -248,10 +382,11 @@ async function pruneStore(
   now: number,
   ttlMs: number,
   maxEntries: number,
+  timestampOf: (path: string) => Promise<EvidenceTimestampRead>,
 ): Promise<void> {
   const live: Array<{
     path: string;
-    removedAt: number;
+    recordedAt: number;
   }> = [];
   for await (const entry of Deno.readDir(directory)) {
     const path = join(directory, entry.name);
@@ -272,22 +407,18 @@ async function pruneStore(
     if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
       continue;
     }
-    const read = await inspectRetiredWorktreePathRecord(path);
-    if (read.status === "newer") continue;
-    const record = read.status === "recorded" ? read.record : undefined;
-    const removedAt = record === undefined
-      ? Number.NEGATIVE_INFINITY
-      : Date.parse(record.removed_at);
-    if (record === undefined || now - removedAt >= ttlMs) {
+    const recordedAt = await timestampOf(path);
+    if (recordedAt === "newer") continue;
+    if (recordedAt === undefined || now - recordedAt >= ttlMs) {
       await bestEffort("retired-path-expired-record-remove", async () => {
         await Deno.remove(path);
       });
       continue;
     }
-    live.push({ path, removedAt });
+    live.push({ path, recordedAt });
   }
   live.sort((left, right) =>
-    right.removedAt - left.removedAt || left.path.localeCompare(right.path)
+    right.recordedAt - left.recordedAt || left.path.localeCompare(right.path)
   );
   for (const entry of live.slice(Math.max(0, maxEntries))) {
     await bestEffort("retired-path-excess-record-remove", async () => {
@@ -326,10 +457,122 @@ export async function recordRetiredWorktreePath(
       now,
       opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS,
       opts.maxEntries ?? RETIRED_WORKTREE_PATH_MAX_ENTRIES,
+      pathRecordTimestamp,
     );
     return true;
   });
   return saved ?? false;
+}
+
+/** Retention and bounding knobs shared by both evidence families. */
+interface EvidenceStoreBounds {
+  readonly now?: number;
+  readonly ttlMs?: number;
+  readonly maxEntries?: number;
+}
+
+/**
+ * Record a landed branch whose fully verified deletion failed at the final ref
+ * update. This is advisory ownership evidence for a later `worktree prune`: a
+ * store failure cannot change the deletion refusal the caller reports, so
+ * callers receive a boolean and keep their own outcome.
+ */
+export async function recordRetiredWorktreeBranch(
+  root: string,
+  evidence: {
+    readonly branch: string;
+    readonly expectedCommit: string;
+    readonly mergedInto: string;
+  },
+  opts: EvidenceStoreBounds = {},
+): Promise<boolean> {
+  if (evidence.branch === "" || evidence.mergedInto === "") {
+    return false;
+  }
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
+  const saved = await withStoreLock(root, async (directory) => {
+    const branchDirectory = join(directory, BRANCH_RECORD_SUBDIRECTORY);
+    await Deno.mkdir(branchDirectory, { recursive: true, mode: 0o700 });
+    const target = join(branchDirectory, await recordName(evidence.branch));
+    const existing = await inspectRetiredWorktreeBranchRecord(target);
+    if (existing.status === "newer") return false;
+    await writeEvidenceRecord(target, {
+      schema_version: ON_DISK_FORMATS.retiredWorktreeBranch.version,
+      branch: evidence.branch,
+      expected_commit: evidence.expectedCommit,
+      merged_into: evidence.mergedInto,
+      recorded_at: new Date(now).toISOString(),
+    });
+    await pruneStore(
+      branchDirectory,
+      now,
+      opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS,
+      opts.maxEntries ?? RETIRED_WORKTREE_PATH_MAX_ENTRIES,
+      branchRecordTimestamp,
+    );
+    return true;
+  });
+  return saved ?? false;
+}
+
+/** Read the live bounded branch-record population without creating or pruning state. */
+export async function readRetiredWorktreeBranchRecords(
+  root: string,
+  opts: EvidenceStoreBounds = {},
+): Promise<readonly RetiredWorktreeBranchRecord[]> {
+  const directory = await storeDirectory(root);
+  if (directory === undefined) {
+    return [];
+  }
+  const branchDirectory = join(directory, BRANCH_RECORD_SUBDIRECTORY);
+  const now = opts.now ?? SYSTEM_CLOCK.wallNow();
+  const ttlMs = opts.ttlMs ?? RETIRED_WORKTREE_PATH_TTL_MS;
+  const records: RetiredWorktreeBranchRecord[] = [];
+  const entries = await readDirIfExists(branchDirectory);
+  if (entries === undefined) return [];
+  for (const entry of entries) {
+    if (!entry.isFile || !RECORD_NAME.test(entry.name)) {
+      continue;
+    }
+    const read = await inspectRetiredWorktreeBranchRecord(
+      join(branchDirectory, entry.name),
+    );
+    if (
+      read.status === "recorded" &&
+      now - Date.parse(read.record.recorded_at) < ttlMs
+    ) {
+      records.push(read.record);
+    }
+  }
+  records.sort((left, right) =>
+    Date.parse(right.recorded_at) - Date.parse(left.recorded_at) ||
+    left.branch.localeCompare(right.branch)
+  );
+  return records.slice(0, opts.maxEntries ?? RETIRED_WORKTREE_PATH_MAX_ENTRIES);
+}
+
+/**
+ * Clear one branch record once its outstanding deletion is settled — deleted,
+ * proven absent, or superseded by live state. Advisory like the write: a store
+ * failure never changes the settled outcome, so the boolean only reports
+ * whether a record was actually removed.
+ */
+export async function clearRetiredWorktreeBranch(
+  root: string,
+  branch: string,
+): Promise<boolean> {
+  if (branch === "") return false;
+  const cleared = await withStoreLock(root, async (directory) => {
+    const target = join(
+      directory,
+      BRANCH_RECORD_SUBDIRECTORY,
+      await recordName(branch),
+    );
+    if ((await statIfExists(target)) === undefined) return false;
+    await Deno.remove(target);
+    return true;
+  });
+  return cleared ?? false;
 }
 
 /** Read the live bounded record population without creating or pruning state. */

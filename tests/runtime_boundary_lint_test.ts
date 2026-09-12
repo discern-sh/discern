@@ -106,13 +106,6 @@ const BOUNDARY_EXCEPTIONS: readonly BoundaryException[] = [
       "The parser proves the root record and validates both fields before constructing a new branch-bound grant.",
   },
   {
-    path: "src/engine/worktree/retired_paths.ts",
-    enclosingFunction: "parseRecord",
-    rule: "asserted-json-boundary",
-    reason:
-      "The parser proves the root record, rejects foreign keys, validates every field, and returns a freshly constructed record.",
-  },
-  {
     path: "src/lib/providers.ts",
     enclosingFunction: "readJsonObject",
     rule: "declared-json-return",

@@ -2,15 +2,21 @@
  * Positive ownership for automatic worktree-branch deletion.
  *
  * Merge status says a ref is low-loss; it never says discern created or owns
- * that ref. Every automatic branch deletion therefore presents one of two
+ * that ref. Every automatic branch deletion therefore presents one of three
  * canonical identities here: a worktree id whose configured derived branch is
- * the exact ref, or the dedicated setup branch in setup's own lifecycle.
+ * the exact ref, the dedicated setup branch in setup's own lifecycle, or a
+ * landing record written at the verified deletion seam after the branch's
+ * checkout was already removed.
  */
 
 import type { IdentitySettings } from "./identity.ts";
 import { deriveIdentity } from "./identity.ts";
 import { SETUP_BRANCH } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  clearRetiredWorktreeBranch,
+  recordRetiredWorktreeBranch,
+} from "./retired_paths.ts";
 
 export type AutomaticBranchOwnershipEvidence =
   | {
@@ -26,6 +32,12 @@ export type AutomaticBranchOwnershipEvidence =
   }
   | {
     readonly kind: "setup";
+    readonly branch: string;
+  }
+  | {
+    /** A stored landing record: full deletion eligibility was verified while
+     * ownership evidence was live, and only the final ref update failed. */
+    readonly kind: "landing-record";
     readonly branch: string;
   };
 
@@ -44,6 +56,13 @@ export function classifyAutomaticBranchOwnership(
         owned: false,
         reason: `only ${SETUP_BRANCH} belongs to the setup lifecycle`,
       };
+  }
+  if (evidence.kind === "landing-record") {
+    return {
+      owned: true,
+      reason:
+        "a completed landing recorded this branch's verified deletion as outstanding",
+    };
   }
   const expected = deriveIdentity(evidence.id, evidence.settings).branch;
   return evidence.branch === expected
@@ -93,6 +112,12 @@ export type OwnedBranchDeletionResult =
  * The caller supplies the commit captured while ownership evidence was live.
  * An optional merge target adds the ordinary landed-work proof. A branch that
  * moved, became checked out, lost ownership, or cannot be inspected is kept.
+ *
+ * When every check passes and only the final ref update fails, the merged-work
+ * proof is preserved as a bounded landing record so `worktree prune` can
+ * finish the deletion after the checkout — the ordinary ownership evidence —
+ * is gone. A deletion that settles (deleted, or proven absent) clears any such
+ * record for the branch.
  */
 export async function deleteAutomaticallyOwnedBranch(opts: {
   readonly repoRoot: string;
@@ -128,7 +153,11 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
       ["show-ref", "--verify", "--quiet", ref],
       { cwd: opts.repoRoot },
     );
-    return exists.code === 1 ? { kind: "absent" } : {
+    if (exists.code === 1) {
+      await clearRetiredWorktreeBranch(opts.repoRoot, opts.branch);
+      return { kind: "absent" };
+    }
+    return {
       kind: "refused",
       refusal: "unavailable",
       reason: current.stderr.trim() || "Git could not inspect the branch",
@@ -190,12 +219,23 @@ export async function deleteAutomaticallyOwnedBranch(opts: {
     { cwd: opts.repoRoot },
   );
   if (!deleted.success) {
+    // Every safety check passed — only the ref update itself was refused.
+    // Preserve that verified eligibility as bounded evidence so a later
+    // `worktree prune` can finish the deletion once the refusal clears.
+    if (opts.mergedInto !== undefined) {
+      await recordRetiredWorktreeBranch(opts.repoRoot, {
+        branch: opts.branch,
+        expectedCommit: opts.expectedCommit,
+        mergedInto: opts.mergedInto,
+      });
+    }
     return {
       kind: "refused",
       refusal: "unavailable",
       reason: deleted.stderr.trim() || "Git refused the branch deletion",
     };
   }
+  await clearRetiredWorktreeBranch(opts.repoRoot, opts.branch);
   // Match `git branch -d`/`-D`: the ref is already safely gone, so an absent
   // branch-local config section or a config write refusal is advisory.
   await runGit(["config", "--remove-section", `branch.${opts.branch}`], {

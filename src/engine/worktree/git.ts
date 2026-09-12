@@ -65,7 +65,11 @@ import {
   type SideRestrictedOpName,
   type WorktreeSide,
 } from "./side_restrictions.ts";
-import { recordRetiredWorktreePath } from "./retired_paths.ts";
+import {
+  clearRetiredWorktreeBranch,
+  readRetiredWorktreeBranchRecords,
+  recordRetiredWorktreePath,
+} from "./retired_paths.ts";
 import {
   type IdentitySettings,
   worktreeIdFromGitKey,
@@ -2956,6 +2960,24 @@ export interface PruneScanLine {
   reason: string;
 }
 
+/** How prune settles one recorded landed branch whose deletion is outstanding. */
+export type OrphanedLandedBranchDisposition = "delete" | "clear" | "blocked";
+
+/**
+ * One landed branch a landing record proves discern owned, re-verified against
+ * live refs at scan time: `delete` finishes the recorded deletion, `clear`
+ * retires a record live state has superseded, `blocked` keeps both until the
+ * named condition changes.
+ */
+export interface OrphanedLandedBranch {
+  readonly branch: string;
+  readonly expectedCommit: string;
+  readonly mergedInto: string;
+  readonly recordedAt: string;
+  readonly disposition: OrphanedLandedBranchDisposition;
+  readonly reason: string;
+}
+
 /** The read-only scan that `worktree prune` later applies exactly. */
 export interface GitWorktreePruneScan {
   repoRoot: string;
@@ -2963,6 +2985,8 @@ export interface GitWorktreePruneScan {
   identitySettings: IdentitySettings;
   worktreesToRemove: WorktreeRemovalCandidate[];
   staleMetadata: OwnedStaleWorktreeMetadata[];
+  /** Recorded landed branches whose final deletion a landing could not finish. */
+  orphanedLandedBranches: OrphanedLandedBranch[];
   worktreeLines: PruneScanLine[];
   branchLines: PruneScanLine[];
 }
@@ -2973,6 +2997,14 @@ export interface PruneResult {
   removed: string[];
   /** Branches deleted. */
   branchesDeleted: string[];
+  /** Landed branches whose recorded outstanding deletion prune finished. */
+  landedBranchesDeleted: string[];
+  /** Landing records settled without a deletion: cleared or kept, with why. */
+  landedBranchRecords: {
+    branch: string;
+    action: "cleared" | "kept";
+    reason: string;
+  }[];
   /** Stale worktree metadata entries pruned. */
   staleMetadata: string[];
   /** Whether any removal or branch deletion failed. */
@@ -3131,9 +3163,120 @@ async function staleMetadataForRecord(
 }
 
 /**
+ * Re-verify every stored landing record against live refs, read-only. A
+ * record enters the deletable set only when the branch still sits at the
+ * recorded tip, is not checked out, and that tip is still reachable from the
+ * recorded merge target — the same facts the landing verified before its ref
+ * update failed. Superseded records are marked for clearing; uncertain ones
+ * stay blocked with the condition that must change.
+ */
+async function scanOrphanedLandedBranches(
+  repoRoot: string,
+  mainBranch: string,
+  scheduledBranches: ReadonlySet<string>,
+  checkedOutBranches: ReadonlySet<string>,
+): Promise<OrphanedLandedBranch[]> {
+  const candidates: OrphanedLandedBranch[] = [];
+  for (const record of await readRetiredWorktreeBranchRecords(repoRoot)) {
+    if (scheduledBranches.has(record.branch)) {
+      // The branch's own worktree removal is planned this run; its ordinary
+      // deletion settles the record through the shared deletion chokepoint.
+      continue;
+    }
+    const base = {
+      branch: record.branch,
+      expectedCommit: record.expected_commit,
+      mergedInto: record.merged_into,
+      recordedAt: record.recorded_at,
+    };
+    if (record.branch === mainBranch) {
+      candidates.push({
+        ...base,
+        disposition: "clear",
+        reason: "the trunk is never deleted, so the record cannot apply",
+      });
+      continue;
+    }
+    if (checkedOutBranches.has(record.branch)) {
+      candidates.push({
+        ...base,
+        disposition: "clear",
+        reason: "the branch is checked out again",
+      });
+      continue;
+    }
+    const current = await git(
+      ["rev-parse", "--verify", `refs/heads/${record.branch}^{commit}`],
+      repoRoot,
+    );
+    if (!current.success) {
+      const exists = await git(
+        ["show-ref", "--verify", "--quiet", `refs/heads/${record.branch}`],
+        repoRoot,
+      );
+      candidates.push(
+        exists.code === 1
+          ? {
+            ...base,
+            disposition: "clear",
+            reason: "the branch is already gone",
+          }
+          : {
+            ...base,
+            disposition: "blocked",
+            reason: current.stderr.trim() ||
+              "Git could not inspect the branch",
+          },
+      );
+      continue;
+    }
+    if (current.stdout.trim() !== record.expected_commit) {
+      candidates.push({
+        ...base,
+        disposition: "clear",
+        reason: "the branch moved after its landing was recorded",
+      });
+      continue;
+    }
+    if (!(await localBranchExists(repoRoot, record.merged_into))) {
+      candidates.push({
+        ...base,
+        disposition: "blocked",
+        reason:
+          `local branch '${record.merged_into}' is unavailable to prove the landing`,
+      });
+      continue;
+    }
+    if (
+      !(await commitIsMerged(
+        repoRoot,
+        record.expected_commit,
+        record.merged_into,
+      ))
+    ) {
+      candidates.push({
+        ...base,
+        disposition: "blocked",
+        reason:
+          `the recorded tip is no longer reachable from ${record.merged_into}, so the branch is kept`,
+      });
+      continue;
+    }
+    candidates.push({
+      ...base,
+      disposition: "delete",
+      reason:
+        `landed into ${record.merged_into}; only the branch deletion remained`,
+    });
+  }
+  return candidates;
+}
+
+/**
  * Scan Git worktrees and refs while keeping work worth reviewing. Only an exact
  * identity/branch match backed by discern's worktree-ready marker enters the
  * destructive candidate set; merge status remains an independent safety fact.
+ * Landing records enroll their recorded branches the same read-only way.
  * Read-only: this returns the exact candidate set the apply path consumes.
  */
 export async function scanGitWorktreesForPrune(
@@ -3326,6 +3469,17 @@ export async function scanGitWorktreesForPrune(
     keptWorktreeBranches.add(shortBranch);
   }
 
+  const orphanedLandedBranches = await scanOrphanedLandedBranches(
+    repoRoot,
+    mainBranch,
+    scheduledBranches,
+    keptWorktreeBranches,
+  );
+  const orphanedByBranch = new Map(
+    orphanedLandedBranches.map((candidate) => [candidate.branch, candidate]),
+  );
+  const renderedRecordBranches = new Set<string>();
+
   const refsRun = await git(
     ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
     repoRoot,
@@ -3340,6 +3494,22 @@ export async function scanGitWorktreesForPrune(
         label: branchName,
         reason: "protected",
       });
+      continue;
+    }
+    const recorded = orphanedByBranch.get(branchName);
+    if (recorded !== undefined) {
+      renderedRecordBranches.add(branchName);
+      branchLines.push(
+        recorded.disposition === "delete"
+          ? { action: "DELETE", label: branchName, reason: recorded.reason }
+          : {
+            action: "KEEP",
+            label: branchName,
+            reason: recorded.disposition === "clear"
+              ? `${recorded.reason} — clearing the landing record`
+              : recorded.reason,
+          },
+      );
       continue;
     }
     if (keptWorktreeBranches.has(branchName)) {
@@ -3369,6 +3539,18 @@ export async function scanGitWorktreesForPrune(
       });
     }
   }
+  for (const candidate of orphanedLandedBranches) {
+    if (renderedRecordBranches.has(candidate.branch)) continue;
+    branchLines.push(
+      candidate.disposition === "blocked"
+        ? { action: "KEEP", label: candidate.branch, reason: candidate.reason }
+        : {
+          action: "PRUNE",
+          label: candidate.branch,
+          reason: `${candidate.reason} — clearing the landing record`,
+        },
+    );
+  }
 
   return {
     repoRoot,
@@ -3376,6 +3558,7 @@ export async function scanGitWorktreesForPrune(
     identitySettings: opts.identitySettings,
     worktreesToRemove,
     staleMetadata,
+    orphanedLandedBranches,
     worktreeLines,
     branchLines,
   };
@@ -3510,10 +3693,17 @@ export async function pruneGitWorktrees(
 
   const removed: string[] = [];
   const branchesDeleted: string[] = [];
+  const landedBranchesDeleted: string[] = [];
+  const landedBranchRecords: PruneResult["landedBranchRecords"] = [];
   let failed = false;
 
-  if (scan.worktreesToRemove.length === 0) {
+  if (
+    scan.worktreesToRemove.length === 0 &&
+    scan.orphanedLandedBranches.length === 0
+  ) {
     log.line("Nothing to remove.");
+  } else if (scan.worktreesToRemove.length === 0) {
+    log.line("No worktrees to remove.");
   } else {
     for (const candidate of scan.worktreesToRemove) {
       const changed = await removalCandidateChanged(scan, candidate);
@@ -3551,7 +3741,74 @@ export async function pruneGitWorktrees(
     }
   }
 
-  return { removed, branchesDeleted, staleMetadata: [], failed };
+  for (const candidate of scan.orphanedLandedBranches) {
+    if (candidate.disposition === "clear") {
+      await clearRetiredWorktreeBranch(scan.repoRoot, candidate.branch);
+      log.line(
+        `Cleared the landed-branch record for ${candidate.branch} (${candidate.reason}).`,
+      );
+      landedBranchRecords.push({
+        branch: candidate.branch,
+        action: "cleared",
+        reason: candidate.reason,
+      });
+      continue;
+    }
+    if (candidate.disposition === "blocked") {
+      log.warn(
+        `Kept the landed-branch record for ${candidate.branch}: ${candidate.reason}.`,
+      );
+      landedBranchRecords.push({
+        branch: candidate.branch,
+        action: "kept",
+        reason: candidate.reason,
+      });
+      continue;
+    }
+    log.line(`Deleting landed branch ${candidate.branch}...`);
+    const deleted = await deleteAutomaticallyOwnedBranch({
+      repoRoot: scan.repoRoot,
+      branch: candidate.branch,
+      expectedCommit: candidate.expectedCommit,
+      ownership: { kind: "landing-record", branch: candidate.branch },
+      mergedInto: candidate.mergedInto,
+    });
+    if (deleted.kind === "deleted" || deleted.kind === "absent") {
+      // Either way the recorded deletion is settled, and the shared deletion
+      // chokepoint has already cleared the landing record.
+      landedBranchesDeleted.push(candidate.branch);
+    } else if (deleted.refusal === "unavailable") {
+      failed = true;
+      log.error(
+        `Could not finish deleting landed branch ${candidate.branch}: ${deleted.reason}. ` +
+          "The landing record is kept; fix the cause and re-run `discern worktree prune`.",
+      );
+      landedBranchRecords.push({
+        branch: candidate.branch,
+        action: "kept",
+        reason: deleted.reason,
+      });
+    } else {
+      log.warn(
+        `Skipped landed branch ${candidate.branch}: ${deleted.reason}. ` +
+          "The landing record is kept for the next scan to settle.",
+      );
+      landedBranchRecords.push({
+        branch: candidate.branch,
+        action: "kept",
+        reason: deleted.reason,
+      });
+    }
+  }
+
+  return {
+    removed,
+    branchesDeleted,
+    landedBranchesDeleted,
+    landedBranchRecords,
+    staleMetadata: [],
+    failed,
+  };
 }
 
 /** Revalidate that a scanned admin entry still points to an absent checkout before deletion. */

@@ -4148,6 +4148,12 @@ function pruneResults(
   prune: {
     removed: string[];
     branchesDeleted: string[];
+    landedBranchesDeleted: string[];
+    landedBranchRecords: {
+      branch: string;
+      action: "cleared" | "kept";
+      reason: string;
+    }[];
     staleMetadata: string[];
   },
   sweep: { removed: string[] },
@@ -4213,6 +4219,23 @@ function pruneResults(
     ...prune.branchesDeleted.map((b) =>
       step("git", b, "deleted merged owned branch", "Branches")
     ),
+    ...prune.landedBranchesDeleted.map((b) =>
+      step("git", b, "finished the recorded landed-branch deletion", "Branches")
+    ),
+    ...prune.landedBranchRecords.map((
+      { branch, action, reason },
+    ): StepResult => ({
+      step: {
+        kind: "git",
+        label: verbatimStepLabel(branch),
+        disposition: "skip",
+        note: action === "cleared"
+          ? `cleared the landed-branch record (${reason})`
+          : `kept the landed-branch record (${reason})`,
+        group: "Branches",
+      },
+      outcome: "skipped",
+    })),
     ...sweep.removed.map((d) =>
       step("git", d, "reclaimed orphan directory", "Orphan directories")
     ),

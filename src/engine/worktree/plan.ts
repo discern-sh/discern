@@ -652,6 +652,27 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       group: "Branches",
     });
   }
+  for (const b of plan.gitScan.orphanedLandedBranches) {
+    steps.push(
+      b.disposition === "delete"
+        ? {
+          kind: "git",
+          label: verbatimStepLabel(b.branch),
+          disposition: "run",
+          note: "finish the recorded landed-branch deletion",
+          group: "Branches",
+        }
+        : {
+          kind: "git",
+          label: verbatimStepLabel(b.branch),
+          disposition: "skip",
+          note: b.disposition === "clear"
+            ? `clear the landed-branch record (${b.reason})`
+            : `keep the landed-branch record (${b.reason})`,
+          group: "Branches",
+        },
+    );
+  }
   for (const m of plan.gitScan.staleMetadata) {
     steps.push({
       kind: "git",
@@ -751,10 +772,16 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
 }
 
 /** True when a prune plan would change nothing. A contained group counts only
- * under the reclaim opt-in — without it the group is a report, not a change. */
+ * under the reclaim opt-in — without it the group is a report, not a change.
+ * Landed-branch records count only when a recorded deletion would finish;
+ * clearing superseded records is bounded-evidence housekeeping, not a change
+ * to the repository's work. */
 export function prunePlanIsEmpty(plan: PrunePlan): boolean {
   return plan.gitScan.worktreesToRemove.length === 0 &&
     pruneBranchesToDelete(plan.gitScan).length === 0 &&
+    !plan.gitScan.orphanedLandedBranches.some((candidate) =>
+      candidate.disposition === "delete"
+    ) &&
     plan.gitScan.staleMetadata.length === 0 &&
     plan.orphanScan.removable.length === 0 &&
     plan.reappearedPathScan.removable.length === 0 &&

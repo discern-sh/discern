@@ -283,6 +283,16 @@ export const ON_DISK_FORMATS = {
     writers: ["src/engine/worktree/resources.ts"],
     newerVersionPolicy: "refuse",
   },
+  retiredWorktreeBranch: {
+    id: "retired-worktree-branch",
+    location: { kind: "git-admin", keys: ["retiredWorktreePaths"] },
+    version: 1,
+    versionField: "schema_version",
+    reader:
+      "src/engine/worktree/retired_paths.ts#inspectRetiredWorktreeBranchRecord",
+    writers: ["src/engine/worktree/retired_paths.ts"],
+    newerVersionPolicy: "observe",
+  },
   retiredWorktreePath: {
     id: "retired-worktree-path",
     location: { kind: "git-admin", keys: ["retiredWorktreePaths"] },

@@ -41,9 +41,12 @@ import {
 import { Logger } from "../src/lib/log.ts";
 import { waitForPendingCondition } from "./waiting.ts";
 import {
+  clearRetiredWorktreeBranch,
   inspectRetiredWorktreePathRecord,
   pruneReappearedWorktreePaths,
+  readRetiredWorktreeBranchRecords,
   readRetiredWorktreePathRecords,
+  recordRetiredWorktreeBranch,
   recordRetiredWorktreePath,
   scanReappearedWorktreePaths,
 } from "../src/engine/worktree/retired_paths.ts";
@@ -502,6 +505,139 @@ Deno.test("retired worktree path evidence remains bounded and expires from obser
         ttlMs: 10_000,
       }),
       [],
+    );
+  });
+});
+
+Deno.test("worktree prune finishes recorded landed-branch deletions and clears superseded records", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const landedTip = await gitOut(dir, "rev-parse", "HEAD");
+    await git(dir, "branch", "agent/landed", landedTip);
+    assertEquals(
+      await recordRetiredWorktreeBranch(dir, {
+        branch: "agent/landed",
+        expectedCommit: landedTip,
+        mergedInto: "main",
+      }),
+      true,
+    );
+    // A branch that moved after its landing was recorded stays untouched and
+    // its record retires: the evidence no longer describes the ref.
+    await git(dir, "commit", "--allow-empty", "-m", "advance", "--no-gpg-sign");
+    const movedTip = await gitOut(dir, "rev-parse", "HEAD");
+    await git(dir, "branch", "agent/moved", movedTip);
+    assertEquals(
+      await recordRetiredWorktreeBranch(dir, {
+        branch: "agent/moved",
+        expectedCommit: landedTip,
+        mergedInto: "main",
+      }),
+      true,
+    );
+
+    const dry = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--dry-run",
+      "--json",
+    ]);
+    assertEquals(dry.code, 0, dry.output);
+    const plan = decodeCliResult(dry.stdout, "worktree prune");
+    assert(plan.plan !== undefined, dry.stdout);
+    assertEquals(
+      plan.plan.steps
+        .filter((step) => step.group === "Branches")
+        .map((step) => `${step.label}:${step.disposition}`)
+        .sort(),
+      ["agent/landed:run", "agent/moved:skip"],
+      dry.output,
+    );
+    // Dry-run acts on nothing: both branches and both records remain.
+    assertEquals(await gitOut(dir, "rev-parse", "agent/landed"), landedTip);
+    assertEquals((await readRetiredWorktreeBranchRecords(dir)).length, 2);
+
+    const prune = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
+    assertEquals(prune.code, 0, prune.output);
+    const result = decodeCliResult(prune.stdout, "worktree prune");
+    assert(result.steps !== undefined, prune.stdout);
+    const branchSteps = result.steps.filter((step) =>
+      step.group === "Branches"
+    );
+    const finished = branchSteps.find((step) => step.label === "agent/landed");
+    assert(finished !== undefined, prune.output);
+    assertEquals(
+      finished.note,
+      "finished the recorded landed-branch deletion",
+      prune.output,
+    );
+    const cleared = branchSteps.find((step) => step.label === "agent/moved");
+    assert(cleared !== undefined, prune.output);
+    assertStringIncludes(
+      cleared.note ?? "",
+      "cleared the landed-branch record",
+      prune.output,
+    );
+    assertEquals(await gitOut(dir, "branch", "--list", "agent/landed"), "");
+    assertEquals(await gitOut(dir, "rev-parse", "agent/moved"), movedTip);
+    assertEquals(await readRetiredWorktreeBranchRecords(dir), []);
+  });
+});
+
+Deno.test("landed-branch evidence remains bounded, expires, and clears on demand", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const now = Date.parse("2026-09-09T12:00:00.000Z");
+    const commit = "a".repeat(40);
+    for (const [index, branch] of ["agent/a", "agent/b", "agent/c"].entries()) {
+      assertEquals(
+        await recordRetiredWorktreeBranch(dir, {
+          branch,
+          expectedCommit: commit,
+          mergedInto: "main",
+        }, { now: now + index, ttlMs: 10_000, maxEntries: 2 }),
+        true,
+      );
+    }
+    assertEquals(
+      (await readRetiredWorktreeBranchRecords(dir, {
+        now: now + 3,
+        ttlMs: 10_000,
+      })).map((record) => record.branch),
+      ["agent/c", "agent/b"],
+    );
+    assertEquals(
+      await readRetiredWorktreeBranchRecords(dir, {
+        now: now + 20_000,
+        ttlMs: 10_000,
+      }),
+      [],
+    );
+    assertEquals(await clearRetiredWorktreeBranch(dir, "agent/c"), true);
+    assertEquals(await clearRetiredWorktreeBranch(dir, "agent/c"), false);
+    assertEquals(
+      (await readRetiredWorktreeBranchRecords(dir, {
+        now: now + 3,
+        ttlMs: 10_000,
+      })).map((record) => record.branch),
+      ["agent/b"],
+    );
+    // The two evidence families share the store without cross-pruning: a path
+    // write sweeps only path records, and branch records survive it.
+    const retired = join(dirname(dir), "retired-neighbor");
+    assertEquals(await recordRetiredWorktreePath(dir, retired), true);
+    assertEquals(
+      (await readRetiredWorktreePathRecords(dir)).map((record) => record.path),
+      [retired],
+    );
+    assertEquals(
+      (await readRetiredWorktreeBranchRecords(dir, {
+        now: now + 3,
+        ttlMs: 10_000,
+      })).map((record) => record.branch),
+      ["agent/b"],
     );
   });
 });
@@ -1084,6 +1220,7 @@ async function staleRemovalScan(
         head: await gitOut(wt, "rev-parse", "HEAD"),
       }],
       staleMetadata: [],
+      orphanedLandedBranches: [],
       worktreeLines: [],
       branchLines: [],
     },

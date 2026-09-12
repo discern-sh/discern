@@ -5,9 +5,9 @@ import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { targetExists } from "../src/shared/fs_presence.ts";
 import { AcceptDataSchema } from "../src/shared/result_schemas.ts";
 import { TEST_CLI_MODEL } from "./cli_model.ts";
+import { decodeCliResult } from "./decode_cli_result.ts";
 import {
   addWorktree,
-  git,
   gitInit,
   gitOut,
   runAgent,
@@ -143,9 +143,21 @@ Deno.test("discern mcp: a partial accept that removed its held worktree still re
       "No effort has submitted a revision for landing.",
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), landedSha);
-    // The by-hand cleanup the partial result names finishes the recovery.
+    // The recovery the partial result prescribes finishes the branch deletion:
+    // the landing recorded bounded ownership evidence that `discern worktree
+    // prune` consumes once the deletion can proceed.
     assertEquals(await gitOut(dir, "rev-parse", branch), landedSha);
-    await git(dir, "branch", "-d", branch);
+    const prune = await runAgent(dir, ["worktree", "prune", "--yes", "--json"]);
+    assertEquals(prune.code, 0, prune.output);
+    const pruned = decodeCliResult(prune.stdout, "worktree prune");
+    assert(pruned.steps !== undefined, prune.output);
+    assertEquals(
+      pruned.steps
+        .filter((step) => step.group === "Branches")
+        .map((step: { label: string }) => step.label),
+      [branch],
+      prune.output,
+    );
     assertEquals(await gitOut(dir, "branch", "--list", branch), "");
   });
 });

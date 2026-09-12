@@ -1342,7 +1342,7 @@ export const BEST_EFFORT_BOUNDARIES = defineBestEffortBoundaries({
   },
   "retired-path-record-decode-fallback": {
     path: "src/engine/worktree/retired_paths.ts",
-    enclosingFunction: "parseRecord",
+    enclosingFunction: "decodeEvidenceJson",
     operation: "reject malformed retired-worktree evidence JSON",
     kind: "direct",
     shape: "sync",
