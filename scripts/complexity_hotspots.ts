@@ -117,6 +117,16 @@ export const COMPLEXITY_HOTSPOT_BUDGETS = [
       "Move one stable presentation responsibility behind a pure rendering boundary.",
   },
   {
+    file: "src/engine/worktree/accept.ts",
+    maxScore: 109.85,
+    maxCyclo: 258,
+    owner: "worktree lifecycle",
+    reason:
+      "The restored landing coordinator spans subject resolution, authority, the acceptance transaction, note recording, convergence, and cleanup.",
+    recovery:
+      "Extract one complete post-landing responsibility (convergence or cleanup) and remove this row once both thresholds are clear.",
+  },
+  {
     file: "src/engine/worktree/git.ts",
     maxScore: 148.68,
     maxCyclo: 516,
